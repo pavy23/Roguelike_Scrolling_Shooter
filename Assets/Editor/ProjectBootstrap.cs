@@ -33,8 +33,8 @@ namespace Shmup.EditorTools
             var ppc = cam.GetComponent<PixelPerfectCamera>();
             if (ppc == null) ppc = cam.gameObject.AddComponent<PixelPerfectCamera>();
             ppc.assetsPPU = 16;
-            ppc.refResolutionX = 384;
-            ppc.refResolutionY = 224;
+            ppc.refResolutionX = 640;
+            ppc.refResolutionY = 360;
 
             // URP 17의 PixelPerfectCamera는 Filter Mode를 public 프로퍼티로 노출하지 않고
             // private [SerializeField] m_FilterMode로만 들고 있다 — SerializedObject로 직접 쓴다.
@@ -46,7 +46,7 @@ namespace Shmup.EditorTools
                 filterModeProp.enumValueIndex = (int)PixelPerfectCamera.PixelPerfectFilterMode.RetroAA;
                 ppcSo.ApplyModifiedPropertiesWithoutUndo();
             }
-            Debug.Log("[Bootstrap] PixelPerfectCamera: 384x224, PPU 16, RetroAA=" +
+            Debug.Log("[Bootstrap] PixelPerfectCamera: 640x360, PPU 16, RetroAA=" +
                       (retroSet ? "set" : "NOT AVAILABLE (set Filter Mode manually in Inspector)"));
 
             EditorSceneManager.MarkSceneDirty(scene);

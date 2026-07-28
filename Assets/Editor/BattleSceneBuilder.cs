@@ -28,9 +28,10 @@ namespace Shmup.EditorTools
         const string InputActionsPath = "Assets/Settings/InputSystem_Actions.inputactions";
 
         // 고정된 기술 결정 (CLAUDE.md) — 아트 원본 해상도라 변경 금지.
+        // 2026-07-28 사람 승인으로 384×224 → 640×360 상향 (ROADMAP.md M0).
         const int AssetsPPU = 16;
-        const int RefResolutionX = 384;
-        const int RefResolutionY = 224;
+        const int RefResolutionX = 640;
+        const int RefResolutionY = 360;
 
         // '.' 투명 / 'O' 외곽선 / 'B' 본체 / 'L' 하이라이트 / 'C' 캐노피
         static readonly string[] ShipPixels =
@@ -257,7 +258,7 @@ namespace Shmup.EditorTools
             return rows;
         }
 
-        // 패럴랙스 스타필드 타일 (화면 크기 384×224 1장, 레이어 루트가 2장을 이어 붙여 래핑)
+        // 패럴랙스 스타필드 타일 (화면 크기 1장, 레이어 루트가 2장을 이어 붙여 래핑)
         const string StarsFarSpritePath = SpriteDir + "/stars_far.png";
         const string StarsNearSpritePath = SpriteDir + "/stars_near.png";
 
@@ -268,7 +269,7 @@ namespace Shmup.EditorTools
         /// </summary>
         static string[] BuildStarPixels(int seed, int starCount, bool bigStars)
         {
-            const int width = 384, height = 224;
+            const int width = RefResolutionX, height = RefResolutionY;
             var grid = new char[height][];
             for (int y = 0; y < height; y++)
                 grid[y] = new string('.', width).ToCharArray();
@@ -315,8 +316,9 @@ namespace Shmup.EditorTools
                 var bulletSprite = WritePixelSprite(BulletSpritePath, BulletPixels, BulletPalette);
                 var hudSlotSprite = WritePixelSprite(HudSlotSpritePath, HudSlotPixels, HudPalette);
                 var hudPipSprite = WritePixelSprite(HudPipSpritePath, HudPipPixels, HudPalette);
-                var starsFarSprite = WritePixelSprite(StarsFarSpritePath, BuildStarPixels(9001, 110, false), StarsFarPalette);
-                var starsNearSprite = WritePixelSprite(StarsNearSpritePath, BuildStarPixels(4242, 45, true), StarsNearPalette);
+                // 별 개수는 384×224 시절 110/45를 새 캔버스 면적비(×2.68)로 환산한 값 — 밀도 유지.
+                var starsFarSprite = WritePixelSprite(StarsFarSpritePath, BuildStarPixels(9001, 295, false), StarsFarPalette);
+                var starsNearSprite = WritePixelSprite(StarsNearSpritePath, BuildStarPixels(4242, 120, true), StarsNearPalette);
                 var bulletPrefab = WriteBulletPrefab(bulletSprite);
                 var enemySprite = WriteExternalOrPixelSprite(EnemySpritePath, "enemy_zako.png", EnemyPixels, EnemyPalette);
                 var enemyPrefab = WriteSpritePrefab(EnemyPrefabPath, "Enemy", enemySprite, 8);
@@ -565,7 +567,7 @@ namespace Shmup.EditorTools
 
             var camera = go.AddComponent<Camera>();
             camera.orthographic = true;
-            camera.orthographicSize = RefResolutionY / 2f / AssetsPPU;   // 7
+            camera.orthographicSize = RefResolutionY / 2f / AssetsPPU;   // 11.25
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color32(0x0A, 0x0E, 0x1A, 0xFF);
             camera.nearClipPlane = 0.1f;
@@ -603,14 +605,14 @@ namespace Shmup.EditorTools
         // ── 배경 ──────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// 2층 패럴랙스 스타필드. 레이어마다 화면 폭(24u) 타일 2장을 이어 붙이고
+        /// 2층 패럴랙스 스타필드. 레이어마다 화면 폭 타일 2장을 이어 붙이고
         /// ParallaxBackground가 스크롤 팩터별로 왼쪽으로 밀며 래핑한다.
         /// </summary>
         static readonly float[] StarLayerFactors = { 0.25f, 0.6f };
 
         static GameObject CreateStarLayers(Sprite farSprite, Sprite nearSprite, out Transform[] layers)
         {
-            const float tileWidth = RefResolutionX / (float)AssetsPPU;   // 24u
+            const float tileWidth = RefResolutionX / (float)AssetsPPU;   // 40u
 
             var root = new GameObject("Background");
             layers = new Transform[2];
@@ -644,6 +646,7 @@ namespace Shmup.EditorTools
             SetReference(parallax, "_director", director);
             SetReferenceArray(parallax, "_layers", layers);
             SetFloatArray(parallax, "_factors", StarLayerFactors);
+            SetFloat(parallax, "_tileWidth", RefResolutionX / (float)AssetsPPU);
         }
 
         // ── 타이틀 씬 ─────────────────────────────────────────────────────────────
@@ -659,9 +662,20 @@ namespace Shmup.EditorTools
             var title = root.AddComponent<TitleScreen>();
             SetReferenceArray(title, "_layers", layers);
             SetFloatArray(title, "_factors", StarLayerFactors);
+            SetFloat(title, "_tileWidth", RefResolutionX / (float)AssetsPPU);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, TitleScenePath);
+        }
+
+        static void SetFloat(UnityEngine.Object target, string fieldName, float value)
+        {
+            var so = new SerializedObject(target);
+            var property = so.FindProperty(fieldName);
+            if (property == null)
+                throw new InvalidOperationException($"{target.GetType().Name}.{fieldName} 직렬화 필드를 못 찾았다.");
+            property.floatValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         static void SetFloatArray(UnityEngine.Object target, string fieldName, float[] values)
@@ -680,13 +694,13 @@ namespace Shmup.EditorTools
 
         /// <summary>
         /// 파워업 게이지 HUD: 하단 중앙 슬롯 4개 + 슬롯당 레벨 핍 5개, 그리고 DevCheats 오버레이.
-        /// 좌표는 384×224 뷰(월드 24×14u) 안에서 픽셀(1/16u) 정렬로 배치한다.
+        /// 좌표는 640×360 뷰(월드 40×22.5u) 안에서 픽셀(1/16u) 정렬로 배치한다.
         /// </summary>
         static void CreateHud(BattleDirector director, Sprite slotSprite, Sprite pipSprite)
         {
             const float px = 1f / AssetsPPU;
             const float slotSpacing = 24 * px;       // 슬롯 중심 간격 1.5u
-            const float frameCenterY = -7f + 10 * px; // 하단 여백 4px + 프레임 절반 6px
+            const float frameCenterY = -(RefResolutionY / 2f / AssetsPPU) + 10 * px; // 화면 하단 + 여백 4px + 프레임 절반 6px
             const float pipRowY = frameCenterY + 9 * px;
             const float pipSpacing = 4 * px;
 

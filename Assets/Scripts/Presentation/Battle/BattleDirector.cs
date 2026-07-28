@@ -123,7 +123,8 @@ namespace Shmup.Presentation.Battle
 
             var config = data.CreateBattleSimConfig();
             // 스키마에 아직 없는 잠정값 (스키마 v3 후보 — GameData로 옮기면 이 블록 제거)
-            config.EnemyDespawnX = -14 * SimSpace.SubUnitsPerWorldUnit;
+            // 640×360 뷰 좌측 경계(-20u) 밖. 384×224 시절 -14 → -22 (ROADMAP M0, REQ-006에서 GameData로 이관 예정)
+            config.EnemyDespawnX = -22 * SimSpace.SubUnitsPerWorldUnit;
             config.CapsuleHalfWidth = SimSpace.SubUnitsPerWorldUnit * 5 / 16;
             config.CapsuleHalfHeight = SimSpace.SubUnitsPerWorldUnit / 4;
             config.PlayerMaxHp = 3;
