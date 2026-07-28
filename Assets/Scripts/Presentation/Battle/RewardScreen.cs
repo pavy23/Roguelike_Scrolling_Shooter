@@ -74,6 +74,12 @@ namespace Shmup.Presentation.Battle
                     return $"{SlotName(option.Slot)} +{option.Amount}";
                 case RewardType.RepairHp:
                     return $"HULL +{option.Amount}";
+                case RewardType.FireRateUp:
+                    return $"FIRE RATE +{option.Amount}";
+                case RewardType.DamageUp:
+                    return $"DAMAGE +{option.Amount}";
+                case RewardType.MoveSpeedUp:
+                    return $"ENGINE +{option.Amount}";
                 default:
                     return option.Type.ToString();
             }

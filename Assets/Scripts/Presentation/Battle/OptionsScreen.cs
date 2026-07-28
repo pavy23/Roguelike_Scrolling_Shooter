@@ -1,0 +1,182 @@
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace Shmup.Presentation.Battle
+{
+    /// <summary>
+    /// 옵션 화면 v1 (M4): 해상도 프리셋·전체화면·발사 키 리바인딩.
+    /// 일시정지 중 O 키로 연다. 설정은 PlayerPrefs에 저장하고 시작 시 복원한다.
+    /// 리바인딩은 Input System 바인딩 오버라이드(JSON)로 저장 — 시뮬에는 영향 없음.
+    /// </summary>
+    [DisallowMultipleComponent]
+    public sealed class OptionsScreen : MonoBehaviour
+    {
+        const string ResolutionPrefKey = "rss.resolution";
+        const string FullscreenPrefKey = "rss.fullscreen";
+        const string BindingsPrefKey = "rss.bindings";
+
+        static readonly Vector2Int[] Resolutions =
+        {
+            new Vector2Int(1152, 672),
+            new Vector2Int(1280, 720),
+            new Vector2Int(1920, 1080),
+            new Vector2Int(2560, 1440)
+        };
+
+        [SerializeField] PlayerInputReader _input;
+
+        bool _open;
+        int _resolutionIndex;
+        InputActionRebindingExtensions.RebindingOperation _rebind;
+        GUIStyle _titleStyle, _bodyStyle;
+
+        void Start()
+        {
+            _resolutionIndex = Mathf.Clamp(
+                PlayerPrefs.GetInt(ResolutionPrefKey, 0), 0, Resolutions.Length - 1);
+            bool fullscreen = PlayerPrefs.GetInt(FullscreenPrefKey, 0) == 1;
+            // 에디터에서는 해상도 강제 변경을 건너뛴다 (게임 뷰가 관리)
+            if (!Application.isEditor)
+                Apply(fullscreen);
+            LoadBindings();
+        }
+
+        void Update()
+        {
+            var keyboard = Keyboard.current;
+            if (keyboard == null) return;
+
+            // 리바인딩 대기 중에는 다른 입력 처리를 멈춘다
+            if (_rebind != null)
+            {
+                if (keyboard.escapeKey.wasPressedThisFrame) CancelRebind();
+                return;
+            }
+
+            if (keyboard.oKey.wasPressedThisFrame && Time.timeScale == 0f)
+                _open = !_open;
+            if (!_open) return;
+
+            if (keyboard.rKey.wasPressedThisFrame)
+            {
+                _resolutionIndex = (_resolutionIndex + 1) % Resolutions.Length;
+                Apply(Screen.fullScreen);
+            }
+            if (keyboard.fKey.wasPressedThisFrame)
+                Apply(!Screen.fullScreen);
+            if (keyboard.bKey.wasPressedThisFrame)
+                StartRebindFire();
+            if (keyboard.xKey.wasPressedThisFrame)
+                ResetBindings();
+        }
+
+        void Apply(bool fullscreen)
+        {
+            var resolution = Resolutions[_resolutionIndex];
+            if (!Application.isEditor)
+                Screen.SetResolution(resolution.x, resolution.y, fullscreen);
+            PlayerPrefs.SetInt(ResolutionPrefKey, _resolutionIndex);
+            PlayerPrefs.SetInt(FullscreenPrefKey, fullscreen ? 1 : 0);
+        }
+
+        InputAction FindFireAction()
+        {
+            if (_input == null || _input.Actions == null) return null;
+            return _input.Actions.FindAction(_input.FireActionName, throwIfNotFound: false);
+        }
+
+        void StartRebindFire()
+        {
+            var fire = FindFireAction();
+            if (fire == null) return;
+            fire.Disable();
+            _rebind = fire.PerformInteractiveRebinding()
+                .WithControlsExcluding("<Mouse>/position")
+                .WithControlsExcluding("<Mouse>/delta")
+                .WithCancelingThrough("<Keyboard>/escape")
+                .OnComplete(_ => FinishRebind(fire))
+                .OnCancel(_ => FinishRebind(fire))
+                .Start();
+        }
+
+        void FinishRebind(InputAction fire)
+        {
+            _rebind?.Dispose();
+            _rebind = null;
+            fire.Enable();
+            if (_input != null && _input.Actions != null)
+                PlayerPrefs.SetString(BindingsPrefKey, _input.Actions.SaveBindingOverridesAsJson());
+        }
+
+        void CancelRebind()
+        {
+            _rebind?.Cancel();
+        }
+
+        void ResetBindings()
+        {
+            if (_input == null || _input.Actions == null) return;
+            _input.Actions.RemoveAllBindingOverrides();
+            PlayerPrefs.DeleteKey(BindingsPrefKey);
+        }
+
+        void LoadBindings()
+        {
+            if (_input == null || _input.Actions == null) return;
+            string json = PlayerPrefs.GetString(BindingsPrefKey, null);
+            if (!string.IsNullOrEmpty(json))
+                _input.Actions.LoadBindingOverridesFromJson(json);
+        }
+
+        void OnGUI()
+        {
+            if (_rebind != null)
+            {
+                DrawPanel("PRESS ANY KEY FOR FIRE   (ESC cancel)");
+                return;
+            }
+            if (!_open || Time.timeScale != 0f)
+            {
+                _open = _open && Time.timeScale == 0f;
+                return;
+            }
+
+            var resolution = Resolutions[_resolutionIndex];
+            var fire = FindFireAction();
+            string fireBinding = fire != null
+                ? InputControlPath.ToHumanReadableString(
+                    fire.bindings[0].effectivePath,
+                    InputControlPath.HumanReadableStringOptions.OmitDevice)
+                : "?";
+            DrawPanel(
+                $"OPTIONS\n\n" +
+                $"[R] RESOLUTION   {resolution.x} x {resolution.y}\n" +
+                $"[F] FULLSCREEN   {(Screen.fullScreen ? "ON" : "OFF")}\n" +
+                $"[B] REBIND FIRE  (now: {fireBinding})\n" +
+                $"[X] RESET BINDINGS\n\n" +
+                "[O] CLOSE");
+        }
+
+        void DrawPanel(string text)
+        {
+            EnsureStyles();
+            float width = Screen.width, height = Screen.height;
+            GUI.color = new Color(0f, 0f, 0f, 0.75f);
+            GUI.DrawTexture(new Rect(width * 0.25f, height * 0.2f, width * 0.5f, height * 0.55f), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+            GUI.Label(new Rect(width * 0.25f, height * 0.22f, width * 0.5f, height * 0.5f), text, _bodyStyle);
+        }
+
+        void EnsureStyles()
+        {
+            if (_bodyStyle != null) return;
+            _bodyStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 18,
+                alignment = TextAnchor.UpperCenter,
+                normal = { textColor = new Color(0.85f, 0.92f, 1f) }
+            };
+        }
+    }
+}

@@ -6,7 +6,7 @@
       "id": "capsules_5",
       "type": "capsules",
       "amount": 5,
-      "weight": 1,
+      "weight": 2,
       "stageIndexMin": 1,
       "stageIndexMax": 99
     },
@@ -15,7 +15,7 @@
       "type": "slotLevel",
       "slot": "MainShot",
       "amount": 1,
-      "weight": 1,
+      "weight": 2,
       "stageIndexMin": 1,
       "stageIndexMax": 99
     },
@@ -24,7 +24,7 @@
       "type": "slotLevel",
       "slot": "Missile",
       "amount": 1,
-      "weight": 1,
+      "weight": 2,
       "stageIndexMin": 1,
       "stageIndexMax": 99
     },
@@ -33,7 +33,7 @@
       "type": "slotLevel",
       "slot": "Option",
       "amount": 1,
-      "weight": 1,
+      "weight": 2,
       "stageIndexMin": 1,
       "stageIndexMax": 99
     },
@@ -42,7 +42,7 @@
       "type": "slotLevel",
       "slot": "Shield",
       "amount": 1,
-      "weight": 1,
+      "weight": 2,
       "stageIndexMin": 1,
       "stageIndexMax": 99
     },
@@ -50,8 +50,32 @@
       "id": "repair_hp_1",
       "type": "repairHp",
       "amount": 1,
-      "weight": 1,
+      "weight": 2,
       "stageIndexMin": 1,
+      "stageIndexMax": 99
+    },
+    {
+      "id": "passive_fire_rate_1",
+      "type": "fireRateUp",
+      "amount": 1,
+      "weight": 1,
+      "stageIndexMin": 2,
+      "stageIndexMax": 99
+    },
+    {
+      "id": "passive_damage_1",
+      "type": "damageUp",
+      "amount": 1,
+      "weight": 1,
+      "stageIndexMin": 2,
+      "stageIndexMax": 99
+    },
+    {
+      "id": "passive_move_speed_1",
+      "type": "moveSpeedUp",
+      "amount": 1,
+      "weight": 1,
+      "stageIndexMin": 2,
       "stageIndexMax": 99
     }
   ]

@@ -23,6 +23,10 @@ namespace Shmup.Presentation.Battle
         [Tooltip("아날로그 스틱을 디지털 8방향으로 바꿀 때의 임계값.")]
         [SerializeField, Range(0.05f, 0.95f)] float _deadZone = 0.4f;
 
+        /// <summary>옵션 화면(리바인딩)용 읽기 접근자.</summary>
+        public InputActionAsset Actions => _actions;
+        public string FireActionName => _fireActionName;
+
         InputAction _moveAction;
         InputAction _fireAction;
 

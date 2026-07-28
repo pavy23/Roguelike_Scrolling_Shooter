@@ -733,6 +733,8 @@ namespace Shmup.EditorTools
             var rewardScreen = battleRoot.AddComponent<RewardScreen>();
             SetReference(rewardScreen, "_director", director);
             battleRoot.AddComponent<PauseScreen>();
+            var options = battleRoot.AddComponent<OptionsScreen>();
+            SetReference(options, "_input", inputReader);
             var bossIntro = battleRoot.AddComponent<BossIntro>();
             SetReference(director, "_bossIntro", bossIntro);
             var scoreHud = battleRoot.AddComponent<ScoreHud>();

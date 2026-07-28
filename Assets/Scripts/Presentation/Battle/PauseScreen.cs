@@ -78,7 +78,7 @@ namespace Shmup.Presentation.Battle
             GUI.Label(
                 new Rect(0, height * 0.45f, width, 90f),
                 $"VOLUME  {(int)(AudioListener.volume * 100f)}%   (←/→)\n\n" +
-                "ESC  RESUME        Q  QUIT TO TITLE",
+                "ESC  RESUME      O  OPTIONS      Q  QUIT TO TITLE",
                 _bodyStyle);
         }
 
