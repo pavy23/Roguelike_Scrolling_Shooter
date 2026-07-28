@@ -65,6 +65,8 @@ namespace Shmup.Presentation.Battle
 
 
         RunManager _run;
+        MetaState _meta;              // 함선 해금 메타 (저장 채널: MetaSave)
+        int _lastCreditedRunNumber;   // 런당 1회만 점수 적립
         IBattleSim _sim;   // 매 스텝 _run.Battle로 갱신 — 스테이지 전환/재시작 시 인스턴스가 교체된다
         SpritePool _bulletPool;
         SpritePool _enemyPool;
@@ -142,7 +144,12 @@ namespace Shmup.Presentation.Battle
                 LoadGameDataText("enemies"),
                 LoadGameDataText("weapons"),
                 LoadGameDataText("waves"),
-                TryLoadGameDataText("rewards"));   // 없으면 Core 내장 풀 폴백 (REQ-G001)
+                TryLoadGameDataText("rewards"),    // 없으면 Core 내장 풀 폴백 (REQ-G001)
+                TryLoadGameDataText("ships"));     // 없으면 기본 함선 1척
+
+            // 격납고 선택 함선 (저장이 채널 — Title 씬 HangarScreen이 기록)
+            _meta = MetaSave.Load(data);
+            var selectedShip = data.FindShip(_meta.SelectedShipId) ?? data.DefaultShip;
 
             var config = data.CreateBattleSimConfig();
             // 스키마에 아직 없는 잠정값 (스키마 v3 후보 — GameData로 옮기면 이 블록 제거)
@@ -160,7 +167,8 @@ namespace Shmup.Presentation.Battle
                 config,
                 data.BattleContent,
                 data.CreatePowerUpGauge(),
-                data.Rewards);
+                data.Rewards,
+                selectedShip);
             _sim = _run.Battle;
 
             // 풀 용량은 Core가 허용하는 최대 개수와 맞춘다 — 런타임에 풀이 부족해질 수 없다.
@@ -193,6 +201,17 @@ namespace Shmup.Presentation.Battle
         {
             if (_run == null) return;
             _run.Step(_input.ConsumeCommand());
+
+            // 런 종료 시 점수를 메타 재화로 1회 적립 (함선 해금 재원)
+            if (_run.State == RunState.RunOver
+                && _meta != null
+                && _run.RunNumber != _lastCreditedRunNumber)
+            {
+                _lastCreditedRunNumber = _run.RunNumber;
+                _meta.CreditScore(_run.TotalScore);
+                MetaSave.Save(_meta);
+            }
+
             // 이벤트는 스텝 직후 같은 호출 안에서 소비한다 — 다음 Step에서 클리어되기 때문.
             var events = _run.Battle.EventsThisTick;
             if (_sfx != null)

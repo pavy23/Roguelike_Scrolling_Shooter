@@ -956,6 +956,7 @@ namespace Shmup.EditorTools
             SetReferenceArray(title, "_layers", layers);
             SetFloatArray(title, "_factors", StarLayerFactors);
             SetFloat(title, "_tileWidth", RefResolutionX / (float)AssetsPPU);
+            root.AddComponent<HangarScreen>();   // 함선 해금형 메타 (2026-07-29)
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, TitleScenePath);
