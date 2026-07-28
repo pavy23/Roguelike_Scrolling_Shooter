@@ -71,6 +71,29 @@ namespace Shmup.EditorTools
             ['O'] = new Color32(0xFF, 0x9C, 0x28, 0xFF)
         };
 
+        // HUD 슬롯 프레임 22×12: 'W' 테두리(런타임 틴트로 상태 표시), 'D' 반투명 내부
+        const string HudSlotSpritePath = SpriteDir + "/hud_slot.png";
+        const string HudPipSpritePath = SpriteDir + "/hud_pip.png";
+
+        static readonly string[] HudSlotPixels = BuildHudSlotPixels();
+        static readonly string[] HudPipPixels = { "WWW", "WWW", "WWW" };
+
+        static readonly Dictionary<char, Color32> HudPalette = new Dictionary<char, Color32>
+        {
+            ['W'] = new Color32(0xFF, 0xFF, 0xFF, 0xFF),
+            ['D'] = new Color32(0x10, 0x18, 0x28, 0xB4)
+        };
+
+        static string[] BuildHudSlotPixels()
+        {
+            const int width = 22, height = 12;
+            var rows = new string[height];
+            rows[0] = rows[height - 1] = new string('W', width);
+            for (int y = 1; y < height - 1; y++)
+                rows[y] = "W" + new string('D', width - 2) + "W";
+            return rows;
+        }
+
         [MenuItem("Tools/Shmup/Rebuild Battle Scene")]
         public static void Build()
         {
@@ -78,9 +101,11 @@ namespace Shmup.EditorTools
             {
                 var shipSprite = WritePixelSprite(ShipSpritePath, ShipPixels, ShipPalette);
                 var bulletSprite = WritePixelSprite(BulletSpritePath, BulletPixels, BulletPalette);
+                var hudSlotSprite = WritePixelSprite(HudSlotSpritePath, HudSlotPixels, HudPalette);
+                var hudPipSprite = WritePixelSprite(HudPipSpritePath, HudPipPixels, HudPalette);
                 var bulletPrefab = WriteBulletPrefab(bulletSprite);
 
-                BuildScene(shipSprite, bulletPrefab);
+                BuildScene(shipSprite, bulletPrefab, hudSlotSprite, hudPipSprite);
                 RegisterInBuildSettings();
 
                 AssetDatabase.SaveAssets();
@@ -163,7 +188,7 @@ namespace Shmup.EditorTools
 
         // ── 씬 ────────────────────────────────────────────────────────────────────
 
-        static void BuildScene(Sprite shipSprite, GameObject bulletPrefab)
+        static void BuildScene(Sprite shipSprite, GameObject bulletPrefab, Sprite hudSlotSprite, Sprite hudPipSprite)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -194,6 +219,8 @@ namespace Shmup.EditorTools
             SetReference(director, "_playerTransform", player.transform);
             SetReference(director, "_bulletPrefab", bulletPrefab);
             SetReference(director, "_bulletRoot", bulletRoot.transform);
+
+            CreateHud(director, hudSlotSprite, hudPipSprite);
 
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
             EditorSceneManager.MarkSceneDirty(scene);
@@ -239,6 +266,72 @@ namespace Shmup.EditorTools
                 return;
             }
             property.enumValueIndex = (int)PixelPerfectCamera.PixelPerfectFilterMode.RetroAA;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        // ── HUD ───────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 파워업 게이지 HUD: 하단 중앙 슬롯 4개 + 슬롯당 레벨 핍 5개, 그리고 DevCheats 오버레이.
+        /// 좌표는 384×224 뷰(월드 24×14u) 안에서 픽셀(1/16u) 정렬로 배치한다.
+        /// </summary>
+        static void CreateHud(BattleDirector director, Sprite slotSprite, Sprite pipSprite)
+        {
+            const float px = 1f / AssetsPPU;
+            const float slotSpacing = 24 * px;       // 슬롯 중심 간격 1.5u
+            const float frameCenterY = -7f + 10 * px; // 하단 여백 4px + 프레임 절반 6px
+            const float pipRowY = frameCenterY + 9 * px;
+            const float pipSpacing = 4 * px;
+
+            var hudRoot = new GameObject("Hud");
+
+            var slotFrames = new SpriteRenderer[PowerUpHudView.SlotCount];
+            var pips = new SpriteRenderer[PowerUpHudView.SlotCount * PowerUpHudView.MaxPipsPerSlot];
+
+            for (int slot = 0; slot < PowerUpHudView.SlotCount; slot++)
+            {
+                float x = (slot - (PowerUpHudView.SlotCount - 1) / 2f) * slotSpacing;
+
+                var frame = new GameObject($"Slot{slot}");
+                frame.transform.SetParent(hudRoot.transform, false);
+                frame.transform.localPosition = new Vector3(x, frameCenterY, 0f);
+                var frameRenderer = frame.AddComponent<SpriteRenderer>();
+                frameRenderer.sprite = slotSprite;
+                frameRenderer.sortingOrder = 100;
+                slotFrames[slot] = frameRenderer;
+
+                for (int pip = 0; pip < PowerUpHudView.MaxPipsPerSlot; pip++)
+                {
+                    float pipX = x + (pip - (PowerUpHudView.MaxPipsPerSlot - 1) / 2f) * pipSpacing;
+
+                    var pipGo = new GameObject($"Slot{slot}Pip{pip}");
+                    pipGo.transform.SetParent(hudRoot.transform, false);
+                    pipGo.transform.localPosition = new Vector3(pipX, pipRowY, 0f);
+                    var pipRenderer = pipGo.AddComponent<SpriteRenderer>();
+                    pipRenderer.sprite = pipSprite;
+                    pipRenderer.sortingOrder = 101;
+                    pips[slot * PowerUpHudView.MaxPipsPerSlot + pip] = pipRenderer;
+                }
+            }
+
+            var hudView = hudRoot.AddComponent<PowerUpHudView>();
+            SetReference(hudView, "_director", director);
+            SetReferenceArray(hudView, "_slotFrames", slotFrames);
+            SetReferenceArray(hudView, "_pips", pips);
+
+            var cheats = hudRoot.AddComponent<DevCheats>();
+            SetReference(cheats, "_director", director);
+        }
+
+        static void SetReferenceArray(UnityEngine.Object target, string fieldName, UnityEngine.Object[] values)
+        {
+            var so = new SerializedObject(target);
+            var property = so.FindProperty(fieldName);
+            if (property == null)
+                throw new InvalidOperationException($"{target.GetType().Name}.{fieldName} 직렬화 필드를 못 찾았다.");
+            property.arraySize = values.Length;
+            for (int i = 0; i < values.Length; i++)
+                property.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 

@@ -1,0 +1,12 @@
+  {
+    "permissions": {
+      "allow": [
+        "Bash(claude -p*)",
+        "PowerShell(claude -p*)",
+        "Bash(codex exec*)",
+        "PowerShell(codex exec*)",
+        "Bash(grok --cwd*)",
+        "PowerShell(grok --cwd*)"
+      ]
+    }
+  }

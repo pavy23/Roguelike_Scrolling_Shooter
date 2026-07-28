@@ -40,12 +40,25 @@ namespace Shmup.Presentation.Battle
         public int Tick => _sim?.Tick ?? 0;
         public int ActiveBulletViews => _bulletViews.Count;
 
+        /// <summary>이번 런에 실제로 쓰인 시드. --seed=N 커맨드라인 인자가 인스펙터 값을 덮는다.</summary>
+        public long Seed { get; private set; }
+
+        /// <summary>
+        /// 파워업 게이지 (Core 소유 로직, 여기서는 보관만). HUD가 읽어서 그린다.
+        /// 캡슐 획득/활성화가 시뮬레이션 이벤트로 연결되는 것은 REQ-001 이후 —
+        /// 그 전까지는 DevCheats의 F9/F10으로만 조작된다.
+        /// </summary>
+        public PowerUpGauge Gauge { get; private set; }
+
         void Awake()
         {
             if (!ValidateWiring()) return;
 
+            Seed = DevArgs.OverrideSeed ?? _seed;
+            Gauge = PowerUpGauge.CreateDefault();
+
             var config = BattleSimConfig.CreateDefault();
-            _sim = new BattleSim(config, new Rng((ulong)_seed));
+            _sim = new BattleSim(config, new Rng((ulong)Seed));
 
             // 풀 용량은 Core가 허용하는 최대 탄 수와 정확히 같다 —
             // 이러면 런타임에 풀이 부족해질 수 없다.
