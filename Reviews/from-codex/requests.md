@@ -184,3 +184,26 @@ All new power-up numbers in `BattleSimConfig` are explicitly provisional and con
 Stage spawn ticks are segment-relative and converted to absolute ticks by summing preceding `LengthTicks`. Tick-0 spawns are visible immediately after construction; later spawns appear when `Tick` reaches the absolute tick. Same-tick order is segment order then source spawn order. The current `StagePlan` has no boss spawn tick/position, so this runtime executes segment spawn events only; boss entry needs a separate content/plan contract before Core can simulate it.
 
 Movement is integer-only: every enemy receives the exact per-tick `ScrollX` delta; straight adds self-motion toward -X, static adds no self-motion, and sine combines straight X with a 64-entry integer LUT around spawn Y. Player bullets hit the first enemy in deterministic list order using inclusive integer AABBs. Enemy-player contact applies `ContactDamage` and consumes that enemy. A bullet kill rolls the dedicated `Rng.Fork(1)` drop stream; a collected capsule is removed and calls `PowerUpGauge.Collect()` in the same tick.
+
+---
+
+## RunManager and delayed-option Presentation integration contract (2026-07-28)
+
+- [ ] CLAUDE: construct `RunManager` from the run seed, `IStageGenerator`, `BattleSimConfig`, immutable `BattleContent`, and the initial `PowerUpGauge`; drive `RunManager.Step`, not `BattleSim.Step` directly.
+- [ ] CLAUDE: resolve `RunManager.Battle` again after every step. Core replaces the `IBattleSim` instance when a stage ends and when a run restarts, so Presentation must not retain the previous battle or its state-list references across that boundary.
+- [ ] CLAUDE: show run flow from `RunNumber`, `StageIndex`, `Difficulty`, and `State`. When `State == RunState.RunOver`, offer restart and call `Restart(newRunSeed)`; `Restart` is intentionally rejected while the run is still playing.
+- [ ] CLAUDE: keep rendering `IBattleSim.Options` by stable one-based `OptionState.Index`. The observable list and state shape are unchanged; only Core positioning behavior changed from fixed offsets to delayed player-history following.
+
+### Run lifecycle
+
+`RunManager` starts at run 1, stage 1, `Playing`. It derives each stage with the same run seed plus the explicit `StageIndex`; a stage ends after the sum of all segment `LengthTicks`. Player HP reaching zero takes priority over stage completion and changes state to `RunOver`. Calls to `Step` while run-over are no-ops.
+
+The default difficulty curve is integer linear: difficulty 1 on stage 1, +1 per stage, capped at 5. The full constructor accepts a `StageDifficultyCurve(initialDifficulty, increasePerStage, maximumDifficulty)` for tuning without changing manager logic.
+
+The short constructor preserves the approved placeholder behavior with `MetaProgression(1.0)`. The full constructor accepts an injected `MetaProgression`; `Restart` applies `ApplyDeathCarry`, creates a fresh gauge with the same per-slot maxima, resets to stage 1, increments `RunNumber`, and builds the first battle from the new seed.
+
+### Delayed options
+
+`BattleSimConfig.OptionFollowDelayTicks` replaces the old fixed-offset settings and defaults to 12. Option N uses the recorded player position from `N * OptionFollowDelayTicks` ticks ago. Before enough history exists it remains at the oldest available position (the stage spawn position). The history is an integer-only fixed-size ring buffer and is reset with each new `BattleSim`.
+
+Within a single battle, `IBattleSim.Options` remains the same stable read-only list instance. Across stage/run replacement, consume the list from the new `RunManager.Battle` instance.

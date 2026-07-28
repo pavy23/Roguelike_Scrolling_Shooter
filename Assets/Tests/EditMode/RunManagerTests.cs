@@ -1,0 +1,312 @@
+using System.Collections.Generic;
+using NUnit.Framework;
+using Shmup.Core.Generation;
+using Shmup.Core.Simulation;
+
+namespace Shmup.Core.Tests
+{
+    [TestFixture]
+    public class RunManagerTests
+    {
+        [Test]
+        public void PlayerDeathEndsRunAndStopsFurtherSimulation()
+        {
+            var manager = CreateManager(
+                11UL,
+                new TestStageGenerator(true, 5),
+                PowerUpGauge.CreateDefault());
+            InputCommand none = InputCommand.None;
+
+            Assert.AreEqual(1, manager.RunNumber);
+            Assert.AreEqual(1, manager.StageIndex);
+            Assert.AreEqual(RunState.Playing, manager.State);
+
+            manager.Step(in none);
+
+            Assert.AreEqual(0, manager.Battle.PlayerHp);
+            Assert.AreEqual(RunState.RunOver, manager.State);
+            Assert.AreEqual(1, manager.Battle.Tick);
+
+            manager.Step(in none);
+            Assert.AreEqual(1, manager.Battle.Tick);
+        }
+
+        [Test]
+        public void CompletedStageAdvancesWithConfigurableCappedLinearDifficulty()
+        {
+            var generator = new TestStageGenerator(false, 1, 2);
+            var curve = new StageDifficultyCurve(2, 2, 5);
+            var manager = new RunManager(
+                22UL,
+                generator,
+                CreateConfig(),
+                CreateContent(),
+                PowerUpGauge.CreateDefault(),
+                new MetaProgression(1.0),
+                curve);
+            InputCommand none = InputCommand.None;
+
+            AssertCall(generator.Calls[0], 22UL, 1, 2);
+            Step(manager, 3, in none);
+            Assert.AreEqual(2, manager.StageIndex);
+            Assert.AreEqual(0, manager.Battle.Tick);
+            AssertCall(generator.Calls[1], 22UL, 2, 4);
+
+            Step(manager, 3, in none);
+            Assert.AreEqual(3, manager.StageIndex);
+            AssertCall(generator.Calls[2], 22UL, 3, 5);
+
+            Step(manager, 3, in none);
+            Assert.AreEqual(4, manager.StageIndex);
+            AssertCall(generator.Calls[3], 22UL, 4, 5);
+        }
+
+        [Test]
+        public void RestartAppliesInjectedDeathCarryAndBuildsFreshFirstStage()
+        {
+            var initialGauge = PowerUpGauge.CreateDefault();
+            initialGauge.ImportLevels(new[] { 5, 3, 4, 3 });
+            var generator = new TestStageGenerator(true, 5);
+            var manager = new RunManager(
+                33UL,
+                generator,
+                CreateConfig(),
+                CreateContent(),
+                initialGauge,
+                new MetaProgression(0.5),
+                StageDifficultyCurve.CreateDefault());
+            InputCommand none = InputCommand.None;
+
+            manager.Step(in none);
+            manager.Restart(44UL);
+
+            Assert.AreEqual(2, manager.RunNumber);
+            Assert.AreEqual(1, manager.StageIndex);
+            Assert.AreEqual(44UL, manager.RunSeed);
+            Assert.AreEqual(RunState.Playing, manager.State);
+            Assert.AreNotSame(initialGauge, manager.PowerUpGauge);
+            CollectionAssert.AreEqual(
+                new[] { 2, 1, 2, 1 },
+                manager.PowerUpGauge.ExportLevels());
+            AssertCall(generator.Calls[1], 44UL, 1, 1);
+        }
+
+        [Test]
+        public void DefaultRestartCarryPreservesAllPowerUpLevels()
+        {
+            var gauge = PowerUpGauge.CreateDefault();
+            gauge.ImportLevels(new[] { 3, 2, 1, 2 });
+            var manager = CreateManager(
+                55UL,
+                new TestStageGenerator(true, 5),
+                gauge);
+            InputCommand none = InputCommand.None;
+
+            manager.Step(in none);
+            manager.Restart(56UL);
+
+            CollectionAssert.AreEqual(
+                new[] { 3, 2, 1, 2 },
+                manager.PowerUpGauge.ExportLevels());
+        }
+
+        [Test]
+        public void RestartingWithSameSeedRebuildsIdenticalFirstStage()
+        {
+            var manager = CreateManager(
+                77UL,
+                new TestStageGenerator(true, 5),
+                PowerUpGauge.CreateDefault());
+            string firstSegmentId = manager.StagePlan.Segments[0].SegmentId;
+            InputCommand none = InputCommand.None;
+
+            manager.Step(in none);
+            manager.Restart(77UL);
+
+            Assert.AreEqual(firstSegmentId, manager.StagePlan.Segments[0].SegmentId);
+            Assert.AreEqual(1, manager.StageIndex);
+            Assert.AreEqual(1, manager.Difficulty);
+            Assert.AreEqual(0, manager.Battle.Tick);
+        }
+
+        [Test]
+        public void SameSeedAndInputsReproduceStagesAndDelayedOptionTrajectory()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.OptionFollowDelayTicks = 2;
+            var firstGauge = PowerUpGauge.CreateDefault();
+            var secondGauge = PowerUpGauge.CreateDefault();
+            firstGauge.ImportLevels(new[] { 0, 0, 2, 0 });
+            secondGauge.ImportLevels(new[] { 0, 0, 2, 0 });
+            var first = new RunManager(
+                0xC0FFEEUL,
+                new TestStageGenerator(false, 2, 2),
+                config,
+                CreateContent(),
+                firstGauge);
+            var second = new RunManager(
+                0xC0FFEEUL,
+                new TestStageGenerator(false, 2, 2),
+                config,
+                CreateContent(),
+                secondGauge);
+
+            for (int tick = 0; tick < 12; tick++)
+            {
+                var input = new InputCommand(
+                    tick % 4 < 2 ? 1 : -1,
+                    tick % 3 == 0 ? 1 : 0,
+                    false);
+                first.Step(in input);
+                second.Step(in input);
+                AssertManagersEqual(first, second, tick);
+            }
+        }
+
+        static RunManager CreateManager(
+            ulong seed,
+            IStageGenerator generator,
+            PowerUpGauge gauge)
+        {
+            return new RunManager(
+                seed,
+                generator,
+                CreateConfig(),
+                CreateContent(),
+                gauge);
+        }
+
+        static BattleSimConfig CreateConfig()
+        {
+            return new BattleSimConfig
+            {
+                PlayerSpeedPerTick = 1,
+                PlayerBulletSpeedPerTick = 1,
+                FireIntervalTicks = 1,
+                MaxBullets = 64,
+                PlayerMinX = -100,
+                PlayerMaxX = 100,
+                PlayerMinY = -100,
+                PlayerMaxY = 100,
+                BulletDespawnX = 100,
+                EnemyDespawnX = -100,
+                PlayerSpawnX = 0,
+                PlayerSpawnY = 0,
+                PlayerMaxHp = 1,
+                PlayerHalfWidth = 0,
+                PlayerHalfHeight = 0,
+                CapsuleHalfWidth = 0,
+                CapsuleHalfHeight = 0,
+                CapsuleNoDropWeight = 0,
+                ScrollSpeedNumerator = 0,
+                ScrollSpeedDenominator = 1
+            };
+        }
+
+        static BattleContent CreateContent()
+        {
+            var enemy = new EnemyDefinition(
+                "rammer",
+                1,
+                10,
+                EnemyMovePattern.Static,
+                0,
+                1,
+                0,
+                0,
+                0,
+                0,
+                1);
+            var weapon = new WeaponDefinition("shot", 1, 1, 0, 1, 0, 0);
+            return new BattleContent(new[] { enemy }, new[] { weapon }, weapon.Id);
+        }
+
+        static void Step(RunManager manager, int count, in InputCommand input)
+        {
+            for (int i = 0; i < count; i++)
+                manager.Step(in input);
+        }
+
+        static void AssertCall(
+            GenerationCall call,
+            ulong seed,
+            int stageIndex,
+            int difficulty)
+        {
+            Assert.AreEqual(seed, call.Seed);
+            Assert.AreEqual(stageIndex, call.StageIndex);
+            Assert.AreEqual(difficulty, call.Difficulty);
+        }
+
+        static void AssertManagersEqual(
+            RunManager expected,
+            RunManager actual,
+            int sourceTick)
+        {
+            Assert.AreEqual(expected.RunNumber, actual.RunNumber, $"source tick {sourceTick}");
+            Assert.AreEqual(expected.StageIndex, actual.StageIndex, $"source tick {sourceTick}");
+            Assert.AreEqual(expected.Difficulty, actual.Difficulty, $"source tick {sourceTick}");
+            Assert.AreEqual(expected.State, actual.State, $"source tick {sourceTick}");
+            Assert.AreEqual(expected.Battle.Tick, actual.Battle.Tick, $"source tick {sourceTick}");
+            Assert.AreEqual(expected.Battle.PlayerX, actual.Battle.PlayerX, $"source tick {sourceTick}");
+            Assert.AreEqual(expected.Battle.PlayerY, actual.Battle.PlayerY, $"source tick {sourceTick}");
+            Assert.AreEqual(expected.Battle.Options.Count, actual.Battle.Options.Count);
+
+            for (int i = 0; i < expected.Battle.Options.Count; i++)
+            {
+                Assert.AreEqual(expected.Battle.Options[i].Index, actual.Battle.Options[i].Index);
+                Assert.AreEqual(expected.Battle.Options[i].X, actual.Battle.Options[i].X);
+                Assert.AreEqual(expected.Battle.Options[i].Y, actual.Battle.Options[i].Y);
+            }
+        }
+
+        sealed class TestStageGenerator : IStageGenerator
+        {
+            readonly bool _lethal;
+            readonly int[] _segmentLengths;
+
+            public TestStageGenerator(bool lethal, params int[] segmentLengths)
+            {
+                _lethal = lethal;
+                _segmentLengths = (int[])segmentLengths.Clone();
+            }
+
+            public List<GenerationCall> Calls { get; } = new List<GenerationCall>();
+
+            public StagePlan Generate(ulong seed, int stageIndex, int difficulty)
+            {
+                Calls.Add(new GenerationCall(seed, stageIndex, difficulty));
+                Rng rng = new Rng(seed).Fork(stageIndex).Fork(difficulty);
+                var segments = new StageSegment[_segmentLengths.Length];
+                for (int i = 0; i < segments.Length; i++)
+                {
+                    SpawnEvent[] spawns = _lethal && i == 0
+                        ? new[] { new SpawnEvent(1, "rammer", 0, 0) }
+                        : new SpawnEvent[0];
+                    segments[i] = new StageSegment(
+                        "segment_" + i + "_" + rng.NextInt(0, 100000),
+                        _segmentLengths[i],
+                        spawns,
+                        1,
+                        1,
+                        new[] { 1 });
+                }
+                return new StagePlan(segments, "boss", 1, 1, 1);
+            }
+        }
+
+        sealed class GenerationCall
+        {
+            public GenerationCall(ulong seed, int stageIndex, int difficulty)
+            {
+                Seed = seed;
+                StageIndex = stageIndex;
+                Difficulty = difficulty;
+            }
+
+            public ulong Seed { get; }
+            public int StageIndex { get; }
+            public int Difficulty { get; }
+        }
+    }
+}
