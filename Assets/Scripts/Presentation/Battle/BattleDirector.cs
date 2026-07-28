@@ -42,10 +42,9 @@ namespace Shmup.Presentation.Battle
         [Tooltip("로그라이크 시드. 같은 시드 + 같은 입력 = 같은 결과 (AGENTS.md §4).")]
         [SerializeField] long _seed = 1;
 
-        [Tooltip("개발용 잠정 난이도 — 세그먼트 카탈로그 게이트. 최종 곡선은 사람 결정 (AGENTS.md §7).")]
-        [SerializeField] int _difficulty = 3;
 
-        IBattleSim _sim;
+        RunManager _run;
+        IBattleSim _sim;   // 매 스텝 _run.Battle로 갱신 — 스테이지 전환/재시작 시 인스턴스가 교체된다
         SpritePool _bulletPool;
         SpritePool _enemyPool;
         SpritePool _capsulePool;
@@ -82,15 +81,27 @@ namespace Shmup.Presentation.Battle
         public int Tick => _sim?.Tick ?? 0;
         public int ActiveBulletViews => _bulletViews.Count;
 
-        /// <summary>이번 런에 실제로 쓰인 시드. --seed=N 커맨드라인 인자가 인스펙터 값을 덮는다.</summary>
+        /// <summary>현재 런의 시드. --seed=N 커맨드라인 → 타이틀 입력 → 인스펙터 순으로 결정되고, 재시작 시 갱신된다.</summary>
         public long Seed { get; private set; }
 
-        /// <summary>
-        /// 파워업 게이지 (Core 소유 로직, 여기서는 보관만). HUD가 읽어서 그린다.
-        /// 캡슐 획득/활성화가 시뮬레이션 이벤트로 연결되는 것은 REQ-001 이후 —
-        /// 그 전까지는 DevCheats의 F9/F10으로만 조작된다.
-        /// </summary>
-        public PowerUpGauge Gauge { get; private set; }
+        /// <summary>파워업 게이지 (Core/RunManager 소유). HUD가 읽어서 그린다. 재시작 시 승계 적용된 새 인스턴스로 바뀐다.</summary>
+        public PowerUpGauge Gauge => _run?.PowerUpGauge;
+
+        public int RunNumber => _run?.RunNumber ?? 0;
+        public int StageIndex => _run?.StageIndex ?? 0;
+        public int Difficulty => _run?.Difficulty ?? 0;
+        public bool IsRunOver => _run != null && _run.State == RunState.RunOver;
+
+        /// <summary>런 오버 상태에서만 유효. 새 시드로 재출격 — 파워업 레벨은 MetaProgression 승계를 따른다.</summary>
+        public void RestartRun()
+        {
+            if (_run == null || _run.State != RunState.RunOver) return;
+            ulong newSeed = (uint)System.Environment.TickCount ^ ((ulong)(uint)_run.RunNumber << 32);
+            _run.Restart(newSeed);
+            Seed = (long)newSeed;
+            RefreshBattle();
+            SyncViews();
+        }
 
         /// <summary>서브유닛 ScrollX의 월드 단위 값. 배경 패럴랙스가 읽는다.</summary>
         public float ScrollWorldX => _sim != null ? _sim.ScrollX * SimView.WorldUnitsPerSubUnit : 0f;
@@ -110,8 +121,6 @@ namespace Shmup.Presentation.Battle
                 LoadGameDataText("weapons"),
                 LoadGameDataText("waves"));
 
-            Gauge = data.CreatePowerUpGauge();
-
             var config = data.CreateBattleSimConfig();
             // 스키마에 아직 없는 잠정값 (스키마 v3 후보 — GameData로 옮기면 이 블록 제거)
             config.EnemyDespawnX = -14 * SimSpace.SubUnitsPerWorldUnit;
@@ -119,11 +128,15 @@ namespace Shmup.Presentation.Battle
             config.CapsuleHalfHeight = SimSpace.SubUnitsPerWorldUnit / 4;
             config.PlayerMaxHp = 3;
 
-            var rng = new Rng((ulong)Seed);
-            var stagePlan = new SegmentStageGenerator(data.StageGeneration)
-                .Generate((ulong)Seed, 1, _difficulty);
-
-            _sim = new BattleSim(config, rng, stagePlan, data.BattleContent, Gauge);
+            // 런 수명은 Core(RunManager) 소관: 스테이지 전환, 난이도 곡선, 사망 감지,
+            // 재시작 시 파워업 승계까지. Presentation은 Step을 돌리고 Battle을 그릴 뿐이다.
+            _run = new RunManager(
+                (ulong)Seed,
+                new SegmentStageGenerator(data.StageGeneration),
+                config,
+                data.BattleContent,
+                data.CreatePowerUpGauge());
+            _sim = _run.Battle;
 
             // 풀 용량은 Core가 허용하는 최대 개수와 맞춘다 — 런타임에 풀이 부족해질 수 없다.
             _bulletPool = new SpritePool(_bulletPrefab, _bulletRoot, config.MaxBullets, "Bullet");
@@ -151,9 +164,35 @@ namespace Shmup.Presentation.Battle
 
         void FixedUpdate()
         {
-            if (_sim == null) return;
-            _sim.Step(_input.ConsumeCommand());
+            if (_run == null) return;
+            _run.Step(_input.ConsumeCommand());
+            RefreshBattle();
             SyncViews();
+        }
+
+        /// <summary>
+        /// Core는 스테이지 전환/재시작 때 IBattleSim 인스턴스를 교체한다. Id 공간이
+        /// 새로 시작되므로 이전 배틀의 뷰를 전부 반납하고 새 인스턴스로 갈아탄다.
+        /// </summary>
+        void RefreshBattle()
+        {
+            var battle = _run.Battle;
+            if (ReferenceEquals(battle, _sim)) return;
+
+            ReleaseAll(_bulletViews, _bulletPool);
+            ReleaseAll(_enemyViews, _enemyPool);
+            ReleaseAll(_capsuleViews, _capsulePool);
+            ReleaseAll(_optionViews, _optionPool);
+            _enemyRenderers.Clear();
+            _lastHp = -1;   // 배틀 교체 직후 HP 차이를 피격 플래시로 오인하지 않게
+
+            _sim = battle;
+        }
+
+        static void ReleaseAll(Dictionary<int, Transform> views, SpritePool pool)
+        {
+            foreach (var pair in views) pool.Release(pair.Value);
+            views.Clear();
         }
 
         /// <summary>시뮬 상태를 트랜스폼에 그대로 복사한다. 보간 없음 — 픽셀 퍼펙트라 스냅이 맞다.</summary>
