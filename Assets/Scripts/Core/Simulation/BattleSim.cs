@@ -9,6 +9,50 @@ namespace Shmup.Core.Simulation
     {
         public const int SubUnitsPerWorldUnit = 256;
         public const int TicksPerSecond = 60;
+
+        // 640×360 뷰(월드 40×22.5u) 기준 플레이필드 (ROADMAP M0, REQ-005 요청 2).
+        // 스폰/컬링 경계는 이 상수를 기준으로 파생시킨다.
+        public const int PlayfieldHalfWidthSubUnits = 20 * SubUnitsPerWorldUnit;
+        public const int PlayfieldHalfHeightSubUnits = 45 * SubUnitsPerWorldUnit / 4;
+        public const int DespawnMarginSubUnits = 2 * SubUnitsPerWorldUnit;
+    }
+
+    /// <summary>
+    /// 틱 처리 중 발생한 이산 사건 (REQ-005 요청 1). Presentation이 애니메이션/SFX로
+    /// 번역한다 — 상태 차분으로 추측하지 말 것. 보스 계열 값은 보스 시스템용 예약.
+    /// </summary>
+    public enum SimEventType
+    {
+        EnemyHit = 0,
+        EnemyKilled = 1,
+        PlayerHit = 2,
+        PlayerKilled = 3,
+        CapsuleDropped = 4,
+        CapsulePicked = 5,
+        PowerUpLevelChanged = 6,
+        BossSpawned = 7,
+        BossPhaseChanged = 8,
+        StageCleared = 9
+    }
+
+    /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
+    public readonly struct SimEvent
+    {
+        public SimEvent(SimEventType type, int entityId, int x, int y, int arg)
+        {
+            Type = type;
+            EntityId = entityId;
+            X = x;
+            Y = y;
+            Arg = arg;
+        }
+
+        public SimEventType Type { get; }
+        public int EntityId { get; }
+        public int X { get; }
+        public int Y { get; }
+        /// <summary>타입별 부가값 — EnemyHit/Killed·PlayerHit: 데미지, PowerUpLevelChanged: 새 레벨(EntityId=슬롯).</summary>
+        public int Arg { get; }
     }
 
     public enum BulletFaction { Player = 0, Enemy = 1 }
@@ -159,12 +203,12 @@ namespace Shmup.Core.Simulation
         public int MissileRapidFireStartLevel { get; set; } = 2;
         public int MissileFireIntervalReductionPerLevel { get; set; } = 5;
         public int MissileMinimumFireIntervalTicks { get; set; } = 30;
-        public int MissileSpeedXNumerator { get; set; } = 8 * SimSpace.SubUnitsPerWorldUnit;
+        public int MissileSpeedXNumerator { get; set; } = 13 * SimSpace.SubUnitsPerWorldUnit;
         public int MissileSpeedXDenominator { get; set; } = SimSpace.TicksPerSecond;
-        public int MissileFallSpeedYNumerator { get; set; } = 3 * SimSpace.SubUnitsPerWorldUnit;
+        public int MissileFallSpeedYNumerator { get; set; } = 5 * SimSpace.SubUnitsPerWorldUnit;
         public int MissileFallSpeedYDenominator { get; set; } = SimSpace.TicksPerSecond;
-        public int MissileHalfWidth { get; set; } = SimSpace.SubUnitsPerWorldUnit / 4;
-        public int MissileHalfHeight { get; set; } = SimSpace.SubUnitsPerWorldUnit / 8;
+        public int MissileHalfWidth { get; set; } = 3 * SimSpace.SubUnitsPerWorldUnit / 8;
+        public int MissileHalfHeight { get; set; } = 3 * SimSpace.SubUnitsPerWorldUnit / 16;
         /// <summary>
         /// Player-position history distance between consecutive options.
         /// Option N follows the position from N * OptionFollowDelayTicks ago.
@@ -172,30 +216,33 @@ namespace Shmup.Core.Simulation
         public int OptionFollowDelayTicks { get; set; } = 12;
 
         /// <summary>
-        /// Defaults sourced from player.json, main_shot, and the 24 by 14 unit view.
-        /// Power-up values remain provisional pending the human balance pass.
+        /// Defaults sourced from player.json, main_shot, and the 40 by 22.5 unit view
+        /// (640×360, ROADMAP M0). Spatial values scale the 24×14 originals by ×5/3
+        /// (hitboxes ×1.5 to follow the sprite upsize). Power-up values remain
+        /// provisional pending the human balance pass.
         /// </summary>
         public static BattleSimConfig CreateDefault()
         {
             const int u = SimSpace.SubUnitsPerWorldUnit;
             return new BattleSimConfig
             {
-                PlayerSpeedNumerator = 8 * u,
+                PlayerSpeedNumerator = 13 * u,
                 PlayerSpeedDenominator = SimSpace.TicksPerSecond,
-                PlayerBulletSpeedNumerator = 12 * u,
+                PlayerBulletSpeedNumerator = 20 * u,
                 PlayerBulletSpeedDenominator = SimSpace.TicksPerSecond,
                 FireIntervalTicks = 8,
                 MaxBullets = 64,
-                PlayerMinX = -23 * u / 2,
-                PlayerMaxX = 23 * u / 2,
-                PlayerMinY = -13 * u / 2,
-                PlayerMaxY = 13 * u / 2,
-                BulletDespawnX = 13 * u,
-                PlayerSpawnX = -8 * u,
+                PlayerMinX = -39 * u / 2,
+                PlayerMaxX = 39 * u / 2,
+                PlayerMinY = -43 * u / 4,
+                PlayerMaxY = 43 * u / 4,
+                BulletDespawnX = SimSpace.PlayfieldHalfWidthSubUnits + u,
+                EnemyDespawnX = -(SimSpace.PlayfieldHalfWidthSubUnits + SimSpace.DespawnMarginSubUnits),
+                PlayerSpawnX = -13 * u,
                 PlayerSpawnY = 0,
                 PlayerMaxHp = 1,
-                PlayerHalfWidth = u / 4,
-                PlayerHalfHeight = u / 4
+                PlayerHalfWidth = 3 * u / 8,
+                PlayerHalfHeight = 3 * u / 8
             };
         }
 
@@ -217,6 +264,8 @@ namespace Shmup.Core.Simulation
         IReadOnlyList<OptionState> Options { get; }
         IReadOnlyList<EnemyState> Enemies { get; }
         IReadOnlyList<CapsuleState> Capsules { get; }
+        /// <summary>Events emitted by the most recent Step. Cleared at the start of each Step.</summary>
+        ReadOnlySpan<SimEvent> EventsThisTick { get; }
         void Step(in InputCommand input);
     }
 
@@ -275,6 +324,9 @@ namespace Shmup.Core.Simulation
         readonly List<CapsuleState> _capsules;
         readonly ReadOnlyCollection<CapsuleState> _readOnlyCapsules;
         readonly ScheduledSpawn[] _scheduledSpawns;
+
+        SimEvent[] _events = new SimEvent[64];
+        int _eventCount;
 
         int _playerXRemainder, _playerYRemainder, _cooldown, _missileCooldown;
         int _mainShotLevel, _missileLevel, _optionLevel, _shieldGaugeLevel;
@@ -420,6 +472,7 @@ namespace Shmup.Core.Simulation
         public IReadOnlyList<OptionState> Options => _readOnlyOptions;
         public IReadOnlyList<EnemyState> Enemies => _readOnlyEnemies;
         public IReadOnlyList<CapsuleState> Capsules => _readOnlyCapsules;
+        public ReadOnlySpan<SimEvent> EventsThisTick => new ReadOnlySpan<SimEvent>(_events, 0, _eventCount);
 
         /// <summary>Returns scroll at any tick using only immutable speed and the tick argument.</summary>
         public long GetScrollXAtTick(int tick)
@@ -441,6 +494,7 @@ namespace Shmup.Core.Simulation
             if (Tick == int.MaxValue)
                 throw new InvalidOperationException("The simulation tick counter is exhausted.");
             Tick++;
+            _eventCount = 0;
 
             PlayerX = AdvancePlayerAxis(PlayerX, input.MoveX, ref _playerXRemainder, _playerMinX, _playerMaxX);
             PlayerY = AdvancePlayerAxis(PlayerY, input.MoveY, ref _playerYRemainder, _playerMinY, _playerMaxY);
@@ -467,6 +521,20 @@ namespace Shmup.Core.Simulation
             }
         }
 
+        void EmitEvent(SimEventType type, int entityId, int x, int y, int arg)
+        {
+            if (_eventCount == _events.Length)
+                Array.Resize(ref _events, _events.Length * 2);
+            _events[_eventCount++] = new SimEvent(type, entityId, x, y, arg);
+        }
+
+        /// <summary>Tick > 0 조건: 생성자(재시작 승계 포함) 초기 레벨은 이벤트가 아니다.</summary>
+        void EmitLevelChange(PowerUpSlot slot, int previous, int next)
+        {
+            if (Tick > 0 && next != previous)
+                EmitEvent(SimEventType.PowerUpLevelChanged, (int)slot, PlayerX, PlayerY, next);
+        }
+
         void ReadPowerUpLevels()
         {
             if (_powerUpGauge == null)
@@ -479,10 +547,17 @@ namespace Shmup.Core.Simulation
                 return;
             }
 
+            int previousMainShot = _mainShotLevel;
+            int previousMissile = _missileLevel;
+            int previousOption = _optionLevel;
             _mainShotLevel = _powerUpGauge.GetLevel(PowerUpSlot.MainShot);
             _missileLevel = _powerUpGauge.GetLevel(PowerUpSlot.Missile);
             _optionLevel = _powerUpGauge.GetLevel(PowerUpSlot.Option);
+            EmitLevelChange(PowerUpSlot.MainShot, previousMainShot, _mainShotLevel);
+            EmitLevelChange(PowerUpSlot.Missile, previousMissile, _missileLevel);
+            EmitLevelChange(PowerUpSlot.Option, previousOption, _optionLevel);
             int nextShieldLevel = _powerUpGauge.GetLevel(PowerUpSlot.Shield);
+            EmitLevelChange(PowerUpSlot.Shield, _shieldGaugeLevel, nextShieldLevel);
             if (nextShieldLevel > _shieldGaugeLevel)
                 ShieldRemaining = nextShieldLevel;
             else if (ShieldRemaining > nextShieldLevel)
@@ -666,11 +741,13 @@ namespace Shmup.Core.Simulation
                 {
                     _enemies[enemyIndex] = new EnemyState(
                         enemy.Id, enemy.DefinitionId, enemy.X, enemy.Y, hp);
+                    EmitEvent(SimEventType.EnemyHit, enemy.Id, enemy.X, enemy.Y, damage);
                     continue;
                 }
 
                 EnemyDefinition definition = _enemyDefinitions[enemyIndex];
                 RemoveEnemyAt(enemyIndex);
+                EmitEvent(SimEventType.EnemyKilled, enemy.Id, enemy.X, enemy.Y, damage);
                 TryDropCapsule(definition, enemy.X, enemy.Y);
             }
         }
@@ -715,6 +792,10 @@ namespace Shmup.Core.Simulation
                 ShieldRemaining -= absorbed;
                 PlayerHp = Damage.ApplyToHp(PlayerHp, contactDamage - absorbed);
                 RemoveEnemyAt(index);
+                // Arg = 실드를 뚫고 선체에 닿은 데미지. 0이면 실드가 전부 흡수한 것.
+                EmitEvent(SimEventType.PlayerHit, 0, PlayerX, PlayerY, contactDamage - absorbed);
+                if (PlayerHp == 0)
+                    EmitEvent(SimEventType.PlayerKilled, 0, PlayerX, PlayerY, 0);
             }
         }
 
@@ -734,6 +815,7 @@ namespace Shmup.Core.Simulation
 
                 _capsules.RemoveAt(index);
                 _powerUpGauge.Collect();
+                EmitEvent(SimEventType.CapsulePicked, capsule.Id, capsule.X, capsule.Y, 0);
             }
         }
 
@@ -744,7 +826,9 @@ namespace Shmup.Core.Simulation
             if (_dropRng.NextInt(0, totalWeight) < _capsuleNoDropWeight) return;
             if (_nextCapsuleId == int.MaxValue)
                 throw new InvalidOperationException("The capsule id counter is exhausted.");
-            _capsules.Add(new CapsuleState(_nextCapsuleId++, x, y));
+            int capsuleId = _nextCapsuleId++;
+            _capsules.Add(new CapsuleState(capsuleId, x, y));
+            EmitEvent(SimEventType.CapsuleDropped, capsuleId, x, y, 0);
         }
 
         void SpawnMainShotVolley()

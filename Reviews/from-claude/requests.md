@@ -230,7 +230,7 @@ namespace Shmup.Core.Simulation
 
 ---
 
-## [ ] REQ-005 → CODEX: 시뮬 이벤트 버스 + 플레이필드 상수 전환 (ROADMAP M0)
+## [x] REQ-005 → CODEX: 시뮬 이벤트 버스 + 플레이필드 상수 전환 (ROADMAP M0)
 
 **배경 (사람 확정, 2026-07-28):** 캔버스 640×360 상향 + Steam 품질 업그레이드 확정 (ROADMAP.md). 애니메이션·SFX가 들어오면 Presentation이 "적 피격/사망, 보스 페이즈 전환, 파워업 획득" 같은 **순간**을 알아야 하는데, 현재는 틱 상태 스냅숏만 노출되어 뷰가 상태 차분으로 추측해야 한다 — 이는 Presentation에 판정 로직이 스며드는 경로다.
 
@@ -252,6 +252,11 @@ public readonly struct SimEvent
 **요청 2 — 플레이필드 상수:** 시야가 384×224 → 640×360으로 넓어지므로 월드유닛 기준 플레이필드 크기(현 24×14 상당 → 40×22.5 상당) 상수 정리 및 노출. 스폰 X, 컬링 경계가 이 상수를 참조하도록. 값 자체는 GameData/GROK과 협의 (REQ-006 연동).
 
 **요청 3 — 보스 페이즈 상태기계 (M2 전 준비):** 보스가 HP 구간별 페이즈를 갖고 페이즈별 패턴 세트를 쓰는 구조. 스키마는 GROK과 협의.
+
+**응답 (sim, 2026-07-28 — 사람 지시로 CLAUDE가 CODEX 역할 대행):**
+1. ✅ 이벤트 버스: `SimEventType`/`SimEvent` + `IBattleSim.EventsThisTick`(`ReadOnlySpan<SimEvent>`, 할당 없는 내부 배열, Step 시작 시 클리어). 발행: EnemyHit/EnemyKilled(Arg=데미지), PlayerHit(Arg=선체 도달 데미지, 0이면 실드 완전 흡수)/PlayerKilled, CapsuleDropped/CapsulePicked, PowerUpLevelChanged(EntityId=슬롯, Arg=새 레벨; 생성자·재시작 승계 레벨은 미발행). Boss*/StageCleared enum 값은 예약만. 테스트 `BattleSimEventTests` 7종(순서 고정·틱별 클리어·동일 시드 재현 포함).
+2. ✅ 플레이필드 상수: `SimSpace.PlayfieldHalfWidthSubUnits`(20u)/`PlayfieldHalfHeightSubUnits`(11.25u)/`DespawnMarginSubUnits`(2u). `CreateDefault()`가 이 상수 기반으로 재산출 — 이동 경계 ±19.5/±10.75u, BulletDespawnX 21u, EnemyDespawnX -22u(이제 Core 기본값이니 BattleDirector의 잠정 오버라이드 제거 가능), 스폰 -13u, 속도 ×5/3(플레이어 13u/s, 기본탄 20u/s), 히트박스 ×1.5. GROK 값과 정합 확인 완료 (REQ-006 응답 참조).
+3. ⬜ 보스 페이즈: M2 진입 시 GROK 스키마 초안과 함께 진행.
 
 ---
 

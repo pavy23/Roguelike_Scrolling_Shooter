@@ -27,16 +27,21 @@ namespace Shmup.Core.Tests
             BattleSimConfig config = BattleSimConfig.CreateDefault();
             int units = SimSpace.SubUnitsPerWorldUnit;
 
-            Assert.AreEqual(8 * units, config.PlayerSpeedNumerator);
+            // 640×360 전환(ROADMAP M0): 24×14 시절 값의 ×5/3 스케일.
+            Assert.AreEqual(13 * units, config.PlayerSpeedNumerator);
             Assert.AreEqual(SimSpace.TicksPerSecond, config.PlayerSpeedDenominator);
-            Assert.AreEqual(34, config.PlayerSpeedPerTick);
-            Assert.AreEqual(12 * units, config.PlayerBulletSpeedNumerator);
+            Assert.AreEqual(55, config.PlayerSpeedPerTick);
+            Assert.AreEqual(20 * units, config.PlayerBulletSpeedNumerator);
             Assert.AreEqual(SimSpace.TicksPerSecond, config.PlayerBulletSpeedDenominator);
-            Assert.AreEqual(51, config.PlayerBulletSpeedPerTick);
+            Assert.AreEqual(85, config.PlayerBulletSpeedPerTick);
             Assert.AreEqual(8, config.FireIntervalTicks);
             Assert.AreEqual(64, config.MaxBullets);
-            Assert.AreEqual(-8 * units, config.PlayerSpawnX);
+            Assert.AreEqual(-13 * units, config.PlayerSpawnX);
             Assert.AreEqual(0, config.PlayerSpawnY);
+            Assert.AreEqual(SimSpace.PlayfieldHalfWidthSubUnits + units, config.BulletDespawnX);
+            Assert.AreEqual(
+                -(SimSpace.PlayfieldHalfWidthSubUnits + SimSpace.DespawnMarginSubUnits),
+                config.EnemyDespawnX);
         }
 
         [Test]
