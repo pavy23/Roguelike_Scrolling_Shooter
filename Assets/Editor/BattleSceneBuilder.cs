@@ -121,6 +121,42 @@ namespace Shmup.EditorTools
             ['C'] = new Color32(0xFF, 0xE8, 0xB0, 0xFF)
         };
 
+        // 폭발 12×12 스타버스트 (런타임에 확대+페이드)
+        const string ExplosionSpritePath = SpriteDir + "/explosion.png";
+        const string ExplosionPrefabPath = PrefabDir + "/Explosion.prefab";
+
+        static readonly string[] ExplosionPixels =
+        {
+            ".....WW.....",
+            "..O..WW..O..",
+            ".OO.WYYW.OO.",
+            "..OWYYYYWO..",
+            "..WYYCCYYW..",
+            "WWYYCCCCYYWW",
+            "WWYYCCCCYYWW",
+            "..WYYCCYYW..",
+            "..OWYYYYWO..",
+            ".OO.WYYW.OO.",
+            "..O..WW..O..",
+            ".....WW....."
+        };
+
+        static readonly Dictionary<char, Color32> ExplosionPalette = new Dictionary<char, Color32>
+        {
+            ['C'] = new Color32(0xFF, 0xFF, 0xE0, 0xFF),
+            ['Y'] = new Color32(0xFF, 0xC8, 0x3C, 0xFF),
+            ['W'] = new Color32(0xFF, 0x78, 0x20, 0xFF),
+            ['O'] = new Color32(0xB4, 0x3C, 0x14, 0xFF)
+        };
+
+        // 피격 플래시용 흰색 타일 (풀스크린으로 스케일해 알파만 조절)
+        const string WhiteSpritePath = SpriteDir + "/px_white.png";
+        static readonly string[] WhitePixels = { "WW", "WW" };
+        static readonly Dictionary<char, Color32> WhitePalette = new Dictionary<char, Color32>
+        {
+            ['W'] = new Color32(0xFF, 0xFF, 0xFF, 0xFF)
+        };
+
         // HUD 슬롯 프레임 22×12: 'W' 테두리(런타임 틴트로 상태 표시), 'D' 반투명 내부
         const string HudSlotSpritePath = SpriteDir + "/hud_slot.png";
         const string HudPipSpritePath = SpriteDir + "/hud_pip.png";
@@ -207,9 +243,12 @@ namespace Shmup.EditorTools
                 var enemyPrefab = WriteSpritePrefab(EnemyPrefabPath, "Enemy", enemySprite, 8);
                 var capsuleSprite = WritePixelSprite(CapsuleSpritePath, CapsulePixels, CapsulePalette);
                 var capsulePrefab = WriteSpritePrefab(CapsulePrefabPath, "Capsule", capsuleSprite, 7);
+                var explosionSprite = WritePixelSprite(ExplosionSpritePath, ExplosionPixels, ExplosionPalette);
+                var explosionPrefab = WriteSpritePrefab(ExplosionPrefabPath, "Explosion", explosionSprite, 20);
+                var whiteSprite = WritePixelSprite(WhiteSpritePath, WhitePixels, WhitePalette);
 
-                BuildScene(shipSprite, bulletPrefab, enemyPrefab, capsulePrefab,
-                           hudSlotSprite, hudPipSprite, starsFarSprite, starsNearSprite);
+                BuildScene(shipSprite, bulletPrefab, enemyPrefab, capsulePrefab, explosionPrefab,
+                           whiteSprite, hudSlotSprite, hudPipSprite, starsFarSprite, starsNearSprite);
                 RegisterInBuildSettings();
 
                 AssetDatabase.SaveAssets();
@@ -295,7 +334,7 @@ namespace Shmup.EditorTools
 
         // ── 씬 ────────────────────────────────────────────────────────────────────
 
-        static void BuildScene(Sprite shipSprite, GameObject bulletPrefab, GameObject enemyPrefab, GameObject capsulePrefab, Sprite hudSlotSprite, Sprite hudPipSprite, Sprite starsFarSprite, Sprite starsNearSprite)
+        static void BuildScene(Sprite shipSprite, GameObject bulletPrefab, GameObject enemyPrefab, GameObject capsulePrefab, GameObject explosionPrefab, Sprite whiteSprite, Sprite hudSlotSprite, Sprite hudPipSprite, Sprite starsFarSprite, Sprite starsNearSprite)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -319,6 +358,19 @@ namespace Shmup.EditorTools
             var capsuleRoot = new GameObject("Capsules");
             capsuleRoot.transform.SetParent(battleRoot.transform, false);
 
+            var fxRoot = new GameObject("Fx");
+            fxRoot.transform.SetParent(battleRoot.transform, false);
+
+            // 피격 플래시: 2px 흰 타일을 화면 전체(24×14u)로 늘려 알파만 조절한다.
+            var damageFlash = new GameObject("DamageFlash");
+            damageFlash.transform.SetParent(battleRoot.transform, false);
+            // 타일이 2px이므로 스케일 = 화면 픽셀 / 2
+            damageFlash.transform.localScale = new Vector3(RefResolutionX / 2f, RefResolutionY / 2f, 1f);
+            var damageFlashRenderer = damageFlash.AddComponent<SpriteRenderer>();
+            damageFlashRenderer.sprite = whiteSprite;
+            damageFlashRenderer.sortingOrder = 90;
+            damageFlashRenderer.color = new Color(1f, 0.2f, 0.2f, 0f);
+
             var inputReader = battleRoot.AddComponent<PlayerInputReader>();
             var director = battleRoot.AddComponent<BattleDirector>();
 
@@ -336,6 +388,9 @@ namespace Shmup.EditorTools
             SetReference(director, "_enemyRoot", enemyRoot.transform);
             SetReference(director, "_capsulePrefab", capsulePrefab);
             SetReference(director, "_capsuleRoot", capsuleRoot.transform);
+            SetReference(director, "_explosionPrefab", explosionPrefab);
+            SetReference(director, "_fxRoot", fxRoot.transform);
+            SetReference(director, "_damageFlash", damageFlashRenderer);
 
             CreateHud(director, hudSlotSprite, hudPipSprite);
             CreateBackground(director, starsFarSprite, starsNearSprite);

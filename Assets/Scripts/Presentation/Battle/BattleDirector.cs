@@ -29,6 +29,9 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Transform _enemyRoot;
         [SerializeField] GameObject _capsulePrefab;
         [SerializeField] Transform _capsuleRoot;
+        [SerializeField] GameObject _explosionPrefab;
+        [SerializeField] Transform _fxRoot;
+        [SerializeField] SpriteRenderer _damageFlash;
 
         [Header("Run")]
         [Tooltip("로그라이크 시드. 같은 시드 + 같은 입력 = 같은 결과 (AGENTS.md §4).")]
@@ -46,6 +49,16 @@ namespace Shmup.Presentation.Battle
         readonly Dictionary<int, SpriteRenderer> _enemyRenderers = new Dictionary<int, SpriteRenderer>(32);
         readonly HashSet<int> _aliveIds = new HashSet<int>();
         readonly List<int> _retiredIds = new List<int>(16);
+
+        // 시각 이펙트 (순수 표현 — 게임 상태에 영향 없음)
+        SpritePool _fxPool;
+        readonly List<Transform> _activeFx = new List<Transform>(16);
+        readonly List<SpriteRenderer> _activeFxRenderers = new List<SpriteRenderer>(16);
+        readonly List<float> _activeFxAges = new List<float>(16);
+        const float ExplosionDuration = 0.28f;
+        int _lastHp = -1;
+        float _damageFlashAge = float.MaxValue;
+        const float DamageFlashDuration = 0.3f;
 
         // 적 종류 구분용 틴트 (플레이스홀더 아트 한정 — 실제 스프라이트가 생기면 제거)
         static readonly Color32[] EnemyTints =
@@ -93,8 +106,18 @@ namespace Shmup.Presentation.Battle
             _bulletPool = new SpritePool(_bulletPrefab, _bulletRoot, config.MaxBullets, "Bullet");
             _enemyPool = new SpritePool(_enemyPrefab, _enemyRoot, 32, "Enemy");
             _capsulePool = new SpritePool(_capsulePrefab, _capsuleRoot, 16, "Capsule");
+            _fxPool = new SpritePool(_explosionPrefab, _fxRoot, 16, "Explosion");
+
+            if (_damageFlash != null)
+                _damageFlash.color = new Color(1f, 0.2f, 0.2f, 0f);
 
             SyncViews();
+        }
+
+        void Update()
+        {
+            AnimateExplosions();
+            AnimateDamageFlash();
         }
 
         void FixedUpdate()
@@ -162,7 +185,84 @@ namespace Shmup.Presentation.Battle
                 view.localPosition = SimView.ToWorld(enemy.X, enemy.Y);
             }
 
-            ReleaseDeadViews(_enemyViews, _enemyPool, _enemyRenderers);
+            ReleaseDeadEnemies();
+        }
+
+        /// <summary>
+        /// 적 뷰 반납 + 폭발 이펙트. 마지막 위치가 화면 안이면 처치로 보고 터뜨린다
+        /// (왼쪽 밖 despawn과 구분하는 표현 계층 휴리스틱 — 게임 판정이 아니다).
+        /// </summary>
+        void ReleaseDeadEnemies()
+        {
+            const float despawnEdgeX = -12.5f;
+
+            _retiredIds.Clear();
+            foreach (var pair in _enemyViews)
+                if (!_aliveIds.Contains(pair.Key))
+                    _retiredIds.Add(pair.Key);
+
+            for (int i = 0; i < _retiredIds.Count; i++)
+            {
+                int id = _retiredIds[i];
+                var view = _enemyViews[id];
+                if (view.localPosition.x > despawnEdgeX)
+                    SpawnExplosion(view.localPosition);
+                _enemyPool.Release(view);
+                _enemyViews.Remove(id);
+                _enemyRenderers.Remove(id);
+            }
+        }
+
+        void SpawnExplosion(Vector3 position)
+        {
+            var fx = _fxPool.Acquire();
+            if (fx == null) return;
+            fx.localPosition = position;
+            fx.localScale = Vector3.one * 0.6f;
+            _activeFx.Add(fx);
+            _activeFxRenderers.Add(fx.GetComponent<SpriteRenderer>());
+            _activeFxAges.Add(0f);
+        }
+
+        void AnimateExplosions()
+        {
+            for (int i = _activeFx.Count - 1; i >= 0; i--)
+            {
+                float age = _activeFxAges[i] + Time.deltaTime;
+                if (age >= ExplosionDuration)
+                {
+                    _fxPool.Release(_activeFx[i]);
+                    _activeFx.RemoveAt(i);
+                    _activeFxRenderers.RemoveAt(i);
+                    _activeFxAges.RemoveAt(i);
+                    continue;
+                }
+
+                _activeFxAges[i] = age;
+                float t = age / ExplosionDuration;
+                _activeFx[i].localScale = Vector3.one * Mathf.Lerp(0.6f, 1.8f, t);
+                var renderer = _activeFxRenderers[i];
+                if (renderer != null)
+                {
+                    var c = renderer.color;
+                    c.a = 1f - t;
+                    renderer.color = c;
+                }
+            }
+        }
+
+        void AnimateDamageFlash()
+        {
+            int hp = PlayerHp;
+            if (_lastHp >= 0 && hp < _lastHp)
+                _damageFlashAge = 0f;
+            _lastHp = hp;
+
+            if (_damageFlash == null || _damageFlashAge >= DamageFlashDuration) return;
+
+            _damageFlashAge += Time.deltaTime;
+            float alpha = Mathf.Clamp01(1f - _damageFlashAge / DamageFlashDuration) * 0.35f;
+            _damageFlash.color = new Color(1f, 0.2f, 0.2f, alpha);
         }
 
         void SyncCapsules()
@@ -197,10 +297,7 @@ namespace Shmup.Presentation.Battle
             return EnemyTints[(hash & 0x7FFFFFFF) % EnemyTints.Length];
         }
 
-        void ReleaseDeadViews(
-            Dictionary<int, Transform> views,
-            SpritePool pool,
-            Dictionary<int, SpriteRenderer> renderers = null)
+        void ReleaseDeadViews(Dictionary<int, Transform> views, SpritePool pool)
         {
             _retiredIds.Clear();
             foreach (var pair in views)
@@ -212,7 +309,6 @@ namespace Shmup.Presentation.Battle
                 int id = _retiredIds[i];
                 pool.Release(views[id]);
                 views.Remove(id);
-                renderers?.Remove(id);
             }
         }
 
