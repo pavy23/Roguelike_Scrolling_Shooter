@@ -311,16 +311,16 @@ namespace Shmup.EditorTools
             {
                 CopyGameDataToResources();
 
-                var shipSprite = WritePixelSprite(ShipSpritePath, ShipPixels, ShipPalette);
+                var shipSprite = WriteExternalOrPixelSprite(ShipSpritePath, "player_ship.png", ShipPixels, ShipPalette);
                 var bulletSprite = WritePixelSprite(BulletSpritePath, BulletPixels, BulletPalette);
                 var hudSlotSprite = WritePixelSprite(HudSlotSpritePath, HudSlotPixels, HudPalette);
                 var hudPipSprite = WritePixelSprite(HudPipSpritePath, HudPipPixels, HudPalette);
                 var starsFarSprite = WritePixelSprite(StarsFarSpritePath, BuildStarPixels(9001, 110, false), StarsFarPalette);
                 var starsNearSprite = WritePixelSprite(StarsNearSpritePath, BuildStarPixels(4242, 45, true), StarsNearPalette);
                 var bulletPrefab = WriteBulletPrefab(bulletSprite);
-                var enemySprite = WritePixelSprite(EnemySpritePath, EnemyPixels, EnemyPalette);
+                var enemySprite = WriteExternalOrPixelSprite(EnemySpritePath, "enemy_zako.png", EnemyPixels, EnemyPalette);
                 var enemyPrefab = WriteSpritePrefab(EnemyPrefabPath, "Enemy", enemySprite, 8);
-                var capsuleSprite = WritePixelSprite(CapsuleSpritePath, CapsulePixels, CapsulePalette);
+                var capsuleSprite = WriteExternalOrPixelSprite(CapsuleSpritePath, "capsule.png", CapsulePixels, CapsulePalette);
                 var capsulePrefab = WriteSpritePrefab(CapsulePrefabPath, "Capsule", capsuleSprite, 7);
                 var explosionSprite = WritePixelSprite(ExplosionSpritePath, ExplosionPixels, ExplosionPalette);
                 var explosionPrefab = WriteSpritePrefab(ExplosionPrefabPath, "Explosion", explosionSprite, 20);
@@ -372,6 +372,41 @@ namespace Shmup.EditorTools
         }
 
         // ── 스프라이트 ────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 외부 아트 파이프라인 (ART-DIRECTION.md): art-input/<fileName>이 있으면 그 파일이
+        /// 절차 생성 플레이스홀더를 대체한다. 없으면 기존 픽셀 배열로 생성.
+        /// </summary>
+        static Sprite WriteExternalOrPixelSprite(string assetPath, string externalFileName, string[] rows, Dictionary<char, Color32> palette)
+        {
+            string external = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "art-input", externalFileName));
+            if (File.Exists(external))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(assetPath));
+                File.Copy(external, assetPath, true);
+                AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
+                ApplySpriteImporter(assetPath);
+                var externalSprite = AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
+                if (externalSprite == null) throw new InvalidOperationException($"{assetPath} 외부 스프라이트 로드 실패");
+                Debug.Log($"[BattleSceneBuilder] 외부 아트 적용: {externalFileName} → {assetPath}");
+                return externalSprite;
+            }
+            return WritePixelSprite(assetPath, rows, palette);
+        }
+
+        static void ApplySpriteImporter(string assetPath)
+        {
+            var importer = (TextureImporter)AssetImporter.GetAtPath(assetPath);
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.spritePixelsPerUnit = AssetsPPU;
+            importer.filterMode = FilterMode.Point;
+            importer.mipmapEnabled = false;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.alphaIsTransparency = true;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.SaveAndReimport();
+        }
 
         static Sprite WritePixelSprite(string assetPath, string[] rows, Dictionary<char, Color32> palette)
         {

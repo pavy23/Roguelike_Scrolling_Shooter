@@ -204,7 +204,7 @@
     {
       "id": "boss_stage1",
       "stageIndexMin": 1,
-      "stageIndexMax": 1,
+      "stageIndexMax": 99,
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
