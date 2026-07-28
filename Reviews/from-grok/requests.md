@@ -4,6 +4,117 @@
 
 ---
 
+## 2026-07-29 rewards.json 런 지속 패시브 3종 (M3 시너지 · 잠정)
+
+**완료:** `GameData/rewards.json`에 패시브 보상 3종 추가 + 기존 6종 weight 상향.  
+**상태:** 손맛·분포 **잠정 제안** — 최종 확정은 사람 결정 (AGENTS.md §7).  
+**출처 요청:** `Reviews/from-codex/requests.md` — 런 지속 패시브 3종 데이터 추가.
+
+### 카탈로그 변경
+
+| id | type | amount | weight | stageIndexMin–Max | 효과 (Core 계약) |
+|---|---|---|---|---|---|
+| `passive_fire_rate_1` | `fireRateUp` | 1 | **1** | **2**–99 | 기본탄 `fireIntervalTicks −1` (하한 `MainShotMinimumFireIntervalTicks`, 기본 4) |
+| `passive_damage_1` | `damageUp` | 1 | **1** | **2**–99 | 기본탄 `baseDamage +2` |
+| `passive_move_speed_1` | `moveSpeedUp` | 1 | **1** | **2**–99 | 플레이어 이동 `+1 u/s` |
+| 기존 6종 (capsules / 4×slotLevel / repairHp) | (유지) | (유지) | **1 → 2** | 1–99 | 변경 없음 (weight만) |
+
+- `schemaVersion: 1`, `optionCount: 3` 유지. 패시브 항목에 `slot` 필드 없음 (`slotLevel` 전용).
+- 런 중 중첩, `Restart` 시 Core가 초기값 복원 (사망 승계 없음).
+
+### weight · stage 선정 근거
+
+**목표:** 시너지 빌드의 핵심 축이지만, 패시브가 너무 자주 나오면 **슬롯 육성(메인/미사일/옵션/실드)** 이 죽는다.
+
+| 구간 | 후보 수 | weight 합 | 비패시브 : 패시브 |
+|---|---|---|---|
+| stage **1** | 6 (기존만) | 12 | 12 : 0 — 기본 육성 전용 |
+| stage **2+** | 9 | 12 + 3 = **15** | **12 : 3 = 4 : 1** |
+
+- 사람 제안 “약 2:1”보다 **보수적(4:1)**. 기존 weight 상향(1→2) + 패시브 weight 1로 슬롯·유틸 풀 질량을 지킴.
+- 슬롯 4종만 보면 8 : 3 ≈ **2.7 : 1** (슬롯 육성 우위 유지).
+- 1픽 기준 stage 2+: P(아무 패시브) = 3/15 = **20%**, P(특정 슬롯) = 2/15 ≈ **13.3%**.
+- `stageIndexMin: 2` — stage 1 클리어 보상은 캡슐/슬롯/repair만. 초반 게이지·슬롯 기반을 깔고 나서 시너지 축을 연다.
+
+**채택하지 않은 대안**
+
+| 대안 | 기각 이유 |
+|---|---|
+| 기존 weight 1 유지 + 패시브 weight 1 (6:3=2:1) | 사람 하한에 맞지만 stage 2에서 패시브 1/3 질량 → 슬롯 선택이 잦아 빌드 편중 우려. |
+| 패시브 stageIndexMin 1 | stage 1부터 시너지 축이 슬롯과 경쟁 → 기본 육성 우선 원칙 위배. |
+| amount > 1 (예: damage +4) | 1스택 체감이 과도. amount 1로 중첩 곡선을 플레이 관측 후 조정. |
+
+### 이론 효과 · 중첩 곡선 (헤드리스 수치 검산)
+
+기준: `weapons.json` main_shot `baseDamage: 10`, `fireIntervalTicks: 8`; Core 기본 `MainShotMinimumFireIntervalTicks: 4`, 플레이어 속도 **13 u/s**.  
+DPS = `baseDamage × (60 / interval)` (레벨 0/1 동일 base, 풀히트 가정). 보스 TTK는 현 `boss_stage1` hp 곡선 참고용.
+
+#### fireRateUp (amount 1)
+
+| 스택 | interval | RoF (발/초) | 대비 base |
+|---|---|---|---|
+| 0 | 8 | 7.5 | — |
+| 1 | 7 | ≈8.57 | **+14%** |
+| 2 | 6 | 10 | +33% |
+| 3 | 5 | 12 | +60% |
+| 4+ | **4 (clamp)** | 15 | +100% |
+
+- 유효 상한 4스택. 그 이상은 하한에 막혀 보상 낭비 가능 → 후속 “이미 최소면 풀에서 제외” 로직은 CODEX 검토 여지.
+- MainShot 게이지 rapid-fire 감소와 **가산**되면 더 빨리 하한에 도달. 슬롯 육성과 시너지이자 중복 주의 포인트.
+
+#### damageUp (amount 1, +2 base/스택)
+
+| 스택 | base dmg | DPS @ interval 8 | stage1 boss TTK 추정 (hp 1000 가정, 메인만) |
+|---|---|---|---|
+| 0 | 10 | 75 | ≈13.3s |
+| 1 | 12 | 90 (**+20%**) | ≈11.1s |
+| 2 | 14 | 105 | ≈9.5s |
+| 3 | 16 | 120 | ≈8.3s |
+
+- 1스택 +20%는 슬롯 MainShot 레벨 1회(+50% of base via `Damage.Compute`)보다 약하지만 **레벨과 곱해져** 시너지 (base 12 × L2 = 18 vs base 10 × L2 = 15).
+- 3스택(+60% base)도 단독으로는 보스 즉사 수준이 아님. fireRateUp과 동시 적중 시 체감 폭주 가능 → weight 희귀도가 1차 안전장치.
+
+#### moveSpeedUp (amount 1, +1 u/s)
+
+| 스택 | 속도 u/s | 대비 base 13 |
+|---|---|---|
+| 0 | 13.0 | — |
+| 1 | 14.0 | **+7.7%** |
+| 2 | 15.0 | +15% |
+| 3 | 16.0 | +23% (Interceptor 1.25× ≈ 16.25에 근접) |
+
+- 회피·레인 전환 마진 확대. DPS 직접 영향 없음.
+- 함선 배율과 합성되므로 Interceptor+다스택은 과속이 될 수 있음 — 관측 후 weight 또는 amount 재검토.
+
+#### 복합 시너지 (과하지 않은가?)
+
+| 빌드 | 대략 DPS | 비고 |
+|---|---|---|
+| base only | 75 | 기준 |
+| dmg×1 + rate×1 | 12 × (60/7) ≈ **103** (+37%) | stage 2–3 합리적 시너지 |
+| dmg×2 + rate×2 | 14 × 10 = **140** (+87%) | 다스테이지 투자, 슬롯 기회비용 큼 |
+| dmg×3 + rate×4 (하한) | 16 × 15 = **240** (+220%) | 이론 상한. 실제 3택·weight 4:1·슬롯 경쟁으로 도달 빈도 낮음 |
+
+**결론 (잠정):** amount 1 + stage≥2 + weight 1(기존 2) 조합은 1–2스택 시너지를 허용하면서 슬롯 풀을 죽이지 않는다. 최종 손맛·weight 미세조정은 플레이 피드백 후 사람 확정.
+
+### 테스트 동기화 (CODEX 소유 파일 최소 수정)
+
+`Assets/Tests/EditMode/GameDataParserTests.cs`  
+`RepositoryApprovedV2Files_ParseCompletely` — `Rewards.All.Count` **6 → 9**.  
+(콘텐츠 카탈로그 확장에 따른 고정 개수 Assert. 이전 REQ-G004와 동일 패턴.)
+
+### 검증
+
+- `cd Tools/CoreStandalone && dotnet test` — PASS 목표.
+- Core 패시브 단위 테스트(`PassiveRewardTests`)는 인라인 카탈로그 사용 — JSON 변경과 독립.
+
+### CLAUDE 후속
+
+1. `Assets/Resources/GameData/rewards.json` 동기화 (Resources 복사 파이프).
+2. 보상 UI 라벨: `fireRateUp` / `damageUp` / `moveSpeedUp` 표시명 (연사 강화 / 화력 강화 / 엔진 출력).
+
+---
+
 ## 2026-07-29 ships.json 함선 카탈로그 (잠정 · AGENTS.md §7)
 
 **완료:** `GameData/ships.json` schemaVersion **1** 신설. 함선 3종.  

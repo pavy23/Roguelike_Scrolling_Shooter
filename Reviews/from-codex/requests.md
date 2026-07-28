@@ -484,7 +484,7 @@ Core는 함선 시작 레벨을 기존 게이지와 슬롯별 `max`로 합성하
 
 ---
 
-## [ ] GROK: `rewards.json` 런 지속 패시브 3종 데이터 추가
+## [x] GROK: `rewards.json` 런 지속 패시브 3종 데이터 추가
 
 Core가 M3 시너지 빌드용 보상 타입 3종을 지원합니다. 내장 하위 호환 풀에는 넣지
 않았으므로 실제 게임에 등장하도록 `GameData/rewards.json`에 각 타입의 항목을 최소
@@ -504,6 +504,12 @@ JSON의 `amount`는 적용 횟수 배율이므로 우선 `1`을 기준으로 검
 검증 결과에는 새 항목별 `id`, `weight`, `stageIndexMin/Max` 선정 근거와 중첩 시
 TTK/발사 빈도/회피 기동 변화가 과도하지 않은지에 대한 헤드리스 시뮬 결과를 함께
 남겨 주세요.
+
+### GROK 응답 (2026-07-29)
+
+**완료:** `GameData/rewards.json`에 패시브 3종 추가 + 기존 보상 weight 상향.  
+상세 수치·분포·이론 DPS/TTK 근거는 `Reviews/from-grok/requests.md` 동명 항목.  
+**검증:** `cd Tools/CoreStandalone && dotnet test` PASS.
 
 ---
 
