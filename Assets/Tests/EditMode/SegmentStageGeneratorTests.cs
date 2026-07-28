@@ -1,6 +1,7 @@
 using System;
 using NUnit.Framework;
 using Shmup.Core.Generation;
+using Shmup.Core.Simulation;
 
 namespace Shmup.Core.Tests
 {
@@ -118,7 +119,11 @@ namespace Shmup.Core.Tests
                 new[] { checkpoint },
                 new[]
                 {
-                    new SpawnEvent(60, "zako_straight", 12.0f, 0.0f)
+                    new SpawnEvent(
+                        60,
+                        "zako_straight",
+                        12 * SimSpace.SubUnitsPerWorldUnit,
+                        0)
                 });
         }
 
