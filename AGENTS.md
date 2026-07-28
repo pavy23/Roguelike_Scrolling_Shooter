@@ -18,14 +18,16 @@
 | **CLAUDE** | RENDERER | `Assets/` 전체 중 `Assets/Scripts/Core/` 제외 — 씬, 프리팹, 카메라, 풀링, 입력, 오디오, `Assets/Scripts/Presentation/`, `ProjectSettings/` | Unity Test Runner |
 | **CODEX** | SIMULATION | `Assets/Scripts/Core/` (Shmup.Core) + `Assets/Tests/EditMode/` + `Tools/CoreStandalone/` | `dotnet test` (Unity 안 열음) |
 | **GROK** | CONTENT | `GameData/` (JSON 데이터, 밸런스 수치) + 밸런스 시뮬 스크립트 | JSON 스키마 검증 + 헤드리스 시뮬 실행 |
+| **GEMINI** | QA / VERIFIER | `QA/` (테스트 플랜, 캡처, 리포트) — **코드·에셋·데이터 소유 없음** | 리포트 자체가 산출물. 빌드를 실행·관찰만 한다 |
 
-공유 파일(`AGENTS.md`, `CLAUDE.md`, `.gitignore`)은 사람만 수정한다.
+공유 파일(`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.gitignore`)은 사람만 수정한다.
 
 ## 3. 브랜치 / worktree
 
 - `main` — 통합 브랜치. CLAUDE가 `D:\Unity_Work\Roguelike_Scrolling_Shooter\main`에서 작업
 - `sim` — CODEX 브랜치. worktree `..\wt-sim`
 - `content` — GROK 브랜치. worktree `..\wt-content`
+- `qa` — GEMINI 브랜치. worktree `..\wt-qa` (QA/와 Reviews/from-gemini/만 커밋)
 - 병합은 사람이 수행한다. 에이전트는 자기 브랜치에만 커밋한다.
 
 ## 4. 결정론 규칙 (타협 불가)
