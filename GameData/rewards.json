@@ -3,9 +3,9 @@
   "optionCount": 3,
   "rewards": [
     {
-      "id": "capsules_3",
+      "id": "capsules_5",
       "type": "capsules",
-      "amount": 3,
+      "amount": 5,
       "weight": 1,
       "stageIndexMin": 1,
       "stageIndexMax": 99

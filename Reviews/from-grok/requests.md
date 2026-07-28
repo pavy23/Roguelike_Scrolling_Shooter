@@ -63,10 +63,47 @@ public readonly struct RewardDefinition
 
 ---
 
+## 2026-07-29 밸런스 v1 (잠정)
+
+**승인 맥락:** 오케스트레이터가 아래 밸런스 우려 중 우선 4건을 잠정 승인 (사람 수면 중 위임). AGENTS.md §7 최종 확정은 사람 검토 후.  
+**범위:** `GameData/waves.json` · `enemies.json` · `rewards.json` 만. 스키마 변경 없음.  
+**비적용 (이번 패스 밖):** A1–A4 체감 속도/히트박스, B2–B4 세그먼트·contact, C3–C6 보스 배율/holdX/페이즈 경계, D2–D4 repair/슬롯 weight/stage 제한, CarryFraction·슬롯 max.
+
+### 변경 일람
+
+| # | 파일 | 항목 | before → after | 근거 |
+|---|---|---|---|---|
+| V1-C1 | `waves.json` `boss_stage1` | `hp` | 500 → **1000** | main_shot base 10 / interval 8t, level≥1 가정 `Damage.Compute` → 10 dmg. 이론 DPS = 10×(60/8) = **75**. TTK = 1000/75 ≈ **13.3s** (목표 12–15s). 기존 500/75 ≈ 6.7s는 보스 연출·회피 학습 창이 부족. 옵션·미사일 합산 시 실효 TTK는 더 짧아지므로 이론 하한 근처보다 중앙(≈13s)을 택함. |
+| V1-C2 | `waves.json` phase2 | `fireIntervalTicks` / `bulletSpeed` | 35→**45** / 11.0→**10.0** | 실효 `PlayerMaxHp=3`(BattleDirector 잠정). 5-way 유지로 위협 유지. 볼리 주기 35t(≈1.71/s)→45t(≈1.33/s)로 회피 창 확대, 탄속 11→10으로 반응 여유 소폭 부여. ways·페이즈0 미변경. |
+| V1-B1 | `enemies.json` `zako_fast` | `dropWeight` | 3 → **2** | `P(drop)=w/(noDrop+w)`, noDrop=8. 3/11≈**27%** → 2/10=**20%**. `seg_swarm_fast` 18기 기대 캡슐 ≈4.9→**≈3.6**. 전역 noDrop 손대지 않고 스웜 개체만 하향 (잡졸 4–5 곡선 유지). |
+| V1-D1 | `rewards.json` | 캡슐 보상 | id `capsules_3` amount 3 → id **`capsules_5`** amount **5** | 스테이지 클리어 3택에서 슬롯+1·maxHP+1 대비 캡슐×3(커서 3칸) 체감 열세. amount 5로 게이지 한 바퀴+α 수준. weight 균등 유지(차등화는 분포 시뮬 후 2차). Core 파서 연동 전(REQ-G001)이라 id 개명 안전. |
+
+### 이론 검산 (잠정, 헤드리스 미실행)
+
+- **보스 TTK (메인만, 풀히트):** 1000 HP / 75 DPS ≈ 13.3s ∈ [12, 15].
+- **페이즈2 밀도:** 5발/45t ≈ 6.7발/초 (was 8.6). HP3 기준 연속 피격 허용 3회 — 밀도↓로 즉사 압박 완화, 조준 부채꼴 5-way는 유지.
+- **스웜 드롭:** 기대 캡슐/세그먼트 ≈3.6 (was ≈5). 스테이지 3세그먼트 중 swarm 포함 시 게이지 과공급 완화 기대.
+- **보상:** 캡슐 후보 1회 선택 시 Collect×5. 슬롯 후보 4/6 비중은 불변.
+
+### 후속 관찰 (사람 밸런스 패스)
+
+1. 풀파워(옵션+미사일) 보스 TTK가 8s 미만이면 hp 추가 상향 또는 페이즈 장갑 구간.
+2. phase2가 여전히 빡세면 interval 50 또는 ways 4; 싱거우면 탄속 11 복귀.
+3. swarm 드롭 과소 시 `zako_fast.dropWeight` 2→3 롤백보다 noDrop 일괄 조정 금지(다른 적 경제 흔들림).
+4. `capsules_5` vs 슬롯+1 체감 — Presentation 보상 UI 연동 후 weight 차등 검토.
+5. Resources 복사본(`Assets/Resources/GameData/`)은 빌드/씬 재생성 시 원본 동기화 — CLAUDE `Tools → Shmup → Rebuild Battle Scene` 또는 동등 파이프.
+
+### 미적용 우려 (검토 기록 유지, 수치 손대지 않음)
+
+A1–A4, B2–B4, C3–C6, D2–D4 및 §E 사람 결정 항목 — 별도 지시 대기.
+
+---
+
 ## 밸런스 검토 기록 (2026-07-29) — 재스케일 + boss_stage1
 
 **범위:** REQ-006 재스케일 수치 (`player`/`weapons`/`enemies`/`waves` 세그먼트) + REQ-008 part1 `boss_stage1` 페이즈.  
-**조치:** 수치 **변경 없음** (AGENTS.md §7). 아래는 사람 밸런스 패스용 **우려·제안만**.
+**조치 (당시):** 수치 **변경 없음** (AGENTS.md §7). 아래는 사람 밸런스 패스용 **우려·제안**.  
+**후속:** 우선 4건은 위 **2026-07-29 밸런스 v1 (잠정)** 에서 반영.
 
 ### A. 플레이필드 재스케일 (×5/3 속도·거리, Y×1.6, 히트박스×1.5)
 
