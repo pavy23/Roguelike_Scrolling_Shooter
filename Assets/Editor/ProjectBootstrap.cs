@@ -1,4 +1,3 @@
-using System;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -37,20 +36,15 @@ namespace Shmup.EditorTools
             ppc.refResolutionX = 384;
             ppc.refResolutionY = 224;
 
-            // Retro AA filter mode only exists in newer URP versions — set it if present.
-            bool retroSet = false;
-            var fmProp = typeof(PixelPerfectCamera).GetProperty("filterMode");
-            if (fmProp != null && fmProp.PropertyType.IsEnum)
+            // URP 17의 PixelPerfectCamera는 Filter Mode를 public 프로퍼티로 노출하지 않고
+            // private [SerializeField] m_FilterMode로만 들고 있다 — SerializedObject로 직접 쓴다.
+            var ppcSo = new SerializedObject(ppc);
+            var filterModeProp = ppcSo.FindProperty("m_FilterMode");
+            bool retroSet = filterModeProp != null;
+            if (retroSet)
             {
-                foreach (var name in Enum.GetNames(fmProp.PropertyType))
-                {
-                    if (name.IndexOf("retro", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        fmProp.SetValue(ppc, Enum.Parse(fmProp.PropertyType, name));
-                        retroSet = true;
-                        break;
-                    }
-                }
+                filterModeProp.enumValueIndex = (int)PixelPerfectCamera.PixelPerfectFilterMode.RetroAA;
+                ppcSo.ApplyModifiedPropertiesWithoutUndo();
             }
             Debug.Log("[Bootstrap] PixelPerfectCamera: 384x224, PPU 16, RetroAA=" +
                       (retroSet ? "set" : "NOT AVAILABLE (set Filter Mode manually in Inspector)"));

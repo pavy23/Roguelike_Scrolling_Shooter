@@ -2,7 +2,8 @@
     "name": "Shmup.Presentation",
     "rootNamespace": "Shmup.Presentation",
     "references": [
-        "Shmup.Core"
+        "Shmup.Core",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
