@@ -644,7 +644,14 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 500
+      "hp": 500,
+      "halfWidth": 4.0,
+      "halfHeight": 3.0,
+      "holdX": 14.0,
+      "phases": [
+        { "fireIntervalTicks": 55, "ways": 3, "bulletSpeed": 9.0 },
+        { "fireIntervalTicks": 35, "ways": 5, "bulletSpeed": 11.0 }
+      ]
     }
   ]
 }
