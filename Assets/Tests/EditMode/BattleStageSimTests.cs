@@ -1,0 +1,367 @@
+using System;
+using System.Collections.Generic;
+using NUnit.Framework;
+using Shmup.Core.Generation;
+using Shmup.Core.Simulation;
+
+namespace Shmup.Core.Tests
+{
+    [TestFixture]
+    public class BattleStageSimTests
+    {
+        [Test]
+        public void StagePlan_SpawnsAtSegmentRelativeTicks()
+        {
+            EnemyDefinition enemy = Enemy("static", EnemyMovePattern.Static);
+            BattleContent content = Content(enemy);
+            StagePlan plan = Plan(
+                Segment("first", 3, new SpawnEvent(2, enemy.Id, 10, 10)),
+                Segment("second", 3, new SpawnEvent(1, enemy.Id, 20, 20)));
+            var sim = CreateSim(plan, content, CreateConfig(), 1UL);
+            InputCommand none = InputCommand.None;
+
+            Assert.AreEqual(0, sim.Enemies.Count);
+            sim.Step(in none);
+            Assert.AreEqual(0, sim.Enemies.Count);
+            sim.Step(in none);
+            Assert.AreEqual(1, sim.Enemies.Count);
+            Assert.AreEqual(10, sim.Enemies[0].X);
+            sim.Step(in none);
+            Assert.AreEqual(1, sim.Enemies.Count);
+            sim.Step(in none);
+            Assert.AreEqual(2, sim.Enemies.Count);
+            Assert.AreEqual(20, sim.Enemies[1].X);
+        }
+
+        [Test]
+        public void MovementPatterns_AreIntegerAndDeterministic()
+        {
+            var straight = Enemy("straight", EnemyMovePattern.Straight, speedNumerator: 3);
+            var sine = Enemy(
+                "sine",
+                EnemyMovePattern.Sine,
+                speedNumerator: 2,
+                sineAmplitude: 10,
+                sinePeriodTicks: 64);
+            var stationary = Enemy("static", EnemyMovePattern.Static, speedNumerator: 100);
+            BattleContent content = Content(straight, sine, stationary);
+            StagePlan plan = Plan(Segment(
+                "patterns",
+                100,
+                new SpawnEvent(0, straight.Id, 100, 10),
+                new SpawnEvent(0, sine.Id, 100, 20),
+                new SpawnEvent(0, stationary.Id, 100, 30)));
+            var sim = CreateSim(plan, content, CreateConfig(), 2UL);
+            InputCommand none = InputCommand.None;
+
+            for (int i = 0; i < 16; i++) sim.Step(in none);
+
+            Assert.AreEqual(52, sim.Enemies[0].X);
+            Assert.AreEqual(10, sim.Enemies[0].Y);
+            Assert.AreEqual(68, sim.Enemies[1].X);
+            Assert.AreEqual(30, sim.Enemies[1].Y);
+            Assert.AreEqual(100, sim.Enemies[2].X);
+            Assert.AreEqual(30, sim.Enemies[2].Y);
+        }
+
+        [Test]
+        public void PlayerBulletKill_DropsAndCollectsCapsuleThroughGauge()
+        {
+            EnemyDefinition enemy = Enemy("dropper", EnemyMovePattern.Static, hp: 10, dropWeight: 1);
+            BattleContent content = Content(
+                new WeaponDefinition("shot", 10, 1, 2, 1, 0, 0),
+                enemy);
+            StagePlan plan = Plan(Segment(
+                "drop",
+                20,
+                new SpawnEvent(0, enemy.Id, 4, 0)));
+            BattleSimConfig config = CreateConfig();
+            config.CapsuleNoDropWeight = 0;
+            var gauge = PowerUpGauge.CreateDefault();
+            var sim = new BattleSim(config, new Rng(3UL), plan, content, gauge);
+            var fire = new InputCommand(0, 0, true);
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in fire);
+            sim.Step(in none);
+            sim.Step(in none);
+
+            Assert.AreEqual(0, sim.Enemies.Count);
+            Assert.AreEqual(0, sim.Bullets.Count);
+            Assert.AreEqual(1, sim.Capsules.Count);
+            Assert.AreEqual(4, sim.Capsules[0].X);
+            Assert.AreEqual(PowerUpGauge.NoSelection, gauge.Cursor);
+
+            var moveRight = new InputCommand(1, 0, false);
+            sim.Step(in moveRight);
+            sim.Step(in moveRight);
+
+            Assert.AreEqual(0, sim.Capsules.Count);
+            Assert.AreEqual((int)PowerUpSlot.MainShot, gauge.Cursor);
+        }
+
+        [Test]
+        public void EnemyPlayerAabbCollision_AppliesContactDamageAndConsumesEnemy()
+        {
+            EnemyDefinition enemy = Enemy(
+                "rammer",
+                EnemyMovePattern.Static,
+                contactDamage: 2);
+            BattleContent content = Content(enemy);
+            StagePlan plan = Plan(Segment(
+                "contact",
+                10,
+                new SpawnEvent(1, enemy.Id, 0, 0)));
+            BattleSimConfig config = CreateConfig();
+            config.PlayerMaxHp = 5;
+            var sim = CreateSim(plan, content, config, 4UL);
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in none);
+
+            Assert.AreEqual(3, sim.PlayerHp);
+            Assert.AreEqual(0, sim.Enemies.Count);
+        }
+
+        [Test]
+        public void StaticPattern_MovesOnlyByPureScrollDelta()
+        {
+            EnemyDefinition enemy = Enemy(
+                "scrolled_static",
+                EnemyMovePattern.Static,
+                speedNumerator: 100);
+            BattleContent content = Content(enemy);
+            StagePlan plan = Plan(Segment(
+                "scroll",
+                10,
+                new SpawnEvent(0, enemy.Id, 100, 0)));
+            BattleSimConfig config = CreateConfig();
+            config.ScrollSpeedNumerator = 5;
+            config.ScrollSpeedDenominator = 2;
+            var sim = CreateSim(plan, content, config, 5UL);
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in none);
+            Assert.AreEqual(98, sim.Enemies[0].X);
+            sim.Step(in none);
+            Assert.AreEqual(95, sim.Enemies[0].X);
+        }
+
+        [Test]
+        public void ScrollX_IsPureIntegerFunctionOfTick()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.ScrollSpeedNumerator = 5;
+            config.ScrollSpeedDenominator = 2;
+            var sim = new BattleSim(config, new Rng(5UL));
+            InputCommand none = InputCommand.None;
+
+            Assert.AreEqual(0L, sim.ScrollX);
+            Assert.AreEqual(17L, sim.GetScrollXAtTick(7));
+            Assert.AreEqual(17L, BattleSim.ComputeScrollX(7, 5, 2));
+            sim.Step(in none);
+            Assert.AreEqual(2L, sim.ScrollX);
+            sim.Step(in none);
+            Assert.AreEqual(5L, sim.ScrollX);
+        }
+        [Test]
+        public void SameSeedAndInputs_ProduceSameEnemyAndDropResults()
+        {
+            EnemyDefinition enemy = Enemy(
+                "coin_flip",
+                EnemyMovePattern.Static,
+                hp: 1,
+                dropWeight: 1);
+            BattleContent content = Content(
+                new WeaponDefinition("shot", 1, 4, 2, 1, 0, 0),
+                enemy);
+            var spawns = new SpawnEvent[16];
+            for (int i = 0; i < spawns.Length; i++)
+                spawns[i] = new SpawnEvent(1 + i * 4, enemy.Id, 4, 0);
+            StagePlan plan = Plan(Segment("determinism", 70, spawns));
+            BattleSimConfig config = CreateConfig();
+            config.CapsuleNoDropWeight = 1;
+
+            var firstRoot = new Rng(0xC0FFEEUL);
+            var secondRoot = new Rng(0xC0FFEEUL);
+            secondRoot.NextULong();
+            secondRoot.NextULong();
+            var first = new BattleSim(
+                config, firstRoot, plan, content, PowerUpGauge.CreateDefault());
+            var second = new BattleSim(
+                config, secondRoot, plan, content, PowerUpGauge.CreateDefault());
+            var fire = new InputCommand(0, 0, true);
+
+            for (int tick = 0; tick < 70; tick++)
+            {
+                first.Step(in fire);
+                second.Step(in fire);
+                AssertStatesEqual(first, second, tick);
+            }
+
+            Assert.Greater(first.Capsules.Count, 0);
+            Assert.AreEqual(0, first.Enemies.Count);
+        }
+
+        [Test]
+        public void EnemyAndCapsuleViews_AreReadOnlyAndReused()
+        {
+            EnemyDefinition enemy = Enemy("view", EnemyMovePattern.Static);
+            BattleContent content = Content(enemy);
+            StagePlan plan = Plan(Segment(
+                "view",
+                10,
+                new SpawnEvent(1, enemy.Id, 20, 0)));
+            var sim = CreateSim(plan, content, CreateConfig(), 6UL);
+            IReadOnlyList<EnemyState> enemies = sim.Enemies;
+            IReadOnlyList<CapsuleState> capsules = sim.Capsules;
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in none);
+
+            Assert.AreSame(enemies, sim.Enemies);
+            Assert.AreSame(capsules, sim.Capsules);
+            Assert.IsFalse(enemies is List<EnemyState>);
+            Assert.IsFalse(capsules is List<CapsuleState>);
+        }
+
+        [Test]
+        public void StageConstructor_RejectsUnknownEnemyReference()
+        {
+            BattleContent content = Content(Enemy("known", EnemyMovePattern.Static));
+            StagePlan plan = Plan(Segment(
+                "bad",
+                10,
+                new SpawnEvent(1, "missing", 0, 0)));
+
+            Assert.Throws<ArgumentException>(() => CreateSim(
+                plan, content, CreateConfig(), 7UL));
+        }
+
+        static BattleSim CreateSim(
+            StagePlan plan,
+            BattleContent content,
+            BattleSimConfig config,
+            ulong seed)
+        {
+            return new BattleSim(
+                config,
+                new Rng(seed),
+                plan,
+                content,
+                PowerUpGauge.CreateDefault());
+        }
+
+        static BattleContent Content(params EnemyDefinition[] enemies)
+        {
+            return Content(new WeaponDefinition("shot", 1, 1, 0, 1, 0, 0), enemies);
+        }
+
+        static BattleContent Content(
+            WeaponDefinition weapon,
+            params EnemyDefinition[] enemies)
+        {
+            return new BattleContent(enemies, new[] { weapon }, weapon.Id);
+        }
+
+        static EnemyDefinition Enemy(
+            string id,
+            EnemyMovePattern pattern,
+            int hp = 1,
+            int contactDamage = 0,
+            int speedNumerator = 0,
+            int speedDenominator = 1,
+            int dropWeight = 0,
+            int sineAmplitude = 0,
+            int sinePeriodTicks = 64)
+        {
+            return new EnemyDefinition(
+                id,
+                hp,
+                contactDamage,
+                pattern,
+                speedNumerator,
+                speedDenominator,
+                0,
+                0,
+                dropWeight,
+                sineAmplitude,
+                sinePeriodTicks);
+        }
+
+        static StageSegment Segment(
+            string id,
+            int lengthTicks,
+            params SpawnEvent[] spawns)
+        {
+            return new StageSegment(id, lengthTicks, spawns, 1, 1, new[] { 1 });
+        }
+
+        static StagePlan Plan(params StageSegment[] segments)
+        {
+            return new StagePlan(segments, "boss", 1, 1, 1);
+        }
+
+        static BattleSimConfig CreateConfig()
+        {
+            return new BattleSimConfig
+            {
+                PlayerSpeedPerTick = 2,
+                PlayerBulletSpeedPerTick = 1,
+                FireIntervalTicks = 1,
+                MaxBullets = 64,
+                PlayerMinX = -1000,
+                PlayerMaxX = 1000,
+                PlayerMinY = -1000,
+                PlayerMaxY = 1000,
+                BulletDespawnX = 1000,
+                EnemyDespawnX = -1000,
+                PlayerSpawnX = 0,
+                PlayerSpawnY = 0,
+                PlayerMaxHp = 5,
+                PlayerHalfWidth = 0,
+                PlayerHalfHeight = 0,
+                CapsuleHalfWidth = 0,
+                CapsuleHalfHeight = 0,
+                CapsuleNoDropWeight = 0,
+                ScrollSpeedNumerator = 0,
+                ScrollSpeedDenominator = 1
+            };
+        }
+
+        static void AssertStatesEqual(BattleSim expected, BattleSim actual, int tick)
+        {
+            Assert.AreEqual(expected.Tick, actual.Tick, $"tick {tick}");
+            Assert.AreEqual(expected.ScrollX, actual.ScrollX, $"tick {tick}");
+            Assert.AreEqual(expected.PlayerX, actual.PlayerX, $"tick {tick}");
+            Assert.AreEqual(expected.PlayerY, actual.PlayerY, $"tick {tick}");
+            Assert.AreEqual(expected.PlayerHp, actual.PlayerHp, $"tick {tick}");
+            Assert.AreEqual(expected.Bullets.Count, actual.Bullets.Count, $"tick {tick}");
+            Assert.AreEqual(expected.Enemies.Count, actual.Enemies.Count, $"tick {tick}");
+            Assert.AreEqual(expected.Capsules.Count, actual.Capsules.Count, $"tick {tick}");
+
+            for (int i = 0; i < expected.Bullets.Count; i++)
+            {
+                Assert.AreEqual(expected.Bullets[i].Id, actual.Bullets[i].Id, $"tick {tick}, bullet {i}");
+                Assert.AreEqual(expected.Bullets[i].X, actual.Bullets[i].X, $"tick {tick}, bullet {i}");
+                Assert.AreEqual(expected.Bullets[i].Y, actual.Bullets[i].Y, $"tick {tick}, bullet {i}");
+            }
+
+            for (int i = 0; i < expected.Enemies.Count; i++)
+            {
+                Assert.AreEqual(expected.Enemies[i].Id, actual.Enemies[i].Id, $"tick {tick}, enemy {i}");
+                Assert.AreEqual(expected.Enemies[i].DefinitionId, actual.Enemies[i].DefinitionId, $"tick {tick}, enemy {i}");
+                Assert.AreEqual(expected.Enemies[i].X, actual.Enemies[i].X, $"tick {tick}, enemy {i}");
+                Assert.AreEqual(expected.Enemies[i].Y, actual.Enemies[i].Y, $"tick {tick}, enemy {i}");
+                Assert.AreEqual(expected.Enemies[i].Hp, actual.Enemies[i].Hp, $"tick {tick}, enemy {i}");
+            }
+
+            for (int i = 0; i < expected.Capsules.Count; i++)
+            {
+                Assert.AreEqual(expected.Capsules[i].Id, actual.Capsules[i].Id, $"tick {tick}, capsule {i}");
+                Assert.AreEqual(expected.Capsules[i].X, actual.Capsules[i].X, $"tick {tick}, capsule {i}");
+                Assert.AreEqual(expected.Capsules[i].Y, actual.Capsules[i].Y, $"tick {tick}, capsule {i}");
+            }
+        }
+    }
+}
