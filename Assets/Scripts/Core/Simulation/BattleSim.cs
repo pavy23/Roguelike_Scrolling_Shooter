@@ -12,6 +12,7 @@ namespace Shmup.Core.Simulation
     }
 
     public enum BulletFaction { Player = 0, Enemy = 1 }
+    public enum BulletKind { MainShot = 0, Missile = 1 }
 
     /// <summary>One tick of digital input. Movement is clamped to -1, 0, or 1 per axis.</summary>
     public readonly struct InputCommand
@@ -34,15 +35,38 @@ namespace Shmup.Core.Simulation
     public readonly struct BulletState
     {
         public BulletState(int id, BulletFaction faction, int x, int y)
+            : this(id, faction, BulletKind.MainShot, x, y)
+        {
+        }
+
+        public BulletState(int id, BulletFaction faction, BulletKind kind, int x, int y)
         {
             Id = id;
             Faction = faction;
+            Kind = kind;
             X = x;
             Y = y;
         }
 
         public int Id { get; }
         public BulletFaction Faction { get; }
+        public BulletKind Kind { get; }
+        public int X { get; }
+        public int Y { get; }
+    }
+
+    /// <summary>Observable option position in integer simulation subunits.</summary>
+    public readonly struct OptionState
+    {
+        public OptionState(int index, int x, int y)
+        {
+            Index = index;
+            X = x;
+            Y = y;
+        }
+
+        /// <summary>Stable one-based index matching the option's gauge level.</summary>
+        public int Index { get; }
         public int X { get; }
         public int Y { get; }
     }
@@ -125,7 +149,29 @@ namespace Shmup.Core.Simulation
         public int ScrollSpeedNumerator { get; set; }
         public int ScrollSpeedDenominator { get; set; } = 1;
 
-        /// <summary>Defaults sourced from player.json, main_shot, and the 24 by 14 unit view.</summary>
+        // Provisional power-up tuning. These are deliberately configurable until
+        // the human balance pass replaces them with approved GameData values.
+        public int MainShotRapidFireStartLevel { get; set; } = 3;
+        public int MainShotFireIntervalReductionPerLevel { get; set; } = 1;
+        public int MainShotMinimumFireIntervalTicks { get; set; } = 4;
+        public int MissileBaseDamage { get; set; } = 2;
+        public int MissileFireIntervalTicks { get; set; } = 45;
+        public int MissileRapidFireStartLevel { get; set; } = 2;
+        public int MissileFireIntervalReductionPerLevel { get; set; } = 5;
+        public int MissileMinimumFireIntervalTicks { get; set; } = 30;
+        public int MissileSpeedXNumerator { get; set; } = 8 * SimSpace.SubUnitsPerWorldUnit;
+        public int MissileSpeedXDenominator { get; set; } = SimSpace.TicksPerSecond;
+        public int MissileFallSpeedYNumerator { get; set; } = 3 * SimSpace.SubUnitsPerWorldUnit;
+        public int MissileFallSpeedYDenominator { get; set; } = SimSpace.TicksPerSecond;
+        public int MissileHalfWidth { get; set; } = SimSpace.SubUnitsPerWorldUnit / 4;
+        public int MissileHalfHeight { get; set; } = SimSpace.SubUnitsPerWorldUnit / 8;
+        public int OptionOffsetXStep { get; set; } = -SimSpace.SubUnitsPerWorldUnit;
+        public int OptionOffsetYStep { get; set; }
+
+        /// <summary>
+        /// Defaults sourced from player.json, main_shot, and the 24 by 14 unit view.
+        /// Power-up values remain provisional pending the human balance pass.
+        /// </summary>
         public static BattleSimConfig CreateDefault()
         {
             const int u = SimSpace.SubUnitsPerWorldUnit;
@@ -158,7 +204,9 @@ namespace Shmup.Core.Simulation
         int PlayerX { get; }
         int PlayerY { get; }
         int PlayerHp { get; }
+        int ShieldRemaining { get; }
         IReadOnlyList<BulletState> Bullets { get; }
+        IReadOnlyList<OptionState> Options { get; }
         IReadOnlyList<EnemyState> Enemies { get; }
         IReadOnlyList<CapsuleState> Capsules { get; }
         void Step(in InputCommand input);
@@ -184,6 +232,15 @@ namespace Shmup.Core.Simulation
         readonly int _playerSpeedNumerator, _playerSpeedDenominator;
         readonly int _bulletSpeedNumerator, _bulletSpeedDenominator;
         readonly int _fireIntervalTicks, _maxBullets;
+        readonly int _mainShotRapidFireStartLevel;
+        readonly int _mainShotFireIntervalReductionPerLevel;
+        readonly int _mainShotMinimumFireIntervalTicks;
+        readonly int _missileBaseDamage, _missileFireIntervalTicks, _missileRapidFireStartLevel;
+        readonly int _missileFireIntervalReductionPerLevel, _missileMinimumFireIntervalTicks;
+        readonly int _missileSpeedXNumerator, _missileSpeedXDenominator;
+        readonly int _missileFallSpeedYNumerator, _missileFallSpeedYDenominator;
+        readonly int _missileHalfWidth, _missileHalfHeight;
+        readonly int _optionOffsetXStep, _optionOffsetYStep;
         readonly int _playerMinX, _playerMaxX, _playerMinY, _playerMaxY;
         readonly int _bulletDespawnX, _enemyDespawnX;
         readonly int _playerHalfWidth, _playerHalfHeight;
@@ -194,8 +251,11 @@ namespace Shmup.Core.Simulation
         readonly PowerUpGauge _powerUpGauge;
         readonly Rng _dropRng;
         readonly List<BulletState> _bullets;
-        readonly List<int> _bulletRemainders;
+        readonly List<int> _bulletXRemainders;
+        readonly List<int> _bulletYRemainders;
         readonly ReadOnlyCollection<BulletState> _readOnlyBullets;
+        readonly List<OptionState> _options;
+        readonly ReadOnlyCollection<OptionState> _readOnlyOptions;
         readonly List<EnemyState> _enemies;
         readonly List<EnemyDefinition> _enemyDefinitions;
         readonly List<int> _enemyXRemainders;
@@ -206,7 +266,8 @@ namespace Shmup.Core.Simulation
         readonly ReadOnlyCollection<CapsuleState> _readOnlyCapsules;
         readonly ScheduledSpawn[] _scheduledSpawns;
 
-        int _playerXRemainder, _playerYRemainder, _cooldown;
+        int _playerXRemainder, _playerYRemainder, _cooldown, _missileCooldown;
+        int _mainShotLevel, _missileLevel, _optionLevel, _shieldGaugeLevel;
         int _nextBulletId = 1;
         int _nextEnemyId = 1;
         int _nextCapsuleId = 1;
@@ -247,6 +308,24 @@ namespace Shmup.Core.Simulation
             _playerSpeedNumerator = config.PlayerSpeedNumerator;
             _playerSpeedDenominator = config.PlayerSpeedDenominator;
             _maxBullets = config.MaxBullets;
+            _mainShotRapidFireStartLevel = config.MainShotRapidFireStartLevel;
+            _mainShotFireIntervalReductionPerLevel =
+                config.MainShotFireIntervalReductionPerLevel;
+            _mainShotMinimumFireIntervalTicks = config.MainShotMinimumFireIntervalTicks;
+            _missileBaseDamage = config.MissileBaseDamage;
+            _missileFireIntervalTicks = config.MissileFireIntervalTicks;
+            _missileRapidFireStartLevel = config.MissileRapidFireStartLevel;
+            _missileFireIntervalReductionPerLevel =
+                config.MissileFireIntervalReductionPerLevel;
+            _missileMinimumFireIntervalTicks = config.MissileMinimumFireIntervalTicks;
+            _missileSpeedXNumerator = config.MissileSpeedXNumerator;
+            _missileSpeedXDenominator = config.MissileSpeedXDenominator;
+            _missileFallSpeedYNumerator = config.MissileFallSpeedYNumerator;
+            _missileFallSpeedYDenominator = config.MissileFallSpeedYDenominator;
+            _missileHalfWidth = config.MissileHalfWidth;
+            _missileHalfHeight = config.MissileHalfHeight;
+            _optionOffsetXStep = config.OptionOffsetXStep;
+            _optionOffsetYStep = config.OptionOffsetYStep;
             _playerMinX = config.PlayerMinX;
             _playerMaxX = config.PlayerMaxX;
             _playerMinY = config.PlayerMinY;
@@ -287,8 +366,11 @@ namespace Shmup.Core.Simulation
             }
 
             _bullets = new List<BulletState>(_maxBullets);
-            _bulletRemainders = new List<int>(_maxBullets);
+            _bulletXRemainders = new List<int>(_maxBullets);
+            _bulletYRemainders = new List<int>(_maxBullets);
             _readOnlyBullets = _bullets.AsReadOnly();
+            _options = new List<OptionState>();
+            _readOnlyOptions = _options.AsReadOnly();
             _enemies = new List<EnemyState>();
             _enemyDefinitions = new List<EnemyDefinition>();
             _enemyXRemainders = new List<int>();
@@ -301,6 +383,8 @@ namespace Shmup.Core.Simulation
             PlayerX = config.PlayerSpawnX;
             PlayerY = config.PlayerSpawnY;
             PlayerHp = config.PlayerMaxHp;
+            ReadPowerUpLevels();
+            UpdateOptionPositions();
             SpawnScheduledThroughTick(0);
         }
 
@@ -309,7 +393,9 @@ namespace Shmup.Core.Simulation
         public int PlayerX { get; private set; }
         public int PlayerY { get; private set; }
         public int PlayerHp { get; private set; }
+        public int ShieldRemaining { get; private set; }
         public IReadOnlyList<BulletState> Bullets => _readOnlyBullets;
+        public IReadOnlyList<OptionState> Options => _readOnlyOptions;
         public IReadOnlyList<EnemyState> Enemies => _readOnlyEnemies;
         public IReadOnlyList<CapsuleState> Capsules => _readOnlyCapsules;
 
@@ -336,6 +422,8 @@ namespace Shmup.Core.Simulation
 
             PlayerX = AdvancePlayerAxis(PlayerX, input.MoveX, ref _playerXRemainder, _playerMinX, _playerMaxX);
             PlayerY = AdvancePlayerAxis(PlayerY, input.MoveY, ref _playerYRemainder, _playerMinY, _playerMaxY);
+            ReadPowerUpLevels();
+            UpdateOptionPositions();
             AdvanceBullets();
             AdvanceEnemies();
             SpawnScheduledThroughTick(Tick);
@@ -344,8 +432,55 @@ namespace Shmup.Core.Simulation
             ResolveCapsulePlayerCollisions();
 
             if (_cooldown > 0) _cooldown--;
-            if (input.Fire && _cooldown == 0 && _bullets.Count < _maxBullets)
-                SpawnPlayerBullet();
+            if (_missileCooldown > 0) _missileCooldown--;
+            if (input.Fire)
+            {
+                if (_cooldown == 0 && _bullets.Count < _maxBullets)
+                    SpawnMainShotVolley();
+                if (_missileLevel > 0
+                    && _missileCooldown == 0
+                    && _bullets.Count < _maxBullets)
+                    SpawnMissile();
+            }
+        }
+
+        void ReadPowerUpLevels()
+        {
+            if (_powerUpGauge == null)
+            {
+                _mainShotLevel = 0;
+                _missileLevel = 0;
+                _optionLevel = 0;
+                _shieldGaugeLevel = 0;
+                ShieldRemaining = 0;
+                return;
+            }
+
+            _mainShotLevel = _powerUpGauge.GetLevel(PowerUpSlot.MainShot);
+            _missileLevel = _powerUpGauge.GetLevel(PowerUpSlot.Missile);
+            _optionLevel = _powerUpGauge.GetLevel(PowerUpSlot.Option);
+            int nextShieldLevel = _powerUpGauge.GetLevel(PowerUpSlot.Shield);
+            if (nextShieldLevel > _shieldGaugeLevel)
+                ShieldRemaining = nextShieldLevel;
+            else if (ShieldRemaining > nextShieldLevel)
+                ShieldRemaining = nextShieldLevel;
+            _shieldGaugeLevel = nextShieldLevel;
+        }
+
+        void UpdateOptionPositions()
+        {
+            while (_options.Count > _optionLevel)
+                _options.RemoveAt(_options.Count - 1);
+            while (_options.Count < _optionLevel)
+                _options.Add(default);
+
+            for (int i = 0; i < _options.Count; i++)
+            {
+                int index = i + 1;
+                int x = SaturateToInt(PlayerX + (long)_optionOffsetXStep * index);
+                int y = SaturateToInt(PlayerY + (long)_optionOffsetYStep * index);
+                _options[i] = new OptionState(index, x, y);
+            }
         }
 
         int AdvancePlayerAxis(int position, int direction, ref int remainder, int min, int max)
@@ -365,14 +500,25 @@ namespace Shmup.Core.Simulation
             int write = 0;
             for (int read = 0; read < _bullets.Count; read++)
             {
-                long accumulated = _bulletRemainders[read] + (long)_bulletSpeedNumerator;
-                int delta = (int)(accumulated / _bulletSpeedDenominator);
-                int nextRemainder = (int)(accumulated % _bulletSpeedDenominator);
                 BulletState bullet = _bullets[read];
-                long nextX = bullet.X + (long)delta;
+                bool isMissile = bullet.Kind == BulletKind.Missile;
+                int xNumerator = isMissile ? _missileSpeedXNumerator : _bulletSpeedNumerator;
+                int xDenominator = isMissile ? _missileSpeedXDenominator : _bulletSpeedDenominator;
+                int yNumerator = isMissile ? -_missileFallSpeedYNumerator : 0;
+                int yDenominator = isMissile ? _missileFallSpeedYDenominator : 1;
+                long accumulatedX = _bulletXRemainders[read] + (long)xNumerator;
+                long accumulatedY = _bulletYRemainders[read] + (long)yNumerator;
+                int deltaX = (int)(accumulatedX / xDenominator);
+                int deltaY = (int)(accumulatedY / yDenominator);
+                int nextXRemainder = (int)(accumulatedX % xDenominator);
+                int nextYRemainder = (int)(accumulatedY % yDenominator);
+                long nextX = bullet.X + (long)deltaX;
                 if (nextX > _bulletDespawnX) continue;
-                _bullets[write] = new BulletState(bullet.Id, bullet.Faction, (int)nextX, bullet.Y);
-                _bulletRemainders[write] = nextRemainder;
+                int nextY = SaturateToInt(bullet.Y + (long)deltaY);
+                _bullets[write] = new BulletState(
+                    bullet.Id, bullet.Faction, bullet.Kind, (int)nextX, nextY);
+                _bulletXRemainders[write] = nextXRemainder;
+                _bulletYRemainders[write] = nextYRemainder;
                 write++;
             }
 
@@ -380,7 +526,8 @@ namespace Shmup.Core.Simulation
             if (removed > 0)
             {
                 _bullets.RemoveRange(write, removed);
-                _bulletRemainders.RemoveRange(write, removed);
+                _bulletXRemainders.RemoveRange(write, removed);
+                _bulletYRemainders.RemoveRange(write, removed);
             }
         }
 
@@ -464,10 +611,9 @@ namespace Shmup.Core.Simulation
 
                 RemoveBulletAt(bulletIndex);
                 EnemyState enemy = _enemies[enemyIndex];
-                int weaponLevel = _powerUpGauge == null
-                    ? 1
-                    : Math.Max(1, _powerUpGauge.GetLevel(PowerUpSlot.MainShot));
-                int damage = Damage.Compute(_playerBulletDamage, weaponLevel);
+                int damage = bullet.Kind == BulletKind.Missile
+                    ? Damage.Compute(_missileBaseDamage, Math.Max(1, _missileLevel))
+                    : Damage.Compute(_playerBulletDamage, Math.Max(1, _mainShotLevel));
                 int hp = Damage.ApplyToHp(enemy.Hp, damage);
                 if (hp > 0)
                 {
@@ -488,8 +634,14 @@ namespace Shmup.Core.Simulation
             {
                 EnemyState enemy = _enemies[i];
                 EnemyDefinition definition = _enemyDefinitions[i];
+                int bulletHalfWidth = bullet.Kind == BulletKind.Missile
+                    ? _missileHalfWidth
+                    : _playerBulletHalfWidth;
+                int bulletHalfHeight = bullet.Kind == BulletKind.Missile
+                    ? _missileHalfHeight
+                    : _playerBulletHalfHeight;
                 if (Intersects(
-                        bullet.X, bullet.Y, _playerBulletHalfWidth, _playerBulletHalfHeight,
+                        bullet.X, bullet.Y, bulletHalfWidth, bulletHalfHeight,
                         enemy.X, enemy.Y, definition.HalfWidth, definition.HalfHeight))
                     return i;
             }
@@ -511,7 +663,10 @@ namespace Shmup.Core.Simulation
                     continue;
                 }
 
-                PlayerHp = Damage.ApplyToHp(PlayerHp, definition.ContactDamage);
+                int contactDamage = definition.ContactDamage;
+                int absorbed = Math.Min(ShieldRemaining, contactDamage);
+                ShieldRemaining -= absorbed;
+                PlayerHp = Damage.ApplyToHp(PlayerHp, contactDamage - absorbed);
                 RemoveEnemyAt(index);
             }
         }
@@ -545,19 +700,59 @@ namespace Shmup.Core.Simulation
             _capsules.Add(new CapsuleState(_nextCapsuleId++, x, y));
         }
 
-        void SpawnPlayerBullet()
+        void SpawnMainShotVolley()
         {
             if (_nextBulletId == int.MaxValue)
                 throw new InvalidOperationException("The bullet id counter is exhausted.");
-            _bullets.Add(new BulletState(_nextBulletId++, BulletFaction.Player, PlayerX, PlayerY));
-            _bulletRemainders.Add(0);
-            _cooldown = _fireIntervalTicks;
+            SpawnBullet(BulletKind.MainShot, PlayerX, PlayerY);
+            for (int i = 0; i < _options.Count && _bullets.Count < _maxBullets; i++)
+                SpawnBullet(BulletKind.MainShot, _options[i].X, _options[i].Y);
+            _cooldown = ComputeReducedInterval(
+                _fireIntervalTicks,
+                _mainShotLevel,
+                _mainShotRapidFireStartLevel,
+                _mainShotFireIntervalReductionPerLevel,
+                _mainShotMinimumFireIntervalTicks);
+        }
+
+        void SpawnMissile()
+        {
+            SpawnBullet(BulletKind.Missile, PlayerX, PlayerY);
+            _missileCooldown = ComputeReducedInterval(
+                _missileFireIntervalTicks,
+                _missileLevel,
+                _missileRapidFireStartLevel,
+                _missileFireIntervalReductionPerLevel,
+                _missileMinimumFireIntervalTicks);
+        }
+
+        void SpawnBullet(BulletKind kind, int x, int y)
+        {
+            if (_nextBulletId == int.MaxValue)
+                throw new InvalidOperationException();
+            _bullets.Add(new BulletState(_nextBulletId++, BulletFaction.Player, kind, x, y));
+            _bulletXRemainders.Add(0);
+            _bulletYRemainders.Add(0);
+        }
+
+        static int ComputeReducedInterval(
+            int baseInterval,
+            int level,
+            int reductionStartLevel,
+            int reductionPerLevel,
+            int minimumInterval)
+        {
+            int reductions = Math.Max(0, level - reductionStartLevel + 1);
+            long reduced = baseInterval - (long)reductions * reductionPerLevel;
+            int effectiveMinimum = Math.Min(baseInterval, minimumInterval);
+            return (int)Math.Max(effectiveMinimum, reduced);
         }
 
         void RemoveBulletAt(int index)
         {
             _bullets.RemoveAt(index);
-            _bulletRemainders.RemoveAt(index);
+            _bulletXRemainders.RemoveAt(index);
+            _bulletYRemainders.RemoveAt(index);
         }
 
         void RemoveEnemyAt(int index)
@@ -663,6 +858,34 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(config.FireIntervalTicks));
             if (config.MaxBullets < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.MaxBullets));
+            if (config.MainShotRapidFireStartLevel < 1)
+                throw new ArgumentOutOfRangeException(nameof(config.MainShotRapidFireStartLevel));
+            if (config.MainShotFireIntervalReductionPerLevel < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.MainShotFireIntervalReductionPerLevel));
+            if (config.MainShotMinimumFireIntervalTicks < 0)
+                throw new ArgumentOutOfRangeException(nameof(config.MainShotMinimumFireIntervalTicks));
+            if (config.MissileBaseDamage < 0)
+                throw new ArgumentOutOfRangeException(nameof(config.MissileBaseDamage));
+            if (config.MissileFireIntervalTicks < 0)
+                throw new ArgumentOutOfRangeException(nameof(config.MissileFireIntervalTicks));
+            if (config.MissileRapidFireStartLevel < 1)
+                throw new ArgumentOutOfRangeException(nameof(config.MissileRapidFireStartLevel));
+            if (config.MissileFireIntervalReductionPerLevel < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.MissileFireIntervalReductionPerLevel));
+            if (config.MissileMinimumFireIntervalTicks < 0)
+                throw new ArgumentOutOfRangeException(nameof(config.MissileMinimumFireIntervalTicks));
+            if (config.MissileSpeedXNumerator < 0)
+                throw new ArgumentOutOfRangeException(nameof(config.MissileSpeedXNumerator));
+            if (config.MissileSpeedXDenominator < 1)
+                throw new ArgumentOutOfRangeException(nameof(config.MissileSpeedXDenominator));
+            if (config.MissileFallSpeedYNumerator < 0)
+                throw new ArgumentOutOfRangeException(nameof(config.MissileFallSpeedYNumerator));
+            if (config.MissileFallSpeedYDenominator < 1)
+                throw new ArgumentOutOfRangeException(nameof(config.MissileFallSpeedYDenominator));
+            if (config.MissileHalfWidth < 0 || config.MissileHalfHeight < 0)
+                throw new ArgumentOutOfRangeException(nameof(config.MissileHalfWidth));
             if (config.PlayerMaxHp < 1)
                 throw new ArgumentOutOfRangeException(nameof(config.PlayerMaxHp));
             if (config.PlayerHalfWidth < 0 || config.PlayerHalfHeight < 0)
