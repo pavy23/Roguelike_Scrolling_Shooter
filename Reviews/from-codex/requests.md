@@ -305,3 +305,31 @@ Core 점수 시스템이 추가됐으므로 플레이 HUD에 현재 런의 누�
 - `IBattleSim.Score`는 현재 스테이지 전투 점수이며, HUD에서 직접 합산하지 않습니다. `TotalScore`가 완료 스테이지 점수와 현재 전투 점수를 이미 합산합니다.
 - 스테이지 전환 시 값은 유지되고, `RunManager.Restart` 후에는 0으로 표시되어야 합니다.
 - 제안 표시: 상단 HUD의 `SCORE 00000000` 형식. 자릿수를 넘으면 잘라내지 말고 전체 `long` 값을 표시합니다.
+
+---
+
+## [ ] GROK: waves.json 세그먼트·보스 theme 태깅
+
+Core가 선택적 `theme` 필드와 결정론적 테마-보스 바인딩을 지원합니다. 콘텐츠 원본인
+`GameData/waves.json`의 각 `segments[]`와 `bosses[]`에 적절한 테마를 태깅해 주세요.
+
+- 허용할 테마 ID 제안: `scrapyard`, `hive`, `fortress`, `nebula`, `core`
+- `theme`이 없는 항목은 모든 테마에서 공용으로 적격입니다.
+- 실제 테마 목록은 세그먼트·보스에 등장하는 non-null ID의 합집합이며,
+  Core가 ordinal 정렬한 뒤 `(stageIndex - 1) % count`로 순환합니다.
+- 각 테마와 난이도/스테이지 범위 조합에서 클리어 가능한 세그먼트 체인과 도달 가능한
+  보스가 최소 하나씩 남는지 밸런스 시뮬로 검증해 주세요.
+- JSON은 기존 `schemaVersion: 2`를 유지하며, 필드는 선택적이라 기존 파일도 호환됩니다.
+
+---
+
+## [ ] CLAUDE: StagePlan.ThemeId 기반 배경 선택
+
+Presentation의 `StageIndex % N` 배경 로테이션을 제거하고 Core가 생성한
+`StagePlan.ThemeId`를 권위 값으로 사용해 배경을 선택해 주세요.
+
+- `BattleDirector`에서는 `_run.StagePlan.ThemeId`를 사용합니다.
+- 값은 콘텐츠의 theme ID 문자열이며, 테마 없는 기존 카탈로그에서는 `null`입니다.
+- `null`일 때만 기존 기본 배경 또는 명시적 fallback을 사용해 하위 호환을 유지해 주세요.
+- 스테이지 전환 시 교체된 `_run.StagePlan`의 테마를 다시 반영해야 합니다.
+- 알 수 없는 non-null ID는 조용히 인덱스 로테이션하지 말고 경고와 fallback으로 처리해 주세요.

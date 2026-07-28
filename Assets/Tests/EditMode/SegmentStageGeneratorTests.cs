@@ -21,6 +21,92 @@ namespace Shmup.Core.Tests
             StagePlan second = generator.Generate(0xC0FFEEUL, 1, 2);
 
             AssertPlansEqual(first, second);
+            Assert.IsNull(first.ThemeId);
+        }
+
+        [Test]
+        public void ThemeRotation_IsOrdinalDeterministicAndFiltersTemplates()
+        {
+            var catalog = new StageGenerationCatalog(
+                3,
+                1,
+                Center,
+                new[]
+                {
+                    Segment("nebula_segment", Center, Center, Center, "nebula"),
+                    Segment("core_segment", Center, Center, Center, "core"),
+                    Segment("hive_segment", Center, Center, Center, "hive")
+                },
+                new[]
+                {
+                    Boss("nebula_boss", Center, "nebula"),
+                    Boss("core_boss", Center, "core"),
+                    Boss("hive_boss", Center, "hive")
+                });
+            var generator = new SegmentStageGenerator(catalog);
+
+            CollectionAssert.AreEqual(
+                new[] { "core", "hive", "nebula" },
+                catalog.ThemeIds);
+            AssertThemePlan(generator.Generate(77UL, 1, 1), "core");
+            AssertThemePlan(generator.Generate(77UL, 2, 1), "hive");
+            AssertThemePlan(generator.Generate(77UL, 3, 1), "nebula");
+            AssertThemePlan(generator.Generate(77UL, 4, 1), "core");
+            AssertPlansEqual(
+                generator.Generate(77UL, 2, 1),
+                generator.Generate(77UL, 2, 1));
+        }
+
+        [Test]
+        public void UntaggedTemplates_AreEligibleForEveryCatalogTheme()
+        {
+            var catalog = new StageGenerationCatalog(
+                3,
+                1,
+                Center,
+                new[] { Segment("global_segment", Center, Center, Center) },
+                new[]
+                {
+                    Boss("scrapyard_boss", Center, "scrapyard"),
+                    Boss("hive_boss", Center, "hive")
+                });
+            var generator = new SegmentStageGenerator(catalog);
+
+            StagePlan hive = generator.Generate(1UL, 1, 1);
+            StagePlan scrapyard = generator.Generate(1UL, 2, 1);
+
+            Assert.AreEqual("hive", hive.ThemeId);
+            Assert.AreEqual("global_segment", hive.Segments[0].SegmentId);
+            Assert.AreEqual("hive_boss", hive.BossId);
+            Assert.AreEqual("scrapyard", scrapyard.ThemeId);
+            Assert.AreEqual("global_segment", scrapyard.Segments[0].SegmentId);
+            Assert.AreEqual("scrapyard_boss", scrapyard.BossId);
+        }
+
+        [Test]
+        public void ThemeFilterWithoutClearableAssembly_ThrowsThemeSpecificError()
+        {
+            var catalog = new StageGenerationCatalog(
+                3,
+                1,
+                Center,
+                new[]
+                {
+                    Segment("hive_dead_end", Center, Left, Center | Left, "hive"),
+                    Segment("scrapyard_route", Center, Right, Center | Right, "scrapyard")
+                },
+                new[]
+                {
+                    Boss("hive_boss", Right, "hive"),
+                    Boss("scrapyard_boss", Right, "scrapyard")
+                });
+            var generator = new SegmentStageGenerator(catalog);
+
+            InvalidOperationException error = Assert.Throws<InvalidOperationException>(
+                () => generator.Generate(1UL, 1, 1));
+
+            StringAssert.Contains("theme 'hive'", error.Message);
+            StringAssert.Contains("clearable stage", error.Message);
         }
 
         [Test]
@@ -126,7 +212,8 @@ namespace Shmup.Core.Tests
             string id,
             int entry,
             int exit,
-            int checkpoint)
+            int checkpoint,
+            string themeId = null)
         {
             return new StageSegmentTemplate(
                 id,
@@ -143,11 +230,38 @@ namespace Shmup.Core.Tests
                         "zako_straight",
                         12 * SimSpace.SubUnitsPerWorldUnit,
                         0)
-                });
+                },
+                themeId);
+        }
+
+        static StageBossTemplate Boss(string id, int entry, string themeId)
+        {
+            return new StageBossTemplate(
+                id,
+                1,
+                10,
+                1,
+                5,
+                entry,
+                0,
+                0,
+                0,
+                0,
+                Array.Empty<BossPhase>(),
+                themeId);
+        }
+
+        static void AssertThemePlan(StagePlan plan, string expectedTheme)
+        {
+            Assert.AreEqual(expectedTheme, plan.ThemeId);
+            Assert.AreEqual(expectedTheme + "_segment", plan.Segments[0].SegmentId);
+            Assert.AreEqual(expectedTheme + "_boss", plan.BossId);
+            Assert.IsTrue(StagePlanClearability.IsClearable(plan));
         }
 
         static void AssertPlansEqual(StagePlan expected, StagePlan actual)
         {
+            Assert.AreEqual(expected.ThemeId, actual.ThemeId);
             Assert.AreEqual(expected.BossId, actual.BossId);
             Assert.AreEqual(expected.LaneCount, actual.LaneCount);
             Assert.AreEqual(expected.StartLaneMask, actual.StartLaneMask);

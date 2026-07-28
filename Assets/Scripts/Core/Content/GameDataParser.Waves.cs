@@ -90,7 +90,8 @@ namespace Shmup.Core.Content
                 RequireArray(
                     source.traversableLaneMasks,
                     path + ".traversableLaneMasks"),
-                spawns);
+                spawns,
+                OptionalText(source.theme, path + ".theme"));
         }
 
         static StageBossTemplate ParseBoss(BossDto source, int index)
@@ -146,7 +147,8 @@ namespace Shmup.Core.Content
                 halfWidth,
                 halfHeight,
                 holdX,
-                phases);
+                phases,
+                OptionalText(source.theme, path + ".theme"));
         }
 
         static void EnsureUniqueSegmentId(StageSegmentTemplate[] items, int index)

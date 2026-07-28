@@ -109,6 +109,32 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(13 * SimSpace.SubUnitsPerWorldUnit, spawn.X);
             Assert.AreEqual(-11 * SimSpace.SubUnitsPerWorldUnit / 2, spawn.Y);
             Assert.AreEqual(500, stages.Bosses[0].MaxHp);
+            Assert.IsNull(stages.Segments[0].ThemeId);
+            Assert.IsNull(stages.Bosses[0].ThemeId);
+            Assert.AreEqual(0, stages.ThemeIds.Count);
+            Assert.IsNull(new SegmentStageGenerator(stages).Generate(1UL, 1, 1).ThemeId);
+        }
+
+        [Test]
+        public void Parse_OptionalWaveThemesPopulateTemplatesAndStagePlan()
+        {
+            string themedWaves = WavesJson
+                .Replace(@"""id"": ""seg""", @"""id"": ""seg"", ""theme"": ""hive""")
+                .Replace(@"""id"": ""boss""", @"""id"": ""boss"", ""theme"": ""hive""");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                themedWaves);
+            StagePlan plan = new SegmentStageGenerator(data.StageGeneration)
+                .Generate(123UL, 1, 1);
+
+            Assert.AreEqual("hive", data.StageGeneration.Segments[0].ThemeId);
+            Assert.AreEqual("hive", data.StageGeneration.Bosses[0].ThemeId);
+            CollectionAssert.AreEqual(
+                new[] { "hive" },
+                data.StageGeneration.ThemeIds);
+            Assert.AreEqual("hive", plan.ThemeId);
         }
 
         [Test]
