@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "scrollSpeed": 3.0,
-  "spawnX": 13.0,
+  "scrollSpeed": 5.0,
+  "spawnX": 21.0,
   "laneCount": 3,
   "segmentsPerStage": 3,
   "startLaneMask": 2,
@@ -13,18 +13,60 @@
       "lengthTicks": 600,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
-      "traversableLaneMasks": [7],
+      "traversableLaneMasks": [
+        7
+      ],
       "spawns": [
-        { "tick": 40, "enemyId": "zako_straight", "y": 2.0 },
-        { "tick": 70, "enemyId": "zako_straight", "y": 2.0 },
-        { "tick": 100, "enemyId": "zako_straight", "y": 0.0 },
-        { "tick": 130, "enemyId": "zako_straight", "y": -2.0 },
-        { "tick": 160, "enemyId": "zako_straight", "y": -2.0 },
-        { "tick": 220, "enemyId": "zako_straight", "y": 1.0 },
-        { "tick": 250, "enemyId": "zako_straight", "y": -1.0 },
-        { "tick": 320, "enemyId": "zako_straight", "y": 2.5 },
-        { "tick": 350, "enemyId": "zako_straight", "y": 0.0 },
-        { "tick": 380, "enemyId": "zako_straight", "y": -2.5 }
+        {
+          "tick": 40,
+          "enemyId": "zako_straight",
+          "y": 3.25
+        },
+        {
+          "tick": 70,
+          "enemyId": "zako_straight",
+          "y": 3.25
+        },
+        {
+          "tick": 100,
+          "enemyId": "zako_straight",
+          "y": 0
+        },
+        {
+          "tick": 130,
+          "enemyId": "zako_straight",
+          "y": -3.25
+        },
+        {
+          "tick": 160,
+          "enemyId": "zako_straight",
+          "y": -3.25
+        },
+        {
+          "tick": 220,
+          "enemyId": "zako_straight",
+          "y": 1.5
+        },
+        {
+          "tick": 250,
+          "enemyId": "zako_straight",
+          "y": -1.5
+        },
+        {
+          "tick": 320,
+          "enemyId": "zako_straight",
+          "y": 4
+        },
+        {
+          "tick": 350,
+          "enemyId": "zako_straight",
+          "y": 0
+        },
+        {
+          "tick": 380,
+          "enemyId": "zako_straight",
+          "y": -4
+        }
       ]
     },
     {
@@ -34,18 +76,60 @@
       "lengthTicks": 600,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
-      "traversableLaneMasks": [2],
+      "traversableLaneMasks": [
+        2
+      ],
       "spawns": [
-        { "tick": 40, "enemyId": "zako_sine", "y": 3.0 },
-        { "tick": 40, "enemyId": "zako_sine", "y": -3.0 },
-        { "tick": 120, "enemyId": "zako_sine", "y": 3.0 },
-        { "tick": 120, "enemyId": "zako_sine", "y": -3.0 },
-        { "tick": 200, "enemyId": "zako_sine", "y": 2.5 },
-        { "tick": 200, "enemyId": "zako_sine", "y": -2.5 },
-        { "tick": 300, "enemyId": "zako_sine_slow", "y": 3.5 },
-        { "tick": 300, "enemyId": "zako_sine_slow", "y": -3.5 },
-        { "tick": 420, "enemyId": "zako_sine", "y": 3.0 },
-        { "tick": 420, "enemyId": "zako_sine", "y": -3.0 }
+        {
+          "tick": 40,
+          "enemyId": "zako_sine",
+          "y": 4.75
+        },
+        {
+          "tick": 40,
+          "enemyId": "zako_sine",
+          "y": -4.75
+        },
+        {
+          "tick": 120,
+          "enemyId": "zako_sine",
+          "y": 4.75
+        },
+        {
+          "tick": 120,
+          "enemyId": "zako_sine",
+          "y": -4.75
+        },
+        {
+          "tick": 200,
+          "enemyId": "zako_sine",
+          "y": 4
+        },
+        {
+          "tick": 200,
+          "enemyId": "zako_sine",
+          "y": -4
+        },
+        {
+          "tick": 300,
+          "enemyId": "zako_sine_slow",
+          "y": 5.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "zako_sine_slow",
+          "y": -5.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "zako_sine",
+          "y": 4.75
+        },
+        {
+          "tick": 420,
+          "enemyId": "zako_sine",
+          "y": -4.75
+        }
       ]
     },
     {
@@ -55,19 +139,65 @@
       "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
-      "traversableLaneMasks": [6],
+      "traversableLaneMasks": [
+        6
+      ],
       "spawns": [
-        { "tick": 30, "enemyId": "turret_ground", "y": -5.5 },
-        { "tick": 90, "enemyId": "zako_straight", "y": 1.5 },
-        { "tick": 120, "enemyId": "zako_straight", "y": 2.5 },
-        { "tick": 180, "enemyId": "zako_fast", "y": 0.5 },
-        { "tick": 210, "enemyId": "zako_fast", "y": 2.0 },
-        { "tick": 300, "enemyId": "turret_ground", "y": -5.5 },
-        { "tick": 360, "enemyId": "zako_sine", "y": 2.0 },
-        { "tick": 390, "enemyId": "zako_sine", "y": 3.0 },
-        { "tick": 480, "enemyId": "zako_straight", "y": 1.0 },
-        { "tick": 540, "enemyId": "turret_ground", "y": -5.5 },
-        { "tick": 600, "enemyId": "zako_tank", "y": 1.5 }
+        {
+          "tick": 30,
+          "enemyId": "turret_ground",
+          "y": -9.75
+        },
+        {
+          "tick": 90,
+          "enemyId": "zako_straight",
+          "y": 2.5
+        },
+        {
+          "tick": 120,
+          "enemyId": "zako_straight",
+          "y": 4
+        },
+        {
+          "tick": 180,
+          "enemyId": "zako_fast",
+          "y": 0.75
+        },
+        {
+          "tick": 210,
+          "enemyId": "zako_fast",
+          "y": 3.25
+        },
+        {
+          "tick": 300,
+          "enemyId": "turret_ground",
+          "y": -9.75
+        },
+        {
+          "tick": 360,
+          "enemyId": "zako_sine",
+          "y": 3.25
+        },
+        {
+          "tick": 390,
+          "enemyId": "zako_sine",
+          "y": 4.75
+        },
+        {
+          "tick": 480,
+          "enemyId": "zako_straight",
+          "y": 1.5
+        },
+        {
+          "tick": 540,
+          "enemyId": "turret_ground",
+          "y": -9.75
+        },
+        {
+          "tick": 600,
+          "enemyId": "zako_tank",
+          "y": 2.5
+        }
       ]
     },
     {
@@ -77,26 +207,100 @@
       "lengthTicks": 600,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
-      "traversableLaneMasks": [7],
+      "traversableLaneMasks": [
+        7
+      ],
       "spawns": [
-        { "tick": 30, "enemyId": "zako_fast", "y": 3.0 },
-        { "tick": 40, "enemyId": "zako_fast", "y": 1.0 },
-        { "tick": 50, "enemyId": "zako_fast", "y": -1.0 },
-        { "tick": 60, "enemyId": "zako_fast", "y": -3.0 },
-        { "tick": 100, "enemyId": "zako_fast", "y": 2.5 },
-        { "tick": 110, "enemyId": "zako_fast", "y": 0.0 },
-        { "tick": 120, "enemyId": "zako_fast", "y": -2.5 },
-        { "tick": 180, "enemyId": "zako_fast", "y": 3.5 },
-        { "tick": 190, "enemyId": "zako_fast", "y": 1.5 },
-        { "tick": 200, "enemyId": "zako_fast", "y": -1.5 },
-        { "tick": 210, "enemyId": "zako_fast", "y": -3.5 },
-        { "tick": 280, "enemyId": "zako_fast", "y": 2.0 },
-        { "tick": 290, "enemyId": "zako_fast", "y": 0.0 },
-        { "tick": 300, "enemyId": "zako_fast", "y": -2.0 },
-        { "tick": 380, "enemyId": "zako_straight", "y": 1.0 },
-        { "tick": 400, "enemyId": "zako_straight", "y": -1.0 },
-        { "tick": 450, "enemyId": "zako_fast", "y": 3.0 },
-        { "tick": 460, "enemyId": "zako_fast", "y": -3.0 }
+        {
+          "tick": 30,
+          "enemyId": "zako_fast",
+          "y": 4.75
+        },
+        {
+          "tick": 40,
+          "enemyId": "zako_fast",
+          "y": 1.5
+        },
+        {
+          "tick": 50,
+          "enemyId": "zako_fast",
+          "y": -1.5
+        },
+        {
+          "tick": 60,
+          "enemyId": "zako_fast",
+          "y": -4.75
+        },
+        {
+          "tick": 100,
+          "enemyId": "zako_fast",
+          "y": 4
+        },
+        {
+          "tick": 110,
+          "enemyId": "zako_fast",
+          "y": 0
+        },
+        {
+          "tick": 120,
+          "enemyId": "zako_fast",
+          "y": -4
+        },
+        {
+          "tick": 180,
+          "enemyId": "zako_fast",
+          "y": 5.5
+        },
+        {
+          "tick": 190,
+          "enemyId": "zako_fast",
+          "y": 2.5
+        },
+        {
+          "tick": 200,
+          "enemyId": "zako_fast",
+          "y": -2.5
+        },
+        {
+          "tick": 210,
+          "enemyId": "zako_fast",
+          "y": -5.5
+        },
+        {
+          "tick": 280,
+          "enemyId": "zako_fast",
+          "y": 3.25
+        },
+        {
+          "tick": 290,
+          "enemyId": "zako_fast",
+          "y": 0
+        },
+        {
+          "tick": 300,
+          "enemyId": "zako_fast",
+          "y": -3.25
+        },
+        {
+          "tick": 380,
+          "enemyId": "zako_straight",
+          "y": 1.5
+        },
+        {
+          "tick": 400,
+          "enemyId": "zako_straight",
+          "y": -1.5
+        },
+        {
+          "tick": 450,
+          "enemyId": "zako_fast",
+          "y": 4.75
+        },
+        {
+          "tick": 460,
+          "enemyId": "zako_fast",
+          "y": -4.75
+        }
       ]
     },
     {
@@ -106,22 +310,80 @@
       "lengthTicks": 720,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
-      "traversableLaneMasks": [7],
+      "traversableLaneMasks": [
+        7
+      ],
       "spawns": [
-        { "tick": 40, "enemyId": "zako_straight", "y": 2.0 },
-        { "tick": 40, "enemyId": "zako_straight", "y": -2.0 },
-        { "tick": 90, "enemyId": "zako_sine", "y": 0.0 },
-        { "tick": 140, "enemyId": "zako_fast", "y": 3.0 },
-        { "tick": 150, "enemyId": "zako_fast", "y": -3.0 },
-        { "tick": 220, "enemyId": "zako_tank", "y": 0.0 },
-        { "tick": 280, "enemyId": "zako_sine", "y": 2.5 },
-        { "tick": 280, "enemyId": "zako_sine", "y": -2.5 },
-        { "tick": 360, "enemyId": "zako_straight", "y": 1.5 },
-        { "tick": 380, "enemyId": "zako_straight", "y": -1.5 },
-        { "tick": 450, "enemyId": "zako_sine_slow", "y": 3.0 },
-        { "tick": 480, "enemyId": "zako_fast", "y": -1.0 },
-        { "tick": 520, "enemyId": "zako_straight", "y": 0.0 },
-        { "tick": 580, "enemyId": "zako_tank", "y": 1.0 }
+        {
+          "tick": 40,
+          "enemyId": "zako_straight",
+          "y": 3.25
+        },
+        {
+          "tick": 40,
+          "enemyId": "zako_straight",
+          "y": -3.25
+        },
+        {
+          "tick": 90,
+          "enemyId": "zako_sine",
+          "y": 0
+        },
+        {
+          "tick": 140,
+          "enemyId": "zako_fast",
+          "y": 4.75
+        },
+        {
+          "tick": 150,
+          "enemyId": "zako_fast",
+          "y": -4.75
+        },
+        {
+          "tick": 220,
+          "enemyId": "zako_tank",
+          "y": 0
+        },
+        {
+          "tick": 280,
+          "enemyId": "zako_sine",
+          "y": 4
+        },
+        {
+          "tick": 280,
+          "enemyId": "zako_sine",
+          "y": -4
+        },
+        {
+          "tick": 360,
+          "enemyId": "zako_straight",
+          "y": 2.5
+        },
+        {
+          "tick": 380,
+          "enemyId": "zako_straight",
+          "y": -2.5
+        },
+        {
+          "tick": 450,
+          "enemyId": "zako_sine_slow",
+          "y": 4.75
+        },
+        {
+          "tick": 480,
+          "enemyId": "zako_fast",
+          "y": -1.5
+        },
+        {
+          "tick": 520,
+          "enemyId": "zako_straight",
+          "y": 0
+        },
+        {
+          "tick": 580,
+          "enemyId": "zako_tank",
+          "y": 1.5
+        }
       ]
     },
     {
@@ -131,19 +393,65 @@
       "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
-      "traversableLaneMasks": [3],
+      "traversableLaneMasks": [
+        3
+      ],
       "spawns": [
-        { "tick": 30, "enemyId": "turret_ceiling", "y": 5.5 },
-        { "tick": 90, "enemyId": "zako_straight", "y": -1.5 },
-        { "tick": 120, "enemyId": "zako_straight", "y": -2.5 },
-        { "tick": 180, "enemyId": "zako_fast", "y": -0.5 },
-        { "tick": 210, "enemyId": "zako_fast", "y": -2.0 },
-        { "tick": 300, "enemyId": "turret_ceiling", "y": 5.5 },
-        { "tick": 360, "enemyId": "zako_sine", "y": -2.0 },
-        { "tick": 390, "enemyId": "zako_sine", "y": -3.0 },
-        { "tick": 480, "enemyId": "zako_straight", "y": -1.0 },
-        { "tick": 540, "enemyId": "turret_ceiling", "y": 5.5 },
-        { "tick": 600, "enemyId": "zako_tank", "y": -1.5 }
+        {
+          "tick": 30,
+          "enemyId": "turret_ceiling",
+          "y": 9.75
+        },
+        {
+          "tick": 90,
+          "enemyId": "zako_straight",
+          "y": -2.5
+        },
+        {
+          "tick": 120,
+          "enemyId": "zako_straight",
+          "y": -4
+        },
+        {
+          "tick": 180,
+          "enemyId": "zako_fast",
+          "y": -0.75
+        },
+        {
+          "tick": 210,
+          "enemyId": "zako_fast",
+          "y": -3.25
+        },
+        {
+          "tick": 300,
+          "enemyId": "turret_ceiling",
+          "y": 9.75
+        },
+        {
+          "tick": 360,
+          "enemyId": "zako_sine",
+          "y": -3.25
+        },
+        {
+          "tick": 390,
+          "enemyId": "zako_sine",
+          "y": -4.75
+        },
+        {
+          "tick": 480,
+          "enemyId": "zako_straight",
+          "y": -1.5
+        },
+        {
+          "tick": 540,
+          "enemyId": "turret_ceiling",
+          "y": 9.75
+        },
+        {
+          "tick": 600,
+          "enemyId": "zako_tank",
+          "y": -2.5
+        }
       ]
     },
     {
@@ -153,25 +461,95 @@
       "lengthTicks": 840,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
-      "traversableLaneMasks": [2],
+      "traversableLaneMasks": [
+        2
+      ],
       "spawns": [
-        { "tick": 20, "enemyId": "turret_ground", "y": -5.5 },
-        { "tick": 20, "enemyId": "turret_ceiling", "y": 5.5 },
-        { "tick": 80, "enemyId": "zako_sine", "y": 2.0 },
-        { "tick": 80, "enemyId": "zako_sine", "y": -2.0 },
-        { "tick": 160, "enemyId": "zako_fast", "y": 0.0 },
-        { "tick": 200, "enemyId": "zako_straight", "y": 1.0 },
-        { "tick": 200, "enemyId": "zako_straight", "y": -1.0 },
-        { "tick": 280, "enemyId": "turret_ground", "y": -5.5 },
-        { "tick": 280, "enemyId": "turret_ceiling", "y": 5.5 },
-        { "tick": 340, "enemyId": "zako_sine_slow", "y": 2.5 },
-        { "tick": 340, "enemyId": "zako_sine_slow", "y": -2.5 },
-        { "tick": 420, "enemyId": "zako_tank", "y": 0.0 },
-        { "tick": 500, "enemyId": "zako_sine", "y": 1.5 },
-        { "tick": 500, "enemyId": "zako_sine", "y": -1.5 },
-        { "tick": 580, "enemyId": "turret_ground", "y": -5.5 },
-        { "tick": 580, "enemyId": "turret_ceiling", "y": 5.5 },
-        { "tick": 650, "enemyId": "elite_sine", "y": 0.0 }
+        {
+          "tick": 20,
+          "enemyId": "turret_ground",
+          "y": -9.75
+        },
+        {
+          "tick": 20,
+          "enemyId": "turret_ceiling",
+          "y": 9.75
+        },
+        {
+          "tick": 80,
+          "enemyId": "zako_sine",
+          "y": 3.25
+        },
+        {
+          "tick": 80,
+          "enemyId": "zako_sine",
+          "y": -3.25
+        },
+        {
+          "tick": 160,
+          "enemyId": "zako_fast",
+          "y": 0
+        },
+        {
+          "tick": 200,
+          "enemyId": "zako_straight",
+          "y": 1.5
+        },
+        {
+          "tick": 200,
+          "enemyId": "zako_straight",
+          "y": -1.5
+        },
+        {
+          "tick": 280,
+          "enemyId": "turret_ground",
+          "y": -9.75
+        },
+        {
+          "tick": 280,
+          "enemyId": "turret_ceiling",
+          "y": 9.75
+        },
+        {
+          "tick": 340,
+          "enemyId": "zako_sine_slow",
+          "y": 4
+        },
+        {
+          "tick": 340,
+          "enemyId": "zako_sine_slow",
+          "y": -4
+        },
+        {
+          "tick": 420,
+          "enemyId": "zako_tank",
+          "y": 0
+        },
+        {
+          "tick": 500,
+          "enemyId": "zako_sine",
+          "y": 2.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "zako_sine",
+          "y": -2.5
+        },
+        {
+          "tick": 580,
+          "enemyId": "turret_ground",
+          "y": -9.75
+        },
+        {
+          "tick": 580,
+          "enemyId": "turret_ceiling",
+          "y": 9.75
+        },
+        {
+          "tick": 650,
+          "enemyId": "elite_sine",
+          "y": 0
+        }
       ]
     },
     {
@@ -181,22 +559,80 @@
       "lengthTicks": 660,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
-      "traversableLaneMasks": [6],
+      "traversableLaneMasks": [
+        6
+      ],
       "spawns": [
-        { "tick": 30, "enemyId": "zako_sine", "y": 2.0 },
-        { "tick": 50, "enemyId": "zako_sine", "y": 0.0 },
-        { "tick": 70, "enemyId": "zako_sine", "y": 3.0 },
-        { "tick": 120, "enemyId": "zako_sine_slow", "y": 1.5 },
-        { "tick": 140, "enemyId": "zako_sine", "y": 3.5 },
-        { "tick": 200, "enemyId": "zako_sine", "y": 2.5 },
-        { "tick": 200, "enemyId": "zako_sine", "y": 0.5 },
-        { "tick": 280, "enemyId": "zako_sine_slow", "y": 3.0 },
-        { "tick": 300, "enemyId": "zako_sine", "y": 1.0 },
-        { "tick": 360, "enemyId": "elite_sine", "y": 2.0 },
-        { "tick": 420, "enemyId": "zako_sine", "y": 0.0 },
-        { "tick": 440, "enemyId": "zako_sine", "y": 3.0 },
-        { "tick": 500, "enemyId": "zako_sine_slow", "y": 1.5 },
-        { "tick": 540, "enemyId": "zako_sine", "y": 2.5 }
+        {
+          "tick": 30,
+          "enemyId": "zako_sine",
+          "y": 3.25
+        },
+        {
+          "tick": 50,
+          "enemyId": "zako_sine",
+          "y": 0
+        },
+        {
+          "tick": 70,
+          "enemyId": "zako_sine",
+          "y": 4.75
+        },
+        {
+          "tick": 120,
+          "enemyId": "zako_sine_slow",
+          "y": 2.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "zako_sine",
+          "y": 5.5
+        },
+        {
+          "tick": 200,
+          "enemyId": "zako_sine",
+          "y": 4
+        },
+        {
+          "tick": 200,
+          "enemyId": "zako_sine",
+          "y": 0.75
+        },
+        {
+          "tick": 280,
+          "enemyId": "zako_sine_slow",
+          "y": 4.75
+        },
+        {
+          "tick": 300,
+          "enemyId": "zako_sine",
+          "y": 1.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "elite_sine",
+          "y": 3.25
+        },
+        {
+          "tick": 420,
+          "enemyId": "zako_sine",
+          "y": 0
+        },
+        {
+          "tick": 440,
+          "enemyId": "zako_sine",
+          "y": 4.75
+        },
+        {
+          "tick": 500,
+          "enemyId": "zako_sine_slow",
+          "y": 2.5
+        },
+        {
+          "tick": 540,
+          "enemyId": "zako_sine",
+          "y": 4
+        }
       ]
     }
   ],

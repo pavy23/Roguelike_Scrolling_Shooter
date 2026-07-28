@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "player": {
-    "moveSpeed": 8.0,
-    "spawnX": -8.0,
+    "moveSpeed": 13.0,
+    "spawnX": -13.0,
     "spawnY": 0.0,
-    "hitboxRadius": 0.25,
+    "hitboxRadius": 0.375,
     "maxBullets": 64
   }
 }
