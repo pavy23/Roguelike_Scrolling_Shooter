@@ -101,6 +101,8 @@ namespace Shmup.Core.Content
         [DataMember]
         public int? startLaneMask;
         [DataMember]
+        public string[] themes;
+        [DataMember]
         public SegmentDto[] segments;
         [DataMember]
         public BossDto[] bosses;
