@@ -123,6 +123,36 @@
       "halfHeight": 0.75,
       "amplitude": 3,
       "periodTicks": 90
+    },
+    {
+      "id": "spore_drifter",
+      "displayName": "Spore Drifter",
+      "hp": 8,
+      "contactDamage": 1,
+      "scoreValue": 120,
+      "movePattern": "sine",
+      "moveSpeed": 2.5,
+      "fireIntervalTicks": 0,
+      "dropWeight": 5,
+      "halfWidth": 0.75,
+      "halfHeight": 0.75,
+      "amplitude": 2.5,
+      "periodTicks": 150
+    },
+    {
+      "id": "lancer_dart",
+      "displayName": "Lancer Dart",
+      "hp": 4,
+      "contactDamage": 1,
+      "scoreValue": 60,
+      "movePattern": "straight",
+      "moveSpeed": 9.5,
+      "fireIntervalTicks": 0,
+      "dropWeight": 2,
+      "halfWidth": 0.75,
+      "halfHeight": 0.75,
+      "amplitude": 0,
+      "periodTicks": 1
     }
   ]
 }
