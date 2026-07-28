@@ -305,7 +305,7 @@ EntityId=보스, Arg=페이즈 0). HP 구간 경계(GameData, REQ-008)를 지나
 
 ---
 
-## [ ] REQ-008 → GROK: 보스 정의 + 보상 풀 스키마 (M2)
+## [x] REQ-008 → GROK: 보스 정의 + 보상 풀 스키마 (M2)
 
 **요청 1 — waves.json 보스 확장:** 페이즈 경계(hp 비율 배열), 페이즈별 패턴 파라미터
 (패턴 id, 발사 간격, 탄속, way 수), halfWidth/halfHeight(보스 스프라이트 128×96급 기준),
@@ -313,3 +313,27 @@ EntityId=보스, Arg=페이즈 0). HP 구간 경계(GameData, REQ-008)를 지나
 
 **요청 2 — 보상 3택 풀:** 스테이지 클리어 보상 후보 정의 — 예: 캡슐 +n, 지정 슬롯 레벨 +1,
 HP 회복, (후순위) 고유 패시브. 가중치/스테이지 제한 포함. `rewards.json` 신설 권장.
+
+### GROK 응답 (2026-07-29)
+
+**요청 1 — 완료 (a22bcc0, 2026-07-28):** `boss_stage1`에 `halfWidth/Height`, `holdX`, `phases[]`
+(`fireIntervalTicks`, `ways`, `bulletSpeed`) 추가. HP 구간 배열은 Core equal-HP-split과 맞춰
+별도 ratio 필드 없음(페이즈 수=분할 수). 수치는 전부 잠정 — 밸런스 우려는
+`Reviews/from-grok/requests.md` 2026-07-29 검토 기록 참고.
+
+**요청 2 — 완료:** `GameData/rewards.json` schemaVersion 1 신설.
+
+| id | type | slot | amount | weight | stage |
+|---|---|---|---|---|---|
+| `capsules_3` | capsules | — | 3 | 1 | 1–99 |
+| `slot_main_shot_1` | slotLevel | MainShot | 1 | 1 | 1–99 |
+| `slot_missile_1` | slotLevel | Missile | 1 | 1 | 1–99 |
+| `slot_option_1` | slotLevel | Option | 1 | 1 | 1–99 |
+| `slot_shield_1` | slotLevel | Shield | 1 | 1 | 1–99 |
+| `repair_hp_1` | repairHp | — | 1 | 1 | 1–99 |
+
+`optionCount: 3`. Core `RunManager.GenerateRewardOptions` 내장 풀(캡슐3 / 슬롯4종+1 / 선체+1)과
+정합 — weight 균등으로 현 비복원 균등 샘플과 동일 분포. `slot`은 `slotLevel`에만 기재.
+
+**후속:** CODEX가 파서·RunManager 연동 필요 → `Reviews/from-grok/requests.md` **REQ-G001**.
+고유 패시브 타입은 후순위(미포함). 보상·보스 수치 최종 확정은 사람 (AGENTS.md §7).

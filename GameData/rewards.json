@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "optionCount": 3,
+  "rewards": [
+    {
+      "id": "capsules_3",
+      "type": "capsules",
+      "amount": 3,
+      "weight": 1,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99
+    },
+    {
+      "id": "slot_main_shot_1",
+      "type": "slotLevel",
+      "slot": "MainShot",
+      "amount": 1,
+      "weight": 1,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99
+    },
+    {
+      "id": "slot_missile_1",
+      "type": "slotLevel",
+      "slot": "Missile",
+      "amount": 1,
+      "weight": 1,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99
+    },
+    {
+      "id": "slot_option_1",
+      "type": "slotLevel",
+      "slot": "Option",
+      "amount": 1,
+      "weight": 1,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99
+    },
+    {
+      "id": "slot_shield_1",
+      "type": "slotLevel",
+      "slot": "Shield",
+      "amount": 1,
+      "weight": 1,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99
+    },
+    {
+      "id": "repair_hp_1",
+      "type": "repairHp",
+      "amount": 1,
+      "weight": 1,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99
+    }
+  ]
+}
