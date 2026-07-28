@@ -101,6 +101,36 @@ namespace Shmup.Core.Content
             int maxHp = Require(source.hp, path + ".hp");
             if (maxHp < 1)
                 throw Error(path + ".hp", "must be positive.");
+
+            // 전투 필드는 선택적 (REQ-007/008) — 없으면 0/빈 배열 → 시뮬 기본값 적용.
+            int halfWidth = source.halfWidth.HasValue
+                ? ToSubUnits(source.halfWidth.Value, path + ".halfWidth") : 0;
+            int halfHeight = source.halfHeight.HasValue
+                ? ToSubUnits(source.halfHeight.Value, path + ".halfHeight") : 0;
+            int holdX = source.holdX.HasValue
+                ? ToSubUnits(source.holdX.Value, path + ".holdX") : 0;
+
+            BossPhase[] phases = Array.Empty<BossPhase>();
+            if (source.phases != null && source.phases.Length > 0)
+            {
+                phases = new BossPhase[source.phases.Length];
+                for (int i = 0; i < source.phases.Length; i++)
+                {
+                    string phasePath = $"{path}.phases[{i}]";
+                    BossPhaseDto phase = source.phases[i];
+                    if (phase == null)
+                        throw Error(phasePath, "cannot be null.");
+                    ExactFraction speed = ToPerTickSpeed(
+                        Require(phase.bulletSpeed, phasePath + ".bulletSpeed"),
+                        phasePath + ".bulletSpeed");
+                    phases[i] = new BossPhase(
+                        Require(phase.fireIntervalTicks, phasePath + ".fireIntervalTicks"),
+                        Require(phase.ways, phasePath + ".ways"),
+                        speed.Numerator,
+                        speed.Denominator);
+                }
+            }
+
             return new StageBossTemplate(
                 RequireText(source.id, path + ".id"),
                 Require(source.stageIndexMin, path + ".stageIndexMin"),
@@ -108,7 +138,11 @@ namespace Shmup.Core.Content
                 Require(source.difficultyMin, path + ".difficultyMin"),
                 Require(source.difficultyMax, path + ".difficultyMax"),
                 Require(source.entryLaneMask, path + ".entryLaneMask"),
-                maxHp);
+                maxHp,
+                halfWidth,
+                halfHeight,
+                holdX,
+                phases);
         }
 
         static void EnsureUniqueSegmentId(StageSegmentTemplate[] items, int index)

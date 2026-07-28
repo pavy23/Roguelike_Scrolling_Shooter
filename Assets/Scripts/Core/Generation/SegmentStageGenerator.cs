@@ -200,6 +200,24 @@ namespace Shmup.Core.Generation
             int difficultyMax,
             int entryLaneMask,
             int maxHp)
+            : this(
+                bossId, stageIndexMin, stageIndexMax, difficultyMin,
+                difficultyMax, entryLaneMask, maxHp, 0, 0, 0, null)
+        {
+        }
+
+        public StageBossTemplate(
+            string bossId,
+            int stageIndexMin,
+            int stageIndexMax,
+            int difficultyMin,
+            int difficultyMax,
+            int entryLaneMask,
+            int maxHp,
+            int halfWidth,
+            int halfHeight,
+            int holdX,
+            IReadOnlyList<BossPhase> phases)
         {
             BossId = bossId ?? throw new ArgumentNullException(nameof(bossId));
             StageIndexMin = stageIndexMin;
@@ -208,6 +226,10 @@ namespace Shmup.Core.Generation
             DifficultyMax = difficultyMax;
             EntryLaneMask = entryLaneMask;
             MaxHp = maxHp;
+            HalfWidth = halfWidth;
+            HalfHeight = halfHeight;
+            HoldX = holdX;
+            Phases = phases ?? Array.Empty<BossPhase>();
         }
 
         public string BossId { get; }
@@ -217,6 +239,10 @@ namespace Shmup.Core.Generation
         public int DifficultyMax { get; }
         public int EntryLaneMask { get; }
         public int MaxHp { get; }
+        public int HalfWidth { get; }
+        public int HalfHeight { get; }
+        public int HoldX { get; }
+        public IReadOnlyList<BossPhase> Phases { get; }
 
         internal bool Supports(int stageIndex, int difficulty)
         {
@@ -338,7 +364,12 @@ namespace Shmup.Core.Generation
                 selectedBoss.BossId,
                 _catalog.LaneCount,
                 _catalog.StartLaneMask,
-                selectedBoss.EntryLaneMask);
+                selectedBoss.EntryLaneMask,
+                selectedBoss.MaxHp,
+                selectedBoss.HalfWidth,
+                selectedBoss.HalfHeight,
+                selectedBoss.HoldX,
+                selectedBoss.Phases);
         }
 
         bool CanComplete(

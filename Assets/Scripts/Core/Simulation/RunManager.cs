@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Shmup.Core.Generation;
 
 namespace Shmup.Core.Simulation
@@ -6,7 +7,34 @@ namespace Shmup.Core.Simulation
     public enum RunState
     {
         Playing = 0,
-        RunOver = 1
+        RunOver = 1,
+        /// <summary>보스 격파 후 보상 선택 대기 (REQ-007 요청 3). ChooseReward로 재개.</summary>
+        AwaitingReward = 2
+    }
+
+    public enum RewardType
+    {
+        /// <summary>캡슐 n개 즉시 수집 (커서 전진).</summary>
+        Capsules = 0,
+        /// <summary>지정 슬롯 레벨 +1 (최대치 클램프).</summary>
+        SlotLevel = 1,
+        /// <summary>런 최대 HP +1 — 다음 스테이지부터 적용.</summary>
+        RepairHp = 2
+    }
+
+    /// <summary>보상 후보 하나. 수치는 잠정 풀 기반 — 확정은 사람/GROK (AGENTS.md §7, rewards.json 예정).</summary>
+    public readonly struct RewardOption
+    {
+        public RewardOption(RewardType type, PowerUpSlot slot, int amount)
+        {
+            Type = type;
+            Slot = slot;
+            Amount = amount;
+        }
+
+        public RewardType Type { get; }
+        public PowerUpSlot Slot { get; }
+        public int Amount { get; }
     }
 
     /// <summary>Configurable integer linear difficulty curve for successive stages.</summary>
@@ -58,6 +86,8 @@ namespace Shmup.Core.Simulation
     public sealed class RunManager
     {
         const int BattleSimulationStream = 1;
+        const int RewardSelectionStream = 2;
+        const int RewardOptionCount = 3;
 
         readonly IStageGenerator _stageGenerator;
         readonly BattleSimConfig _battleConfig;
@@ -128,6 +158,10 @@ namespace Shmup.Core.Simulation
         public IBattleSim Battle { get; private set; }
         public PowerUpGauge PowerUpGauge { get; private set; }
 
+        /// <summary>AwaitingReward 상태에서만 유효. 항상 RewardOptionCount개.</summary>
+        public IReadOnlyList<RewardOption> RewardOptions => _rewardOptions;
+        RewardOption[] _rewardOptions = Array.Empty<RewardOption>();
+
         public void Step(in InputCommand input)
         {
             if (State != RunState.Playing)
@@ -140,8 +174,92 @@ namespace Shmup.Core.Simulation
                 return;
             }
 
+            // 보스전이 있는 스테이지는 StageCleared(보스 격파)로 끝나고 보상 선택으로 넘어간다.
+            // 보스 데이터가 없는 플랜(레거시/테스트)은 기존 틱 소진 규칙 유지.
+            if (Battle is BattleSim battleSim && battleSim.HasBossBattle)
+            {
+                if (battleSim.BossDefeated)
+                {
+                    _rewardOptions = GenerateRewardOptions();
+                    State = RunState.AwaitingReward;
+                }
+                return;
+            }
+
             if (Battle.Tick >= _stageLengthTicks)
                 AdvanceStage();
+        }
+
+        /// <summary>
+        /// 보상을 확정하고 다음 스테이지를 시작한다. 선택은 플레이어 입력이므로
+        /// 리플레이 기록 대상이다 (같은 시드 + 같은 선택 = 같은 런).
+        /// </summary>
+        public void ChooseReward(int optionIndex)
+        {
+            if (State != RunState.AwaitingReward)
+                throw new InvalidOperationException("No reward is awaiting selection.");
+            if (optionIndex < 0 || optionIndex >= _rewardOptions.Length)
+                throw new ArgumentOutOfRangeException(nameof(optionIndex));
+
+            ApplyReward(_rewardOptions[optionIndex]);
+            _rewardOptions = Array.Empty<RewardOption>();
+            State = RunState.Playing;
+            AdvanceStage();
+        }
+
+        void ApplyReward(in RewardOption option)
+        {
+            switch (option.Type)
+            {
+                case RewardType.Capsules:
+                    for (int i = 0; i < option.Amount; i++)
+                        PowerUpGauge.Collect();
+                    break;
+                case RewardType.SlotLevel:
+                {
+                    int[] levels = PowerUpGauge.ExportLevels();
+                    int slot = (int)option.Slot;
+                    levels[slot] = Math.Min(
+                        levels[slot] + option.Amount, _powerUpMaxLevels[slot]);
+                    PowerUpGauge.ImportLevels(levels);
+                    break;
+                }
+                case RewardType.RepairHp:
+                    _battleConfig.PlayerMaxHp += option.Amount;
+                    break;
+                default:
+                    throw new InvalidOperationException($"Unknown reward type {option.Type}.");
+            }
+        }
+
+        /// <summary>
+        /// 잠정 보상 풀 (rewards.json 이관 예정 — REQ-008). 시드·스테이지의 순수 함수.
+        /// </summary>
+        RewardOption[] GenerateRewardOptions()
+        {
+            var pool = new[]
+            {
+                new RewardOption(RewardType.Capsules, PowerUpSlot.MainShot, 3),
+                new RewardOption(RewardType.SlotLevel, PowerUpSlot.MainShot, 1),
+                new RewardOption(RewardType.SlotLevel, PowerUpSlot.Missile, 1),
+                new RewardOption(RewardType.SlotLevel, PowerUpSlot.Option, 1),
+                new RewardOption(RewardType.SlotLevel, PowerUpSlot.Shield, 1),
+                new RewardOption(RewardType.RepairHp, PowerUpSlot.MainShot, 1)
+            };
+
+            Rng rewardRng = new Rng(_runSeed)
+                .Fork(RewardSelectionStream)
+                .Fork(StageIndex);
+            var options = new RewardOption[RewardOptionCount];
+            int remaining = pool.Length;
+            for (int i = 0; i < options.Length; i++)
+            {
+                int pick = rewardRng.NextInt(0, remaining);
+                options[i] = pool[pick];
+                pool[pick] = pool[remaining - 1];
+                remaining--;
+            }
+            return options;
         }
 
         public void Restart(ulong newRunSeed)

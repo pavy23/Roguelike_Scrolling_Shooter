@@ -58,7 +58,28 @@ namespace Shmup.Core.Simulation
     }
 
     public enum BulletFaction { Player = 0, Enemy = 1 }
-    public enum BulletKind { MainShot = 0, Missile = 1 }
+    public enum BulletKind { MainShot = 0, Missile = 1, EnemyShot = 2 }
+
+    /// <summary>Observable boss state (REQ-007). Valid only while IBattleSim.BossActive.</summary>
+    public readonly struct BossState
+    {
+        public BossState(int id, int x, int y, int hp, int maxHp, int phase)
+        {
+            Id = id;
+            X = x;
+            Y = y;
+            Hp = hp;
+            MaxHp = maxHp;
+            Phase = phase;
+        }
+
+        public int Id { get; }
+        public int X { get; }
+        public int Y { get; }
+        public int Hp { get; }
+        public int MaxHp { get; }
+        public int Phase { get; }
+    }
 
     /// <summary>One tick of digital input. Movement is clamped to -1, 0, or 1 per axis.</summary>
     public readonly struct InputCommand
@@ -217,6 +238,15 @@ namespace Shmup.Core.Simulation
         /// </summary>
         public int OptionFollowDelayTicks { get; set; } = 12;
 
+        // 적탄 잠정값 (REQ-007) — GameData 이관 전까지 여기서 조절.
+        public int EnemyBulletSpeedNumerator { get; set; } = 8 * SimSpace.SubUnitsPerWorldUnit;
+        public int EnemyBulletSpeedDenominator { get; set; } = SimSpace.TicksPerSecond;
+        public int EnemyBulletHalfWidth { get; set; } = 3 * SimSpace.SubUnitsPerWorldUnit / 16;
+        public int EnemyBulletHalfHeight { get; set; } = 3 * SimSpace.SubUnitsPerWorldUnit / 16;
+        public int EnemyBulletDamage { get; set; } = 1;
+        /// <summary>적탄 전용 예산 — 플레이어 탄 풀(MaxBullets)을 잠식하지 않는다.</summary>
+        public int MaxEnemyBullets { get; set; } = 32;
+
         /// <summary>
         /// Defaults sourced from player.json, main_shot, and the 40 by 22.5 unit view
         /// (640×360, ROADMAP M0). Spatial values scale the 24×14 originals by ×5/3
@@ -268,6 +298,9 @@ namespace Shmup.Core.Simulation
         IReadOnlyList<CapsuleState> Capsules { get; }
         /// <summary>Events emitted by the most recent Step. Cleared at the start of each Step.</summary>
         ReadOnlySpan<SimEvent> EventsThisTick { get; }
+        /// <summary>보스전 진행 중 여부. false면 Boss 값은 무의미하다.</summary>
+        bool BossActive { get; }
+        BossState Boss { get; }
         void Step(in InputCommand input);
     }
 
@@ -312,6 +345,10 @@ namespace Shmup.Core.Simulation
         readonly List<BulletState> _bullets;
         readonly List<int> _bulletXRemainders;
         readonly List<int> _bulletYRemainders;
+        // 적탄 조준 벡터: 서브유닛/틱 = (numX, numY) / den. 플레이어 탄은 den 0 (kind 기반 속도).
+        readonly List<int> _bulletVelXNumerators;
+        readonly List<int> _bulletVelYNumerators;
+        readonly List<int> _bulletVelDenominators;
         readonly ReadOnlyCollection<BulletState> _readOnlyBullets;
         readonly List<OptionState> _options;
         readonly ReadOnlyCollection<OptionState> _readOnlyOptions;
@@ -326,6 +363,23 @@ namespace Shmup.Core.Simulation
         readonly List<CapsuleState> _capsules;
         readonly ReadOnlyCollection<CapsuleState> _readOnlyCapsules;
         readonly ScheduledSpawn[] _scheduledSpawns;
+
+        // 적탄 설정 (config 스냅숏)
+        readonly int _enemyBulletSpeedNumerator, _enemyBulletSpeedDenominator;
+        readonly int _enemyBulletHalfWidth, _enemyBulletHalfHeight;
+        readonly int _enemyBulletDamage, _maxEnemyBullets;
+
+        // 보스 (REQ-007). _bossMaxHp == 0 이면 이 스테이지에 보스전 없음.
+        readonly int _bossMaxHp, _bossHalfWidth, _bossHalfHeight, _bossHoldX;
+        readonly IReadOnlyList<Generation.BossPhase> _bossPhases;
+        readonly int _stageTotalTicks;
+        bool _bossSpawned, _bossDefeated;
+        int _bossId, _bossX, _bossY, _bossHp, _bossPhase, _bossAge, _bossFireCooldown;
+
+        const int BossEntrySpeedPerTick = 16;                          // 서브유닛/틱
+        const int BossHoverAmplitude = 3 * SimSpace.SubUnitsPerWorldUnit;
+        const int BossHoverPeriodShift = 2;                            // age >> 2 → 약 4.3초 주기
+        const int SpreadStepLutSlots = 2;                              // n-way 간격 = 11.25°
 
         SimEvent[] _events = new SimEvent[64];
         int _eventCount;
@@ -404,8 +458,34 @@ namespace Shmup.Core.Simulation
             _capsuleNoDropWeight = config.CapsuleNoDropWeight;
             _scrollSpeedNumerator = config.ScrollSpeedNumerator;
             _scrollSpeedDenominator = config.ScrollSpeedDenominator;
+            _enemyBulletSpeedNumerator = config.EnemyBulletSpeedNumerator;
+            _enemyBulletSpeedDenominator = config.EnemyBulletSpeedDenominator;
+            _enemyBulletHalfWidth = config.EnemyBulletHalfWidth;
+            _enemyBulletHalfHeight = config.EnemyBulletHalfHeight;
+            _enemyBulletDamage = config.EnemyBulletDamage;
+            _maxEnemyBullets = config.MaxEnemyBullets;
             _powerUpGauge = powerUpGauge;
             _dropRng = rng.Fork(DropRngStream);
+
+            if (stageEnabled && stagePlan.BossMaxHp > 0)
+            {
+                const int u = SimSpace.SubUnitsPerWorldUnit;
+                _bossMaxHp = stagePlan.BossMaxHp;
+                _bossHalfWidth = stagePlan.BossHalfWidth > 0 ? stagePlan.BossHalfWidth : 3 * u;
+                _bossHalfHeight = stagePlan.BossHalfHeight > 0 ? stagePlan.BossHalfHeight : 2 * u;
+                _bossHoldX = stagePlan.BossHoldX != 0 ? stagePlan.BossHoldX : 14 * u;
+                _bossPhases = stagePlan.BossPhases != null && stagePlan.BossPhases.Count > 0
+                    ? stagePlan.BossPhases
+                    : new[]
+                    {
+                        new Generation.BossPhase(
+                            50, 3, _enemyBulletSpeedNumerator, _enemyBulletSpeedDenominator)
+                    };
+            }
+            else
+            {
+                _bossPhases = Array.Empty<Generation.BossPhase>();
+            }
 
             if (stageEnabled)
             {
@@ -417,7 +497,8 @@ namespace Shmup.Core.Simulation
                 _playerBulletHalfWidth = weapon.ProjectileHalfWidth;
                 _playerBulletHalfHeight = weapon.ProjectileHalfHeight;
                 ValidateDropTotals(content, _capsuleNoDropWeight);
-                _scheduledSpawns = BuildSchedule(stagePlan, content);
+                _scheduledSpawns = BuildSchedule(stagePlan, content, out long totalTicks);
+                _stageTotalTicks = (int)Math.Min(totalTicks, int.MaxValue);
             }
             else
             {
@@ -430,9 +511,13 @@ namespace Shmup.Core.Simulation
                 _scheduledSpawns = Array.Empty<ScheduledSpawn>();
             }
 
-            _bullets = new List<BulletState>(_maxBullets);
-            _bulletXRemainders = new List<int>(_maxBullets);
-            _bulletYRemainders = new List<int>(_maxBullets);
+            int bulletCapacity = _maxBullets + _maxEnemyBullets;
+            _bullets = new List<BulletState>(bulletCapacity);
+            _bulletXRemainders = new List<int>(bulletCapacity);
+            _bulletYRemainders = new List<int>(bulletCapacity);
+            _bulletVelXNumerators = new List<int>(bulletCapacity);
+            _bulletVelYNumerators = new List<int>(bulletCapacity);
+            _bulletVelDenominators = new List<int>(bulletCapacity);
             _readOnlyBullets = _bullets.AsReadOnly();
             _options = new List<OptionState>();
             _readOnlyOptions = _options.AsReadOnly();
@@ -475,6 +560,11 @@ namespace Shmup.Core.Simulation
         public IReadOnlyList<EnemyState> Enemies => _readOnlyEnemies;
         public IReadOnlyList<CapsuleState> Capsules => _readOnlyCapsules;
         public ReadOnlySpan<SimEvent> EventsThisTick => new ReadOnlySpan<SimEvent>(_events, 0, _eventCount);
+        public bool BossActive => _bossSpawned && !_bossDefeated;
+        public BossState Boss => new BossState(_bossId, _bossX, _bossY, _bossHp, _bossMaxHp, _bossPhase);
+        /// <summary>보스전이 예정된 스테이지인지 (RunManager가 종료 조건 분기에 쓴다).</summary>
+        public bool HasBossBattle => _bossMaxHp > 0;
+        public bool BossDefeated => _bossDefeated;
 
         /// <summary>Returns scroll at any tick using only immutable speed and the tick argument.</summary>
         public long GetScrollXAtTick(int tick)
@@ -506,7 +596,10 @@ namespace Shmup.Core.Simulation
             AdvanceBullets();
             AdvanceEnemies();
             SpawnScheduledThroughTick(Tick);
+            UpdateBoss();
             ResolvePlayerBulletEnemyCollisions();
+            ResolvePlayerBulletBossCollisions();
+            ResolveEnemyBulletPlayerCollisions();
             ResolveEnemyPlayerCollisions();
             ResolveCapsulePlayerCollisions();
 
@@ -619,15 +712,29 @@ namespace Shmup.Core.Simulation
 
         void AdvanceBullets()
         {
+            int despawnY = SimSpace.PlayfieldHalfHeightSubUnits + SimSpace.DespawnMarginSubUnits;
             int write = 0;
             for (int read = 0; read < _bullets.Count; read++)
             {
                 BulletState bullet = _bullets[read];
-                bool isMissile = bullet.Kind == BulletKind.Missile;
-                int xNumerator = isMissile ? _missileSpeedXNumerator : _bulletSpeedNumerator;
-                int xDenominator = isMissile ? _missileSpeedXDenominator : _bulletSpeedDenominator;
-                int yNumerator = isMissile ? -_missileFallSpeedYNumerator : 0;
-                int yDenominator = isMissile ? _missileFallSpeedYDenominator : 1;
+                int xNumerator, xDenominator, yNumerator, yDenominator;
+                if (_bulletVelDenominators[read] > 0)
+                {
+                    // 적탄: 스폰 시 계산된 조준 벡터(REQ-007)
+                    xNumerator = _bulletVelXNumerators[read];
+                    yNumerator = _bulletVelYNumerators[read];
+                    xDenominator = _bulletVelDenominators[read];
+                    yDenominator = _bulletVelDenominators[read];
+                }
+                else
+                {
+                    bool isMissile = bullet.Kind == BulletKind.Missile;
+                    xNumerator = isMissile ? _missileSpeedXNumerator : _bulletSpeedNumerator;
+                    xDenominator = isMissile ? _missileSpeedXDenominator : _bulletSpeedDenominator;
+                    yNumerator = isMissile ? -_missileFallSpeedYNumerator : 0;
+                    yDenominator = isMissile ? _missileFallSpeedYDenominator : 1;
+                }
+
                 long accumulatedX = _bulletXRemainders[read] + (long)xNumerator;
                 long accumulatedY = _bulletYRemainders[read] + (long)yNumerator;
                 int deltaX = (int)(accumulatedX / xDenominator);
@@ -635,12 +742,18 @@ namespace Shmup.Core.Simulation
                 int nextXRemainder = (int)(accumulatedX % xDenominator);
                 int nextYRemainder = (int)(accumulatedY % yDenominator);
                 long nextX = bullet.X + (long)deltaX;
-                if (nextX > _bulletDespawnX) continue;
-                int nextY = SaturateToInt(bullet.Y + (long)deltaY);
+                long nextYLong = bullet.Y + (long)deltaY;
+                if (nextX > _bulletDespawnX || nextX < -(long)_bulletDespawnX
+                    || nextYLong > despawnY || nextYLong < -(long)despawnY)
+                    continue;
+                int nextY = SaturateToInt(nextYLong);
                 _bullets[write] = new BulletState(
                     bullet.Id, bullet.Faction, bullet.Kind, (int)nextX, nextY);
                 _bulletXRemainders[write] = nextXRemainder;
                 _bulletYRemainders[write] = nextYRemainder;
+                _bulletVelXNumerators[write] = _bulletVelXNumerators[read];
+                _bulletVelYNumerators[write] = _bulletVelYNumerators[read];
+                _bulletVelDenominators[write] = _bulletVelDenominators[read];
                 write++;
             }
 
@@ -650,6 +763,9 @@ namespace Shmup.Core.Simulation
                 _bullets.RemoveRange(write, removed);
                 _bulletXRemainders.RemoveRange(write, removed);
                 _bulletYRemainders.RemoveRange(write, removed);
+                _bulletVelXNumerators.RemoveRange(write, removed);
+                _bulletVelYNumerators.RemoveRange(write, removed);
+                _bulletVelDenominators.RemoveRange(write, removed);
             }
         }
 
@@ -692,6 +808,12 @@ namespace Shmup.Core.Simulation
 
                 _enemyAges[index] = age;
                 _enemies[index] = new EnemyState(state.Id, state.DefinitionId, x, y, state.Hp);
+
+                // 터렛류 조준 사격 (REQ-007 요청 1): fireIntervalTicks > 0 인 정의만.
+                if (definition.FireIntervalTicks > 0 && age % definition.FireIntervalTicks == 0)
+                    SpawnEnemyAimedBullet(
+                        x, y, PlayerX, PlayerY,
+                        _enemyBulletSpeedNumerator, _enemyBulletSpeedDenominator, 0);
                 index++;
             }
         }
@@ -711,6 +833,140 @@ namespace Shmup.Core.Simulation
                 _enemyXRemainders.Add(0);
                 _enemySpawnYs.Add(spawn.Y);
                 _enemyAges.Add(0);
+            }
+        }
+
+        /// <summary>
+        /// 보스 수명주기 (REQ-007 요청 2): 세그먼트 소진 → 우측 진입 → holdX 정지 후 사인 호버.
+        /// 페이즈는 HP 균등 분할, 발사는 페이즈 파라미터의 n-way 조준 부채꼴.
+        /// </summary>
+        void UpdateBoss()
+        {
+            if (_bossMaxHp == 0 || _bossDefeated) return;
+
+            if (!_bossSpawned)
+            {
+                if (Tick < _stageTotalTicks) return;
+                if (_nextEnemyId == int.MaxValue)
+                    throw new InvalidOperationException("The enemy id counter is exhausted.");
+                _bossSpawned = true;
+                _bossId = _nextEnemyId++;
+                _bossX = _bulletDespawnX + 2 * SimSpace.SubUnitsPerWorldUnit;
+                _bossY = 0;
+                _bossHp = _bossMaxHp;
+                _bossPhase = 0;
+                _bossAge = 0;
+                _bossFireCooldown = _bossPhases[0].FireIntervalTicks;
+                EmitEvent(SimEventType.BossSpawned, _bossId, _bossX, _bossY, 0);
+                return;
+            }
+
+            _bossAge++;
+            if (_bossX > _bossHoldX)
+            {
+                _bossX = Math.Max(_bossHoldX, _bossX - BossEntrySpeedPerTick);
+                return;   // 진입 중에는 사격하지 않는다 (등장 연출 여유)
+            }
+
+            int lutIndex = (_bossAge >> BossHoverPeriodShift) % SineLut.Length;
+            _bossY = (int)((long)BossHoverAmplitude * SineLut[lutIndex] / SineScale);
+
+            Generation.BossPhase phase = _bossPhases[_bossPhase];
+            if (_bossFireCooldown > 0) _bossFireCooldown--;
+            if (_bossFireCooldown == 0)
+            {
+                int ways = phase.Ways;
+                for (int i = 0; i < ways; i++)
+                {
+                    int rotation = (i - (ways - 1) / 2) * SpreadStepLutSlots;
+                    SpawnEnemyAimedBullet(
+                        _bossX, _bossY, PlayerX, PlayerY,
+                        phase.BulletSpeedNumerator, phase.BulletSpeedDenominator, rotation);
+                }
+                _bossFireCooldown = phase.FireIntervalTicks;
+            }
+        }
+
+        void ResolvePlayerBulletBossCollisions()
+        {
+            if (!BossActive) return;
+
+            int bulletIndex = 0;
+            while (bulletIndex < _bullets.Count)
+            {
+                BulletState bullet = _bullets[bulletIndex];
+                if (bullet.Faction != BulletFaction.Player)
+                {
+                    bulletIndex++;
+                    continue;
+                }
+
+                int bulletHalfWidth = bullet.Kind == BulletKind.Missile
+                    ? _missileHalfWidth : _playerBulletHalfWidth;
+                int bulletHalfHeight = bullet.Kind == BulletKind.Missile
+                    ? _missileHalfHeight : _playerBulletHalfHeight;
+                if (!Intersects(
+                        bullet.X, bullet.Y, bulletHalfWidth, bulletHalfHeight,
+                        _bossX, _bossY, _bossHalfWidth, _bossHalfHeight))
+                {
+                    bulletIndex++;
+                    continue;
+                }
+
+                RemoveBulletAt(bulletIndex);
+                int damage = bullet.Kind == BulletKind.Missile
+                    ? Damage.Compute(_missileBaseDamage, Math.Max(1, _missileLevel))
+                    : Damage.Compute(_playerBulletDamage, Math.Max(1, _mainShotLevel));
+                _bossHp = Damage.ApplyToHp(_bossHp, damage);
+
+                if (_bossHp > 0)
+                {
+                    EmitEvent(SimEventType.EnemyHit, _bossId, _bossX, _bossY, damage);
+                    int phaseCount = _bossPhases.Count;
+                    int nextPhase = Math.Min(
+                        phaseCount - 1,
+                        (int)((long)(_bossMaxHp - _bossHp) * phaseCount / _bossMaxHp));
+                    if (nextPhase != _bossPhase)
+                    {
+                        _bossPhase = nextPhase;
+                        _bossFireCooldown = _bossPhases[_bossPhase].FireIntervalTicks;
+                        EmitEvent(SimEventType.BossPhaseChanged, _bossId, _bossX, _bossY, nextPhase);
+                    }
+                    continue;
+                }
+
+                _bossDefeated = true;
+                EmitEvent(SimEventType.EnemyKilled, _bossId, _bossX, _bossY, damage);
+                EmitEvent(SimEventType.StageCleared, _bossId, _bossX, _bossY, 0);
+                return;
+            }
+        }
+
+        void ResolveEnemyBulletPlayerCollisions()
+        {
+            int index = 0;
+            while (index < _bullets.Count)
+            {
+                BulletState bullet = _bullets[index];
+                if (bullet.Faction != BulletFaction.Enemy
+                    || !Intersects(
+                        PlayerX, PlayerY, _playerHalfWidth, _playerHalfHeight,
+                        bullet.X, bullet.Y, _enemyBulletHalfWidth, _enemyBulletHalfHeight))
+                {
+                    index++;
+                    continue;
+                }
+
+                RemoveBulletAt(index);
+                int absorbed = Math.Min(ShieldRemaining, _enemyBulletDamage);
+                ShieldRemaining -= absorbed;
+                PlayerHp = Damage.ApplyToHp(PlayerHp, _enemyBulletDamage - absorbed);
+                EmitEvent(SimEventType.PlayerHit, 0, PlayerX, PlayerY, _enemyBulletDamage - absorbed);
+                if (PlayerHp == 0)
+                {
+                    EmitEvent(SimEventType.PlayerKilled, 0, PlayerX, PlayerY, 0);
+                    return;
+                }
             }
         }
 
@@ -868,6 +1124,74 @@ namespace Shmup.Core.Simulation
             _bullets.Add(new BulletState(_nextBulletId++, BulletFaction.Player, kind, x, y));
             _bulletXRemainders.Add(0);
             _bulletYRemainders.Add(0);
+            _bulletVelXNumerators.Add(0);
+            _bulletVelYNumerators.Add(0);
+            _bulletVelDenominators.Add(0);
+        }
+
+        int CountEnemyBullets()
+        {
+            int count = 0;
+            for (int i = 0; i < _bullets.Count; i++)
+                if (_bullets[i].Faction == BulletFaction.Enemy)
+                    count++;
+            return count;
+        }
+
+        /// <summary>발사 위치에서 (targetX, targetY)를 향해 지정 유리수 속도의 적탄을 스폰한다.</summary>
+        void SpawnEnemyAimedBullet(
+            int fromX, int fromY, int targetX, int targetY,
+            int speedNumerator, int speedDenominator, int lutRotation)
+        {
+            if (CountEnemyBullets() >= _maxEnemyBullets) return;
+            if (_nextBulletId == int.MaxValue)
+                throw new InvalidOperationException();
+
+            long dx = (long)targetX - fromX;
+            long dy = (long)targetY - fromY;
+            if (lutRotation != 0)
+            {
+                int index = ((lutRotation % SineLut.Length) + SineLut.Length) % SineLut.Length;
+                int sin = SineLut[index];
+                int cos = SineLut[(index + SineLut.Length / 4) % SineLut.Length];
+                long rotatedX = (dx * cos - dy * sin) / SineScale;
+                long rotatedY = (dx * sin + dy * cos) / SineScale;
+                dx = rotatedX;
+                dy = rotatedY;
+            }
+            long length = IntegerSqrt(dx * dx + dy * dy);
+            if (length == 0) { dx = -1; dy = 0; length = 1; }
+
+            // 서브유닛/틱 = speedNum/(speedDen) × (dx, dy)/len → 분모 speedDen×len 유리수
+            long velDen = speedDenominator * length;
+            long velXNum = speedNumerator * dx;
+            long velYNum = speedNumerator * dy;
+            while (velDen > int.MaxValue || Math.Abs(velXNum) > int.MaxValue || Math.Abs(velYNum) > int.MaxValue)
+            {
+                velDen >>= 1;
+                velXNum >>= 1;
+                velYNum >>= 1;
+                if (velDen < 1) { velDen = 1; break; }
+            }
+
+            _bullets.Add(new BulletState(
+                _nextBulletId++, BulletFaction.Enemy, BulletKind.EnemyShot, fromX, fromY));
+            _bulletXRemainders.Add(0);
+            _bulletYRemainders.Add(0);
+            _bulletVelXNumerators.Add((int)velXNum);
+            _bulletVelYNumerators.Add((int)velYNum);
+            _bulletVelDenominators.Add((int)velDen);
+        }
+
+        static long IntegerSqrt(long value)
+        {
+            if (value < 0) throw new ArgumentOutOfRangeException(nameof(value));
+            if (value < 2) return value;
+            long guess = (long)Math.Sqrt(value);
+            // double 오차 보정 — 결과는 순수 정수 판정으로 확정하므로 플랫폼 간 결정론이 유지된다.
+            while (guess > 0 && guess * guess > value) guess--;
+            while ((guess + 1) * (guess + 1) <= value) guess++;
+            return guess;
         }
 
         static int ComputeReducedInterval(
@@ -888,6 +1212,9 @@ namespace Shmup.Core.Simulation
             _bullets.RemoveAt(index);
             _bulletXRemainders.RemoveAt(index);
             _bulletYRemainders.RemoveAt(index);
+            _bulletVelXNumerators.RemoveAt(index);
+            _bulletVelYNumerators.RemoveAt(index);
+            _bulletVelDenominators.RemoveAt(index);
         }
 
         void RemoveEnemyAt(int index)
@@ -916,7 +1243,8 @@ namespace Shmup.Core.Simulation
             return (int)value;
         }
 
-        static ScheduledSpawn[] BuildSchedule(StagePlan stagePlan, BattleContent content)
+        static ScheduledSpawn[] BuildSchedule(
+            StagePlan stagePlan, BattleContent content, out long totalTicks)
         {
             var schedule = new List<ScheduledSpawn>();
             long segmentStart = 0;
@@ -957,6 +1285,7 @@ namespace Shmup.Core.Simulation
 
             ScheduledSpawn[] result = schedule.ToArray();
             Array.Sort(result, CompareScheduledSpawns);
+            totalTicks = segmentStart;
             return result;
         }
 
@@ -1035,6 +1364,16 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(config.ScrollSpeedNumerator));
             if (config.ScrollSpeedDenominator < 1)
                 throw new ArgumentOutOfRangeException(nameof(config.ScrollSpeedDenominator));
+            if (config.EnemyBulletSpeedNumerator < 0)
+                throw new ArgumentOutOfRangeException(nameof(config.EnemyBulletSpeedNumerator));
+            if (config.EnemyBulletSpeedDenominator < 1)
+                throw new ArgumentOutOfRangeException(nameof(config.EnemyBulletSpeedDenominator));
+            if (config.EnemyBulletHalfWidth < 0 || config.EnemyBulletHalfHeight < 0)
+                throw new ArgumentOutOfRangeException(nameof(config.EnemyBulletHalfWidth));
+            if (config.EnemyBulletDamage < 0)
+                throw new ArgumentOutOfRangeException(nameof(config.EnemyBulletDamage));
+            if (config.MaxEnemyBullets < 0)
+                throw new ArgumentOutOfRangeException(nameof(config.MaxEnemyBullets));
             if (config.PlayerMinX > config.PlayerMaxX || config.PlayerMinY > config.PlayerMaxY)
                 throw new ArgumentException("Player bounds are reversed.", nameof(config));
             if (config.PlayerSpawnX < config.PlayerMinX || config.PlayerSpawnX > config.PlayerMaxX)
