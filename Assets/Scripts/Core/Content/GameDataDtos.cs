@@ -112,6 +112,8 @@ namespace Shmup.Core.Content
         [DataMember]
         public string id;
         [DataMember]
+        public string theme;
+        [DataMember]
         public int? difficultyMin;
         [DataMember]
         public int? difficultyMax;
@@ -143,6 +145,8 @@ namespace Shmup.Core.Content
     {
         [DataMember]
         public string id;
+        [DataMember]
+        public string theme;
         [DataMember]
         public int? stageIndexMin;
         [DataMember]

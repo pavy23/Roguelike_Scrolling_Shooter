@@ -36,6 +36,8 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException("At least one segment is required.", nameof(segments));
             if (Bosses.Count == 0)
                 throw new ArgumentException("At least one boss is required.", nameof(bosses));
+
+            ThemeIds = CollectThemeIds(Segments, Bosses);
         }
 
         public int LaneCount { get; }
@@ -43,6 +45,31 @@ namespace Shmup.Core.Generation
         public int StartLaneMask { get; }
         public IReadOnlyList<StageSegmentTemplate> Segments { get; }
         public IReadOnlyList<StageBossTemplate> Bosses { get; }
+        public IReadOnlyList<string> ThemeIds { get; }
+
+        static IReadOnlyList<string> CollectThemeIds(
+            IReadOnlyList<StageSegmentTemplate> segments,
+            IReadOnlyList<StageBossTemplate> bosses)
+        {
+            var themes = new List<string>();
+            for (int i = 0; i < segments.Count; i++)
+                AddTheme(themes, segments[i].ThemeId);
+            for (int i = 0; i < bosses.Count; i++)
+                AddTheme(themes, bosses[i].ThemeId);
+
+            themes.Sort(StringComparer.Ordinal);
+            return new ReadOnlyCollection<string>(themes);
+        }
+
+        static void AddTheme(List<string> themes, string themeId)
+        {
+            if (themeId == null)
+                return;
+            for (int i = 0; i < themes.Count; i++)
+                if (string.Equals(themes[i], themeId, StringComparison.Ordinal))
+                    return;
+            themes.Add(themeId);
+        }
 
         static IReadOnlyList<StageSegmentTemplate> CopySegments(
             IReadOnlyList<StageSegmentTemplate> source,
@@ -88,6 +115,29 @@ namespace Shmup.Core.Generation
             int exitLaneMask,
             IReadOnlyList<int> traversableLaneMasks,
             IReadOnlyList<SpawnEvent> spawns)
+            : this(
+                segmentId,
+                difficultyMin,
+                difficultyMax,
+                lengthTicks,
+                entryLaneMask,
+                exitLaneMask,
+                traversableLaneMasks,
+                spawns,
+                null)
+        {
+        }
+
+        public StageSegmentTemplate(
+            string segmentId,
+            int difficultyMin,
+            int difficultyMax,
+            int lengthTicks,
+            int entryLaneMask,
+            int exitLaneMask,
+            IReadOnlyList<int> traversableLaneMasks,
+            IReadOnlyList<SpawnEvent> spawns,
+            string themeId)
         {
             SegmentId = segmentId ?? throw new ArgumentNullException(nameof(segmentId));
             DifficultyMin = difficultyMin;
@@ -97,6 +147,7 @@ namespace Shmup.Core.Generation
             ExitLaneMask = exitLaneMask;
             TraversableLaneMasks = CopyMasks(traversableLaneMasks);
             Spawns = CopySpawns(spawns);
+            ThemeId = themeId;
         }
 
         public string SegmentId { get; }
@@ -107,16 +158,25 @@ namespace Shmup.Core.Generation
         public int ExitLaneMask { get; }
         public IReadOnlyList<int> TraversableLaneMasks { get; }
         public IReadOnlyList<SpawnEvent> Spawns { get; }
+        public string ThemeId { get; }
 
         internal bool SupportsDifficulty(int difficulty)
         {
             return difficulty >= DifficultyMin && difficulty <= DifficultyMax;
         }
 
+        internal bool SupportsTheme(string themeId)
+        {
+            return ThemeId == null
+                || string.Equals(ThemeId, themeId, StringComparison.Ordinal);
+        }
+
         internal void Validate(int validLanes)
         {
             if (SegmentId.Length == 0)
                 throw new ArgumentException("Segment id cannot be empty.");
+            if (ThemeId != null && ThemeId.Length == 0)
+                throw new ArgumentException("Segment theme id cannot be empty.");
             if (DifficultyMin < 1 || DifficultyMax < DifficultyMin)
                 throw new ArgumentException("Segment difficulty range is invalid.");
             if (LengthTicks < 1)
@@ -218,6 +278,35 @@ namespace Shmup.Core.Generation
             int halfHeight,
             int holdX,
             IReadOnlyList<BossPhase> phases)
+            : this(
+                bossId,
+                stageIndexMin,
+                stageIndexMax,
+                difficultyMin,
+                difficultyMax,
+                entryLaneMask,
+                maxHp,
+                halfWidth,
+                halfHeight,
+                holdX,
+                phases,
+                null)
+        {
+        }
+
+        public StageBossTemplate(
+            string bossId,
+            int stageIndexMin,
+            int stageIndexMax,
+            int difficultyMin,
+            int difficultyMax,
+            int entryLaneMask,
+            int maxHp,
+            int halfWidth,
+            int halfHeight,
+            int holdX,
+            IReadOnlyList<BossPhase> phases,
+            string themeId)
         {
             BossId = bossId ?? throw new ArgumentNullException(nameof(bossId));
             StageIndexMin = stageIndexMin;
@@ -230,6 +319,7 @@ namespace Shmup.Core.Generation
             HalfHeight = halfHeight;
             HoldX = holdX;
             Phases = CopyPhases(phases);
+            ThemeId = themeId;
         }
 
         public string BossId { get; }
@@ -243,6 +333,7 @@ namespace Shmup.Core.Generation
         public int HalfHeight { get; }
         public int HoldX { get; }
         public IReadOnlyList<BossPhase> Phases { get; }
+        public string ThemeId { get; }
 
         internal bool Supports(int stageIndex, int difficulty)
         {
@@ -252,10 +343,18 @@ namespace Shmup.Core.Generation
                 && difficulty <= DifficultyMax;
         }
 
+        internal bool SupportsTheme(string themeId)
+        {
+            return ThemeId == null
+                || string.Equals(ThemeId, themeId, StringComparison.Ordinal);
+        }
+
         internal void Validate(int validLanes)
         {
             if (BossId.Length == 0)
                 throw new ArgumentException("Boss id cannot be empty.");
+            if (ThemeId != null && ThemeId.Length == 0)
+                throw new ArgumentException("Boss theme id cannot be empty.");
             if (StageIndexMin < 1 || StageIndexMax < StageIndexMin)
                 throw new ArgumentException("Boss stage range is invalid.");
             if (DifficultyMin < 1 || DifficultyMax < DifficultyMin)
@@ -306,6 +405,7 @@ namespace Shmup.Core.Generation
             if (difficulty < 1)
                 throw new ArgumentOutOfRangeException(nameof(difficulty));
 
+            string themeId = SelectTheme(stageIndex);
             Rng stageRng = new Rng(seed)
                 .Fork(StageGenerationStream)
                 .Fork(stageIndex)
@@ -326,7 +426,8 @@ namespace Shmup.Core.Generation
                 for (int i = 0; i < _catalog.Segments.Count; i++)
                 {
                     StageSegmentTemplate candidate = _catalog.Segments[i];
-                    if (!candidate.SupportsDifficulty(difficulty))
+                    if (!candidate.SupportsDifficulty(difficulty)
+                        || !candidate.SupportsTheme(themeId))
                         continue;
 
                     int exit = StagePlanClearability.Advance(
@@ -338,6 +439,7 @@ namespace Shmup.Core.Generation
                             remaining,
                             stageIndex,
                             difficulty,
+                            themeId,
                             completionCache))
                         continue;
 
@@ -347,7 +449,7 @@ namespace Shmup.Core.Generation
 
                 if (viableIndices.Count == 0)
                     throw new InvalidOperationException(
-                        "Catalog cannot assemble a clearable stage for the requested inputs.");
+                        CannotAssembleMessage(themeId));
 
                 int pick = segmentRng.NextInt(0, viableIndices.Count);
                 StageSegmentTemplate selected = _catalog.Segments[viableIndices[pick]];
@@ -360,13 +462,16 @@ namespace Shmup.Core.Generation
             {
                 StageBossTemplate boss = _catalog.Bosses[i];
                 if (boss.Supports(stageIndex, difficulty)
+                    && boss.SupportsTheme(themeId)
                     && (reachable & boss.EntryLaneMask) != 0)
                     compatibleBosses.Add(i);
             }
 
             if (compatibleBosses.Count == 0)
                 throw new InvalidOperationException(
-                    "Catalog has no reachable boss for the requested inputs.");
+                    themeId == null
+                        ? "Catalog has no reachable boss for the requested inputs."
+                        : $"Catalog has no reachable boss for theme '{themeId}' and the requested inputs.");
 
             int bossPick = bossRng.NextInt(0, compatibleBosses.Count);
             StageBossTemplate selectedBoss =
@@ -382,7 +487,22 @@ namespace Shmup.Core.Generation
                 selectedBoss.HalfWidth,
                 selectedBoss.HalfHeight,
                 selectedBoss.HoldX,
-                selectedBoss.Phases);
+                selectedBoss.Phases,
+                themeId);
+        }
+
+        string SelectTheme(int stageIndex)
+        {
+            return _catalog.ThemeIds.Count == 0
+                ? null
+                : _catalog.ThemeIds[(stageIndex - 1) % _catalog.ThemeIds.Count];
+        }
+
+        static string CannotAssembleMessage(string themeId)
+        {
+            return themeId == null
+                ? "Catalog cannot assemble a clearable stage for the requested inputs."
+                : $"Catalog cannot assemble a clearable stage for theme '{themeId}' and the requested inputs.";
         }
 
         bool CanComplete(
@@ -390,6 +510,7 @@ namespace Shmup.Core.Generation
             int segmentsRemaining,
             int stageIndex,
             int difficulty,
+            string themeId,
             IDictionary<long, bool> cache)
         {
             long cacheKey = ((long)segmentsRemaining << 32) | (uint)reachable;
@@ -399,7 +520,7 @@ namespace Shmup.Core.Generation
             if (segmentsRemaining == 0)
             {
                 bool bossReachable = HasReachableBoss(
-                    reachable, stageIndex, difficulty);
+                    reachable, stageIndex, difficulty, themeId);
                 cache.Add(cacheKey, bossReachable);
                 return bossReachable;
             }
@@ -407,7 +528,8 @@ namespace Shmup.Core.Generation
             for (int i = 0; i < _catalog.Segments.Count; i++)
             {
                 StageSegmentTemplate candidate = _catalog.Segments[i];
-                if (!candidate.SupportsDifficulty(difficulty))
+                if (!candidate.SupportsDifficulty(difficulty)
+                    || !candidate.SupportsTheme(themeId))
                     continue;
 
                 int exit = StagePlanClearability.Advance(
@@ -418,6 +540,7 @@ namespace Shmup.Core.Generation
                         segmentsRemaining - 1,
                         stageIndex,
                         difficulty,
+                        themeId,
                         cache))
                 {
                     cache.Add(cacheKey, true);
@@ -428,12 +551,17 @@ namespace Shmup.Core.Generation
             return false;
         }
 
-        bool HasReachableBoss(int reachable, int stageIndex, int difficulty)
+        bool HasReachableBoss(
+            int reachable,
+            int stageIndex,
+            int difficulty,
+            string themeId)
         {
             for (int i = 0; i < _catalog.Bosses.Count; i++)
             {
                 StageBossTemplate boss = _catalog.Bosses[i];
                 if (boss.Supports(stageIndex, difficulty)
+                    && boss.SupportsTheme(themeId)
                     && (reachable & boss.EntryLaneMask) != 0)
                     return true;
             }

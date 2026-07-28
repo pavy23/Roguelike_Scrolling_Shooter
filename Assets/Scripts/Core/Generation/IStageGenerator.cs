@@ -72,6 +72,33 @@ namespace Shmup.Core.Generation
             int bossHalfHeight,
             int bossHoldX,
             IReadOnlyList<BossPhase> bossPhases)
+            : this(
+                segments,
+                bossId,
+                laneCount,
+                startLaneMask,
+                bossEntryLaneMask,
+                bossMaxHp,
+                bossHalfWidth,
+                bossHalfHeight,
+                bossHoldX,
+                bossPhases,
+                null)
+        {
+        }
+
+        public StagePlan(
+            IReadOnlyList<StageSegment> segments,
+            string bossId,
+            int laneCount,
+            int startLaneMask,
+            int bossEntryLaneMask,
+            int bossMaxHp,
+            int bossHalfWidth,
+            int bossHalfHeight,
+            int bossHoldX,
+            IReadOnlyList<BossPhase> bossPhases,
+            string themeId)
         {
             if (bossMaxHp < 0)
                 throw new ArgumentOutOfRangeException(nameof(bossMaxHp));
@@ -79,6 +106,8 @@ namespace Shmup.Core.Generation
                 throw new ArgumentOutOfRangeException(nameof(bossHalfWidth));
             if (bossHalfHeight < 0)
                 throw new ArgumentOutOfRangeException(nameof(bossHalfHeight));
+            if (themeId != null && themeId.Length == 0)
+                throw new ArgumentException("Theme id cannot be empty.", nameof(themeId));
             Segments = Copy(segments, nameof(segments));
             BossId = bossId ?? throw new ArgumentNullException(nameof(bossId));
             LaneCount = laneCount;
@@ -89,6 +118,7 @@ namespace Shmup.Core.Generation
             BossHalfHeight = bossHalfHeight;
             BossHoldX = bossHoldX;
             BossPhases = CopyPhases(bossPhases);
+            ThemeId = themeId;
         }
 
         public IReadOnlyList<StageSegment> Segments { get; }
@@ -105,6 +135,11 @@ namespace Shmup.Core.Generation
         public int BossHoldX { get; }
         /// <summary>HP를 페이즈 수로 균등 분할해 전환한다. 비어 있으면 시뮬 기본 1페이즈.</summary>
         public IReadOnlyList<BossPhase> BossPhases { get; }
+        /// <summary>
+        /// Deterministically selected stage theme, or null for an unthemed catalog.
+        /// Presentation uses this id to select the matching background.
+        /// </summary>
+        public string ThemeId { get; }
 
         static IReadOnlyList<BossPhase> CopyPhases(IReadOnlyList<BossPhase> source)
         {

@@ -38,6 +38,11 @@ namespace Shmup.Core.Content
             return value;
         }
 
+        static string OptionalText(string value, string path)
+        {
+            return value == null ? null : RequireText(value, path);
+        }
+
         static T[] RequireArray<T>(T[] value, string path, bool allowEmpty = false)
         {
             if (value == null)
