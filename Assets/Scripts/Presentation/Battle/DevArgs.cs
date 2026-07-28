@@ -11,6 +11,9 @@ namespace Shmup.Presentation.Battle
     {
         const string SeedPrefix = "--seed=";
 
+        /// <summary>타이틀 화면에서 고른 이번 런의 시드. 커맨드라인 --seed가 있으면 그쪽이 우선.</summary>
+        public static long? RuntimeSeed;
+
         public static long? OverrideSeed
         {
             get

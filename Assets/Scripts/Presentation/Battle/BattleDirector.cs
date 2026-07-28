@@ -101,7 +101,7 @@ namespace Shmup.Presentation.Battle
         {
             if (!ValidateWiring()) return;
 
-            Seed = DevArgs.OverrideSeed ?? _seed;
+            Seed = DevArgs.OverrideSeed ?? DevArgs.RuntimeSeed ?? _seed;
 
             // GameData JSON이 유일한 원본 (AGENTS.md §5). 씬 재생성 시 Resources로 복사되고,
             // 파싱·단위 변환은 전부 Core(GameDataParser) 소관이다.

@@ -333,6 +333,7 @@ namespace Shmup.EditorTools
                 BuildScene(shipSprite, bulletPrefab, enemyPrefab, capsulePrefab, explosionPrefab,
                            whiteSprite, missileSprite, optionPrefab, shieldSprite,
                            hudSlotSprite, hudPipSprite, starsFarSprite, starsNearSprite);
+                BuildTitleScene(starsFarSprite, starsNearSprite);
                 RegisterInBuildSettings();
 
                 AssetDatabase.SaveAssets();
@@ -570,13 +571,14 @@ namespace Shmup.EditorTools
         /// 2층 패럴랙스 스타필드. 레이어마다 화면 폭(24u) 타일 2장을 이어 붙이고
         /// ParallaxBackground가 스크롤 팩터별로 왼쪽으로 밀며 래핑한다.
         /// </summary>
-        static void CreateBackground(BattleDirector director, Sprite farSprite, Sprite nearSprite)
+        static readonly float[] StarLayerFactors = { 0.25f, 0.6f };
+
+        static GameObject CreateStarLayers(Sprite farSprite, Sprite nearSprite, out Transform[] layers)
         {
             const float tileWidth = RefResolutionX / (float)AssetsPPU;   // 24u
 
             var root = new GameObject("Background");
-            var layers = new Transform[2];
-            var factors = new float[] { 0.25f, 0.6f };
+            layers = new Transform[2];
             var sprites = new[] { farSprite, nearSprite };
             var orders = new[] { -100, -90 };
 
@@ -597,10 +599,34 @@ namespace Shmup.EditorTools
                 }
             }
 
+            return root;
+        }
+
+        static void CreateBackground(BattleDirector director, Sprite farSprite, Sprite nearSprite)
+        {
+            var root = CreateStarLayers(farSprite, nearSprite, out var layers);
             var parallax = root.AddComponent<ParallaxBackground>();
             SetReference(parallax, "_director", director);
             SetReferenceArray(parallax, "_layers", layers);
-            SetFloatArray(parallax, "_factors", factors);
+            SetFloatArray(parallax, "_factors", StarLayerFactors);
+        }
+
+        // ── 타이틀 씬 ─────────────────────────────────────────────────────────────
+
+        const string TitleScenePath = "Assets/Scenes/Title.unity";
+
+        static void BuildTitleScene(Sprite farSprite, Sprite nearSprite)
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            CreateCamera();
+
+            var root = CreateStarLayers(farSprite, nearSprite, out var layers);
+            var title = root.AddComponent<TitleScreen>();
+            SetReferenceArray(title, "_layers", layers);
+            SetFloatArray(title, "_factors", StarLayerFactors);
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, TitleScenePath);
         }
 
         static void SetFloatArray(UnityEngine.Object target, string fieldName, float[] values)
@@ -702,10 +728,12 @@ namespace Shmup.EditorTools
 
         static void RegisterInBuildSettings()
         {
-            var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
-            if (scenes.Exists(s => s.path == ScenePath)) return;
-            scenes.Insert(0, new EditorBuildSettingsScene(ScenePath, true));
-            EditorBuildSettings.scenes = scenes.ToArray();
+            // 타이틀이 0번(시작 씬), 전투가 1번. SampleScene은 빌드에서 제외.
+            EditorBuildSettings.scenes = new[]
+            {
+                new EditorBuildSettingsScene(TitleScenePath, true),
+                new EditorBuildSettingsScene(ScenePath, true)
+            };
         }
     }
 }

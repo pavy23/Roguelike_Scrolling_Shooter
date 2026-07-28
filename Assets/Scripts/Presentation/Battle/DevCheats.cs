@@ -26,6 +26,10 @@ namespace Shmup.Presentation.Battle
 
             if (keyboard.f9Key.wasPressedThisFrame) _director.Gauge.Collect();
             if (keyboard.f10Key.wasPressedThisFrame) _director.Gauge.Activate();
+
+            // 게임오버에서 Enter → 타이틀 (Core 런 루프가 붙으면 인게임 재시작으로 교체)
+            if (_director.PlayerHp <= 0 && _director.Tick > 0 && keyboard.enterKey.wasPressedThisFrame)
+                UnityEngine.SceneManagement.SceneManager.LoadScene("Title");
         }
 
         GUIStyle _gameOverStyle;
@@ -52,6 +56,8 @@ namespace Shmup.Presentation.Battle
                         normal = { textColor = new Color(1f, 0.3f, 0.3f, 1f) }
                     };
                 GUI.Label(new Rect(0, 0, Screen.width, Screen.height), "GAME OVER", _gameOverStyle);
+                GUI.Label(new Rect(0, Screen.height * 0.68f, Screen.width, _style.fontSize * 2),
+                    "[Enter] 타이틀로", new GUIStyle(_style) { alignment = TextAnchor.MiddleCenter });
             }
 
             GUI.Label(new Rect(8, 4, Screen.width - 16, _style.fontSize * 3),
