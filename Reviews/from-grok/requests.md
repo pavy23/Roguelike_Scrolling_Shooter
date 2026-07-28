@@ -4,6 +4,72 @@
 
 ---
 
+## 2026-07-29 ships.json 함선 카탈로그 (잠정 · AGENTS.md §7)
+
+**완료:** `GameData/ships.json` schemaVersion **1** 신설. 함선 3종.  
+**상태:** 손맛·경제 **잠정 제안** — 최종 확정은 사람 결정.
+
+### 카탈로그
+
+| id | displayName | moveSpeed | 유효 속도 (base 13.0) | startingPowerUpLevels | unlockCost |
+|---|---|---|---|---|---|
+| `starter` | Starter | **1/1** (1.0×) | 13.0 | `[0,0,0,0]` | **0** |
+| `interceptor` | Interceptor | **5/4** (1.25×) | 16.25 | `[0,0,0,0]` | **25000** |
+| `bulwark` | Bulwark | **4/5** (0.8×) | 10.4 | `[0,0,0,1]` | **50000** |
+
+- 슬롯 순서: MainShot / Missile / Option / **Shield**.
+- 소스 첫 비용 0 함선 = `starter` → `DefaultShip`.
+- 유리수 배율만 사용 (소수 배율 금지, Core 약분 합성).
+
+### 역할 의도
+
+| 함선 | 역할 | 트레이드오프 |
+|---|---|---|
+| Starter | 무료 중립 기준선 | 튜닝 없음. 신규 플레이어·폴백 비교 기준. |
+| Interceptor | 스피드형 | 회피·레인 전환 유리(+25% 이동). **시작 파워업 없음**으로 DPS/방어 초반 불리 → 숙련 보상. |
+| Bulwark | 중장형 | 이동 −20%로 회피 부담↑. **Shield 1** 시작으로 접촉 1회 버퍼 → 초보·고밀도 구간 안정. |
+
+Shield 시작 1은 `weapons.json` shield `maxLevel: 3` 이내. 사망 후 재시작 시에도 Core가 함선 시작 레벨 하한을 유지하므로 Bulwark는 메타 사망 페널티와 맞물려 “최소 실드 1” 정체성을 유지한다.
+
+### 점수 경제 근거 (unlockCost)
+
+**소스 수치 (현 카탈로그)**
+
+| 구간 | 값 | 출처 |
+|---|---|---|
+| 잡졸 scoreValue | 60–600 (대표 100–400) | `enemies.json` |
+| 보스 점수 | `hp × 2` (Core) | stage1 **2000** … core **4800** |
+| 1런 추정 | **1만–3만** | 초반 사망 ~1만 / stage1–2 클리어+보스 ~1.5–2.5만 / 다스테이지 강런 ~3만+ |
+
+**해금 목표:** 2–4런 안에 **한 척**(저가 우선) 해금.
+
+| 함선 | cost | 약 10k/런 | 약 15–20k/런 | 약 30k/런 |
+|---|---|---|---|---|
+| Interceptor | 25000 | 3런 | **2런** | 1런 |
+| Bulwark | 50000 | 5런 | **3런** | 2런 |
+
+- Interceptor **25000**: 평균 런(1.5만) 기준 약 2런, 약한 런(1만) 기준 3런 → 목표 2–4런 창에 맞춤. 저가 첫 해금으로 메타 진행 감각을 먼저 준다.
+- Bulwark **50000**: Interceptor의 2배. 평균 3런·강런 2런. “다음 목표”로 남기고, 한 런에 둘 다 사는 폭주를 막음.
+- 재화 = `MetaState.CreditScore(run.TotalScore)` 누적 점수. 런 실패해도 점수 적립되면 사망 런도 해금에 기여(Presentation 적립 1회 보장 전제).
+
+**채택하지 않은 대안**
+
+- Core 테스트 예시 `swift` 1000점: 1런 내 즉시 해금 → 메타 동기 부족.
+- 고가 10만+: 약한 런 10회+ → 해금이 멀어 격납고 의미가 약해짐.
+- Interceptor에 시작 Main/Option: 요청 스펙 “시작 파워업 없음”과 충돌. 속도만으로 차별.
+
+### 검증
+
+- `cd Tools/CoreStandalone && dotnet test` — PASS (RepositoryApproved는 ships 미로드 폴백 경로; 신규 JSON은 schema v1 파서로 유효).
+- 배율·레벨·비용 최종 손맛은 플레이 피드백 후 사람 확정.
+
+### CLAUDE 후속
+
+1. Resources 복사: `GameData/ships.json` → `Assets/Resources/GameData/`.
+2. 격납고 UI·`MetaState` 저장/선택·`RunManager` ship 주입 (`Reviews/from-codex` CLAUDE 항목).
+
+---
+
 ## 2026-07-29 waves.json theme 태깅 (CODEX 스키마 후속)
 
 **완료:** `GameData/waves.json` — 테마 전용 세그먼트 8 + 보스 5에 `theme` 부여. 범용 8은 null.

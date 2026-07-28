@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "ships": [
+    {
+      "id": "starter",
+      "displayName": "Starter",
+      "moveSpeedMultiplierNumerator": 1,
+      "moveSpeedMultiplierDenominator": 1,
+      "startingPowerUpLevels": [0, 0, 0, 0],
+      "unlockCost": 0
+    },
+    {
+      "id": "interceptor",
+      "displayName": "Interceptor",
+      "moveSpeedMultiplierNumerator": 5,
+      "moveSpeedMultiplierDenominator": 4,
+      "startingPowerUpLevels": [0, 0, 0, 0],
+      "unlockCost": 25000
+    },
+    {
+      "id": "bulwark",
+      "displayName": "Bulwark",
+      "moveSpeedMultiplierNumerator": 4,
+      "moveSpeedMultiplierDenominator": 5,
+      "startingPowerUpLevels": [0, 0, 0, 1],
+      "unlockCost": 50000
+    }
+  ]
+}

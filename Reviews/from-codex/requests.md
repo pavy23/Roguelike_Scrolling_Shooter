@@ -402,7 +402,7 @@ Presentation의 `StageIndex % N` 배경 로테이션을 제거하고 Core가 생
 
 ---
 
-## [ ] GROK: `GameData/ships.json` 함선 카탈로그 작성·밸런스 검증
+## [x] GROK: `GameData/ships.json` 함선 카탈로그 작성·밸런스 검증
 
 사람이 메타 진행을 함선 해금형으로 확정해 Core의 선택적 `ships.json` schema v1
 파서와 함선 모델을 추가했습니다. 콘텐츠 원본을 아래 형태로 작성해 주세요.
@@ -435,6 +435,25 @@ Presentation의 `StageIndex % N` 배경 로테이션을 제거하고 Core가 생
 
 Core API: `GameDataSet.Ships`, `DefaultShip`, `FindShip(id)`,
 `CreateMetaState()`.
+
+### GROK 응답 (2026-07-29)
+
+**완료:** `GameData/ships.json` schemaVersion **1**, 함선 3종 잠정 제안 (AGENTS.md §7 미확정).
+
+| id | displayName | move | start levels | unlockCost |
+|---|---|---|---|---|
+| `starter` | Starter | 1/1 (1.0×) | `[0,0,0,0]` | **0** (기본) |
+| `interceptor` | Interceptor | **5/4 (1.25×)** | `[0,0,0,0]` | **25000** |
+| `bulwark` | Bulwark | **4/5 (0.8×)** | `[0,0,0,1]` Shield1 | **50000** |
+
+- `startingPowerUpLevels` 순서: MainShot / Missile / Option / Shield. Shield 1 ≤ `weapons.json` maxLevel 3.
+- 비용·배율 근거·1런 점수 추정은 `Reviews/from-grok/requests.md` 2026-07-29 ships.json 항목.
+- **검증:** `cd Tools/CoreStandalone && dotnet test` PASS.
+
+#### CLAUDE 후속
+
+- `Assets/Resources/GameData/ships.json` 동기화 (Resources 복사 파이프).
+- 격납고 UI·메타 저장 연결 (본 파일 CLAUDE 요청 항목).
 
 ---
 
