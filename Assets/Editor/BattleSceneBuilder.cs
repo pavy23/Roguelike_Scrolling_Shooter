@@ -647,6 +647,8 @@ namespace Shmup.EditorTools
             AddBossSprite("boss_stage1", bossSprite);
             AddBossSprite("boss_hive", LoadExternalSprite("boss_hive.png", "boss_hive"));
             AddBossSprite("boss_fortress", LoadExternalSprite("boss_fortress.png", "boss_fortress"));
+            AddBossSprite("boss_storm", LoadExternalSprite("boss_storm.png", "boss_storm"));
+            AddBossSprite("boss_core", LoadExternalSprite("boss_core.png", "boss_core"));
             SetStringArray(director, "_bossSpritePrefixes", bossPrefixes.ToArray());
             SetReferenceArray(director, "_bossSprites", bossSprites.ToArray());
 
@@ -691,6 +693,8 @@ namespace Shmup.EditorTools
             AddEnemySprite("lancer", LoadExternalSprite("enemy_lancer.png", "enemy_lancer"));
             AddEnemySprite("sentry", LoadExternalSprite("enemy_sentry.png", "enemy_sentry"));
             AddEnemySprite("interceptor", LoadExternalSprite("enemy_interceptor.png", "enemy_interceptor"));
+            AddEnemySprite("wisp", LoadExternalSprite("enemy_wisp.png", "enemy_wisp"));
+            AddEnemySprite("guardian", LoadExternalSprite("enemy_guardian.png", "enemy_guardian"));
             SetStringArray(director, "_enemySpritePrefixes", enemyTypePrefixes.ToArray());
             SetReferenceArray(director, "_enemySprites", enemyTypeSprites.ToArray());
 
@@ -808,18 +812,26 @@ namespace Shmup.EditorTools
         static void CreateBackground(BattleDirector director, Sprite farSprite, Sprite nearSprite)
         {
             var themeRoots = new List<GameObject>();
-            var scrapyard = CreateThemeRoot(director, "Background_Scrapyard", farSprite, nearSprite, "scrap");
-            if (scrapyard != null) themeRoots.Add(scrapyard);
-            var hive = CreateThemeRoot(director, "Background_Hive", farSprite, nearSprite, "hive");
-            if (hive != null) themeRoots.Add(hive);
-            var fortress = CreateThemeRoot(director, "Background_Fortress", farSprite, nearSprite, "fort");
-            if (fortress != null) themeRoots.Add(fortress);
+            var themeIds = new List<string>();
+            void AddTheme(string themeId, string rootName, string filePrefix)
+            {
+                var root = CreateThemeRoot(director, rootName, farSprite, nearSprite, filePrefix);
+                if (root == null) return;
+                themeRoots.Add(root);
+                themeIds.Add(themeId);   // waves.json의 theme 값과 일치해야 한다 (테마-보스 바인딩)
+            }
+            AddTheme("scrapyard", "Background_Scrapyard", "scrap");
+            AddTheme("hive", "Background_Hive", "hive");
+            AddTheme("fortress", "Background_Fortress", "fort");
+            AddTheme("nebula", "Background_Nebula", "nebula");
+            AddTheme("core", "Background_Core", "core");
 
             // 두 번째 이후 테마는 director의 ApplyStageTheme이 켤 때까지 꺼 둔다.
             for (int i = 1; i < themeRoots.Count; i++)
                 themeRoots[i].SetActive(false);
 
             SetReferenceArray(director, "_themeBackgrounds", themeRoots.ToArray());
+            SetStringArray(director, "_themeIds", themeIds.ToArray());
         }
 
         static GameObject CreateThemeRoot(

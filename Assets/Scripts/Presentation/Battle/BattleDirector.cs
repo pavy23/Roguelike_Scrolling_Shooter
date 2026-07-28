@@ -48,8 +48,9 @@ namespace Shmup.Presentation.Battle
         [SerializeField] string[] _enemySpritePrefixes;
         [SerializeField] Sprite[] _enemySprites;
         [SerializeField] BossIntro _bossIntro;
-        [Tooltip("스테이지 테마 배경 루트들 — (StageIndex-1) % 개수 로테이션 (M3).")]
+        [Tooltip("스테이지 테마 배경 루트들. StagePlan.ThemeId 매칭 우선, 없으면 (StageIndex-1)%개수 로테이션 (M3).")]
         [SerializeField] GameObject[] _themeBackgrounds;
+        [SerializeField] string[] _themeIds;
         [Tooltip("StagePlan.BossId 접두어 → 보스 스프라이트.")]
         [SerializeField] string[] _bossSpritePrefixes;
         [SerializeField] Sprite[] _bossSprites;
@@ -229,12 +230,32 @@ namespace Shmup.Presentation.Battle
             ApplyBossSprite();
         }
 
-        /// <summary>스테이지 번호로 테마 배경을 로테이션한다 (테마 수보다 스테이지가 많으면 반복).</summary>
+        /// <summary>
+        /// Core가 정한 StagePlan.ThemeId로 배경을 고른다 (테마-보스 바인딩과 일치 보장).
+        /// ThemeId가 없거나 미등록이면 스테이지 번호 로테이션 폴백.
+        /// </summary>
         void ApplyStageTheme()
         {
             if (_themeBackgrounds == null || _themeBackgrounds.Length == 0 || _run == null) return;
-            int index = (_run.StageIndex - 1) % _themeBackgrounds.Length;
-            if (index < 0) index += _themeBackgrounds.Length;
+
+            int index = -1;
+            string themeId = _run.StagePlan != null ? _run.StagePlan.ThemeId : null;
+            if (!string.IsNullOrEmpty(themeId) && _themeIds != null)
+            {
+                int count = Mathf.Min(_themeIds.Length, _themeBackgrounds.Length);
+                for (int i = 0; i < count; i++)
+                    if (string.Equals(_themeIds[i], themeId, System.StringComparison.Ordinal))
+                    {
+                        index = i;
+                        break;
+                    }
+            }
+            if (index < 0)
+            {
+                index = (_run.StageIndex - 1) % _themeBackgrounds.Length;
+                if (index < 0) index += _themeBackgrounds.Length;
+            }
+
             for (int i = 0; i < _themeBackgrounds.Length; i++)
                 if (_themeBackgrounds[i] != null && _themeBackgrounds[i].activeSelf != (i == index))
                     _themeBackgrounds[i].SetActive(i == index);

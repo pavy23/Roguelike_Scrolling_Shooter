@@ -19,11 +19,17 @@
 | **CLAUDE** | RENDERER + ART/AUDIO 파이프라인 | `Assets/` 전체 중 `Assets/Scripts/Core/` 제외 — 씬, 프리팹, 카메라, 풀링, 입력, 오디오, `Assets/Scripts/Presentation/`, `ProjectSettings/` + `Tools/ArtGen/` (AI 아트·SFX 생성→후처리→임포트 스크립트) | Unity Test Runner + Unity CLI `capture_game_view` 캡처 |
 | **CODEX** | SIMULATION | `Assets/Scripts/Core/` (Shmup.Core) + `Assets/Tests/EditMode/` + `Tools/CoreStandalone/` | `dotnet test` (Unity 안 열음) |
 | **GROK** | CONTENT | `GameData/` (JSON 데이터, 밸런스 수치) + 밸런스 시뮬 스크립트 | JSON 스키마 검증 + 헤드리스 시뮬 실행 |
-| **GEMINI** | QA / VERIFIER | `QA/` (테스트 플랜, 캡처, 리포트) — **코드·에셋·데이터 소유 없음** | 리포트 자체가 산출물. 빌드 실행·관찰 + Unity CLI로 시각 QA(`capture_game_view` 스크린샷 비교, `get_performance_stats` 성능 추적) |
+| **GEMINI** | QA / VERIFIER | `QA/` (테스트 플랜, 캡처, 베이스라인, 리포트) — **코드·에셋·데이터 소유 없음** | 리포트 자체가 산출물. 빌드 실행·관찰 + Unity CLI로 시각 QA(`capture_game_view` 스크린샷 비교, `get_performance_stats` 성능 추적) |
 
 공유 파일(`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.gitignore`)은 사람만 수정한다.
 
 **아트/사운드 생성물 규칙** (2026-07-28): AI 생성 에셋은 후보 다량 생산 → **사람(아트 디렉터) 큐레이션 합격작만** `Assets/Art/`·`Assets/Audio/`에 확정한다. 생성 프롬프트·파라미터는 산출물과 함께 커밋해 재현 가능하게 유지한다. 시뮬 상태 변화를 애니메이션·사운드로 표현해야 하면 Core의 시뮬 이벤트(REQ-005)를 구독한다 — Presentation에서 게임플레이 판정을 내리지 않는 원칙은 그대로다.
+
+**GEMINI 확장 임무 (2026-07-29 사람 승인):**
+1. **시각 리그레션 감시** — 기준 스크린샷을 `QA/baselines/`에 관리하고, 씬 재생성/대규모 병합 후 `capture_game_view` 캡처와 픽셀 diff로 배경·HUD 파손을 감지해 리포트한다.
+2. **결정론 감사** — 같은 시드 2회 실행의 상태 해시 비교를 정례화한다 (CODEX가 제공하는 CoreStandalone 콘솔 러너 사용).
+3. **밸런스 교차 검산** — GROK의 이론치(TTK 등)를 실제 시뮬 구동으로 재검산해 독립 검증한다.
+4. **마일스톤 병합 게이트** — 마일스톤 단위(M0~M5) 병합은 GEMINI 검증 리포트 통과 후 push 한다.
 
 ## 3. 브랜치 / worktree
 
