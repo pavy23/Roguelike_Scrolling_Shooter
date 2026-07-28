@@ -183,6 +183,36 @@
       "halfHeight": 0.75,
       "amplitude": 0,
       "periodTicks": 1
+    },
+    {
+      "id": "wisp_spark",
+      "displayName": "Wisp (Spark)",
+      "hp": 5,
+      "contactDamage": 1,
+      "scoreValue": 90,
+      "movePattern": "sine",
+      "moveSpeed": 6.5,
+      "fireIntervalTicks": 0,
+      "dropWeight": 3,
+      "halfWidth": 0.75,
+      "halfHeight": 0.75,
+      "amplitude": 3.5,
+      "periodTicks": 60
+    },
+    {
+      "id": "guardian_sphere",
+      "displayName": "Guardian Sphere",
+      "hp": 60,
+      "contactDamage": 2,
+      "scoreValue": 550,
+      "movePattern": "straight",
+      "moveSpeed": 1.75,
+      "fireIntervalTicks": 70,
+      "dropWeight": 10,
+      "halfWidth": 0.9375,
+      "halfHeight": 0.9375,
+      "amplitude": 0,
+      "periodTicks": 1
     }
   ]
 }

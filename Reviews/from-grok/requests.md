@@ -4,6 +4,69 @@
 
 ---
 
+## [x] REQ-G004 → CODEX 소유 파일 수정 기록: `GameDataParserTests` 카탈로그 개수 (M3 테마4·5)
+
+**무엇이 / 왜**
+
+M3 테마4(성운·전자폭풍) + 테마5(최종 요새 코어) 콘텐츠 추가에 따라 저장소 `GameData/` 카탈로그 개수가 늘어났다.
+`Assets/Tests/EditMode/GameDataParserTests.cs`의 `RepositoryApprovedV2Files_ParseCompletely`가
+고정 개수로 검증하므로 **CODEX 소유 파일**을 함께 갱신했다 (콘텐츠 커밋이 테스트 그린을 유지하려면 불가피).
+
+| 항목 | before | after |
+|---|---|---|
+| Enemies | 12 | **14** (`wisp_spark`, `guardian_sphere`) |
+| Segments | 12 | **16** (`seg_nebula_wisp_storm`, `seg_nebula_wisp_ribbon`, `seg_core_guardian_wall`, `seg_core_final_gauntlet`) |
+| Bosses | 3 | **5** (`boss_storm`, `boss_core`) |
+
+**변경 파일:** `Assets/Tests/EditMode/GameDataParserTests.cs` — Assert 개수만 갱신. 스키마/파서 API 변경 없음.
+**비포함:** `theme` 필드 태깅 — CODEX 스키마 작업 중. 다음 패스에서 태깅.
+
+**CODEX 후속 (선택):** sim 브랜치 머지 시 동일 Assert가 이미 content 쪽 값이면 no-op.
+
+---
+
+## 2026-07-29 M3 테마4·5 성운·전자폭풍 + 최종 요새 코어 (잠정)
+
+**승인 맥락:** 오케스트레이터 잠정 승인. AGENTS.md §7 최종 확정은 사람 검토 후 유지.  
+**범위:** `GameData/enemies.json` · `waves.json` + 테스트 개수 동기. 스키마 변경 없음. `theme` 필드 미포함.
+
+### enemies.json — 신규 2종 (뷰 스프라이트 매핑: `wisp_` / `guardian_` 접두)
+
+| id | movePattern | hp | moveSpeed | fireInterval | dropWeight | hitbox (half) | 의도 |
+|---|---|---|---|---|---|---|---|
+| `wisp_spark` | sine | 5 | **6.5** | 0 | 3 | 0.75×0.75 | 전기 위습. HP 낮음, 빠른 사인(period **60t**, amp 3.5). 성운 밀도 담당. |
+| `guardian_sphere` | straight | **60** | **1.75** | **70** | 10 | 0.9375×0.9375 | 고체력 저속 방어구체. 사격형 앵커. contact 2. |
+
+### waves.json — 성운 세그먼트 2 + 코어 세그먼트 2 + 보스 2
+
+| 세그먼트 | diff | lengthTicks | traversable | 밀도 | 의도 |
+|---|---|---|---|---|---|
+| `seg_nebula_wisp_storm` | 3–5 | 780 | `[7]` | 고 (28) | 위습 중심 + sine/slow/elite 혼합. 전 레인 개방. |
+| `seg_nebula_wisp_ribbon` | 3–5 | 720 | `[2]` | 고 (25) | 위습 리본 연속 + sine 혼합. center 코리도. |
+| `seg_core_guardian_wall` | **4–5** | 900 | `[6]` | 최고 (33) | guardian+터렛+interceptor+sentry. top\|center. |
+| `seg_core_final_gauntlet` | **4–5** | 840 | `[2]` | 최고 (39) | guardian+터렛+interceptor 최고 밀도 가틀릿. center. |
+
+**boss_storm:** stageIndex **4–99**, hp **1900**, halfW/H 4.0/3.0, holdX 14.0.  
+페이즈: `{40t, 5-way, 11.0}` / `{36t, 7-way, 11.5}` — fortress(42/5/10 · 38/6/11)보다 강하되 interval **36t**.
+
+**boss_core:** stageIndex **5–99**, hp **2400**, halfW/H 4.0/3.0, holdX 14.0.  
+페이즈: `{38t, 7-way, 12.0}` / `{34t, 9-way, 12.5}` — 최종보스감. interval **34t 하한** 유지.
+
+### 이론 검산 (잠정)
+
+- 보스 TTK (메인만, 풀히트, DPS≈75): storm 1900/75 ≈ **25.3s**, core 2400/75 ≈ **32.0s** (fortress 1600 ≈ 21.3s 대비 상향).
+- storm phase2 밀도: 7발/36t ≈ 11.7발/초. core phase2: 9발/34t ≈ 15.9발/초.
+- 위습 period 60t + speed 6.5 → 회피 부담↑, HP 5로 교환 가능.
+
+### 후속 관찰
+
+1. Resources 복사본(`Assets/Resources/GameData/`) 동기화 — CLAUDE 빌드/씬 재생성 파이프.
+2. 뷰 스프라이트: id 접두 `wisp_` / `guardian_` / `boss_storm` / `boss_core` 매핑 (CLAUDE).
+3. `theme` 필드 태깅 — CODEX 스키마 완료 후 다음 패스.
+4. stage 4+/5+ 보스 로테이션: 다수 보스 동시 적격 → RNG 선택. 고정 배정이 필요하면 stageIndex 구간 분리.
+
+---
+
 ## [x] REQ-G003 → CODEX 소유 파일 수정 기록: `GameDataParserTests` 카탈로그 개수 (M3 테마3)
 
 **무엇이 / 왜**
