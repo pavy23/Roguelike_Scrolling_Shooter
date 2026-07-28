@@ -15,6 +15,34 @@ namespace Shmup.Core.Generation
         StagePlan Generate(ulong seed, int stageIndex, int difficulty);
     }
 
+    /// <summary>
+    /// 보스 페이즈 하나의 발사 파라미터 (REQ-007). 속도는 서브유닛/틱 유리수.
+    /// Ways는 홀수 권장 (짝수면 중앙 비대칭).
+    /// </summary>
+    public sealed class BossPhase
+    {
+        public BossPhase(int fireIntervalTicks, int ways, int bulletSpeedNumerator, int bulletSpeedDenominator)
+        {
+            if (fireIntervalTicks < 1)
+                throw new ArgumentOutOfRangeException(nameof(fireIntervalTicks));
+            if (ways < 1)
+                throw new ArgumentOutOfRangeException(nameof(ways));
+            if (bulletSpeedNumerator < 0)
+                throw new ArgumentOutOfRangeException(nameof(bulletSpeedNumerator));
+            if (bulletSpeedDenominator < 1)
+                throw new ArgumentOutOfRangeException(nameof(bulletSpeedDenominator));
+            FireIntervalTicks = fireIntervalTicks;
+            Ways = ways;
+            BulletSpeedNumerator = bulletSpeedNumerator;
+            BulletSpeedDenominator = bulletSpeedDenominator;
+        }
+
+        public int FireIntervalTicks { get; }
+        public int Ways { get; }
+        public int BulletSpeedNumerator { get; }
+        public int BulletSpeedDenominator { get; }
+    }
+
     /// <summary>Ordered segments followed by a boss. Pure data — no Unity types.</summary>
     public sealed class StagePlan
     {
@@ -29,12 +57,32 @@ namespace Shmup.Core.Generation
             int laneCount,
             int startLaneMask,
             int bossEntryLaneMask)
+            : this(segments, bossId, laneCount, startLaneMask, bossEntryLaneMask, 0, 0, 0, 0, null)
+        {
+        }
+
+        public StagePlan(
+            IReadOnlyList<StageSegment> segments,
+            string bossId,
+            int laneCount,
+            int startLaneMask,
+            int bossEntryLaneMask,
+            int bossMaxHp,
+            int bossHalfWidth,
+            int bossHalfHeight,
+            int bossHoldX,
+            IReadOnlyList<BossPhase> bossPhases)
         {
             Segments = Copy(segments, nameof(segments));
             BossId = bossId ?? throw new ArgumentNullException(nameof(bossId));
             LaneCount = laneCount;
             StartLaneMask = startLaneMask;
             BossEntryLaneMask = bossEntryLaneMask;
+            BossMaxHp = bossMaxHp;
+            BossHalfWidth = bossHalfWidth;
+            BossHalfHeight = bossHalfHeight;
+            BossHoldX = bossHoldX;
+            BossPhases = CopyPhases(bossPhases);
         }
 
         public IReadOnlyList<StageSegment> Segments { get; }
@@ -42,6 +90,26 @@ namespace Shmup.Core.Generation
         public int LaneCount { get; }
         public int StartLaneMask { get; }
         public int BossEntryLaneMask { get; }
+
+        /// <summary>0이면 보스전 없음 — 스테이지는 기존처럼 틱 소진으로 끝난다 (레거시/테스트 호환).</summary>
+        public int BossMaxHp { get; }
+        public int BossHalfWidth { get; }
+        public int BossHalfHeight { get; }
+        /// <summary>보스가 진입 후 정지하는 x (서브유닛). 0이면 시뮬 기본값.</summary>
+        public int BossHoldX { get; }
+        /// <summary>HP를 페이즈 수로 균등 분할해 전환한다. 비어 있으면 시뮬 기본 1페이즈.</summary>
+        public IReadOnlyList<BossPhase> BossPhases { get; }
+
+        static IReadOnlyList<BossPhase> CopyPhases(IReadOnlyList<BossPhase> source)
+        {
+            if (source == null || source.Count == 0)
+                return Array.Empty<BossPhase>();
+            var copy = new BossPhase[source.Count];
+            for (int i = 0; i < source.Count; i++)
+                copy[i] = source[i] ?? throw new ArgumentException(
+                    "Boss phases cannot contain null.", nameof(source));
+            return new ReadOnlyCollection<BossPhase>(copy);
+        }
 
         static IReadOnlyList<StageSegment> Copy(
             IReadOnlyList<StageSegment> source,

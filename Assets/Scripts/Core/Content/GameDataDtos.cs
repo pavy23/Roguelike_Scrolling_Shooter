@@ -155,6 +155,27 @@ namespace Shmup.Core.Content
         public int? entryLaneMask;
         [DataMember]
         public int? hp;
+
+        // REQ-007/008 보스 전투 필드 — 전부 선택적 (없으면 시뮬 기본값).
+        [DataMember]
+        public decimal? halfWidth;
+        [DataMember]
+        public decimal? halfHeight;
+        [DataMember]
+        public decimal? holdX;
+        [DataMember]
+        public BossPhaseDto[] phases;
+    }
+
+    [DataContract]
+    internal sealed class BossPhaseDto
+    {
+        [DataMember]
+        public int? fireIntervalTicks;
+        [DataMember]
+        public int? ways;
+        [DataMember]
+        public decimal? bulletSpeed;
     }
 }
 
