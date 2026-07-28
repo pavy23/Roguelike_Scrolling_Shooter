@@ -39,13 +39,86 @@ namespace Shmup.Core.Content
                 EnsureUniqueBossId(bosses, i);
             }
 
+            string[] themes = ParseThemes(root.themes, segments, bosses);
             var catalog = new StageGenerationCatalog(
                 Require(root.laneCount, "waves.json.laneCount"),
                 Require(root.segmentsPerStage, "waves.json.segmentsPerStage"),
                 Require(root.startLaneMask, "waves.json.startLaneMask"),
                 segments,
-                bosses);
+                bosses,
+                themes);
             return new WavesParseResult(catalog, scrollSpeed);
+        }
+
+        static string[] ParseThemes(
+            string[] source,
+            StageSegmentTemplate[] segments,
+            StageBossTemplate[] bosses)
+        {
+            if (source == null)
+                return null;
+
+            var themes = new string[source.Length];
+            for (int i = 0; i < source.Length; i++)
+            {
+                string path = $"waves.json.themes[{i}]";
+                themes[i] = RequireText(source[i], path);
+                for (int earlier = 0; earlier < i; earlier++)
+                    if (string.Equals(themes[earlier], themes[i], StringComparison.Ordinal))
+                        throw Error(path, $"duplicates theme '{themes[i]}'.");
+
+                if (!CatalogContainsTheme(segments, bosses, themes[i]))
+                    throw Error(
+                        path,
+                        $"references unregistered theme '{themes[i]}'.");
+            }
+
+            for (int i = 0; i < segments.Length; i++)
+                EnsureThemeIsListed(
+                    segments[i].ThemeId,
+                    $"waves.json.segments[{i}].theme",
+                    themes);
+            for (int i = 0; i < bosses.Length; i++)
+                EnsureThemeIsListed(
+                    bosses[i].ThemeId,
+                    $"waves.json.bosses[{i}].theme",
+                    themes);
+            return themes;
+        }
+
+        static bool CatalogContainsTheme(
+            StageSegmentTemplate[] segments,
+            StageBossTemplate[] bosses,
+            string themeId)
+        {
+            for (int i = 0; i < segments.Length; i++)
+                if (string.Equals(
+                        segments[i].ThemeId,
+                        themeId,
+                        StringComparison.Ordinal))
+                    return true;
+            for (int i = 0; i < bosses.Length; i++)
+                if (string.Equals(
+                        bosses[i].ThemeId,
+                        themeId,
+                        StringComparison.Ordinal))
+                    return true;
+            return false;
+        }
+
+        static void EnsureThemeIsListed(
+            string themeId,
+            string path,
+            string[] themes)
+        {
+            if (themeId == null)
+                return;
+            for (int i = 0; i < themes.Length; i++)
+                if (string.Equals(themes[i], themeId, StringComparison.Ordinal))
+                    return;
+            throw Error(
+                path,
+                $"theme '{themeId}' is missing from waves.json.themes.");
         }
 
         static StageSegmentTemplate ParseSegment(

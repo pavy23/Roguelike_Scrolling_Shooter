@@ -5,6 +5,13 @@
   "laneCount": 3,
   "segmentsPerStage": 3,
   "startLaneMask": 2,
+  "themes": [
+    "scrapyard",
+    "hive",
+    "fortress",
+    "nebula",
+    "core"
+  ],
   "segments": [
     {
       "id": "seg_intro_line",
@@ -1902,7 +1909,7 @@
     {
       "id": "boss_hive",
       "theme": "hive",
-      "stageIndexMin": 1,
+      "stageIndexMin": 2,
       "stageIndexMax": 99,
       "difficultyMin": 1,
       "difficultyMax": 5,
@@ -1927,7 +1934,7 @@
     {
       "id": "boss_fortress",
       "theme": "fortress",
-      "stageIndexMin": 1,
+      "stageIndexMin": 3,
       "stageIndexMax": 99,
       "difficultyMin": 1,
       "difficultyMax": 5,
@@ -1952,7 +1959,7 @@
     {
       "id": "boss_storm",
       "theme": "nebula",
-      "stageIndexMin": 1,
+      "stageIndexMin": 4,
       "stageIndexMax": 99,
       "difficultyMin": 1,
       "difficultyMax": 5,
@@ -1977,7 +1984,7 @@
     {
       "id": "boss_core",
       "theme": "core",
-      "stageIndexMin": 1,
+      "stageIndexMin": 5,
       "stageIndexMax": 99,
       "difficultyMin": 1,
       "difficultyMax": 5,

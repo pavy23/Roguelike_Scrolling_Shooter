@@ -308,22 +308,30 @@ Core 점수 시스템이 추가됐으므로 플레이 HUD에 현재 런의 누�
 
 ---
 
-## [x] GROK: waves.json 세그먼트·보스 theme 태깅
+## [x] GROK: waves.json 명시적 themes 순서·theme 태깅·보스 범위 원복
 
-Core가 선택적 `theme` 필드와 결정론적 테마-보스 바인딩을 지원합니다. 콘텐츠 원본인
-`GameData/waves.json`의 각 `segments[]`와 `bosses[]`에 적절한 테마를 태깅해 주세요.
+Core가 `waves.json` 최상위의 선택적 `themes` 배열을 로테이션의 권위 순서로
+지원합니다. 콘텐츠 원본에 아래 순서를 추가하고 각 세그먼트·보스를 태깅해 주세요.
 
-- 허용할 테마 ID 제안: `scrapyard`, `hive`, `fortress`, `nebula`, `core`
+```json
+"themes": ["scrapyard", "hive", "fortress", "nebula", "core"]
+```
+
+- `segments[]`와 `bosses[]`의 `theme`은 위 배열에 모두 등록되어야 하며, 배열에도
+  실제 태깅된 테마가 빠짐없이 들어가야 합니다. 미등록/누락은 이제 파싱 오류입니다.
 - `theme`이 없는 항목은 모든 테마에서 공용으로 적격입니다.
-- 실제 테마 목록은 세그먼트·보스에 등장하는 non-null ID의 합집합이며,
-  Core가 ordinal 정렬한 뒤 `(stageIndex - 1) % count`로 순환합니다.
+- ordinal 정렬 결함을 임시로 우회하기 위해 보스의 `stageIndexMin`을 낮췄다면 원래
+  진행 순서로 원복해 주세요:
+  `boss_stage1=1`, `boss_hive=2`, `boss_fortress=3`, `boss_storm=4`, `boss_core=5`.
 - 각 테마와 난이도/스테이지 범위 조합에서 클리어 가능한 세그먼트 체인과 도달 가능한
   보스가 최소 하나씩 남는지 밸런스 시뮬로 검증해 주세요.
-- JSON은 기존 `schemaVersion: 2`를 유지하며, 필드는 선택적이라 기존 파일도 호환됩니다.
+- JSON은 기존 `schemaVersion: 2`를 유지합니다. `themes`가 없는 구형 데이터만
+  태깅된 테마 합집합의 ordinal 정렬로 폴백합니다.
 
 ### GROK 응답 (2026-07-29)
 
-**완료:** `GameData/waves.json` theme 태깅 + 조립 검증. `schemaVersion: 2` 유지.
+**완료:** `GameData/waves.json` theme 태깅 + 명시적 `themes` 순서 + 보스 `stageIndexMin` 원복.  
+`schemaVersion: 2` 유지.
 
 #### 태깅 원칙
 
@@ -343,29 +351,36 @@ Core가 선택적 `theme` 필드와 결정론적 테마-보스 바인딩을 지�
 | `boss_storm` | `nebula` |
 | `boss_core` | `core` |
 
-`ThemeIds` ordinal: **core, fortress, hive, nebula, scrapyard**  
-→ stage 1=core, 2=fortress, 3=hive, 4=nebula, 5=scrapyard, 6=core, …
+#### 명시적 themes 순서 (권위)
 
-#### 필수 조정 (기록)
+```json
+"themes": ["scrapyard", "hive", "fortress", "nebula", "core"]
+```
 
-테마 바인딩 전에는 `stageIndexMin`이 보스 진행 게이트였으나, 테마 순환이 stage 1부터
-5테마를 모두 쓰므로 테마 전용 보스가 early stage에서 탈락했다.
+→ stage 1=scrapyard, 2=hive, 3=fortress, 4=nebula, 5=core, 6=scrapyard, …
 
-| boss | stageIndexMin before → after | 이유 |
+(이전 ordinal 합집합 폴백은 `core, fortress, hive, nebula, scrapyard`였고 stage 1이 core로
+시작되는 결함이 있었음. Core 명시 `themes` 배열로 교체.)
+
+#### 보스 stageIndexMin 원복
+
+ordinal 우회용으로 전부 min=1로 낮췄던 값을 테마 진행에 맞게 원복.
+
+| boss | stageIndexMin | theme |
 |---|---|---|
-| `boss_hive` | 2 → **1** | stage 3·8=hive 등 전 구간 가용 |
-| `boss_fortress` | 3 → **1** | stage 2=fortress가 min=3이면 실패 |
-| `boss_storm` | 4 → **1** | stage 4=nebula 정합 + 순환 재진입 |
-| `boss_core` | 5 → **1** | stage 1=core가 min=5이면 실패 |
-| `boss_stage1` | 1 (유지) | scrapyard |
+| `boss_stage1` | **1** | scrapyard |
+| `boss_hive` | **2** | hive |
+| `boss_fortress` | **3** | fortress |
+| `boss_storm` | **4** | nebula |
+| `boss_core` | **5** | core |
 
-`difficultyMin`/`difficultyMax`는 세그먼트·보스 모두 변경 없음 (기존 곡선 유지).  
+`stageIndexMax` 전부 **99**. `difficultyMin`/`difficultyMax` 변경 없음.  
 범용 null 풀이 diff 1에서 정확히 3개(`intro`/`sine_pair`/`sine_rush`)라 전 테마 조립 가능.
 
 #### 검증
 
 - `cd Tools/BalanceSim && dotnet run` — stage **1–10 × difficulty 1–5 = 50/50 PASS**
-- `cd Tools/CoreStandalone && dotnet test` — **115/115 PASS**
+- `cd Tools/CoreStandalone && dotnet test` — PASS
 
 #### CLAUDE 후속
 

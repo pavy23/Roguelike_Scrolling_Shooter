@@ -16,6 +16,23 @@ namespace Shmup.Core.Generation
             int startLaneMask,
             IReadOnlyList<StageSegmentTemplate> segments,
             IReadOnlyList<StageBossTemplate> bosses)
+            : this(
+                laneCount,
+                segmentsPerStage,
+                startLaneMask,
+                segments,
+                bosses,
+                null)
+        {
+        }
+
+        public StageGenerationCatalog(
+            int laneCount,
+            int segmentsPerStage,
+            int startLaneMask,
+            IReadOnlyList<StageSegmentTemplate> segments,
+            IReadOnlyList<StageBossTemplate> bosses,
+            IReadOnlyList<string> themeIds)
         {
             if (laneCount < 1 || laneCount > 30)
                 throw new ArgumentOutOfRangeException(nameof(laneCount));
@@ -37,7 +54,9 @@ namespace Shmup.Core.Generation
             if (Bosses.Count == 0)
                 throw new ArgumentException("At least one boss is required.", nameof(bosses));
 
-            ThemeIds = CollectThemeIds(Segments, Bosses);
+            ThemeIds = themeIds == null
+                ? CollectThemeIds(Segments, Bosses)
+                : CopyExplicitThemeIds(themeIds, Segments, Bosses);
         }
 
         public int LaneCount { get; }
@@ -59,6 +78,75 @@ namespace Shmup.Core.Generation
 
             themes.Sort(StringComparer.Ordinal);
             return new ReadOnlyCollection<string>(themes);
+        }
+
+        static IReadOnlyList<string> CopyExplicitThemeIds(
+            IReadOnlyList<string> source,
+            IReadOnlyList<StageSegmentTemplate> segments,
+            IReadOnlyList<StageBossTemplate> bosses)
+        {
+            var copy = new string[source.Count];
+            for (int i = 0; i < source.Count; i++)
+            {
+                string themeId = source[i];
+                if (string.IsNullOrEmpty(themeId))
+                    throw new ArgumentException(
+                        "Theme ids cannot be null or empty.",
+                        nameof(source));
+                if (ContainsTheme(copy, i, themeId))
+                    throw new ArgumentException(
+                        $"Theme id '{themeId}' is duplicated.",
+                        nameof(source));
+                if (!CatalogContainsTheme(segments, bosses, themeId))
+                    throw new ArgumentException(
+                        $"Theme id '{themeId}' is not registered by a segment or boss.",
+                        nameof(source));
+                copy[i] = themeId;
+            }
+
+            for (int i = 0; i < segments.Count; i++)
+                EnsureExplicitThemeContains(copy, segments[i].ThemeId);
+            for (int i = 0; i < bosses.Count; i++)
+                EnsureExplicitThemeContains(copy, bosses[i].ThemeId);
+            return new ReadOnlyCollection<string>(copy);
+        }
+
+        static bool CatalogContainsTheme(
+            IReadOnlyList<StageSegmentTemplate> segments,
+            IReadOnlyList<StageBossTemplate> bosses,
+            string themeId)
+        {
+            for (int i = 0; i < segments.Count; i++)
+                if (string.Equals(
+                        segments[i].ThemeId,
+                        themeId,
+                        StringComparison.Ordinal))
+                    return true;
+            for (int i = 0; i < bosses.Count; i++)
+                if (string.Equals(
+                        bosses[i].ThemeId,
+                        themeId,
+                        StringComparison.Ordinal))
+                    return true;
+            return false;
+        }
+
+        static void EnsureExplicitThemeContains(string[] themes, string themeId)
+        {
+            if (themeId == null)
+                return;
+            if (!ContainsTheme(themes, themes.Length, themeId))
+                throw new ArgumentException(
+                    $"Registered theme id '{themeId}' is missing from the explicit order.",
+                    nameof(themes));
+        }
+
+        static bool ContainsTheme(string[] themes, int count, string themeId)
+        {
+            for (int i = 0; i < count; i++)
+                if (string.Equals(themes[i], themeId, StringComparison.Ordinal))
+                    return true;
+            return false;
         }
 
         static void AddTheme(List<string> themes, string themeId)

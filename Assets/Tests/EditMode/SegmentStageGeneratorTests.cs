@@ -25,7 +25,41 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void ThemeRotation_IsOrdinalDeterministicAndFiltersTemplates()
+        public void ThemeRotation_UsesExplicitOrderAndFiltersTemplates()
+        {
+            var catalog = new StageGenerationCatalog(
+                3,
+                1,
+                Center,
+                new[]
+                {
+                    Segment("nebula_segment", Center, Center, Center, "nebula"),
+                    Segment("core_segment", Center, Center, Center, "core"),
+                    Segment("hive_segment", Center, Center, Center, "hive")
+                },
+                new[]
+                {
+                    Boss("nebula_boss", Center, "nebula"),
+                    Boss("core_boss", Center, "core"),
+                    Boss("hive_boss", Center, "hive")
+                },
+                new[] { "nebula", "hive", "core" });
+            var generator = new SegmentStageGenerator(catalog);
+
+            CollectionAssert.AreEqual(
+                new[] { "nebula", "hive", "core" },
+                catalog.ThemeIds);
+            AssertThemePlan(generator.Generate(77UL, 1, 1), "nebula");
+            AssertThemePlan(generator.Generate(77UL, 2, 1), "hive");
+            AssertThemePlan(generator.Generate(77UL, 3, 1), "core");
+            AssertThemePlan(generator.Generate(77UL, 4, 1), "nebula");
+            AssertPlansEqual(
+                generator.Generate(77UL, 2, 1),
+                generator.Generate(77UL, 2, 1));
+        }
+
+        [Test]
+        public void ThemeRotation_WithoutExplicitOrderFallsBackToOrdinalUnion()
         {
             var catalog = new StageGenerationCatalog(
                 3,
@@ -51,10 +85,6 @@ namespace Shmup.Core.Tests
             AssertThemePlan(generator.Generate(77UL, 1, 1), "core");
             AssertThemePlan(generator.Generate(77UL, 2, 1), "hive");
             AssertThemePlan(generator.Generate(77UL, 3, 1), "nebula");
-            AssertThemePlan(generator.Generate(77UL, 4, 1), "core");
-            AssertPlansEqual(
-                generator.Generate(77UL, 2, 1),
-                generator.Generate(77UL, 2, 1));
         }
 
         [Test]

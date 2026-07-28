@@ -138,6 +138,62 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void Parse_ExplicitThemeOrderIsPreserved()
+        {
+            string themedWaves = WavesWithThemes(
+                @"[""core"", ""hive""]",
+                "hive",
+                "core");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                themedWaves);
+
+            CollectionAssert.AreEqual(
+                new[] { "core", "hive" },
+                data.StageGeneration.ThemeIds);
+        }
+
+        [Test]
+        public void Parse_RejectsUnregisteredExplicitTheme()
+        {
+            string themedWaves = WavesWithThemes(
+                @"[""hive"", ""missing""]",
+                "hive",
+                "hive");
+
+            GameDataParseException error = Assert.Throws<GameDataParseException>(
+                () => GameDataParser.Parse(
+                    EnemiesJson,
+                    WeaponsJson,
+                    themedWaves));
+
+            StringAssert.Contains("waves.json.themes[1]", error.Message);
+            StringAssert.Contains("unregistered theme 'missing'", error.Message);
+        }
+
+        [Test]
+        public void Parse_RejectsTaggedThemeMissingFromExplicitOrder()
+        {
+            string themedWaves = WavesWithThemes(
+                @"[""core""]",
+                "hive",
+                "core");
+
+            GameDataParseException error = Assert.Throws<GameDataParseException>(
+                () => GameDataParser.Parse(
+                    EnemiesJson,
+                    WeaponsJson,
+                    themedWaves));
+
+            StringAssert.Contains("waves.json.segments[0].theme", error.Message);
+            StringAssert.Contains(
+                "theme 'hive' is missing from waves.json.themes",
+                error.Message);
+        }
+
+        [Test]
         public void Factories_UseSchemaValuesAndReturnIndependentState()
         {
             GameDataSet data = GameDataParser.Parse(EnemiesJson, WeaponsJson, WavesJson);
@@ -274,6 +330,23 @@ namespace Shmup.Core.Tests
             GameDataParseException error = Assert.Throws<GameDataParseException>(
                 () => GameDataParser.Parse(EnemiesJson, WeaponsJson, invalid));
             StringAssert.Contains("bosses[0].halfWidth", error.Message);
+        }
+
+        static string WavesWithThemes(
+            string themesJson,
+            string segmentTheme,
+            string bossTheme)
+        {
+            return WavesJson
+                .Replace(
+                    @"""startLaneMask"": 2,",
+                    @"""startLaneMask"": 2, ""themes"": " + themesJson + ",")
+                .Replace(
+                    @"""id"": ""seg""",
+                    @"""id"": ""seg"", ""theme"": """ + segmentTheme + @"""")
+                .Replace(
+                    @"""id"": ""boss""",
+                    @"""id"": ""boss"", ""theme"": """ + bossTheme + @"""");
         }
 
         [Test]
