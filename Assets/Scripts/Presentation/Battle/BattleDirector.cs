@@ -42,6 +42,12 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Sprite[] _explosionFrames;
         [SerializeField] Sprite _enemyShotSprite;
         [SerializeField] SpriteRenderer _bossRenderer;
+        [SerializeField] GameObject _bossHpRoot;
+        [SerializeField] Transform _bossHpFill;
+
+        /// <summary>HP 바 폭 (월드유닛). px_white(2px) 스프라이트 기준 스케일 환산에 쓴다.</summary>
+        const float BossHpBarWidthUnits = 16f;
+        const float WhiteSpriteUnits = 2f / 16f;
 
         [Header("Run")]
         [Tooltip("로그라이크 시드. 같은 시드 + 같은 입력 = 같은 결과 (AGENTS.md §4).")]
@@ -237,8 +243,22 @@ namespace Shmup.Presentation.Battle
             bool active = _sim.BossActive;
             if (_bossRenderer.enabled != active)
                 _bossRenderer.enabled = active;
-            if (active)
-                _bossRenderer.transform.localPosition = SimView.ToWorld(_sim.Boss.X, _sim.Boss.Y);
+            if (_bossHpRoot != null && _bossHpRoot.activeSelf != active)
+                _bossHpRoot.SetActive(active);
+            if (!active) return;
+
+            _bossRenderer.transform.localPosition = SimView.ToWorld(_sim.Boss.X, _sim.Boss.Y);
+
+            if (_bossHpFill != null && _sim.Boss.MaxHp > 0)
+            {
+                float fraction = Mathf.Clamp01((float)_sim.Boss.Hp / _sim.Boss.MaxHp);
+                var scale = _bossHpFill.localScale;
+                scale.x = BossHpBarWidthUnits / WhiteSpriteUnits * fraction;
+                _bossHpFill.localScale = scale;
+                var position = _bossHpFill.localPosition;
+                position.x = -BossHpBarWidthUnits * (1f - fraction) / 2f;
+                _bossHpFill.localPosition = position;
+            }
         }
 
         // ── 보상 선택 (RunManager AwaitingReward — RewardScreen이 소비) ─────────

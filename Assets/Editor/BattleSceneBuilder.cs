@@ -442,10 +442,20 @@ namespace Shmup.EditorTools
         /// <summary>art-input/fx_explosion_00.png…을 순서대로 임포트한다 (M2 폭발 애니).</summary>
         static Sprite[] LoadExplosionFrames()
         {
+            return LoadFrameSequence("fx_explosion_");
+        }
+
+        static Sprite[] LoadShipAnimationFrames()
+        {
+            return LoadFrameSequence("ship_anim_");
+        }
+
+        static Sprite[] LoadFrameSequence(string prefix)
+        {
             var frames = new List<Sprite>();
             for (int i = 0; i < 16; i++)
             {
-                var sprite = LoadExternalSprite($"fx_explosion_{i:d2}.png", $"fx_explosion_{i:d2}");
+                var sprite = LoadExternalSprite($"{prefix}{i:d2}.png", $"{prefix}{i:d2}");
                 if (sprite == null) break;
                 frames.Add(sprite);
             }
@@ -625,12 +635,43 @@ namespace Shmup.EditorTools
             }
             SetReference(director, "_bossRenderer", bossRenderer);
 
+            // 보스 HP 바: 상단 중앙, px_white 스케일 방식. BossActive 동안만 director가 켠다.
+            var bossHpRoot = new GameObject("BossHp");
+            bossHpRoot.transform.localPosition = new Vector3(0f, 10.4f, 0f);
+            var hpBack = new GameObject("Back");
+            hpBack.transform.SetParent(bossHpRoot.transform, false);
+            var hpBackRenderer = hpBack.AddComponent<SpriteRenderer>();
+            hpBackRenderer.sprite = whiteSprite;
+            hpBackRenderer.sortingOrder = 98;
+            hpBackRenderer.color = new Color32(0x10, 0x14, 0x20, 0xE0);
+            hpBack.transform.localScale = new Vector3(16f / (2f / 16f), 3f, 1f);
+            var hpFill = new GameObject("Fill");
+            hpFill.transform.SetParent(bossHpRoot.transform, false);
+            var hpFillRenderer = hpFill.AddComponent<SpriteRenderer>();
+            hpFillRenderer.sprite = whiteSprite;
+            hpFillRenderer.sortingOrder = 99;
+            hpFillRenderer.color = new Color32(0xE8, 0x4A, 0x2A, 0xFF);
+            hpFill.transform.localScale = new Vector3(16f / (2f / 16f), 2f, 1f);
+            bossHpRoot.SetActive(false);
+            SetReference(director, "_bossHpRoot", bossHpRoot);
+            SetReference(director, "_bossHpFill", hpFill.transform);
+
+            // 기체 애니메이션 (art-input/ship_anim_XX.png 있으면)
+            var shipFrames = LoadShipAnimationFrames();
+            if (shipFrames.Length > 0)
+            {
+                var animator = player.AddComponent<PlayerShipAnimator>();
+                SetReference(animator, "_renderer", playerRenderer);
+                SetReferenceArray(animator, "_frames", shipFrames);
+            }
+
             var rewardScreen = battleRoot.AddComponent<RewardScreen>();
             SetReference(rewardScreen, "_director", director);
 
             CreateHud(director, hudSlotSprite, hudPipSprite);
             CreateBackground(director, starsFarSprite, starsNearSprite);
             CreateSfx(director);
+            CreateBgm();
 
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
             EditorSceneManager.MarkSceneDirty(scene);
@@ -792,6 +833,26 @@ namespace Shmup.EditorTools
             SetReference(player, "_pickup", LoadClip("sfx_pickup"));
             SetReference(player, "_powerup", LoadClip("sfx_powerup"));
             SetReference(director, "_sfx", player);
+        }
+
+        /// <summary>BGM 루프 (Tools/SfxGen/bgmgen.py 채택 시드 산출물). 없으면 무음.</summary>
+        const string BgmAssetPath = "Assets/Audio/Bgm/bgm_scrapyard.wav";
+
+        static void CreateBgm()
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(BgmAssetPath);
+            if (clip == null)
+            {
+                Debug.LogWarning($"[BattleSceneBuilder] {BgmAssetPath} 없음 — BGM 무음.");
+                return;
+            }
+            var go = new GameObject("Bgm");
+            var source = go.AddComponent<AudioSource>();
+            source.clip = clip;
+            source.loop = true;
+            source.playOnAwake = true;
+            source.volume = 0.45f;
+            source.spatialBlend = 0f;
         }
 
         static AudioClip LoadClip(string name)
