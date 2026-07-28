@@ -132,9 +132,10 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(8, data.StageGeneration.Segments.Count);
             Assert.AreEqual(1, data.StageGeneration.Bosses.Count);
 
+            // 640×360 재스케일(REQ-006) 후 elite_sine 진폭 = 3.0u = 768 서브유닛.
             EnemyDefinition elite = data.BattleContent.FindEnemy("elite_sine");
-            Assert.AreEqual(2304, elite.SineAmplitudeNumerator);
-            Assert.AreEqual(5, elite.SineAmplitudeDenominator);
+            Assert.AreEqual(768, elite.SineAmplitudeNumerator);
+            Assert.AreEqual(1, elite.SineAmplitudeDenominator);
 
             var generator = new SegmentStageGenerator(data.StageGeneration);
             StagePlan first = generator.Generate(123456789UL, 1, 3);

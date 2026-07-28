@@ -6,9 +6,9 @@
       "slot": "MainShot",
       "baseDamage": 10,
       "fireIntervalTicks": 8,
-      "projectileSpeed": 12.0,
-      "projectileHalfWidth": 0.25,
-      "projectileHalfHeight": 0.09375,
+      "projectileSpeed": 20,
+      "projectileHalfWidth": 0.375,
+      "projectileHalfHeight": 0.140625,
       "maxLevel": 5
     },
     {
@@ -16,9 +16,9 @@
       "slot": "Missile",
       "baseDamage": 20,
       "fireIntervalTicks": 30,
-      "projectileSpeed": 6.0,
-      "projectileHalfWidth": 0.3125,
-      "projectileHalfHeight": 0.1875,
+      "projectileSpeed": 10,
+      "projectileHalfWidth": 0.46875,
+      "projectileHalfHeight": 0.28125,
       "maxLevel": 3
     },
     {
@@ -26,7 +26,7 @@
       "slot": "Option",
       "baseDamage": 0,
       "fireIntervalTicks": 0,
-      "projectileSpeed": 0.0,
+      "projectileSpeed": 0,
       "projectileHalfWidth": 0.0,
       "projectileHalfHeight": 0.0,
       "maxLevel": 4
@@ -36,7 +36,7 @@
       "slot": "Shield",
       "baseDamage": 0,
       "fireIntervalTicks": 0,
-      "projectileSpeed": 0.0,
+      "projectileSpeed": 0,
       "projectileHalfWidth": 0.0,
       "projectileHalfHeight": 0.0,
       "maxLevel": 3
