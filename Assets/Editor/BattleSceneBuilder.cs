@@ -554,6 +554,7 @@ namespace Shmup.EditorTools
 
             CreateHud(director, hudSlotSprite, hudPipSprite);
             CreateBackground(director, starsFarSprite, starsNearSprite);
+            CreateSfx(director);
 
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
             EditorSceneManager.MarkSceneDirty(scene);
@@ -647,6 +648,39 @@ namespace Shmup.EditorTools
             SetReferenceArray(parallax, "_layers", layers);
             SetFloatArray(parallax, "_factors", StarLayerFactors);
             SetFloat(parallax, "_tileWidth", RefResolutionX / (float)AssetsPPU);
+        }
+
+        // ── SFX ───────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// SfxPlayer 배선. 채택음(Tools/SfxGen 시드 0)은 Assets/Audio/Sfx에 커밋되어 있다.
+        /// 클립이 없으면 경고만 내고 무음으로 둔다 — 씬 재생성이 막히면 안 된다.
+        /// </summary>
+        const string SfxDir = "Assets/Audio/Sfx";
+
+        static void CreateSfx(BattleDirector director)
+        {
+            var go = new GameObject("Sfx");
+            var source = go.AddComponent<AudioSource>();
+            source.playOnAwake = false;
+            source.spatialBlend = 0f;
+
+            var player = go.AddComponent<SfxPlayer>();
+            SetReference(player, "_source", source);
+            SetReference(player, "_laser", LoadClip("sfx_laser"));
+            SetReference(player, "_hit", LoadClip("sfx_hit"));
+            SetReference(player, "_explosion", LoadClip("sfx_explosion"));
+            SetReference(player, "_pickup", LoadClip("sfx_pickup"));
+            SetReference(player, "_powerup", LoadClip("sfx_powerup"));
+            SetReference(director, "_sfx", player);
+        }
+
+        static AudioClip LoadClip(string name)
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<AudioClip>($"{SfxDir}/{name}.wav");
+            if (clip == null)
+                Debug.LogWarning($"[BattleSceneBuilder] {SfxDir}/{name}.wav 없음 — 해당 SFX는 무음.");
+            return clip;
         }
 
         // ── 타이틀 씬 ─────────────────────────────────────────────────────────────

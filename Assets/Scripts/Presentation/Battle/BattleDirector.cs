@@ -37,6 +37,7 @@ namespace Shmup.Presentation.Battle
         [SerializeField] GameObject _optionPrefab;
         [SerializeField] Transform _optionRoot;
         [SerializeField] SpriteRenderer _shieldView;
+        [SerializeField] SfxPlayer _sfx;
 
         [Header("Run")]
         [Tooltip("로그라이크 시드. 같은 시드 + 같은 입력 = 같은 결과 (AGENTS.md §4).")]
@@ -123,10 +124,10 @@ namespace Shmup.Presentation.Battle
 
             var config = data.CreateBattleSimConfig();
             // 스키마에 아직 없는 잠정값 (스키마 v3 후보 — GameData로 옮기면 이 블록 제거)
-            // 640×360 뷰 좌측 경계(-20u) 밖. 384×224 시절 -14 → -22 (ROADMAP M0, REQ-006에서 GameData로 이관 예정)
-            config.EnemyDespawnX = -22 * SimSpace.SubUnitsPerWorldUnit;
-            config.CapsuleHalfWidth = SimSpace.SubUnitsPerWorldUnit * 5 / 16;
-            config.CapsuleHalfHeight = SimSpace.SubUnitsPerWorldUnit / 4;
+            // EnemyDespawnX는 REQ-005 이후 Core 기본값(-22u, SimSpace 상수 파생)을 그대로 쓴다.
+            // 캡슐 히트박스는 새 16×14px 스프라이트 기준 ×1.5.
+            config.CapsuleHalfWidth = SimSpace.SubUnitsPerWorldUnit * 15 / 32;
+            config.CapsuleHalfHeight = SimSpace.SubUnitsPerWorldUnit * 3 / 8;
             config.PlayerMaxHp = 3;
 
             // 런 수명은 Core(RunManager) 소관: 스테이지 전환, 난이도 곡선, 사망 감지,
@@ -167,6 +168,9 @@ namespace Shmup.Presentation.Battle
         {
             if (_run == null) return;
             _run.Step(_input.ConsumeCommand());
+            // 이벤트는 스텝 직후 같은 호출 안에서 소비한다 — 다음 Step에서 클리어되기 때문.
+            if (_sfx != null)
+                _sfx.PlayEvents(_run.Battle.EventsThisTick);
             RefreshBattle();
             SyncViews();
         }

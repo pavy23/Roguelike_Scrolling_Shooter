@@ -11,19 +11,20 @@
 
 ## 마일스톤
 
-### M0 — 기반 전환 (진행 중)
+### M0 — 기반 전환 (✅ 2026-07-28 완료)
 - [x] 새 Unity CLI(1.0.0-beta.3) + com.unity.pipeline 도입 — 실행 중 에디터 원격 조작
 - [x] 문서 개정: ROADMAP 신설, ART-DIRECTION v2, AGENTS/CLAUDE 역할·해상도 갱신
-- [ ] 해상도 전환: Pixel Perfect Camera 640×360, 씬/프리팹/HUD 재배치 (CLAUDE)
-- [ ] Core 플레이필드 상수 전환 + 시뮬 이벤트 버스 (CODEX, REQ-005)
-- [ ] GameData 히트박스/좌표 재스케일 (GROK, REQ-006)
-- [ ] 완료 판정: 새 캔버스에서 기존 게임 루프 정상 재생 + 전체 테스트 그린
+- [x] 해상도 전환: Pixel Perfect Camera 640×360, 씬/프리팹/HUD 재배치 (CLAUDE)
+- [x] Core 플레이필드 상수 전환 + 시뮬 이벤트 버스 + PlayerFired (REQ-005, sim 브랜치 — 사람 지시로 CLAUDE 대행)
+- [x] GameData 히트박스/좌표 재스케일 (REQ-006, content 브랜치 — 사람 지시로 CLAUDE 대행)
+- [x] 완료 판정: 새 캔버스 전체가 플레이필드로 사용됨(스폰 21u→despawn -22u), 캡처 확인, dotnet/EditMode 87/87 그린
 
 ### M1 — 아트·사운드 파이프라인 구축
 - [x] `Tools/ArtGen/`: PixelLab pixen(스프라이트)·gpt-image-1.5(대형)→후처리→art-input 훅→씬 재생성→`capture_game_view` 확인 루프
 - [x] 파일럿: 플레이어 기체 + 잡졸 2종 + 폭발 9프레임 시트 (기체 애니는 애니 시스템과 함께)
 - [ ] Aseprite 임포트 경로 확립 (com.unity.2d.aseprite — 애니 클립 자동 생성, REQ-005 이벤트 버스 이후)
-- [x] SFX 파이프라인: Tools/SfxGen 절차 합성 — 파일럿 5타입×3시드 생성, 큐레이션 대기
+- [x] SFX 파이프라인: Tools/SfxGen 절차 합성 — 사람 큐레이션 완료(전 타입 시드 0 채택), Assets/Audio/Sfx 배치 + SfxPlayer가 시뮬 이벤트로 재생
+- [x] 아트 파일럿 사람 큐레이션 완료 (기체·잡졸 채택)
 - [ ] 완료 판정: 사람(아트 디렉터) 파일럿 합격
 
 ### M2 — 버티컬 슬라이스
