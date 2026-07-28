@@ -4,6 +4,62 @@
 
 ---
 
+## [x] REQ-G003 → CODEX 소유 파일 수정 기록: `GameDataParserTests` 카탈로그 개수 (M3 테마3)
+
+**무엇이 / 왜**
+
+M3 테마3(기계 요새) 콘텐츠 추가에 따라 저장소 `GameData/` 카탈로그 개수가 늘어났다.
+`Assets/Tests/EditMode/GameDataParserTests.cs`의 `RepositoryApprovedV2Files_ParseCompletely`가
+고정 개수로 검증하므로 **CODEX 소유 파일**을 함께 갱신했다 (콘텐츠 커밋이 테스트 그린을 유지하려면 불가피).
+
+| 항목 | before | after |
+|---|---|---|
+| Enemies | 10 | **12** (`sentry_drone`, `interceptor_rush`) |
+| Segments | 10 | **12** (`seg_fortress_sentry_grid`, `seg_fortress_interceptor_assault`) |
+| Bosses | 2 | **3** (`boss_fortress`) |
+
+**변경 파일:** `Assets/Tests/EditMode/GameDataParserTests.cs` — Assert 개수만 갱신. 스키마/파서 API 변경 없음.
+
+**CODEX 후속 (선택):** sim 브랜치 머지 시 동일 Assert가 이미 content 쪽 값이면 no-op.
+
+---
+
+## 2026-07-29 M3 테마3 기계 요새 (잠정)
+
+**승인 맥락:** 오케스트레이터 잠정 승인. AGENTS.md §7 최종 확정은 사람 검토 후 유지.  
+**범위:** `GameData/enemies.json` · `waves.json` + 테스트 개수 동기. 스키마 변경 없음.
+
+### enemies.json — 신규 2종 (뷰 스프라이트 매핑: `sentry_` / `interceptor_` 접두, 히트박스 24px → half 0.75)
+
+| id | movePattern | hp | moveSpeed | fireInterval | dropWeight | hitbox (half) | 의도 |
+|---|---|---|---|---|---|---|---|
+| `sentry_drone` | static | 22 | 0 | **75** | 3 | 0.75×0.75 | 정지 방어 드론. 터렛(90t)보다 촘촘한 사격으로 탄막 밀도 담당. |
+| `interceptor_rush` | straight | 4 | **10.5** | 0 | 2 | 0.75×0.75 | 고속 직선 요격기. HP 최저급, 스웜·러시 밀도. |
+
+### waves.json — 요새 세그먼트 2 + 보스 1
+
+| 세그먼트 | diff | lengthTicks | traversable | 밀도 | 의도 |
+|---|---|---|---|---|---|
+| `seg_fortress_sentry_grid` | 3–5 | 900 | `[6]` | 고 (25) | 센트리 격자 + 터렛 혼합 + 인터셉터 돌파. top\|center 코리도. 사격형 위주. |
+| `seg_fortress_interceptor_assault` | 3–5 | 780 | `[2]` | 고 (32) | 인터셉터 연속 러시 + 센트리 앵커 + 상하 터렛. center 코리도. |
+
+**boss_fortress:** stageIndex **3–99**, hp **1600**, halfW/H 4.0/3.0, holdX 14.0.  
+페이즈: `{42t, 5-way, 10.0}` / `{38t, 6-way, 11.0}` — hive(48/4/9.5 · 40/5/10.5)보다 강하되 interval **38t 하한** 유지.
+
+### 이론 검산 (잠정)
+
+- 보스 TTK (메인만, 풀히트, DPS≈75): 1600/75 ≈ **21.3s** (hive 1300 ≈ 17.3s, stage1 1000 ≈ 13.3s 대비 상향).
+- phase2 밀도: 6발/38t ≈ 9.5발/초 (hive phase2 ≈ 7.5발/초). ways↑·interval↓로 중후반 위협.
+- 센트리 fire 75t ≈ 0.8 볼리/초/기. 격자 2기 동시 스폰 시 로컬 탄막 밀도 확보.
+
+### 후속 관찰
+
+1. Resources 복사본(`Assets/Resources/GameData/`) 동기화 — CLAUDE 빌드/씬 재생성 파이프.
+2. 뷰 스프라이트: id 접두 `sentry_` / `interceptor_` / `boss_fortress` 매핑 (CLAUDE).
+3. stage 3+ 보스 로테이션: stage1·hive·fortress 동시 적격 구간 겹침 → RNG 선택. 고정 배정이 필요하면 stageIndex 구간 분리.
+
+---
+
 ## [x] REQ-G002 → CODEX 소유 파일 수정 기록: `GameDataParserTests` 카탈로그 개수 (M3 테마2)
 
 **무엇이 / 왜**
