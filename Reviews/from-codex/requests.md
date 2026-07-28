@@ -399,3 +399,66 @@ Presentation의 `StageIndex % N` 배경 로테이션을 제거하고 Core가 생
 - `null`일 때만 기존 기본 배경 또는 명시적 fallback을 사용해 하위 호환을 유지해 주세요.
 - 스테이지 전환 시 교체된 `_run.StagePlan`의 테마를 다시 반영해야 합니다.
 - 알 수 없는 non-null ID는 조용히 인덱스 로테이션하지 말고 경고와 fallback으로 처리해 주세요.
+
+---
+
+## [ ] GROK: `GameData/ships.json` 함선 카탈로그 작성·밸런스 검증
+
+사람이 메타 진행을 함선 해금형으로 확정해 Core의 선택적 `ships.json` schema v1
+파서와 함선 모델을 추가했습니다. 콘텐츠 원본을 아래 형태로 작성해 주세요.
+
+```json
+{
+  "schemaVersion": 1,
+  "ships": [
+    {
+      "id": "starter",
+      "displayName": "Starter",
+      "moveSpeedMultiplierNumerator": 1,
+      "moveSpeedMultiplierDenominator": 1,
+      "startingPowerUpLevels": [0, 0, 0, 0],
+      "unlockCost": 0
+    }
+  ]
+}
+```
+
+- `startingPowerUpLevels` 순서는 `MainShot`, `Missile`, `Option`, `Shield`이며 정확히
+  4개여야 합니다. 각 값은 `weapons.json`의 해당 `maxLevel` 이하여야 합니다.
+- 이동 속도 배율의 분자·분모는 양의 정수입니다. Core가 기존 플레이어 속도 유리수와
+  약분 후 합성하므로 소수 배율을 쓰지 않습니다.
+- `unlockCost`는 `long` 범위의 0 이상 누적 점수 재화입니다.
+- 최소 한 함선은 비용 0이어야 하며, 소스 순서에서 첫 비용 0 함선이 기본 함선입니다.
+- id 중복은 허용되지 않습니다. 실제 표시명·배율·시작 레벨·비용은 밸런스 사안이므로
+  Core 예시값을 확정값으로 간주하지 말고 밸런스 시뮬 결과와 함께 제안해 주세요.
+- 파일이 없으면 Core는 중립 배율/0레벨/0비용의 `default` 한 척으로 폴백합니다.
+
+Core API: `GameDataSet.Ships`, `DefaultShip`, `FindShip(id)`,
+`CreateMetaState()`.
+
+---
+
+## [ ] CLAUDE: 격납고 UI·함선 선택·메타 저장 연결
+
+Core의 함선 해금 메타 모델을 Presentation 저장/UI에 연결해 주세요.
+
+- `ships.json`이 있으면 `GameDataParser.Parse(enemies, weapons, waves, rewards, ships)`
+  5인자 오버로드로 로드합니다. 없으면 `shipsJson: null` 폴백을 유지합니다.
+- 격납고에서 `GameDataSet.Ships`를 소스 순서로 표시하고
+  `MetaState.IsUnlocked`, `TryUnlock(ShipDefinition)`, `SelectShip(id)`를 사용합니다.
+- 선택한 id는 `GameDataSet.FindShip(meta.SelectedShipId)`로 해석하고 새 런 생성 시
+  해당 `ShipDefinition`을 `RunManager(..., rewards, ship)`에 주입합니다.
+- 런 점수는 한 런당 정확히 한 번 `MetaState.CreditScore(run.TotalScore)`로 적립합니다.
+  재진입/재시작 시 중복 적립되지 않도록 Presentation 저장 흐름에서 완료 플래그를
+  관리해 주세요.
+- 저장은 `MetaState.ExportData()`의 `MetaStateData`
+  (`totalCurrency`, 정렬된 `unlockedShipIds`, `selectedShipId`)를 사용하고,
+  로드는 `MetaState.FromData(data)`를 사용합니다. 실제 파일 경로·버전 마이그레이션·
+  원자적 쓰기는 Presentation 소유입니다.
+- 알 수 없는/삭제된 선택 id가 들어 있는 구버전 저장은 기본 비용 0 함선으로 복구하고
+  경고를 남겨 주세요. Core는 손상된 상태를 조용히 보정하지 않고 검증 예외를 냅니다.
+- 격납고에는 표시명, 정확한 속도 배율, 시작 파워업 레벨, 비용/잠금 상태와 현재 선택을
+  보여 주세요.
+
+Core는 함선 시작 레벨을 기존 게이지와 슬롯별 `max`로 합성하고, 사망 후 재시작에도
+그 함선의 시작 레벨 아래로 내려가지 않게 합니다. 이동 속도는 정수 유리수로 적용됩니다.

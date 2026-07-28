@@ -75,6 +75,26 @@ namespace Shmup.Core.Tests
   ]
 }";
 
+        const string ShipsJson = @"{
+  ""schemaVersion"": 1,
+  ""ships"": [
+    {
+      ""id"": ""starter"", ""displayName"": ""Starter"",
+      ""moveSpeedMultiplierNumerator"": 1,
+      ""moveSpeedMultiplierDenominator"": 1,
+      ""startingPowerUpLevels"": [0, 0, 0, 0],
+      ""unlockCost"": 0
+    },
+    {
+      ""id"": ""swift"", ""displayName"": ""Swift"",
+      ""moveSpeedMultiplierNumerator"": 5,
+      ""moveSpeedMultiplierDenominator"": 4,
+      ""startingPowerUpLevels"": [1, 0, 1, 0],
+      ""unlockCost"": 1000
+    }
+  ]
+}";
+
         [Test]
         public void Parse_ApprovedV2_BuildsExactRuntimeModels()
         {
@@ -213,6 +233,9 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(3, gauge.GetMaxLevel(PowerUpSlot.Missile));
             Assert.AreEqual(4, gauge.GetMaxLevel(PowerUpSlot.Option));
             Assert.AreEqual(3, gauge.GetMaxLevel(PowerUpSlot.Shield));
+            Assert.AreEqual(1, data.Ships.Count);
+            Assert.AreEqual("default", data.DefaultShip.Id);
+            Assert.AreEqual("default", data.CreateMetaState().SelectedShipId);
         }
 
         [Test]
@@ -247,6 +270,68 @@ namespace Shmup.Core.Tests
                 WavesJson);
 
             Assert.IsNull(data.Rewards);
+        }
+
+        [Test]
+        public void Parse_OptionalShipsV1_BuildsShipCatalog()
+        {
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson,
+                RewardsJson,
+                ShipsJson);
+
+            Assert.AreEqual(2, data.Ships.Count);
+            Assert.AreEqual("starter", data.DefaultShip.Id);
+            ShipDefinition swift = data.FindShip("swift");
+            Assert.IsNotNull(swift);
+            Assert.AreEqual("Swift", swift.DisplayName);
+            Assert.AreEqual(5, swift.MoveSpeedMultiplierNumerator);
+            Assert.AreEqual(4, swift.MoveSpeedMultiplierDenominator);
+            CollectionAssert.AreEqual(
+                new[] { 1, 0, 1, 0 },
+                swift.StartingPowerUpLevels);
+            Assert.AreEqual(1000L, swift.UnlockCost);
+            Assert.IsFalse(data.Ships is ShipDefinition[]);
+        }
+
+        [Test]
+        public void Parse_ShipsRejectsLevelAboveWeaponMaximumWithPath()
+        {
+            string invalid = ShipsJson.Replace(
+                @"""startingPowerUpLevels"": [1, 0, 1, 0]",
+                @"""startingPowerUpLevels"": [6, 0, 1, 0]");
+
+            GameDataParseException error = Assert.Throws<GameDataParseException>(
+                () => GameDataParser.Parse(
+                    EnemiesJson,
+                    WeaponsJson,
+                    WavesJson,
+                    RewardsJson,
+                    invalid));
+
+            StringAssert.Contains(
+                "ships.json.ships[1].startingPowerUpLevels[0]",
+                error.Message);
+        }
+
+        [Test]
+        public void Parse_ShipsRequiresZeroCostStartingShip()
+        {
+            string invalid = ShipsJson.Replace(
+                @"""unlockCost"": 0",
+                @"""unlockCost"": 10");
+
+            GameDataParseException error = Assert.Throws<GameDataParseException>(
+                () => GameDataParser.Parse(
+                    EnemiesJson,
+                    WeaponsJson,
+                    WavesJson,
+                    RewardsJson,
+                    invalid));
+
+            StringAssert.Contains("zero-cost", error.Message);
         }
 
         [Test]

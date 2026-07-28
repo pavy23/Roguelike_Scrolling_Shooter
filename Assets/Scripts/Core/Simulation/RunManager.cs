@@ -213,6 +213,7 @@ namespace Shmup.Core.Simulation
         readonly MetaProgression _metaProgression;
         readonly StageDifficultyCurve _difficultyCurve;
         readonly RewardCatalog _rewards;
+        readonly ShipDefinition _ship;
         readonly int[] _powerUpMaxLevels;
         readonly int _initialPlayerMaxHp;
 
@@ -234,6 +235,7 @@ namespace Shmup.Core.Simulation
                 powerUpGauge,
                 new MetaProgression(1.0),
                 StageDifficultyCurve.CreateDefault(),
+                null,
                 null)
         {
         }
@@ -253,7 +255,29 @@ namespace Shmup.Core.Simulation
                 powerUpGauge,
                 new MetaProgression(1.0),
                 StageDifficultyCurve.CreateDefault(),
-                rewards)
+                rewards,
+                null)
+        {
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            RewardCatalog rewards,
+            ShipDefinition ship)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                new MetaProgression(1.0),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                ship)
         {
         }
 
@@ -273,6 +297,7 @@ namespace Shmup.Core.Simulation
                 powerUpGauge,
                 metaProgression,
                 difficultyCurve,
+                null,
                 null)
         {
         }
@@ -286,6 +311,29 @@ namespace Shmup.Core.Simulation
             MetaProgression metaProgression,
             StageDifficultyCurve difficultyCurve,
             RewardCatalog rewards)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                metaProgression,
+                difficultyCurve,
+                rewards,
+                null)
+        {
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            MetaProgression metaProgression,
+            StageDifficultyCurve difficultyCurve,
+            RewardCatalog rewards,
+            ShipDefinition ship)
         {
             _stageGenerator = stageGenerator
                 ?? throw new ArgumentNullException(nameof(stageGenerator));
@@ -300,6 +348,7 @@ namespace Shmup.Core.Simulation
             _difficultyCurve = difficultyCurve
                 ?? throw new ArgumentNullException(nameof(difficultyCurve));
             _rewards = rewards ?? BuiltInRewards;
+            _ship = ship ?? ShipDefinition.CreateDefault();
             if (_rewards.OptionCount != RewardOptionCount)
                 throw new ArgumentException(
                     $"RunManager requires exactly {RewardOptionCount} reward options.",
@@ -309,6 +358,8 @@ namespace Shmup.Core.Simulation
             _powerUpMaxLevels = new int[PowerUpGauge.SlotCount];
             for (int i = 0; i < _powerUpMaxLevels.Length; i++)
                 _powerUpMaxLevels[i] = PowerUpGauge.GetMaxLevel((PowerUpSlot)i);
+            ApplyShipSpeedMultiplier(_battleConfig, _ship);
+            ApplyShipStartingLevels(PowerUpGauge);
 
             _runSeed = runSeed;
             RunNumber = 1;
@@ -321,6 +372,7 @@ namespace Shmup.Core.Simulation
         public int StageIndex { get; private set; }
         public RunState State { get; private set; }
         public ulong RunSeed => _runSeed;
+        public ShipDefinition Ship => _ship;
         /// <summary>Score earned across completed and current stages of this run.</summary>
         public long TotalScore => checked(_completedStageScore + Battle.Score);
         public int Difficulty { get; private set; }
@@ -450,6 +502,13 @@ namespace Shmup.Core.Simulation
 
             int[] carriedLevels = _metaProgression.ApplyDeathCarry(
                 PowerUpGauge.ExportLevels());
+            int[] shipStartingLevels = _ship.ExportStartingPowerUpLevels();
+            for (int i = 0; i < carriedLevels.Length; i++)
+            {
+                carriedLevels[i] = Math.Max(
+                    carriedLevels[i],
+                    shipStartingLevels[i]);
+            }
             var nextGauge = new PowerUpGauge(_powerUpMaxLevels);
             nextGauge.ImportLevels(carriedLevels);
 
@@ -493,6 +552,67 @@ namespace Shmup.Core.Simulation
                 StagePlan,
                 _battleContent,
                 PowerUpGauge);
+        }
+
+        void ApplyShipStartingLevels(PowerUpGauge gauge)
+        {
+            int[] levels = gauge.ExportLevels();
+            int[] startingLevels = _ship.ExportStartingPowerUpLevels();
+            for (int i = 0; i < levels.Length; i++)
+            {
+                if (startingLevels[i] > _powerUpMaxLevels[i])
+                    throw new ArgumentException(
+                        $"Ship '{_ship.Id}' starting level for {(PowerUpSlot)i} "
+                        + $"exceeds the gauge maximum {_powerUpMaxLevels[i]}.",
+                        nameof(_ship));
+                levels[i] = Math.Max(levels[i], startingLevels[i]);
+            }
+            gauge.ImportLevels(levels);
+        }
+
+        static void ApplyShipSpeedMultiplier(
+            BattleSimConfig config,
+            ShipDefinition ship)
+        {
+            if (config.PlayerSpeedNumerator < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.PlayerSpeedNumerator));
+            if (config.PlayerSpeedDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.PlayerSpeedDenominator));
+
+            int numeratorCancel = GreatestCommonDivisor(
+                config.PlayerSpeedNumerator,
+                ship.MoveSpeedMultiplierDenominator);
+            int denominatorCancel = GreatestCommonDivisor(
+                ship.MoveSpeedMultiplierNumerator,
+                config.PlayerSpeedDenominator);
+
+            long numerator =
+                (long)(config.PlayerSpeedNumerator / numeratorCancel)
+                * (ship.MoveSpeedMultiplierNumerator / denominatorCancel);
+            long denominator =
+                (long)(config.PlayerSpeedDenominator / denominatorCancel)
+                * (ship.MoveSpeedMultiplierDenominator / numeratorCancel);
+            if (numerator > int.MaxValue || denominator > int.MaxValue)
+                throw new ArgumentException(
+                    $"Ship '{ship.Id}' movement multiplier exceeds "
+                    + "the supported exact fraction range.",
+                    nameof(ship));
+
+            config.PlayerSpeedNumerator = (int)numerator;
+            config.PlayerSpeedDenominator = (int)denominator;
+        }
+
+        static int GreatestCommonDivisor(int left, int right)
+        {
+            while (right != 0)
+            {
+                int remainder = left % right;
+                left = right;
+                right = remainder;
+            }
+            return left == 0 ? 1 : left;
         }
 
         static int GetStageLengthTicks(StagePlan stagePlan)

@@ -10,7 +10,7 @@ namespace Shmup.Core.Content
 {
     /// <summary>
     /// Unity-free parser for enemies.json, weapons.json, waves.json schema v2,
-    /// and rewards.json schema v1.
+    /// rewards.json schema v1, and optional ships.json schema v1.
     /// Decimal source values are converted with decimal arithmetic only.
     /// </summary>
     public static partial class GameDataParser
@@ -22,7 +22,7 @@ namespace Shmup.Core.Content
             string weaponsJson,
             string wavesJson)
         {
-            return Parse(enemiesJson, weaponsJson, wavesJson, null);
+            return Parse(enemiesJson, weaponsJson, wavesJson, null, null);
         }
 
         public static GameDataSet Parse(
@@ -30,6 +30,21 @@ namespace Shmup.Core.Content
             string weaponsJson,
             string wavesJson,
             string rewardsJson)
+        {
+            return Parse(
+                enemiesJson,
+                weaponsJson,
+                wavesJson,
+                rewardsJson,
+                null);
+        }
+
+        public static GameDataSet Parse(
+            string enemiesJson,
+            string weaponsJson,
+            string wavesJson,
+            string rewardsJson,
+            string shipsJson)
         {
             try
             {
@@ -47,6 +62,11 @@ namespace Shmup.Core.Content
                 RewardCatalog rewards = rewardsJson == null
                     ? null
                     : ParseRewards(Deserialize<RewardsDto>(rewardsJson, "rewards.json"));
+                ShipDefinition[] ships = shipsJson == null
+                    ? new[] { ShipDefinition.CreateDefault() }
+                    : ParseShips(
+                        Deserialize<ShipsDto>(shipsJson, "ships.json"),
+                        weapons.MaxLevels);
 
                 return new GameDataSet(
                     content,
@@ -56,7 +76,8 @@ namespace Shmup.Core.Content
                     waves.ScrollSpeed.Denominator,
                     weapons.MaxLevels,
                     weapons.Missile,
-                    rewards);
+                    rewards,
+                    ships);
             }
             catch (GameDataParseException)
             {

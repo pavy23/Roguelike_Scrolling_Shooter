@@ -24,6 +24,13 @@ namespace Shmup.Core.Content
             return value.Value;
         }
 
+        static long Require(long? value, string path)
+        {
+            if (!value.HasValue)
+                throw Error(path, "is required.");
+            return value.Value;
+        }
+
         static decimal Require(decimal? value, string path)
         {
             if (!value.HasValue)
