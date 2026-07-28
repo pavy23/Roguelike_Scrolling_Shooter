@@ -94,6 +94,53 @@ namespace Shmup.EditorTools
             return rows;
         }
 
+        // 패럴랙스 스타필드 타일 (화면 크기 384×224 1장, 레이어 루트가 2장을 이어 붙여 래핑)
+        const string StarsFarSpritePath = SpriteDir + "/stars_far.png";
+        const string StarsNearSpritePath = SpriteDir + "/stars_near.png";
+
+        /// <summary>
+        /// 고정 시드로 별을 뿌린 타일 픽셀을 만든다. 에디터 생성 시점에만 도는 코드라
+        /// System.Random을 써도 되지만(AGENTS.md §4는 Core 규칙), 재생성 때마다 배경이
+        /// 바뀌지 않도록 시드는 상수로 박는다.
+        /// </summary>
+        static string[] BuildStarPixels(int seed, int starCount, bool bigStars)
+        {
+            const int width = 384, height = 224;
+            var grid = new char[height][];
+            for (int y = 0; y < height; y++)
+                grid[y] = new string('.', width).ToCharArray();
+
+            var random = new System.Random(seed);
+            for (int i = 0; i < starCount; i++)
+            {
+                int x = random.Next(width);
+                int y = random.Next(height);
+                char shade = random.Next(3) == 0 ? 'W' : 'G';
+                grid[y][x] = shade;
+                if (bigStars && random.Next(5) == 0 && x + 1 < width && y + 1 < height)
+                {
+                    grid[y][x + 1] = shade;
+                    grid[y + 1][x] = shade;
+                }
+            }
+
+            var rows = new string[height];
+            for (int y = 0; y < height; y++) rows[y] = new string(grid[y]);
+            return rows;
+        }
+
+        static readonly Dictionary<char, Color32> StarsFarPalette = new Dictionary<char, Color32>
+        {
+            ['W'] = new Color32(0x6A, 0x74, 0x94, 0xFF),
+            ['G'] = new Color32(0x3A, 0x44, 0x64, 0xFF)
+        };
+
+        static readonly Dictionary<char, Color32> StarsNearPalette = new Dictionary<char, Color32>
+        {
+            ['W'] = new Color32(0xE0, 0xEC, 0xFF, 0xFF),
+            ['G'] = new Color32(0x8C, 0xA4, 0xD4, 0xFF)
+        };
+
         [MenuItem("Tools/Shmup/Rebuild Battle Scene")]
         public static void Build()
         {
@@ -103,9 +150,11 @@ namespace Shmup.EditorTools
                 var bulletSprite = WritePixelSprite(BulletSpritePath, BulletPixels, BulletPalette);
                 var hudSlotSprite = WritePixelSprite(HudSlotSpritePath, HudSlotPixels, HudPalette);
                 var hudPipSprite = WritePixelSprite(HudPipSpritePath, HudPipPixels, HudPalette);
+                var starsFarSprite = WritePixelSprite(StarsFarSpritePath, BuildStarPixels(9001, 110, false), StarsFarPalette);
+                var starsNearSprite = WritePixelSprite(StarsNearSpritePath, BuildStarPixels(4242, 45, true), StarsNearPalette);
                 var bulletPrefab = WriteBulletPrefab(bulletSprite);
 
-                BuildScene(shipSprite, bulletPrefab, hudSlotSprite, hudPipSprite);
+                BuildScene(shipSprite, bulletPrefab, hudSlotSprite, hudPipSprite, starsFarSprite, starsNearSprite);
                 RegisterInBuildSettings();
 
                 AssetDatabase.SaveAssets();
@@ -188,7 +237,7 @@ namespace Shmup.EditorTools
 
         // ── 씬 ────────────────────────────────────────────────────────────────────
 
-        static void BuildScene(Sprite shipSprite, GameObject bulletPrefab, Sprite hudSlotSprite, Sprite hudPipSprite)
+        static void BuildScene(Sprite shipSprite, GameObject bulletPrefab, Sprite hudSlotSprite, Sprite hudPipSprite, Sprite starsFarSprite, Sprite starsNearSprite)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -221,6 +270,7 @@ namespace Shmup.EditorTools
             SetReference(director, "_bulletRoot", bulletRoot.transform);
 
             CreateHud(director, hudSlotSprite, hudPipSprite);
+            CreateBackground(director, starsFarSprite, starsNearSprite);
 
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
             EditorSceneManager.MarkSceneDirty(scene);
@@ -266,6 +316,57 @@ namespace Shmup.EditorTools
                 return;
             }
             property.enumValueIndex = (int)PixelPerfectCamera.PixelPerfectFilterMode.RetroAA;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        // ── 배경 ──────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 2층 패럴랙스 스타필드. 레이어마다 화면 폭(24u) 타일 2장을 이어 붙이고
+        /// ParallaxBackground가 스크롤 팩터별로 왼쪽으로 밀며 래핑한다.
+        /// </summary>
+        static void CreateBackground(BattleDirector director, Sprite farSprite, Sprite nearSprite)
+        {
+            const float tileWidth = RefResolutionX / (float)AssetsPPU;   // 24u
+
+            var root = new GameObject("Background");
+            var layers = new Transform[2];
+            var factors = new float[] { 0.25f, 0.6f };
+            var sprites = new[] { farSprite, nearSprite };
+            var orders = new[] { -100, -90 };
+
+            for (int i = 0; i < layers.Length; i++)
+            {
+                var layer = new GameObject(i == 0 ? "StarsFar" : "StarsNear");
+                layer.transform.SetParent(root.transform, false);
+                layers[i] = layer.transform;
+
+                for (int tile = 0; tile < 2; tile++)
+                {
+                    var tileGo = new GameObject($"Tile{tile}");
+                    tileGo.transform.SetParent(layer.transform, false);
+                    tileGo.transform.localPosition = new Vector3(tile * tileWidth, 0f, 0f);
+                    var renderer = tileGo.AddComponent<SpriteRenderer>();
+                    renderer.sprite = sprites[i];
+                    renderer.sortingOrder = orders[i];
+                }
+            }
+
+            var parallax = root.AddComponent<ParallaxBackground>();
+            SetReference(parallax, "_director", director);
+            SetReferenceArray(parallax, "_layers", layers);
+            SetFloatArray(parallax, "_factors", factors);
+        }
+
+        static void SetFloatArray(UnityEngine.Object target, string fieldName, float[] values)
+        {
+            var so = new SerializedObject(target);
+            var property = so.FindProperty(fieldName);
+            if (property == null)
+                throw new InvalidOperationException($"{target.GetType().Name}.{fieldName} 직렬화 필드를 못 찾았다.");
+            property.arraySize = values.Length;
+            for (int i = 0; i < values.Length; i++)
+                property.GetArrayElementAtIndex(i).floatValue = values[i];
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
