@@ -635,6 +635,20 @@ namespace Shmup.EditorTools
             }
             SetReference(director, "_bossRenderer", bossRenderer);
 
+            // 보스ID → 스프라이트 매핑 (M3 테마별 보스)
+            var bossPrefixes = new List<string>();
+            var bossSprites = new List<Sprite>();
+            void AddBossSprite(string prefix, Sprite sprite)
+            {
+                if (sprite == null) return;
+                bossPrefixes.Add(prefix);
+                bossSprites.Add(sprite);
+            }
+            AddBossSprite("boss_stage1", bossSprite);
+            AddBossSprite("boss_hive", LoadExternalSprite("boss_hive.png", "boss_hive"));
+            SetStringArray(director, "_bossSpritePrefixes", bossPrefixes.ToArray());
+            SetReferenceArray(director, "_bossSprites", bossSprites.ToArray());
+
             // 보스 HP 바: 상단 중앙, px_white 스케일 방식. BossActive 동안만 director가 켠다.
             var bossHpRoot = new GameObject("BossHp");
             bossHpRoot.transform.localPosition = new Vector3(0f, 10.4f, 0f);
@@ -656,6 +670,27 @@ namespace Shmup.EditorTools
             SetReference(director, "_bossHpRoot", bossHpRoot);
             SetReference(director, "_bossHpFill", hpFill.transform);
 
+            // 적 종별 전용 스프라이트 (M2 비주얼 다양화). 없는 종류는 기본+틴트 폴백.
+            var enemyTypeSprites = new List<Sprite>();
+            var enemyTypePrefixes = new List<string>();
+            void AddEnemySprite(string prefix, Sprite sprite)
+            {
+                if (sprite == null) return;
+                enemyTypePrefixes.Add(prefix);
+                enemyTypeSprites.Add(sprite);
+            }
+            var enemySpriteDefault = AssetDatabase.LoadAssetAtPath<Sprite>(EnemySpritePath);
+            AddEnemySprite("zako_straight", enemySpriteDefault);
+            AddEnemySprite("zako_fast", enemySpriteDefault);
+            AddEnemySprite("zako_sine", LoadExternalSprite("enemy_scarab.png", "enemy_scarab"));
+            AddEnemySprite("turret", LoadExternalSprite("enemy_turret.png", "enemy_turret"));
+            AddEnemySprite("zako_tank", LoadExternalSprite("enemy_tank.png", "enemy_tank"));
+            AddEnemySprite("elite", LoadExternalSprite("enemy_elite.png", "enemy_elite"));
+            AddEnemySprite("spore", LoadExternalSprite("enemy_spore.png", "enemy_spore"));
+            AddEnemySprite("lancer", LoadExternalSprite("enemy_lancer.png", "enemy_lancer"));
+            SetStringArray(director, "_enemySpritePrefixes", enemyTypePrefixes.ToArray());
+            SetReferenceArray(director, "_enemySprites", enemyTypeSprites.ToArray());
+
             // 기체 애니메이션 (art-input/ship_anim_XX.png 있으면)
             var shipFrames = LoadShipAnimationFrames();
             if (shipFrames.Length > 0)
@@ -667,6 +702,9 @@ namespace Shmup.EditorTools
 
             var rewardScreen = battleRoot.AddComponent<RewardScreen>();
             SetReference(rewardScreen, "_director", director);
+            battleRoot.AddComponent<PauseScreen>();
+            var bossIntro = battleRoot.AddComponent<BossIntro>();
+            SetReference(director, "_bossIntro", bossIntro);
 
             CreateHud(director, hudSlotSprite, hudPipSprite);
             CreateBackground(director, starsFarSprite, starsNearSprite);
@@ -758,14 +796,35 @@ namespace Shmup.EditorTools
         }
 
         /// <summary>
-        /// 배틀 배경: 별 2겹 + (있으면) 스크랩야드 테마 3겹 (M2, art-input/scrap_*.png).
-        /// 팩터가 작을수록 원경. scrap_near는 게임플레이 위(55)에서 스크롤보다 빠르게 지나가는 전경 실루엣.
+        /// 배틀 배경: 테마 루트를 여러 개 만들고 director가 StageIndex로 로테이션한다 (M3).
+        /// 각 루트 = 별 2겹 + 테마 3겹(art-input/&lt;theme&gt;_far/mid/near.png). 팩터가 작을수록 원경,
+        /// near 레이어는 게임플레이 위(55)에서 스크롤보다 빠르게 지나가는 전경 실루엣.
         /// </summary>
         static void CreateBackground(BattleDirector director, Sprite farSprite, Sprite nearSprite)
         {
-            var scrapFar = LoadExternalSprite("scrap_far.png", "scrap_far");
-            var scrapMid = LoadExternalSprite("scrap_mid.png", "scrap_mid");
-            var scrapNear = LoadExternalSprite("scrap_near.png", "scrap_near");
+            var themeRoots = new List<GameObject>();
+            var scrapyard = CreateThemeRoot(director, "Background_Scrapyard", farSprite, nearSprite, "scrap");
+            if (scrapyard != null) themeRoots.Add(scrapyard);
+            var hive = CreateThemeRoot(director, "Background_Hive", farSprite, nearSprite, "hive");
+            if (hive != null) themeRoots.Add(hive);
+
+            // 두 번째 이후 테마는 director의 ApplyStageTheme이 켤 때까지 꺼 둔다.
+            for (int i = 1; i < themeRoots.Count; i++)
+                themeRoots[i].SetActive(false);
+
+            SetReferenceArray(director, "_themeBackgrounds", themeRoots.ToArray());
+        }
+
+        static GameObject CreateThemeRoot(
+            BattleDirector director, string rootName, Sprite starsFar, Sprite starsNear, string themePrefix)
+        {
+            var themeFar = LoadExternalSprite($"{themePrefix}_far.png", $"{themePrefix}_far");
+            var themeMid = LoadExternalSprite($"{themePrefix}_mid.png", $"{themePrefix}_mid");
+            var themeNear = LoadExternalSprite($"{themePrefix}_near.png", $"{themePrefix}_near");
+            // 기본 테마(첫 번째)는 테마 스프라이트가 없어도 별만으로 만든다.
+            if (themeFar == null && themeMid == null && themeNear == null
+                && themePrefix != "scrap")
+                return null;
 
             var sprites = new List<Sprite>();
             var factors = new List<float>();
@@ -778,14 +837,14 @@ namespace Shmup.EditorTools
                 orders.Add(order);
             }
 
-            AddLayer(farSprite, 0.1f, -100);
-            AddLayer(scrapFar, 0.2f, -96);
-            AddLayer(nearSprite, 0.45f, -90);
-            AddLayer(scrapMid, 0.6f, -85);
-            AddLayer(scrapNear, 1.15f, 55);
+            AddLayer(starsFar, 0.1f, -100);
+            AddLayer(themeFar, 0.2f, -96);
+            AddLayer(starsNear, 0.45f, -90);
+            AddLayer(themeMid, 0.6f, -85);
+            AddLayer(themeNear, 1.15f, 55);
 
             const float tileWidth = RefResolutionX / (float)AssetsPPU;
-            var root = new GameObject("Background");
+            var root = new GameObject(rootName);
             var layers = new Transform[sprites.Count];
             for (int i = 0; i < sprites.Count; i++)
             {
@@ -808,6 +867,7 @@ namespace Shmup.EditorTools
             SetReferenceArray(parallax, "_layers", layers);
             SetFloatArray(parallax, "_factors", factors.ToArray());
             SetFloat(parallax, "_tileWidth", tileWidth);
+            return root;
         }
 
         // ── SFX ───────────────────────────────────────────────────────────────────
@@ -880,6 +940,18 @@ namespace Shmup.EditorTools
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, TitleScenePath);
+        }
+
+        static void SetStringArray(UnityEngine.Object target, string fieldName, string[] values)
+        {
+            var so = new SerializedObject(target);
+            var property = so.FindProperty(fieldName);
+            if (property == null)
+                throw new InvalidOperationException($"{target.GetType().Name}.{fieldName} 직렬화 필드를 못 찾았다.");
+            property.arraySize = values.Length;
+            for (int i = 0; i < values.Length; i++)
+                property.GetArrayElementAtIndex(i).stringValue = values[i];
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         static void SetFloat(UnityEngine.Object target, string fieldName, float value)

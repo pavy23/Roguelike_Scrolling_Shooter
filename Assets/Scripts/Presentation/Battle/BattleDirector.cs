@@ -44,6 +44,15 @@ namespace Shmup.Presentation.Battle
         [SerializeField] SpriteRenderer _bossRenderer;
         [SerializeField] GameObject _bossHpRoot;
         [SerializeField] Transform _bossHpFill;
+        [Tooltip("definitionId 접두어 → 전용 스프라이트 (M2 적 비주얼 다양화). 매칭 실패 시 기본+틴트 폴백.")]
+        [SerializeField] string[] _enemySpritePrefixes;
+        [SerializeField] Sprite[] _enemySprites;
+        [SerializeField] BossIntro _bossIntro;
+        [Tooltip("스테이지 테마 배경 루트들 — (StageIndex-1) % 개수 로테이션 (M3).")]
+        [SerializeField] GameObject[] _themeBackgrounds;
+        [Tooltip("StagePlan.BossId 접두어 → 보스 스프라이트.")]
+        [SerializeField] string[] _bossSpritePrefixes;
+        [SerializeField] Sprite[] _bossSprites;
 
         /// <summary>HP 바 폭 (월드유닛). px_white(2px) 스프라이트 기준 스케일 환산에 쓴다.</summary>
         const float BossHpBarWidthUnits = 16f;
@@ -130,7 +139,8 @@ namespace Shmup.Presentation.Battle
             var data = GameDataParser.Parse(
                 LoadGameDataText("enemies"),
                 LoadGameDataText("weapons"),
-                LoadGameDataText("waves"));
+                LoadGameDataText("waves"),
+                TryLoadGameDataText("rewards"));   // 없으면 Core 내장 풀 폴백 (REQ-G001)
 
             var config = data.CreateBattleSimConfig();
             // 스키마에 아직 없는 잠정값 (스키마 v3 후보 — GameData로 옮기면 이 블록 제거)
@@ -147,7 +157,8 @@ namespace Shmup.Presentation.Battle
                 new SegmentStageGenerator(data.StageGeneration),
                 config,
                 data.BattleContent,
-                data.CreatePowerUpGauge());
+                data.CreatePowerUpGauge(),
+                data.Rewards);
             _sim = _run.Battle;
 
             // 풀 용량은 Core가 허용하는 최대 개수와 맞춘다 — 런타임에 풀이 부족해질 수 없다.
@@ -165,6 +176,8 @@ namespace Shmup.Presentation.Battle
             if (_shieldView != null)
                 _shieldView.enabled = false;
 
+            ApplyStageTheme();
+            ApplyBossSprite();
             SyncViews();
         }
 
@@ -187,6 +200,8 @@ namespace Shmup.Presentation.Battle
                 var e = events[i];
                 if (e.Type == SimEventType.EnemyKilled || e.Type == SimEventType.PlayerKilled)
                     SpawnExplosion(SimView.ToWorld(e.X, e.Y));
+                else if (e.Type == SimEventType.BossSpawned && _bossIntro != null)
+                    _bossIntro.Trigger();
             }
             RefreshBattle();
             SyncViews();
@@ -209,6 +224,42 @@ namespace Shmup.Presentation.Battle
             _lastHp = -1;   // 배틀 교체 직후 HP 차이를 피격 플래시로 오인하지 않게
 
             _sim = battle;
+            ApplyStageTheme();
+            ApplyBossSprite();
+        }
+
+        /// <summary>스테이지 번호로 테마 배경을 로테이션한다 (테마 수보다 스테이지가 많으면 반복).</summary>
+        void ApplyStageTheme()
+        {
+            if (_themeBackgrounds == null || _themeBackgrounds.Length == 0 || _run == null) return;
+            int index = (_run.StageIndex - 1) % _themeBackgrounds.Length;
+            if (index < 0) index += _themeBackgrounds.Length;
+            for (int i = 0; i < _themeBackgrounds.Length; i++)
+                if (_themeBackgrounds[i] != null && _themeBackgrounds[i].activeSelf != (i == index))
+                    _themeBackgrounds[i].SetActive(i == index);
+        }
+
+        void ApplyBossSprite()
+        {
+            if (_bossRenderer == null || _run == null || _run.StagePlan == null) return;
+            if (_bossSpritePrefixes == null || _bossSprites == null) return;
+            string bossId = _run.StagePlan.BossId;
+            int count = Mathf.Min(_bossSpritePrefixes.Length, _bossSprites.Length);
+            Sprite best = null;
+            int bestLength = -1;
+            for (int i = 0; i < count; i++)
+            {
+                string prefix = _bossSpritePrefixes[i];
+                if (string.IsNullOrEmpty(prefix) || _bossSprites[i] == null) continue;
+                if (bossId.StartsWith(prefix, System.StringComparison.Ordinal)
+                    && prefix.Length > bestLength)
+                {
+                    best = _bossSprites[i];
+                    bestLength = prefix.Length;
+                }
+            }
+            if (best != null)
+                _bossRenderer.sprite = best;
         }
 
         static void ReleaseAll(Dictionary<int, Transform> views, SpritePool pool)
@@ -275,8 +326,29 @@ namespace Shmup.Presentation.Battle
             SyncViews();
         }
 
+        /// <summary>
+        /// 개발용 빨리감기 (DevCheats F11): 무입력 틱을 일괄 진행한다. 이벤트 FX/SFX는
+        /// 스킵 구간에서 생략한다 — 순수 dev 편의, 게임플레이 판정은 전부 Core 그대로.
+        /// </summary>
+        public void DevFastForward(int ticks)
+        {
+            if (_run == null) return;
+            var none = InputCommand.None;
+            for (int i = 0; i < ticks && _run.State == RunState.Playing; i++)
+                _run.Step(in none);
+            RefreshBattle();
+            SyncViews();
+        }
+
         /// <summary>DevCheats 오버레이용.</summary>
         public int ShieldRemaining => _sim?.ShieldRemaining ?? 0;
+
+        /// <summary>선택적 GameData — 없으면 null (Core가 폴백 처리).</summary>
+        static string TryLoadGameDataText(string name)
+        {
+            var asset = Resources.Load<TextAsset>("GameData/" + name);
+            return asset != null ? asset.text : null;
+        }
 
         static string LoadGameDataText(string name)
         {
@@ -371,7 +443,18 @@ namespace Shmup.Presentation.Battle
                     var renderer = view.GetComponent<SpriteRenderer>();
                     _enemyRenderers[enemy.Id] = renderer;
                     if (renderer != null)
-                        renderer.color = TintFor(enemy.DefinitionId);
+                    {
+                        Sprite typed = SpriteForEnemy(enemy.DefinitionId);
+                        if (typed != null)
+                        {
+                            renderer.sprite = typed;
+                            renderer.color = Color.white;
+                        }
+                        else
+                        {
+                            renderer.color = TintFor(enemy.DefinitionId);
+                        }
+                    }
                 }
 
                 view.localPosition = SimView.ToWorld(enemy.X, enemy.Y);
@@ -505,6 +588,27 @@ namespace Shmup.Presentation.Battle
             }
 
             ReleaseDeadViews(_capsuleViews, _capsulePool);
+        }
+
+        /// <summary>가장 긴 접두어 매칭 — zako_sine_slow가 zako_sine보다 구체적 매칭을 이기게.</summary>
+        Sprite SpriteForEnemy(string definitionId)
+        {
+            if (_enemySpritePrefixes == null || _enemySprites == null) return null;
+            Sprite best = null;
+            int bestLength = -1;
+            int count = Mathf.Min(_enemySpritePrefixes.Length, _enemySprites.Length);
+            for (int i = 0; i < count; i++)
+            {
+                string prefix = _enemySpritePrefixes[i];
+                if (string.IsNullOrEmpty(prefix) || _enemySprites[i] == null) continue;
+                if (definitionId.StartsWith(prefix, System.StringComparison.Ordinal)
+                    && prefix.Length > bestLength)
+                {
+                    best = _enemySprites[i];
+                    bestLength = prefix.Length;
+                }
+            }
+            return best;
         }
 
         static Color32 TintFor(string definitionId)

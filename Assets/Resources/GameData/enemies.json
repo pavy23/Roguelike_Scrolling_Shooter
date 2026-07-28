@@ -58,7 +58,7 @@
       "movePattern": "straight",
       "moveSpeed": 8.25,
       "fireIntervalTicks": 0,
-      "dropWeight": 3,
+      "dropWeight": 2,
       "halfWidth": 0.5625,
       "halfHeight": 0.46875,
       "amplitude": 0,

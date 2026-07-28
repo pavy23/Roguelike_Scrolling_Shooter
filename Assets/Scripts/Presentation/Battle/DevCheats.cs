@@ -26,6 +26,7 @@ namespace Shmup.Presentation.Battle
 
             if (keyboard.f9Key.wasPressedThisFrame) _director.Gauge.Collect();
             if (keyboard.f10Key.wasPressedThisFrame) _director.Gauge.Activate();
+            if (keyboard.f11Key.wasPressedThisFrame) _director.DevFastForward(600);   // 10초 스킵
 
             if (_director.IsRunOver)
             {
@@ -65,7 +66,7 @@ namespace Shmup.Presentation.Battle
             }
 
             GUI.Label(new Rect(8, 4, Screen.width - 16, _style.fontSize * 3),
-                $"run {_director.RunNumber}   stage {_director.StageIndex}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   hp {_director.PlayerHp}   shield {_director.ShieldRemaining}\n[F9] capsule   [F10] activate   (--seed=N 으로 시드 고정)",
+                $"run {_director.RunNumber}   stage {_director.StageIndex}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   hp {_director.PlayerHp}   shield {_director.ShieldRemaining}\n[F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N 으로 시드 고정)",
                 _style);
         }
     }
