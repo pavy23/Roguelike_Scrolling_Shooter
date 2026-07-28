@@ -637,6 +637,7 @@
     },
     {
       "id": "seg_hive_spore_cloud",
+      "theme": "hive",
       "difficultyMin": 2,
       "difficultyMax": 5,
       "lengthTicks": 720,
@@ -745,6 +746,7 @@
     },
     {
       "id": "seg_hive_lancer_rush",
+      "theme": "hive",
       "difficultyMin": 2,
       "difficultyMax": 5,
       "lengthTicks": 660,
@@ -878,6 +880,7 @@
     },
     {
       "id": "seg_fortress_sentry_grid",
+      "theme": "fortress",
       "difficultyMin": 3,
       "difficultyMax": 5,
       "lengthTicks": 900,
@@ -1016,6 +1019,7 @@
     },
     {
       "id": "seg_fortress_interceptor_assault",
+      "theme": "fortress",
       "difficultyMin": 3,
       "difficultyMax": 5,
       "lengthTicks": 780,
@@ -1189,6 +1193,7 @@
     },
     {
       "id": "seg_nebula_wisp_storm",
+      "theme": "nebula",
       "difficultyMin": 3,
       "difficultyMax": 5,
       "lengthTicks": 780,
@@ -1342,6 +1347,7 @@
     },
     {
       "id": "seg_nebula_wisp_ribbon",
+      "theme": "nebula",
       "difficultyMin": 3,
       "difficultyMax": 5,
       "lengthTicks": 720,
@@ -1480,6 +1486,7 @@
     },
     {
       "id": "seg_core_guardian_wall",
+      "theme": "core",
       "difficultyMin": 4,
       "difficultyMax": 5,
       "lengthTicks": 900,
@@ -1658,6 +1665,7 @@
     },
     {
       "id": "seg_core_final_gauntlet",
+      "theme": "core",
       "difficultyMin": 4,
       "difficultyMax": 5,
       "lengthTicks": 840,
@@ -1868,6 +1876,7 @@
   "bosses": [
     {
       "id": "boss_stage1",
+      "theme": "scrapyard",
       "stageIndexMin": 1,
       "stageIndexMax": 99,
       "difficultyMin": 1,
@@ -1878,13 +1887,22 @@
       "halfHeight": 3.0,
       "holdX": 14.0,
       "phases": [
-        { "fireIntervalTicks": 55, "ways": 3, "bulletSpeed": 9.0 },
-        { "fireIntervalTicks": 45, "ways": 5, "bulletSpeed": 10.0 }
+        {
+          "fireIntervalTicks": 55,
+          "ways": 3,
+          "bulletSpeed": 9.0
+        },
+        {
+          "fireIntervalTicks": 45,
+          "ways": 5,
+          "bulletSpeed": 10.0
+        }
       ]
     },
     {
       "id": "boss_hive",
-      "stageIndexMin": 2,
+      "theme": "hive",
+      "stageIndexMin": 1,
       "stageIndexMax": 99,
       "difficultyMin": 1,
       "difficultyMax": 5,
@@ -1894,13 +1912,22 @@
       "halfHeight": 3.0,
       "holdX": 14.0,
       "phases": [
-        { "fireIntervalTicks": 48, "ways": 4, "bulletSpeed": 9.5 },
-        { "fireIntervalTicks": 40, "ways": 5, "bulletSpeed": 10.5 }
+        {
+          "fireIntervalTicks": 48,
+          "ways": 4,
+          "bulletSpeed": 9.5
+        },
+        {
+          "fireIntervalTicks": 40,
+          "ways": 5,
+          "bulletSpeed": 10.5
+        }
       ]
     },
     {
       "id": "boss_fortress",
-      "stageIndexMin": 3,
+      "theme": "fortress",
+      "stageIndexMin": 1,
       "stageIndexMax": 99,
       "difficultyMin": 1,
       "difficultyMax": 5,
@@ -1910,13 +1937,22 @@
       "halfHeight": 3.0,
       "holdX": 14.0,
       "phases": [
-        { "fireIntervalTicks": 42, "ways": 5, "bulletSpeed": 10.0 },
-        { "fireIntervalTicks": 38, "ways": 6, "bulletSpeed": 11.0 }
+        {
+          "fireIntervalTicks": 42,
+          "ways": 5,
+          "bulletSpeed": 10.0
+        },
+        {
+          "fireIntervalTicks": 38,
+          "ways": 6,
+          "bulletSpeed": 11.0
+        }
       ]
     },
     {
       "id": "boss_storm",
-      "stageIndexMin": 4,
+      "theme": "nebula",
+      "stageIndexMin": 1,
       "stageIndexMax": 99,
       "difficultyMin": 1,
       "difficultyMax": 5,
@@ -1926,13 +1962,22 @@
       "halfHeight": 3.0,
       "holdX": 14.0,
       "phases": [
-        { "fireIntervalTicks": 40, "ways": 5, "bulletSpeed": 11.0 },
-        { "fireIntervalTicks": 36, "ways": 7, "bulletSpeed": 11.5 }
+        {
+          "fireIntervalTicks": 40,
+          "ways": 5,
+          "bulletSpeed": 11.0
+        },
+        {
+          "fireIntervalTicks": 36,
+          "ways": 7,
+          "bulletSpeed": 11.5
+        }
       ]
     },
     {
       "id": "boss_core",
-      "stageIndexMin": 5,
+      "theme": "core",
+      "stageIndexMin": 1,
       "stageIndexMax": 99,
       "difficultyMin": 1,
       "difficultyMax": 5,
@@ -1942,8 +1987,16 @@
       "halfHeight": 3.0,
       "holdX": 14.0,
       "phases": [
-        { "fireIntervalTicks": 38, "ways": 7, "bulletSpeed": 12.0 },
-        { "fireIntervalTicks": 34, "ways": 9, "bulletSpeed": 12.5 }
+        {
+          "fireIntervalTicks": 38,
+          "ways": 7,
+          "bulletSpeed": 12.0
+        },
+        {
+          "fireIntervalTicks": 34,
+          "ways": 9,
+          "bulletSpeed": 12.5
+        }
       ]
     }
   ]

@@ -308,7 +308,7 @@ Core 점수 시스템이 추가됐으므로 플레이 HUD에 현재 런의 누�
 
 ---
 
-## [ ] GROK: waves.json 세그먼트·보스 theme 태깅
+## [x] GROK: waves.json 세그먼트·보스 theme 태깅
 
 Core가 선택적 `theme` 필드와 결정론적 테마-보스 바인딩을 지원합니다. 콘텐츠 원본인
 `GameData/waves.json`의 각 `segments[]`와 `bosses[]`에 적절한 테마를 태깅해 주세요.
@@ -320,6 +320,57 @@ Core가 선택적 `theme` 필드와 결정론적 테마-보스 바인딩을 지�
 - 각 테마와 난이도/스테이지 범위 조합에서 클리어 가능한 세그먼트 체인과 도달 가능한
   보스가 최소 하나씩 남는지 밸런스 시뮬로 검증해 주세요.
 - JSON은 기존 `schemaVersion: 2`를 유지하며, 필드는 선택적이라 기존 파일도 호환됩니다.
+
+### GROK 응답 (2026-07-29)
+
+**완료:** `GameData/waves.json` theme 태깅 + 조립 검증. `schemaVersion: 2` 유지.
+
+#### 태깅 원칙
+
+테마 **전용** 세그먼트만 `theme` 부여. 기존 범용 8종은 필드 생략(`null` = 전 테마 공용)으로
+`segmentsPerStage=3` 조립 여유를 확보 (hive/fortress/nebula/core는 전용 세그먼트 2개뿐).
+
+| 대상 | theme |
+|---|---|
+| `seg_hive_*` (2) | `hive` |
+| `seg_fortress_*` (2) | `fortress` |
+| `seg_nebula_*` (2) | `nebula` |
+| `seg_core_*` (2) | `core` |
+| 범용 8종 (`intro`/`sine`/`turret`/`swarm`/`mixed`/`sandwich`/`sine_rush`) | **null** |
+| `boss_stage1` | `scrapyard` |
+| `boss_hive` | `hive` |
+| `boss_fortress` | `fortress` |
+| `boss_storm` | `nebula` |
+| `boss_core` | `core` |
+
+`ThemeIds` ordinal: **core, fortress, hive, nebula, scrapyard**  
+→ stage 1=core, 2=fortress, 3=hive, 4=nebula, 5=scrapyard, 6=core, …
+
+#### 필수 조정 (기록)
+
+테마 바인딩 전에는 `stageIndexMin`이 보스 진행 게이트였으나, 테마 순환이 stage 1부터
+5테마를 모두 쓰므로 테마 전용 보스가 early stage에서 탈락했다.
+
+| boss | stageIndexMin before → after | 이유 |
+|---|---|---|
+| `boss_hive` | 2 → **1** | stage 3·8=hive 등 전 구간 가용 |
+| `boss_fortress` | 3 → **1** | stage 2=fortress가 min=3이면 실패 |
+| `boss_storm` | 4 → **1** | stage 4=nebula 정합 + 순환 재진입 |
+| `boss_core` | 5 → **1** | stage 1=core가 min=5이면 실패 |
+| `boss_stage1` | 1 (유지) | scrapyard |
+
+`difficultyMin`/`difficultyMax`는 세그먼트·보스 모두 변경 없음 (기존 곡선 유지).  
+범용 null 풀이 diff 1에서 정확히 3개(`intro`/`sine_pair`/`sine_rush`)라 전 테마 조립 가능.
+
+#### 검증
+
+- `cd Tools/BalanceSim && dotnet run` — stage **1–10 × difficulty 1–5 = 50/50 PASS**
+- `cd Tools/CoreStandalone && dotnet test` — **115/115 PASS**
+
+#### CLAUDE 후속
+
+- `Assets/Resources/GameData/waves.json` 동기화 (Resources 복사 파이프).
+- `StagePlan.ThemeId` 배경 선택 (위 항목 그대로).
 
 ---
 

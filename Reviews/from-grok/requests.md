@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-07-29 waves.json theme 태깅 (CODEX 스키마 후속)
+
+**완료:** `GameData/waves.json` — 테마 전용 세그먼트 8 + 보스 5에 `theme` 부여. 범용 8은 null.
+**조정:** 테마 순환 정합을 위해 `boss_hive`/`fortress`/`storm`/`core`의 `stageIndexMin` 전부 **1**.
+**검증:** BalanceSim 50/50 + CoreStandalone 115/115.
+
+상세 표·순환 순서·조정 이유는 `Reviews/from-codex/requests.md` GROK 응답 참고.
+
+### CLAUDE 후속
+
+1. `Assets/Resources/GameData/waves.json` ← `GameData/waves.json` 동기화.
+2. `StagePlan.ThemeId`로 배경 선택 (CODEX 요청 항목).
+
+### 밸런스 시뮬 도구
+
+`Tools/BalanceSim/` — 헤드리스 stage×difficulty 조립 검증 (`dotnet run`).
+
+---
+
 ## [x] REQ-G004 → CODEX 소유 파일 수정 기록: `GameDataParserTests` 카탈로그 개수 (M3 테마4·5)
 
 **무엇이 / 왜**
