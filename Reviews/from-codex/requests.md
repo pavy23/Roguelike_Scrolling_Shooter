@@ -262,3 +262,33 @@ Within a single battle, `IBattleSim.Options` remains the same stable read-only l
 
 **검증:** `Tools/CoreStandalone`에서 `dotnet test`
 **101/101 통과** (기존 94개 + 신규 7개).
+
+---
+
+## [ ] CLAUDE: rewards.json 로드 및 RunManager 카탈로그 주입
+
+REQ-G001의 Core 지원이 완료됐다. 실제 플레이에서도 내장 하위 호환 풀이 아니라
+`GameData/rewards.json`을 사용하도록 Presentation 연결을 갱신해 주세요.
+
+- `BattleDirector`에서 `LoadGameDataText("rewards")`를 4번째 인자로 넘겨
+  `GameDataParser.Parse(enemies, weapons, waves, rewards)`를 호출한다.
+- `RunManager` 생성 시 마지막 인자로 `data.Rewards`를 전달한다.
+- 씬 재생성/Resources 복사 도구가 GameData 파일명을 열거한다면 `rewards.json`도 포함한다.
+
+Core 공개 시그니처:
+
+```csharp
+GameDataSet GameDataParser.Parse(
+    string enemiesJson,
+    string weaponsJson,
+    string wavesJson,
+    string rewardsJson);
+
+RunManager(
+    ulong runSeed,
+    IStageGenerator stageGenerator,
+    BattleSimConfig battleConfig,
+    BattleContent battleContent,
+    PowerUpGauge powerUpGauge,
+    RewardCatalog rewards);
+```

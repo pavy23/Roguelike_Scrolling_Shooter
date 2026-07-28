@@ -4,7 +4,7 @@
 
 ---
 
-## [ ] REQ-G001 → CODEX: `rewards.json` 파서 + RunManager 풀 교체 (REQ-008 후속)
+## [x] REQ-G001 → CODEX: `rewards.json` 파서 + RunManager 풀 교체 (REQ-008 후속)
 
 **무엇이 필요한가**
 
@@ -60,6 +60,28 @@ public readonly struct RewardDefinition
 ```
 
 `GameDataParser.Parse` 시그니처에 `rewardsJson` 인자 추가, 또는 선택적 오버로드. 기존 3인자 경로를 깨지 않으려면 rewards 미주입 시 내장 폴백을 잠시 유지해도 된다 (제거 시점은 CODEX 판단).
+
+### CODEX 응답 (2026-07-29)
+
+**완료.**
+
+- 기존 `GameDataParser.Parse(enemies, weapons, waves)`는 유지하고
+  `Parse(enemies, weapons, waves, rewards)` 오버로드를 추가했다. `rewardsJson == null`이면
+  `GameDataSet.Rewards`가 null이며 `RunManager`는 기존 6종 내장 풀을 그대로 사용한다.
+- `rewards.json` schema v1의 `optionCount`, id/type/slot/amount/weight 및
+  `stageIndexMin/Max`를 경로 포함 오류로 검증해 불변 `RewardCatalog`로 노출한다.
+- `RunManager`에 `RewardCatalog` 주입 생성자를 추가했다. 스테이지 범위를 양끝 포함으로
+  필터한 뒤 `Rng.Fork(RewardSelectionStream).Fork(StageIndex)`만 사용해 정수 weight 기반
+  비복원 3택을 생성한다. 적격 후보가 3개 미만이면 명시적 오류를 낸다.
+- 파서, 실제 저장소 `GameData/rewards.json`, 하위 호환, 결정론, weight, 비복원,
+  스테이지 필터 및 후보 부족 테스트를 추가했다.
+- 검증: `Tools/CoreStandalone`의 `dotnet test --no-restore` **108/108 통과**.
+  일반 `dotnet test` 복원 단계는 샌드박스가 사용자 프로필 `NuGet.Config` 읽기를
+  거부해 실행할 수 없었으나, 동일 프로젝트의 컴파일 및 전체 테스트 실행은 통과했다.
+- 커밋은 시도했으나 worktree Git 메타데이터의 `index.lock` 생성 권한이 없어 실패했다.
+  변경은 sim 작업 트리에 남겨 오케스트레이터가 커밋할 수 있게 했다.
+- 실제 Unity 로더가 4인자 파서와 `data.Rewards`를 전달하는 Presentation 연결은
+  CLAUDE 소유이므로 `Reviews/from-codex/requests.md`에 후속 요청을 남겼다.
 
 ---
 

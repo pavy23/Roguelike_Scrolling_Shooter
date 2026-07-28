@@ -60,6 +60,21 @@ namespace Shmup.Core.Tests
   }]
 }";
 
+        const string RewardsJson = @"{
+  ""schemaVersion"": 1,
+  ""optionCount"": 3,
+  ""rewards"": [
+    { ""id"": ""capsules_3"", ""type"": ""capsules"", ""amount"": 3,
+      ""weight"": 2, ""stageIndexMin"": 1, ""stageIndexMax"": 9 },
+    { ""id"": ""main_1"", ""type"": ""slotLevel"", ""slot"": ""MainShot"",
+      ""amount"": 1, ""weight"": 4, ""stageIndexMin"": 1, ""stageIndexMax"": 9 },
+    { ""id"": ""missile_1"", ""type"": ""slotLevel"", ""slot"": ""Missile"",
+      ""amount"": 1, ""weight"": 3, ""stageIndexMin"": 2, ""stageIndexMax"": 8 },
+    { ""id"": ""repair_1"", ""type"": ""repairHp"", ""amount"": 1,
+      ""weight"": 1, ""stageIndexMin"": 3, ""stageIndexMax"": 7 }
+  ]
+}";
+
         [Test]
         public void Parse_ApprovedV2_BuildsExactRuntimeModels()
         {
@@ -119,18 +134,55 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void Parse_RewardsV1_ExposesImmutableCatalog()
+        {
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson,
+                RewardsJson);
+
+            Assert.IsNotNull(data.Rewards);
+            Assert.AreEqual(3, data.Rewards.OptionCount);
+            Assert.AreEqual(4, data.Rewards.All.Count);
+            Assert.AreEqual("capsules_3", data.Rewards.All[0].Id);
+            Assert.AreEqual(RewardType.Capsules, data.Rewards.All[0].Type);
+            Assert.AreEqual(2, data.Rewards.All[0].Weight);
+            Assert.AreEqual(PowerUpSlot.Missile, data.Rewards.All[2].Slot);
+            Assert.AreEqual(2, data.Rewards.All[2].StageIndexMin);
+            Assert.AreEqual(8, data.Rewards.All[2].StageIndexMax);
+            Assert.AreEqual(2, data.Rewards.EligibleForStage(1).Count);
+            Assert.AreEqual(4, data.Rewards.EligibleForStage(3).Count);
+            Assert.IsFalse(data.Rewards.All is RewardDefinition[]);
+        }
+
+        [Test]
+        public void Parse_ThreeInputs_LeavesRewardsNullForBuiltInFallback()
+        {
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson);
+
+            Assert.IsNull(data.Rewards);
+        }
+
+        [Test]
         public void RepositoryApprovedV2Files_ParseCompletely()
         {
             string root = FindRepositoryRoot();
             GameDataSet data = GameDataParser.Parse(
                 ReadUtf8(Path.Combine(root, "GameData", "enemies.json")),
                 ReadUtf8(Path.Combine(root, "GameData", "weapons.json")),
-                ReadUtf8(Path.Combine(root, "GameData", "waves.json")));
+                ReadUtf8(Path.Combine(root, "GameData", "waves.json")),
+                ReadUtf8(Path.Combine(root, "GameData", "rewards.json")));
 
             Assert.AreEqual(8, data.BattleContent.Enemies.Count);
             Assert.AreEqual(4, data.BattleContent.Weapons.Count);
             Assert.AreEqual(8, data.StageGeneration.Segments.Count);
             Assert.AreEqual(1, data.StageGeneration.Bosses.Count);
+            Assert.AreEqual(3, data.Rewards.OptionCount);
+            Assert.AreEqual(6, data.Rewards.All.Count);
 
             // 640×360 재스케일(REQ-006) 후 elite_sine 진폭 = 3.0u = 768 서브유닛.
             EnemyDefinition elite = data.BattleContent.FindEnemy("elite_sine");
@@ -196,6 +248,55 @@ namespace Shmup.Core.Tests
             GameDataParseException error = Assert.Throws<GameDataParseException>(
                 () => GameDataParser.Parse(EnemiesJson, WeaponsJson, invalid));
             StringAssert.Contains("bosses[0].halfWidth", error.Message);
+        }
+
+        [Test]
+        public void Parse_RejectsInvalidRewardFieldsWithPath()
+        {
+            string invalidType = RewardsJson.Replace(
+                @"""type"": ""capsules""",
+                @"""type"": ""mystery""");
+            GameDataParseException typeError = Assert.Throws<GameDataParseException>(
+                () => GameDataParser.Parse(
+                    EnemiesJson, WeaponsJson, WavesJson, invalidType));
+            StringAssert.Contains("rewards[0].type", typeError.Message);
+
+            string missingSlot = RewardsJson.Replace(
+                @"""slot"": ""Missile"",",
+                "");
+            GameDataParseException slotError = Assert.Throws<GameDataParseException>(
+                () => GameDataParser.Parse(
+                    EnemiesJson, WeaponsJson, WavesJson, missingSlot));
+            StringAssert.Contains("rewards[2].slot", slotError.Message);
+
+            string zeroWeight = RewardsJson.Replace(
+                @"""weight"": 2",
+                @"""weight"": 0");
+            GameDataParseException weightError = Assert.Throws<GameDataParseException>(
+                () => GameDataParser.Parse(
+                    EnemiesJson, WeaponsJson, WavesJson, zeroWeight));
+            StringAssert.Contains("rewards[0].weight", weightError.Message);
+
+            string reversedRange = RewardsJson.Replace(
+                @"""stageIndexMin"": 3, ""stageIndexMax"": 7",
+                @"""stageIndexMin"": 8, ""stageIndexMax"": 7");
+            GameDataParseException rangeError = Assert.Throws<GameDataParseException>(
+                () => GameDataParser.Parse(
+                    EnemiesJson, WeaponsJson, WavesJson, reversedRange));
+            StringAssert.Contains("rewards[3].stageIndexMax", rangeError.Message);
+        }
+
+        [Test]
+        public void Parse_RejectsRewardOptionCountOtherThanThree()
+        {
+            string invalid = RewardsJson.Replace(
+                @"""optionCount"": 3",
+                @"""optionCount"": 2");
+
+            GameDataParseException error = Assert.Throws<GameDataParseException>(
+                () => GameDataParser.Parse(
+                    EnemiesJson, WeaponsJson, WavesJson, invalid));
+            StringAssert.Contains("rewards.json.optionCount", error.Message);
         }
 
         static string FindRepositoryRoot()
