@@ -186,6 +186,18 @@ namespace Shmup.Core.Tests
             StringAssert.Contains("whole 1/256", error.Message);
         }
 
+        [Test]
+        public void Parse_RejectsNonPositiveExplicitBossHitbox()
+        {
+            string invalid = WavesJson.Replace(
+                @"""entryLaneMask"": 7, ""hp"": 500",
+                @"""entryLaneMask"": 7, ""hp"": 500, ""halfWidth"": -1.0");
+
+            GameDataParseException error = Assert.Throws<GameDataParseException>(
+                () => GameDataParser.Parse(EnemiesJson, WeaponsJson, invalid));
+            StringAssert.Contains("bosses[0].halfWidth", error.Message);
+        }
+
         static string FindRepositoryRoot()
         {
             // Unity 내장 NUnit은 WorkDirectory를 채우지 않는다 — 그 경우 프로젝트 루트인

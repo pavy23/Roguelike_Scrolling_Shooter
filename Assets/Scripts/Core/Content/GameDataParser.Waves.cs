@@ -109,6 +109,10 @@ namespace Shmup.Core.Content
                 ? ToSubUnits(source.halfHeight.Value, path + ".halfHeight") : 0;
             int holdX = source.holdX.HasValue
                 ? ToSubUnits(source.holdX.Value, path + ".holdX") : 0;
+            if (source.halfWidth.HasValue && halfWidth <= 0)
+                throw Error(path + ".halfWidth", "must be positive when present.");
+            if (source.halfHeight.HasValue && halfHeight <= 0)
+                throw Error(path + ".halfHeight", "must be positive when present.");
 
             BossPhase[] phases = Array.Empty<BossPhase>();
             if (source.phases != null && source.phases.Length > 0)

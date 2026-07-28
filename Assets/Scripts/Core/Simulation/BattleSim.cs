@@ -309,6 +309,9 @@ namespace Shmup.Core.Simulation
     {
         const int DropRngStream = 1;
         const int SineScale = 1024;
+        // 회전 전 조준 벡터를 이 범위로 축소하면 회전 후 제곱합과
+        // speedNumerator 곱이 모두 long 범위에 머문다.
+        const long MaxAimComponentBeforeRotation = 1L << 29;
 
         static readonly int[] SineLut =
         {
@@ -607,11 +610,11 @@ namespace Shmup.Core.Simulation
             if (_missileCooldown > 0) _missileCooldown--;
             if (input.Fire)
             {
-                if (_cooldown == 0 && _bullets.Count < _maxBullets)
+                if (_cooldown == 0 && CountPlayerBullets() < _maxBullets)
                     SpawnMainShotVolley();
                 if (_missileLevel > 0
                     && _missileCooldown == 0
-                    && _bullets.Count < _maxBullets)
+                    && CountPlayerBullets() < _maxBullets)
                     SpawnMissile();
             }
         }
@@ -851,7 +854,10 @@ namespace Shmup.Core.Simulation
                     throw new InvalidOperationException("The enemy id counter is exhausted.");
                 _bossSpawned = true;
                 _bossId = _nextEnemyId++;
-                _bossX = _bulletDespawnX + 2 * SimSpace.SubUnitsPerWorldUnit;
+                _bossX = Math.Max(
+                    _bossHoldX,
+                    SaturateToInt(
+                        (long)_bulletDespawnX + 2 * SimSpace.SubUnitsPerWorldUnit));
                 _bossY = 0;
                 _bossHp = _bossMaxHp;
                 _bossPhase = 0;
@@ -876,9 +882,13 @@ namespace Shmup.Core.Simulation
             if (_bossFireCooldown == 0)
             {
                 int ways = phase.Ways;
-                for (int i = 0; i < ways; i++)
+                int available = Math.Max(0, _maxEnemyBullets - CountEnemyBullets());
+                int shots = Math.Min(ways, available);
+                for (int i = 0; i < shots; i++)
                 {
-                    int rotation = (i - (ways - 1) / 2) * SpreadStepLutSlots;
+                    long centeredIndex = 2L * i - (ways - 1L);
+                    int rotation = (int)(
+                        (centeredIndex * SpreadStepLutSlots / 2) % SineLut.Length);
                     SpawnEnemyAimedBullet(
                         _bossX, _bossY, PlayerX, PlayerY,
                         phase.BulletSpeedNumerator, phase.BulletSpeedDenominator, rotation);
@@ -1095,7 +1105,7 @@ namespace Shmup.Core.Simulation
                 throw new InvalidOperationException("The bullet id counter is exhausted.");
             SpawnBullet(BulletKind.MainShot, PlayerX, PlayerY);
             EmitEvent(SimEventType.PlayerFired, 0, PlayerX, PlayerY, (int)BulletKind.MainShot);
-            for (int i = 0; i < _options.Count && _bullets.Count < _maxBullets; i++)
+            for (int i = 0; i < _options.Count && CountPlayerBullets() < _maxBullets; i++)
                 SpawnBullet(BulletKind.MainShot, _options[i].X, _options[i].Y);
             _cooldown = ComputeReducedInterval(
                 _fireIntervalTicks,
@@ -1138,6 +1148,15 @@ namespace Shmup.Core.Simulation
             return count;
         }
 
+        int CountPlayerBullets()
+        {
+            int count = 0;
+            for (int i = 0; i < _bullets.Count; i++)
+                if (_bullets[i].Faction == BulletFaction.Player)
+                    count++;
+            return count;
+        }
+
         /// <summary>발사 위치에서 (targetX, targetY)를 향해 지정 유리수 속도의 적탄을 스폰한다.</summary>
         void SpawnEnemyAimedBullet(
             int fromX, int fromY, int targetX, int targetY,
@@ -1149,6 +1168,14 @@ namespace Shmup.Core.Simulation
 
             long dx = (long)targetX - fromX;
             long dy = (long)targetY - fromY;
+            while (dx > MaxAimComponentBeforeRotation
+                || dx < -MaxAimComponentBeforeRotation
+                || dy > MaxAimComponentBeforeRotation
+                || dy < -MaxAimComponentBeforeRotation)
+            {
+                dx /= 2;
+                dy /= 2;
+            }
             if (lutRotation != 0)
             {
                 int index = ((lutRotation % SineLut.Length) + SineLut.Length) % SineLut.Length;
@@ -1187,11 +1214,26 @@ namespace Shmup.Core.Simulation
         {
             if (value < 0) throw new ArgumentOutOfRangeException(nameof(value));
             if (value < 2) return value;
-            long guess = (long)Math.Sqrt(value);
-            // double 오차 보정 — 결과는 순수 정수 판정으로 확정하므로 플랫폼 간 결정론이 유지된다.
-            while (guess > 0 && guess * guess > value) guess--;
-            while ((guess + 1) * (guess + 1) <= value) guess++;
-            return guess;
+
+            // 나눗셈 비교로 mid*mid 오버플로를 피하는 순수 정수 이진 탐색.
+            // 상한은 floor(sqrt(long.MaxValue))다.
+            long low = 1;
+            long high = Math.Min(value, 3037000499L);
+            long result = 1;
+            while (low <= high)
+            {
+                long mid = low + ((high - low) >> 1);
+                if (mid <= value / mid)
+                {
+                    result = mid;
+                    low = mid + 1;
+                }
+                else
+                {
+                    high = mid - 1;
+                }
+            }
+            return result;
         }
 
         static int ComputeReducedInterval(
@@ -1374,6 +1416,12 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(config.EnemyBulletDamage));
             if (config.MaxEnemyBullets < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.MaxEnemyBullets));
+            if ((long)config.MaxBullets + config.MaxEnemyBullets > int.MaxValue)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.MaxEnemyBullets),
+                    "Combined bullet capacity exceeds the supported integer range.");
+            if (config.BulletDespawnX < 0)
+                throw new ArgumentOutOfRangeException(nameof(config.BulletDespawnX));
             if (config.PlayerMinX > config.PlayerMaxX || config.PlayerMinY > config.PlayerMaxY)
                 throw new ArgumentException("Player bounds are reversed.", nameof(config));
             if (config.PlayerSpawnX < config.PlayerMinX || config.PlayerSpawnX > config.PlayerMaxX)

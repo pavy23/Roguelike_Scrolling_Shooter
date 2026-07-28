@@ -17,7 +17,7 @@ namespace Shmup.Core.Generation
 
     /// <summary>
     /// 보스 페이즈 하나의 발사 파라미터 (REQ-007). 속도는 서브유닛/틱 유리수.
-    /// Ways는 홀수 권장 (짝수면 중앙 비대칭).
+    /// Ways는 홀짝 모두 조준축을 중심으로 대칭 배치된다.
     /// </summary>
     public sealed class BossPhase
     {
@@ -73,6 +73,12 @@ namespace Shmup.Core.Generation
             int bossHoldX,
             IReadOnlyList<BossPhase> bossPhases)
         {
+            if (bossMaxHp < 0)
+                throw new ArgumentOutOfRangeException(nameof(bossMaxHp));
+            if (bossHalfWidth < 0)
+                throw new ArgumentOutOfRangeException(nameof(bossHalfWidth));
+            if (bossHalfHeight < 0)
+                throw new ArgumentOutOfRangeException(nameof(bossHalfHeight));
             Segments = Copy(segments, nameof(segments));
             BossId = bossId ?? throw new ArgumentNullException(nameof(bossId));
             LaneCount = laneCount;

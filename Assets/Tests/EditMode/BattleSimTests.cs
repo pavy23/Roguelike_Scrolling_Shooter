@@ -200,6 +200,17 @@ namespace Shmup.Core.Tests
             config.PlayerSpeedDenominator = 0;
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => new BattleSim(config, new Rng(1UL)));
+
+            config = CreateConfig();
+            config.MaxBullets = int.MaxValue;
+            config.MaxEnemyBullets = 1;
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => new BattleSim(config, new Rng(1UL)));
+
+            config = CreateConfig();
+            config.BulletDespawnX = -1;
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => new BattleSim(config, new Rng(1UL)));
         }
 
         static BattleSimConfig CreateConfig()

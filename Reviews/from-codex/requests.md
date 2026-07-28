@@ -207,3 +207,58 @@ The short constructor preserves the approved placeholder behavior with `MetaProg
 `BattleSimConfig.OptionFollowDelayTicks` replaces the old fixed-offset settings and defaults to 12. Option N uses the recorded player position from `N * OptionFollowDelayTicks` ticks ago. Before enough history exists it remains at the oldest available position (the stage spawn position). The history is an integer-only fixed-size ring buffer and is reset with each new `BattleSim`.
 
 Within a single battle, `IBattleSim.Options` remains the same stable read-only list instance. Across stage/run replacement, consume the list from the new `RunManager.Battle` instance.
+
+---
+
+## 대행 코드 리뷰 결과 (2026-07-29)
+
+**대상:** 사람 지시로 CLAUDE가 CODEX 소유 영역을 대행 구현한
+`58d22a9`, `e346911`, `4861dd4` (`REQ-005`, `REQ-007`).
+
+**추인:** 아래 교정과 회귀 테스트를 반영한 현재 sim 브랜치 상태를 **추인한다**.
+원 커밋 3개를 수정 없이 그대로 추인한 것은 아니다.
+
+참고로 현재 `Reviews/from-claude/requests.md`에는 REQ-005까지만 있고 REQ-007
+제목/본문은 없다. REQ-007은 `4861dd4` 커밋 메시지에 명시된 범위(적탄, 보스 페이즈,
+보상 3택)와 구현을 기준으로 리뷰했다.
+
+### 결정론 검토
+
+- `UnityEngine`, 금지 난수, 벽시계 사용 및 `Dictionary` 순회 순서 의존은 발견되지 않았다.
+  생성기의 `Dictionary<long, bool>`는 로컬 메모 캐시의 키 조회/추가에만 사용한다.
+- 기존 `IntegerSqrt`의 `Math.Sqrt` 초깃값을 정수 교정 루프로 확정하는 방식은
+  제곱 연산이 오버플로하지 않는 정상 플레이필드 범위에서는 같은 정수 결과를 낸다.
+  그러나 공개 API가 허용하는 극단 좌표에서는 `dx*dx + dy*dy`,
+  `guess*guess`, `(guess+1)*(guess+1)`이 `long` 오버플로할 수 있어 안전하지 않았다.
+- 조준 벡터를 회전/제곱 전에 결정론적으로 축소하고, 제곱 오버플로가 없는 범위에서
+  순수 정수 이진 탐색 제곱근을 사용하도록 교체했다. Core의 `Math.Sqrt` 사용은 제거했다.
+
+### 수정 내역
+
+- 적탄 수가 플레이어의 `MaxBullets` 예산을 잠식해 발사를 막던 문제를 수정했다.
+  플레이어 탄과 `MaxEnemyBullets`를 진영별로 독립 집계한다.
+- 짝수 `ways` 보스 부채꼴이 조준축 한쪽으로 치우치던 회전 인덱스를 대칭식으로 수정했다.
+  남은 적탄 예산만큼만 순회해 비정상적으로 큰 `ways`의 불필요한 반복도 막았다.
+- 극단적인 컬링 경계에서 보스 스폰 X 덧셈이 오버플로하지 않게 했고,
+  보스가 hold X보다 왼쪽에서 생성되지 않게 했다.
+- 플레이어/적탄 합산 용량 오버플로와 음수 `BulletDespawnX`를 생성 시 거부한다.
+- `StageBossTemplate`가 입력 페이즈 목록을 방어 복사하도록 해 외부 배열 변경이
+  동일 입력의 생성 결과를 바꾸지 못하게 했다. 보스/플랜의 음수 히트박스를 거부하고,
+  JSON에 명시된 보스 히트박스는 양수만 허용한다.
+- `RewardOptions`를 변경 불가능한 뷰로 노출한다.
+- `RepairHp`는 현재 런의 다음 스테이지부터만 적용하고, 사망 후 새 런에서는
+  최초 `PlayerMaxHp`로 복원하도록 수정했다.
+
+### 추가한 테스트 공백
+
+- `int.MinValue`↔`int.MaxValue` 조준 벡터 오버플로 회귀
+- 적탄/플레이어 탄 예산 독립성
+- 짝수 2-way 보스 탄의 조준축 대칭성
+- 보상 후보 목록의 외부 변경 차단
+- `RepairHp`의 런 종료 시 만료
+- 보스 페이즈 목록 방어 복사 및 생성 결과 보스 필드 비교
+- 명시적 비양수 보스 히트박스 파서 거부
+- 합산 탄 용량 오버플로 및 음수 컬링 경계 검증
+
+**검증:** `Tools/CoreStandalone`에서 `dotnet test`
+**101/101 통과** (기존 94개 + 신규 7개).
