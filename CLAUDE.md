@@ -25,6 +25,11 @@
 - 에셋 직렬화: Force Text + Visible Meta Files (변경 금지).
 - 탄/적은 반드시 오브젝트 풀링. `Instantiate`/`Destroy`를 게임 루프에서 호출하지 않는다.
 
+## 커밋 규칙
+
+**태스크 완료 = 커밋까지다.** 작업 트리에 변경을 남긴 채 태스크를 끝냈다고 보고하지 마라.
+태스크가 끝나면 (1) 검증 명령 통과 확인 → (2) `git add` + 의미 있는 메시지로 커밋 → (3) `git log --oneline -3`으로 커밋 확인까지 하고 보고한다. 커밋되지 않은 작업은 병합 시점에 다른 브랜치와 꼬인다.
+
 ## 검증 명령
 
 - Core 로직 (Unity 불필요): `cd Tools\CoreStandalone && dotnet test`
