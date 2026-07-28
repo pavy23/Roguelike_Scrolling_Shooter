@@ -95,6 +95,7 @@ namespace Shmup.Core.Simulation
         readonly MetaProgression _metaProgression;
         readonly StageDifficultyCurve _difficultyCurve;
         readonly int[] _powerUpMaxLevels;
+        readonly int _initialPlayerMaxHp;
 
         ulong _runSeed;
         int _stageLengthTicks;
@@ -137,6 +138,7 @@ namespace Shmup.Core.Simulation
                 ?? throw new ArgumentNullException(nameof(metaProgression));
             _difficultyCurve = difficultyCurve
                 ?? throw new ArgumentNullException(nameof(difficultyCurve));
+            _initialPlayerMaxHp = _battleConfig.PlayerMaxHp;
 
             _powerUpMaxLevels = new int[PowerUpGauge.SlotCount];
             for (int i = 0; i < _powerUpMaxLevels.Length; i++)
@@ -160,7 +162,7 @@ namespace Shmup.Core.Simulation
 
         /// <summary>AwaitingReward 상태에서만 유효. 항상 RewardOptionCount개.</summary>
         public IReadOnlyList<RewardOption> RewardOptions => _rewardOptions;
-        RewardOption[] _rewardOptions = Array.Empty<RewardOption>();
+        IReadOnlyList<RewardOption> _rewardOptions = Array.Empty<RewardOption>();
 
         public void Step(in InputCommand input)
         {
@@ -198,7 +200,7 @@ namespace Shmup.Core.Simulation
         {
             if (State != RunState.AwaitingReward)
                 throw new InvalidOperationException("No reward is awaiting selection.");
-            if (optionIndex < 0 || optionIndex >= _rewardOptions.Length)
+            if (optionIndex < 0 || optionIndex >= _rewardOptions.Count)
                 throw new ArgumentOutOfRangeException(nameof(optionIndex));
 
             ApplyReward(_rewardOptions[optionIndex]);
@@ -235,7 +237,7 @@ namespace Shmup.Core.Simulation
         /// <summary>
         /// 잠정 보상 풀 (rewards.json 이관 예정 — REQ-008). 시드·스테이지의 순수 함수.
         /// </summary>
-        RewardOption[] GenerateRewardOptions()
+        IReadOnlyList<RewardOption> GenerateRewardOptions()
         {
             var pool = new[]
             {
@@ -259,7 +261,7 @@ namespace Shmup.Core.Simulation
                 pool[pick] = pool[remaining - 1];
                 remaining--;
             }
-            return options;
+            return Array.AsReadOnly(options);
         }
 
         public void Restart(ulong newRunSeed)
@@ -279,6 +281,8 @@ namespace Shmup.Core.Simulation
             RunNumber++;
             StageIndex = 1;
             State = RunState.Playing;
+            _rewardOptions = Array.Empty<RewardOption>();
+            _battleConfig.PlayerMaxHp = _initialPlayerMaxHp;
             PowerUpGauge = nextGauge;
             BuildCurrentStage();
         }

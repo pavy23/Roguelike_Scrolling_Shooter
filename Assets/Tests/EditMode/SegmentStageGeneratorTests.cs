@@ -82,6 +82,25 @@ namespace Shmup.Core.Tests
                 () => generator.Generate(1UL, 1, 0));
         }
 
+        [Test]
+        public void BossTemplate_DefensivelyCopiesPhaseList()
+        {
+            var original = new BossPhase(30, 2, 256, 60);
+            var replacement = new BossPhase(10, 5, 512, 60);
+            var source = new[] { original };
+            var boss = new StageBossTemplate(
+                "boss", 1, 5, 1, 5, Center,
+                100, 256, 256, 2048, source);
+
+            source[0] = replacement;
+
+            Assert.AreSame(original, boss.Phases[0]);
+            Assert.Throws<ArgumentException>(
+                () => new StageBossTemplate(
+                    "invalid", 1, 5, 1, 5, Center,
+                    100, 256, 256, 2048, new BossPhase[] { null }));
+        }
+
         static SegmentStageGenerator CreateGenerator()
         {
             var catalog = new StageGenerationCatalog(
@@ -133,6 +152,24 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(expected.LaneCount, actual.LaneCount);
             Assert.AreEqual(expected.StartLaneMask, actual.StartLaneMask);
             Assert.AreEqual(expected.BossEntryLaneMask, actual.BossEntryLaneMask);
+            Assert.AreEqual(expected.BossMaxHp, actual.BossMaxHp);
+            Assert.AreEqual(expected.BossHalfWidth, actual.BossHalfWidth);
+            Assert.AreEqual(expected.BossHalfHeight, actual.BossHalfHeight);
+            Assert.AreEqual(expected.BossHoldX, actual.BossHoldX);
+            Assert.AreEqual(expected.BossPhases.Count, actual.BossPhases.Count);
+            for (int i = 0; i < expected.BossPhases.Count; i++)
+            {
+                Assert.AreEqual(
+                    expected.BossPhases[i].FireIntervalTicks,
+                    actual.BossPhases[i].FireIntervalTicks);
+                Assert.AreEqual(expected.BossPhases[i].Ways, actual.BossPhases[i].Ways);
+                Assert.AreEqual(
+                    expected.BossPhases[i].BulletSpeedNumerator,
+                    actual.BossPhases[i].BulletSpeedNumerator);
+                Assert.AreEqual(
+                    expected.BossPhases[i].BulletSpeedDenominator,
+                    actual.BossPhases[i].BulletSpeedDenominator);
+            }
             Assert.AreEqual(expected.Segments.Count, actual.Segments.Count);
 
             for (int i = 0; i < expected.Segments.Count; i++)

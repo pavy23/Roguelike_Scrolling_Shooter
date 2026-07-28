@@ -122,6 +122,97 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void ExtremeAimedVectorDoesNotOverflow()
+        {
+            EnemyDefinition turret = new EnemyDefinition(
+                "extreme", "Extreme", 30, 0, 0, EnemyMovePattern.Static,
+                0, 1, 1, 0, 0, 0, 0, 1, 64);
+            BattleContent content = Content(turret);
+            StagePlan plan = new StagePlan(
+                new[]
+                {
+                    Segment(
+                        "extreme",
+                        10,
+                        new SpawnEvent(0, turret.Id, int.MinValue, int.MinValue))
+                },
+                "boss", 1, 1, 1);
+            BattleSimConfig config = CreateConfig();
+            config.PlayerMinX = int.MaxValue;
+            config.PlayerMaxX = int.MaxValue;
+            config.PlayerMinY = int.MaxValue;
+            config.PlayerMaxY = int.MaxValue;
+            config.PlayerSpawnX = int.MaxValue;
+            config.PlayerSpawnY = int.MaxValue;
+            config.BulletDespawnX = int.MaxValue;
+            config.EnemyDespawnX = int.MinValue;
+            var sim = new BattleSim(
+                config, new Rng(17UL), plan, content, PowerUpGauge.CreateDefault());
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in none);
+
+            Assert.AreEqual(1, CountBullets(sim, BulletFaction.Enemy));
+        }
+
+        [Test]
+        public void EnemyBulletBudgetDoesNotConsumePlayerBulletBudget()
+        {
+            EnemyDefinition turret = new EnemyDefinition(
+                "turret", "Turret", 30, 0, 0, EnemyMovePattern.Static,
+                0, 1, 1, 0, 0, 0, 0, 1, 64);
+            BattleContent content = Content(turret);
+            StagePlan plan = new StagePlan(
+                new[] { Segment("t", 10, new SpawnEvent(0, turret.Id, 500, 200)) },
+                "boss", 1, 1, 1);
+            BattleSimConfig config = CreateConfig();
+            config.MaxBullets = 1;
+            config.MaxEnemyBullets = 1;
+            var sim = new BattleSim(
+                config, new Rng(19UL), plan, content, PowerUpGauge.CreateDefault());
+            var fire = new InputCommand(0, 0, true);
+
+            sim.Step(in fire);
+
+            Assert.AreEqual(1, CountBullets(sim, BulletFaction.Enemy));
+            Assert.AreEqual(1, CountBullets(sim, BulletFaction.Player));
+        }
+
+        [Test]
+        public void EvenWayBossSpreadIsCenteredOnAimAxis()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.BulletDespawnX = 10000;
+            config.MaxEnemyBullets = 2;
+            int holdX = config.BulletDespawnX + 2 * SimSpace.SubUnitsPerWorldUnit;
+            EnemyDefinition dummy = Dummy();
+            StagePlan plan = new StagePlan(
+                new[] { Segment("intro", 1) },
+                "even_boss", 1, 1, 1,
+                100, 256, 256, holdX, Phase(interval: 1, ways: 2, speed: 1024));
+            var sim = new BattleSim(
+                config,
+                new Rng(23UL),
+                plan,
+                Content(dummy),
+                PowerUpGauge.CreateDefault());
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in none); // 보스 스폰
+            sim.Step(in none); // y=0에서 첫 2-way 발사
+            sim.Step(in none); // 첫 볼리 1틱 전진
+
+            var enemyBulletYs = new List<int>();
+            for (int i = 0; i < sim.Bullets.Count; i++)
+                if (sim.Bullets[i].Faction == BulletFaction.Enemy)
+                    enemyBulletYs.Add(sim.Bullets[i].Y);
+
+            Assert.AreEqual(2, enemyBulletYs.Count);
+            Assert.AreNotEqual(0, enemyBulletYs[0]);
+            Assert.AreEqual(-enemyBulletYs[0], enemyBulletYs[1]);
+        }
+
+        [Test]
         public void RunManagerAwaitsRewardAfterBossAndResumesOnChoice()
         {
             RunManager run = CreateBossRun(seed: 42UL);
@@ -160,6 +251,51 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual(first.RewardOptions[i].Slot, second.RewardOptions[i].Slot);
                 Assert.AreEqual(first.RewardOptions[i].Amount, second.RewardOptions[i].Amount);
             }
+        }
+
+        [Test]
+        public void RewardOptionsAreExposedThroughAnImmutableView()
+        {
+            RunManager run = CreateBossRun(seed: 42UL);
+            CompleteBoss(run);
+
+            Assert.IsFalse(run.RewardOptions is RewardOption[]);
+            var options = (IList<RewardOption>)run.RewardOptions;
+            Assert.IsTrue(options.IsReadOnly);
+            Assert.Throws<NotSupportedException>(
+                () => options[0] = new RewardOption(
+                    RewardType.Capsules, PowerUpSlot.MainShot, 999));
+        }
+
+        [Test]
+        public void RepairRewardExpiresWhenTheRunEnds()
+        {
+            RunManager run = null;
+            int repairIndex = -1;
+            for (ulong seed = 0; seed < 128 && repairIndex < 0; seed++)
+            {
+                RunManager candidate = CreateRepairRun(seed);
+                CompleteBoss(candidate);
+                for (int i = 0; i < candidate.RewardOptions.Count; i++)
+                {
+                    if (candidate.RewardOptions[i].Type != RewardType.RepairHp)
+                        continue;
+                    run = candidate;
+                    repairIndex = i;
+                    break;
+                }
+            }
+
+            Assert.IsNotNull(run, "테스트 시드 범위에서 RepairHp 보상을 찾지 못했다");
+            run.ChooseReward(repairIndex);
+            Assert.AreEqual(51, run.Battle.PlayerHp);
+
+            InputCommand none = InputCommand.None;
+            run.Step(in none);
+            Assert.AreEqual(RunState.RunOver, run.State);
+
+            run.Restart(999UL);
+            Assert.AreEqual(50, run.Battle.PlayerHp);
         }
 
         [Test]
@@ -221,11 +357,76 @@ namespace Shmup.Core.Tests
                 PowerUpGauge.CreateDefault());
         }
 
+        static RunManager CreateRepairRun(ulong seed)
+        {
+            EnemyDefinition lethal = new EnemyDefinition(
+                "lethal", 1, 100, EnemyMovePattern.Static,
+                0, 1, 0, 0, 0, 0, 64);
+            BattleContent content = Content(
+                new WeaponDefinition("shot", 10, 1, 50, 1, 8, 8), lethal);
+            BattleSimConfig config = CreateConfig();
+            config.PlayerMaxHp = 50;
+            return new RunManager(
+                seed,
+                new RewardThenLethalGenerator(lethal.Id),
+                config,
+                content,
+                PowerUpGauge.CreateDefault());
+        }
+
+        static void CompleteBoss(RunManager run)
+        {
+            var fire = new InputCommand(0, 0, true);
+            for (int i = 0; i < 500 && run.State == RunState.Playing; i++)
+                run.Step(in fire);
+            Assert.AreEqual(RunState.AwaitingReward, run.State);
+        }
+
+        static int CountBullets(BattleSim sim, BulletFaction faction)
+        {
+            int count = 0;
+            for (int i = 0; i < sim.Bullets.Count; i++)
+                if (sim.Bullets[i].Faction == faction)
+                    count++;
+            return count;
+        }
+
         sealed class FixedPlanGenerator : IStageGenerator
         {
             readonly StagePlan _plan;
             public FixedPlanGenerator(StagePlan plan) { _plan = plan; }
             public StagePlan Generate(ulong seed, int stageIndex, int difficulty) => _plan;
+        }
+
+        sealed class RewardThenLethalGenerator : IStageGenerator
+        {
+            readonly string _lethalEnemyId;
+
+            public RewardThenLethalGenerator(string lethalEnemyId)
+            {
+                _lethalEnemyId = lethalEnemyId;
+            }
+
+            public StagePlan Generate(ulong seed, int stageIndex, int difficulty)
+            {
+                if (stageIndex == 1)
+                {
+                    return new StagePlan(
+                        new[] { Segment("intro", 1) },
+                        "reward_boss", 1, 1, 1,
+                        10, 256, 256, 300, Phase(interval: 999, ways: 1));
+                }
+
+                return new StagePlan(
+                    new[]
+                    {
+                        Segment(
+                            "lethal",
+                            5,
+                            new SpawnEvent(1, _lethalEnemyId, 0, 0))
+                    },
+                    "legacy", 1, 1, 1);
+            }
         }
 
         static BattleContent Content(WeaponDefinition weapon, params EnemyDefinition[] enemies)

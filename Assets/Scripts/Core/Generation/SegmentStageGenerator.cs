@@ -229,7 +229,7 @@ namespace Shmup.Core.Generation
             HalfWidth = halfWidth;
             HalfHeight = halfHeight;
             HoldX = holdX;
-            Phases = phases ?? Array.Empty<BossPhase>();
+            Phases = CopyPhases(phases);
         }
 
         public string BossId { get; }
@@ -262,8 +262,21 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException("Boss difficulty range is invalid.");
             if (MaxHp < 0)
                 throw new ArgumentException("Boss HP cannot be negative.");
+            if (HalfWidth < 0 || HalfHeight < 0)
+                throw new ArgumentException("Boss hitbox dimensions cannot be negative.");
             StagePlanClearability.ValidateLaneMask(
                 EntryLaneMask, validLanes, nameof(EntryLaneMask));
+        }
+
+        static IReadOnlyList<BossPhase> CopyPhases(IReadOnlyList<BossPhase> source)
+        {
+            if (source == null || source.Count == 0)
+                return Array.Empty<BossPhase>();
+            var copy = new BossPhase[source.Count];
+            for (int i = 0; i < source.Count; i++)
+                copy[i] = source[i] ?? throw new ArgumentException(
+                    "Boss phases cannot contain null.", nameof(source));
+            return new ReadOnlyCollection<BossPhase>(copy);
         }
     }
 
