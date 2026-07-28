@@ -718,7 +718,7 @@ namespace Shmup.EditorTools
             CreateHud(director, hudSlotSprite, hudPipSprite);
             CreateBackground(director, starsFarSprite, starsNearSprite);
             CreateSfx(director);
-            CreateBgm();
+            CreateBgm(director);
 
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
             EditorSceneManager.MarkSceneDirty(scene);
@@ -914,24 +914,37 @@ namespace Shmup.EditorTools
             SetReference(director, "_sfx", player);
         }
 
-        /// <summary>BGM 루프 (Tools/SfxGen/bgmgen.py 채택 시드 산출물). 없으면 무음.</summary>
-        const string BgmAssetPath = "Assets/Audio/Bgm/bgm_scrapyard.wav";
-
-        static void CreateBgm()
+        /// <summary>테마별 BGM 루프 (Tools/SfxGen/bgmgen.py 테마 프리셋 산출물). 없으면 무음.</summary>
+        static void CreateBgm(BattleDirector director)
         {
-            var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(BgmAssetPath);
-            if (clip == null)
+            string[] themeIds = { "scrapyard", "hive", "fortress", "nebula", "core" };
+            var clips = new AudioClip[themeIds.Length];
+            AudioClip first = null;
+            for (int i = 0; i < themeIds.Length; i++)
             {
-                Debug.LogWarning($"[BattleSceneBuilder] {BgmAssetPath} 없음 — BGM 무음.");
+                clips[i] = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                    $"Assets/Audio/Bgm/bgm_{themeIds[i]}.wav");
+                if (first == null && clips[i] != null) first = clips[i];
+            }
+            if (first == null)
+            {
+                Debug.LogWarning("[BattleSceneBuilder] Assets/Audio/Bgm 트랙 없음 — BGM 무음.");
                 return;
             }
+
             var go = new GameObject("Bgm");
             var source = go.AddComponent<AudioSource>();
-            source.clip = clip;
+            source.clip = first;
             source.loop = true;
             source.playOnAwake = true;
             source.volume = 0.45f;
             source.spatialBlend = 0f;
+
+            var player = go.AddComponent<BgmPlayer>();
+            SetReference(player, "_director", director);
+            SetReference(player, "_source", source);
+            SetStringArray(player, "_themeIds", themeIds);
+            SetReferenceArray(player, "_clips", clips);
         }
 
         static AudioClip LoadClip(string name)

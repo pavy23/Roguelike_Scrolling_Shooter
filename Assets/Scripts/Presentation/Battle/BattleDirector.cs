@@ -111,6 +111,8 @@ namespace Shmup.Presentation.Battle
         public PowerUpGauge Gauge => _run?.PowerUpGauge;
 
         public long TotalScore => _run?.TotalScore ?? 0;
+        /// <summary>현재 스테이지 테마 (BgmPlayer 등 표현 계층 참조용). null 가능.</summary>
+        public string CurrentThemeId => _run != null && _run.StagePlan != null ? _run.StagePlan.ThemeId : null;
         public int RunNumber => _run?.RunNumber ?? 0;
         public int StageIndex => _run?.StageIndex ?? 0;
         public int Difficulty => _run?.Difficulty ?? 0;

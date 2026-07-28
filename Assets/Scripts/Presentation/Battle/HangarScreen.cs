@@ -63,7 +63,7 @@ namespace Shmup.Presentation.Battle
             bool unlocked = _meta.IsUnlocked(ship.Id);
 
             GUI.Label(
-                new Rect(0, height * 0.70f, width, 26f),
+                new Rect(0, height * 0.855f, width, 26f),
                 $"HANGAR  ◄ {_cursor + 1}/{_data.Ships.Count} ►      CREDIT {_meta.TotalCurrency:N0}",
                 _headerStyle);
 
@@ -72,7 +72,7 @@ namespace Shmup.Presentation.Battle
                 : $"[LOCKED — {ship.UnlockCost:N0} cr, U to unlock]";
             var levels = ship.StartingPowerUpLevels;
             GUI.Label(
-                new Rect(0, height * 0.75f, width, 60f),
+                new Rect(0, height * 0.90f, width, 60f),
                 $"{ship.DisplayName}  {status}\n" +
                 $"speed x{(float)ship.MoveSpeedMultiplierNumerator / ship.MoveSpeedMultiplierDenominator:0.##}   " +
                 $"start S{levels[0]} M{levels[1]} O{levels[2]} B{levels[3]}",

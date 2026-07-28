@@ -45,23 +45,61 @@ def render_hat(length, rng, volume=0.2):
     return rng.uniform(-1, 1, n) * env * volume
 
 
+# 테마별 프리셋 (M4): 진행(루트 반음계, A4=0), bpm 기본값, 리드 스케일, 아르페지오 밀도.
+THEME_PRESETS = {
+    "scrapyard": {
+        "bpm": 132,
+        "progression": [-24, -28, -33, -26, -24, -28, -29, -29],  # Am F C G / Am F E E
+        "scale": [0, 3, 5, 7, 10, 12],        # 마이너 펜타토닉
+        "arp": [12, 19, 24, 19, 12, 19, 24, 31],
+    },
+    "hive": {
+        "bpm": 112,
+        "progression": [-26, -26, -30, -25, -26, -26, -31, -25],  # G 프리지안 느낌 (반음 압박)
+        "scale": [0, 1, 3, 5, 7, 8, 12],      # 프리지안
+        "arp": [12, 18, 24, 18, 12, 18, 24, 30],
+    },
+    "fortress": {
+        "bpm": 148,
+        "progression": [-24, -24, -27, -29, -24, -24, -22, -29],  # 드라이빙 파워 진행
+        "scale": [0, 3, 5, 6, 7, 10, 12],     # 블루스 마이너 (긴장)
+        "arp": [12, 19, 24, 19, 12, 19, 24, 19],
+    },
+    "nebula": {
+        "bpm": 100,
+        "progression": [-21, -26, -19, -24, -21, -26, -14, -24],  # 부유하는 메이저7 느낌
+        "scale": [0, 2, 4, 7, 9, 12],         # 메이저 펜타토닉 (몽환)
+        "arp": [12, 16, 19, 24, 19, 16, 12, 16],
+    },
+    "core": {
+        "bpm": 160,
+        "progression": [-24, -23, -24, -22, -24, -23, -19, -17],  # 반음 상승 압박 (최종)
+        "scale": [0, 1, 4, 5, 8, 11, 12],     # 더블 하모닉 (위압)
+        "arp": [12, 13, 19, 24, 19, 13, 12, 13],
+    },
+}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--bpm", type=int, default=132)
+    parser.add_argument("--theme", choices=sorted(THEME_PRESETS), default="scrapyard")
+    parser.add_argument("--bpm", type=int, default=None, help="미지정 시 테마 프리셋 값")
     parser.add_argument("--bars", type=int, default=32, help="4/4 마디 수 (8의 배수 권장)")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
 
+    preset = THEME_PRESETS[args.theme]
+    bpm = args.bpm if args.bpm else preset["bpm"]
+
     rng = np.random.default_rng(args.seed)
-    beat = 60.0 / args.bpm
+    beat = 60.0 / bpm
     bar = beat * 4
     total = int(args.bars * bar * SAMPLE_RATE)
     mix = np.zeros(total)
 
-    # A minor 8마디 진행: Am F C G | Am F E E (루트 반음계, A2 = -24 from A4)
-    progression = [-24, -28, -33, -26, -24, -28, -29, -29]
-    minor_penta = [0, 3, 5, 7, 10, 12]   # 루트 기준 마이너 펜타토닉
+    progression = preset["progression"]
+    minor_penta = preset["scale"]
 
     def place(buffer, start_sample, signal):
         end = min(start_sample + len(signal), total)
@@ -78,8 +116,8 @@ def main() -> None:
             note = render_note(note_hz(semitone), beat * 0.95, "triangle", volume=0.5, decay=1.5)
             place(mix, bar_start + int(beat_index * beat * SAMPLE_RATE), note)
 
-        # 아르페지오: 스퀘어 8분음표 루트-5도-옥타브-5도 (한 옥타브 위)
-        arp_pattern = [12, 19, 24, 19, 12, 19, 24, 31]
+        # 아르페지오: 스퀘어 8분음표 (테마 프리셋 패턴)
+        arp_pattern = preset["arp"]
         for eighth in range(8):
             semitone = root + arp_pattern[eighth]
             note = render_note(
@@ -121,7 +159,7 @@ def main() -> None:
         f.setsampwidth(2)
         f.setframerate(SAMPLE_RATE)
         f.writeframes(data.tobytes())
-    print(f"saved: {out} ({len(mix) / SAMPLE_RATE:.1f}s, seed {args.seed}, {args.bpm}bpm)")
+    print(f"saved: {out} ({len(mix) / SAMPLE_RATE:.1f}s, theme {args.theme}, seed {args.seed}, {bpm}bpm)")
 
 
 if __name__ == "__main__":
