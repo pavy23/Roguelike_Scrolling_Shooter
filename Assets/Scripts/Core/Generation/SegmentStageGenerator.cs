@@ -186,6 +186,20 @@ namespace Shmup.Core.Generation
             int difficultyMin,
             int difficultyMax,
             int entryLaneMask)
+            : this(
+                bossId, stageIndexMin, stageIndexMax,
+                difficultyMin, difficultyMax, entryLaneMask, 0)
+        {
+        }
+
+        public StageBossTemplate(
+            string bossId,
+            int stageIndexMin,
+            int stageIndexMax,
+            int difficultyMin,
+            int difficultyMax,
+            int entryLaneMask,
+            int maxHp)
         {
             BossId = bossId ?? throw new ArgumentNullException(nameof(bossId));
             StageIndexMin = stageIndexMin;
@@ -193,6 +207,7 @@ namespace Shmup.Core.Generation
             DifficultyMin = difficultyMin;
             DifficultyMax = difficultyMax;
             EntryLaneMask = entryLaneMask;
+            MaxHp = maxHp;
         }
 
         public string BossId { get; }
@@ -201,6 +216,7 @@ namespace Shmup.Core.Generation
         public int DifficultyMin { get; }
         public int DifficultyMax { get; }
         public int EntryLaneMask { get; }
+        public int MaxHp { get; }
 
         internal bool Supports(int stageIndex, int difficulty)
         {
@@ -218,6 +234,8 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException("Boss stage range is invalid.");
             if (DifficultyMin < 1 || DifficultyMax < DifficultyMin)
                 throw new ArgumentException("Boss difficulty range is invalid.");
+            if (MaxHp < 0)
+                throw new ArgumentException("Boss HP cannot be negative.");
             StagePlanClearability.ValidateLaneMask(
                 EntryLaneMask, validLanes, nameof(EntryLaneMask));
         }
