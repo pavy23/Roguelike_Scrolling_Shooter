@@ -634,6 +634,247 @@
           "y": 4
         }
       ]
+    },
+    {
+      "id": "seg_hive_spore_cloud",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "lengthTicks": 720,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 30,
+          "enemyId": "spore_drifter",
+          "y": 4.75
+        },
+        {
+          "tick": 30,
+          "enemyId": "spore_drifter",
+          "y": -4.75
+        },
+        {
+          "tick": 80,
+          "enemyId": "spore_drifter",
+          "y": 2.5
+        },
+        {
+          "tick": 80,
+          "enemyId": "spore_drifter",
+          "y": -2.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "zako_sine",
+          "y": 0
+        },
+        {
+          "tick": 180,
+          "enemyId": "spore_drifter",
+          "y": 4
+        },
+        {
+          "tick": 180,
+          "enemyId": "spore_drifter",
+          "y": -4
+        },
+        {
+          "tick": 240,
+          "enemyId": "zako_straight",
+          "y": 1.5
+        },
+        {
+          "tick": 240,
+          "enemyId": "zako_straight",
+          "y": -1.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "spore_drifter",
+          "y": 5.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "spore_drifter",
+          "y": -5.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "spore_drifter",
+          "y": 0
+        },
+        {
+          "tick": 420,
+          "enemyId": "zako_sine_slow",
+          "y": 3.25
+        },
+        {
+          "tick": 420,
+          "enemyId": "zako_sine_slow",
+          "y": -3.25
+        },
+        {
+          "tick": 500,
+          "enemyId": "spore_drifter",
+          "y": 4.75
+        },
+        {
+          "tick": 500,
+          "enemyId": "spore_drifter",
+          "y": -4.75
+        },
+        {
+          "tick": 560,
+          "enemyId": "spore_drifter",
+          "y": 1.5
+        },
+        {
+          "tick": 560,
+          "enemyId": "spore_drifter",
+          "y": -1.5
+        },
+        {
+          "tick": 620,
+          "enemyId": "zako_straight",
+          "y": 0
+        }
+      ]
+    },
+    {
+      "id": "seg_hive_lancer_rush",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "lengthTicks": 660,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        2
+      ],
+      "spawns": [
+        {
+          "tick": 30,
+          "enemyId": "lancer_dart",
+          "y": 4.75
+        },
+        {
+          "tick": 40,
+          "enemyId": "lancer_dart",
+          "y": 1.5
+        },
+        {
+          "tick": 50,
+          "enemyId": "lancer_dart",
+          "y": -1.5
+        },
+        {
+          "tick": 60,
+          "enemyId": "lancer_dart",
+          "y": -4.75
+        },
+        {
+          "tick": 100,
+          "enemyId": "spore_drifter",
+          "y": 0
+        },
+        {
+          "tick": 130,
+          "enemyId": "lancer_dart",
+          "y": 3.25
+        },
+        {
+          "tick": 140,
+          "enemyId": "lancer_dart",
+          "y": 0
+        },
+        {
+          "tick": 150,
+          "enemyId": "lancer_dart",
+          "y": -3.25
+        },
+        {
+          "tick": 200,
+          "enemyId": "zako_fast",
+          "y": 2.5
+        },
+        {
+          "tick": 210,
+          "enemyId": "zako_fast",
+          "y": -2.5
+        },
+        {
+          "tick": 260,
+          "enemyId": "lancer_dart",
+          "y": 5.5
+        },
+        {
+          "tick": 270,
+          "enemyId": "lancer_dart",
+          "y": 2.5
+        },
+        {
+          "tick": 280,
+          "enemyId": "lancer_dart",
+          "y": -2.5
+        },
+        {
+          "tick": 290,
+          "enemyId": "lancer_dart",
+          "y": -5.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "spore_drifter",
+          "y": 4
+        },
+        {
+          "tick": 340,
+          "enemyId": "spore_drifter",
+          "y": -4
+        },
+        {
+          "tick": 400,
+          "enemyId": "lancer_dart",
+          "y": 1.5
+        },
+        {
+          "tick": 410,
+          "enemyId": "lancer_dart",
+          "y": -1.5
+        },
+        {
+          "tick": 460,
+          "enemyId": "zako_sine",
+          "y": 3.25
+        },
+        {
+          "tick": 460,
+          "enemyId": "zako_sine",
+          "y": -3.25
+        },
+        {
+          "tick": 520,
+          "enemyId": "lancer_dart",
+          "y": 4
+        },
+        {
+          "tick": 530,
+          "enemyId": "lancer_dart",
+          "y": 0
+        },
+        {
+          "tick": 540,
+          "enemyId": "lancer_dart",
+          "y": -4
+        },
+        {
+          "tick": 580,
+          "enemyId": "spore_drifter",
+          "y": 0
+        }
+      ]
     }
   ],
   "bosses": [
@@ -651,6 +892,22 @@
       "phases": [
         { "fireIntervalTicks": 55, "ways": 3, "bulletSpeed": 9.0 },
         { "fireIntervalTicks": 45, "ways": 5, "bulletSpeed": 10.0 }
+      ]
+    },
+    {
+      "id": "boss_hive",
+      "stageIndexMin": 2,
+      "stageIndexMax": 99,
+      "difficultyMin": 1,
+      "difficultyMax": 5,
+      "entryLaneMask": 7,
+      "hp": 1300,
+      "halfWidth": 4.0,
+      "halfHeight": 3.0,
+      "holdX": 14.0,
+      "phases": [
+        { "fireIntervalTicks": 48, "ways": 4, "bulletSpeed": 9.5 },
+        { "fireIntervalTicks": 40, "ways": 5, "bulletSpeed": 10.5 }
       ]
     }
   ]

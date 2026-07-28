@@ -4,6 +4,63 @@
 
 ---
 
+## [x] REQ-G002 → CODEX 소유 파일 수정 기록: `GameDataParserTests` 카탈로그 개수 (M3 테마2)
+
+**무엇이 / 왜**
+
+M3 테마2(바이오 하이브) 콘텐츠 추가에 따라 저장소 `GameData/` 카탈로그 개수가 늘어났다.
+`Assets/Tests/EditMode/GameDataParserTests.cs`의 `RepositoryApprovedV2Files_ParseCompletely`가
+고정 개수로 검증하므로 **CODEX 소유 파일**을 함께 갱신했다 (콘텐츠 커밋이 테스트 그린을 유지하려면 불가피).
+
+| 항목 | before | after |
+|---|---|---|
+| Enemies | 8 | **10** (`spore_drifter`, `lancer_dart`) |
+| Segments | 8 | **10** (`seg_hive_spore_cloud`, `seg_hive_lancer_rush`) |
+| Bosses | 1 | **2** (`boss_hive`) |
+
+**변경 파일:** `Assets/Tests/EditMode/GameDataParserTests.cs` — Assert 개수만 갱신. 스키마/파서 API 변경 없음.
+
+**CODEX 후속 (선택):** sim 브랜치 머지 시 동일 Assert가 이미 content 쪽 값이면 no-op. 개수 하드코딩 대신
+카탈로그 무결성만 검증하도록 완화할지는 CODEX 재량.
+
+---
+
+## 2026-07-29 M3 테마2 바이오 하이브 (잠정)
+
+**승인 맥락:** 오케스트레이터 잠정 승인. AGENTS.md §7 최종 확정은 사람 검토 후 유지.  
+**범위:** `GameData/enemies.json` · `waves.json` + 테스트 개수 동기. 스키마 변경 없음.
+
+### enemies.json — 신규 2종 (뷰 스프라이트 매핑: `spore_` / `lancer_` 접두)
+
+| id | movePattern | hp | moveSpeed | dropWeight | hitbox (half) | 의도 |
+|---|---|---|---|---|---|---|
+| `spore_drifter` | sine | 8 | 2.5 | 5 | 0.75×0.75 | 저속 사인 포자. 화면 점유·회피 부담. 드롭 보통. |
+| `lancer_dart` | straight | 4 | 9.5 | 2 | 0.75×0.75 | 직선 고속 랜서. HP 최저, contact 1. 스웜형 저드롭. |
+
+### waves.json — 하이브 세그먼트 2 + 보스 1
+
+| 세그먼트 | diff | lengthTicks | traversable | 밀도 | 의도 |
+|---|---|---|---|---|---|
+| `seg_hive_spore_cloud` | 2–5 | 720 | `[7]` | 중–고 (19) | 포자 구름 중심 + sine/straight 혼합. 전 레인 개방. |
+| `seg_hive_lancer_rush` | 2–5 | 660 | `[2]` | 고 (24) | 랜서 연속 돌진 + 포자·fast·sine 혼합. center 코리도. |
+
+**boss_hive:** stageIndex 2–99, hp **1300**, halfW/H 4.0/3.0, holdX 14.0.  
+페이즈: `{48t, 4-way, 9.5}` / `{40t, 5-way, 10.5}` — stage1(55/3/9 · 45/5/10)보다 촘촘하되 interval 40t 하한으로 즉사 압박 금지.
+
+### 이론 검산 (잠정)
+
+- 보스 TTK (메인만, 풀히트, DPS≈75): 1300/75 ≈ **17.3s** (stage1 1000 ≈ 13.3s 대비 상향).
+- phase1 밀도: 5발/40t ≈ 7.5발/초 (stage1 phase2 ≈ 6.7발/초). ways 동일 5, interval만 소폭 단축.
+- 포자 기대 드롭: dropWeight 5 → 5/(8+5)≈38%/킬. 세그먼트당 다수지만 개체 HP 낮아 교환 가능.
+
+### 후속 관찰
+
+1. Resources 복사본(`Assets/Resources/GameData/`) 동기화 — CLAUDE 빌드/씬 재생성 파이프.
+2. 뷰 스프라이트: id 접두 `spore_` / `lancer_` / `boss_hive` 매핑 (CLAUDE).
+3. stage 2+ 보스 로테이션: `boss_stage1`과 `boss_hive` 동시 적격 → RNG 선택. 고정 배정이 필요하면 stageIndex 구간 분리.
+
+---
+
 ## [x] REQ-G001 → CODEX: `rewards.json` 파서 + RunManager 풀 교체 (REQ-008 후속)
 
 **무엇이 필요한가**

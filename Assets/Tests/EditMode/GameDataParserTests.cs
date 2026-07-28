@@ -177,10 +177,10 @@ namespace Shmup.Core.Tests
                 ReadUtf8(Path.Combine(root, "GameData", "waves.json")),
                 ReadUtf8(Path.Combine(root, "GameData", "rewards.json")));
 
-            Assert.AreEqual(8, data.BattleContent.Enemies.Count);
+            Assert.AreEqual(10, data.BattleContent.Enemies.Count);
             Assert.AreEqual(4, data.BattleContent.Weapons.Count);
-            Assert.AreEqual(8, data.StageGeneration.Segments.Count);
-            Assert.AreEqual(1, data.StageGeneration.Bosses.Count);
+            Assert.AreEqual(10, data.StageGeneration.Segments.Count);
+            Assert.AreEqual(2, data.StageGeneration.Bosses.Count);
             Assert.AreEqual(3, data.Rewards.OptionCount);
             Assert.AreEqual(6, data.Rewards.All.Count);
 
