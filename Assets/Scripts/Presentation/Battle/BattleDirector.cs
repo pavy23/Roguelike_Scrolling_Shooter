@@ -38,6 +38,8 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Transform _optionRoot;
         [SerializeField] SpriteRenderer _shieldView;
         [SerializeField] SfxPlayer _sfx;
+        [Tooltip("폭발 애니메이션 프레임 (M2). 비어 있으면 단일 스프라이트 확대+페이드 폴백.")]
+        [SerializeField] Sprite[] _explosionFrames;
 
         [Header("Run")]
         [Tooltip("로그라이크 시드. 같은 시드 + 같은 입력 = 같은 결과 (AGENTS.md §4).")]
@@ -169,8 +171,15 @@ namespace Shmup.Presentation.Battle
             if (_run == null) return;
             _run.Step(_input.ConsumeCommand());
             // 이벤트는 스텝 직후 같은 호출 안에서 소비한다 — 다음 Step에서 클리어되기 때문.
+            var events = _run.Battle.EventsThisTick;
             if (_sfx != null)
-                _sfx.PlayEvents(_run.Battle.EventsThisTick);
+                _sfx.PlayEvents(events);
+            for (int i = 0; i < events.Length; i++)
+            {
+                var e = events[i];
+                if (e.Type == SimEventType.EnemyKilled || e.Type == SimEventType.PlayerKilled)
+                    SpawnExplosion(SimView.ToWorld(e.X, e.Y));
+            }
             RefreshBattle();
             SyncViews();
         }
@@ -319,13 +328,11 @@ namespace Shmup.Presentation.Battle
         }
 
         /// <summary>
-        /// 적 뷰 반납 + 폭발 이펙트. 마지막 위치가 화면 안이면 처치로 보고 터뜨린다
-        /// (왼쪽 밖 despawn과 구분하는 표현 계층 휴리스틱 — 게임 판정이 아니다).
+        /// 적 뷰 반납. 폭발은 이제 Core의 EnemyKilled 이벤트가 정본이다 (REQ-005) —
+        /// 화면 밖 despawn과 처치를 위치로 추측하던 휴리스틱은 제거했다.
         /// </summary>
         void ReleaseDeadEnemies()
         {
-            const float despawnEdgeX = -12.5f;
-
             _retiredIds.Clear();
             foreach (var pair in _enemyViews)
                 if (!_aliveIds.Contains(pair.Key))
@@ -334,32 +341,50 @@ namespace Shmup.Presentation.Battle
             for (int i = 0; i < _retiredIds.Count; i++)
             {
                 int id = _retiredIds[i];
-                var view = _enemyViews[id];
-                if (view.localPosition.x > despawnEdgeX)
-                    SpawnExplosion(view.localPosition);
-                _enemyPool.Release(view);
+                _enemyPool.Release(_enemyViews[id]);
                 _enemyViews.Remove(id);
                 _enemyRenderers.Remove(id);
             }
         }
+
+        bool HasExplosionFrames => _explosionFrames != null && _explosionFrames.Length > 0;
+
+        /// <summary>프레임 애니메이션 기준 30fps — 9프레임이면 0.3초.</summary>
+        float ExplosionLifetime => HasExplosionFrames
+            ? _explosionFrames.Length / 30f
+            : ExplosionDuration;
 
         void SpawnExplosion(Vector3 position)
         {
             var fx = _fxPool.Acquire();
             if (fx == null) return;
             fx.localPosition = position;
-            fx.localScale = Vector3.one * 0.6f;
+            var renderer = fx.GetComponent<SpriteRenderer>();
+            if (HasExplosionFrames)
+            {
+                fx.localScale = Vector3.one;
+                if (renderer != null)
+                {
+                    renderer.sprite = _explosionFrames[0];
+                    renderer.color = Color.white;
+                }
+            }
+            else
+            {
+                fx.localScale = Vector3.one * 0.6f;
+            }
             _activeFx.Add(fx);
-            _activeFxRenderers.Add(fx.GetComponent<SpriteRenderer>());
+            _activeFxRenderers.Add(renderer);
             _activeFxAges.Add(0f);
         }
 
         void AnimateExplosions()
         {
+            float lifetime = ExplosionLifetime;
             for (int i = _activeFx.Count - 1; i >= 0; i--)
             {
                 float age = _activeFxAges[i] + Time.deltaTime;
-                if (age >= ExplosionDuration)
+                if (age >= lifetime)
                 {
                     _fxPool.Release(_activeFx[i]);
                     _activeFx.RemoveAt(i);
@@ -369,9 +394,20 @@ namespace Shmup.Presentation.Battle
                 }
 
                 _activeFxAges[i] = age;
-                float t = age / ExplosionDuration;
-                _activeFx[i].localScale = Vector3.one * Mathf.Lerp(0.6f, 1.8f, t);
+                float t = age / lifetime;
                 var renderer = _activeFxRenderers[i];
+                if (HasExplosionFrames)
+                {
+                    if (renderer != null)
+                    {
+                        int frame = Mathf.Min(
+                            (int)(t * _explosionFrames.Length), _explosionFrames.Length - 1);
+                        renderer.sprite = _explosionFrames[frame];
+                    }
+                    continue;
+                }
+
+                _activeFx[i].localScale = Vector3.one * Mathf.Lerp(0.6f, 1.8f, t);
                 if (renderer != null)
                 {
                     var c = renderer.color;

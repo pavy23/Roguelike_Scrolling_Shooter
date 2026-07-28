@@ -324,7 +324,10 @@ namespace Shmup.EditorTools
                 var enemyPrefab = WriteSpritePrefab(EnemyPrefabPath, "Enemy", enemySprite, 8);
                 var capsuleSprite = WriteExternalOrPixelSprite(CapsuleSpritePath, "capsule.png", CapsulePixels, CapsulePalette);
                 var capsulePrefab = WriteSpritePrefab(CapsulePrefabPath, "Capsule", capsuleSprite, 7);
-                var explosionSprite = WritePixelSprite(ExplosionSpritePath, ExplosionPixels, ExplosionPalette);
+                var explosionFrames = LoadExplosionFrames();
+                var explosionSprite = explosionFrames.Length > 0
+                    ? explosionFrames[0]
+                    : WritePixelSprite(ExplosionSpritePath, ExplosionPixels, ExplosionPalette);
                 var explosionPrefab = WriteSpritePrefab(ExplosionPrefabPath, "Explosion", explosionSprite, 20);
                 var whiteSprite = WritePixelSprite(WhiteSpritePath, WhitePixels, WhitePalette);
                 var missileSprite = WritePixelSprite(MissileSpritePath, MissilePixels, MissilePalette);
@@ -334,7 +337,8 @@ namespace Shmup.EditorTools
 
                 BuildScene(shipSprite, bulletPrefab, enemyPrefab, capsulePrefab, explosionPrefab,
                            whiteSprite, missileSprite, optionPrefab, shieldSprite,
-                           hudSlotSprite, hudPipSprite, starsFarSprite, starsNearSprite);
+                           hudSlotSprite, hudPipSprite, starsFarSprite, starsNearSprite,
+                           explosionFrames);
                 BuildTitleScene(starsFarSprite, starsNearSprite);
                 RegisterInBuildSettings();
 
@@ -394,6 +398,37 @@ namespace Shmup.EditorTools
                 return externalSprite;
             }
             return WritePixelSprite(assetPath, rows, palette);
+        }
+
+        /// <summary>art-input의 선택적 외부 스프라이트. 없으면 null (해당 요소는 생략).</summary>
+        static Sprite LoadExternalSprite(string externalFileName, string assetName)
+        {
+            string external = Path.GetFullPath(Path.Combine(
+                Application.dataPath, "..", "..", "art-input", externalFileName));
+            if (!File.Exists(external)) return null;
+
+            string assetPath = $"{SpriteDir}/{assetName}.png";
+            Directory.CreateDirectory(SpriteDir);
+            File.Copy(external, assetPath, true);
+            AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
+            ApplySpriteImporter(assetPath);
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
+            if (sprite != null)
+                Debug.Log($"[BattleSceneBuilder] 외부 아트 적용: {externalFileName} → {assetPath}");
+            return sprite;
+        }
+
+        /// <summary>art-input/fx_explosion_00.png…을 순서대로 임포트한다 (M2 폭발 애니).</summary>
+        static Sprite[] LoadExplosionFrames()
+        {
+            var frames = new List<Sprite>();
+            for (int i = 0; i < 16; i++)
+            {
+                var sprite = LoadExternalSprite($"fx_explosion_{i:d2}.png", $"fx_explosion_{i:d2}");
+                if (sprite == null) break;
+                frames.Add(sprite);
+            }
+            return frames.ToArray();
         }
 
         static void ApplySpriteImporter(string assetPath)
@@ -478,7 +513,7 @@ namespace Shmup.EditorTools
 
         // ── 씬 ────────────────────────────────────────────────────────────────────
 
-        static void BuildScene(Sprite shipSprite, GameObject bulletPrefab, GameObject enemyPrefab, GameObject capsulePrefab, GameObject explosionPrefab, Sprite whiteSprite, Sprite missileSprite, GameObject optionPrefab, Sprite shieldSprite, Sprite hudSlotSprite, Sprite hudPipSprite, Sprite starsFarSprite, Sprite starsNearSprite)
+        static void BuildScene(Sprite shipSprite, GameObject bulletPrefab, GameObject enemyPrefab, GameObject capsulePrefab, GameObject explosionPrefab, Sprite whiteSprite, Sprite missileSprite, GameObject optionPrefab, Sprite shieldSprite, Sprite hudSlotSprite, Sprite hudPipSprite, Sprite starsFarSprite, Sprite starsNearSprite, Sprite[] explosionFrames)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -551,6 +586,7 @@ namespace Shmup.EditorTools
             SetReference(director, "_optionPrefab", optionPrefab);
             SetReference(director, "_optionRoot", optionRoot.transform);
             SetReference(director, "_shieldView", shieldRenderer);
+            SetReferenceArray(director, "_explosionFrames", explosionFrames);
 
             CreateHud(director, hudSlotSprite, hudPipSprite);
             CreateBackground(director, starsFarSprite, starsNearSprite);
@@ -640,14 +676,57 @@ namespace Shmup.EditorTools
             return root;
         }
 
+        /// <summary>
+        /// 배틀 배경: 별 2겹 + (있으면) 스크랩야드 테마 3겹 (M2, art-input/scrap_*.png).
+        /// 팩터가 작을수록 원경. scrap_near는 게임플레이 위(55)에서 스크롤보다 빠르게 지나가는 전경 실루엣.
+        /// </summary>
         static void CreateBackground(BattleDirector director, Sprite farSprite, Sprite nearSprite)
         {
-            var root = CreateStarLayers(farSprite, nearSprite, out var layers);
+            var scrapFar = LoadExternalSprite("scrap_far.png", "scrap_far");
+            var scrapMid = LoadExternalSprite("scrap_mid.png", "scrap_mid");
+            var scrapNear = LoadExternalSprite("scrap_near.png", "scrap_near");
+
+            var sprites = new List<Sprite>();
+            var factors = new List<float>();
+            var orders = new List<int>();
+            void AddLayer(Sprite sprite, float factor, int order)
+            {
+                if (sprite == null) return;
+                sprites.Add(sprite);
+                factors.Add(factor);
+                orders.Add(order);
+            }
+
+            AddLayer(farSprite, 0.1f, -100);
+            AddLayer(scrapFar, 0.2f, -96);
+            AddLayer(nearSprite, 0.45f, -90);
+            AddLayer(scrapMid, 0.6f, -85);
+            AddLayer(scrapNear, 1.15f, 55);
+
+            const float tileWidth = RefResolutionX / (float)AssetsPPU;
+            var root = new GameObject("Background");
+            var layers = new Transform[sprites.Count];
+            for (int i = 0; i < sprites.Count; i++)
+            {
+                var layer = new GameObject($"Layer{i}_{sprites[i].name}");
+                layer.transform.SetParent(root.transform, false);
+                layers[i] = layer.transform;
+                for (int tile = 0; tile < 2; tile++)
+                {
+                    var tileGo = new GameObject($"Tile{tile}");
+                    tileGo.transform.SetParent(layer.transform, false);
+                    tileGo.transform.localPosition = new Vector3(tile * tileWidth, 0f, 0f);
+                    var renderer = tileGo.AddComponent<SpriteRenderer>();
+                    renderer.sprite = sprites[i];
+                    renderer.sortingOrder = orders[i];
+                }
+            }
+
             var parallax = root.AddComponent<ParallaxBackground>();
             SetReference(parallax, "_director", director);
             SetReferenceArray(parallax, "_layers", layers);
-            SetFloatArray(parallax, "_factors", StarLayerFactors);
-            SetFloat(parallax, "_tileWidth", RefResolutionX / (float)AssetsPPU);
+            SetFloatArray(parallax, "_factors", factors.ToArray());
+            SetFloat(parallax, "_tileWidth", tileWidth);
         }
 
         // ── SFX ───────────────────────────────────────────────────────────────────

@@ -282,3 +282,34 @@ public readonly struct SimEvent
    ※ 반올림이 들어간 값들(4.25/8.25/3.25 등)은 기계적 환산이다 — 체감 확정은 §7에 따라
    사람 밸런스 패스에서.
 2. ⬜ 로스터 확장 스키마 제안서는 M3 진입 시 작성.
+
+---
+
+## [ ] REQ-007 → CODEX: 보스 전투 1차 — 적탄 + 페이즈 상태기계 + 보스/클리어 이벤트 (M2)
+
+**배경:** M2 버티컬 슬라이스는 "보스 1종, 페이즈 2개"가 완료 조건 (ROADMAP.md). 예약해 둔
+`SimEventType.BossSpawned/BossPhaseChanged/StageCleared`를 실체화할 시점이다.
+
+**요청 1 — 적탄:** 현재 탄은 플레이어 진영만 스폰된다. `BulletFaction.Enemy` 탄의
+스폰·전진(좌향/조준 벡터)·플레이어 충돌 판정(실드 규칙 동일)·화면 밖 컬링이 필요하다.
+`EnemyDefinition.FireIntervalTicks`(이미 파싱됨)를 소비해 터렛류도 쏘게 되면 더 좋다.
+
+**요청 2 — 보스 페이즈 상태기계:** 마지막 세그먼트 종료 후 보스 스폰(BossSpawned 발행,
+EntityId=보스, Arg=페이즈 0). HP 구간 경계(GameData, REQ-008)를 지나면 BossPhaseChanged
+(Arg=새 페이즈). 페이즈별 발사 패턴 세트(조준탄 n-way, 부채꼴 등 파라미터는 GameData).
+보스 격파 → StageCleared 발행 후 RunManager 스테이지 전환.
+
+**요청 3 — 보상 3택 훅 (RunManager):** StageCleared 후 RunManager가 `AwaitingReward`
+상태로 멈추고, `IReadOnlyList<RewardOption>` 노출 + `ChooseReward(int index)`로 재개.
+보상 종류·수치는 GameData(REQ-008). 선택 자체는 입력이므로 결정론 기록 대상.
+
+---
+
+## [ ] REQ-008 → GROK: 보스 정의 + 보상 풀 스키마 (M2)
+
+**요청 1 — waves.json 보스 확장:** 페이즈 경계(hp 비율 배열), 페이즈별 패턴 파라미터
+(패턴 id, 발사 간격, 탄속, way 수), halfWidth/halfHeight(보스 스프라이트 128×96급 기준),
+등장 위치/진입 연출용 정지 x. CODEX(REQ-007)와 시그니처 협의.
+
+**요청 2 — 보상 3택 풀:** 스테이지 클리어 보상 후보 정의 — 예: 캡슐 +n, 지정 슬롯 레벨 +1,
+HP 회복, (후순위) 고유 패시브. 가중치/스테이지 제한 포함. `rewards.json` 신설 권장.

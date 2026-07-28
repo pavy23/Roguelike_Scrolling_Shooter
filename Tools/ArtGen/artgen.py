@@ -206,7 +206,8 @@ def cmd_post(args) -> None:
         src = src.crop(bbox)
 
     width, height = (int(v) for v in args.target.lower().split("x"))
-    scale = min(width / src.width, height / src.height)
+    fit = max if args.cover else min          # cover: 꽉 채우고 중앙 크롭 (배경용)
+    scale = fit(width / src.width, height / src.height)
     new_size = (max(1, round(src.width * scale)), max(1, round(src.height * scale)))
     resized = src.resize(new_size, Image.NEAREST)
 
@@ -219,6 +220,25 @@ def cmd_post(args) -> None:
     final.save(out)
     used = len({p for p in final.getdata() if p[3] > 0})
     print(f"saved: {out} ({width}x{height}, opaque colors={used})")
+
+
+def cmd_tile(args) -> None:
+    """가로 심리스화: 원본과 반폭 롤 버전을 삼각 가중치로 크로스페이드.
+    x=0/x=w-1에서 롤 버전이 선택되므로 래핑 경계가 연속이 된다 (패럴랙스 타일용)."""
+    import numpy as np
+
+    img = np.asarray(Image.open(args.src).convert("RGBA"), dtype=np.float32)
+    width = img.shape[1]
+    rolled = np.roll(img, width // 2, axis=1)
+    x = np.arange(width, dtype=np.float32)
+    weight = 1.0 - np.abs(x - width / 2) / (width / 2)      # 가장자리 0, 중앙 1
+    weight = weight[None, :, None]
+    blended = img * weight + rolled * (1.0 - weight)
+    result = Image.fromarray(blended.clip(0, 255).astype("uint8"), "RGBA")
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    result.save(out)
+    print(f"saved: {out} (seamless-x)")
 
 
 def cmd_sheet(args) -> None:
@@ -280,8 +300,14 @@ def main() -> None:
     p.add_argument("--target", required=True, help="예: 48x30")
     p.add_argument("--colors", type=int, default=48)
     p.add_argument("--no-trim", action="store_true")
+    p.add_argument("--cover", action="store_true", help="배경용: 꽉 채우고 중앙 크롭")
     p.add_argument("--out", required=True)
     p.set_defaults(func=cmd_post)
+
+    p = sub.add_parser("tile", help="가로 심리스화 (패럴랙스 타일용 크로스페이드)")
+    p.add_argument("--src", required=True)
+    p.add_argument("--out", required=True)
+    p.set_defaults(func=cmd_tile)
 
     p = sub.add_parser("sheet", help="프레임 폴더 → 가로 스트립 시트")
     p.add_argument("--src-dir", required=True)
