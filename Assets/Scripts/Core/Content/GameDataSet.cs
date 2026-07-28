@@ -20,7 +20,8 @@ namespace Shmup.Core.Content
             int scrollSpeedNumerator,
             int scrollSpeedDenominator,
             int[] powerUpMaxLevels,
-            WeaponDefinition missile)
+            WeaponDefinition missile,
+            RewardCatalog rewards)
         {
             BattleContent = battleContent ?? throw new ArgumentNullException(nameof(battleContent));
             StageGeneration = stageGeneration ?? throw new ArgumentNullException(nameof(stageGeneration));
@@ -40,6 +41,7 @@ namespace Shmup.Core.Content
             ScrollSpeedDenominator = scrollSpeedDenominator;
             _powerUpMaxLevels = (int[])powerUpMaxLevels.Clone();
             _missile = missile ?? throw new ArgumentNullException(nameof(missile));
+            Rewards = rewards;
         }
 
         public BattleContent BattleContent { get; }
@@ -47,6 +49,11 @@ namespace Shmup.Core.Content
         public int CapsuleNoDropWeight { get; }
         public int ScrollSpeedNumerator { get; }
         public int ScrollSpeedDenominator { get; }
+        /// <summary>
+        /// Parsed rewards.json catalog, or null when the backward-compatible
+        /// three-input parser overload was used.
+        /// </summary>
+        public RewardCatalog Rewards { get; }
 
         public PowerUpGauge CreatePowerUpGauge()
         {

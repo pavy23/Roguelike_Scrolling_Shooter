@@ -9,7 +9,8 @@ using Shmup.Core.Simulation;
 namespace Shmup.Core.Content
 {
     /// <summary>
-    /// Unity-free parser for enemies.json, weapons.json, and waves.json schema v2.
+    /// Unity-free parser for enemies.json, weapons.json, waves.json schema v2,
+    /// and rewards.json schema v1.
     /// Decimal source values are converted with decimal arithmetic only.
     /// </summary>
     public static partial class GameDataParser
@@ -20,6 +21,15 @@ namespace Shmup.Core.Content
             string enemiesJson,
             string weaponsJson,
             string wavesJson)
+        {
+            return Parse(enemiesJson, weaponsJson, wavesJson, null);
+        }
+
+        public static GameDataSet Parse(
+            string enemiesJson,
+            string weaponsJson,
+            string wavesJson,
+            string rewardsJson)
         {
             try
             {
@@ -34,6 +44,9 @@ namespace Shmup.Core.Content
                 WavesParseResult waves = ParseWaves(
                     Deserialize<WavesDto>(wavesJson, "waves.json"),
                     content);
+                RewardCatalog rewards = rewardsJson == null
+                    ? null
+                    : ParseRewards(Deserialize<RewardsDto>(rewardsJson, "rewards.json"));
 
                 return new GameDataSet(
                     content,
@@ -42,7 +55,8 @@ namespace Shmup.Core.Content
                     waves.ScrollSpeed.Numerator,
                     waves.ScrollSpeed.Denominator,
                     weapons.MaxLevels,
-                    weapons.Missile);
+                    weapons.Missile,
+                    rewards);
             }
             catch (GameDataParseException)
             {
@@ -157,6 +171,101 @@ namespace Shmup.Core.Content
                 case "straight": return EnemyMovePattern.Straight;
                 case "sine": return EnemyMovePattern.Sine;
                 case "static": return EnemyMovePattern.Static;
+                default: throw Error(path, $"has unknown value '{value}'.");
+            }
+        }
+
+        static RewardCatalog ParseRewards(RewardsDto root)
+        {
+            const int supportedRewardsSchemaVersion = 1;
+            int schemaVersion = Require(
+                root.schemaVersion,
+                "rewards.json.schemaVersion");
+            if (schemaVersion != supportedRewardsSchemaVersion)
+                throw Error(
+                    "rewards.json.schemaVersion",
+                    $"must be {supportedRewardsSchemaVersion}, but was {schemaVersion}.");
+
+            int optionCount = Require(root.optionCount, "rewards.json.optionCount");
+            if (optionCount != RunManager.RewardOptionCount)
+                throw Error(
+                    "rewards.json.optionCount",
+                    $"must be {RunManager.RewardOptionCount}, but was {optionCount}.");
+
+            RewardDto[] source = RequireArray(root.rewards, "rewards.json.rewards");
+            if (source.Length < optionCount)
+                throw Error(
+                    "rewards.json.rewards",
+                    $"must contain at least {optionCount} rewards.");
+
+            var definitions = new RewardDefinition[source.Length];
+            for (int i = 0; i < source.Length; i++)
+            {
+                definitions[i] = ParseReward(source[i], i);
+                for (int previous = 0; previous < i; previous++)
+                {
+                    if (definitions[previous].Id == definitions[i].Id)
+                        throw Error(
+                            $"rewards.json.rewards[{i}].id",
+                            $"duplicates id '{definitions[i].Id}'.");
+                }
+            }
+            return new RewardCatalog(optionCount, definitions);
+        }
+
+        static RewardDefinition ParseReward(RewardDto source, int index)
+        {
+            string path = $"rewards.json.rewards[{index}]";
+            if (source == null)
+                throw Error(path, "cannot be null.");
+
+            RewardType type = ParseRewardType(source.type, path + ".type");
+            PowerUpSlot slot = PowerUpSlot.MainShot;
+            if (type == RewardType.SlotLevel)
+            {
+                slot = ParsePowerUpSlot(source.slot, path + ".slot");
+            }
+            else if (source.slot != null)
+            {
+                throw Error(path + ".slot", "is only valid for slotLevel rewards.");
+            }
+
+            int amount = Require(source.amount, path + ".amount");
+            if (amount < 1)
+                throw Error(path + ".amount", "must be positive.");
+            int weight = Require(source.weight, path + ".weight");
+            if (weight < 1)
+                throw Error(path + ".weight", "must be positive.");
+            int stageIndexMin = Require(
+                source.stageIndexMin,
+                path + ".stageIndexMin");
+            int stageIndexMax = Require(
+                source.stageIndexMax,
+                path + ".stageIndexMax");
+            if (stageIndexMin < 1)
+                throw Error(path + ".stageIndexMin", "must be positive.");
+            if (stageIndexMax < stageIndexMin)
+                throw Error(
+                    path + ".stageIndexMax",
+                    "cannot be less than stageIndexMin.");
+
+            return new RewardDefinition(
+                RequireText(source.id, path + ".id"),
+                type,
+                slot,
+                amount,
+                weight,
+                stageIndexMin,
+                stageIndexMax);
+        }
+
+        static RewardType ParseRewardType(string value, string path)
+        {
+            switch (RequireText(value, path))
+            {
+                case "capsules": return RewardType.Capsules;
+                case "slotLevel": return RewardType.SlotLevel;
+                case "repairHp": return RewardType.RepairHp;
                 default: throw Error(path, $"has unknown value '{value}'.");
             }
         }

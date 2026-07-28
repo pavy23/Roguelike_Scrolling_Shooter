@@ -22,19 +22,113 @@ namespace Shmup.Core.Simulation
         RepairHp = 2
     }
 
-    /// <summary>보상 후보 하나. 수치는 잠정 풀 기반 — 확정은 사람/GROK (AGENTS.md §7, rewards.json 예정).</summary>
+    /// <summary>보상 후보 하나.</summary>
     public readonly struct RewardOption
     {
         public RewardOption(RewardType type, PowerUpSlot slot, int amount)
+            : this(null, type, slot, amount)
         {
+        }
+
+        public RewardOption(string id, RewardType type, PowerUpSlot slot, int amount)
+        {
+            Id = id;
             Type = type;
             Slot = slot;
             Amount = amount;
         }
 
+        public string Id { get; }
         public RewardType Type { get; }
         public PowerUpSlot Slot { get; }
         public int Amount { get; }
+    }
+
+    /// <summary>Immutable rewards.json entry used by deterministic run selection.</summary>
+    public readonly struct RewardDefinition
+    {
+        public RewardDefinition(
+            string id,
+            RewardType type,
+            PowerUpSlot slot,
+            int amount,
+            int weight,
+            int stageIndexMin,
+            int stageIndexMax)
+        {
+            if (string.IsNullOrEmpty(id))
+                throw new ArgumentException("Reward id cannot be empty.", nameof(id));
+            if (amount < 1)
+                throw new ArgumentOutOfRangeException(nameof(amount));
+            if (weight < 1)
+                throw new ArgumentOutOfRangeException(nameof(weight));
+            if (stageIndexMin < 1)
+                throw new ArgumentOutOfRangeException(nameof(stageIndexMin));
+            if (stageIndexMax < stageIndexMin)
+                throw new ArgumentOutOfRangeException(nameof(stageIndexMax));
+
+            Id = id;
+            Type = type;
+            Slot = slot;
+            Amount = amount;
+            Weight = weight;
+            StageIndexMin = stageIndexMin;
+            StageIndexMax = stageIndexMax;
+        }
+
+        public string Id { get; }
+        public RewardType Type { get; }
+        public PowerUpSlot Slot { get; }
+        public int Amount { get; }
+        public int Weight { get; }
+        public int StageIndexMin { get; }
+        public int StageIndexMax { get; }
+    }
+
+    /// <summary>Immutable reward pool parsed from rewards.json.</summary>
+    public sealed class RewardCatalog
+    {
+        readonly IReadOnlyList<RewardDefinition> _all;
+
+        public RewardCatalog(
+            int optionCount,
+            IReadOnlyList<RewardDefinition> rewards)
+        {
+            if (optionCount < 1)
+                throw new ArgumentOutOfRangeException(nameof(optionCount));
+            if (rewards == null)
+                throw new ArgumentNullException(nameof(rewards));
+            if (rewards.Count < optionCount)
+                throw new ArgumentException(
+                    "The reward pool cannot be smaller than the option count.",
+                    nameof(rewards));
+
+            var copy = new RewardDefinition[rewards.Count];
+            for (int i = 0; i < copy.Length; i++)
+                copy[i] = rewards[i];
+
+            OptionCount = optionCount;
+            _all = Array.AsReadOnly(copy);
+        }
+
+        public int OptionCount { get; }
+        public IReadOnlyList<RewardDefinition> All => _all;
+
+        public IReadOnlyList<RewardDefinition> EligibleForStage(int stageIndex)
+        {
+            if (stageIndex < 1)
+                throw new ArgumentOutOfRangeException(nameof(stageIndex));
+
+            var eligible = new List<RewardDefinition>();
+            for (int i = 0; i < _all.Count; i++)
+            {
+                RewardDefinition reward = _all[i];
+                if (stageIndex >= reward.StageIndexMin
+                    && stageIndex <= reward.StageIndexMax)
+                    eligible.Add(reward);
+            }
+            return eligible.AsReadOnly();
+        }
     }
 
     /// <summary>Configurable integer linear difficulty curve for successive stages.</summary>
@@ -87,13 +181,38 @@ namespace Shmup.Core.Simulation
     {
         const int BattleSimulationStream = 1;
         const int RewardSelectionStream = 2;
-        const int RewardOptionCount = 3;
+        public const int RewardOptionCount = 3;
+
+        static readonly RewardCatalog BuiltInRewards = new RewardCatalog(
+            RewardOptionCount,
+            new[]
+            {
+                new RewardDefinition(
+                    "capsules_3", RewardType.Capsules, PowerUpSlot.MainShot,
+                    3, 1, 1, int.MaxValue),
+                new RewardDefinition(
+                    "slot_main_shot_1", RewardType.SlotLevel, PowerUpSlot.MainShot,
+                    1, 1, 1, int.MaxValue),
+                new RewardDefinition(
+                    "slot_missile_1", RewardType.SlotLevel, PowerUpSlot.Missile,
+                    1, 1, 1, int.MaxValue),
+                new RewardDefinition(
+                    "slot_option_1", RewardType.SlotLevel, PowerUpSlot.Option,
+                    1, 1, 1, int.MaxValue),
+                new RewardDefinition(
+                    "slot_shield_1", RewardType.SlotLevel, PowerUpSlot.Shield,
+                    1, 1, 1, int.MaxValue),
+                new RewardDefinition(
+                    "repair_hp_1", RewardType.RepairHp, PowerUpSlot.MainShot,
+                    1, 1, 1, int.MaxValue)
+            });
 
         readonly IStageGenerator _stageGenerator;
         readonly BattleSimConfig _battleConfig;
         readonly BattleContent _battleContent;
         readonly MetaProgression _metaProgression;
         readonly StageDifficultyCurve _difficultyCurve;
+        readonly RewardCatalog _rewards;
         readonly int[] _powerUpMaxLevels;
         readonly int _initialPlayerMaxHp;
 
@@ -113,7 +232,27 @@ namespace Shmup.Core.Simulation
                 battleContent,
                 powerUpGauge,
                 new MetaProgression(1.0),
-                StageDifficultyCurve.CreateDefault())
+                StageDifficultyCurve.CreateDefault(),
+                null)
+        {
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            RewardCatalog rewards)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                new MetaProgression(1.0),
+                StageDifficultyCurve.CreateDefault(),
+                rewards)
         {
         }
 
@@ -125,6 +264,27 @@ namespace Shmup.Core.Simulation
             PowerUpGauge powerUpGauge,
             MetaProgression metaProgression,
             StageDifficultyCurve difficultyCurve)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                metaProgression,
+                difficultyCurve,
+                null)
+        {
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            MetaProgression metaProgression,
+            StageDifficultyCurve difficultyCurve,
+            RewardCatalog rewards)
         {
             _stageGenerator = stageGenerator
                 ?? throw new ArgumentNullException(nameof(stageGenerator));
@@ -138,6 +298,11 @@ namespace Shmup.Core.Simulation
                 ?? throw new ArgumentNullException(nameof(metaProgression));
             _difficultyCurve = difficultyCurve
                 ?? throw new ArgumentNullException(nameof(difficultyCurve));
+            _rewards = rewards ?? BuiltInRewards;
+            if (_rewards.OptionCount != RewardOptionCount)
+                throw new ArgumentException(
+                    $"RunManager requires exactly {RewardOptionCount} reward options.",
+                    nameof(rewards));
             _initialPlayerMaxHp = _battleConfig.PlayerMaxHp;
 
             _powerUpMaxLevels = new int[PowerUpGauge.SlotCount];
@@ -234,32 +399,40 @@ namespace Shmup.Core.Simulation
             }
         }
 
-        /// <summary>
-        /// 잠정 보상 풀 (rewards.json 이관 예정 — REQ-008). 시드·스테이지의 순수 함수.
-        /// </summary>
+        /// <summary>시드·스테이지·주입 카탈로그의 결정론적 가중 비복원 선택.</summary>
         IReadOnlyList<RewardOption> GenerateRewardOptions()
         {
-            var pool = new[]
-            {
-                new RewardOption(RewardType.Capsules, PowerUpSlot.MainShot, 3),
-                new RewardOption(RewardType.SlotLevel, PowerUpSlot.MainShot, 1),
-                new RewardOption(RewardType.SlotLevel, PowerUpSlot.Missile, 1),
-                new RewardOption(RewardType.SlotLevel, PowerUpSlot.Option, 1),
-                new RewardOption(RewardType.SlotLevel, PowerUpSlot.Shield, 1),
-                new RewardOption(RewardType.RepairHp, PowerUpSlot.MainShot, 1)
-            };
+            IReadOnlyList<RewardDefinition> eligible =
+                _rewards.EligibleForStage(StageIndex);
+            if (eligible.Count < RewardOptionCount)
+                throw new InvalidOperationException(
+                    $"Stage {StageIndex} has {eligible.Count} eligible rewards; "
+                    + $"{RewardOptionCount} are required.");
+
+            var pool = new List<RewardDefinition>(eligible);
+            var weights = new List<int>(eligible.Count);
+            for (int i = 0; i < eligible.Count; i++)
+                weights.Add(eligible[i].Weight);
 
             Rng rewardRng = new Rng(_runSeed)
                 .Fork(RewardSelectionStream)
                 .Fork(StageIndex);
             var options = new RewardOption[RewardOptionCount];
-            int remaining = pool.Length;
             for (int i = 0; i < options.Length; i++)
             {
-                int pick = rewardRng.NextInt(0, remaining);
-                options[i] = pool[pick];
-                pool[pick] = pool[remaining - 1];
-                remaining--;
+                int pick = rewardRng.PickWeighted(weights);
+                RewardDefinition selected = pool[pick];
+                options[i] = new RewardOption(
+                    selected.Id,
+                    selected.Type,
+                    selected.Slot,
+                    selected.Amount);
+
+                int last = pool.Count - 1;
+                pool[pick] = pool[last];
+                weights[pick] = weights[last];
+                pool.RemoveAt(last);
+                weights.RemoveAt(last);
             }
             return Array.AsReadOnly(options);
         }

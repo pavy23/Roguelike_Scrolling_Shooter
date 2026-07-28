@@ -177,6 +177,36 @@ namespace Shmup.Core.Content
         [DataMember]
         public decimal? bulletSpeed;
     }
+
+    [DataContract]
+    internal sealed class RewardsDto
+    {
+        [DataMember]
+        public int? schemaVersion;
+        [DataMember]
+        public int? optionCount;
+        [DataMember]
+        public RewardDto[] rewards;
+    }
+
+    [DataContract]
+    internal sealed class RewardDto
+    {
+        [DataMember]
+        public string id;
+        [DataMember]
+        public string type;
+        [DataMember]
+        public string slot;
+        [DataMember]
+        public int? amount;
+        [DataMember]
+        public int? weight;
+        [DataMember]
+        public int? stageIndexMin;
+        [DataMember]
+        public int? stageIndexMax;
+    }
 }
 
 #pragma warning restore CS0649

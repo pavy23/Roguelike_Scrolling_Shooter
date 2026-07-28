@@ -247,10 +247,85 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(RunState.AwaitingReward, second.State);
             for (int i = 0; i < first.RewardOptions.Count; i++)
             {
+                Assert.AreEqual(first.RewardOptions[i].Id, second.RewardOptions[i].Id);
                 Assert.AreEqual(first.RewardOptions[i].Type, second.RewardOptions[i].Type);
                 Assert.AreEqual(first.RewardOptions[i].Slot, second.RewardOptions[i].Slot);
                 Assert.AreEqual(first.RewardOptions[i].Amount, second.RewardOptions[i].Amount);
             }
+        }
+
+        [Test]
+        public void InjectedRewardsFilterByInclusiveStageRange()
+        {
+            RewardCatalog rewards = Catalog(
+                Reward("early_a", 1, 1),
+                Reward("early_b", 1, 1),
+                Reward("early_c", 1, 1),
+                Reward("late_a", 2, 9),
+                Reward("late_b", 2, 9),
+                Reward("late_c", 2, 9));
+            RunManager run = CreateBossRun(seed: 42UL, rewards: rewards);
+
+            CompleteBoss(run);
+
+            Assert.AreEqual(3, run.RewardOptions.Count);
+            for (int i = 0; i < run.RewardOptions.Count; i++)
+                StringAssert.StartsWith("early_", run.RewardOptions[i].Id);
+        }
+
+        [Test]
+        public void InjectedRewardsUseWeightsAndNeverRepeatAnEntry()
+        {
+            RewardCatalog rewards = Catalog(
+                Reward("common_a", 1, 9),
+                Reward("common_b", 1, 9),
+                Reward("common_c", 1, 9),
+                Reward("heavy", 1, 9, weight: 100));
+            int heavySelections = 0;
+
+            for (ulong seed = 0; seed < 64; seed++)
+            {
+                RunManager run = CreateBossRun(seed, rewards: rewards);
+                CompleteBoss(run);
+
+                bool foundHeavy = false;
+                for (int i = 0; i < run.RewardOptions.Count; i++)
+                {
+                    if (run.RewardOptions[i].Id == "heavy")
+                        foundHeavy = true;
+                    for (int j = i + 1; j < run.RewardOptions.Count; j++)
+                        Assert.AreNotEqual(
+                            run.RewardOptions[i].Id,
+                            run.RewardOptions[j].Id,
+                            "가중 선택은 비복원이어야 한다");
+                }
+                if (foundHeavy)
+                    heavySelections++;
+            }
+
+            Assert.GreaterOrEqual(
+                heavySelections,
+                60,
+                "큰 weight의 보상이 균등 선택보다 뚜렷하게 자주 포함되어야 한다");
+        }
+
+        [Test]
+        public void InjectedRewardsFailWhenStageHasFewerThanThreeEligibleEntries()
+        {
+            RewardCatalog rewards = Catalog(
+                Reward("only_a", 1, 1),
+                Reward("only_b", 1, 1),
+                Reward("late", 2, 9));
+            RunManager run = CreateBossRun(seed: 42UL, rewards: rewards);
+            var fire = new InputCommand(0, 0, true);
+
+            InvalidOperationException error = Assert.Throws<InvalidOperationException>(
+                () =>
+                {
+                    for (int i = 0; i < 500 && run.State == RunState.Playing; i++)
+                        run.Step(in fire);
+                });
+            StringAssert.Contains("2 eligible rewards", error.Message);
         }
 
         [Test]
@@ -340,7 +415,10 @@ namespace Shmup.Core.Tests
                 "dummy", 1, 0, EnemyMovePattern.Static, 0, 1, 0, 0, 0, 0, 64);
         }
 
-        static RunManager CreateBossRun(ulong seed, int bossMaxHp = 10)
+        static RunManager CreateBossRun(
+            ulong seed,
+            int bossMaxHp = 10,
+            RewardCatalog rewards = null)
         {
             EnemyDefinition dummy = Dummy();
             BattleContent content = Content(
@@ -354,7 +432,29 @@ namespace Shmup.Core.Tests
                 new FixedPlanGenerator(plan),
                 CreateConfig(),
                 content,
-                PowerUpGauge.CreateDefault());
+                PowerUpGauge.CreateDefault(),
+                rewards);
+        }
+
+        static RewardCatalog Catalog(params RewardDefinition[] rewards)
+        {
+            return new RewardCatalog(RunManager.RewardOptionCount, rewards);
+        }
+
+        static RewardDefinition Reward(
+            string id,
+            int stageIndexMin,
+            int stageIndexMax,
+            int weight = 1)
+        {
+            return new RewardDefinition(
+                id,
+                RewardType.Capsules,
+                PowerUpSlot.MainShot,
+                1,
+                weight,
+                stageIndexMin,
+                stageIndexMax);
         }
 
         static RunManager CreateRepairRun(ulong seed)
