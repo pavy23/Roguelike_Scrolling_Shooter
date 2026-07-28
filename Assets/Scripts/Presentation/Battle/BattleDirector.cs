@@ -55,6 +55,12 @@ namespace Shmup.Presentation.Battle
         [SerializeField] string[] _bossSpritePrefixes;
         [SerializeField] Sprite[] _bossSprites;
 
+        // 아이들 애니메이션 (M4): 접두어별 프레임 시퀀스를 평탄화해 직렬화 (빌더가 채움).
+        [SerializeField] string[] _animPrefixes;
+        [SerializeField] int[] _animFrameCounts;
+        [SerializeField] Sprite[] _animFrames;
+        [SerializeField] float _animFramesPerSecond = 8f;
+
         /// <summary>HP 바 폭 (월드유닛). px_white(2px) 스프라이트 기준 스케일 환산에 쓴다.</summary>
         const float BossHpBarWidthUnits = 16f;
         const float WhiteSpriteUnits = 2f / 16f;
@@ -111,6 +117,8 @@ namespace Shmup.Presentation.Battle
         public PowerUpGauge Gauge => _run?.PowerUpGauge;
 
         public long TotalScore => _run?.TotalScore ?? 0;
+        /// <summary>런 전체 통계 (완료 스테이지 + 현재 전투 합산 — Core 권위 값).</summary>
+        public RunStatistics RunStats => _run != null ? _run.Statistics : default;
         /// <summary>현재 스테이지 테마 (BgmPlayer 등 표현 계층 참조용). null 가능.</summary>
         public string CurrentThemeId => _run != null && _run.StagePlan != null ? _run.StagePlan.ThemeId : null;
         public int RunNumber => _run?.RunNumber ?? 0;
@@ -342,6 +350,8 @@ namespace Shmup.Presentation.Battle
             if (!active) return;
 
             _bossRenderer.transform.localPosition = SimView.ToWorld(_sim.Boss.X, _sim.Boss.Y);
+            if (_run != null && _run.StagePlan != null)
+                ApplyIdleAnimation(_bossRenderer, _run.StagePlan.BossId, 0);
 
             if (_bossHpFill != null && _sim.Boss.MaxHp > 0)
             {
@@ -501,6 +511,8 @@ namespace Shmup.Presentation.Battle
                 }
 
                 view.localPosition = SimView.ToWorld(enemy.X, enemy.Y);
+                if (_enemyRenderers.TryGetValue(enemy.Id, out var animRenderer))
+                    ApplyIdleAnimation(animRenderer, enemy.DefinitionId, enemy.Id);
             }
 
             ReleaseDeadEnemies();
@@ -631,6 +643,42 @@ namespace Shmup.Presentation.Battle
             }
 
             ReleaseDeadViews(_capsuleViews, _capsulePool);
+        }
+
+        /// <summary>
+        /// 아이들 애니 프레임 조회. 반환: 평탄 배열의 (시작, 개수). 없으면 count 0.
+        /// 순수 표현 — 시간 기반 프레임 순환이라 시뮬 결정론과 무관하다.
+        /// </summary>
+        void GetAnimRange(string id, out int start, out int count)
+        {
+            start = 0;
+            count = 0;
+            if (_animPrefixes == null || _animFrameCounts == null || _animFrames == null) return;
+            int bestLength = -1;
+            int offset = 0;
+            int total = Mathf.Min(_animPrefixes.Length, _animFrameCounts.Length);
+            for (int i = 0; i < total; i++)
+            {
+                if (!string.IsNullOrEmpty(_animPrefixes[i])
+                    && id.StartsWith(_animPrefixes[i], System.StringComparison.Ordinal)
+                    && _animPrefixes[i].Length > bestLength)
+                {
+                    bestLength = _animPrefixes[i].Length;
+                    start = offset;
+                    count = _animFrameCounts[i];
+                }
+                offset += _animFrameCounts[i];
+            }
+            if (start + count > _animFrames.Length) count = 0;
+        }
+
+        void ApplyIdleAnimation(SpriteRenderer renderer, string id, int desyncSalt)
+        {
+            if (renderer == null) return;
+            GetAnimRange(id, out int start, out int count);
+            if (count <= 0) return;
+            int frame = ((int)(Time.time * _animFramesPerSecond) + desyncSalt) % count;
+            renderer.sprite = _animFrames[start + frame];
         }
 
         /// <summary>가장 긴 접두어 매칭 — zako_sine_slow가 zako_sine보다 구체적 매칭을 이기게.</summary>

@@ -63,6 +63,11 @@ namespace Shmup.Presentation.Battle
                 GUI.Label(new Rect(0, Screen.height * 0.62f, Screen.width, _style.fontSize * 2),
                     $"SCORE  {_director.TotalScore:D8}   (run {_director.RunNumber}, stage {_director.StageIndex})",
                     new GUIStyle(_style) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold });
+                var stats = _director.RunStats;
+                float accuracy = stats.ShotsFired > 0 ? (float)stats.ShotsHit / stats.ShotsFired * 100f : 0f;
+                GUI.Label(new Rect(0, Screen.height * 0.655f, Screen.width, _style.fontSize * 2),
+                    $"KILLS {stats.Kills}   CAPSULES {stats.CapsulesCollected}   ACCURACY {accuracy:0.#}%   SHOTS {stats.ShotsFired}",
+                    new GUIStyle(_style) { alignment = TextAnchor.MiddleCenter });
                 GUI.Label(new Rect(0, Screen.height * 0.68f, Screen.width, _style.fontSize * 2),
                     "[Enter] 재출격 (파워업 승계)   [R] 타이틀",
                     new GUIStyle(_style) { alignment = TextAnchor.MiddleCenter });

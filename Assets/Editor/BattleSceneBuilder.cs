@@ -698,6 +698,29 @@ namespace Shmup.EditorTools
             SetStringArray(director, "_enemySpritePrefixes", enemyTypePrefixes.ToArray());
             SetReferenceArray(director, "_enemySprites", enemyTypeSprites.ToArray());
 
+            // 아이들 애니메이션 (art-input/anim_<prefix>_XX.png 시퀀스가 있으면)
+            var animPrefixes = new List<string>();
+            var animCounts = new List<int>();
+            var animFlat = new List<Sprite>();
+            void AddAnim(string prefix)
+            {
+                var frames = LoadFrameSequence($"anim_{prefix}_");
+                if (frames.Length == 0) return;
+                animPrefixes.Add(prefix);
+                animCounts.Add(frames.Length);
+                animFlat.AddRange(frames);
+            }
+            foreach (string prefix in new[]
+            {
+                "zako_straight", "zako_fast", "zako_sine", "turret", "zako_tank", "elite",
+                "spore", "lancer", "sentry", "interceptor", "wisp", "guardian",
+                "boss_stage1", "boss_hive", "boss_fortress", "boss_storm", "boss_core"
+            })
+                AddAnim(prefix);
+            SetStringArray(director, "_animPrefixes", animPrefixes.ToArray());
+            SetIntArray(director, "_animFrameCounts", animCounts.ToArray());
+            SetReferenceArray(director, "_animFrames", animFlat.ToArray());
+
             // 기체 애니메이션 (art-input/ship_anim_XX.png 있으면)
             var shipFrames = LoadShipAnimationFrames();
             if (shipFrames.Length > 0)
@@ -973,6 +996,18 @@ namespace Shmup.EditorTools
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, TitleScenePath);
+        }
+
+        static void SetIntArray(UnityEngine.Object target, string fieldName, int[] values)
+        {
+            var so = new SerializedObject(target);
+            var property = so.FindProperty(fieldName);
+            if (property == null)
+                throw new InvalidOperationException($"{target.GetType().Name}.{fieldName} 직렬화 필드를 못 찾았다.");
+            property.arraySize = values.Length;
+            for (int i = 0; i < values.Length; i++)
+                property.GetArrayElementAtIndex(i).intValue = values[i];
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         static void SetStringArray(UnityEngine.Object target, string fieldName, string[] values)
