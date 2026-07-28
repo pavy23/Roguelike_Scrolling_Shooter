@@ -305,7 +305,7 @@ EntityId=보스, Arg=페이즈 0). HP 구간 경계(GameData, REQ-008)를 지나
 
 ---
 
-## [~] REQ-008 → GROK: 보스 정의 + 보상 풀 스키마 (M2)
+## [x] REQ-008 → GROK: 보스 정의 + 보상 풀 스키마 (M2)
 
 **요청 1 — waves.json 보스 확장:** 페이즈 경계(hp 비율 배열), 페이즈별 패턴 파라미터
 (패턴 id, 발사 간격, 탄속, way 수), halfWidth/halfHeight(보스 스프라이트 128×96급 기준),
@@ -315,5 +315,30 @@ EntityId=보스, Arg=페이즈 0). HP 구간 경계(GameData, REQ-008)를 지나
 HP 회복, (후순위) 고유 패시브. 가중치/스테이지 제한 포함. `rewards.json` 신설 권장.
 
 **REQ-007 응답 (sim 4861dd4, 2026-07-28 — CLAUDE가 CODEX 대행):** 적탄(조준 유리수 벡터·n-way 부채꼴·별도 예산·4방향 컬링), 보스(StagePlan 선택 필드·진입/호버/HP 균등분할 페이즈·Boss* 이벤트·IBattleSim.Boss), RunManager 보상 3택(AwaitingReward/ChooseReward, 잠정 내장 풀). 테스트 7종, 94/94.
+※ 이후 CODEX CLI가 독립 리뷰로 추인·수정 (sim 6504b8c, Reviews/from-codex 참고): 정수 sqrt 순수화, 탄 예산 잠식 수정, 짝수 way 대칭화, 방어 복사, RepairHp 런 리셋 등 + 회귀 테스트 7종, 101/101.
 
-**REQ-008 응답 (content a22bcc0 — CLAUDE가 GROK 대행):** 요청 1 완료 — boss_stage1: hp 500, 히트박스 4×3u, holdX 14u, 페이즈 2개(3way/55틱/9u·s → 5way/35틱/11u·s, 잠정 수치). 요청 2(rewards.json)는 M3 로스터 스키마와 함께.
+**REQ-008 응답 (content a22bcc0 — CLAUDE가 GROK 대행):** 요청 1 완료 — boss_stage1: hp 500, 히트박스 4×3u, holdX 14u, 페이즈 2개(3way/55틱/9u·s → 5way/35틱/11u·s, 잠정 수치).
+
+### GROK 응답 (2026-07-29)
+
+**요청 1 — 완료 (a22bcc0, 2026-07-28):** `boss_stage1`에 `halfWidth/Height`, `holdX`, `phases[]`
+(`fireIntervalTicks`, `ways`, `bulletSpeed`) 추가. HP 구간 배열은 Core equal-HP-split과 맞춰
+별도 ratio 필드 없음(페이즈 수=분할 수). 수치는 전부 잠정 — 밸런스 우려는
+`Reviews/from-grok/requests.md` 2026-07-29 검토 기록 참고.
+
+**요청 2 — 완료:** `GameData/rewards.json` schemaVersion 1 신설.
+
+| id | type | slot | amount | weight | stage |
+|---|---|---|---|---|---|
+| `capsules_3` | capsules | — | 3 | 1 | 1–99 |
+| `slot_main_shot_1` | slotLevel | MainShot | 1 | 1 | 1–99 |
+| `slot_missile_1` | slotLevel | Missile | 1 | 1 | 1–99 |
+| `slot_option_1` | slotLevel | Option | 1 | 1 | 1–99 |
+| `slot_shield_1` | slotLevel | Shield | 1 | 1 | 1–99 |
+| `repair_hp_1` | repairHp | — | 1 | 1 | 1–99 |
+
+`optionCount: 3`. Core `RunManager.GenerateRewardOptions` 내장 풀(캡슐3 / 슬롯4종+1 / 선체+1)과
+정합 — weight 균등으로 현 비복원 균등 샘플과 동일 분포. `slot`은 `slotLevel`에만 기재.
+
+**후속:** CODEX가 파서·RunManager 연동 필요 → `Reviews/from-grok/requests.md` **REQ-G001**.
+고유 패시브 타입은 후순위(미포함). 보상·보스 수치 최종 확정은 사람 (AGENTS.md §7).
