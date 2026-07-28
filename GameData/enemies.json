@@ -10,7 +10,7 @@
       "movePattern": "straight",
       "moveSpeed": 3.0,
       "fireIntervalTicks": 0,
-      "dropWeight": 3
+      "dropWeight": 4
     },
     {
       "id": "zako_sine",
@@ -21,7 +21,7 @@
       "movePattern": "sine",
       "moveSpeed": 2.5,
       "fireIntervalTicks": 0,
-      "dropWeight": 3
+      "dropWeight": 5
     },
     {
       "id": "turret_ground",
@@ -32,7 +32,62 @@
       "movePattern": "static",
       "moveSpeed": 0.0,
       "fireIntervalTicks": 90,
-      "dropWeight": 1
+      "dropWeight": 2
+    },
+    {
+      "id": "zako_fast",
+      "displayName": "Zako (Fast)",
+      "hp": 6,
+      "contactDamage": 1,
+      "scoreValue": 80,
+      "movePattern": "straight",
+      "moveSpeed": 5.0,
+      "fireIntervalTicks": 0,
+      "dropWeight": 3
+    },
+    {
+      "id": "zako_tank",
+      "displayName": "Zako (Tank)",
+      "hp": 40,
+      "contactDamage": 2,
+      "scoreValue": 400,
+      "movePattern": "straight",
+      "moveSpeed": 1.5,
+      "fireIntervalTicks": 0,
+      "dropWeight": 7
+    },
+    {
+      "id": "zako_sine_slow",
+      "displayName": "Zako (Slow Sine)",
+      "hp": 18,
+      "contactDamage": 1,
+      "scoreValue": 200,
+      "movePattern": "sine",
+      "moveSpeed": 1.8,
+      "fireIntervalTicks": 0,
+      "dropWeight": 6
+    },
+    {
+      "id": "turret_ceiling",
+      "displayName": "Ceiling Turret",
+      "hp": 30,
+      "contactDamage": 1,
+      "scoreValue": 300,
+      "movePattern": "static",
+      "moveSpeed": 0.0,
+      "fireIntervalTicks": 90,
+      "dropWeight": 2
+    },
+    {
+      "id": "elite_sine",
+      "displayName": "Elite (Sine)",
+      "hp": 50,
+      "contactDamage": 2,
+      "scoreValue": 600,
+      "movePattern": "sine",
+      "moveSpeed": 2.0,
+      "fireIntervalTicks": 120,
+      "dropWeight": 12
     }
   ]
 }
