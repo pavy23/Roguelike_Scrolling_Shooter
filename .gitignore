@@ -32,6 +32,9 @@ Thumbs.db
 Tools/CoreStandalone/bin/
 Tools/CoreStandalone/obj/
 
+# Claude Code personal overrides (per-machine, not for the team repo)
+.claude/settings.local.json
+
 # Crash reports
 sysinfo.txt
 *.stackdump
