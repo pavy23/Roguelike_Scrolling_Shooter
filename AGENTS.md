@@ -6,7 +6,8 @@
 ## 1. 게임 개요
 
 - 가칭 **Roguelike_Scrolling_Shooter** — 2D 횡스크롤 슈팅 (그라디우스 계열)
-- 슈퍼패미컴 도트 스타일, 고해상도 정수배 업스케일 (Pixel Perfect Camera, Reference Resolution 384×224, PPU 16)
+- **Steam 판매 품질이 목표** (2026-07-28 확정) — 마일스톤은 ROADMAP.md, 아트 규격은 ART-DIRECTION.md
+- hi-bit HD 도트, 정수배 업스케일 (Pixel Perfect Camera, Reference Resolution **640×360**, PPU 16 — 2026-07-28 384×224에서 상향)
 - 파워업 게이지: 캡슐 수집 → 커서 순환 → 원하는 슬롯에서 활성화 (기본탄 / 미사일 / 옵션 / 실드)
 - 로그라이크: 스테이지는 시드 기반 랜덤 생성, 사망 시 처음부터. 단 파워업 레벨은 승계 (§7 참고)
 - 아키텍처: **Simulation(순수 C#) / Presentation(Unity) / Content(JSON)** 3분리
@@ -15,12 +16,14 @@
 
 | 에이전트 | 역할 | 소유 | 검증 방법 |
 |---|---|---|---|
-| **CLAUDE** | RENDERER | `Assets/` 전체 중 `Assets/Scripts/Core/` 제외 — 씬, 프리팹, 카메라, 풀링, 입력, 오디오, `Assets/Scripts/Presentation/`, `ProjectSettings/` | Unity Test Runner |
+| **CLAUDE** | RENDERER + ART/AUDIO 파이프라인 | `Assets/` 전체 중 `Assets/Scripts/Core/` 제외 — 씬, 프리팹, 카메라, 풀링, 입력, 오디오, `Assets/Scripts/Presentation/`, `ProjectSettings/` + `Tools/ArtGen/` (AI 아트·SFX 생성→후처리→임포트 스크립트) | Unity Test Runner + Unity CLI `capture_game_view` 캡처 |
 | **CODEX** | SIMULATION | `Assets/Scripts/Core/` (Shmup.Core) + `Assets/Tests/EditMode/` + `Tools/CoreStandalone/` | `dotnet test` (Unity 안 열음) |
 | **GROK** | CONTENT | `GameData/` (JSON 데이터, 밸런스 수치) + 밸런스 시뮬 스크립트 | JSON 스키마 검증 + 헤드리스 시뮬 실행 |
-| **GEMINI** | QA / VERIFIER | `QA/` (테스트 플랜, 캡처, 리포트) — **코드·에셋·데이터 소유 없음** | 리포트 자체가 산출물. 빌드를 실행·관찰만 한다 |
+| **GEMINI** | QA / VERIFIER | `QA/` (테스트 플랜, 캡처, 리포트) — **코드·에셋·데이터 소유 없음** | 리포트 자체가 산출물. 빌드 실행·관찰 + Unity CLI로 시각 QA(`capture_game_view` 스크린샷 비교, `get_performance_stats` 성능 추적) |
 
 공유 파일(`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.gitignore`)은 사람만 수정한다.
+
+**아트/사운드 생성물 규칙** (2026-07-28): AI 생성 에셋은 후보 다량 생산 → **사람(아트 디렉터) 큐레이션 합격작만** `Assets/Art/`·`Assets/Audio/`에 확정한다. 생성 프롬프트·파라미터는 산출물과 함께 커밋해 재현 가능하게 유지한다. 시뮬 상태 변화를 애니메이션·사운드로 표현해야 하면 Core의 시뮬 이벤트(REQ-005)를 구독한다 — Presentation에서 게임플레이 판정을 내리지 않는 원칙은 그대로다.
 
 ## 3. 브랜치 / worktree
 

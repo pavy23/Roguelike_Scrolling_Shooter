@@ -227,3 +227,38 @@ namespace Shmup.Core.Simulation
 **요청:**
 1. 핫픽스 값(99)을 추인하거나 의도한 보스 로테이션으로 교체 (스테이지 구간별 보스 추가 등)
 2. 앞으로 카탈로그 변경 시 stage 1~6 × diff 1~5 × 다수 시드 조립 가능성을 확인할 것 (CODEX에게 카탈로그 검증 테스트 상시화를 요청해도 좋음)
+
+---
+
+## [ ] REQ-005 → CODEX: 시뮬 이벤트 버스 + 플레이필드 상수 전환 (ROADMAP M0)
+
+**배경 (사람 확정, 2026-07-28):** 캔버스 640×360 상향 + Steam 품질 업그레이드 확정 (ROADMAP.md). 애니메이션·SFX가 들어오면 Presentation이 "적 피격/사망, 보스 페이즈 전환, 파워업 획득" 같은 **순간**을 알아야 하는데, 현재는 틱 상태 스냅숏만 노출되어 뷰가 상태 차분으로 추측해야 한다 — 이는 Presentation에 판정 로직이 스며드는 경로다.
+
+**요청 1 — 시뮬 이벤트 버스:** 틱 처리 중 발생한 이벤트를 틱 종료 후 읽기 전용 목록으로 노출. 결정론 유지(이벤트 순서 고정), 할당 없는 링버퍼 권장.
+
+```csharp
+public enum SimEventType { EnemyHit, EnemyKilled, PlayerHit, PlayerKilled, CapsulePicked, SlotActivated, BossPhaseChanged, StageCleared, BossSpawned }
+public readonly struct SimEvent
+{
+    public SimEventType Type { get; }
+    public int EntityId { get; }   // 대상 (적/보스/플레이어)
+    public int X { get; }          // 서브유닛 — 이펙트/사운드 스폰 위치
+    public int Y { get; }
+    public int Arg { get; }        // 페이즈 번호, 슬롯 인덱스 등
+}
+// BattleSim에 추가: public ReadOnlySpan<SimEvent> EventsThisTick { get; }
+```
+
+**요청 2 — 플레이필드 상수:** 시야가 384×224 → 640×360으로 넓어지므로 월드유닛 기준 플레이필드 크기(현 24×14 상당 → 40×22.5 상당) 상수 정리 및 노출. 스폰 X, 컬링 경계가 이 상수를 참조하도록. 값 자체는 GameData/GROK과 협의 (REQ-006 연동).
+
+**요청 3 — 보스 페이즈 상태기계 (M2 전 준비):** 보스가 HP 구간별 페이즈를 갖고 페이즈별 패턴 세트를 쓰는 구조. 스키마는 GROK과 협의.
+
+---
+
+## [ ] REQ-006 → GROK: 좌표·히트박스 재스케일 + 로스터 확장 스키마 (ROADMAP M0/M3)
+
+**배경:** 위와 동일 — 640×360 확정. 플레이필드가 넓어지고 스프라이트 규격이 커진다 (ART-DIRECTION.md v2 표 참고: 잡졸 16→24px, 기체 32×20→48×30 등).
+
+**요청 1 (M0, 선행):** `GameData/*.json`의 위치·속도·halfWidth/halfHeight를 새 플레이필드 기준으로 재스케일. 단순 배율(×5/3)로 시작하되 체감 속도는 유지가 목표 — 화면이 넓어진 만큼 절대 속도는 올라가야 같은 체감이 나온다. CODEX 플레이필드 상수(REQ-005 요청 2)와 값 협의.
+
+**요청 2 (M3 준비):** 로스터 확장을 견딜 스키마 확장 제안서 작성 — 적 ~30종(테마 태그, 스폰 풀), 스테이지 테마 5종, 보스 페이즈 데이터, 애니메이션 메타(상태별 프레임 수·fps — 뷰가 참조). 스키마 초안을 이 파일 응답으로 남겨주면 CODEX 파서 확장과 CLAUDE 뷰 작업이 병렬로 나간다.

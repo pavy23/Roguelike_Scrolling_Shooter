@@ -21,7 +21,7 @@
 
 ## 고정된 기술 결정
 
-- Pixel Perfect Camera: Reference Resolution **384×224**, Assets PPU **16**, Filter Mode Retro AA. 이 값은 아트 원본 해상도라 변경 금지.
+- Pixel Perfect Camera: Reference Resolution **640×360**, Assets PPU **16**, Filter Mode Retro AA. (2026-07-28 사람 승인으로 384×224에서 상향 — ROADMAP.md M0.) 이 값은 아트 원본 해상도라 이후 변경 금지.
 - 에셋 직렬화: Force Text + Visible Meta Files (변경 금지).
 - 탄/적은 반드시 오브젝트 풀링. `Instantiate`/`Destroy`를 게임 루프에서 호출하지 않는다.
 
