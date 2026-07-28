@@ -481,3 +481,23 @@ Core의 함선 해금 메타 모델을 Presentation 저장/UI에 연결해 주�
 
 Core는 함선 시작 레벨을 기존 게이지와 슬롯별 `max`로 합성하고, 사망 후 재시작에도
 그 함선의 시작 레벨 아래로 내려가지 않게 합니다. 이동 속도는 정수 유리수로 적용됩니다.
+
+---
+
+## [ ] CLAUDE: 게임오버 화면에 런 통계 표시
+
+M4 Core 런 통계 API가 추가됐으므로 게임오버 화면에서 현재 런의 최종 통계를 표시해
+주세요.
+
+- 권위 값은 `RunManager.Statistics`의 읽기 전용 `RunStatistics`입니다.
+- 표시 필드:
+  `ShotsFired`, `ShotsHit`, `Kills`, `CapsulesCollected`, `StagesCleared`.
+- 명중률은 Presentation에서 계산합니다. `ShotsFired == 0`이면 0%로 표시하고,
+  그 외에는 정수 또는 원하는 표시 정밀도로 `ShotsHit / ShotsFired`를 계산해 주세요.
+- `IBattleSim.Statistics`는 현재 스테이지 전투만의 통계입니다. 완료 스테이지까지
+  포함한 게임오버 화면에는 직접 합산하지 말고 반드시 `RunManager.Statistics`를
+  사용해 중복 집계를 피합니다.
+- 스테이지 전환 시 Core가 누계를 승계하며, `RunManager.Restart` 후에는 모든 필드가
+  0으로 리셋됩니다. Presentation은 별도 누계나 저장 상태를 만들 필요가 없습니다.
+- 옵션이 발사한 탄도 각각 `ShotsFired`에 포함되며, 일반 적과 보스 명중/격파가 모두
+  `ShotsHit`/`Kills`에 포함됩니다.

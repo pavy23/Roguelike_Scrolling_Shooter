@@ -77,11 +77,41 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(2, manager.StageIndex);
             Assert.AreEqual(75L, manager.TotalScore);
             Assert.AreEqual(0L, manager.Battle.Score);
+            Assert.AreEqual(2L, manager.Statistics.ShotsFired);
+            Assert.AreEqual(1L, manager.Statistics.ShotsHit);
+            Assert.AreEqual(1L, manager.Statistics.Kills);
+            Assert.AreEqual(0L, manager.Statistics.CapsulesCollected);
+            Assert.AreEqual(1, manager.Statistics.StagesCleared);
 
             Step(manager, 2, in fire);
 
             Assert.AreEqual(3, manager.StageIndex);
             Assert.AreEqual(150L, manager.TotalScore);
+            Assert.AreEqual(4L, manager.Statistics.ShotsFired);
+            Assert.AreEqual(2L, manager.Statistics.ShotsHit);
+            Assert.AreEqual(2L, manager.Statistics.Kills);
+            Assert.AreEqual(0L, manager.Statistics.CapsulesCollected);
+            Assert.AreEqual(2, manager.Statistics.StagesCleared);
+        }
+
+        [Test]
+        public void StageTransitionCarriesCollectedCapsules()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.CapsuleHalfWidth = 1;
+            var manager = new RunManager(
+                91UL,
+                new ScoreStageGenerator(false),
+                config,
+                CreateDroppingContent(),
+                PowerUpGauge.CreateDefault());
+            var fire = new InputCommand(0, 0, true);
+
+            Step(manager, 2, in fire);
+
+            Assert.AreEqual(2, manager.StageIndex);
+            Assert.AreEqual(1L, manager.Statistics.CapsulesCollected);
+            Assert.AreEqual(1, manager.Statistics.StagesCleared);
         }
 
         [Test]
@@ -129,12 +159,20 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(RunState.RunOver, manager.State);
             Assert.AreEqual(75L, manager.TotalScore);
+            Assert.AreEqual(3L, manager.Statistics.ShotsFired);
+            Assert.AreEqual(1L, manager.Statistics.ShotsHit);
+            Assert.AreEqual(1L, manager.Statistics.Kills);
 
             manager.Restart(90UL);
 
             Assert.AreEqual(RunState.Playing, manager.State);
             Assert.AreEqual(0L, manager.TotalScore);
             Assert.AreEqual(0L, manager.Battle.Score);
+            Assert.AreEqual(0L, manager.Statistics.ShotsFired);
+            Assert.AreEqual(0L, manager.Statistics.ShotsHit);
+            Assert.AreEqual(0L, manager.Statistics.Kills);
+            Assert.AreEqual(0L, manager.Statistics.CapsulesCollected);
+            Assert.AreEqual(0, manager.Statistics.StagesCleared);
         }
 
         [Test]
@@ -346,6 +384,18 @@ namespace Shmup.Core.Tests
                 weapon.Id);
         }
 
+        static BattleContent CreateDroppingContent()
+        {
+            var scored = new EnemyDefinition(
+                "scored", "Scored", 1, 0, 75, EnemyMovePattern.Static,
+                0, 1, 0, 0, 0, 1, 0, 1, 1);
+            var weapon = new WeaponDefinition("shot", 1, 1, 1, 1, 0, 0);
+            return new BattleContent(
+                new[] { scored },
+                new[] { weapon },
+                weapon.Id);
+        }
+
         static void Step(RunManager manager, int count, in InputCommand input)
         {
             for (int i = 0; i < count; i++)
@@ -373,6 +423,26 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(expected.Difficulty, actual.Difficulty, $"source tick {sourceTick}");
             Assert.AreEqual(expected.State, actual.State, $"source tick {sourceTick}");
             Assert.AreEqual(expected.TotalScore, actual.TotalScore, $"source tick {sourceTick}");
+            Assert.AreEqual(
+                expected.Statistics.ShotsFired,
+                actual.Statistics.ShotsFired,
+                $"source tick {sourceTick}");
+            Assert.AreEqual(
+                expected.Statistics.ShotsHit,
+                actual.Statistics.ShotsHit,
+                $"source tick {sourceTick}");
+            Assert.AreEqual(
+                expected.Statistics.Kills,
+                actual.Statistics.Kills,
+                $"source tick {sourceTick}");
+            Assert.AreEqual(
+                expected.Statistics.CapsulesCollected,
+                actual.Statistics.CapsulesCollected,
+                $"source tick {sourceTick}");
+            Assert.AreEqual(
+                expected.Statistics.StagesCleared,
+                actual.Statistics.StagesCleared,
+                $"source tick {sourceTick}");
             Assert.AreEqual(expected.Battle.Tick, actual.Battle.Tick, $"source tick {sourceTick}");
             Assert.AreEqual(expected.Battle.PlayerX, actual.Battle.PlayerX, $"source tick {sourceTick}");
             Assert.AreEqual(expected.Battle.PlayerY, actual.Battle.PlayerY, $"source tick {sourceTick}");

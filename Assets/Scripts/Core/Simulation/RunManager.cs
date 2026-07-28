@@ -174,6 +174,33 @@ namespace Shmup.Core.Simulation
     }
 
     /// <summary>
+    /// Read-only counters accumulated across the current run.
+    /// Accuracy is intentionally left to consumers as ShotsHit / ShotsFired.
+    /// </summary>
+    public readonly struct RunStatistics
+    {
+        internal RunStatistics(
+            long shotsFired,
+            long shotsHit,
+            long kills,
+            long capsulesCollected,
+            int stagesCleared)
+        {
+            ShotsFired = shotsFired;
+            ShotsHit = shotsHit;
+            Kills = kills;
+            CapsulesCollected = capsulesCollected;
+            StagesCleared = stagesCleared;
+        }
+
+        public long ShotsFired { get; }
+        public long ShotsHit { get; }
+        public long Kills { get; }
+        public long CapsulesCollected { get; }
+        public int StagesCleared { get; }
+    }
+
+    /// <summary>
     /// Owns one roguelike run: deterministic stage creation, battle replacement,
     /// death state, and power-up carry into a restarted run.
     /// </summary>
@@ -220,6 +247,11 @@ namespace Shmup.Core.Simulation
         ulong _runSeed;
         int _stageLengthTicks;
         long _completedStageScore;
+        long _completedShotsFired;
+        long _completedShotsHit;
+        long _completedKills;
+        long _completedCapsulesCollected;
+        int _stagesCleared;
 
         public RunManager(
             ulong runSeed,
@@ -375,6 +407,21 @@ namespace Shmup.Core.Simulation
         public ShipDefinition Ship => _ship;
         /// <summary>Score earned across completed and current stages of this run.</summary>
         public long TotalScore => checked(_completedStageScore + Battle.Score);
+        public RunStatistics Statistics
+        {
+            get
+            {
+                BattleStatistics battle = Battle.Statistics;
+                return new RunStatistics(
+                    AddSaturated(_completedShotsFired, battle.ShotsFired),
+                    AddSaturated(_completedShotsHit, battle.ShotsHit),
+                    AddSaturated(_completedKills, battle.Kills),
+                    AddSaturated(
+                        _completedCapsulesCollected,
+                        battle.CapsulesCollected),
+                    _stagesCleared);
+            }
+        }
         public int Difficulty { get; private set; }
         public StagePlan StagePlan { get; private set; }
         public IBattleSim Battle { get; private set; }
@@ -402,6 +449,7 @@ namespace Shmup.Core.Simulation
             {
                 if (battleSim.BossDefeated)
                 {
+                    IncrementStagesCleared();
                     _rewardOptions = GenerateRewardOptions();
                     State = RunState.AwaitingReward;
                 }
@@ -409,7 +457,10 @@ namespace Shmup.Core.Simulation
             }
 
             if (Battle.Tick >= _stageLengthTicks)
+            {
+                IncrementStagesCleared();
                 AdvanceStage();
+            }
         }
 
         /// <summary>
@@ -518,6 +569,11 @@ namespace Shmup.Core.Simulation
             State = RunState.Playing;
             _rewardOptions = Array.Empty<RewardOption>();
             _completedStageScore = 0;
+            _completedShotsFired = 0;
+            _completedShotsHit = 0;
+            _completedKills = 0;
+            _completedCapsulesCollected = 0;
+            _stagesCleared = 0;
             _battleConfig.PlayerMaxHp = _initialPlayerMaxHp;
             PowerUpGauge = nextGauge;
             BuildCurrentStage();
@@ -527,9 +583,35 @@ namespace Shmup.Core.Simulation
         {
             if (StageIndex == int.MaxValue)
                 throw new InvalidOperationException("The stage counter is exhausted.");
+            BattleStatistics battle = Battle.Statistics;
             _completedStageScore = TotalScore;
+            _completedShotsFired = AddSaturated(
+                _completedShotsFired,
+                battle.ShotsFired);
+            _completedShotsHit = AddSaturated(
+                _completedShotsHit,
+                battle.ShotsHit);
+            _completedKills = AddSaturated(
+                _completedKills,
+                battle.Kills);
+            _completedCapsulesCollected = AddSaturated(
+                _completedCapsulesCollected,
+                battle.CapsulesCollected);
             StageIndex++;
             BuildCurrentStage();
+        }
+
+        void IncrementStagesCleared()
+        {
+            if (_stagesCleared < int.MaxValue)
+                _stagesCleared++;
+        }
+
+        static long AddSaturated(long left, long right)
+        {
+            return left > long.MaxValue - right
+                ? long.MaxValue
+                : left + right;
         }
 
         void BuildCurrentStage()

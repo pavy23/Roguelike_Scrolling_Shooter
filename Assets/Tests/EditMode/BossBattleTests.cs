@@ -93,6 +93,9 @@ namespace Shmup.Core.Tests
             Assert.IsFalse(sim.BossActive);
             Assert.IsTrue(sim.BossDefeated);
             Assert.AreEqual(40L, sim.Score);
+            Assert.GreaterOrEqual(sim.Statistics.ShotsFired, 2L);
+            Assert.AreEqual(2L, sim.Statistics.ShotsHit);
+            Assert.AreEqual(1L, sim.Statistics.Kills);
         }
 
         [Test]
@@ -225,11 +228,17 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(RunState.AwaitingReward, run.State);
             Assert.AreEqual(3, run.RewardOptions.Count);
             Assert.AreEqual(1, run.StageIndex);
+            Assert.AreEqual(1, run.Statistics.StagesCleared);
+            Assert.AreEqual(1L, run.Statistics.ShotsHit);
+            Assert.AreEqual(1L, run.Statistics.Kills);
 
             run.ChooseReward(0);
             Assert.AreEqual(RunState.Playing, run.State);
             Assert.AreEqual(2, run.StageIndex);
             Assert.AreEqual(0, run.RewardOptions.Count);
+            Assert.AreEqual(1, run.Statistics.StagesCleared);
+            Assert.AreEqual(1L, run.Statistics.ShotsHit);
+            Assert.AreEqual(1L, run.Statistics.Kills);
         }
 
         [Test]

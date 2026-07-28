@@ -57,6 +57,30 @@ namespace Shmup.Core.Simulation
         public int Arg { get; }
     }
 
+    /// <summary>
+    /// Read-only counters observed from one BattleSim instance.
+    /// Accuracy is intentionally left to consumers as ShotsHit / ShotsFired.
+    /// </summary>
+    public readonly struct BattleStatistics
+    {
+        internal BattleStatistics(
+            long shotsFired,
+            long shotsHit,
+            long kills,
+            long capsulesCollected)
+        {
+            ShotsFired = shotsFired;
+            ShotsHit = shotsHit;
+            Kills = kills;
+            CapsulesCollected = capsulesCollected;
+        }
+
+        public long ShotsFired { get; }
+        public long ShotsHit { get; }
+        public long Kills { get; }
+        public long CapsulesCollected { get; }
+    }
+
     public enum BulletFaction { Player = 0, Enemy = 1 }
     public enum BulletKind { MainShot = 0, Missile = 1, EnemyShot = 2 }
 
@@ -289,6 +313,7 @@ namespace Shmup.Core.Simulation
         int Tick { get; }
         /// <summary>Score earned in this battle instance.</summary>
         long Score { get; }
+        BattleStatistics Statistics { get; }
         long ScrollX { get; }
         int PlayerX { get; }
         int PlayerY { get; }
@@ -388,6 +413,7 @@ namespace Shmup.Core.Simulation
 
         SimEvent[] _events = new SimEvent[64];
         int _eventCount;
+        long _shotsFired, _shotsHit, _kills, _capsulesCollected;
 
         int _playerXRemainder, _playerYRemainder, _cooldown, _missileCooldown;
         int _mainShotLevel, _missileLevel, _optionLevel, _shieldGaugeLevel;
@@ -556,6 +582,11 @@ namespace Shmup.Core.Simulation
 
         public int Tick { get; private set; }
         public long Score { get; private set; }
+        public BattleStatistics Statistics => new BattleStatistics(
+            _shotsFired,
+            _shotsHit,
+            _kills,
+            _capsulesCollected);
         public long ScrollX => GetScrollXAtTick(Tick);
         public int PlayerX { get; private set; }
         public int PlayerY { get; private set; }
@@ -627,6 +658,26 @@ namespace Shmup.Core.Simulation
             if (_eventCount == _events.Length)
                 Array.Resize(ref _events, _events.Length * 2);
             _events[_eventCount++] = new SimEvent(type, entityId, x, y, arg);
+
+            switch (type)
+            {
+                case SimEventType.EnemyHit:
+                    IncrementSaturated(ref _shotsHit);
+                    break;
+                case SimEventType.EnemyKilled:
+                    IncrementSaturated(ref _shotsHit);
+                    IncrementSaturated(ref _kills);
+                    break;
+                case SimEventType.CapsulePicked:
+                    IncrementSaturated(ref _capsulesCollected);
+                    break;
+            }
+        }
+
+        static void IncrementSaturated(ref long counter)
+        {
+            if (counter < long.MaxValue)
+                counter++;
         }
 
         /// <summary>Tick > 0 조건: 생성자(재시작 승계 포함) 초기 레벨은 이벤트가 아니다.</summary>
@@ -1142,6 +1193,7 @@ namespace Shmup.Core.Simulation
             _bulletVelXNumerators.Add(0);
             _bulletVelYNumerators.Add(0);
             _bulletVelDenominators.Add(0);
+            IncrementSaturated(ref _shotsFired);
         }
 
         int CountEnemyBullets()

@@ -31,6 +31,8 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(1, fireTick.Length);
             Assert.AreEqual(SimEventType.PlayerFired, fireTick[0].Type);
             Assert.AreEqual((int)BulletKind.MainShot, fireTick[0].Arg);
+            Assert.AreEqual(1L, sim.Statistics.ShotsFired);
+            Assert.AreEqual(0L, sim.Statistics.ShotsHit);
             sim.Step(in none);
             sim.Step(in none);
 
@@ -41,6 +43,9 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(10, killTick[0].Arg);
             Assert.AreEqual(SimEventType.CapsuleDropped, killTick[1].Type);
             Assert.AreEqual(4, killTick[1].X);
+            Assert.AreEqual(1L, sim.Statistics.ShotsHit);
+            Assert.AreEqual(1L, sim.Statistics.Kills);
+            Assert.AreEqual(0L, sim.Statistics.CapsulesCollected);
 
             var moveRight = new InputCommand(1, 0, false);
             sim.Step(in moveRight);
@@ -50,6 +55,31 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(1, pickTick.Length);
             Assert.AreEqual(SimEventType.CapsulePicked, pickTick[0].Type);
             Assert.AreEqual(killTick[1].EntityId, pickTick[0].EntityId);
+            Assert.AreEqual(1L, sim.Statistics.CapsulesCollected);
+        }
+
+        [Test]
+        public void ShotsFiredCountsEveryPlayerProjectileIncludingOptions()
+        {
+            EnemyDefinition enemy = Enemy("bystander", EnemyMovePattern.Static);
+            var gauge = PowerUpGauge.CreateDefault();
+            gauge.ImportLevels(new[] { 0, 0, 2, 0 });
+            var sim = new BattleSim(
+                CreateConfig(),
+                new Rng(12UL),
+                Plan(Segment("idle", 20)),
+                Content(enemy),
+                gauge);
+            var fire = new InputCommand(0, 0, true);
+
+            sim.Step(in fire);
+
+            Assert.AreEqual(3, sim.Bullets.Count);
+            Assert.AreEqual(3L, sim.Statistics.ShotsFired);
+            Assert.AreEqual(1, sim.EventsThisTick.Length);
+            Assert.AreEqual(
+                SimEventType.PlayerFired,
+                sim.EventsThisTick[0].Type);
         }
 
         [Test]
@@ -71,6 +101,8 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(SimEventType.EnemyHit, events[0].Type);
             Assert.AreEqual(10, events[0].Arg);
             Assert.AreEqual(1, sim.Enemies.Count);
+            Assert.AreEqual(1L, sim.Statistics.ShotsHit);
+            Assert.AreEqual(0L, sim.Statistics.Kills);
         }
 
         [Test]
