@@ -106,10 +106,10 @@ namespace Shmup.Core.Generation
         }
     }
 
-    /// <summary>An enemy spawn: simulation tick from segment start plus world-space position.</summary>
+    /// <summary>An enemy spawn with position in integer simulation subunits.</summary>
     public sealed class SpawnEvent
     {
-        public SpawnEvent(int tick, string enemyId, float x, float y)
+        public SpawnEvent(int tick, string enemyId, int x, int y)
         {
             if (tick < 0) throw new ArgumentOutOfRangeException(nameof(tick));
             Tick = tick;
@@ -120,7 +120,7 @@ namespace Shmup.Core.Generation
 
         public int Tick { get; }
         public string EnemyId { get; }
-        public float X { get; }
-        public float Y { get; }
+        public int X { get; }
+        public int Y { get; }
     }
 }

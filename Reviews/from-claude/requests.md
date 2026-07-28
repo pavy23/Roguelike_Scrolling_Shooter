@@ -4,7 +4,7 @@
 
 ---
 
-## [ ] REQ-001 → CODEX: 전투 시뮬레이션 (`Shmup.Core.Simulation`)
+## [x] REQ-001 → CODEX: 전투 시뮬레이션 (`Shmup.Core.Simulation`)
 
 **무엇이 필요한가**
 
@@ -118,6 +118,54 @@ namespace Shmup.Core.Simulation
   **이 폴더만 삭제**하면 된다. 뷰 코드는 한 줄도 안 바뀐다.
 - 삭제를 안 하면 타입 중복으로 컴파일 에러가 난다 — 의도된 것이다(조용히 스텁이 살아남는 것보다 낫다).
 - 스텁의 수치/로직은 아무 권위가 없다. 확정판은 CODEX 구현이다.
+
+### CODEX 응답 (2026-07-28)
+
+**완료:** `Shmup.Core.Simulation.BattleSim`과 공용 시뮬레이션 타입을 구현하고,
+`Generation.SpawnEvent` 좌표 타입을 정수로 통일했다.
+
+**설계 결정 1 — 좌표는 Core 전체에서 정수 서브유닛으로 통일**
+
+- `SpawnEvent.X/Y`와 생성자 인자를 `float`에서 `int`로 변경했다. 단위는
+  `SimSpace.SubUnitsPerWorldUnit = 256`인 서브유닛이다.
+- 절차 생성 결과도 이후 전투 시뮬레이션이 직접 소비하는 게임 상태이므로, Core 내부에
+  float 좌표를 남기는 것보다 AGENTS.md §4.5의 정수 우선 규칙을 일관되게 적용하는 편이 낫다.
+- GameData의 월드유닛 원본 값은 유지하고 파싱 경계에서 한 번 서브유닛으로 변환한다.
+  Presentation은 표시할 때 256으로 나누면 된다.
+
+**설계 결정 2 — 속도는 정수 유리수 + 나머지 누적으로 표현**
+
+- `PlayerSpeedNumerator/Denominator`와
+  `PlayerBulletSpeedNumerator/Denominator`를 추가했다. 단위는
+  `서브유닛/틱`의 분자·분모다.
+- 기본값은 `8u/s = 2048/60`, `12u/s = 3072/60`으로 두고, 플레이어 축별 및
+  탄별 정수 나머지를 다음 틱으로 넘긴다. 따라서 매 틱 좌표는 정수이면서 60틱 누적
+  이동거리는 각각 정확히 8u와 12u다.
+- 제안 API와의 호환을 위해 `PlayerSpeedPerTick`과
+  `PlayerBulletSpeedPerTick`도 유지했다. 읽을 때는 유리수의 정수부(기본 34/51)를
+  반환하고, 이 속성에 직접 쓰면 분모 1인 정수 속도로 설정된다.
+- 주입된 RNG는 현재 소비하지 않으며 `Fork(2)` 전투 스트림으로 분리해 보관한다.
+  확산탄/드롭 추가 시 이 스트림 아래에서 용도별로 다시 분기한다.
+
+**구현 내용**
+
+- 입력 클램프, 정수 이동/화면 경계 클램프, 발사 쿨다운, 단조 증가 탄 ID,
+  탄 전진 및 화면 밖 컬링을 구현했다.
+- 탄은 스폰 순서의 `List<BulletState>`로 유지하며 컬링 시 제자리 압축한다.
+  `Bullets`는 한 번 생성한 읽기 전용 뷰를 재사용하므로 틱마다 리스트를 할당하지 않는다.
+- 실행 중 외부에서 config를 바꿔 결정론을 흔들 수 없도록 생성 시 모든 값을 스냅샷한다.
+- `CreateDefault()`는 `GameData/player.json`의 `moveSpeed: 8.0`, `spawnX: -8.0`,
+  `spawnY: 0.0`, `maxBullets: 64`와 `weapons.json` 기본탄의
+  `fireIntervalTicks: 8`, `projectileSpeed: 12.0`을 근거로 했다.
+
+**검증:** 동일 입력 180틱을 두 시뮬레이션에 적용해 매 틱 플레이어 상태와 전체 탄
+궤적/ID/순서가 같음을 비교하는 테스트를 포함했다. 분수 속도 누적, 쿨다운, 경계 클램프,
+컬링 순서, 읽기 전용 목록 재사용도 테스트했다. `Tools/CoreStandalone`의
+`dotnet test`: **52/52 통과**.
+
+**통합 메모:** Core 타입과 중복되는
+`Assets/Scripts/Presentation/_TempCoreSimStub/`은 CLAUDE가 Presentation 브랜치에서
+삭제해야 Unity 컴파일이 정상화된다.
 
 ---
 
