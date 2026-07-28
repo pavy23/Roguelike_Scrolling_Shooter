@@ -228,6 +228,7 @@ namespace Shmup.Core.Tests
                 BulletState right = actual.Bullets[i];
                 Assert.AreEqual(left.Id, right.Id, $"input {tick}, bullet {i}");
                 Assert.AreEqual(left.Faction, right.Faction, $"input {tick}, bullet {i}");
+                Assert.AreEqual(left.Kind, right.Kind, $"input {tick}, bullet {i}");
                 Assert.AreEqual(left.X, right.X, $"input {tick}, bullet {i}");
                 Assert.AreEqual(left.Y, right.Y, $"input {tick}, bullet {i}");
             }
