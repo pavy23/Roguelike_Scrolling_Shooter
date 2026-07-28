@@ -1,0 +1,297 @@
+#!/usr/bin/env python3
+"""ArtGen — AI 아트 생성 파이프라인 (ART-DIRECTION.md v2, ROADMAP M1).
+
+생성(gpt-image-2 / PixelLab) → 후처리(트림·최근접 다운스케일·알파 경화·팔레트 양자화)
+→ art-input/ 배치까지. 프롬프트·시드·파라미터는 커밋해 재현 가능하게 유지한다 (AGENTS.md).
+
+사용 예:
+  python artgen.py openai  --prompt "..." --out out/raw/ship.png [--n 2] [--model gpt-image-2]
+  python artgen.py pixen   --prompt "..." --width 24 --height 24 --seed 7 --out out/raw/zako.png
+  python artgen.py animate --first out/raw/boom0.png --action "exploding fireball" \
+                           --frames 8 --out-dir out/raw/expl
+  python artgen.py post    --src out/raw/ship.png --target 48x30 --colors 48 \
+                           --out ../../../art-input/player_ship.png
+  python artgen.py sheet   --src-dir out/raw/expl --out out/final/fx_explosion_m.png
+
+환경변수: OPENAI_API_KEY, PIXELLAB_API_KEY
+"""
+import argparse
+import base64
+import json
+import os
+import sys
+import time
+import urllib.request
+from pathlib import Path
+
+from PIL import Image
+
+OPENAI_URL = "https://api.openai.com/v1/images/generations"
+PIXELLAB_BASE = "https://api.pixellab.ai/v2"
+
+
+def _post_json(url: str, payload: dict, token: str, timeout: int = 300) -> dict:
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise SystemExit(f"HTTP {e.code} from {url}\n{body}") from e
+
+
+def _get_json(url: str, token: str, timeout: int = 60) -> dict:
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _wait_background_job(job_id: str, token: str, max_wait: int = 600) -> dict:
+    """PixelLab 비동기 작업(/background-jobs/{id})을 완료까지 폴링한다."""
+    deadline = time.monotonic() + max_wait
+    while True:
+        result = _get_json(f"{PIXELLAB_BASE}/background-jobs/{job_id}", token)
+        status = str(result.get("status", "")).lower()
+        if status in ("completed", "complete", "succeeded", "done", "finished"):
+            return result
+        if status in ("failed", "error", "cancelled"):
+            raise SystemExit(f"작업 실패: {json.dumps(result)[:2000]}")
+        if time.monotonic() > deadline:
+            raise SystemExit(f"작업 타임아웃({max_wait}s): job_id={job_id}")
+        print(f"  job {job_id[:8]}… {status or 'processing'}", flush=True)
+        time.sleep(8)
+
+
+def _require_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise SystemExit(f"환경변수 {name} 가 없다.")
+    return value
+
+
+def _find_b64_images(node) -> list:
+    """응답 JSON 어디에 있든 base64 이미지 문자열을 수집한다 (스키마 변화에 관대하게)."""
+    found = []
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in ("b64_json", "base64", "image_b64") and isinstance(value, str):
+                found.append(value)
+            else:
+                found.extend(_find_b64_images(value))
+    elif isinstance(node, list):
+        for item in node:
+            found.extend(_find_b64_images(item))
+    return found
+
+
+def _save_b64_png(b64: str, path: Path) -> None:
+    if "," in b64 and b64.split(",", 1)[0].startswith("data:"):
+        b64 = b64.split(",", 1)[1]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(base64.b64decode(b64))
+    print(f"saved: {path}")
+
+
+def _b64_of(path: Path) -> str:
+    return base64.b64encode(path.read_bytes()).decode("ascii")
+
+
+def cmd_openai(args) -> None:
+    token = _require_env("OPENAI_API_KEY")
+    payload = {
+        "model": args.model,
+        "prompt": args.prompt,
+        "size": args.size,
+        "background": "transparent",
+        "output_format": "png",
+        "n": args.n,
+    }
+    if args.quality:
+        payload["quality"] = args.quality
+    result = _post_json(OPENAI_URL, payload, token, timeout=600)
+    images = _find_b64_images(result)
+    if not images:
+        raise SystemExit(f"이미지가 응답에 없다:\n{json.dumps(result)[:2000]}")
+    out = Path(args.out)
+    for i, b64 in enumerate(images):
+        target = out if len(images) == 1 else out.with_name(f"{out.stem}_{i}{out.suffix}")
+        _save_b64_png(b64, target)
+
+
+def cmd_pixen(args) -> None:
+    token = _require_env("PIXELLAB_API_KEY")
+    payload = {
+        "description": args.prompt,
+        "image_size": {"width": args.width, "height": args.height},
+        "no_background": True,
+    }
+    if args.seed is not None:
+        payload["seed"] = args.seed
+    result = _post_json(f"{PIXELLAB_BASE}/create-image-pixen", payload, token)
+    images = _find_b64_images(result)
+    if not images:
+        raise SystemExit(f"이미지가 응답에 없다:\n{json.dumps(result)[:2000]}")
+    _save_b64_png(images[0], Path(args.out))
+
+
+def cmd_animate(args) -> None:
+    token = _require_env("PIXELLAB_API_KEY")
+    payload = {
+        "first_frame": {"type": "base64", "base64": _b64_of(Path(args.first))},
+        "action": args.action,
+        "frame_count": args.frames,
+        "no_background": True,
+    }
+    if args.seed is not None:
+        payload["seed"] = args.seed
+    result = _post_json(f"{PIXELLAB_BASE}/animate-with-text-v3", payload, token)
+    if result.get("background_job_id"):
+        result = _wait_background_job(result["background_job_id"], token)
+    images = _find_b64_images(result)
+    # first_frame을 에코할 수 있으니 요청 프레임 수보다 많으면 앞에서 자른다.
+    if not images:
+        raise SystemExit(f"프레임이 응답에 없다:\n{json.dumps(result)[:2000]}")
+    out_dir = Path(args.out_dir)
+    for i, b64 in enumerate(images):
+        _save_b64_png(b64, out_dir / f"frame_{i:02d}.png")
+
+
+def cmd_pixelart(args) -> None:
+    """고해상 원본(gpt-image 등)을 PixelLab image-to-pixelart로 네이티브 픽셀 해상도로 변환."""
+    token = _require_env("PIXELLAB_API_KEY")
+    src = Image.open(args.src).convert("RGBA")
+    if max(src.size) > 256:  # 입력 상한 대비 축소
+        scale = 256 / max(src.size)
+        src = src.resize((max(1, round(src.width * scale)), max(1, round(src.height * scale))), Image.LANCZOS)
+    buffer = Path(args.src).with_suffix(".tmp256.png")
+    src.save(buffer)
+    width, height = (int(v) for v in args.target.lower().split("x"))
+    payload = {
+        "image": {"type": "base64", "base64": _b64_of(buffer)},
+        "image_size": {"width": src.width, "height": src.height},
+        "output_size": {"width": width, "height": height},
+    }
+    if args.seed is not None:
+        payload["seed"] = args.seed
+    result = _post_json(f"{PIXELLAB_BASE}/image-to-pixelart", payload, token)
+    buffer.unlink(missing_ok=True)
+    if result.get("background_job_id"):
+        result = _wait_background_job(result["background_job_id"], token)
+    images = _find_b64_images(result)
+    if not images:
+        raise SystemExit(f"이미지가 응답에 없다:\n{json.dumps(result)[:2000]}")
+    _save_b64_png(images[0], Path(args.out))
+
+
+def _quantize(img: Image.Image, colors: int) -> Image.Image:
+    """알파를 이진화(하드 픽셀 경계)하고 불투명 픽셀만 지정 색수로 양자화한다."""
+    img = img.convert("RGBA")
+    alpha = img.getchannel("A").point(lambda a: 255 if a >= 128 else 0)
+    rgb = img.convert("RGB").quantize(colors=colors, method=Image.MEDIANCUT, dither=Image.Dither.NONE)
+    result = rgb.convert("RGB").convert("RGBA")
+    result.putalpha(alpha)
+    return result
+
+
+def cmd_post(args) -> None:
+    src = Image.open(args.src).convert("RGBA")
+
+    bbox = src.getchannel("A").getbbox()
+    if bbox and not args.no_trim:
+        src = src.crop(bbox)
+
+    width, height = (int(v) for v in args.target.lower().split("x"))
+    scale = min(width / src.width, height / src.height)
+    new_size = (max(1, round(src.width * scale)), max(1, round(src.height * scale)))
+    resized = src.resize(new_size, Image.NEAREST)
+
+    canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    canvas.paste(resized, ((width - new_size[0]) // 2, (height - new_size[1]) // 2))
+
+    final = _quantize(canvas, args.colors)
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    final.save(out)
+    used = len({p for p in final.getdata() if p[3] > 0})
+    print(f"saved: {out} ({width}x{height}, opaque colors={used})")
+
+
+def cmd_sheet(args) -> None:
+    frames = sorted(Path(args.src_dir).glob("*.png"))
+    if not frames:
+        raise SystemExit(f"{args.src_dir} 에 png가 없다.")
+    images = [Image.open(f).convert("RGBA") for f in frames]
+    cell_w = max(i.width for i in images)
+    cell_h = max(i.height for i in images)
+    sheet = Image.new("RGBA", (cell_w * len(images), cell_h), (0, 0, 0, 0))
+    for i, img in enumerate(images):
+        sheet.paste(img, (i * cell_w + (cell_w - img.width) // 2, (cell_h - img.height) // 2))
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if args.colors:
+        sheet = _quantize(sheet, args.colors)
+    sheet.save(out)
+    print(f"saved: {out} ({len(images)} frames, cell {cell_w}x{cell_h})")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("openai", help="gpt-image-2로 대형/키프레임 생성 (투명 배경)")
+    p.add_argument("--prompt", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument("--model", default="gpt-image-2")
+    p.add_argument("--size", default="1024x1024")
+    p.add_argument("--quality", default="high")
+    p.add_argument("--n", type=int, default=1)
+    p.set_defaults(func=cmd_openai)
+
+    p = sub.add_parser("pixen", help="PixelLab pixen으로 네이티브 저해상도 스프라이트 생성")
+    p.add_argument("--prompt", required=True)
+    p.add_argument("--width", type=int, required=True)
+    p.add_argument("--height", type=int, required=True)
+    p.add_argument("--seed", type=int, default=None)
+    p.add_argument("--out", required=True)
+    p.set_defaults(func=cmd_pixen)
+
+    p = sub.add_parser("animate", help="PixelLab animate-with-text-v3로 프레임 생성")
+    p.add_argument("--first", required=True, help="첫 프레임 PNG (max 256x256)")
+    p.add_argument("--action", required=True)
+    p.add_argument("--frames", type=int, default=8, help="4-16 짝수")
+    p.add_argument("--seed", type=int, default=None)
+    p.add_argument("--out-dir", required=True)
+    p.set_defaults(func=cmd_animate)
+
+    p = sub.add_parser("pixelart", help="고해상 원본을 PixelLab image-to-pixelart로 네이티브 픽셀화")
+    p.add_argument("--src", required=True)
+    p.add_argument("--target", required=True, help="예: 48x30")
+    p.add_argument("--seed", type=int, default=None)
+    p.add_argument("--out", required=True)
+    p.set_defaults(func=cmd_pixelart)
+
+    p = sub.add_parser("post", help="트림→최근접 다운스케일→알파 경화→팔레트 양자화")
+    p.add_argument("--src", required=True)
+    p.add_argument("--target", required=True, help="예: 48x30")
+    p.add_argument("--colors", type=int, default=48)
+    p.add_argument("--no-trim", action="store_true")
+    p.add_argument("--out", required=True)
+    p.set_defaults(func=cmd_post)
+
+    p = sub.add_parser("sheet", help="프레임 폴더 → 가로 스트립 시트")
+    p.add_argument("--src-dir", required=True)
+    p.add_argument("--colors", type=int, default=None)
+    p.add_argument("--out", required=True)
+    p.set_defaults(func=cmd_sheet)
+
+    args = parser.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()
