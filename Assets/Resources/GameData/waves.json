@@ -875,6 +875,317 @@
           "y": 0
         }
       ]
+    },
+    {
+      "id": "seg_fortress_sentry_grid",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "lengthTicks": 900,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        6
+      ],
+      "spawns": [
+        {
+          "tick": 30,
+          "enemyId": "turret_ground",
+          "y": -9.75
+        },
+        {
+          "tick": 40,
+          "enemyId": "sentry_drone",
+          "y": 4
+        },
+        {
+          "tick": 40,
+          "enemyId": "sentry_drone",
+          "y": 0
+        },
+        {
+          "tick": 90,
+          "enemyId": "interceptor_rush",
+          "y": 3.25
+        },
+        {
+          "tick": 100,
+          "enemyId": "interceptor_rush",
+          "y": -1.5
+        },
+        {
+          "tick": 160,
+          "enemyId": "sentry_drone",
+          "y": 5.5
+        },
+        {
+          "tick": 160,
+          "enemyId": "sentry_drone",
+          "y": 1.5
+        },
+        {
+          "tick": 200,
+          "enemyId": "turret_ceiling",
+          "y": 9.75
+        },
+        {
+          "tick": 240,
+          "enemyId": "interceptor_rush",
+          "y": 4.75
+        },
+        {
+          "tick": 250,
+          "enemyId": "interceptor_rush",
+          "y": 0
+        },
+        {
+          "tick": 260,
+          "enemyId": "interceptor_rush",
+          "y": -3.25
+        },
+        {
+          "tick": 320,
+          "enemyId": "sentry_drone",
+          "y": 2.5
+        },
+        {
+          "tick": 320,
+          "enemyId": "sentry_drone",
+          "y": -2.5
+        },
+        {
+          "tick": 380,
+          "enemyId": "turret_ground",
+          "y": -9.75
+        },
+        {
+          "tick": 420,
+          "enemyId": "zako_straight",
+          "y": 4
+        },
+        {
+          "tick": 440,
+          "enemyId": "zako_straight",
+          "y": 1.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "sentry_drone",
+          "y": 4.75
+        },
+        {
+          "tick": 500,
+          "enemyId": "sentry_drone",
+          "y": 0.75
+        },
+        {
+          "tick": 560,
+          "enemyId": "interceptor_rush",
+          "y": 3.25
+        },
+        {
+          "tick": 570,
+          "enemyId": "interceptor_rush",
+          "y": -1.5
+        },
+        {
+          "tick": 640,
+          "enemyId": "turret_ceiling",
+          "y": 9.75
+        },
+        {
+          "tick": 680,
+          "enemyId": "sentry_drone",
+          "y": 3.25
+        },
+        {
+          "tick": 720,
+          "enemyId": "elite_sine",
+          "y": 2.5
+        },
+        {
+          "tick": 780,
+          "enemyId": "interceptor_rush",
+          "y": 5.5
+        },
+        {
+          "tick": 790,
+          "enemyId": "interceptor_rush",
+          "y": 0
+        }
+      ]
+    },
+    {
+      "id": "seg_fortress_interceptor_assault",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "lengthTicks": 780,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        2
+      ],
+      "spawns": [
+        {
+          "tick": 20,
+          "enemyId": "turret_ground",
+          "y": -9.75
+        },
+        {
+          "tick": 20,
+          "enemyId": "turret_ceiling",
+          "y": 9.75
+        },
+        {
+          "tick": 40,
+          "enemyId": "interceptor_rush",
+          "y": 4.75
+        },
+        {
+          "tick": 50,
+          "enemyId": "interceptor_rush",
+          "y": 1.5
+        },
+        {
+          "tick": 60,
+          "enemyId": "interceptor_rush",
+          "y": -1.5
+        },
+        {
+          "tick": 70,
+          "enemyId": "interceptor_rush",
+          "y": -4.75
+        },
+        {
+          "tick": 120,
+          "enemyId": "sentry_drone",
+          "y": 3.25
+        },
+        {
+          "tick": 120,
+          "enemyId": "sentry_drone",
+          "y": -3.25
+        },
+        {
+          "tick": 170,
+          "enemyId": "interceptor_rush",
+          "y": 4
+        },
+        {
+          "tick": 180,
+          "enemyId": "interceptor_rush",
+          "y": 0
+        },
+        {
+          "tick": 190,
+          "enemyId": "interceptor_rush",
+          "y": -4
+        },
+        {
+          "tick": 250,
+          "enemyId": "turret_ground",
+          "y": -9.75
+        },
+        {
+          "tick": 250,
+          "enemyId": "turret_ceiling",
+          "y": 9.75
+        },
+        {
+          "tick": 280,
+          "enemyId": "sentry_drone",
+          "y": 0
+        },
+        {
+          "tick": 320,
+          "enemyId": "interceptor_rush",
+          "y": 5.5
+        },
+        {
+          "tick": 330,
+          "enemyId": "interceptor_rush",
+          "y": 2.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "interceptor_rush",
+          "y": -2.5
+        },
+        {
+          "tick": 350,
+          "enemyId": "interceptor_rush",
+          "y": -5.5
+        },
+        {
+          "tick": 400,
+          "enemyId": "zako_fast",
+          "y": 1.5
+        },
+        {
+          "tick": 410,
+          "enemyId": "zako_fast",
+          "y": -1.5
+        },
+        {
+          "tick": 460,
+          "enemyId": "sentry_drone",
+          "y": 4
+        },
+        {
+          "tick": 460,
+          "enemyId": "sentry_drone",
+          "y": -4
+        },
+        {
+          "tick": 510,
+          "enemyId": "interceptor_rush",
+          "y": 3.25
+        },
+        {
+          "tick": 520,
+          "enemyId": "interceptor_rush",
+          "y": 0
+        },
+        {
+          "tick": 530,
+          "enemyId": "interceptor_rush",
+          "y": -3.25
+        },
+        {
+          "tick": 580,
+          "enemyId": "turret_ground",
+          "y": -9.75
+        },
+        {
+          "tick": 580,
+          "enemyId": "turret_ceiling",
+          "y": 9.75
+        },
+        {
+          "tick": 620,
+          "enemyId": "sentry_drone",
+          "y": 2.5
+        },
+        {
+          "tick": 620,
+          "enemyId": "sentry_drone",
+          "y": -2.5
+        },
+        {
+          "tick": 680,
+          "enemyId": "interceptor_rush",
+          "y": 4.75
+        },
+        {
+          "tick": 690,
+          "enemyId": "interceptor_rush",
+          "y": -4.75
+        },
+        {
+          "tick": 720,
+          "enemyId": "elite_sine",
+          "y": 0
+        }
+      ]
     }
   ],
   "bosses": [
@@ -908,6 +1219,22 @@
       "phases": [
         { "fireIntervalTicks": 48, "ways": 4, "bulletSpeed": 9.5 },
         { "fireIntervalTicks": 40, "ways": 5, "bulletSpeed": 10.5 }
+      ]
+    },
+    {
+      "id": "boss_fortress",
+      "stageIndexMin": 3,
+      "stageIndexMax": 99,
+      "difficultyMin": 1,
+      "difficultyMax": 5,
+      "entryLaneMask": 7,
+      "hp": 1600,
+      "halfWidth": 4.0,
+      "halfHeight": 3.0,
+      "holdX": 14.0,
+      "phases": [
+        { "fireIntervalTicks": 42, "ways": 5, "bulletSpeed": 10.0 },
+        { "fireIntervalTicks": 38, "ways": 6, "bulletSpeed": 11.0 }
       ]
     }
   ]

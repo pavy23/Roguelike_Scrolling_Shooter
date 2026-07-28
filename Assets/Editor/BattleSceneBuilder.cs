@@ -646,6 +646,7 @@ namespace Shmup.EditorTools
             }
             AddBossSprite("boss_stage1", bossSprite);
             AddBossSprite("boss_hive", LoadExternalSprite("boss_hive.png", "boss_hive"));
+            AddBossSprite("boss_fortress", LoadExternalSprite("boss_fortress.png", "boss_fortress"));
             SetStringArray(director, "_bossSpritePrefixes", bossPrefixes.ToArray());
             SetReferenceArray(director, "_bossSprites", bossSprites.ToArray());
 
@@ -688,6 +689,8 @@ namespace Shmup.EditorTools
             AddEnemySprite("elite", LoadExternalSprite("enemy_elite.png", "enemy_elite"));
             AddEnemySprite("spore", LoadExternalSprite("enemy_spore.png", "enemy_spore"));
             AddEnemySprite("lancer", LoadExternalSprite("enemy_lancer.png", "enemy_lancer"));
+            AddEnemySprite("sentry", LoadExternalSprite("enemy_sentry.png", "enemy_sentry"));
+            AddEnemySprite("interceptor", LoadExternalSprite("enemy_interceptor.png", "enemy_interceptor"));
             SetStringArray(director, "_enemySpritePrefixes", enemyTypePrefixes.ToArray());
             SetReferenceArray(director, "_enemySprites", enemyTypeSprites.ToArray());
 
@@ -705,6 +708,8 @@ namespace Shmup.EditorTools
             battleRoot.AddComponent<PauseScreen>();
             var bossIntro = battleRoot.AddComponent<BossIntro>();
             SetReference(director, "_bossIntro", bossIntro);
+            var scoreHud = battleRoot.AddComponent<ScoreHud>();
+            SetReference(scoreHud, "_director", director);
 
             CreateHud(director, hudSlotSprite, hudPipSprite);
             CreateBackground(director, starsFarSprite, starsNearSprite);
@@ -807,6 +812,8 @@ namespace Shmup.EditorTools
             if (scrapyard != null) themeRoots.Add(scrapyard);
             var hive = CreateThemeRoot(director, "Background_Hive", farSprite, nearSprite, "hive");
             if (hive != null) themeRoots.Add(hive);
+            var fortress = CreateThemeRoot(director, "Background_Fortress", farSprite, nearSprite, "fort");
+            if (fortress != null) themeRoots.Add(fortress);
 
             // 두 번째 이후 테마는 director의 ApplyStageTheme이 켤 때까지 꺼 둔다.
             for (int i = 1; i < themeRoots.Count; i++)

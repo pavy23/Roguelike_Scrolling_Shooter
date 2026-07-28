@@ -107,6 +107,7 @@ namespace Shmup.Presentation.Battle
         /// <summary>파워업 게이지 (Core/RunManager 소유). HUD가 읽어서 그린다. 재시작 시 승계 적용된 새 인스턴스로 바뀐다.</summary>
         public PowerUpGauge Gauge => _run?.PowerUpGauge;
 
+        public long TotalScore => _run?.TotalScore ?? 0;
         public int RunNumber => _run?.RunNumber ?? 0;
         public int StageIndex => _run?.StageIndex ?? 0;
         public int Difficulty => _run?.Difficulty ?? 0;

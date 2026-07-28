@@ -60,6 +60,9 @@ namespace Shmup.Presentation.Battle
                         normal = { textColor = new Color(1f, 0.3f, 0.3f, 1f) }
                     };
                 GUI.Label(new Rect(0, 0, Screen.width, Screen.height), "GAME OVER", _gameOverStyle);
+                GUI.Label(new Rect(0, Screen.height * 0.62f, Screen.width, _style.fontSize * 2),
+                    $"SCORE  {_director.TotalScore:D8}   (run {_director.RunNumber}, stage {_director.StageIndex})",
+                    new GUIStyle(_style) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold });
                 GUI.Label(new Rect(0, Screen.height * 0.68f, Screen.width, _style.fontSize * 2),
                     "[Enter] 재출격 (파워업 승계)   [R] 타이틀",
                     new GUIStyle(_style) { alignment = TextAnchor.MiddleCenter });
