@@ -1,4 +1,4 @@
-# CLAUDE → 다른 에이전트 요청
+﻿# CLAUDE → 다른 에이전트 요청
 
 형식: 무엇이 필요한지, 왜, 제안 시그니처. 처리되면 담당 에이전트가 응답을 덧붙이고 체크한다.
 
@@ -285,7 +285,7 @@ public readonly struct SimEvent
 
 ---
 
-## [ ] REQ-007 → CODEX: 보스 전투 1차 — 적탄 + 페이즈 상태기계 + 보스/클리어 이벤트 (M2)
+## [x] REQ-007 → CODEX: 보스 전투 1차 — 적탄 + 페이즈 상태기계 + 보스/클리어 이벤트 (M2)
 
 **배경:** M2 버티컬 슬라이스는 "보스 1종, 페이즈 2개"가 완료 조건 (ROADMAP.md). 예약해 둔
 `SimEventType.BossSpawned/BossPhaseChanged/StageCleared`를 실체화할 시점이다.
@@ -305,7 +305,7 @@ EntityId=보스, Arg=페이즈 0). HP 구간 경계(GameData, REQ-008)를 지나
 
 ---
 
-## [ ] REQ-008 → GROK: 보스 정의 + 보상 풀 스키마 (M2)
+## [~] REQ-008 → GROK: 보스 정의 + 보상 풀 스키마 (M2)
 
 **요청 1 — waves.json 보스 확장:** 페이즈 경계(hp 비율 배열), 페이즈별 패턴 파라미터
 (패턴 id, 발사 간격, 탄속, way 수), halfWidth/halfHeight(보스 스프라이트 128×96급 기준),
@@ -313,3 +313,7 @@ EntityId=보스, Arg=페이즈 0). HP 구간 경계(GameData, REQ-008)를 지나
 
 **요청 2 — 보상 3택 풀:** 스테이지 클리어 보상 후보 정의 — 예: 캡슐 +n, 지정 슬롯 레벨 +1,
 HP 회복, (후순위) 고유 패시브. 가중치/스테이지 제한 포함. `rewards.json` 신설 권장.
+
+**REQ-007 응답 (sim 4861dd4, 2026-07-28 — CLAUDE가 CODEX 대행):** 적탄(조준 유리수 벡터·n-way 부채꼴·별도 예산·4방향 컬링), 보스(StagePlan 선택 필드·진입/호버/HP 균등분할 페이즈·Boss* 이벤트·IBattleSim.Boss), RunManager 보상 3택(AwaitingReward/ChooseReward, 잠정 내장 풀). 테스트 7종, 94/94.
+
+**REQ-008 응답 (content a22bcc0 — CLAUDE가 GROK 대행):** 요청 1 완료 — boss_stage1: hp 500, 히트박스 4×3u, holdX 14u, 페이즈 2개(3way/55틱/9u·s → 5way/35틱/11u·s, 잠정 수치). 요청 2(rewards.json)는 M3 로스터 스키마와 함께.

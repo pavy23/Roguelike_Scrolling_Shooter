@@ -40,6 +40,8 @@ namespace Shmup.Presentation.Battle
         [SerializeField] SfxPlayer _sfx;
         [Tooltip("폭발 애니메이션 프레임 (M2). 비어 있으면 단일 스프라이트 확대+페이드 폴백.")]
         [SerializeField] Sprite[] _explosionFrames;
+        [SerializeField] Sprite _enemyShotSprite;
+        [SerializeField] SpriteRenderer _bossRenderer;
 
         [Header("Run")]
         [Tooltip("로그라이크 시드. 같은 시드 + 같은 입력 = 같은 결과 (AGENTS.md §4).")]
@@ -219,6 +221,38 @@ namespace Shmup.Presentation.Battle
             SyncEnemies();
             SyncCapsules();
             SyncShield();
+            SyncBoss();
+        }
+
+        Sprite SpriteForBulletKind(BulletKind kind)
+        {
+            if (kind == BulletKind.Missile && _missileSprite != null) return _missileSprite;
+            if (kind == BulletKind.EnemyShot && _enemyShotSprite != null) return _enemyShotSprite;
+            return _mainShotSprite;
+        }
+
+        void SyncBoss()
+        {
+            if (_bossRenderer == null) return;
+            bool active = _sim.BossActive;
+            if (_bossRenderer.enabled != active)
+                _bossRenderer.enabled = active;
+            if (active)
+                _bossRenderer.transform.localPosition = SimView.ToWorld(_sim.Boss.X, _sim.Boss.Y);
+        }
+
+        // ── 보상 선택 (RunManager AwaitingReward — RewardScreen이 소비) ─────────
+
+        public bool AwaitingReward => _run != null && _run.State == RunState.AwaitingReward;
+        public System.Collections.Generic.IReadOnlyList<RewardOption> RewardOptions
+            => _run?.RewardOptions;
+
+        public void ChooseReward(int index)
+        {
+            if (!AwaitingReward) return;
+            _run.ChooseReward(index);
+            RefreshBattle();
+            SyncViews();
         }
 
         /// <summary>DevCheats 오버레이용.</summary>
@@ -253,8 +287,7 @@ namespace Shmup.Presentation.Battle
                     // Kind는 Id 수명 동안 불변 — 획득 시 한 번만 스프라이트를 고른다.
                     var renderer = view.GetComponent<SpriteRenderer>();
                     if (renderer != null)
-                        renderer.sprite = bullet.Kind == BulletKind.Missile && _missileSprite != null
-                            ? _missileSprite : _mainShotSprite;
+                        renderer.sprite = SpriteForBulletKind(bullet.Kind);
                 }
 
                 view.localPosition = SimView.ToWorld(bullet.X, bullet.Y);

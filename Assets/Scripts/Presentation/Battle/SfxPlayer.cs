@@ -23,7 +23,7 @@ namespace Shmup.Presentation.Battle
         [SerializeField] float _laserVolume = 0.35f;
 
         // 이번 스텝에서 이미 재생한 클립 (틱당 1회 제한)
-        readonly bool[] _playedThisStep = new bool[8];
+        readonly bool[] _playedThisStep = new bool[10];
 
         public void PlayEvents(ReadOnlySpan<SimEvent> events)
         {
@@ -54,6 +54,15 @@ namespace Shmup.Presentation.Battle
                         break;
                     case SimEventType.PowerUpLevelChanged:
                         PlayOnce(6, _powerup, 1f);
+                        break;
+                    case SimEventType.BossSpawned:
+                        PlayOnce(7, _powerup, 0.7f);
+                        break;
+                    case SimEventType.BossPhaseChanged:
+                        PlayOnce(8, _hit, 1f);
+                        break;
+                    case SimEventType.StageCleared:
+                        PlayOnce(9, _powerup, 1f);
                         break;
                 }
             }

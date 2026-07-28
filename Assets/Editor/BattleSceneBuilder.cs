@@ -99,6 +99,26 @@ namespace Shmup.EditorTools
             ['L'] = new Color32(0xFF, 0xFF, 0xFF, 0xFF)
         };
 
+        // 적탄 6×6 오렌지 구체 (플레이스홀더 — REQ-007 적탄 뷰)
+        const string EnemyShotSpritePath = SpriteDir + "/enemy_shot.png";
+
+        static readonly string[] EnemyShotPixels =
+        {
+            ".OWWO.",
+            "OWCCWO",
+            "WCCCCW",
+            "WCCCCW",
+            "OWCCWO",
+            ".OWWO."
+        };
+
+        static readonly Dictionary<char, Color32> EnemyShotPalette = new Dictionary<char, Color32>
+        {
+            ['O'] = new Color32(0xB4, 0x2C, 0x14, 0xFF),
+            ['W'] = new Color32(0xFF, 0x78, 0x20, 0xFF),
+            ['C'] = new Color32(0xFF, 0xE0, 0xA0, 0xFF)
+        };
+
         // 파워업 캡슐 10×8 (그라디우스 오렌지 캡슐 오마주)
         const string CapsuleSpritePath = SpriteDir + "/capsule.png";
         const string CapsulePrefabPath = PrefabDir + "/Capsule.prefab";
@@ -331,6 +351,7 @@ namespace Shmup.EditorTools
                 var explosionPrefab = WriteSpritePrefab(ExplosionPrefabPath, "Explosion", explosionSprite, 20);
                 var whiteSprite = WritePixelSprite(WhiteSpritePath, WhitePixels, WhitePalette);
                 var missileSprite = WritePixelSprite(MissileSpritePath, MissilePixels, MissilePalette);
+                var enemyShotSprite = WritePixelSprite(EnemyShotSpritePath, EnemyShotPixels, EnemyShotPalette);
                 var optionSprite = WritePixelSprite(OptionSpritePath, OptionPixels, OptionPalette);
                 var optionPrefab = WriteSpritePrefab(OptionPrefabPath, "Option", optionSprite, 9);
                 var shieldSprite = WritePixelSprite(ShieldSpritePath, BuildShieldPixels(), ShieldPalette);
@@ -338,7 +359,7 @@ namespace Shmup.EditorTools
                 BuildScene(shipSprite, bulletPrefab, enemyPrefab, capsulePrefab, explosionPrefab,
                            whiteSprite, missileSprite, optionPrefab, shieldSprite,
                            hudSlotSprite, hudPipSprite, starsFarSprite, starsNearSprite,
-                           explosionFrames);
+                           explosionFrames, enemyShotSprite);
                 BuildTitleScene(starsFarSprite, starsNearSprite);
                 RegisterInBuildSettings();
 
@@ -513,7 +534,7 @@ namespace Shmup.EditorTools
 
         // ── 씬 ────────────────────────────────────────────────────────────────────
 
-        static void BuildScene(Sprite shipSprite, GameObject bulletPrefab, GameObject enemyPrefab, GameObject capsulePrefab, GameObject explosionPrefab, Sprite whiteSprite, Sprite missileSprite, GameObject optionPrefab, Sprite shieldSprite, Sprite hudSlotSprite, Sprite hudPipSprite, Sprite starsFarSprite, Sprite starsNearSprite, Sprite[] explosionFrames)
+        static void BuildScene(Sprite shipSprite, GameObject bulletPrefab, GameObject enemyPrefab, GameObject capsulePrefab, GameObject explosionPrefab, Sprite whiteSprite, Sprite missileSprite, GameObject optionPrefab, Sprite shieldSprite, Sprite hudSlotSprite, Sprite hudPipSprite, Sprite starsFarSprite, Sprite starsNearSprite, Sprite[] explosionFrames, Sprite enemyShotSprite)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -587,6 +608,25 @@ namespace Shmup.EditorTools
             SetReference(director, "_optionRoot", optionRoot.transform);
             SetReference(director, "_shieldView", shieldRenderer);
             SetReferenceArray(director, "_explosionFrames", explosionFrames);
+            SetReference(director, "_enemyShotSprite", enemyShotSprite);
+
+            // 보스 뷰 (REQ-007): 시뮬 BossActive일 때만 director가 렌더러를 켠다.
+            var bossSprite = LoadExternalSprite("boss_stage1.png", "boss_stage1");
+            var boss = new GameObject("Boss");
+            boss.transform.SetParent(battleRoot.transform, false);
+            var bossRenderer = boss.AddComponent<SpriteRenderer>();
+            bossRenderer.sprite = bossSprite != null ? bossSprite : shipSprite;
+            bossRenderer.sortingOrder = 15;
+            bossRenderer.enabled = false;
+            if (bossSprite == null)
+            {
+                boss.transform.localScale = Vector3.one * 4f;   // 외부 아트 없을 때 임시 확대
+                bossRenderer.color = new Color32(0xC8, 0x50, 0x50, 0xFF);
+            }
+            SetReference(director, "_bossRenderer", bossRenderer);
+
+            var rewardScreen = battleRoot.AddComponent<RewardScreen>();
+            SetReference(rewardScreen, "_director", director);
 
             CreateHud(director, hudSlotSprite, hudPipSprite);
             CreateBackground(director, starsFarSprite, starsNearSprite);
