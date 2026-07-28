@@ -153,6 +153,36 @@
       "halfHeight": 0.75,
       "amplitude": 0,
       "periodTicks": 1
+    },
+    {
+      "id": "sentry_drone",
+      "displayName": "Sentry Drone",
+      "hp": 22,
+      "contactDamage": 1,
+      "scoreValue": 250,
+      "movePattern": "static",
+      "moveSpeed": 0,
+      "fireIntervalTicks": 75,
+      "dropWeight": 3,
+      "halfWidth": 0.75,
+      "halfHeight": 0.75,
+      "amplitude": 0,
+      "periodTicks": 1
+    },
+    {
+      "id": "interceptor_rush",
+      "displayName": "Interceptor Rush",
+      "hp": 4,
+      "contactDamage": 1,
+      "scoreValue": 70,
+      "movePattern": "straight",
+      "moveSpeed": 10.5,
+      "fireIntervalTicks": 0,
+      "dropWeight": 2,
+      "halfWidth": 0.75,
+      "halfHeight": 0.75,
+      "amplitude": 0,
+      "periodTicks": 1
     }
   ]
 }
