@@ -562,7 +562,9 @@ namespace Shmup.Core.Simulation
                 {
                     int phase = (int)(((long)age * SineLut.Length
                         / definition.SinePeriodTicks) % SineLut.Length);
-                    long offset = (long)definition.SineAmplitude * SineLut[phase] / SineScale;
+                    long offset = (long)definition.SineAmplitudeNumerator
+                        * SineLut[phase]
+                        / ((long)definition.SineAmplitudeDenominator * SineScale);
                     y = SaturateToInt(_enemySpawnYs[index] + offset);
                 }
 
