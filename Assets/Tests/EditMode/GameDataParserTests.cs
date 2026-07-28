@@ -471,6 +471,36 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void Parse_AcceptsRunPassiveRewardTypes()
+        {
+            string[] names =
+            {
+                "fireRateUp",
+                "damageUp",
+                "moveSpeedUp"
+            };
+            RewardType[] expected =
+            {
+                RewardType.FireRateUp,
+                RewardType.DamageUp,
+                RewardType.MoveSpeedUp
+            };
+
+            for (int i = 0; i < names.Length; i++)
+            {
+                string json = RewardsJson.Replace(
+                    @"""type"": ""capsules""",
+                    @"""type"": """ + names[i] + @"""");
+                GameDataSet data = GameDataParser.Parse(
+                    EnemiesJson,
+                    WeaponsJson,
+                    WavesJson,
+                    json);
+                Assert.AreEqual(expected[i], data.Rewards.All[0].Type);
+            }
+        }
+
+        [Test]
         public void Parse_RejectsRewardOptionCountOtherThanThree()
         {
             string invalid = RewardsJson.Replace(

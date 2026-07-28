@@ -221,7 +221,9 @@ namespace Shmup.Core.Simulation
 
         public int PlayerBulletSpeedNumerator { get => _bulletSpeedNumerator; set => _bulletSpeedNumerator = value; }
         public int PlayerBulletSpeedDenominator { get => _bulletSpeedDenominator; set => _bulletSpeedDenominator = value; }
+        public int MainShotBaseDamage { get; set; }
         public int FireIntervalTicks { get; set; }
+        internal bool UseConfiguredMainShotStats { get; set; }
         public int MaxBullets { get; set; }
         public int PlayerMinX { get; set; }
         public int PlayerMaxX { get; set; }
@@ -523,8 +525,12 @@ namespace Shmup.Core.Simulation
                 WeaponDefinition weapon = content.PlayerWeapon;
                 _bulletSpeedNumerator = weapon.ProjectileSpeedNumerator;
                 _bulletSpeedDenominator = weapon.ProjectileSpeedDenominator;
-                _fireIntervalTicks = weapon.FireIntervalTicks;
-                _playerBulletDamage = weapon.BaseDamage;
+                _fireIntervalTicks = config.UseConfiguredMainShotStats
+                    ? config.FireIntervalTicks
+                    : weapon.FireIntervalTicks;
+                _playerBulletDamage = config.UseConfiguredMainShotStats
+                    ? config.MainShotBaseDamage
+                    : weapon.BaseDamage;
                 _playerBulletHalfWidth = weapon.ProjectileHalfWidth;
                 _playerBulletHalfHeight = weapon.ProjectileHalfHeight;
                 ValidateDropTotals(content, _capsuleNoDropWeight);
@@ -1419,6 +1425,8 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(config.PlayerBulletSpeedDenominator));
             if (config.FireIntervalTicks < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.FireIntervalTicks));
+            if (config.MainShotBaseDamage < 0)
+                throw new ArgumentOutOfRangeException(nameof(config.MainShotBaseDamage));
             if (config.MaxBullets < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.MaxBullets));
             if (config.MainShotRapidFireStartLevel < 1)

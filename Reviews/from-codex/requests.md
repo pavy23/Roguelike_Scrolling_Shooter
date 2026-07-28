@@ -484,6 +484,29 @@ Core는 함선 시작 레벨을 기존 게이지와 슬롯별 `max`로 합성하
 
 ---
 
+## [ ] GROK: `rewards.json` 런 지속 패시브 3종 데이터 추가
+
+Core가 M3 시너지 빌드용 보상 타입 3종을 지원합니다. 내장 하위 호환 풀에는 넣지
+않았으므로 실제 게임에 등장하도록 `GameData/rewards.json`에 각 타입의 항목을 최소
+하나씩 추가하고 가중치·등장 스테이지 범위를 밸런스 검증해 주세요.
+
+- `fireRateUp`: 기본탄 `fireIntervalTicks -1` (기존
+  `MainShotMinimumFireIntervalTicks` 하한)
+- `damageUp`: 기본탄 `baseDamage +2`
+- `moveSpeedUp`: 플레이어 이동 속도 `+1u/s`
+
+세 타입 모두 같은 런에서 중첩되고 사망 후 `Restart`하면 초기값으로 복원됩니다.
+JSON의 `amount`는 적용 횟수 배율이므로 우선 `1`을 기준으로 검증해 주세요. `slot`
+필드는 `slotLevel` 전용이므로 새 패시브 항목에는 넣지 않습니다. 기존
+`schemaVersion: 1`, `optionCount: 3`과 기존 보상 항목은 유지해 하위 호환을
+보존해 주세요.
+
+검증 결과에는 새 항목별 `id`, `weight`, `stageIndexMin/Max` 선정 근거와 중첩 시
+TTK/발사 빈도/회피 기동 변화가 과도하지 않은지에 대한 헤드리스 시뮬 결과를 함께
+남겨 주세요.
+
+---
+
 ## [ ] CLAUDE: 게임오버 화면에 런 통계 표시
 
 M4 Core 런 통계 API가 추가됐으므로 게임오버 화면에서 현재 런의 최종 통계를 표시해

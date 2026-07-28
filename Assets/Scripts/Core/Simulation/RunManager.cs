@@ -19,7 +19,10 @@ namespace Shmup.Core.Simulation
         /// <summary>지정 슬롯 레벨 +1 (최대치 클램프).</summary>
         SlotLevel = 1,
         /// <summary>런 최대 HP +1 — 다음 스테이지부터 적용.</summary>
-        RepairHp = 2
+        RepairHp = 2,
+        FireRateUp = 3,
+        DamageUp = 4,
+        MoveSpeedUp = 5
     }
 
     /// <summary>보상 후보 하나.</summary>
@@ -243,6 +246,10 @@ namespace Shmup.Core.Simulation
         readonly ShipDefinition _ship;
         readonly int[] _powerUpMaxLevels;
         readonly int _initialPlayerMaxHp;
+        readonly int _initialFireIntervalTicks;
+        readonly int _initialMainShotBaseDamage;
+        readonly int _initialPlayerSpeedNumerator;
+        readonly int _initialPlayerSpeedDenominator;
 
         ulong _runSeed;
         int _stageLengthTicks;
@@ -385,12 +392,21 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     $"RunManager requires exactly {RewardOptionCount} reward options.",
                     nameof(rewards));
+            _battleConfig.MainShotBaseDamage =
+                _battleContent.PlayerWeapon.BaseDamage;
+            _battleConfig.FireIntervalTicks =
+                _battleContent.PlayerWeapon.FireIntervalTicks;
+            _battleConfig.UseConfiguredMainShotStats = true;
             _initialPlayerMaxHp = _battleConfig.PlayerMaxHp;
 
             _powerUpMaxLevels = new int[PowerUpGauge.SlotCount];
             for (int i = 0; i < _powerUpMaxLevels.Length; i++)
                 _powerUpMaxLevels[i] = PowerUpGauge.GetMaxLevel((PowerUpSlot)i);
             ApplyShipSpeedMultiplier(_battleConfig, _ship);
+            _initialFireIntervalTicks = _battleConfig.FireIntervalTicks;
+            _initialMainShotBaseDamage = _battleConfig.MainShotBaseDamage;
+            _initialPlayerSpeedNumerator = _battleConfig.PlayerSpeedNumerator;
+            _initialPlayerSpeedDenominator = _battleConfig.PlayerSpeedDenominator;
             ApplyShipStartingLevels(PowerUpGauge);
 
             _runSeed = runSeed;
@@ -500,6 +516,21 @@ namespace Shmup.Core.Simulation
                 case RewardType.RepairHp:
                     _battleConfig.PlayerMaxHp += option.Amount;
                     break;
+                case RewardType.FireRateUp:
+                    _battleConfig.FireIntervalTicks = Math.Max(
+                        Math.Min(
+                            _battleConfig.FireIntervalTicks,
+                            _battleConfig.MainShotMinimumFireIntervalTicks),
+                        _battleConfig.FireIntervalTicks - option.Amount);
+                    break;
+                case RewardType.DamageUp:
+                    _battleConfig.MainShotBaseDamage = SaturatingAdd(
+                        _battleConfig.MainShotBaseDamage,
+                        2L * option.Amount);
+                    break;
+                case RewardType.MoveSpeedUp:
+                    AddMoveSpeed(_battleConfig, option.Amount);
+                    break;
                 default:
                     throw new InvalidOperationException($"Unknown reward type {option.Type}.");
             }
@@ -575,6 +606,10 @@ namespace Shmup.Core.Simulation
             _completedCapsulesCollected = 0;
             _stagesCleared = 0;
             _battleConfig.PlayerMaxHp = _initialPlayerMaxHp;
+            _battleConfig.FireIntervalTicks = _initialFireIntervalTicks;
+            _battleConfig.MainShotBaseDamage = _initialMainShotBaseDamage;
+            _battleConfig.PlayerSpeedNumerator = _initialPlayerSpeedNumerator;
+            _battleConfig.PlayerSpeedDenominator = _initialPlayerSpeedDenominator;
             PowerUpGauge = nextGauge;
             BuildCurrentStage();
         }
@@ -612,6 +647,69 @@ namespace Shmup.Core.Simulation
             return left > long.MaxValue - right
                 ? long.MaxValue
                 : left + right;
+        }
+
+        static int SaturatingAdd(int value, long amount)
+        {
+            long result = value + amount;
+            return result >= int.MaxValue ? int.MaxValue : (int)result;
+        }
+
+        static void AddMoveSpeed(BattleSimConfig config, int amount)
+        {
+            long bonusNumerator =
+                (long)amount * SimSpace.SubUnitsPerWorldUnit;
+            long bonusDenominator = SimSpace.TicksPerSecond;
+            long bonusDivisor = GreatestCommonDivisor(
+                bonusNumerator,
+                bonusDenominator);
+            bonusNumerator /= bonusDivisor;
+            bonusDenominator /= bonusDivisor;
+
+            long denominatorDivisor = GreatestCommonDivisor(
+                config.PlayerSpeedDenominator,
+                bonusDenominator);
+            long leftScale = bonusDenominator / denominatorDivisor;
+            long rightScale =
+                config.PlayerSpeedDenominator / denominatorDivisor;
+            if (!TryMultiply(config.PlayerSpeedNumerator, leftScale, out long left)
+                || !TryMultiply(bonusNumerator, rightScale, out long right)
+                || left > long.MaxValue - right
+                || !TryMultiply(
+                    config.PlayerSpeedDenominator,
+                    leftScale,
+                    out long denominator))
+            {
+                config.PlayerSpeedNumerator = int.MaxValue;
+                return;
+            }
+
+            long numerator = left + right;
+            long divisor = GreatestCommonDivisor(numerator, denominator);
+            numerator /= divisor;
+            denominator /= divisor;
+            if (denominator > int.MaxValue)
+            {
+                config.PlayerSpeedNumerator = int.MaxValue;
+                config.PlayerSpeedDenominator = 1;
+                return;
+            }
+
+            config.PlayerSpeedNumerator = numerator > int.MaxValue
+                ? int.MaxValue
+                : (int)numerator;
+            config.PlayerSpeedDenominator = (int)denominator;
+        }
+
+        static bool TryMultiply(long left, long right, out long result)
+        {
+            if (left != 0 && right > long.MaxValue / left)
+            {
+                result = 0;
+                return false;
+            }
+            result = left * right;
+            return true;
         }
 
         void BuildCurrentStage()
@@ -691,6 +789,17 @@ namespace Shmup.Core.Simulation
             while (right != 0)
             {
                 int remainder = left % right;
+                left = right;
+                right = remainder;
+            }
+            return left == 0 ? 1 : left;
+        }
+
+        static long GreatestCommonDivisor(long left, long right)
+        {
+            while (right != 0)
+            {
+                long remainder = left % right;
                 left = right;
                 right = remainder;
             }

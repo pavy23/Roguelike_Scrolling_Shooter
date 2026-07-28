@@ -16,7 +16,9 @@ namespace Shmup.Core
         {
             if (baseDamage < 0) throw new ArgumentOutOfRangeException(nameof(baseDamage));
             if (weaponLevel < 1) throw new ArgumentOutOfRangeException(nameof(weaponLevel));
-            return baseDamage * (100 + 50 * (weaponLevel - 1)) / 100;
+            long multiplier = 100L + 50L * (weaponLevel - 1);
+            long damage = (long)baseDamage * multiplier / 100;
+            return damage >= int.MaxValue ? int.MaxValue : (int)damage;
         }
 
         /// <summary>Remaining HP after taking damage, floored at 0. Negative damage is treated as 0.</summary>

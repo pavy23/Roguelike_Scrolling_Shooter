@@ -287,6 +287,9 @@ namespace Shmup.Core.Content
                 case "capsules": return RewardType.Capsules;
                 case "slotLevel": return RewardType.SlotLevel;
                 case "repairHp": return RewardType.RepairHp;
+                case "fireRateUp": return RewardType.FireRateUp;
+                case "damageUp": return RewardType.DamageUp;
+                case "moveSpeedUp": return RewardType.MoveSpeedUp;
                 default: throw Error(path, $"has unknown value '{value}'.");
             }
         }

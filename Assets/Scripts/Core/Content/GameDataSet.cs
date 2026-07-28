@@ -124,6 +124,7 @@ namespace Shmup.Core.Content
             var config = BattleSimConfig.CreateDefault();
             config.PlayerBulletSpeedNumerator = main.ProjectileSpeedNumerator;
             config.PlayerBulletSpeedDenominator = main.ProjectileSpeedDenominator;
+            config.MainShotBaseDamage = main.BaseDamage;
             config.FireIntervalTicks = main.FireIntervalTicks;
             config.CapsuleNoDropWeight = CapsuleNoDropWeight;
             config.ScrollSpeedNumerator = ScrollSpeedNumerator;
