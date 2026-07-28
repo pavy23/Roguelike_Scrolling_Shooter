@@ -71,6 +71,56 @@ namespace Shmup.EditorTools
             ['O'] = new Color32(0xFF, 0x9C, 0x28, 0xFF)
         };
 
+        // 적 16×12: 밝은 회백색으로 그려 두고 BattleDirector가 종류별로 틴트한다.
+        const string EnemySpritePath = SpriteDir + "/enemy.png";
+        const string EnemyPrefabPath = PrefabDir + "/Enemy.prefab";
+
+        static readonly string[] EnemyPixels =
+        {
+            "....OOOOOOOO....",
+            "..OOBBBBBBBBOO..",
+            ".OBBBBLLLLBBBBO.",
+            "OBBBLLBBBBLLBBBO",
+            "OBBLLBBBBBBLLBBO",
+            "OBBLBBBOOBBBLBBO",
+            "OBBLBBBOOBBBLBBO",
+            "OBBLLBBBBBBLLBBO",
+            "OBBBLLBBBBLLBBBO",
+            ".OBBBBLLLLBBBBO.",
+            "..OOBBBBBBBBOO..",
+            "....OOOOOOOO...."
+        };
+
+        static readonly Dictionary<char, Color32> EnemyPalette = new Dictionary<char, Color32>
+        {
+            ['O'] = new Color32(0x40, 0x40, 0x48, 0xFF),
+            ['B'] = new Color32(0xD8, 0xD8, 0xE0, 0xFF),
+            ['L'] = new Color32(0xFF, 0xFF, 0xFF, 0xFF)
+        };
+
+        // 파워업 캡슐 10×8 (그라디우스 오렌지 캡슐 오마주)
+        const string CapsuleSpritePath = SpriteDir + "/capsule.png";
+        const string CapsulePrefabPath = PrefabDir + "/Capsule.prefab";
+
+        static readonly string[] CapsulePixels =
+        {
+            "..OOOOOO..",
+            ".OWWWWWWO.",
+            "OWWCCCCWWO",
+            "OWCCWWCCWO",
+            "OWCCWWCCWO",
+            "OWWCCCCWWO",
+            ".OWWWWWWO.",
+            "..OOOOOO.."
+        };
+
+        static readonly Dictionary<char, Color32> CapsulePalette = new Dictionary<char, Color32>
+        {
+            ['O'] = new Color32(0x8C, 0x3A, 0x0A, 0xFF),
+            ['W'] = new Color32(0xFF, 0x9C, 0x28, 0xFF),
+            ['C'] = new Color32(0xFF, 0xE8, 0xB0, 0xFF)
+        };
+
         // HUD 슬롯 프레임 22×12: 'W' 테두리(런타임 틴트로 상태 표시), 'D' 반투명 내부
         const string HudSlotSpritePath = SpriteDir + "/hud_slot.png";
         const string HudPipSpritePath = SpriteDir + "/hud_pip.png";
@@ -153,8 +203,13 @@ namespace Shmup.EditorTools
                 var starsFarSprite = WritePixelSprite(StarsFarSpritePath, BuildStarPixels(9001, 110, false), StarsFarPalette);
                 var starsNearSprite = WritePixelSprite(StarsNearSpritePath, BuildStarPixels(4242, 45, true), StarsNearPalette);
                 var bulletPrefab = WriteBulletPrefab(bulletSprite);
+                var enemySprite = WritePixelSprite(EnemySpritePath, EnemyPixels, EnemyPalette);
+                var enemyPrefab = WriteSpritePrefab(EnemyPrefabPath, "Enemy", enemySprite, 8);
+                var capsuleSprite = WritePixelSprite(CapsuleSpritePath, CapsulePixels, CapsulePalette);
+                var capsulePrefab = WriteSpritePrefab(CapsulePrefabPath, "Capsule", capsuleSprite, 7);
 
-                BuildScene(shipSprite, bulletPrefab, hudSlotSprite, hudPipSprite, starsFarSprite, starsNearSprite);
+                BuildScene(shipSprite, bulletPrefab, enemyPrefab, capsulePrefab,
+                           hudSlotSprite, hudPipSprite, starsFarSprite, starsNearSprite);
                 RegisterInBuildSettings();
 
                 AssetDatabase.SaveAssets();
@@ -220,24 +275,27 @@ namespace Shmup.EditorTools
         // ── 프리팹 ────────────────────────────────────────────────────────────────
 
         static GameObject WriteBulletPrefab(Sprite sprite)
+            => WriteSpritePrefab(BulletPrefabPath, "Bullet", sprite, 5);
+
+        static GameObject WriteSpritePrefab(string prefabPath, string name, Sprite sprite, int sortingOrder)
         {
             Directory.CreateDirectory(PrefabDir);
 
-            var temp = new GameObject("Bullet");
+            var temp = new GameObject(name);
             var renderer = temp.AddComponent<SpriteRenderer>();
             renderer.sprite = sprite;
-            renderer.sortingOrder = 5;
+            renderer.sortingOrder = sortingOrder;
 
-            var prefab = PrefabUtility.SaveAsPrefabAsset(temp, BulletPrefabPath);
+            var prefab = PrefabUtility.SaveAsPrefabAsset(temp, prefabPath);
             UnityEngine.Object.DestroyImmediate(temp);
 
-            if (prefab == null) throw new InvalidOperationException($"{BulletPrefabPath} 저장 실패");
+            if (prefab == null) throw new InvalidOperationException($"{prefabPath} 저장 실패");
             return prefab;
         }
 
         // ── 씬 ────────────────────────────────────────────────────────────────────
 
-        static void BuildScene(Sprite shipSprite, GameObject bulletPrefab, Sprite hudSlotSprite, Sprite hudPipSprite, Sprite starsFarSprite, Sprite starsNearSprite)
+        static void BuildScene(Sprite shipSprite, GameObject bulletPrefab, GameObject enemyPrefab, GameObject capsulePrefab, Sprite hudSlotSprite, Sprite hudPipSprite, Sprite starsFarSprite, Sprite starsNearSprite)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -255,6 +313,12 @@ namespace Shmup.EditorTools
             var bulletRoot = new GameObject("Bullets");
             bulletRoot.transform.SetParent(battleRoot.transform, false);
 
+            var enemyRoot = new GameObject("Enemies");
+            enemyRoot.transform.SetParent(battleRoot.transform, false);
+
+            var capsuleRoot = new GameObject("Capsules");
+            capsuleRoot.transform.SetParent(battleRoot.transform, false);
+
             var inputReader = battleRoot.AddComponent<PlayerInputReader>();
             var director = battleRoot.AddComponent<BattleDirector>();
 
@@ -268,6 +332,10 @@ namespace Shmup.EditorTools
             SetReference(director, "_playerTransform", player.transform);
             SetReference(director, "_bulletPrefab", bulletPrefab);
             SetReference(director, "_bulletRoot", bulletRoot.transform);
+            SetReference(director, "_enemyPrefab", enemyPrefab);
+            SetReference(director, "_enemyRoot", enemyRoot.transform);
+            SetReference(director, "_capsulePrefab", capsulePrefab);
+            SetReference(director, "_capsuleRoot", capsuleRoot.transform);
 
             CreateHud(director, hudSlotSprite, hudPipSprite);
             CreateBackground(director, starsFarSprite, starsNearSprite);

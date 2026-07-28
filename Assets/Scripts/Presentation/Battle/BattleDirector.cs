@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Shmup.Core;
+using Shmup.Core.Generation;
 using Shmup.Core.Simulation;
 using UnityEngine;
 
@@ -24,6 +25,10 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Transform _playerTransform;
         [SerializeField] GameObject _bulletPrefab;
         [SerializeField] Transform _bulletRoot;
+        [SerializeField] GameObject _enemyPrefab;
+        [SerializeField] Transform _enemyRoot;
+        [SerializeField] GameObject _capsulePrefab;
+        [SerializeField] Transform _capsuleRoot;
 
         [Header("Run")]
         [Tooltip("로그라이크 시드. 같은 시드 + 같은 입력 = 같은 결과 (AGENTS.md §4).")]
@@ -31,11 +36,24 @@ namespace Shmup.Presentation.Battle
 
         IBattleSim _sim;
         SpritePool _bulletPool;
+        SpritePool _enemyPool;
+        SpritePool _capsulePool;
 
-        // 탄 Id → 뷰 인스턴스. Core가 주는 Id는 스폰~소멸까지 불변이라 매칭 키로 쓸 수 있다.
+        // Id → 뷰 인스턴스. Core가 주는 Id는 스폰~소멸까지 불변이라 매칭 키로 쓸 수 있다.
         readonly Dictionary<int, Transform> _bulletViews = new Dictionary<int, Transform>(64);
+        readonly Dictionary<int, Transform> _enemyViews = new Dictionary<int, Transform>(32);
+        readonly Dictionary<int, Transform> _capsuleViews = new Dictionary<int, Transform>(16);
+        readonly Dictionary<int, SpriteRenderer> _enemyRenderers = new Dictionary<int, SpriteRenderer>(32);
         readonly HashSet<int> _aliveIds = new HashSet<int>();
         readonly List<int> _retiredIds = new List<int>(16);
+
+        // 적 종류 구분용 틴트 (플레이스홀더 아트 한정 — 실제 스프라이트가 생기면 제거)
+        static readonly Color32[] EnemyTints =
+        {
+            new Color32(0xE8, 0x6A, 0x6A, 0xFF),   // zako_straight
+            new Color32(0xB4, 0x7A, 0xE8, 0xFF),   // zako_sine
+            new Color32(0x8C, 0x8C, 0x9C, 0xFF)    // turret_ground
+        };
 
         public int Tick => _sim?.Tick ?? 0;
         public int ActiveBulletViews => _bulletViews.Count;
@@ -50,6 +68,11 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         public PowerUpGauge Gauge { get; private set; }
 
+        /// <summary>서브유닛 ScrollX의 월드 단위 값. 배경 패럴랙스가 읽는다.</summary>
+        public float ScrollWorldX => _sim != null ? _sim.ScrollX * SimView.WorldUnitsPerSubUnit : 0f;
+
+        public int PlayerHp => _sim?.PlayerHp ?? 0;
+
         void Awake()
         {
             if (!ValidateWiring()) return;
@@ -57,12 +80,19 @@ namespace Shmup.Presentation.Battle
             Seed = DevArgs.OverrideSeed ?? _seed;
             Gauge = PowerUpGauge.CreateDefault();
 
-            var config = BattleSimConfig.CreateDefault();
-            _sim = new BattleSim(config, new Rng((ulong)Seed));
+            var config = TempStageContent.CreateConfig();
+            var rng = new Rng((ulong)Seed);
 
-            // 풀 용량은 Core가 허용하는 최대 탄 수와 정확히 같다 —
-            // 이러면 런타임에 풀이 부족해질 수 없다.
+            // 스테이지 생성 스트림(0)과 시뮬 스트림 분리 — 같은 시드에서 서로 안 흔들린다.
+            var stagePlan = new SegmentStageGenerator(TempStageContent.CreateCatalog())
+                .Generate((ulong)Seed, 1, 2);
+
+            _sim = new BattleSim(config, rng, stagePlan, TempStageContent.CreateContent(), Gauge);
+
+            // 풀 용량은 Core가 허용하는 최대 개수와 맞춘다 — 런타임에 풀이 부족해질 수 없다.
             _bulletPool = new SpritePool(_bulletPrefab, _bulletRoot, config.MaxBullets, "Bullet");
+            _enemyPool = new SpritePool(_enemyPrefab, _enemyRoot, 32, "Enemy");
+            _capsulePool = new SpritePool(_capsulePrefab, _capsuleRoot, 16, "Capsule");
 
             SyncViews();
         }
@@ -79,6 +109,13 @@ namespace Shmup.Presentation.Battle
         {
             _playerTransform.localPosition = SimView.ToWorld(_sim.PlayerX, _sim.PlayerY);
 
+            SyncBullets();
+            SyncEnemies();
+            SyncCapsules();
+        }
+
+        void SyncBullets()
+        {
             var bullets = _sim.Bullets;
             _aliveIds.Clear();
 
@@ -97,21 +134,85 @@ namespace Shmup.Presentation.Battle
                 view.localPosition = SimView.ToWorld(bullet.X, bullet.Y);
             }
 
-            ReleaseDeadViews();
+            ReleaseDeadViews(_bulletViews, _bulletPool);
         }
 
-        void ReleaseDeadViews()
+        void SyncEnemies()
+        {
+            var enemies = _sim.Enemies;
+            _aliveIds.Clear();
+
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                var enemy = enemies[i];
+                _aliveIds.Add(enemy.Id);
+
+                if (!_enemyViews.TryGetValue(enemy.Id, out var view))
+                {
+                    view = _enemyPool.Acquire();
+                    if (view == null) continue;
+                    _enemyViews.Add(enemy.Id, view);
+
+                    var renderer = view.GetComponent<SpriteRenderer>();
+                    _enemyRenderers[enemy.Id] = renderer;
+                    if (renderer != null)
+                        renderer.color = TintFor(enemy.DefinitionId);
+                }
+
+                view.localPosition = SimView.ToWorld(enemy.X, enemy.Y);
+            }
+
+            ReleaseDeadViews(_enemyViews, _enemyPool, _enemyRenderers);
+        }
+
+        void SyncCapsules()
+        {
+            var capsules = _sim.Capsules;
+            _aliveIds.Clear();
+
+            for (int i = 0; i < capsules.Count; i++)
+            {
+                var capsule = capsules[i];
+                _aliveIds.Add(capsule.Id);
+
+                if (!_capsuleViews.TryGetValue(capsule.Id, out var view))
+                {
+                    view = _capsulePool.Acquire();
+                    if (view == null) continue;
+                    _capsuleViews.Add(capsule.Id, view);
+                }
+
+                view.localPosition = SimView.ToWorld(capsule.X, capsule.Y);
+            }
+
+            ReleaseDeadViews(_capsuleViews, _capsulePool);
+        }
+
+        static Color32 TintFor(string definitionId)
+        {
+            // 결정론적 해시 → 팔레트. 임시 아트 한정: 종류가 눈에만 구분되면 된다.
+            int hash = 0;
+            for (int i = 0; i < definitionId.Length; i++)
+                hash = hash * 31 + definitionId[i];
+            return EnemyTints[(hash & 0x7FFFFFFF) % EnemyTints.Length];
+        }
+
+        void ReleaseDeadViews(
+            Dictionary<int, Transform> views,
+            SpritePool pool,
+            Dictionary<int, SpriteRenderer> renderers = null)
         {
             _retiredIds.Clear();
-            foreach (var pair in _bulletViews)
+            foreach (var pair in views)
                 if (!_aliveIds.Contains(pair.Key))
                     _retiredIds.Add(pair.Key);
 
             for (int i = 0; i < _retiredIds.Count; i++)
             {
                 int id = _retiredIds[i];
-                _bulletPool.Release(_bulletViews[id]);
-                _bulletViews.Remove(id);
+                pool.Release(views[id]);
+                views.Remove(id);
+                renderers?.Remove(id);
             }
         }
 
@@ -122,6 +223,10 @@ namespace Shmup.Presentation.Battle
             else if (_playerTransform == null) missing = nameof(_playerTransform);
             else if (_bulletPrefab == null) missing = nameof(_bulletPrefab);
             else if (_bulletRoot == null) missing = nameof(_bulletRoot);
+            else if (_enemyPrefab == null) missing = nameof(_enemyPrefab);
+            else if (_enemyRoot == null) missing = nameof(_enemyRoot);
+            else if (_capsulePrefab == null) missing = nameof(_capsulePrefab);
+            else if (_capsuleRoot == null) missing = nameof(_capsuleRoot);
 
             if (missing == null) return true;
 
