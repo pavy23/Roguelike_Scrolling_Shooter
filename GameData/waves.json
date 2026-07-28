@@ -1,11 +1,17 @@
 {
   "schemaVersion": 1,
+  "laneCount": 3,
+  "segmentsPerStage": 3,
+  "startLaneMask": 2,
   "segments": [
     {
       "id": "seg_intro_line",
       "difficultyMin": 1,
       "difficultyMax": 3,
       "lengthTicks": 600,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [7],
       "spawns": [
         { "tick": 60, "enemyId": "zako_straight", "y": 2.0 },
         { "tick": 90, "enemyId": "zako_straight", "y": 2.0 },
@@ -17,6 +23,9 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "lengthTicks": 600,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [2],
       "spawns": [
         { "tick": 60, "enemyId": "zako_sine", "y": 3.0 },
         { "tick": 60, "enemyId": "zako_sine", "y": -3.0 }
@@ -27,6 +36,9 @@
       "difficultyMin": 2,
       "difficultyMax": 5,
       "lengthTicks": 900,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [6],
       "spawns": [
         { "tick": 30, "enemyId": "turret_ground", "y": -5.5 },
         { "tick": 300, "enemyId": "turret_ground", "y": -5.5 }
@@ -34,6 +46,14 @@
     }
   ],
   "bosses": [
-    { "id": "boss_stage1", "stageIndex": 1, "hp": 500 }
+    {
+      "id": "boss_stage1",
+      "stageIndexMin": 1,
+      "stageIndexMax": 1,
+      "difficultyMin": 1,
+      "difficultyMax": 5,
+      "entryLaneMask": 7,
+      "hp": 500
+    }
   ]
 }
