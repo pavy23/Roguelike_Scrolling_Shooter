@@ -26,7 +26,9 @@
 .DS_Store
 Thumbs.db
 
-# Standalone test build output
+# Standalone test project: keep its csproj (the *.csproj rule above targets
+# Unity-generated project files at the repo root), ignore only build output
+!Tools/CoreStandalone/CoreStandalone.csproj
 Tools/CoreStandalone/bin/
 Tools/CoreStandalone/obj/
 
