@@ -209,6 +209,70 @@ namespace Shmup.Core.Tests
             }
         }
 
+        [Test]
+        public void ShipAppliesExactMovementMultiplierAndStartingLevels()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpeedNumerator = 3;
+            config.PlayerSpeedDenominator = 2;
+            var gauge = PowerUpGauge.CreateDefault();
+            gauge.ImportLevels(new[] { 1, 0, 0, 0 });
+            var ship = new ShipDefinition(
+                "swift",
+                "Swift",
+                4,
+                3,
+                new[] { 2, 1, 0, 0 },
+                100);
+            var manager = new RunManager(
+                91UL,
+                new TestStageGenerator(false, 5),
+                config,
+                CreateContent(),
+                gauge,
+                null,
+                ship);
+            var moveRight = new InputCommand(1, 0, false);
+
+            manager.Step(in moveRight);
+
+            Assert.AreSame(ship, manager.Ship);
+            Assert.AreEqual(2, manager.Battle.PlayerX);
+            CollectionAssert.AreEqual(
+                new[] { 2, 1, 0, 0 },
+                manager.PowerUpGauge.ExportLevels());
+        }
+
+        [Test]
+        public void RestartNeverDropsBelowShipStartingLevels()
+        {
+            var ship = new ShipDefinition(
+                "armed",
+                "Armed",
+                1,
+                1,
+                new[] { 2, 1, 0, 0 },
+                0);
+            var manager = new RunManager(
+                92UL,
+                new TestStageGenerator(true, 5),
+                CreateConfig(),
+                CreateContent(),
+                PowerUpGauge.CreateDefault(),
+                new MetaProgression(0.0),
+                StageDifficultyCurve.CreateDefault(),
+                null,
+                ship);
+            InputCommand none = InputCommand.None;
+
+            manager.Step(in none);
+            manager.Restart(93UL);
+
+            CollectionAssert.AreEqual(
+                new[] { 2, 1, 0, 0 },
+                manager.PowerUpGauge.ExportLevels());
+        }
+
         static RunManager CreateManager(
             ulong seed,
             IStageGenerator generator,

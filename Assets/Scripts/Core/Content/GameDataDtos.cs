@@ -213,6 +213,32 @@ namespace Shmup.Core.Content
         [DataMember]
         public int? stageIndexMax;
     }
+
+    [DataContract]
+    internal sealed class ShipsDto
+    {
+        [DataMember]
+        public int? schemaVersion;
+        [DataMember]
+        public ShipDto[] ships;
+    }
+
+    [DataContract]
+    internal sealed class ShipDto
+    {
+        [DataMember]
+        public string id;
+        [DataMember]
+        public string displayName;
+        [DataMember]
+        public int? moveSpeedMultiplierNumerator;
+        [DataMember]
+        public int? moveSpeedMultiplierDenominator;
+        [DataMember]
+        public int[] startingPowerUpLevels;
+        [DataMember]
+        public long? unlockCost;
+    }
 }
 
 #pragma warning restore CS0649
