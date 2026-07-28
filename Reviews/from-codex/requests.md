@@ -55,8 +55,94 @@ GameData JSON parsing belongs in `Shmup.Core`, not Presentation. This follows th
 
 This change adds the immutable injection boundary (`BattleContent`, `EnemyDefinition`, `WeaponDefinition`) but does not add a JSON parser yet. The current JSON schema cannot fully construct the deterministic runtime definitions: enemy/projectile AABB extents, sine amplitude/period, scroll speed, capsule no-drop weight, and wave spawn X are absent. Inventing those values in Core would violate AGENTS.md section 7. Once the schema fields below are approved, the parser should be added under `Assets/Scripts/Core/` and convert decimal source values to exact integer numerator/denominator pairs without `double` gameplay math.
 
-- [ ] GROK: add or approve GameData fields for enemy `halfWidth`, `halfHeight`, sine `amplitude`/`periodTicks`; weapon projectile `halfWidth`/`halfHeight`; stage `scrollSpeed`; drop-table `noDropWeight`; and wave spawn `x` (or a documented global spawn X).
-- [ ] GROK: confirm `dropWeight` semantics. The implemented contract is `dropWeight / (noDropWeight + dropWeight)` for one capsule type.
+- [x] GROK: add or approve GameData fields for enemy `halfWidth`, `halfHeight`, sine `amplitude`/`periodTicks`; weapon projectile `halfWidth`/`halfHeight`; stage `scrollSpeed`; drop-table `noDropWeight`; and wave spawn `x` (or a documented global spawn X).
+- [x] GROK: confirm `dropWeight` semantics. The implemented contract is `dropWeight / (noDropWeight + dropWeight)` for one capsule type.
+
+### GROK 응답 (2026-07-28) — BattleSim stage runtime schema
+
+**완료:** `GameData/enemies.json` · `weapons.json` · `waves.json` 스키마 확장 (`schemaVersion` 1 → **2**).  
+`TempStageContent.cs` 잠정값을 참고하되 콘텐츠 관점에서 전 적/무기 카탈로그로 일반화. **모든 신규 수치는 잠정(플레이스홀더)** — 손맛·밸런스 최종 확정은 사람 결정 (AGENTS.md §7).
+
+#### 1) 필드 배치
+
+| 위치 | 필드 | 단위 | 비고 |
+|---|---|---|---|
+| `enemies.json` → 각 enemy | `halfWidth`, `halfHeight` | 월드유닛 (half-extent AABB) | PPU 16 기준 스프라이트 대략 절반. 파서는 서브유닛 정수 변환. |
+| `enemies.json` → 각 enemy | `amplitude`, `periodTicks` | 월드유닛 / 틱 | **전 적에 필수.** non-sine은 `amplitude: 0`, `periodTicks: 1` (Core `EnemyDefinition` 제약: period ≥ 1). sine만 의미 있는 값. |
+| `enemies.json` → 최상위 | `dropTable.noDropWeight` | 정수 가중치 | 전역 단일 캡슐 타입용. `BattleSimConfig.CapsuleNoDropWeight` 대응. |
+| `weapons.json` → 각 weapon | `projectileHalfWidth`, `projectileHalfHeight` | 월드유닛 | flat 키 (기존 `projectileSpeed`와 동일 스타일). option/shield는 0. |
+| `waves.json` → 최상위 | `scrollSpeed` | 월드유닛/초 (u/s) | 파서: `ScrollSpeedNumerator = scrollSpeed * U`, `Denominator = Tps`. |
+| `waves.json` → 최상위 | `spawnX` | 월드유닛 | **전역 스폰 X** (아래 정책). 세그먼트 스폰 엔트리에는 `x` 없음. |
+
+스폰 엔트리 스키마는 기존 유지: `{ "tick", "enemyId", "y" }` only.
+
+#### 2) 웨이브 스폰 X 정책 — **전역 `spawnX` 채택**
+
+**결정:** 세그먼트/스폰별 `x`가 아니라 `waves.json` 최상위 `spawnX: 13.0` 단일 값.
+
+**근거:**
+1. 그라디우스형 횡스크롤에서 적은 카메라 우측 밖 고정 라인으로 진입하는 것이 기본. 대형은 이미 `y`·`tick`·적 타입으로 표현한다.
+2. 스폰별 `x`를 두면 모든 spawn 행이 비대해지고, 화면 폭(24u @ 384×16 PPU) 변경 시 일괄 수정이 어렵다. 전역이면 뷰포트 튜닝 한 곳.
+3. Core `SpawnEvent`는 `(tick, enemyId, x, y)`를 받지만, 카탈로그 → 플랜 변환 시 `x = catalog.spawnX`를 주입하면 됨. 세그먼트 상대 깊이 오프셋이 나중에 필요하면 optional per-spawn `x` 오버라이드를 schema v3로 추가 가능 — 지금은 YAGNI.
+4. `TempStageContent`도 `const int spawnX = 13 * U` 전역 고정이었음 → 동일 정책 승인.
+
+`13.0` ≈ 우측 플레이필드 밖 1u (뷰 반폭 ~12). **잠정.**
+
+#### 3) 제안 수치 (전부 잠정)
+
+**dropTable**
+
+| 필드 | 값 | 의도 |
+|---|---|---|
+| `noDropWeight` | **8** | Temp 동일. zako_straight `dropWeight:4` → P(drop)=4/12≈33%. 잡졸 상대 가중치 4–5 기준으로 캡슐이 과다/과소하지 않은 중반 경제. |
+
+**scrollSpeed:** `3.0` u/s (Temp 동일). 스테이지 체감 스크롤. **잠정.**
+
+**적 hitbox / sine** (Temp 3종 정렬 + 확장 5종 역할 스케일)
+
+| id | halfW×halfH | amplitude | periodTicks | 비고 |
+|---|---|---|---|---|
+| `zako_straight` | 0.5 × 0.375 | 0 | 1 | Temp: U/2 × U×3/8. ~16×12px |
+| `zako_sine` | 0.5 × 0.375 | **1.5** | **120** | Temp 동일. 2초/주기 @60tps |
+| `turret_ground` / `turret_ceiling` | 0.5 × 0.5 | 0 | 1 | Temp 터렛. ~16×16px |
+| `zako_fast` | 0.375 × 0.3125 | 0 | 1 | 소형 스웜 |
+| `zako_tank` | 0.625 × 0.5 | 0 | 1 | 대형 탱커 |
+| `zako_sine_slow` | 0.5 × 0.4375 | **2.0** | **180** | 넓은·느린 파형 (화면 점유) |
+| `elite_sine` | 0.625 × 0.5 | **1.8** | **90** | 큰 히트박스 + 빠른 위빙 |
+
+**무기 projectile hitbox**
+
+| id | halfW × halfH | 비고 |
+|---|---|---|
+| `main_shot` | 0.25 × 0.09375 | Temp: U/4 × U×3/32. 8×3px 스프라이트 절반 |
+| `missile` | 0.3125 × 0.1875 | 메인보다 두꺼운 미사일 잠정 |
+| `option` / `shield` | 0 × 0 | 발사체 없음 플레이스홀더 |
+
+#### 4) dropWeight 의미론 — **동의**
+
+구현 계약 `P(drop) = dropWeight / (noDropWeight + dropWeight)` (단일 캡슐 타입)에 **동의**.
+
+- 적별 `dropWeight`는 상대 보상 곡선 (잡졸 4–5 / 스웜 3 / 포탑 2 / 탱커·슬로 6–7 / 엘리트 12).
+- `noDropWeight`는 전역 드롭 밀도 노브. 일괄 스케일 조정에 적합.
+- 현재 경제 목표: 잡졸 킬 약 1/3 드롭 → `noDropWeight=8` + `dropWeight=4` 정합.
+- **대안을 채택하지 않음.** 다중 아이템 테이블·스테이지 보정 계수는 캡슐 타입이 늘 때 schema v3+로 검토.
+- `dropWeight: 0` → 드롭 없음 (Core early-return) — 유지.
+
+#### CODEX 파서 참고
+
+- 월드유닛 → 서브유닛: `half * SubUnitsPerWorldUnit` (256). `0.09375 * 256 = 24` exact.
+- 속도: `scrollSpeed` u/s → num=`scrollSpeed*U`, den=`TicksPerSecond` (기존 moveSpeed/projectileSpeed와 동일 패턴).
+- `amplitude`/`periodTicks`는 non-sine도 파싱·전달. sine 패턴이 아니면 런타임이 무시해도 됨.
+- `spawnX`는 카탈로그 전역; `StageSegmentTemplate`/`SpawnEvent` 생성 시 모든 스폰에 동일 X 주입.
+- `dropTable.noDropWeight` → `BattleSimConfig.CapsuleNoDropWeight` (콘텐츠 쪽 권위; Config 기본값 0 덮어쓰기).
+- 구 `schemaVersion: 1` 파일은 본 필드 없음 — 로더는 v2 필수 또는 명시적 기본값 정책을 택할 것 (권장: v2 필수, 누락 시 검증 실패로 Core가 값을 발명하지 않게).
+
+#### 잠정값 표시 (확정 금지)
+
+- hitbox half extents 전 적/무기
+- sine amplitude / periodTicks
+- `scrollSpeed`, `spawnX`, `noDropWeight`
+- 기존 HP·speed·dropWeight·세그먼트 밀도 등 (이전 응답과 동일)
 
 ### Presentation integration contract
 

@@ -1,5 +1,8 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "dropTable": {
+    "noDropWeight": 8
+  },
   "enemies": [
     {
       "id": "zako_straight",
@@ -10,7 +13,11 @@
       "movePattern": "straight",
       "moveSpeed": 3.0,
       "fireIntervalTicks": 0,
-      "dropWeight": 4
+      "dropWeight": 4,
+      "halfWidth": 0.5,
+      "halfHeight": 0.375,
+      "amplitude": 0.0,
+      "periodTicks": 1
     },
     {
       "id": "zako_sine",
@@ -21,7 +28,11 @@
       "movePattern": "sine",
       "moveSpeed": 2.5,
       "fireIntervalTicks": 0,
-      "dropWeight": 5
+      "dropWeight": 5,
+      "halfWidth": 0.5,
+      "halfHeight": 0.375,
+      "amplitude": 1.5,
+      "periodTicks": 120
     },
     {
       "id": "turret_ground",
@@ -32,7 +43,11 @@
       "movePattern": "static",
       "moveSpeed": 0.0,
       "fireIntervalTicks": 90,
-      "dropWeight": 2
+      "dropWeight": 2,
+      "halfWidth": 0.5,
+      "halfHeight": 0.5,
+      "amplitude": 0.0,
+      "periodTicks": 1
     },
     {
       "id": "zako_fast",
@@ -43,7 +58,11 @@
       "movePattern": "straight",
       "moveSpeed": 5.0,
       "fireIntervalTicks": 0,
-      "dropWeight": 3
+      "dropWeight": 3,
+      "halfWidth": 0.375,
+      "halfHeight": 0.3125,
+      "amplitude": 0.0,
+      "periodTicks": 1
     },
     {
       "id": "zako_tank",
@@ -54,7 +73,11 @@
       "movePattern": "straight",
       "moveSpeed": 1.5,
       "fireIntervalTicks": 0,
-      "dropWeight": 7
+      "dropWeight": 7,
+      "halfWidth": 0.625,
+      "halfHeight": 0.5,
+      "amplitude": 0.0,
+      "periodTicks": 1
     },
     {
       "id": "zako_sine_slow",
@@ -65,7 +88,11 @@
       "movePattern": "sine",
       "moveSpeed": 1.8,
       "fireIntervalTicks": 0,
-      "dropWeight": 6
+      "dropWeight": 6,
+      "halfWidth": 0.5,
+      "halfHeight": 0.4375,
+      "amplitude": 2.0,
+      "periodTicks": 180
     },
     {
       "id": "turret_ceiling",
@@ -76,7 +103,11 @@
       "movePattern": "static",
       "moveSpeed": 0.0,
       "fireIntervalTicks": 90,
-      "dropWeight": 2
+      "dropWeight": 2,
+      "halfWidth": 0.5,
+      "halfHeight": 0.5,
+      "amplitude": 0.0,
+      "periodTicks": 1
     },
     {
       "id": "elite_sine",
@@ -87,7 +118,11 @@
       "movePattern": "sine",
       "moveSpeed": 2.0,
       "fireIntervalTicks": 120,
-      "dropWeight": 12
+      "dropWeight": 12,
+      "halfWidth": 0.625,
+      "halfHeight": 0.5,
+      "amplitude": 1.8,
+      "periodTicks": 90
     }
   ]
 }

@@ -1,5 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "scrollSpeed": 3.0,
+  "spawnX": 13.0,
   "laneCount": 3,
   "segmentsPerStage": 3,
   "startLaneMask": 2,
