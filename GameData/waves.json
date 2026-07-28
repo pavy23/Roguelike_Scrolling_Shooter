@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "segments": [
+    {
+      "id": "seg_intro_line",
+      "difficultyMin": 1,
+      "difficultyMax": 3,
+      "lengthTicks": 600,
+      "spawns": [
+        { "tick": 60, "enemyId": "zako_straight", "y": 2.0 },
+        { "tick": 90, "enemyId": "zako_straight", "y": 2.0 },
+        { "tick": 120, "enemyId": "zako_straight", "y": 2.0 }
+      ]
+    },
+    {
+      "id": "seg_sine_pair",
+      "difficultyMin": 1,
+      "difficultyMax": 5,
+      "lengthTicks": 600,
+      "spawns": [
+        { "tick": 60, "enemyId": "zako_sine", "y": 3.0 },
+        { "tick": 60, "enemyId": "zako_sine", "y": -3.0 }
+      ]
+    },
+    {
+      "id": "seg_turret_floor",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "lengthTicks": 900,
+      "spawns": [
+        { "tick": 30, "enemyId": "turret_ground", "y": -5.5 },
+        { "tick": 300, "enemyId": "turret_ground", "y": -5.5 }
+      ]
+    }
+  ],
+  "bosses": [
+    { "id": "boss_stage1", "stageIndex": 1, "hp": 500 }
+  ]
+}

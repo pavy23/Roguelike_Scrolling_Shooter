@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "enemies": [
+    {
+      "id": "zako_straight",
+      "displayName": "Zako (Straight)",
+      "hp": 10,
+      "contactDamage": 1,
+      "scoreValue": 100,
+      "movePattern": "straight",
+      "moveSpeed": 3.0,
+      "fireIntervalTicks": 0,
+      "dropWeight": 3
+    },
+    {
+      "id": "zako_sine",
+      "displayName": "Zako (Sine Wave)",
+      "hp": 10,
+      "contactDamage": 1,
+      "scoreValue": 150,
+      "movePattern": "sine",
+      "moveSpeed": 2.5,
+      "fireIntervalTicks": 0,
+      "dropWeight": 3
+    },
+    {
+      "id": "turret_ground",
+      "displayName": "Ground Turret",
+      "hp": 30,
+      "contactDamage": 1,
+      "scoreValue": 300,
+      "movePattern": "static",
+      "moveSpeed": 0.0,
+      "fireIntervalTicks": 90,
+      "dropWeight": 1
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+    "name": "Shmup.Presentation",
+    "rootNamespace": "Shmup.Presentation",
+    "references": [
+        "Shmup.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
