@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text;
 using NUnit.Framework;
@@ -186,7 +187,13 @@ namespace Shmup.Core.Tests
 
         static string FindRepositoryRoot()
         {
-            var directory = new DirectoryInfo(TestContext.CurrentContext.WorkDirectory);
+            // Unity 내장 NUnit은 WorkDirectory를 채우지 않는다 — 그 경우 프로젝트 루트인
+            // CurrentDirectory에서 출발한다 (양쪽 러너 모두 상향 탐색으로 GameData를 찾는다).
+            string start = TestContext.CurrentContext?.WorkDirectory;
+            if (string.IsNullOrEmpty(start))
+                start = Environment.CurrentDirectory;
+
+            var directory = new DirectoryInfo(start);
             while (directory != null)
             {
                 if (File.Exists(Path.Combine(directory.FullName, "GameData", "waves.json")))

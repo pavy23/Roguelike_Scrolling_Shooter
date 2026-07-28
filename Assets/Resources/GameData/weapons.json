@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 2,
+  "weapons": [
+    {
+      "id": "main_shot",
+      "slot": "MainShot",
+      "baseDamage": 10,
+      "fireIntervalTicks": 8,
+      "projectileSpeed": 12.0,
+      "projectileHalfWidth": 0.25,
+      "projectileHalfHeight": 0.09375,
+      "maxLevel": 5
+    },
+    {
+      "id": "missile",
+      "slot": "Missile",
+      "baseDamage": 20,
+      "fireIntervalTicks": 30,
+      "projectileSpeed": 6.0,
+      "projectileHalfWidth": 0.3125,
+      "projectileHalfHeight": 0.1875,
+      "maxLevel": 3
+    },
+    {
+      "id": "option",
+      "slot": "Option",
+      "baseDamage": 0,
+      "fireIntervalTicks": 0,
+      "projectileSpeed": 0.0,
+      "projectileHalfWidth": 0.0,
+      "projectileHalfHeight": 0.0,
+      "maxLevel": 4
+    },
+    {
+      "id": "shield",
+      "slot": "Shield",
+      "baseDamage": 0,
+      "fireIntervalTicks": 0,
+      "projectileSpeed": 0.0,
+      "projectileHalfWidth": 0.0,
+      "projectileHalfHeight": 0.0,
+      "maxLevel": 3
+    }
+  ]
+}

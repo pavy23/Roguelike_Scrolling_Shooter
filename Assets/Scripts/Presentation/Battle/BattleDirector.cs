@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Shmup.Core;
+using Shmup.Core.Content;
 using Shmup.Core.Generation;
 using Shmup.Core.Simulation;
 using UnityEngine;
@@ -40,6 +41,9 @@ namespace Shmup.Presentation.Battle
         [Header("Run")]
         [Tooltip("로그라이크 시드. 같은 시드 + 같은 입력 = 같은 결과 (AGENTS.md §4).")]
         [SerializeField] long _seed = 1;
+
+        [Tooltip("개발용 잠정 난이도 — 세그먼트 카탈로그 게이트. 최종 곡선은 사람 결정 (AGENTS.md §7).")]
+        [SerializeField] int _difficulty = 3;
 
         IBattleSim _sim;
         SpritePool _bulletPool;
@@ -98,16 +102,28 @@ namespace Shmup.Presentation.Battle
             if (!ValidateWiring()) return;
 
             Seed = DevArgs.OverrideSeed ?? _seed;
-            Gauge = PowerUpGauge.CreateDefault();
 
-            var config = TempStageContent.CreateConfig();
+            // GameData JSON이 유일한 원본 (AGENTS.md §5). 씬 재생성 시 Resources로 복사되고,
+            // 파싱·단위 변환은 전부 Core(GameDataParser) 소관이다.
+            var data = GameDataParser.Parse(
+                LoadGameDataText("enemies"),
+                LoadGameDataText("weapons"),
+                LoadGameDataText("waves"));
+
+            Gauge = data.CreatePowerUpGauge();
+
+            var config = data.CreateBattleSimConfig();
+            // 스키마에 아직 없는 잠정값 (스키마 v3 후보 — GameData로 옮기면 이 블록 제거)
+            config.EnemyDespawnX = -14 * SimSpace.SubUnitsPerWorldUnit;
+            config.CapsuleHalfWidth = SimSpace.SubUnitsPerWorldUnit * 5 / 16;
+            config.CapsuleHalfHeight = SimSpace.SubUnitsPerWorldUnit / 4;
+            config.PlayerMaxHp = 3;
+
             var rng = new Rng((ulong)Seed);
+            var stagePlan = new SegmentStageGenerator(data.StageGeneration)
+                .Generate((ulong)Seed, 1, _difficulty);
 
-            // 스테이지 생성 스트림(0)과 시뮬 스트림 분리 — 같은 시드에서 서로 안 흔들린다.
-            var stagePlan = new SegmentStageGenerator(TempStageContent.CreateCatalog())
-                .Generate((ulong)Seed, 1, 2);
-
-            _sim = new BattleSim(config, rng, stagePlan, TempStageContent.CreateContent(), Gauge);
+            _sim = new BattleSim(config, rng, stagePlan, data.BattleContent, Gauge);
 
             // 풀 용량은 Core가 허용하는 최대 개수와 맞춘다 — 런타임에 풀이 부족해질 수 없다.
             _bulletPool = new SpritePool(_bulletPrefab, _bulletRoot, config.MaxBullets, "Bullet");
@@ -154,6 +170,16 @@ namespace Shmup.Presentation.Battle
 
         /// <summary>DevCheats 오버레이용.</summary>
         public int ShieldRemaining => _sim?.ShieldRemaining ?? 0;
+
+        static string LoadGameDataText(string name)
+        {
+            var asset = Resources.Load<TextAsset>("GameData/" + name);
+            if (asset == null)
+                throw new System.InvalidOperationException(
+                    $"Resources/GameData/{name} 를 찾을 수 없다. Tools → Shmup → Rebuild Battle Scene 으로 " +
+                    "GameData JSON 복사를 다시 실행해라.");
+            return asset.text;
+        }
 
         void SyncBullets()
         {

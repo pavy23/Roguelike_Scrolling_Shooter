@@ -225,6 +225,15 @@ namespace Shmup.EditorTools
             ['W'] = new Color32(0xFF, 0xFF, 0xFF, 0xFF)
         };
 
+        // HUD 슬롯 글자 아이콘 5×5 (S/M/O/B) — 프레임 안 중앙, 정적
+        static readonly string[][] HudIconPixels =
+        {
+            new[] { ".WWW", "W...", ".WW.", "...W", "WWW." },            // S (MainShot)
+            new[] { "W...W", "WW.WW", "W.W.W", "W...W", "W...W" },       // M (Missile)
+            new[] { ".WWW.", "W...W", "W...W", "W...W", ".WWW." },       // O (Option)
+            new[] { "WWW.", "W..W", "WWW.", "W..W", "WWW." }             // B (Barrier/Shield)
+        };
+
         // HUD 슬롯 프레임 22×12: 'W' 테두리(런타임 틴트로 상태 표시), 'D' 반투명 내부
         const string HudSlotSpritePath = SpriteDir + "/hud_slot.png";
         const string HudPipSpritePath = SpriteDir + "/hud_pip.png";
@@ -300,6 +309,8 @@ namespace Shmup.EditorTools
         {
             try
             {
+                CopyGameDataToResources();
+
                 var shipSprite = WritePixelSprite(ShipSpritePath, ShipPixels, ShipPalette);
                 var bulletSprite = WritePixelSprite(BulletSpritePath, BulletPixels, BulletPalette);
                 var hudSlotSprite = WritePixelSprite(HudSlotSpritePath, HudSlotPixels, HudPalette);
@@ -335,6 +346,28 @@ namespace Shmup.EditorTools
             }
 
             if (Application.isBatchMode) EditorApplication.Exit(0);
+        }
+
+        // ── GameData ─────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// GameData/*.json(저장소 원본, GROK 소유)을 Resources로 복사해 빌드에 포함시킨다.
+        /// 런타임은 이 사본을 읽고, 파싱은 Core(GameDataParser)가 한다. 원본 수정 후에는
+        /// 씬 재생성을 다시 돌려야 사본이 갱신된다.
+        /// </summary>
+        static void CopyGameDataToResources()
+        {
+            const string targetDir = "Assets/Resources/GameData";
+            string sourceDir = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "GameData"));
+            Directory.CreateDirectory(targetDir);
+
+            foreach (string source in Directory.GetFiles(sourceDir, "*.json"))
+            {
+                string target = $"{targetDir}/{Path.GetFileName(source)}";
+                File.Copy(source, target, true);
+                AssetDatabase.ImportAsset(target, ImportAssetOptions.ForceUpdate);
+            }
+            Debug.Log("[BattleSceneBuilder] GameData → Resources 복사 완료");
         }
 
         // ── 스프라이트 ────────────────────────────────────────────────────────────
@@ -612,6 +645,15 @@ namespace Shmup.EditorTools
                 frameRenderer.sprite = slotSprite;
                 frameRenderer.sortingOrder = 100;
                 slotFrames[slot] = frameRenderer;
+
+                // 슬롯 글자 아이콘 (S/M/O/B) — 프레임 중앙, 상태와 무관한 정적 표시
+                var icon = new GameObject($"Slot{slot}Icon");
+                icon.transform.SetParent(frame.transform, false);
+                var iconRenderer = icon.AddComponent<SpriteRenderer>();
+                iconRenderer.sprite = WritePixelSprite(
+                    $"{SpriteDir}/hud_icon_{slot}.png", HudIconPixels[slot], HudPalette);
+                iconRenderer.sortingOrder = 102;
+                iconRenderer.color = new Color32(0xC8, 0xD4, 0xE8, 0xFF);
 
                 for (int pip = 0; pip < PowerUpHudView.MaxPipsPerSlot; pip++)
                 {
