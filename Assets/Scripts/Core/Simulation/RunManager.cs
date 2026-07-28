@@ -218,6 +218,7 @@ namespace Shmup.Core.Simulation
 
         ulong _runSeed;
         int _stageLengthTicks;
+        long _completedStageScore;
 
         public RunManager(
             ulong runSeed,
@@ -320,6 +321,8 @@ namespace Shmup.Core.Simulation
         public int StageIndex { get; private set; }
         public RunState State { get; private set; }
         public ulong RunSeed => _runSeed;
+        /// <summary>Score earned across completed and current stages of this run.</summary>
+        public long TotalScore => checked(_completedStageScore + Battle.Score);
         public int Difficulty { get; private set; }
         public StagePlan StagePlan { get; private set; }
         public IBattleSim Battle { get; private set; }
@@ -455,6 +458,7 @@ namespace Shmup.Core.Simulation
             StageIndex = 1;
             State = RunState.Playing;
             _rewardOptions = Array.Empty<RewardOption>();
+            _completedStageScore = 0;
             _battleConfig.PlayerMaxHp = _initialPlayerMaxHp;
             PowerUpGauge = nextGauge;
             BuildCurrentStage();
@@ -464,6 +468,7 @@ namespace Shmup.Core.Simulation
         {
             if (StageIndex == int.MaxValue)
                 throw new InvalidOperationException("The stage counter is exhausted.");
+            _completedStageScore = TotalScore;
             StageIndex++;
             BuildCurrentStage();
         }

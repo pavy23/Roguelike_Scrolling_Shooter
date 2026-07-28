@@ -287,6 +287,8 @@ namespace Shmup.Core.Simulation
     public interface IBattleSim
     {
         int Tick { get; }
+        /// <summary>Score earned in this battle instance.</summary>
+        long Score { get; }
         long ScrollX { get; }
         int PlayerX { get; }
         int PlayerY { get; }
@@ -553,6 +555,7 @@ namespace Shmup.Core.Simulation
         }
 
         public int Tick { get; private set; }
+        public long Score { get; private set; }
         public long ScrollX => GetScrollXAtTick(Tick);
         public int PlayerX { get; private set; }
         public int PlayerY { get; private set; }
@@ -946,6 +949,7 @@ namespace Shmup.Core.Simulation
                 }
 
                 _bossDefeated = true;
+                Score = checked(Score + (long)_bossMaxHp * 2);
                 EmitEvent(SimEventType.EnemyKilled, _bossId, _bossX, _bossY, damage);
                 EmitEvent(SimEventType.StageCleared, _bossId, _bossX, _bossY, 0);
                 return;
@@ -1015,6 +1019,7 @@ namespace Shmup.Core.Simulation
 
                 EnemyDefinition definition = _enemyDefinitions[enemyIndex];
                 RemoveEnemyAt(enemyIndex);
+                Score = checked(Score + definition.ScoreValue);
                 EmitEvent(SimEventType.EnemyKilled, enemy.Id, enemy.X, enemy.Y, damage);
                 TryDropCapsule(definition, enemy.X, enemy.Y);
             }

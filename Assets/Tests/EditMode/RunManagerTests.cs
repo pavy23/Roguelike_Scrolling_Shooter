@@ -62,6 +62,29 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void StageTransitionsCarryAndAccumulateBattleScores()
+        {
+            var manager = new RunManager(
+                88UL,
+                new ScoreStageGenerator(false),
+                CreateConfig(),
+                CreateScoringContent(),
+                PowerUpGauge.CreateDefault());
+            var fire = new InputCommand(0, 0, true);
+
+            Step(manager, 2, in fire);
+
+            Assert.AreEqual(2, manager.StageIndex);
+            Assert.AreEqual(75L, manager.TotalScore);
+            Assert.AreEqual(0L, manager.Battle.Score);
+
+            Step(manager, 2, in fire);
+
+            Assert.AreEqual(3, manager.StageIndex);
+            Assert.AreEqual(150L, manager.TotalScore);
+        }
+
+        [Test]
         public void RestartAppliesInjectedDeathCarryAndBuildsFreshFirstStage()
         {
             var initialGauge = PowerUpGauge.CreateDefault();
@@ -89,6 +112,29 @@ namespace Shmup.Core.Tests
                 new[] { 2, 1, 2, 1 },
                 manager.PowerUpGauge.ExportLevels());
             AssertCall(generator.Calls[1], 44UL, 1, 1);
+        }
+
+        [Test]
+        public void RestartResetsTotalScore()
+        {
+            var manager = new RunManager(
+                89UL,
+                new ScoreStageGenerator(true),
+                CreateConfig(),
+                CreateScoringContent(),
+                PowerUpGauge.CreateDefault());
+            var fire = new InputCommand(0, 0, true);
+
+            Step(manager, 3, in fire);
+
+            Assert.AreEqual(RunState.RunOver, manager.State);
+            Assert.AreEqual(75L, manager.TotalScore);
+
+            manager.Restart(90UL);
+
+            Assert.AreEqual(RunState.Playing, manager.State);
+            Assert.AreEqual(0L, manager.TotalScore);
+            Assert.AreEqual(0L, manager.Battle.Score);
         }
 
         [Test]
@@ -221,6 +267,21 @@ namespace Shmup.Core.Tests
             return new BattleContent(new[] { enemy }, new[] { weapon }, weapon.Id);
         }
 
+        static BattleContent CreateScoringContent()
+        {
+            var scored = new EnemyDefinition(
+                "scored", "Scored", 1, 0, 75, EnemyMovePattern.Static,
+                0, 1, 0, 0, 0, 0, 0, 1, 1);
+            var lethal = new EnemyDefinition(
+                "lethal", "Lethal", 10, 1, 0, EnemyMovePattern.Static,
+                0, 1, 0, 0, 0, 0, 0, 1, 1);
+            var weapon = new WeaponDefinition("shot", 1, 1, 1, 1, 0, 0);
+            return new BattleContent(
+                new[] { scored, lethal },
+                new[] { weapon },
+                weapon.Id);
+        }
+
         static void Step(RunManager manager, int count, in InputCommand input)
         {
             for (int i = 0; i < count; i++)
@@ -247,6 +308,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(expected.StageIndex, actual.StageIndex, $"source tick {sourceTick}");
             Assert.AreEqual(expected.Difficulty, actual.Difficulty, $"source tick {sourceTick}");
             Assert.AreEqual(expected.State, actual.State, $"source tick {sourceTick}");
+            Assert.AreEqual(expected.TotalScore, actual.TotalScore, $"source tick {sourceTick}");
             Assert.AreEqual(expected.Battle.Tick, actual.Battle.Tick, $"source tick {sourceTick}");
             Assert.AreEqual(expected.Battle.PlayerX, actual.Battle.PlayerX, $"source tick {sourceTick}");
             Assert.AreEqual(expected.Battle.PlayerY, actual.Battle.PlayerY, $"source tick {sourceTick}");
@@ -257,6 +319,36 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual(expected.Battle.Options[i].Index, actual.Battle.Options[i].Index);
                 Assert.AreEqual(expected.Battle.Options[i].X, actual.Battle.Options[i].X);
                 Assert.AreEqual(expected.Battle.Options[i].Y, actual.Battle.Options[i].Y);
+            }
+        }
+
+        sealed class ScoreStageGenerator : IStageGenerator
+        {
+            readonly bool _lethal;
+
+            public ScoreStageGenerator(bool lethal)
+            {
+                _lethal = lethal;
+            }
+
+            public StagePlan Generate(ulong seed, int stageIndex, int difficulty)
+            {
+                SpawnEvent[] spawns = _lethal
+                    ? new[]
+                    {
+                        new SpawnEvent(0, "scored", 1, 0),
+                        new SpawnEvent(3, "lethal", 0, 0)
+                    }
+                    : new[] { new SpawnEvent(0, "scored", 1, 0) };
+                int lengthTicks = _lethal ? 4 : 2;
+                var segment = new StageSegment(
+                    "score",
+                    lengthTicks,
+                    spawns,
+                    1,
+                    1,
+                    new[] { 1 });
+                return new StagePlan(new[] { segment }, "boss", 1, 1, 1);
             }
         }
 

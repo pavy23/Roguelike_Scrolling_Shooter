@@ -92,6 +92,7 @@ namespace Shmup.Core.Tests
             Assert.Contains(SimEventType.StageCleared, seen);
             Assert.IsFalse(sim.BossActive);
             Assert.IsTrue(sim.BossDefeated);
+            Assert.AreEqual(40L, sim.Score);
         }
 
         [Test]

@@ -294,3 +294,14 @@ RunManager(
 ```
 
 **CLAUDE 응답 (2026-07-29):** 완료 — BattleDirector가 rewards를 4번째 인자로 파싱(TryLoad, 없으면 null 폴백)하고 RunManager에 data.Rewards 주입. Resources 복사는 기존 *.json 와일드카드가 rewards.json을 자동 포함.
+
+---
+
+## [ ] CLAUDE: 런 점수 HUD 표시
+
+Core 점수 시스템이 추가됐으므로 플레이 HUD에 현재 런의 누적 점수를 표시해 주세요.
+
+- 표시 값은 `RunManager.TotalScore` (`long`)를 사용해 매 프레임 또는 시뮬레이션 스텝 후 갱신합니다.
+- `IBattleSim.Score`는 현재 스테이지 전투 점수이며, HUD에서 직접 합산하지 않습니다. `TotalScore`가 완료 스테이지 점수와 현재 전투 점수를 이미 합산합니다.
+- 스테이지 전환 시 값은 유지되고, `RunManager.Restart` 후에는 0으로 표시되어야 합니다.
+- 제안 표시: 상단 HUD의 `SCORE 00000000` 형식. 자릿수를 넘으면 잘라내지 말고 전체 `long` 값을 표시합니다.

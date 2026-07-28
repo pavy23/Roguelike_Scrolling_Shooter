@@ -101,6 +101,39 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void PlayerBulletKills_AccumulateTargetDefinitionScoreValues()
+        {
+            EnemyDefinition first = Enemy(
+                "first",
+                EnemyMovePattern.Static,
+                scoreValue: 125);
+            EnemyDefinition second = Enemy(
+                "second",
+                EnemyMovePattern.Static,
+                scoreValue: 275);
+            BattleContent content = Content(
+                new WeaponDefinition("shot", 1, 1, 1, 1, 0, 0),
+                first,
+                second);
+            StagePlan plan = Plan(Segment(
+                "score",
+                10,
+                new SpawnEvent(0, first.Id, 1, 0),
+                new SpawnEvent(0, second.Id, 1, 0)));
+            var sim = CreateSim(plan, content, CreateConfig(), 31UL);
+            IBattleSim observable = sim;
+            var fire = new InputCommand(0, 0, true);
+
+            sim.Step(in fire);
+            sim.Step(in fire);
+            Assert.AreEqual(125L, observable.Score);
+
+            sim.Step(in fire);
+            Assert.AreEqual(400L, observable.Score);
+            Assert.AreEqual(0, sim.Enemies.Count);
+        }
+
+        [Test]
         public void EnemyPlayerAabbCollision_AppliesContactDamageAndConsumesEnemy()
         {
             EnemyDefinition enemy = Enemy(
@@ -269,6 +302,7 @@ namespace Shmup.Core.Tests
             EnemyMovePattern pattern,
             int hp = 1,
             int contactDamage = 0,
+            int scoreValue = 0,
             int speedNumerator = 0,
             int speedDenominator = 1,
             int dropWeight = 0,
@@ -277,15 +311,19 @@ namespace Shmup.Core.Tests
         {
             return new EnemyDefinition(
                 id,
+                id,
                 hp,
                 contactDamage,
+                scoreValue,
                 pattern,
                 speedNumerator,
                 speedDenominator,
                 0,
                 0,
+                0,
                 dropWeight,
                 sineAmplitude,
+                1,
                 sinePeriodTicks);
         }
 
@@ -336,6 +374,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(expected.PlayerX, actual.PlayerX, $"tick {tick}");
             Assert.AreEqual(expected.PlayerY, actual.PlayerY, $"tick {tick}");
             Assert.AreEqual(expected.PlayerHp, actual.PlayerHp, $"tick {tick}");
+            Assert.AreEqual(expected.Score, actual.Score, $"tick {tick}");
             Assert.AreEqual(expected.Bullets.Count, actual.Bullets.Count, $"tick {tick}");
             Assert.AreEqual(expected.Enemies.Count, actual.Enemies.Count, $"tick {tick}");
             Assert.AreEqual(expected.Capsules.Count, actual.Capsules.Count, $"tick {tick}");
