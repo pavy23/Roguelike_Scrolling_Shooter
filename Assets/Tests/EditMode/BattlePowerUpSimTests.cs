@@ -9,6 +9,12 @@ namespace Shmup.Core.Tests
     public class BattlePowerUpSimTests
     {
         [Test]
+        public void OptionFollowDelayDefaultsToTwelveTicks()
+        {
+            Assert.AreEqual(12, new BattleSimConfig().OptionFollowDelayTicks);
+        }
+
+        [Test]
         public void MainShotLevel_UsesDamageCurveAndReducesHighLevelFireInterval()
         {
             var gauge = Gauge(3, 0, 0, 0);
@@ -77,12 +83,11 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void OptionLevel_ExposesFollowingOffsetsAndMirrorsMainShotVolley()
+        public void OptionLevel_FollowsDelayedPlayerHistoryAndMirrorsMainShotVolley()
         {
             BattleSimConfig config = CreateConfig();
             config.PlayerSpeedPerTick = 2;
-            config.OptionOffsetXStep = -10;
-            config.OptionOffsetYStep = 3;
+            config.OptionFollowDelayTicks = 2;
             var sim = CreateSim(
                 config,
                 Gauge(0, 0, 2, 0),
@@ -92,20 +97,23 @@ namespace Shmup.Core.Tests
             IReadOnlyList<OptionState> options = sim.Options;
 
             Assert.AreEqual(2, options.Count);
-            AssertOption(options[0], 1, -10, 3);
-            AssertOption(options[1], 2, -20, 6);
+            AssertOption(options[0], 1, 0, 0);
+            AssertOption(options[1], 2, 0, 0);
 
-            var moveAndFire = new InputCommand(1, 1, true);
-            sim.Step(in moveAndFire);
+            Step(sim, 1, 0, false);
+            Step(sim, 1, 0, false);
+            Step(sim, 0, 1, false);
+            Step(sim, -1, 0, false);
+            Step(sim, -1, 0, true);
 
             Assert.AreSame(options, sim.Options);
             Assert.IsFalse(options is List<OptionState>);
-            AssertOption(options[0], 1, -8, 5);
-            AssertOption(options[1], 2, -18, 8);
+            AssertOption(options[0], 1, 4, 2);
+            AssertOption(options[1], 2, 2, 0);
             Assert.AreEqual(3, sim.Bullets.Count);
-            AssertBullet(sim.Bullets[0], BulletKind.MainShot, 2, 2);
-            AssertBullet(sim.Bullets[1], BulletKind.MainShot, -8, 5);
-            AssertBullet(sim.Bullets[2], BulletKind.MainShot, -18, 8);
+            AssertBullet(sim.Bullets[0], BulletKind.MainShot, 0, 2);
+            AssertBullet(sim.Bullets[1], BulletKind.MainShot, 4, 2);
+            AssertBullet(sim.Bullets[2], BulletKind.MainShot, 2, 0);
         }
 
         [Test]
@@ -163,8 +171,7 @@ namespace Shmup.Core.Tests
             config.MissileSpeedXDenominator = 2;
             config.MissileFallSpeedYNumerator = 3;
             config.MissileFallSpeedYDenominator = 2;
-            config.OptionOffsetXStep = -7;
-            config.OptionOffsetYStep = 2;
+            config.OptionFollowDelayTicks = 3;
             var first = CreateSim(
                 config, Gauge(4, 2, 2, 3), plan, content, 0xC0FFEEUL);
             var second = CreateSim(
@@ -308,6 +315,12 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(kind, bullet.Kind);
             Assert.AreEqual(x, bullet.X);
             Assert.AreEqual(y, bullet.Y);
+        }
+
+        static void Step(BattleSim sim, int moveX, int moveY, bool fire)
+        {
+            var input = new InputCommand(moveX, moveY, fire);
+            sim.Step(in input);
         }
 
         static void AssertStatesEqual(BattleSim expected, BattleSim actual, int tick)

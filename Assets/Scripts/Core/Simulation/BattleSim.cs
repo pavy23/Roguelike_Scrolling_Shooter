@@ -165,8 +165,11 @@ namespace Shmup.Core.Simulation
         public int MissileFallSpeedYDenominator { get; set; } = SimSpace.TicksPerSecond;
         public int MissileHalfWidth { get; set; } = SimSpace.SubUnitsPerWorldUnit / 4;
         public int MissileHalfHeight { get; set; } = SimSpace.SubUnitsPerWorldUnit / 8;
-        public int OptionOffsetXStep { get; set; } = -SimSpace.SubUnitsPerWorldUnit;
-        public int OptionOffsetYStep { get; set; }
+        /// <summary>
+        /// Player-position history distance between consecutive options.
+        /// Option N follows the position from N * OptionFollowDelayTicks ago.
+        /// </summary>
+        public int OptionFollowDelayTicks { get; set; } = 12;
 
         /// <summary>
         /// Defaults sourced from player.json, main_shot, and the 24 by 14 unit view.
@@ -194,6 +197,11 @@ namespace Shmup.Core.Simulation
                 PlayerHalfWidth = u / 4,
                 PlayerHalfHeight = u / 4
             };
+        }
+
+        internal BattleSimConfig Copy()
+        {
+            return (BattleSimConfig)MemberwiseClone();
         }
     }
 
@@ -240,7 +248,7 @@ namespace Shmup.Core.Simulation
         readonly int _missileSpeedXNumerator, _missileSpeedXDenominator;
         readonly int _missileFallSpeedYNumerator, _missileFallSpeedYDenominator;
         readonly int _missileHalfWidth, _missileHalfHeight;
-        readonly int _optionOffsetXStep, _optionOffsetYStep;
+        readonly int _optionFollowDelayTicks;
         readonly int _playerMinX, _playerMaxX, _playerMinY, _playerMaxY;
         readonly int _bulletDespawnX, _enemyDespawnX;
         readonly int _playerHalfWidth, _playerHalfHeight;
@@ -256,6 +264,8 @@ namespace Shmup.Core.Simulation
         readonly ReadOnlyCollection<BulletState> _readOnlyBullets;
         readonly List<OptionState> _options;
         readonly ReadOnlyCollection<OptionState> _readOnlyOptions;
+        readonly int[] _playerHistoryX;
+        readonly int[] _playerHistoryY;
         readonly List<EnemyState> _enemies;
         readonly List<EnemyDefinition> _enemyDefinitions;
         readonly List<int> _enemyXRemainders;
@@ -272,6 +282,8 @@ namespace Shmup.Core.Simulation
         int _nextEnemyId = 1;
         int _nextCapsuleId = 1;
         int _nextScheduledSpawn;
+        int _playerHistoryHead;
+        int _playerHistoryCount;
 
         /// <summary>Backward-compatible stage-less player movement and basic-shot simulation.</summary>
         public BattleSim(BattleSimConfig config, Rng rng)
@@ -324,8 +336,7 @@ namespace Shmup.Core.Simulation
             _missileFallSpeedYDenominator = config.MissileFallSpeedYDenominator;
             _missileHalfWidth = config.MissileHalfWidth;
             _missileHalfHeight = config.MissileHalfHeight;
-            _optionOffsetXStep = config.OptionOffsetXStep;
-            _optionOffsetYStep = config.OptionOffsetYStep;
+            _optionFollowDelayTicks = config.OptionFollowDelayTicks;
             _playerMinX = config.PlayerMinX;
             _playerMaxX = config.PlayerMaxX;
             _playerMinY = config.PlayerMinY;
@@ -371,6 +382,16 @@ namespace Shmup.Core.Simulation
             _readOnlyBullets = _bullets.AsReadOnly();
             _options = new List<OptionState>();
             _readOnlyOptions = _options.AsReadOnly();
+            int maxOptionLevel = powerUpGauge == null
+                ? 0
+                : powerUpGauge.GetMaxLevel(PowerUpSlot.Option);
+            long historyCapacity = (long)maxOptionLevel * _optionFollowDelayTicks + 1;
+            if (historyCapacity > int.MaxValue)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.OptionFollowDelayTicks),
+                    "Option history capacity exceeds the supported range.");
+            _playerHistoryX = new int[(int)historyCapacity];
+            _playerHistoryY = new int[(int)historyCapacity];
             _enemies = new List<EnemyState>();
             _enemyDefinitions = new List<EnemyDefinition>();
             _enemyXRemainders = new List<int>();
@@ -383,6 +404,7 @@ namespace Shmup.Core.Simulation
             PlayerX = config.PlayerSpawnX;
             PlayerY = config.PlayerSpawnY;
             PlayerHp = config.PlayerMaxHp;
+            RecordPlayerPosition();
             ReadPowerUpLevels();
             UpdateOptionPositions();
             SpawnScheduledThroughTick(0);
@@ -422,6 +444,7 @@ namespace Shmup.Core.Simulation
 
             PlayerX = AdvancePlayerAxis(PlayerX, input.MoveX, ref _playerXRemainder, _playerMinX, _playerMaxX);
             PlayerY = AdvancePlayerAxis(PlayerY, input.MoveY, ref _playerYRemainder, _playerMinY, _playerMaxY);
+            RecordPlayerPosition();
             ReadPowerUpLevels();
             UpdateOptionPositions();
             AdvanceBullets();
@@ -477,10 +500,32 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < _options.Count; i++)
             {
                 int index = i + 1;
-                int x = SaturateToInt(PlayerX + (long)_optionOffsetXStep * index);
-                int y = SaturateToInt(PlayerY + (long)_optionOffsetYStep * index);
+                GetPlayerPositionAgo(
+                    checked(index * _optionFollowDelayTicks),
+                    out int x,
+                    out int y);
                 _options[i] = new OptionState(index, x, y);
             }
+        }
+
+        void RecordPlayerPosition()
+        {
+            if (_playerHistoryCount > 0)
+                _playerHistoryHead = (_playerHistoryHead + 1) % _playerHistoryX.Length;
+            _playerHistoryX[_playerHistoryHead] = PlayerX;
+            _playerHistoryY[_playerHistoryHead] = PlayerY;
+            if (_playerHistoryCount < _playerHistoryX.Length)
+                _playerHistoryCount++;
+        }
+
+        void GetPlayerPositionAgo(int ticksAgo, out int x, out int y)
+        {
+            int availableTicksAgo = Math.Min(ticksAgo, _playerHistoryCount - 1);
+            int historyIndex = _playerHistoryHead - availableTicksAgo;
+            if (historyIndex < 0)
+                historyIndex += _playerHistoryX.Length;
+            x = _playerHistoryX[historyIndex];
+            y = _playerHistoryY[historyIndex];
         }
 
         int AdvancePlayerAxis(int position, int direction, ref int remainder, int min, int max)
@@ -888,6 +933,8 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(config.MissileFallSpeedYDenominator));
             if (config.MissileHalfWidth < 0 || config.MissileHalfHeight < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.MissileHalfWidth));
+            if (config.OptionFollowDelayTicks < 1)
+                throw new ArgumentOutOfRangeException(nameof(config.OptionFollowDelayTicks));
             if (config.PlayerMaxHp < 1)
                 throw new ArgumentOutOfRangeException(nameof(config.PlayerMaxHp));
             if (config.PlayerHalfWidth < 0 || config.PlayerHalfHeight < 0)
