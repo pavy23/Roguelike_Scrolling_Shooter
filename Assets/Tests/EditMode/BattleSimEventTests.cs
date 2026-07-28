@@ -27,6 +27,10 @@ namespace Shmup.Core.Tests
             InputCommand none = InputCommand.None;
 
             sim.Step(in fire);
+            SimEvent[] fireTick = sim.EventsThisTick.ToArray();
+            Assert.AreEqual(1, fireTick.Length);
+            Assert.AreEqual(SimEventType.PlayerFired, fireTick[0].Type);
+            Assert.AreEqual((int)BulletKind.MainShot, fireTick[0].Arg);
             sim.Step(in none);
             sim.Step(in none);
 

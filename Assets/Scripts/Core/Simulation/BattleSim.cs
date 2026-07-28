@@ -32,7 +32,9 @@ namespace Shmup.Core.Simulation
         PowerUpLevelChanged = 6,
         BossSpawned = 7,
         BossPhaseChanged = 8,
-        StageCleared = 9
+        StageCleared = 9,
+        /// <summary>Arg = (int)BulletKind. 발사음 SFX용 — 볼리당 1회.</summary>
+        PlayerFired = 10
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -836,6 +838,7 @@ namespace Shmup.Core.Simulation
             if (_nextBulletId == int.MaxValue)
                 throw new InvalidOperationException("The bullet id counter is exhausted.");
             SpawnBullet(BulletKind.MainShot, PlayerX, PlayerY);
+            EmitEvent(SimEventType.PlayerFired, 0, PlayerX, PlayerY, (int)BulletKind.MainShot);
             for (int i = 0; i < _options.Count && _bullets.Count < _maxBullets; i++)
                 SpawnBullet(BulletKind.MainShot, _options[i].X, _options[i].Y);
             _cooldown = ComputeReducedInterval(
@@ -849,6 +852,7 @@ namespace Shmup.Core.Simulation
         void SpawnMissile()
         {
             SpawnBullet(BulletKind.Missile, PlayerX, PlayerY);
+            EmitEvent(SimEventType.PlayerFired, 0, PlayerX, PlayerY, (int)BulletKind.Missile);
             _missileCooldown = ComputeReducedInterval(
                 _missileFireIntervalTicks,
                 _missileLevel,
