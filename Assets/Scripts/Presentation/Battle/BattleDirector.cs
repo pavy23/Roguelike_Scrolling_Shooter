@@ -32,6 +32,10 @@ namespace Shmup.Presentation.Battle
         [SerializeField] GameObject _explosionPrefab;
         [SerializeField] Transform _fxRoot;
         [SerializeField] SpriteRenderer _damageFlash;
+        [SerializeField] Sprite _missileSprite;
+        [SerializeField] GameObject _optionPrefab;
+        [SerializeField] Transform _optionRoot;
+        [SerializeField] SpriteRenderer _shieldView;
 
         [Header("Run")]
         [Tooltip("로그라이크 시드. 같은 시드 + 같은 입력 = 같은 결과 (AGENTS.md §4).")]
@@ -46,7 +50,10 @@ namespace Shmup.Presentation.Battle
         readonly Dictionary<int, Transform> _bulletViews = new Dictionary<int, Transform>(64);
         readonly Dictionary<int, Transform> _enemyViews = new Dictionary<int, Transform>(32);
         readonly Dictionary<int, Transform> _capsuleViews = new Dictionary<int, Transform>(16);
+        readonly Dictionary<int, Transform> _optionViews = new Dictionary<int, Transform>(4);
         readonly Dictionary<int, SpriteRenderer> _enemyRenderers = new Dictionary<int, SpriteRenderer>(32);
+        SpritePool _optionPool;
+        Sprite _mainShotSprite;   // Awake에서 탄 프리팹 원본 스프라이트 캡처
         readonly HashSet<int> _aliveIds = new HashSet<int>();
         readonly List<int> _retiredIds = new List<int>(16);
 
@@ -107,9 +114,15 @@ namespace Shmup.Presentation.Battle
             _enemyPool = new SpritePool(_enemyPrefab, _enemyRoot, 32, "Enemy");
             _capsulePool = new SpritePool(_capsulePrefab, _capsuleRoot, 16, "Capsule");
             _fxPool = new SpritePool(_explosionPrefab, _fxRoot, 16, "Explosion");
+            _optionPool = new SpritePool(_optionPrefab, _optionRoot, 4, "Option");
+
+            var bulletPrefabRenderer = _bulletPrefab.GetComponent<SpriteRenderer>();
+            _mainShotSprite = bulletPrefabRenderer != null ? bulletPrefabRenderer.sprite : null;
 
             if (_damageFlash != null)
                 _damageFlash.color = new Color(1f, 0.2f, 0.2f, 0f);
+            if (_shieldView != null)
+                _shieldView.enabled = false;
 
             SyncViews();
         }
@@ -133,9 +146,14 @@ namespace Shmup.Presentation.Battle
             _playerTransform.localPosition = SimView.ToWorld(_sim.PlayerX, _sim.PlayerY);
 
             SyncBullets();
+            SyncOptions();
             SyncEnemies();
             SyncCapsules();
+            SyncShield();
         }
+
+        /// <summary>DevCheats 오버레이용.</summary>
+        public int ShieldRemaining => _sim?.ShieldRemaining ?? 0;
 
         void SyncBullets()
         {
@@ -152,12 +170,54 @@ namespace Shmup.Presentation.Battle
                     view = _bulletPool.Acquire();
                     if (view == null) continue;   // 풀 소진 — 경고는 풀이 이미 냈다
                     _bulletViews.Add(bullet.Id, view);
+
+                    // Kind는 Id 수명 동안 불변 — 획득 시 한 번만 스프라이트를 고른다.
+                    var renderer = view.GetComponent<SpriteRenderer>();
+                    if (renderer != null)
+                        renderer.sprite = bullet.Kind == BulletKind.Missile && _missileSprite != null
+                            ? _missileSprite : _mainShotSprite;
                 }
 
                 view.localPosition = SimView.ToWorld(bullet.X, bullet.Y);
             }
 
             ReleaseDeadViews(_bulletViews, _bulletPool);
+        }
+
+        void SyncOptions()
+        {
+            var options = _sim.Options;
+            _aliveIds.Clear();
+
+            for (int i = 0; i < options.Count; i++)
+            {
+                var option = options[i];
+                _aliveIds.Add(option.Index);
+
+                if (!_optionViews.TryGetValue(option.Index, out var view))
+                {
+                    view = _optionPool.Acquire();
+                    if (view == null) continue;
+                    _optionViews.Add(option.Index, view);
+                }
+
+                view.localPosition = SimView.ToWorld(option.X, option.Y);
+            }
+
+            ReleaseDeadViews(_optionViews, _optionPool);
+        }
+
+        void SyncShield()
+        {
+            if (_shieldView == null) return;
+            int remaining = _sim.ShieldRemaining;
+            _shieldView.enabled = remaining > 0;
+            if (remaining > 0)
+            {
+                var c = _shieldView.color;
+                c.a = 0.25f + 0.15f * Mathf.Min(remaining, 3);
+                _shieldView.color = c;
+            }
         }
 
         void SyncEnemies()
@@ -323,6 +383,8 @@ namespace Shmup.Presentation.Battle
             else if (_enemyRoot == null) missing = nameof(_enemyRoot);
             else if (_capsulePrefab == null) missing = nameof(_capsulePrefab);
             else if (_capsuleRoot == null) missing = nameof(_capsuleRoot);
+            else if (_optionPrefab == null) missing = nameof(_optionPrefab);
+            else if (_optionRoot == null) missing = nameof(_optionRoot);
 
             if (missing == null) return true;
 

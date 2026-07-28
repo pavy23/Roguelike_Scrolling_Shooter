@@ -149,6 +149,74 @@ namespace Shmup.EditorTools
             ['O'] = new Color32(0xB4, 0x3C, 0x14, 0xFF)
         };
 
+        // 미사일 10×4 (전방 하강탄 — BulletKind.Missile 뷰)
+        const string MissileSpritePath = SpriteDir + "/missile.png";
+
+        static readonly string[] MissilePixels =
+        {
+            "..OOOOOOO.",
+            "OWWWWWWWFO",
+            "..OOOOOOO.",
+            ".....F...."
+        };
+
+        static readonly Dictionary<char, Color32> MissilePalette = new Dictionary<char, Color32>
+        {
+            ['W'] = new Color32(0xC8, 0xD0, 0xDC, 0xFF),
+            ['O'] = new Color32(0x50, 0x5C, 0x70, 0xFF),
+            ['F'] = new Color32(0xFF, 0xA0, 0x30, 0xFF)
+        };
+
+        // 옵션 8×8 주황 구체 (그라디우스 오마주)
+        const string OptionSpritePath = SpriteDir + "/option.png";
+        const string OptionPrefabPath = PrefabDir + "/Option.prefab";
+
+        static readonly string[] OptionPixels =
+        {
+            "..OOOO..",
+            ".OWWWWO.",
+            "OWWCCWWO",
+            "OWCCCCWO",
+            "OWCCCCWO",
+            "OWWCCWWO",
+            ".OWWWWO.",
+            "..OOOO.."
+        };
+
+        static readonly Dictionary<char, Color32> OptionPalette = new Dictionary<char, Color32>
+        {
+            ['O'] = new Color32(0x8C, 0x2A, 0x0A, 0xFF),
+            ['W'] = new Color32(0xFF, 0x78, 0x20, 0xFF),
+            ['C'] = new Color32(0xFF, 0xD0, 0x80, 0xFF)
+        };
+
+        // 실드 링 20×20 (플레이어 자식, 알파는 런타임 조절)
+        const string ShieldSpritePath = SpriteDir + "/shield.png";
+
+        static string[] BuildShieldPixels()
+        {
+            const int size = 20;
+            const float outer = 9.5f, inner = 7.5f;
+            var rows = new string[size];
+            for (int y = 0; y < size; y++)
+            {
+                var row = new char[size];
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = x - (size - 1) / 2f, dy = y - (size - 1) / 2f;
+                    float d = Mathf.Sqrt(dx * dx + dy * dy);
+                    row[x] = d <= outer && d >= inner ? 'W' : '.';
+                }
+                rows[y] = new string(row);
+            }
+            return rows;
+        }
+
+        static readonly Dictionary<char, Color32> ShieldPalette = new Dictionary<char, Color32>
+        {
+            ['W'] = new Color32(0x6A, 0xC8, 0xFF, 0xFF)
+        };
+
         // 피격 플래시용 흰색 타일 (풀스크린으로 스케일해 알파만 조절)
         const string WhiteSpritePath = SpriteDir + "/px_white.png";
         static readonly string[] WhitePixels = { "WW", "WW" };
@@ -246,9 +314,14 @@ namespace Shmup.EditorTools
                 var explosionSprite = WritePixelSprite(ExplosionSpritePath, ExplosionPixels, ExplosionPalette);
                 var explosionPrefab = WriteSpritePrefab(ExplosionPrefabPath, "Explosion", explosionSprite, 20);
                 var whiteSprite = WritePixelSprite(WhiteSpritePath, WhitePixels, WhitePalette);
+                var missileSprite = WritePixelSprite(MissileSpritePath, MissilePixels, MissilePalette);
+                var optionSprite = WritePixelSprite(OptionSpritePath, OptionPixels, OptionPalette);
+                var optionPrefab = WriteSpritePrefab(OptionPrefabPath, "Option", optionSprite, 9);
+                var shieldSprite = WritePixelSprite(ShieldSpritePath, BuildShieldPixels(), ShieldPalette);
 
                 BuildScene(shipSprite, bulletPrefab, enemyPrefab, capsulePrefab, explosionPrefab,
-                           whiteSprite, hudSlotSprite, hudPipSprite, starsFarSprite, starsNearSprite);
+                           whiteSprite, missileSprite, optionPrefab, shieldSprite,
+                           hudSlotSprite, hudPipSprite, starsFarSprite, starsNearSprite);
                 RegisterInBuildSettings();
 
                 AssetDatabase.SaveAssets();
@@ -334,7 +407,7 @@ namespace Shmup.EditorTools
 
         // ── 씬 ────────────────────────────────────────────────────────────────────
 
-        static void BuildScene(Sprite shipSprite, GameObject bulletPrefab, GameObject enemyPrefab, GameObject capsulePrefab, GameObject explosionPrefab, Sprite whiteSprite, Sprite hudSlotSprite, Sprite hudPipSprite, Sprite starsFarSprite, Sprite starsNearSprite)
+        static void BuildScene(Sprite shipSprite, GameObject bulletPrefab, GameObject enemyPrefab, GameObject capsulePrefab, GameObject explosionPrefab, Sprite whiteSprite, Sprite missileSprite, GameObject optionPrefab, Sprite shieldSprite, Sprite hudSlotSprite, Sprite hudPipSprite, Sprite starsFarSprite, Sprite starsNearSprite)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -360,6 +433,18 @@ namespace Shmup.EditorTools
 
             var fxRoot = new GameObject("Fx");
             fxRoot.transform.SetParent(battleRoot.transform, false);
+
+            var optionRoot = new GameObject("Options");
+            optionRoot.transform.SetParent(battleRoot.transform, false);
+
+            // 실드 링: 플레이어 자식이라 위치를 따로 동기화할 필요가 없다.
+            var shield = new GameObject("Shield");
+            shield.transform.SetParent(player.transform, false);
+            var shieldRenderer = shield.AddComponent<SpriteRenderer>();
+            shieldRenderer.sprite = shieldSprite;
+            shieldRenderer.sortingOrder = 11;
+            shieldRenderer.color = new Color(0.42f, 0.78f, 1f, 0.4f);
+            shieldRenderer.enabled = false;
 
             // 피격 플래시: 2px 흰 타일을 화면 전체(24×14u)로 늘려 알파만 조절한다.
             var damageFlash = new GameObject("DamageFlash");
@@ -391,6 +476,10 @@ namespace Shmup.EditorTools
             SetReference(director, "_explosionPrefab", explosionPrefab);
             SetReference(director, "_fxRoot", fxRoot.transform);
             SetReference(director, "_damageFlash", damageFlashRenderer);
+            SetReference(director, "_missileSprite", missileSprite);
+            SetReference(director, "_optionPrefab", optionPrefab);
+            SetReference(director, "_optionRoot", optionRoot.transform);
+            SetReference(director, "_shieldView", shieldRenderer);
 
             CreateHud(director, hudSlotSprite, hudPipSprite);
             CreateBackground(director, starsFarSprite, starsNearSprite);

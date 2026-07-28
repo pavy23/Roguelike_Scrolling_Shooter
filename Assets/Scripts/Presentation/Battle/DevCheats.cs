@@ -55,7 +55,7 @@ namespace Shmup.Presentation.Battle
             }
 
             GUI.Label(new Rect(8, 4, Screen.width - 16, _style.fontSize * 3),
-                $"seed {_director.Seed}   tick {_director.Tick}   hp {_director.PlayerHp}\n[F9] capsule   [F10] activate   (--seed=N 으로 시드 고정)",
+                $"seed {_director.Seed}   tick {_director.Tick}   hp {_director.PlayerHp}   shield {_director.ShieldRemaining}\n[F9] capsule   [F10] activate   (--seed=N 으로 시드 고정)",
                 _style);
         }
     }
