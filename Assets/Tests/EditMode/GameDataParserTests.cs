@@ -827,7 +827,15 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 WeaponType.Vulcan,
                 data.FindShip("starter").WeaponType);
-            Assert.IsFalse(data.FindShip("starter").MaxHp.HasValue);
+            Assert.AreEqual(3, data.FindShip("starter").MaxHp.Value);
+            Assert.AreEqual(
+                WeaponType.Laser,
+                data.FindShip("interceptor").WeaponType);
+            Assert.AreEqual(2, data.FindShip("interceptor").MaxHp.Value);
+            Assert.AreEqual(
+                WeaponType.Spread,
+                data.FindShip("bulwark").WeaponType);
+            Assert.AreEqual(5, data.FindShip("bulwark").MaxHp.Value);
             Assert.AreEqual(128, data.CreateBattleSimConfig().MaxEnemyBullets);
 
             // 640×360 재스케일(REQ-006) 후 elite_sine 진폭 = 3.0u = 768 서브유닛.

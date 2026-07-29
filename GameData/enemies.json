@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "dropTable": {
     "noDropWeight": 8
   },
@@ -10,14 +10,14 @@
       "hp": 10,
       "contactDamage": 1,
       "scoreValue": 100,
-      "movePattern": "straight",
-      "moveSpeed": 5,
       "fireIntervalTicks": 0,
       "dropWeight": 4,
       "halfWidth": 0.75,
       "halfHeight": 0.5625,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "straight",
+        "speed": 5
+      }
     },
     {
       "id": "zako_sine",
@@ -25,14 +25,16 @@
       "hp": 10,
       "contactDamage": 1,
       "scoreValue": 150,
-      "movePattern": "sine",
-      "moveSpeed": 4.25,
       "fireIntervalTicks": 0,
       "dropWeight": 5,
       "halfWidth": 0.75,
       "halfHeight": 0.5625,
-      "amplitude": 2.5,
-      "periodTicks": 120
+      "movement": {
+        "pattern": "sine",
+        "speed": 4.25,
+        "amplitude": 2.5,
+        "periodTicks": 120
+      }
     },
     {
       "id": "turret_ground",
@@ -40,14 +42,13 @@
       "hp": 30,
       "contactDamage": 1,
       "scoreValue": 300,
-      "movePattern": "static",
-      "moveSpeed": 0,
       "fireIntervalTicks": 90,
       "dropWeight": 2,
       "halfWidth": 0.75,
       "halfHeight": 0.75,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "static"
+      }
     },
     {
       "id": "zako_fast",
@@ -55,14 +56,16 @@
       "hp": 6,
       "contactDamage": 1,
       "scoreValue": 80,
-      "movePattern": "straight",
-      "moveSpeed": 8.25,
       "fireIntervalTicks": 0,
       "dropWeight": 2,
       "halfWidth": 0.5625,
       "halfHeight": 0.46875,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "dive",
+        "speed": 8.25,
+        "delayTicks": 12,
+        "durationTicks": 24
+      }
     },
     {
       "id": "zako_tank",
@@ -70,14 +73,14 @@
       "hp": 40,
       "contactDamage": 2,
       "scoreValue": 400,
-      "movePattern": "straight",
-      "moveSpeed": 2.5,
       "fireIntervalTicks": 0,
       "dropWeight": 7,
       "halfWidth": 0.9375,
       "halfHeight": 0.75,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "straight",
+        "speed": 2.5
+      }
     },
     {
       "id": "zako_sine_slow",
@@ -85,14 +88,16 @@
       "hp": 18,
       "contactDamage": 1,
       "scoreValue": 200,
-      "movePattern": "sine",
-      "moveSpeed": 3,
       "fireIntervalTicks": 0,
       "dropWeight": 6,
       "halfWidth": 0.75,
       "halfHeight": 0.65625,
-      "amplitude": 3.25,
-      "periodTicks": 180
+      "movement": {
+        "pattern": "sine",
+        "speed": 3,
+        "amplitude": 3.25,
+        "periodTicks": 180
+      }
     },
     {
       "id": "turret_ceiling",
@@ -100,14 +105,13 @@
       "hp": 30,
       "contactDamage": 1,
       "scoreValue": 300,
-      "movePattern": "static",
-      "moveSpeed": 0,
       "fireIntervalTicks": 90,
       "dropWeight": 2,
       "halfWidth": 0.75,
       "halfHeight": 0.75,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "static"
+      }
     },
     {
       "id": "elite_sine",
@@ -115,14 +119,16 @@
       "hp": 50,
       "contactDamage": 2,
       "scoreValue": 600,
-      "movePattern": "sine",
-      "moveSpeed": 3.25,
       "fireIntervalTicks": 120,
       "dropWeight": 12,
       "halfWidth": 0.9375,
       "halfHeight": 0.75,
-      "amplitude": 3,
-      "periodTicks": 90
+      "movement": {
+        "pattern": "sine",
+        "speed": 3.25,
+        "amplitude": 3,
+        "periodTicks": 90
+      }
     },
     {
       "id": "spore_drifter",
@@ -130,14 +136,16 @@
       "hp": 8,
       "contactDamage": 1,
       "scoreValue": 120,
-      "movePattern": "sine",
-      "moveSpeed": 2.5,
       "fireIntervalTicks": 0,
       "dropWeight": 5,
       "halfWidth": 0.75,
       "halfHeight": 0.75,
-      "amplitude": 2.5,
-      "periodTicks": 150
+      "movement": {
+        "pattern": "sine",
+        "speed": 2.5,
+        "amplitude": 2.5,
+        "periodTicks": 150
+      }
     },
     {
       "id": "lancer_dart",
@@ -145,14 +153,16 @@
       "hp": 4,
       "contactDamage": 1,
       "scoreValue": 60,
-      "movePattern": "straight",
-      "moveSpeed": 9.5,
       "fireIntervalTicks": 0,
       "dropWeight": 2,
       "halfWidth": 0.75,
       "halfHeight": 0.75,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "dash",
+        "speed": 9.5,
+        "durationTicks": 10,
+        "pauseTicks": 28
+      }
     },
     {
       "id": "sentry_drone",
@@ -160,14 +170,13 @@
       "hp": 22,
       "contactDamage": 1,
       "scoreValue": 250,
-      "movePattern": "static",
-      "moveSpeed": 0,
       "fireIntervalTicks": 75,
       "dropWeight": 3,
       "halfWidth": 0.75,
       "halfHeight": 0.75,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "static"
+      }
     },
     {
       "id": "interceptor_rush",
@@ -175,14 +184,16 @@
       "hp": 4,
       "contactDamage": 1,
       "scoreValue": 70,
-      "movePattern": "straight",
-      "moveSpeed": 10.5,
       "fireIntervalTicks": 0,
       "dropWeight": 2,
       "halfWidth": 0.75,
       "halfHeight": 0.75,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "dive",
+        "speed": 10.5,
+        "delayTicks": 10,
+        "durationTicks": 20
+      }
     },
     {
       "id": "wisp_spark",
@@ -190,14 +201,16 @@
       "hp": 5,
       "contactDamage": 1,
       "scoreValue": 90,
-      "movePattern": "sine",
-      "moveSpeed": 6.5,
       "fireIntervalTicks": 0,
       "dropWeight": 3,
       "halfWidth": 0.75,
       "halfHeight": 0.75,
-      "amplitude": 3.5,
-      "periodTicks": 60
+      "movement": {
+        "pattern": "sine",
+        "speed": 6.5,
+        "amplitude": 3.5,
+        "periodTicks": 60
+      }
     },
     {
       "id": "guardian_sphere",
@@ -205,14 +218,14 @@
       "hp": 60,
       "contactDamage": 2,
       "scoreValue": 550,
-      "movePattern": "straight",
-      "moveSpeed": 1.75,
       "fireIntervalTicks": 70,
       "dropWeight": 10,
       "halfWidth": 0.9375,
       "halfHeight": 0.9375,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "straight",
+        "speed": 1.75
+      }
     },
     {
       "id": "scrap_tumbler",
@@ -220,14 +233,16 @@
       "hp": 14,
       "contactDamage": 1,
       "scoreValue": 160,
-      "movePattern": "sine",
-      "moveSpeed": 3.75,
       "fireIntervalTicks": 0,
       "dropWeight": 5,
       "halfWidth": 0.75,
       "halfHeight": 0.75,
-      "amplitude": 2.75,
-      "periodTicks": 100
+      "movement": {
+        "pattern": "zigzag",
+        "speed": 3.75,
+        "amplitude": 2.75,
+        "periodTicks": 100
+      }
     },
     {
       "id": "brood_spitter",
@@ -235,14 +250,16 @@
       "hp": 20,
       "contactDamage": 1,
       "scoreValue": 280,
-      "movePattern": "straight",
-      "moveSpeed": 3.0,
       "fireIntervalTicks": 80,
       "dropWeight": 6,
       "halfWidth": 0.75,
       "halfHeight": 0.75,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "zigzag",
+        "speed": 3.0,
+        "amplitude": 2.0,
+        "periodTicks": 90
+      }
     },
     {
       "id": "mortar_drone",
@@ -250,14 +267,13 @@
       "hp": 28,
       "contactDamage": 1,
       "scoreValue": 320,
-      "movePattern": "static",
-      "moveSpeed": 0,
       "fireIntervalTicks": 100,
       "dropWeight": 4,
       "halfWidth": 0.75,
       "halfHeight": 0.75,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "static"
+      }
     },
     {
       "id": "echo_wisp",
@@ -265,14 +281,16 @@
       "hp": 16,
       "contactDamage": 1,
       "scoreValue": 220,
-      "movePattern": "sine",
-      "moveSpeed": 4.5,
       "fireIntervalTicks": 90,
       "dropWeight": 6,
       "halfWidth": 0.75,
       "halfHeight": 0.75,
-      "amplitude": 3.25,
-      "periodTicks": 80
+      "movement": {
+        "pattern": "zigzag",
+        "speed": 4.5,
+        "amplitude": 3.25,
+        "periodTicks": 80
+      }
     },
     {
       "id": "rust_skimmer",
@@ -280,14 +298,16 @@
       "hp": 10,
       "contactDamage": 1,
       "scoreValue": 110,
-      "movePattern": "straight",
-      "moveSpeed": 6.25,
       "fireIntervalTicks": 0,
       "dropWeight": 3,
       "halfWidth": 0.75,
       "halfHeight": 0.5625,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "dash",
+        "speed": 6.25,
+        "durationTicks": 14,
+        "pauseTicks": 40
+      }
     },
     {
       "id": "junk_roller",
@@ -295,14 +315,16 @@
       "hp": 10,
       "contactDamage": 1,
       "scoreValue": 140,
-      "movePattern": "sine",
-      "moveSpeed": 3.5,
       "fireIntervalTicks": 0,
       "dropWeight": 4,
       "halfWidth": 0.75,
       "halfHeight": 0.75,
-      "amplitude": 2.25,
-      "periodTicks": 130
+      "movement": {
+        "pattern": "zigzag",
+        "speed": 3.5,
+        "amplitude": 2.25,
+        "periodTicks": 130
+      }
     },
     {
       "id": "void_moth",
@@ -310,14 +332,16 @@
       "hp": 16,
       "contactDamage": 1,
       "scoreValue": 200,
-      "movePattern": "sine",
-      "moveSpeed": 4.75,
       "fireIntervalTicks": 95,
       "dropWeight": 5,
       "halfWidth": 0.75,
       "halfHeight": 0.75,
-      "amplitude": 3.0,
-      "periodTicks": 75
+      "movement": {
+        "pattern": "zigzag",
+        "speed": 4.75,
+        "amplitude": 3.0,
+        "periodTicks": 75
+      }
     },
     {
       "id": "shard_prism",
@@ -325,14 +349,14 @@
       "hp": 60,
       "contactDamage": 2,
       "scoreValue": 520,
-      "movePattern": "straight",
-      "moveSpeed": 1.5,
       "fireIntervalTicks": 75,
       "dropWeight": 10,
       "halfWidth": 0.9375,
       "halfHeight": 0.9375,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "straight",
+        "speed": 1.5
+      }
     },
     {
       "id": "sting_hornet",
@@ -340,14 +364,16 @@
       "hp": 8,
       "contactDamage": 1,
       "scoreValue": 130,
-      "movePattern": "sine",
-      "moveSpeed": 6.75,
       "fireIntervalTicks": 0,
       "dropWeight": 3,
       "halfWidth": 0.75,
       "halfHeight": 0.5625,
-      "amplitude": 2.0,
-      "periodTicks": 70
+      "movement": {
+        "pattern": "dive",
+        "speed": 6.75,
+        "delayTicks": 18,
+        "durationTicks": 28
+      }
     },
     {
       "id": "pipe_rat",
@@ -355,14 +381,16 @@
       "hp": 10,
       "contactDamage": 1,
       "scoreValue": 100,
-      "movePattern": "straight",
-      "moveSpeed": 7.0,
       "fireIntervalTicks": 0,
       "dropWeight": 3,
       "halfWidth": 0.5625,
       "halfHeight": 0.46875,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "dash",
+        "speed": 7.0,
+        "durationTicks": 12,
+        "pauseTicks": 36
+      }
     },
     {
       "id": "phase_disc",
@@ -370,14 +398,13 @@
       "hp": 22,
       "contactDamage": 1,
       "scoreValue": 260,
-      "movePattern": "static",
-      "moveSpeed": 0,
       "fireIntervalTicks": 68,
       "dropWeight": 4,
       "halfWidth": 0.75,
       "halfHeight": 0.75,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "static"
+      }
     },
     {
       "id": "rift_blade",
@@ -385,14 +412,16 @@
       "hp": 4,
       "contactDamage": 1,
       "scoreValue": 80,
-      "movePattern": "straight",
-      "moveSpeed": 11.0,
       "fireIntervalTicks": 0,
       "dropWeight": 2,
       "halfWidth": 0.75,
       "halfHeight": 0.46875,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "dash",
+        "speed": 11.0,
+        "durationTicks": 8,
+        "pauseTicks": 24
+      }
     },
     {
       "id": "mini_destroyer",
@@ -400,14 +429,14 @@
       "hp": 200,
       "contactDamage": 2,
       "scoreValue": 1200,
-      "movePattern": "straight",
-      "moveSpeed": 1.5,
       "fireIntervalTicks": 55,
       "dropWeight": 14,
       "halfWidth": 2.0,
       "halfHeight": 1.5,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "straight",
+        "speed": 1.5
+      }
     },
     {
       "id": "mini_horror",
@@ -415,14 +444,16 @@
       "hp": 180,
       "contactDamage": 2,
       "scoreValue": 1100,
-      "movePattern": "sine",
-      "moveSpeed": 2.5,
       "fireIntervalTicks": 70,
       "dropWeight": 14,
       "halfWidth": 2.0,
       "halfHeight": 1.5,
-      "amplitude": 4.5,
-      "periodTicks": 120
+      "movement": {
+        "pattern": "sine",
+        "speed": 2.5,
+        "amplitude": 4.5,
+        "periodTicks": 120
+      }
     },
     {
       "id": "mini_walker",
@@ -430,14 +461,13 @@
       "hp": 250,
       "contactDamage": 2,
       "scoreValue": 1500,
-      "movePattern": "static",
-      "moveSpeed": 0,
       "fireIntervalTicks": 48,
       "dropWeight": 15,
       "halfWidth": 2.0,
       "halfHeight": 1.5,
-      "amplitude": 0,
-      "periodTicks": 1
+      "movement": {
+        "pattern": "static"
+      }
     },
     {
       "id": "mini_crystal",
@@ -445,14 +475,16 @@
       "hp": 160,
       "contactDamage": 2,
       "scoreValue": 1000,
-      "movePattern": "sine",
-      "moveSpeed": 4.5,
       "fireIntervalTicks": 40,
       "dropWeight": 13,
       "halfWidth": 2.0,
       "halfHeight": 1.5,
-      "amplitude": 3.25,
-      "periodTicks": 90
+      "movement": {
+        "pattern": "sine",
+        "speed": 4.5,
+        "amplitude": 3.25,
+        "periodTicks": 90
+      }
     }
   ]
 }

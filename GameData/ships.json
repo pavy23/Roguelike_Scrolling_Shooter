@@ -7,7 +7,9 @@
       "moveSpeedMultiplierNumerator": 1,
       "moveSpeedMultiplierDenominator": 1,
       "startingPowerUpLevels": [0, 0, 0, 0],
-      "unlockCost": 0
+      "unlockCost": 0,
+      "weaponType": "vulcan",
+      "maxHp": 3
     },
     {
       "id": "interceptor",
@@ -15,7 +17,9 @@
       "moveSpeedMultiplierNumerator": 5,
       "moveSpeedMultiplierDenominator": 4,
       "startingPowerUpLevels": [0, 0, 0, 0],
-      "unlockCost": 25000
+      "unlockCost": 25000,
+      "weaponType": "laser",
+      "maxHp": 2
     },
     {
       "id": "bulwark",
@@ -23,7 +27,9 @@
       "moveSpeedMultiplierNumerator": 4,
       "moveSpeedMultiplierDenominator": 5,
       "startingPowerUpLevels": [0, 0, 0, 1],
-      "unlockCost": 50000
+      "unlockCost": 50000,
+      "weaponType": "spread",
+      "maxHp": 5
     }
   ]
 }

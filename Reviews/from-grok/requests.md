@@ -852,3 +852,50 @@ Core 내장과 동일: 캡슐×3 / 4슬롯 각 +1 / 선체 maxHP +1, weight 균�
 ### 다른 에이전트 요청
 
 (2026-07-29 갱신: 상단 REQ-G001 참고.)
+## 2026-07-29 REQ-021/022/023 사람 피드백 데이터 일괄 (잠정 · §7)
+
+**완료:** enemies v3 이동 배정 + ships weaponType/maxHp + waves obstacles + BalanceSim 검증.  
+**상태:** 전부 잠정 — 사람 플레이 피드백 전 최종 확정 금지 (AGENTS.md §7).
+
+### (1) enemies.json schemaVersion 2 → **3**
+
+로스터 30종 전원을 nested `movement`로 이관. 신규 패턴 **12종** 배정:
+
+| pattern | count | 배정 |
+|---|---:|---|
+| dive | 3 | zako_fast, interceptor_rush, sting_hornet |
+| dash | 4 | lancer_dart, rift_blade, pipe_rat, rust_skimmer |
+| zigzag | 5 | scrap_tumbler, junk_roller, brood_spitter, void_moth, echo_wisp |
+
+- 빠른 소형 → dive/dash, 중형 → zigzag. 터렛/미니보스/탱커는 straight/sine/static 유지.
+- 수치는 기존 speed·amplitude를 이식하거나 패턴 파라미터(delay/duration/pause)를 잠정 기입.
+
+### (2) ships.json — 밸런스/스피드/탱커 확정 기조
+
+| id | weaponType | maxHp | move | unlock |
+|---|---|---:|---|---:|
+| starter | vulcan | **3** | 1/1 | 0 |
+| interceptor | laser | **2** | 5/4 (1.25×) | 25000 |
+| bulwark | spread | **5** | 4/5 (0.8×) | 50000 (+Shield1 시작 유지) |
+
+### (3) waves.json obstacles
+
+- stage1-capable (`difficultyMin≤1`: intro/sine_pair/sine_rush) = **빈 배열(필드 생략)**
+- early mid 2–3 → hive 4 → fortress 5 → nebula 6 → core **7**
+- solid = 상·하 통로 기둥, breakable = 파밍(HP 15–50 잠정). 보스 자체 세그먼트 장애물 없음.
+
+### (4) BalanceSim
+
+- movement roster band [8,12] PASS (12/30)
+- obstacle corridor + stage1 empty PASS; plan stage1 obstacles=0
+- ship single-target DPS: vulcan≈73 / laser≈73 / spread≈108 (ratio 1.47 ≤ 1.75)
+
+### 검증
+
+`Tools/CoreStandalone` `dotnet test` **234/234** · `Tools/BalanceSim` **PASS**.
+
+### CLAUDE 후속
+
+- `Assets/Resources/GameData/{enemies,ships,waves}.json` 동기화.
+- 장애물/주무기 계열 뷰 풀은 Core 이벤트·ShipDefinition 소비.
+

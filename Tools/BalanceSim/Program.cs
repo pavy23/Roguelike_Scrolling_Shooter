@@ -5,9 +5,12 @@
 // 4) Scoring: graze/combo curves from scoring.json (x8 maintain + graze vs kill).
 // 5) Bullet density stress: stage-5 core worst-case enemy pool + full-power player
 //    vs Core MaxEnemyBullets / MaxBullets (limits are CODEX-owned; report only).
+// 6) Obstacles: stage-1 empty + progressive density + solid corridor gaps (REQ-023).
+// 7) Ship primary DPS: vulcan/laser/spread single-target balance (REQ-022).
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Shmup.Core;
 using Shmup.Core.Content;
@@ -42,6 +45,12 @@ static class Program
     const int DensitySimSeedCount = 24;
     const int DensityElevatedEnemyCap = 512;
     const int DensityElevatedPlayerCap = 512;
+
+    // Obstacle corridor: default half-height 0.5u; need gap ≥ player hitbox + margin.
+    const int MinSolidCorridorGapSubUnits = SimSpace.SubUnitsPerWorldUnit; // 1.0u
+    // Ship DPS soft band at level 0 main shot only (single target). Provisional §7.
+    const double MaxShipSingleTargetDpsRatio = 1.75;
+    const int ShipDpsSimTicks = 180;
 
     static int Main()
     {
@@ -86,6 +95,12 @@ static class Program
         failures += CheckScoringCurves(data);
         Console.WriteLine();
         failures += CheckBulletDensityStress(data, generator);
+        Console.WriteLine();
+        failures += CheckEnemyMovementRoster(data);
+        Console.WriteLine();
+        failures += CheckObstacleLayouts(data, generator);
+        Console.WriteLine();
+        failures += CheckShipPrimaryDpsBalance(data);
 
         Console.WriteLine();
         if (failures == 0)
@@ -1917,6 +1932,523 @@ static class Program
         public int PeakEnemies { get; }
         public int PeakBulletTick { get; }
         public int PeakEnemyBulletsInPhase2 { get; }
+    }
+
+    /// <summary>
+    /// REQ-021: schema v3 roster must include dive/zigzag/dash on 8–12 of 30 enemies.
+    /// </summary>
+    static int CheckEnemyMovementRoster(GameDataSet data)
+    {
+        int failures = 0;
+        var counts = new Dictionary<EnemyMovePattern, int>();
+        int newPatternCount = 0;
+        Console.WriteLine("Enemy movement roster (enemies.json schema v3, provisional §7):");
+
+        foreach (EnemyDefinition enemy in data.BattleContent.Enemies)
+        {
+            if (!counts.ContainsKey(enemy.MovePattern))
+                counts[enemy.MovePattern] = 0;
+            counts[enemy.MovePattern]++;
+            if (enemy.MovePattern == EnemyMovePattern.Dive
+                || enemy.MovePattern == EnemyMovePattern.Zigzag
+                || enemy.MovePattern == EnemyMovePattern.Dash)
+            {
+                newPatternCount++;
+                Console.WriteLine(
+                    $"  {enemy.Id,-22} {enemy.MovePattern,-8} " +
+                    $"speed={enemy.MoveSpeedNumerator}/{enemy.MoveSpeedDenominator} " +
+                    $"delay={enemy.MovementDelayTicks} dur={enemy.MovementDurationTicks} " +
+                    $"pause={enemy.MovementPauseTicks} amp={enemy.MovementAmplitudeNumerator}/" +
+                    $"{enemy.MovementAmplitudeDenominator} period={enemy.MovementPeriodTicks}");
+            }
+        }
+
+        Console.WriteLine(
+            "  totals: " + string.Join(
+                ", ",
+                counts.OrderBy(kv => kv.Key.ToString())
+                    .Select(kv => $"{kv.Key}={kv.Value}")));
+        Console.WriteLine(
+            $"  new patterns (dive|zigzag|dash) = {newPatternCount} / {data.BattleContent.Enemies.Count}");
+
+        if (data.BattleContent.Enemies.Count != 30)
+        {
+            Console.WriteLine(
+                $"FAIL movement: expected 30 enemies, got {data.BattleContent.Enemies.Count}.");
+            failures++;
+        }
+
+        if (newPatternCount < 8 || newPatternCount > 12)
+        {
+            Console.WriteLine(
+                $"FAIL movement: dive/zigzag/dash count {newPatternCount} outside band [8,12].");
+            failures++;
+        }
+
+        if (!counts.ContainsKey(EnemyMovePattern.Dive) || counts[EnemyMovePattern.Dive] < 1
+            || !counts.ContainsKey(EnemyMovePattern.Zigzag) || counts[EnemyMovePattern.Zigzag] < 1
+            || !counts.ContainsKey(EnemyMovePattern.Dash) || counts[EnemyMovePattern.Dash] < 1)
+        {
+            Console.WriteLine("FAIL movement: each of dive/zigzag/dash must appear at least once.");
+            failures++;
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: enemy movement roster band checks.");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-023: stage-1 segments empty of obstacles; progressive density; solid corridors.
+    /// Lane-mask clearability remains authoritative for stage assembly; this check is
+    /// spatial corridor sanity for solid blocks at the same X (plus plan spawn counts).
+    /// </summary>
+    static int CheckObstacleLayouts(GameDataSet data, SegmentStageGenerator generator)
+    {
+        int failures = 0;
+        BattleSimConfig defaults = BattleSimConfig.CreateDefault();
+        int halfH = defaults.ObstacleHalfHeight;
+        int maxObstacles = defaults.MaxObstacles;
+        var catalog = data.StageGeneration;
+
+        Console.WriteLine(
+            "Obstacle layouts (waves.json segments, provisional §7):");
+        Console.WriteLine(
+            $"  config halfH={halfH}su ({halfH / (double)SimSpace.SubUnitsPerWorldUnit:F2}u) " +
+            $"MaxObstacles={maxObstacles} minCorridorGap={MinSolidCorridorGapSubUnits}su");
+
+        int stage1WithObstacles = 0;
+        int maxPerSegment = 0;
+        int totalWithObstacles = 0;
+
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            int count = seg.Obstacles.Count;
+            if (count > maxPerSegment)
+                maxPerSegment = count;
+            if (count > 0)
+                totalWithObstacles++;
+
+            bool stage1Capable = seg.DifficultyMin <= 1;
+            if (stage1Capable && count > 0)
+            {
+                Console.WriteLine(
+                    $"FAIL obstacles: stage-1-capable segment '{seg.SegmentId}' " +
+                    $"has {count} obstacles (must be empty).");
+                failures++;
+                stage1WithObstacles++;
+            }
+
+            int solids = 0;
+            int breakables = 0;
+            foreach (ObstacleSpawn o in seg.Obstacles)
+            {
+                if (o.Type == ObstacleType.Solid)
+                {
+                    solids++;
+                    if (o.Hp != 0)
+                    {
+                        Console.WriteLine(
+                            $"FAIL obstacles: solid in '{seg.SegmentId}' has hp={o.Hp} (must 0).");
+                        failures++;
+                    }
+                }
+                else
+                {
+                    breakables++;
+                    if (o.Hp < 1)
+                    {
+                        Console.WriteLine(
+                            $"FAIL obstacles: breakable in '{seg.SegmentId}' has hp={o.Hp}.");
+                        failures++;
+                    }
+                }
+            }
+
+            // Corridor: group solids by X; ensure a vertical gap ≥ min between extents.
+            var solidsByX = new Dictionary<int, List<int>>();
+            foreach (ObstacleSpawn o in seg.Obstacles)
+            {
+                if (o.Type != ObstacleType.Solid)
+                    continue;
+                if (!solidsByX.TryGetValue(o.X, out List<int> ys))
+                {
+                    ys = new List<int>();
+                    solidsByX[o.X] = ys;
+                }
+                ys.Add(o.Y);
+            }
+
+            bool corridorOk = true;
+            foreach (KeyValuePair<int, List<int>> group in solidsByX)
+            {
+                List<int> ys = group.Value;
+                ys.Sort();
+                // Full playfield open edges count as infinite free space outside blocks.
+                int playMin = -SimSpace.PlayfieldHalfHeightSubUnits;
+                int playMax = SimSpace.PlayfieldHalfHeightSubUnits;
+                // Build blocked intervals [y-halfH, y+halfH] and find largest free gap.
+                var intervals = new List<(int lo, int hi)>();
+                foreach (int y in ys)
+                    intervals.Add((y - halfH, y + halfH));
+                intervals.Sort((a, b) => a.lo.CompareTo(b.lo));
+
+                int cursor = playMin;
+                int bestGap = 0;
+                foreach (var (lo, hi) in intervals)
+                {
+                    if (lo > cursor)
+                        bestGap = Math.Max(bestGap, lo - cursor);
+                    cursor = Math.Max(cursor, hi);
+                }
+                if (playMax > cursor)
+                    bestGap = Math.Max(bestGap, playMax - cursor);
+
+                if (bestGap < MinSolidCorridorGapSubUnits)
+                {
+                    Console.WriteLine(
+                        $"FAIL obstacles: '{seg.SegmentId}' solid column x={group.Key} " +
+                        $"bestGap={bestGap}su < {MinSolidCorridorGapSubUnits}su.");
+                    failures++;
+                    corridorOk = false;
+                }
+            }
+
+            string theme = NullLabel(seg.ThemeId);
+            Console.WriteLine(
+                $"  {seg.SegmentId,-36} theme={theme,-10} " +
+                $"n={count,2} solid={solids} break={breakables} " +
+                $"stage1={(stage1Capable ? "Y" : "n")} " +
+                $"corridor={(count == 0 || corridorOk ? "ok" : "FAIL")}");
+        }
+
+        // Progressive density by theme ordinal (stage 2 hive → 5 core).
+        int[] themeMax = new int[catalog.ThemeIds.Count];
+        for (int i = 0; i < catalog.ThemeIds.Count; i++)
+            themeMax[i] = 0;
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            if (seg.ThemeId == null)
+                continue;
+            for (int i = 0; i < catalog.ThemeIds.Count; i++)
+            {
+                if (string.Equals(catalog.ThemeIds[i], seg.ThemeId, StringComparison.Ordinal))
+                {
+                    if (seg.Obstacles.Count > themeMax[i])
+                        themeMax[i] = seg.Obstacles.Count;
+                    break;
+                }
+            }
+        }
+
+        Console.WriteLine("  theme max obstacles/segment:");
+        for (int i = 0; i < catalog.ThemeIds.Count; i++)
+        {
+            Console.WriteLine($"    stage~{i + 1} {catalog.ThemeIds[i],-10} max={themeMax[i]}");
+        }
+
+        // scrapyard has no themed segs (null pool); hive early ≤4, core late ≥5.
+        int hiveIdx = IndexOfTheme(catalog, "hive");
+        int coreIdx = IndexOfTheme(catalog, "core");
+        if (hiveIdx >= 0 && themeMax[hiveIdx] > 0 && themeMax[hiveIdx] > 5)
+        {
+            Console.WriteLine(
+                $"FAIL obstacles: hive max {themeMax[hiveIdx]} > 5 (early band 2–4 intended).");
+            failures++;
+        }
+        if (coreIdx >= 0 && themeMax[coreIdx] < 5)
+        {
+            Console.WriteLine(
+                $"FAIL obstacles: core max {themeMax[coreIdx]} < 5 (late band 5–7 intended).");
+            failures++;
+        }
+        if (coreIdx >= 0 && hiveIdx >= 0
+            && themeMax[coreIdx] > 0 && themeMax[hiveIdx] > 0
+            && themeMax[coreIdx] < themeMax[hiveIdx])
+        {
+            Console.WriteLine(
+                $"FAIL obstacles: core max {themeMax[coreIdx]} < hive max {themeMax[hiveIdx]} " +
+                "(density should increase by theme).");
+            failures++;
+        }
+
+        if (maxPerSegment > maxObstacles)
+        {
+            Console.WriteLine(
+                $"FAIL obstacles: max per segment {maxPerSegment} > MaxObstacles {maxObstacles}.");
+            failures++;
+        }
+
+        // Generated plans: stage 1 must never spawn obstacles; stage 5 should.
+        const ulong seed = 0x0B57AC1EUL;
+        for (int stage = 1; stage <= 5; stage++)
+        {
+            StagePlan plan = generator.Generate(seed, stage, Math.Min(stage, 5));
+            int planObstacles = 0;
+            for (int s = 0; s < plan.Segments.Count; s++)
+                planObstacles += plan.Segments[s].Obstacles.Count;
+
+            Console.WriteLine(
+                $"  plan stage={stage} theme={plan.ThemeId} obstacles={planObstacles} " +
+                $"segs=[{string.Join(",", SegmentIds(plan))}]");
+
+            if (stage == 1 && planObstacles != 0)
+            {
+                Console.WriteLine(
+                    $"FAIL obstacles: stage 1 plan has {planObstacles} obstacles (must 0).");
+                failures++;
+            }
+            if (stage >= 4 && planObstacles < 1)
+            {
+                Console.WriteLine(
+                    $"WARN obstacles: stage {stage} plan has 0 obstacles " +
+                    "(late themes should usually include themed segs; seed-dependent).");
+            }
+        }
+
+        if (stage1WithObstacles == 0 && totalWithObstacles == 0)
+        {
+            Console.WriteLine("FAIL obstacles: no segment has obstacles (content missing).");
+            failures++;
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: obstacle layout / corridor / stage-1 empty checks.");
+        return failures;
+    }
+
+    static int IndexOfTheme(StageGenerationCatalog catalog, string themeId)
+    {
+        for (int i = 0; i < catalog.ThemeIds.Count; i++)
+            if (string.Equals(catalog.ThemeIds[i], themeId, StringComparison.Ordinal))
+                return i;
+        return -1;
+    }
+
+    /// <summary>
+    /// REQ-022: three ship primaries (vulcan/laser/spread) single-target DPS balance.
+    /// Level-0 main shot only; missiles/options off. Soft FAIL if max/min &gt; band.
+    /// </summary>
+    static int CheckShipPrimaryDpsBalance(GameDataSet data)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "Ship primary DPS balance (single target, level 0, provisional §7):");
+
+        if (data.Ships.Count < 3)
+        {
+            Console.WriteLine($"FAIL ships: expected ≥3 ships, got {data.Ships.Count}.");
+            return 1;
+        }
+
+        ShipDefinition starter = data.FindShip("starter");
+        ShipDefinition interceptor = data.FindShip("interceptor");
+        ShipDefinition bulwark = data.FindShip("bulwark");
+        if (starter == null || interceptor == null || bulwark == null)
+        {
+            Console.WriteLine("FAIL ships: missing starter/interceptor/bulwark.");
+            return 1;
+        }
+
+        // Concept fields
+        if (starter.WeaponType != WeaponType.Vulcan || starter.MaxHp != 3)
+        {
+            Console.WriteLine(
+                $"FAIL ships: starter expected vulcan/HP3 got {starter.WeaponType}/{starter.MaxHp}.");
+            failures++;
+        }
+        if (interceptor.WeaponType != WeaponType.Laser || interceptor.MaxHp != 2)
+        {
+            Console.WriteLine(
+                $"FAIL ships: interceptor expected laser/HP2 got {interceptor.WeaponType}/{interceptor.MaxHp}.");
+            failures++;
+        }
+        if (bulwark.WeaponType != WeaponType.Spread || bulwark.MaxHp != 5)
+        {
+            Console.WriteLine(
+                $"FAIL ships: bulwark expected spread/HP5 got {bulwark.WeaponType}/{bulwark.MaxHp}.");
+            failures++;
+        }
+
+        var results = new List<(string id, WeaponType weapon, int dmg, double dps)>();
+        foreach (ShipDefinition ship in new[] { starter, interceptor, bulwark })
+        {
+            try
+            {
+                int damage = SimulateShipSingleTargetDamage(data, ship, ShipDpsSimTicks);
+                double dps = damage * (double)SimSpace.TicksPerSecond / ShipDpsSimTicks;
+                results.Add((ship.Id, ship.WeaponType, damage, dps));
+                Console.WriteLine(
+                    $"  {ship.Id,-14} weapon={ship.WeaponType,-7} maxHp={ship.MaxHp} " +
+                    $"move={ship.MoveSpeedMultiplierNumerator}/{ship.MoveSpeedMultiplierDenominator} " +
+                    $"dmg@{ShipDpsSimTicks}t={damage} dps≈{dps:F1}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"FAIL ships: {ship.Id} sim threw: {ex.Message}");
+                failures++;
+            }
+        }
+
+        if (results.Count == 3)
+        {
+            double min = results.Min(r => r.dps);
+            double max = results.Max(r => r.dps);
+            double ratio = min <= 0 ? double.PositiveInfinity : max / min;
+            Console.WriteLine(
+                $"  single-target DPS ratio max/min = {ratio:F2} " +
+                $"(band ≤{MaxShipSingleTargetDpsRatio:F2})");
+
+            if (ratio > MaxShipSingleTargetDpsRatio)
+            {
+                Console.WriteLine(
+                    $"FAIL ships: DPS ratio {ratio:F2} > {MaxShipSingleTargetDpsRatio:F2} " +
+                    "(one primary dominates single-target).");
+                failures++;
+            }
+
+            // Soft role checks: laser should not be far below vulcan; spread may trail
+            // single-target but must deal damage.
+            double vulcan = results.First(r => r.weapon == WeaponType.Vulcan).dps;
+            double laser = results.First(r => r.weapon == WeaponType.Laser).dps;
+            double spread = results.First(r => r.weapon == WeaponType.Spread).dps;
+            if (laser < vulcan * 0.5)
+            {
+                Console.WriteLine(
+                    $"FAIL ships: laser dps {laser:F1} < 50% of vulcan {vulcan:F1}.");
+                failures++;
+            }
+            if (spread <= 0)
+            {
+                Console.WriteLine("FAIL ships: spread dealt no damage.");
+                failures++;
+            }
+            else if (spread > vulcan * 1.5)
+            {
+                Console.WriteLine(
+                    $"WARN ships: spread single-target dps {spread:F1} > 1.5× vulcan " +
+                    $"{vulcan:F1} (coverage weapon unexpectedly strong on 1 target, §7).");
+            }
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: ship primary concept + single-target DPS band.");
+        return failures;
+    }
+
+    static int SimulateShipSingleTargetDamage(
+        GameDataSet data,
+        ShipDefinition ship,
+        int ticks)
+    {
+        BattleSimConfig config = data.CreateBattleSimConfig();
+        if (ship.MaxHp.HasValue)
+            config.PlayerMaxHp = ship.MaxHp.Value;
+        ApplyShipWeaponProfile(config, ship);
+        // Lab: no scroll, fixed aim, huge HP sponge on the shot line.
+        config.ScrollSpeedNumerator = 0;
+        config.ScrollSpeedDenominator = 1;
+        config.PlayerSpawnX = 0;
+        config.PlayerSpawnY = 0;
+        config.PlayerMinX = -10000;
+        config.PlayerMaxX = 10000;
+        config.PlayerMinY = -10000;
+        config.PlayerMaxY = 10000;
+        config.PlayerHalfWidth = 0;
+        config.PlayerHalfHeight = 0;
+        config.CapsuleNoDropWeight = 1_000_000;
+        config.MaxBullets = 128;
+        config.UseConfiguredMainShotStats = true;
+
+        const int spongeHp = 1_000_000;
+        var enemy = new EnemyDefinition(
+            "dps_sponge",
+            "dps_sponge",
+            spongeHp,
+            0,
+            0,
+            EnemyMovePattern.Static,
+            0,
+            1,
+            0,
+            SimSpace.SubUnitsPerWorldUnit / 2,
+            SimSpace.SubUnitsPerWorldUnit / 2,
+            0,
+            0,
+            1,
+            1);
+        // Place sponge slightly in front of player so forward shots land.
+        int spongeX = 3 * SimSpace.SubUnitsPerWorldUnit;
+        var weapon = data.BattleContent.PlayerWeapon;
+        var content = new BattleContent(
+            new[] { enemy },
+            data.BattleContent.Weapons.ToArray(),
+            weapon.Id);
+        var segment = new StageSegment(
+            "dps_lab",
+            ticks + 10,
+            new[] { new SpawnEvent(0, enemy.Id, spongeX, 0) },
+            1,
+            1,
+            new[] { 1 });
+        var plan = new StagePlan(new[] { segment }, "legacy", 1, 1, 1);
+        PowerUpGauge gauge = PowerUpGauge.CreateDefault();
+        gauge.ImportLevels(new[] { 0, 0, 0, 0 });
+
+        var sim = new BattleSim(
+            config,
+            new Rng(0xD15CUL),
+            plan,
+            content,
+            gauge,
+            BattleModifier.None);
+
+        InputCommand fire = new InputCommand(0, 0, true);
+        for (int t = 0; t < ticks; t++)
+            sim.Step(in fire);
+
+        if (sim.Enemies.Count == 0)
+            return spongeHp;
+        return spongeHp - sim.Enemies[0].Hp;
+    }
+
+    /// <summary>Mirrors RunManager.ApplyShipWeaponProfile for lab sims.</summary>
+    static void ApplyShipWeaponProfile(BattleSimConfig config, ShipDefinition ship)
+    {
+        config.PlayerWeaponType = ship.WeaponType;
+        switch (ship.WeaponType)
+        {
+            case WeaponType.Vulcan:
+                return;
+            case WeaponType.Laser:
+                config.MainShotBaseDamage = config.LaserBaseDamage;
+                config.FireIntervalTicks = config.LaserFireIntervalTicks;
+                config.MainShotRapidFireStartLevel = config.LaserRapidFireStartLevel;
+                config.MainShotFireIntervalReductionPerLevel =
+                    config.LaserFireIntervalReductionPerLevel;
+                config.MainShotMinimumFireIntervalTicks =
+                    config.LaserMinimumFireIntervalTicks;
+                config.PlayerBulletSpeedNumerator = config.LaserSpeedNumerator;
+                config.PlayerBulletSpeedDenominator = config.LaserSpeedDenominator;
+                config.MainShotHalfWidth = config.LaserHalfWidth;
+                config.MainShotHalfHeight = config.LaserHalfHeight;
+                return;
+            case WeaponType.Spread:
+                config.MainShotBaseDamage = config.SpreadBaseDamage;
+                config.FireIntervalTicks = config.SpreadFireIntervalTicks;
+                config.MainShotRapidFireStartLevel = config.SpreadRapidFireStartLevel;
+                config.MainShotFireIntervalReductionPerLevel =
+                    config.SpreadFireIntervalReductionPerLevel;
+                config.MainShotMinimumFireIntervalTicks =
+                    config.SpreadMinimumFireIntervalTicks;
+                config.PlayerBulletSpeedNumerator = config.SpreadSpeedNumerator;
+                config.PlayerBulletSpeedDenominator = config.SpreadSpeedDenominator;
+                config.MainShotHalfWidth = config.SpreadHalfWidth;
+                config.MainShotHalfHeight = config.SpreadHalfHeight;
+                return;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(ship));
+        }
     }
 
     static int CeilDiv(int numerator, int denominator)

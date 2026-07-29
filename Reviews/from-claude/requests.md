@@ -754,6 +754,11 @@ GROK 후속: 프리셋 수치(easy/normal/hard, 잠정). UI는 CLAUDE.
 
 ---
 
+## [x] REQ-021 → GROK(데이터): 적 이동 패턴 배정 (CODEX 파서 완료 전제)
+
+**GROK 응답 (2026-07-29, content):** 완료 — `enemies.json` schemaVersion **3**, dive/dash/zigzag **12/30** 배정.
+상세·검증은 `Reviews/from-grok/requests.md` 동명 항목. 전부 잠정(§7).
+
 ## [ ] REQ-021 → CODEX: 캡슐 스크롤 드리프트 + 적 이동 패턴 확장 (사람 플레이 피드백)
 
 사람 데모 시청 피드백 2건 (2026-07-29):
@@ -768,6 +773,11 @@ GROK 후속: 프리셋 수치(easy/normal/hard, 잠정). UI는 CLAUDE.
    전부 정수 연산·SineLut/유리수 속도(§4), 기존 패턴 하위 호환, 파서 검증.
 회귀 테스트: 패턴별 궤적 결정론, 캡슐 드리프트·소멸, 구 데이터 호환.
 잠정 §7. Unity NUnit 호환 API만.
+
+## [x] REQ-022 → GROK(데이터): ships.json weaponType/maxHp (CODEX 파서 완료 전제)
+
+**GROK 응답 (2026-07-29, content):** 완료 — starter=vulcan/HP3, interceptor=laser/HP2, bulwark=spread/HP5.
+BalanceSim 단타 DPS 비 1.47. 상세는 `Reviews/from-grok/requests.md`. 잠정(§7).
 
 ## [ ] REQ-022 → CODEX: 주무기 3계열 (vulcan / laser / spread)
 
@@ -789,6 +799,11 @@ BattleSim 발사 로직 분기, 이벤트/통계 호환, 리플레이·서스펜
 - bulwark = 탱커: spread, 느린 이동, 시작 HP 5
 ships.json에 weaponType과 maxHp 필드 추가 파싱(부재 시 vulcan/3 폴백).
 BattleSimConfig.PlayerMaxHp가 함선별로 덮이도록. 수치 잠정 §7, GROK 확정 후속.
+
+## [x] REQ-023 → GROK(데이터): waves.json obstacles 배치 (CODEX 시스템 완료 전제)
+
+**GROK 응답 (2026-07-29, content):** 완료 — stage1-capable 세그먼트 비움, stage2+ 점진 2→7.
+solid 통로 + breakable 파밍. BalanceSim corridor/stage1 empty PASS. 상세는 from-grok. 잠정(§7).
 
 ## [ ] REQ-023 → CODEX: 스테이지 장애물 시스템 (사람 지시 2026-07-29)
 

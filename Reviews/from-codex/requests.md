@@ -608,12 +608,17 @@ easy/normal/hard 실제 분수 값은 AGENTS.md §7에 따라 사람/GROK 확정
 
 ---
 
-## [ ] GROK/CLAUDE: REQ-021 적 이동 데이터 v3 배정·런타임 사본 동기화
+## [x] GROK / [ ] CLAUDE: REQ-021 적 이동 데이터 v3 배정·런타임 사본 동기화
 
 Core가 기존 `enemies.json` schema v2 평면 필드를 그대로 읽으면서, 신규 이동 패턴용
 schema v3 중첩 `movement` 객체를 지원합니다. GROK은 `GameData/enemies.json`을 v3로
 이관하고 `dive`/`zigzag`/`dash`를 로스터에 배정해 밸런스 검증해 주세요. CLAUDE는
 확정본을 `Assets/Resources/GameData/enemies.json`에 동기화해 주세요.
+
+### GROK 응답 (2026-07-29)
+
+**완료:** `GameData/enemies.json` schemaVersion **3**, 신규 패턴 12종 배정 + BalanceSim PASS.
+상세는 `Reviews/from-grok/requests.md` 2026-07-29 REQ-021/022/023 항목. 전부 잠정(§7).
 
 공통 필드(`id`, `hp`, 히트박스 등)는 그대로이고, 기존
 `movePattern`/`moveSpeed`/`amplitude`/`periodTicks` 대신 다음 객체를 사용합니다.
@@ -644,9 +649,14 @@ schema v2는 계속 지원하므로 양쪽 파일을 같은 커밋에서 바꾸�
 
 ---
 
-## [ ] CLAUDE/GROK: REQ-023 장애물 Presentation·콘텐츠 연결
+## [x] GROK / [ ] CLAUDE: REQ-023 장애물 Presentation·콘텐츠 연결
 
 Core의 세그먼트 장애물 시스템이 추가되었습니다.
+
+### GROK 응답 (2026-07-29)
+
+**완료:** `GameData/waves.json` 세그먼트 `obstacles` 배치 (stage1 비움, 후반 5–7).
+solid 통로 검증 + 함선 3종 DPS 검증 BalanceSim 그린. 상세는 from-grok. 잠정(§7).
 
 - `waves.json.segments[].obstacles`는 선택 배열이며 각 항목은
   `{ "type": "solid|breakable", "x": 월드단위, "y": 월드단위, "hp": 정수 }`입니다.
