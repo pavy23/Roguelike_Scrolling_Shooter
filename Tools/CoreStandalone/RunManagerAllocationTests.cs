@@ -61,6 +61,30 @@ namespace Shmup.Core.Tests
             });
         }
 
+        [Test]
+        public void StepAllocatesNoManagedMemoryWhenGrazeIsScored()
+        {
+            InputCommand none = InputCommand.None;
+            BattleSim warmup = CreateGrazeBattle();
+            warmup.Step(in none);
+
+            BattleSim measured = CreateGrazeBattle();
+            GC.GetAllocatedBytesForCurrentThread();
+            long before = GC.GetAllocatedBytesForCurrentThread();
+
+            measured.Step(in none);
+
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.Multiple(() =>
+            {
+                Assert.AreEqual(1L, measured.Statistics.GrazeCount);
+                Assert.AreEqual(
+                    0L,
+                    allocated,
+                    "Scoring a graze allocated managed heap memory.");
+            });
+        }
+
         static RunManager CreateRun()
         {
             EnemyDefinition enemy = new EnemyDefinition(
@@ -121,6 +145,66 @@ namespace Shmup.Core.Tests
                 0xC0DEC0DEUL,
                 new FixedStageGenerator(plan),
                 config,
+                content,
+                PowerUpGauge.CreateDefault());
+        }
+
+        static BattleSim CreateGrazeBattle()
+        {
+            EnemyDefinition turret = new EnemyDefinition(
+                "graze_turret",
+                "Graze Turret",
+                100,
+                0,
+                0,
+                EnemyMovePattern.Static,
+                0,
+                1,
+                1,
+                0,
+                0,
+                0,
+                0,
+                1,
+                1);
+            WeaponDefinition weapon = new WeaponDefinition(
+                "graze_shot",
+                1,
+                1,
+                1,
+                1,
+                0,
+                0);
+            BattleContent content = new BattleContent(
+                new[] { turret },
+                new[] { weapon },
+                weapon.Id);
+            StagePlan plan = new StagePlan(
+                new[]
+                {
+                    new StageSegment(
+                        "graze_segment",
+                        100,
+                        new[] { new SpawnEvent(0, turret.Id, 0, 128) },
+                        1,
+                        1,
+                        new[] { 1 })
+                },
+                "none",
+                1,
+                1,
+                1);
+            BattleSimConfig config = CreateConfig();
+            config.EnemyBulletSpeedNumerator = 0;
+            config.EnemyBulletHalfWidth = 0;
+            config.EnemyBulletHalfHeight = 0;
+            config.MaxEnemyBullets = 1;
+            config.GrazeExtraRadiusSubUnits = 128;
+
+            return new BattleSim(
+                config,
+                new Rng(15UL),
+                plan,
                 content,
                 PowerUpGauge.CreateDefault());
         }

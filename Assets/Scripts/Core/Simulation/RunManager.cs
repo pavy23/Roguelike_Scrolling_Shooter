@@ -220,12 +220,14 @@ namespace Shmup.Core.Simulation
             long shotsHit,
             long kills,
             long capsulesCollected,
+            long grazeCount,
             int stagesCleared)
         {
             ShotsFired = shotsFired;
             ShotsHit = shotsHit;
             Kills = kills;
             CapsulesCollected = capsulesCollected;
+            GrazeCount = grazeCount;
             StagesCleared = stagesCleared;
         }
 
@@ -233,6 +235,7 @@ namespace Shmup.Core.Simulation
         public long ShotsHit { get; }
         public long Kills { get; }
         public long CapsulesCollected { get; }
+        public long GrazeCount { get; }
         public int StagesCleared { get; }
     }
 
@@ -299,6 +302,7 @@ namespace Shmup.Core.Simulation
         long _completedShotsHit;
         long _completedKills;
         long _completedCapsulesCollected;
+        long _completedGrazeCount;
         int _stagesCleared;
 
         public RunManager(
@@ -471,7 +475,7 @@ namespace Shmup.Core.Simulation
         public ulong RunSeed => _runSeed;
         public ShipDefinition Ship => _ship;
         /// <summary>Score earned across completed and current stages of this run.</summary>
-        public long TotalScore => checked(_completedStageScore + Battle.Score);
+        public long TotalScore => AddSaturated(_completedStageScore, Battle.Score);
         public RunStatistics Statistics
         {
             get
@@ -484,6 +488,7 @@ namespace Shmup.Core.Simulation
                     AddSaturated(
                         _completedCapsulesCollected,
                         battle.CapsulesCollected),
+                    AddSaturated(_completedGrazeCount, battle.GrazeCount),
                     _stagesCleared);
             }
         }
@@ -679,6 +684,7 @@ namespace Shmup.Core.Simulation
             _completedShotsHit = 0;
             _completedKills = 0;
             _completedCapsulesCollected = 0;
+            _completedGrazeCount = 0;
             _stagesCleared = 0;
             Array.Clear(
                 _rewardAcquisitionCounts,
@@ -711,6 +717,9 @@ namespace Shmup.Core.Simulation
             _completedCapsulesCollected = AddSaturated(
                 _completedCapsulesCollected,
                 battle.CapsulesCollected);
+            _completedGrazeCount = AddSaturated(
+                _completedGrazeCount,
+                battle.GrazeCount);
             StageIndex++;
             BuildCurrentStage();
         }

@@ -38,7 +38,11 @@ namespace Shmup.Core.Simulation
         /// <summary>EntityId = bullet id, Arg = target enemy id.</summary>
         BulletRicocheted = 11,
         /// <summary>EntityId = killed enemy id, X/Y = explosion center, Arg = damage.</summary>
-        KillExplosionTriggered = 12
+        KillExplosionTriggered = 12,
+        /// <summary>EntityId = enemy bullet id, X/Y = bullet position, Arg = fixed graze score.</summary>
+        GrazeScored = 13,
+        /// <summary>EntityId = zero-based multiplier level, Arg = score multiplier.</summary>
+        MultiplierChanged = 14
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -71,18 +75,21 @@ namespace Shmup.Core.Simulation
             long shotsFired,
             long shotsHit,
             long kills,
-            long capsulesCollected)
+            long capsulesCollected,
+            long grazeCount)
         {
             ShotsFired = shotsFired;
             ShotsHit = shotsHit;
             Kills = kills;
             CapsulesCollected = capsulesCollected;
+            GrazeCount = grazeCount;
         }
 
         public long ShotsFired { get; }
         public long ShotsHit { get; }
         public long Kills { get; }
         public long CapsulesCollected { get; }
+        public long GrazeCount { get; }
     }
 
     public enum BulletFaction { Player = 0, Enemy = 1 }
@@ -317,6 +324,23 @@ namespace Shmup.Core.Simulation
         public int KillExplosionDamage { get; set; } = 1;
         public int KillExplosionMaxTargets { get; set; } = 4;
 
+        // Provisional graze/combo scoring tuning (REQ-015, AGENTS.md §7).
+        // These remain configurable until GROK analysis and the human balance
+        // pass approve authoritative GameData values.
+        public int GrazeExtraRadiusSubUnits { get; set; } =
+            SimSpace.SubUnitsPerWorldUnit / 2;
+        public int GrazeScore { get; set; } = 10;
+        public int GrazeComboGaugeGain { get; set; } = 1;
+        public int KillComboGaugeGain { get; set; } = 10;
+        public int ComboGaugeRequiredForLevel2 { get; set; } = 30;
+        public int ComboGaugeRequiredForLevel3 { get; set; } = 50;
+        public int ComboGaugeRequiredForLevel4 { get; set; } = 80;
+        public int ComboDecayTicks { get; set; } = 300;
+        public int ComboMultiplierLevel1 { get; set; } = 1;
+        public int ComboMultiplierLevel2 { get; set; } = 2;
+        public int ComboMultiplierLevel3 { get; set; } = 4;
+        public int ComboMultiplierLevel4 { get; set; } = 8;
+
         /// <summary>
         /// Defaults sourced from player.json, main_shot, and the 40 by 22.5 unit view
         /// (640×360, ROADMAP M0). Spatial values scale the 24×14 originals by ×5/3
@@ -359,6 +383,10 @@ namespace Shmup.Core.Simulation
         int Tick { get; }
         /// <summary>Score earned in this battle instance.</summary>
         long Score { get; }
+        /// <summary>Zero-based combo level: 0, 1, 2, or 3.</summary>
+        int MultiplierLevel { get; }
+        int ScoreMultiplier { get; }
+        int ComboGauge { get; }
         BattleStatistics Statistics { get; }
         long ScrollX { get; }
         int PlayerX { get; }
@@ -382,6 +410,7 @@ namespace Shmup.Core.Simulation
     {
         const int DropRngStream = 1;
         const int SineScale = 1024;
+        const long MaxSquareRoot = 3037000499L;
         // 회전 전 조준 벡터를 이 범위로 축소하면 회전 후 제곱합과
         // speedNumerator 곱이 모두 long 범위에 머문다.
         const long MaxAimComponentBeforeRotation = 1L << 29;
@@ -428,6 +457,7 @@ namespace Shmup.Core.Simulation
         readonly List<int> _bulletPiercesRemaining;
         readonly List<int> _bulletRicochetUsed;
         readonly List<int> _bulletHomingTargetIds;
+        readonly List<byte> _bulletGrazeScored;
         readonly int[] _bulletHitRecordBulletIds;
         readonly int[] _bulletHitRecordEnemyIds;
         readonly ReadOnlyCollection<BulletState> _readOnlyBullets;
@@ -454,6 +484,11 @@ namespace Shmup.Core.Simulation
         readonly int _homingMissileTurnLutSlotsPerTick;
         readonly int _killExplosionRadiusSubUnits, _killExplosionDamage;
         readonly int _killExplosionMaxTargets;
+        readonly int _grazeExtraRadiusSubUnits, _grazeScore;
+        readonly int _grazeComboGaugeGain, _killComboGaugeGain;
+        readonly int _comboDecayTicks;
+        readonly int[] _comboGaugeRequirements;
+        readonly int[] _comboMultipliers;
 
         // 보스 (REQ-007). _bossMaxHp == 0 이면 이 스테이지에 보스전 없음.
         readonly int _bossMaxHp, _bossHalfWidth, _bossHalfHeight, _bossHoldX;
@@ -471,7 +506,7 @@ namespace Shmup.Core.Simulation
         readonly int[] _enemyScanIds;
         readonly long[] _enemyScanDistances;
         int _eventCount;
-        long _shotsFired, _shotsHit, _kills, _capsulesCollected;
+        long _shotsFired, _shotsHit, _kills, _capsulesCollected, _grazeCount;
 
         int _playerXRemainder, _playerYRemainder, _cooldown, _missileCooldown;
         int _mainShotLevel, _missileLevel, _optionLevel, _shieldGaugeLevel;
@@ -482,6 +517,8 @@ namespace Shmup.Core.Simulation
         int _playerHistoryHead;
         int _playerHistoryCount;
         int _bulletHitRecordCount;
+        int _multiplierLevel, _comboGauge, _ticksSinceLastKill;
+        bool _killScoredThisTick;
 
         /// <summary>Backward-compatible stage-less player movement and basic-shot simulation.</summary>
         public BattleSim(BattleSimConfig config, Rng rng)
@@ -597,6 +634,24 @@ namespace Shmup.Core.Simulation
             _killExplosionRadiusSubUnits = config.KillExplosionRadiusSubUnits;
             _killExplosionDamage = config.KillExplosionDamage;
             _killExplosionMaxTargets = config.KillExplosionMaxTargets;
+            _grazeExtraRadiusSubUnits = config.GrazeExtraRadiusSubUnits;
+            _grazeScore = config.GrazeScore;
+            _grazeComboGaugeGain = config.GrazeComboGaugeGain;
+            _killComboGaugeGain = config.KillComboGaugeGain;
+            _comboDecayTicks = config.ComboDecayTicks;
+            _comboGaugeRequirements = new[]
+            {
+                config.ComboGaugeRequiredForLevel2,
+                config.ComboGaugeRequiredForLevel3,
+                config.ComboGaugeRequiredForLevel4
+            };
+            _comboMultipliers = new[]
+            {
+                config.ComboMultiplierLevel1,
+                config.ComboMultiplierLevel2,
+                config.ComboMultiplierLevel3,
+                config.ComboMultiplierLevel4
+            };
             _powerUpGauge = powerUpGauge;
             _dropRng = rng.Fork(DropRngStream);
 
@@ -658,6 +713,7 @@ namespace Shmup.Core.Simulation
             _bulletPiercesRemaining = new List<int>(bulletCapacity);
             _bulletRicochetUsed = new List<int>(bulletCapacity);
             _bulletHomingTargetIds = new List<int>(bulletCapacity);
+            _bulletGrazeScored = new List<byte>(bulletCapacity);
             long hitRecordCapacity =
                 (long)_maxBullets * (_pierceShotEnemyCount + 2L);
             if (hitRecordCapacity > int.MaxValue)
@@ -710,11 +766,15 @@ namespace Shmup.Core.Simulation
 
         public int Tick { get; private set; }
         public long Score { get; private set; }
+        public int MultiplierLevel => _multiplierLevel;
+        public int ScoreMultiplier => _comboMultipliers[_multiplierLevel];
+        public int ComboGauge => _comboGauge;
         public BattleStatistics Statistics => new BattleStatistics(
             _shotsFired,
             _shotsHit,
             _kills,
-            _capsulesCollected);
+            _capsulesCollected,
+            _grazeCount);
         public long ScrollX => GetScrollXAtTick(Tick);
         public int PlayerX { get; private set; }
         public int PlayerY { get; private set; }
@@ -752,6 +812,7 @@ namespace Shmup.Core.Simulation
                 throw new InvalidOperationException("The simulation tick counter is exhausted.");
             Tick++;
             _eventCount = 0;
+            _killScoredThisTick = false;
 
             PlayerX = AdvancePlayerAxis(PlayerX, input.MoveX, ref _playerXRemainder, _playerMinX, _playerMaxX);
             PlayerY = AdvancePlayerAxis(PlayerY, input.MoveY, ref _playerYRemainder, _playerMinY, _playerMaxY);
@@ -767,6 +828,7 @@ namespace Shmup.Core.Simulation
             ResolveEnemyBulletPlayerCollisions();
             ResolveEnemyPlayerCollisions();
             ResolveCapsulePlayerCollisions();
+            AdvanceComboDecay();
 
             if (_cooldown > 0) _cooldown--;
             if (_missileCooldown > 0) _missileCooldown--;
@@ -796,6 +858,12 @@ namespace Shmup.Core.Simulation
                     break;
                 case SimEventType.CapsulePicked:
                     IncrementSaturated(ref _capsulesCollected);
+                    break;
+                case SimEventType.GrazeScored:
+                    IncrementSaturated(ref _grazeCount);
+                    break;
+                case SimEventType.PlayerHit:
+                    ResetCombo();
                     break;
             }
         }
@@ -954,6 +1022,7 @@ namespace Shmup.Core.Simulation
                 _bulletPiercesRemaining[write] = _bulletPiercesRemaining[read];
                 _bulletRicochetUsed[write] = _bulletRicochetUsed[read];
                 _bulletHomingTargetIds[write] = _bulletHomingTargetIds[read];
+                _bulletGrazeScored[write] = _bulletGrazeScored[read];
                 write++;
             }
 
@@ -969,6 +1038,7 @@ namespace Shmup.Core.Simulation
                 _bulletPiercesRemaining.RemoveRange(write, removed);
                 _bulletRicochetUsed.RemoveRange(write, removed);
                 _bulletHomingTargetIds.RemoveRange(write, removed);
+                _bulletGrazeScored.RemoveRange(write, removed);
             }
         }
 
@@ -1270,8 +1340,8 @@ namespace Shmup.Core.Simulation
                 }
 
                 _bossDefeated = true;
-                Score = checked(Score + (long)_bossMaxHp * 2);
                 EmitEvent(SimEventType.EnemyKilled, _bossId, _bossX, _bossY, damage);
+                RecordKillAndScore((long)_bossMaxHp * 2);
                 EmitEvent(SimEventType.StageCleared, _bossId, _bossX, _bossY, 0);
                 return;
             }
@@ -1283,25 +1353,48 @@ namespace Shmup.Core.Simulation
             while (index < _bullets.Count)
             {
                 BulletState bullet = _bullets[index];
-                if (bullet.Faction != BulletFaction.Enemy
-                    || !Intersects(
-                        PlayerX, PlayerY, _playerHalfWidth, _playerHalfHeight,
-                        bullet.X, bullet.Y, _enemyBulletHalfWidth, _enemyBulletHalfHeight))
+                if (bullet.Faction != BulletFaction.Enemy)
                 {
                     index++;
                     continue;
                 }
 
-                RemoveBulletAt(index);
-                int absorbed = Math.Min(ShieldRemaining, _enemyBulletDamage);
-                ShieldRemaining -= absorbed;
-                PlayerHp = Damage.ApplyToHp(PlayerHp, _enemyBulletDamage - absorbed);
-                EmitEvent(SimEventType.PlayerHit, 0, PlayerX, PlayerY, _enemyBulletDamage - absorbed);
-                if (PlayerHp == 0)
+                // A hit always wins over graze on the same tick.
+                if (Intersects(
+                        PlayerX, PlayerY, _playerHalfWidth, _playerHalfHeight,
+                        bullet.X, bullet.Y, _enemyBulletHalfWidth, _enemyBulletHalfHeight))
                 {
-                    EmitEvent(SimEventType.PlayerKilled, 0, PlayerX, PlayerY, 0);
-                    return;
+                    RemoveBulletAt(index);
+                    int absorbed = Math.Min(ShieldRemaining, _enemyBulletDamage);
+                    ShieldRemaining -= absorbed;
+                    PlayerHp = Damage.ApplyToHp(PlayerHp, _enemyBulletDamage - absorbed);
+                    EmitEvent(
+                        SimEventType.PlayerHit,
+                        0,
+                        PlayerX,
+                        PlayerY,
+                        _enemyBulletDamage - absorbed);
+                    if (PlayerHp == 0)
+                    {
+                        EmitEvent(SimEventType.PlayerKilled, 0, PlayerX, PlayerY, 0);
+                        return;
+                    }
+                    continue;
                 }
+
+                if (_bulletGrazeScored[index] == 0 && IsWithinGrazeRadius(in bullet))
+                {
+                    _bulletGrazeScored[index] = 1;
+                    AddScoreSaturated(_grazeScore);
+                    EmitEvent(
+                        SimEventType.GrazeScored,
+                        bullet.Id,
+                        bullet.X,
+                        bullet.Y,
+                        _grazeScore);
+                    AddComboGauge(_grazeComboGaugeGain);
+                }
+                index++;
             }
         }
 
@@ -1339,8 +1432,8 @@ namespace Shmup.Core.Simulation
                 {
                     EnemyDefinition definition = _enemyDefinitions[enemyIndex];
                     RemoveEnemyAt(enemyIndex);
-                    Score = checked(Score + definition.ScoreValue);
                     EmitEvent(SimEventType.EnemyKilled, enemy.Id, enemy.X, enemy.Y, damage);
+                    RecordKillAndScore(definition.ScoreValue);
                     TryDropCapsule(definition, enemy.X, enemy.Y);
                     if (HasModifier(BattleModifier.KillExplosion))
                         ApplyKillExplosion(enemy.Id, enemy.X, enemy.Y);
@@ -1501,8 +1594,7 @@ namespace Shmup.Core.Simulation
         {
             long dx = Math.Abs((long)leftX - rightX);
             long dy = Math.Abs((long)leftY - rightY);
-            const long maxRoot = 3037000499L;
-            if (dx > maxRoot || dy > maxRoot)
+            if (dx > MaxSquareRoot || dy > MaxSquareRoot)
                 return long.MaxValue;
             long dxSquared = dx * dx;
             long dySquared = dy * dy;
@@ -1613,7 +1705,6 @@ namespace Shmup.Core.Simulation
 
                 EnemyDefinition definition = _enemyDefinitions[enemyIndex];
                 RemoveEnemyAt(enemyIndex);
-                Score = checked(Score + definition.ScoreValue);
                 AppendEvent(
                     SimEventType.EnemyKilled,
                     enemy.Id,
@@ -1621,8 +1712,108 @@ namespace Shmup.Core.Simulation
                     enemy.Y,
                     _killExplosionDamage);
                 IncrementSaturated(ref _kills);
+                RecordKillAndScore(definition.ScoreValue);
                 TryDropCapsule(definition, enemy.X, enemy.Y);
             }
+        }
+
+        bool IsWithinGrazeRadius(in BulletState bullet)
+        {
+            long playerRadius = Math.Max(_playerHalfWidth, _playerHalfHeight);
+            long bulletRadius = Math.Max(_enemyBulletHalfWidth, _enemyBulletHalfHeight);
+            long radius = playerRadius + bulletRadius + _grazeExtraRadiusSubUnits;
+            long radiusSquared = radius * radius;
+            return SquaredDistanceSaturated(
+                PlayerX,
+                PlayerY,
+                bullet.X,
+                bullet.Y) <= radiusSquared;
+        }
+
+        void RecordKillAndScore(long baseScore)
+        {
+            AddScoreSaturated(MultiplySaturated(baseScore, ScoreMultiplier));
+            _killScoredThisTick = true;
+            _ticksSinceLastKill = 0;
+            AddComboGauge(_killComboGaugeGain);
+        }
+
+        void AddComboGauge(int amount)
+        {
+            if (amount == 0 || _multiplierLevel >= _comboMultipliers.Length - 1)
+                return;
+
+            long nextGauge = (long)_comboGauge + amount;
+            _comboGauge = nextGauge >= int.MaxValue
+                ? int.MaxValue
+                : (int)nextGauge;
+
+            while (_multiplierLevel < _comboMultipliers.Length - 1
+                && _comboGauge >= _comboGaugeRequirements[_multiplierLevel])
+            {
+                _comboGauge -= _comboGaugeRequirements[_multiplierLevel];
+                _multiplierLevel++;
+                AppendEvent(
+                    SimEventType.MultiplierChanged,
+                    _multiplierLevel,
+                    PlayerX,
+                    PlayerY,
+                    ScoreMultiplier);
+            }
+
+            if (_multiplierLevel == _comboMultipliers.Length - 1)
+                _comboGauge = 0;
+        }
+
+        void AdvanceComboDecay()
+        {
+            if (_killScoredThisTick || _multiplierLevel == 0)
+                return;
+
+            if (_ticksSinceLastKill < _comboDecayTicks)
+                _ticksSinceLastKill++;
+            if (_ticksSinceLastKill < _comboDecayTicks)
+                return;
+
+            _ticksSinceLastKill = 0;
+            _comboGauge = 0;
+            _multiplierLevel--;
+            AppendEvent(
+                SimEventType.MultiplierChanged,
+                _multiplierLevel,
+                PlayerX,
+                PlayerY,
+                ScoreMultiplier);
+        }
+
+        void ResetCombo()
+        {
+            _ticksSinceLastKill = 0;
+            _comboGauge = 0;
+            if (_multiplierLevel == 0)
+                return;
+
+            _multiplierLevel = 0;
+            AppendEvent(
+                SimEventType.MultiplierChanged,
+                _multiplierLevel,
+                PlayerX,
+                PlayerY,
+                ScoreMultiplier);
+        }
+
+        void AddScoreSaturated(long amount)
+        {
+            Score = Score > long.MaxValue - amount
+                ? long.MaxValue
+                : Score + amount;
+        }
+
+        static long MultiplySaturated(long value, int multiplier)
+        {
+            return value != 0 && multiplier > long.MaxValue / value
+                ? long.MaxValue
+                : value * multiplier;
         }
 
         int FindEnemyIndexById(int enemyId)
@@ -1739,6 +1930,7 @@ namespace Shmup.Core.Simulation
                     : 0);
             _bulletRicochetUsed.Add(0);
             _bulletHomingTargetIds.Add(0);
+            _bulletGrazeScored.Add(0);
             IncrementSaturated(ref _shotsFired);
         }
 
@@ -1814,6 +2006,7 @@ namespace Shmup.Core.Simulation
             _bulletPiercesRemaining.Add(0);
             _bulletRicochetUsed.Add(0);
             _bulletHomingTargetIds.Add(0);
+            _bulletGrazeScored.Add(0);
         }
 
         static long IntegerSqrt(long value)
@@ -1909,6 +2102,7 @@ namespace Shmup.Core.Simulation
             _bulletPiercesRemaining.RemoveAt(index);
             _bulletRicochetUsed.RemoveAt(index);
             _bulletHomingTargetIds.RemoveAt(index);
+            _bulletGrazeScored.RemoveAt(index);
             ClearBulletHitRecords(bulletId);
         }
 
@@ -2087,6 +2281,49 @@ namespace Shmup.Core.Simulation
             if (config.KillExplosionMaxTargets < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(config.KillExplosionMaxTargets));
+            if (config.GrazeExtraRadiusSubUnits < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.GrazeExtraRadiusSubUnits));
+            if ((long)Math.Max(config.PlayerHalfWidth, config.PlayerHalfHeight)
+                    + Math.Max(
+                        config.EnemyBulletHalfWidth,
+                        config.EnemyBulletHalfHeight)
+                    + config.GrazeExtraRadiusSubUnits
+                > MaxSquareRoot)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.GrazeExtraRadiusSubUnits),
+                    "The combined graze radius exceeds the supported integer range.");
+            if (config.GrazeScore < 0)
+                throw new ArgumentOutOfRangeException(nameof(config.GrazeScore));
+            if (config.GrazeComboGaugeGain < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.GrazeComboGaugeGain));
+            if (config.KillComboGaugeGain < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.KillComboGaugeGain));
+            if (config.ComboGaugeRequiredForLevel2 < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.ComboGaugeRequiredForLevel2));
+            if (config.ComboGaugeRequiredForLevel3 < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.ComboGaugeRequiredForLevel3));
+            if (config.ComboGaugeRequiredForLevel4 < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.ComboGaugeRequiredForLevel4));
+            if (config.ComboDecayTicks < 1)
+                throw new ArgumentOutOfRangeException(nameof(config.ComboDecayTicks));
+            if (config.ComboMultiplierLevel1 < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.ComboMultiplierLevel1));
+            if (config.ComboMultiplierLevel2 < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.ComboMultiplierLevel2));
+            if (config.ComboMultiplierLevel3 < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.ComboMultiplierLevel3));
+            if (config.ComboMultiplierLevel4 < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.ComboMultiplierLevel4));
             if ((long)config.MaxBullets + config.MaxEnemyBullets > int.MaxValue)
                 throw new ArgumentOutOfRangeException(
                     nameof(config.MaxEnemyBullets),

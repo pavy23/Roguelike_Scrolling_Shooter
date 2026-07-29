@@ -172,6 +172,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(0L, manager.Statistics.ShotsHit);
             Assert.AreEqual(0L, manager.Statistics.Kills);
             Assert.AreEqual(0L, manager.Statistics.CapsulesCollected);
+            Assert.AreEqual(0L, manager.Statistics.GrazeCount);
             Assert.AreEqual(0, manager.Statistics.StagesCleared);
         }
 
@@ -438,6 +439,10 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 expected.Statistics.CapsulesCollected,
                 actual.Statistics.CapsulesCollected,
+                $"source tick {sourceTick}");
+            Assert.AreEqual(
+                expected.Statistics.GrazeCount,
+                actual.Statistics.GrazeCount,
                 $"source tick {sourceTick}");
             Assert.AreEqual(
                 expected.Statistics.StagesCleared,
