@@ -641,3 +641,25 @@ schema v3 중첩 `movement` 객체를 지원합니다. GROK은 `GameData/enemies
 
 schema v2는 계속 지원하므로 양쪽 파일을 같은 커밋에서 바꾸지 못해도 구 데이터로
 안전하게 동작합니다. 수치는 AGENTS.md §7에 따라 사람 승인 전 잠정으로 표기해 주세요.
+
+---
+
+## [ ] CLAUDE/GROK: REQ-023 장애물 Presentation·콘텐츠 연결
+
+Core의 세그먼트 장애물 시스템이 추가되었습니다.
+
+- `waves.json.segments[].obstacles`는 선택 배열이며 각 항목은
+  `{ "type": "solid|breakable", "x": 월드단위, "y": 월드단위, "hp": 정수 }`입니다.
+- `solid`의 `hp`는 0, `breakable`의 `hp`는 양수여야 합니다.
+- Presentation은 `IBattleSim.Obstacles`의 안정적인 `Id`로 뷰 풀을 매칭하고,
+  `SimEventType.ObstacleDestroyed`의 `X/Y`에서 파괴 연출을 재생해 주세요.
+- 공통 사각 히트박스와 접촉 피해/격파 점수는 `BattleSimConfig`의
+  `ObstacleHalfWidth`, `ObstacleHalfHeight`, `ObstacleContactDamage`,
+  `BreakableObstacleScore`에 잠정값(AGENTS.md §7)으로 노출되어 있습니다.
+- `MaxObstacles`를 Presentation 풀 크기와 동기화해 주세요.
+
+적탄은 의도적으로 장애물을 통과합니다. 파괴불가 지형이 적탄을 지우면 플레이어가
+지형 뒤에서 위협을 완전히 무효화하는 안전지대를 만들 수 있고, 지형을 탄 소거기로
+악용할 수 있기 때문입니다. 반대로 플레이어 탄은 관통/도탄 모디파이어와 무관하게
+모든 장애물에 막힙니다. GROK은 이 규칙을 전제로 장애물 배치와 잠정 HP/점수를
+검증하고, CLAUDE는 적탄-장애물 충돌 연출을 별도로 만들지 않아야 합니다.

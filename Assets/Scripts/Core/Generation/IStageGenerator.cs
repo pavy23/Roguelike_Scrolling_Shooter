@@ -179,6 +179,25 @@ namespace Shmup.Core.Generation
             int entryLaneMask,
             int exitLaneMask,
             IReadOnlyList<int> traversableLaneMasks)
+            : this(
+                segmentId,
+                lengthTicks,
+                spawns,
+                entryLaneMask,
+                exitLaneMask,
+                traversableLaneMasks,
+                Array.Empty<ObstacleSpawn>())
+        {
+        }
+
+        public StageSegment(
+            string segmentId,
+            int lengthTicks,
+            IReadOnlyList<SpawnEvent> spawns,
+            int entryLaneMask,
+            int exitLaneMask,
+            IReadOnlyList<int> traversableLaneMasks,
+            IReadOnlyList<ObstacleSpawn> obstacles)
         {
             SegmentId = segmentId ?? throw new ArgumentNullException(nameof(segmentId));
             LengthTicks = lengthTicks;
@@ -186,6 +205,7 @@ namespace Shmup.Core.Generation
             EntryLaneMask = entryLaneMask;
             ExitLaneMask = exitLaneMask;
             TraversableLaneMasks = CopyMasks(traversableLaneMasks);
+            Obstacles = CopyObstacles(obstacles);
         }
 
         public string SegmentId { get; }
@@ -194,6 +214,7 @@ namespace Shmup.Core.Generation
         public int EntryLaneMask { get; }
         public int ExitLaneMask { get; }
         public IReadOnlyList<int> TraversableLaneMasks { get; }
+        public IReadOnlyList<ObstacleSpawn> Obstacles { get; }
 
         static IReadOnlyList<SpawnEvent> CopySpawns(IReadOnlyList<SpawnEvent> source)
         {
@@ -213,6 +234,17 @@ namespace Shmup.Core.Generation
                 copy[i] = source[i];
             return new ReadOnlyCollection<int>(copy);
         }
+
+        static IReadOnlyList<ObstacleSpawn> CopyObstacles(
+            IReadOnlyList<ObstacleSpawn> source)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            var copy = new ObstacleSpawn[source.Count];
+            for (int i = 0; i < source.Count; i++)
+                copy[i] = source[i] ?? throw new ArgumentException(
+                    "Obstacles cannot contain null.", nameof(source));
+            return new ReadOnlyCollection<ObstacleSpawn>(copy);
+        }
     }
 
     /// <summary>An enemy spawn with position in integer simulation subunits.</summary>
@@ -231,5 +263,40 @@ namespace Shmup.Core.Generation
         public string EnemyId { get; }
         public int X { get; }
         public int Y { get; }
+    }
+
+    public enum ObstacleType
+    {
+        Solid = 0,
+        Breakable = 1
+    }
+
+    /// <summary>
+    /// An obstacle placed when its segment begins. Solid obstacles use Hp == 0;
+    /// breakable obstacles require positive HP.
+    /// </summary>
+    public sealed class ObstacleSpawn
+    {
+        public ObstacleSpawn(ObstacleType type, int x, int y, int hp)
+        {
+            if (!Enum.IsDefined(typeof(ObstacleType), type))
+                throw new ArgumentOutOfRangeException(nameof(type));
+            if (type == ObstacleType.Solid && hp != 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(hp), "Solid obstacle HP must be zero.");
+            if (type == ObstacleType.Breakable && hp < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(hp), "Breakable obstacle HP must be positive.");
+
+            Type = type;
+            X = x;
+            Y = y;
+            Hp = hp;
+        }
+
+        public ObstacleType Type { get; }
+        public int X { get; }
+        public int Y { get; }
+        public int Hp { get; }
     }
 }

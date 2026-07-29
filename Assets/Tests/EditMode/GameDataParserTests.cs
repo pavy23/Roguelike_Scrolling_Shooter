@@ -184,10 +184,69 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(13 * SimSpace.SubUnitsPerWorldUnit, spawn.X);
             Assert.AreEqual(-11 * SimSpace.SubUnitsPerWorldUnit / 2, spawn.Y);
             Assert.AreEqual(500, stages.Bosses[0].MaxHp);
+            Assert.AreEqual(0, stages.Segments[0].Obstacles.Count);
             Assert.IsNull(stages.Segments[0].ThemeId);
             Assert.IsNull(stages.Bosses[0].ThemeId);
             Assert.AreEqual(0, stages.ThemeIds.Count);
             Assert.IsNull(new SegmentStageGenerator(stages).Generate(1UL, 1, 1).ThemeId);
+        }
+
+        [Test]
+        public void Parse_WaveObstaclesBuildExactModelsAndGeneratedPlan()
+        {
+            string waves = WavesJson.Replace(
+                @"""spawns"": [{ ""tick"": 10, ""enemyId"": ""elite_sine"", ""y"": -5.5 }]",
+                @"""spawns"": [{ ""tick"": 10, ""enemyId"": ""elite_sine"", ""y"": -5.5 }],
+    ""obstacles"": [
+      { ""type"": ""solid"", ""x"": 12.5, ""y"": -1.25, ""hp"": 0 },
+      { ""type"": ""breakable"", ""x"": 14, ""y"": 2.5, ""hp"": 30 }
+    ]");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                waves);
+            StageSegmentTemplate template =
+                data.StageGeneration.Segments[0];
+            Assert.AreEqual(2, template.Obstacles.Count);
+            Assert.AreEqual(
+                ObstacleType.Solid,
+                template.Obstacles[0].Type);
+            Assert.AreEqual(3200, template.Obstacles[0].X);
+            Assert.AreEqual(-320, template.Obstacles[0].Y);
+            Assert.AreEqual(0, template.Obstacles[0].Hp);
+            Assert.AreEqual(
+                ObstacleType.Breakable,
+                template.Obstacles[1].Type);
+            Assert.AreEqual(3584, template.Obstacles[1].X);
+            Assert.AreEqual(640, template.Obstacles[1].Y);
+            Assert.AreEqual(30, template.Obstacles[1].Hp);
+
+            StagePlan plan = new SegmentStageGenerator(
+                data.StageGeneration).Generate(9UL, 1, 1);
+            Assert.AreEqual(2, plan.Segments[0].Obstacles.Count);
+            Assert.AreEqual(30, plan.Segments[0].Obstacles[1].Hp);
+        }
+
+        [Test]
+        public void Parse_WaveObstacleRejectsInvalidTypeWithPath()
+        {
+            string waves = WavesJson.Replace(
+                @"""spawns"": [{ ""tick"": 10, ""enemyId"": ""elite_sine"", ""y"": -5.5 }]",
+                @"""spawns"": [],
+    ""obstacles"": [
+      { ""type"": ""hazard"", ""x"": 1, ""y"": 2, ""hp"": 0 }
+    ]");
+
+            GameDataParseException error =
+                Assert.Throws<GameDataParseException>(
+                    () => GameDataParser.Parse(
+                        EnemiesJson,
+                        WeaponsJson,
+                        waves));
+            StringAssert.Contains(
+                "waves.json.segments[0].obstacles[0].type",
+                error.Message);
         }
 
         [Test]

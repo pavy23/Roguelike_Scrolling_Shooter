@@ -338,6 +338,31 @@ namespace Shmup.Core.Tests
                     Assert.AreEqual(expectedSpawn.X, actualSpawn.X);
                     Assert.AreEqual(expectedSpawn.Y, actualSpawn.Y);
                 }
+
+                Assert.AreEqual(
+                    expectedSegment.Obstacles.Count,
+                    actualSegment.Obstacles.Count);
+                for (int obstacle = 0;
+                    obstacle < expectedSegment.Obstacles.Count;
+                    obstacle++)
+                {
+                    ObstacleSpawn expectedObstacle =
+                        expectedSegment.Obstacles[obstacle];
+                    ObstacleSpawn actualObstacle =
+                        actualSegment.Obstacles[obstacle];
+                    Assert.AreEqual(
+                        expectedObstacle.Type,
+                        actualObstacle.Type);
+                    Assert.AreEqual(
+                        expectedObstacle.X,
+                        actualObstacle.X);
+                    Assert.AreEqual(
+                        expectedObstacle.Y,
+                        actualObstacle.Y);
+                    Assert.AreEqual(
+                        expectedObstacle.Hp,
+                        actualObstacle.Hp);
+                }
             }
         }
     }

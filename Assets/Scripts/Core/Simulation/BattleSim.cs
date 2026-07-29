@@ -42,7 +42,9 @@ namespace Shmup.Core.Simulation
         /// <summary>EntityId = enemy bullet id, X/Y = bullet position, Arg = fixed graze score.</summary>
         GrazeScored = 13,
         /// <summary>EntityId = zero-based multiplier level, Arg = score multiplier.</summary>
-        MultiplierChanged = 14
+        MultiplierChanged = 14,
+        /// <summary>EntityId = obstacle id, X/Y = destruction point, Arg = score earned.</summary>
+        ObstacleDestroyed = 15
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -230,6 +232,26 @@ namespace Shmup.Core.Simulation
         public int Hp { get; }
     }
 
+    /// <summary>Observable stage obstacle state in integer simulation subunits.</summary>
+    public readonly struct ObstacleState
+    {
+        public ObstacleState(int id, ObstacleType type, int x, int y, int hp)
+        {
+            Id = id;
+            Type = type;
+            X = x;
+            Y = y;
+            Hp = hp;
+        }
+
+        public int Id { get; }
+        public ObstacleType Type { get; }
+        public int X { get; }
+        public int Y { get; }
+        /// <summary>Remaining HP for breakable obstacles; zero for solid obstacles.</summary>
+        public int Hp { get; }
+    }
+
     /// <summary>Observable capsule state in integer simulation subunits.</summary>
     public readonly struct CapsuleState
     {
@@ -295,6 +317,16 @@ namespace Shmup.Core.Simulation
         public int CapsuleNoDropWeight { get; set; }
         public int ScrollSpeedNumerator { get; set; }
         public int ScrollSpeedDenominator { get; set; } = 1;
+
+        // Provisional obstacle tuning (REQ-023, AGENTS.md section 7).
+        // Shape and rewards remain configurable until the human balance pass.
+        public int MaxObstacles { get; set; } = 32;
+        public int ObstacleHalfWidth { get; set; } =
+            SimSpace.SubUnitsPerWorldUnit / 2;
+        public int ObstacleHalfHeight { get; set; } =
+            SimSpace.SubUnitsPerWorldUnit / 2;
+        public int ObstacleContactDamage { get; set; } = 1;
+        public int BreakableObstacleScore { get; set; } = 25;
         /// <summary>
         /// Provisional run difficulty tuning (REQ-020, AGENTS.md section 7).
         /// Applied with deterministic ceiling to regular-enemy and boss HP only.
@@ -458,6 +490,11 @@ namespace Shmup.Core.Simulation
         IReadOnlyList<BulletState> Bullets { get; }
         IReadOnlyList<OptionState> Options { get; }
         IReadOnlyList<EnemyState> Enemies { get; }
+        /// <summary>
+        /// Stable read-only obstacle view. Enemy bullets intentionally pass through
+        /// obstacles so terrain cannot erase hostile fire or create safe zones.
+        /// </summary>
+        IReadOnlyList<ObstacleState> Obstacles { get; }
         IReadOnlyList<CapsuleState> Capsules { get; }
         /// <summary>Events emitted by the most recent Step. Cleared at the start of each Step.</summary>
         ReadOnlySpan<SimEvent> EventsThisTick { get; }
@@ -509,6 +546,8 @@ namespace Shmup.Core.Simulation
         readonly int _capsuleHalfWidth, _capsuleHalfHeight;
         readonly int _capsuleNoDropWeight;
         readonly int _scrollSpeedNumerator, _scrollSpeedDenominator;
+        readonly int _maxObstacles, _obstacleHalfWidth, _obstacleHalfHeight;
+        readonly int _obstacleContactDamage, _breakableObstacleScore;
         readonly int _enemyHpMultiplierNumerator;
         readonly int _enemyHpMultiplierDenominator;
         readonly int _playerBulletDamage, _playerBulletHalfWidth, _playerBulletHalfHeight;
@@ -540,9 +579,12 @@ namespace Shmup.Core.Simulation
         readonly List<int> _enemyDiveTargetYs;
         readonly List<byte> _enemyMovementFlags;
         readonly ReadOnlyCollection<EnemyState> _readOnlyEnemies;
+        readonly List<ObstacleState> _obstacles;
+        readonly ReadOnlyCollection<ObstacleState> _readOnlyObstacles;
         readonly List<CapsuleState> _capsules;
         readonly ReadOnlyCollection<CapsuleState> _readOnlyCapsules;
         readonly ScheduledSpawn[] _scheduledSpawns;
+        readonly ScheduledObstacle[] _scheduledObstacles;
 
         // 적탄 설정 (config 스냅숏)
         readonly int _enemyBulletSpeedNumerator, _enemyBulletSpeedDenominator;
@@ -581,8 +623,10 @@ namespace Shmup.Core.Simulation
         int _mainShotLevel, _missileLevel, _optionLevel, _shieldGaugeLevel;
         int _nextBulletId = 1;
         int _nextEnemyId = 1;
+        int _nextObstacleId = 1;
         int _nextCapsuleId = 1;
         int _nextScheduledSpawn;
+        int _nextScheduledObstacle;
         int _playerHistoryHead;
         int _playerHistoryCount;
         int _bulletHitRecordCount;
@@ -713,6 +757,11 @@ namespace Shmup.Core.Simulation
             _capsuleNoDropWeight = config.CapsuleNoDropWeight;
             _scrollSpeedNumerator = config.ScrollSpeedNumerator;
             _scrollSpeedDenominator = config.ScrollSpeedDenominator;
+            _maxObstacles = config.MaxObstacles;
+            _obstacleHalfWidth = config.ObstacleHalfWidth;
+            _obstacleHalfHeight = config.ObstacleHalfHeight;
+            _obstacleContactDamage = config.ObstacleContactDamage;
+            _breakableObstacleScore = config.BreakableObstacleScore;
             _enemyHpMultiplierNumerator =
                 config.EnemyHpMultiplierNumerator;
             _enemyHpMultiplierDenominator =
@@ -819,6 +868,7 @@ namespace Shmup.Core.Simulation
                             : weapon.ProjectileHalfHeight;
                 ValidateDropTotals(content, _capsuleNoDropWeight);
                 _scheduledSpawns = BuildSchedule(stagePlan, content, out long totalTicks);
+                _scheduledObstacles = BuildObstacleSchedule(stagePlan);
                 _stageTotalTicks = (int)Math.Min(totalTicks, int.MaxValue);
             }
             else
@@ -850,6 +900,7 @@ namespace Shmup.Core.Simulation
                         ? config.SpreadHalfHeight
                         : 0;
                 _scheduledSpawns = Array.Empty<ScheduledSpawn>();
+                _scheduledObstacles = Array.Empty<ScheduledObstacle>();
             }
 
             int bulletCapacity = _maxBullets + _maxEnemyBullets;
@@ -896,13 +947,16 @@ namespace Shmup.Core.Simulation
             _enemyDiveTargetYs = new List<int>(spawnCapacity);
             _enemyMovementFlags = new List<byte>(spawnCapacity);
             _readOnlyEnemies = _enemies.AsReadOnly();
+            _obstacles = new List<ObstacleState>(_maxObstacles);
+            _readOnlyObstacles = _obstacles.AsReadOnly();
             _capsules = new List<CapsuleState>(spawnCapacity);
             _readOnlyCapsules = _capsules.AsReadOnly();
             _enemyScanIds = new int[spawnCapacity];
             _enemyScanDistances = new long[spawnCapacity];
             long eventCapacity = 64L
                 + 3L * spawnCapacity
-                + 2L * bulletCapacity;
+                + 2L * bulletCapacity
+                + 2L * _maxObstacles;
             if (eventCapacity > int.MaxValue)
                 throw new ArgumentOutOfRangeException(
                     nameof(stagePlan),
@@ -938,6 +992,7 @@ namespace Shmup.Core.Simulation
         public IReadOnlyList<BulletState> Bullets => _readOnlyBullets;
         public IReadOnlyList<OptionState> Options => _readOnlyOptions;
         public IReadOnlyList<EnemyState> Enemies => _readOnlyEnemies;
+        public IReadOnlyList<ObstacleState> Obstacles => _readOnlyObstacles;
         public IReadOnlyList<CapsuleState> Capsules => _readOnlyCapsules;
         public ReadOnlySpan<SimEvent> EventsThisTick => new ReadOnlySpan<SimEvent>(_events, 0, _eventCount);
         public bool BossActive => _bossSpawned && !_bossDefeated;
@@ -980,13 +1035,16 @@ namespace Shmup.Core.Simulation
             UpdateOptionPositions();
             AdvanceBullets();
             AdvanceEnemies();
+            AdvanceObstacles();
             AdvanceCapsules();
             SpawnScheduledThroughTick(Tick);
             UpdateBoss();
+            ResolvePlayerBulletObstacleCollisions();
             ResolvePlayerBulletEnemyCollisions();
             ResolvePlayerBulletBossCollisions();
             ResolveEnemyBulletPlayerCollisions();
             ResolveEnemyPlayerCollisions();
+            ResolveObstaclePlayerCollisions();
             ResolveCapsulePlayerCollisions();
             AdvanceComboDecay();
 
@@ -1411,6 +1469,26 @@ namespace Shmup.Core.Simulation
                 _enemyDiveTargetYs.Add(spawn.Y);
                 _enemyMovementFlags.Add(0);
             }
+
+            while (_nextScheduledObstacle < _scheduledObstacles.Length
+                && _scheduledObstacles[_nextScheduledObstacle].Tick <= tick)
+            {
+                ScheduledObstacle scheduled =
+                    _scheduledObstacles[_nextScheduledObstacle++];
+                if (_obstacles.Count >= _maxObstacles)
+                    continue;
+                if (_nextObstacleId == int.MaxValue)
+                    throw new InvalidOperationException(
+                        "The obstacle id counter is exhausted.");
+
+                ObstacleSpawn obstacle = scheduled.Obstacle;
+                _obstacles.Add(new ObstacleState(
+                    _nextObstacleId++,
+                    obstacle.Type,
+                    obstacle.X,
+                    obstacle.Y,
+                    obstacle.Hp));
+            }
         }
 
         /// <summary>
@@ -1642,6 +1720,113 @@ namespace Shmup.Core.Simulation
                     capsule.Y);
                 index++;
             }
+        }
+
+        void AdvanceObstacles()
+        {
+            long scrollDelta =
+                GetScrollXAtTick(Tick) - GetScrollXAtTick(Tick - 1);
+            int index = 0;
+            while (index < _obstacles.Count)
+            {
+                ObstacleState obstacle = _obstacles[index];
+                long nextX = obstacle.X - scrollDelta;
+                if (nextX < _enemyDespawnX)
+                {
+                    _obstacles.RemoveAt(index);
+                    continue;
+                }
+
+                _obstacles[index] = new ObstacleState(
+                    obstacle.Id,
+                    obstacle.Type,
+                    SaturateToInt(nextX),
+                    obstacle.Y,
+                    obstacle.Hp);
+                index++;
+            }
+        }
+
+        void ResolvePlayerBulletObstacleCollisions()
+        {
+            int bulletIndex = 0;
+            while (bulletIndex < _bullets.Count)
+            {
+                BulletState bullet = _bullets[bulletIndex];
+                if (bullet.Faction != BulletFaction.Player)
+                {
+                    bulletIndex++;
+                    continue;
+                }
+
+                int obstacleIndex = FindBulletHitObstacle(in bullet);
+                if (obstacleIndex < 0)
+                {
+                    bulletIndex++;
+                    continue;
+                }
+
+                ObstacleState obstacle = _obstacles[obstacleIndex];
+                if (obstacle.Type == ObstacleType.Breakable)
+                {
+                    int damage = bullet.Kind == BulletKind.Missile
+                        ? Damage.Compute(
+                            _missileBaseDamage,
+                            Math.Max(1, _missileLevel))
+                        : Damage.Compute(
+                            _playerBulletDamage,
+                            Math.Max(1, _mainShotLevel));
+                    int hp = Damage.ApplyToHp(obstacle.Hp, damage);
+                    if (hp > 0)
+                    {
+                        _obstacles[obstacleIndex] = new ObstacleState(
+                            obstacle.Id,
+                            obstacle.Type,
+                            obstacle.X,
+                            obstacle.Y,
+                            hp);
+                    }
+                    else
+                    {
+                        _obstacles.RemoveAt(obstacleIndex);
+                        AddScoreSaturated(_breakableObstacleScore);
+                        EmitEvent(
+                            SimEventType.ObstacleDestroyed,
+                            obstacle.Id,
+                            obstacle.X,
+                            obstacle.Y,
+                            _breakableObstacleScore);
+                    }
+                }
+
+                // Terrain blocks every player projectile, including laser pierce.
+                RemoveBulletAt(bulletIndex);
+            }
+        }
+
+        int FindBulletHitObstacle(in BulletState bullet)
+        {
+            int bulletHalfWidth = bullet.Kind == BulletKind.Missile
+                ? _missileHalfWidth
+                : _playerBulletHalfWidth;
+            int bulletHalfHeight = bullet.Kind == BulletKind.Missile
+                ? _missileHalfHeight
+                : _playerBulletHalfHeight;
+            for (int i = 0; i < _obstacles.Count; i++)
+            {
+                ObstacleState obstacle = _obstacles[i];
+                if (Intersects(
+                        bullet.X,
+                        bullet.Y,
+                        bulletHalfWidth,
+                        bulletHalfHeight,
+                        obstacle.X,
+                        obstacle.Y,
+                        _obstacleHalfWidth,
+                        _obstacleHalfHeight))
+                    return i;
+            }
+            return -1;
         }
 
         void ResolvePlayerBulletEnemyCollisions()
@@ -2099,6 +2284,45 @@ namespace Shmup.Core.Simulation
             }
         }
 
+        void ResolveObstaclePlayerCollisions()
+        {
+            for (int i = 0; i < _obstacles.Count; i++)
+            {
+                ObstacleState obstacle = _obstacles[i];
+                if (!Intersects(
+                        PlayerX,
+                        PlayerY,
+                        _playerHalfWidth,
+                        _playerHalfHeight,
+                        obstacle.X,
+                        obstacle.Y,
+                        _obstacleHalfWidth,
+                        _obstacleHalfHeight))
+                    continue;
+
+                int absorbed = Math.Min(
+                    ShieldRemaining,
+                    _obstacleContactDamage);
+                ShieldRemaining -= absorbed;
+                bool wasAlive = PlayerHp > 0;
+                int hullDamage = _obstacleContactDamage - absorbed;
+                PlayerHp = Damage.ApplyToHp(PlayerHp, hullDamage);
+                EmitEvent(
+                    SimEventType.PlayerHit,
+                    0,
+                    PlayerX,
+                    PlayerY,
+                    hullDamage);
+                if (wasAlive && PlayerHp == 0)
+                    EmitEvent(
+                        SimEventType.PlayerKilled,
+                        0,
+                        PlayerX,
+                        PlayerY,
+                        0);
+            }
+        }
+
         void ResolveCapsulePlayerCollisions()
         {
             int index = 0;
@@ -2502,6 +2726,32 @@ namespace Shmup.Core.Simulation
             return result;
         }
 
+        static ScheduledObstacle[] BuildObstacleSchedule(StagePlan stagePlan)
+        {
+            var schedule = new List<ScheduledObstacle>();
+            long segmentStart = 0;
+            for (int segmentIndex = 0;
+                segmentIndex < stagePlan.Segments.Count;
+                segmentIndex++)
+            {
+                StageSegment segment = stagePlan.Segments[segmentIndex];
+                for (int obstacleIndex = 0;
+                    obstacleIndex < segment.Obstacles.Count;
+                    obstacleIndex++)
+                {
+                    if (segmentStart > int.MaxValue)
+                        throw new ArgumentException(
+                            "Stage obstacle timeline exceeds the tick range.",
+                            nameof(stagePlan));
+                    schedule.Add(new ScheduledObstacle(
+                        (int)segmentStart,
+                        segment.Obstacles[obstacleIndex]));
+                }
+                segmentStart += segment.LengthTicks;
+            }
+            return schedule.ToArray();
+        }
+
         static int CompareScheduledSpawns(ScheduledSpawn left, ScheduledSpawn right)
         {
             int tickComparison = left.Tick.CompareTo(right.Tick);
@@ -2618,6 +2868,18 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(config.ScrollSpeedNumerator));
             if (config.ScrollSpeedDenominator < 1)
                 throw new ArgumentOutOfRangeException(nameof(config.ScrollSpeedDenominator));
+            if (config.MaxObstacles < 0)
+                throw new ArgumentOutOfRangeException(nameof(config.MaxObstacles));
+            if (config.ObstacleHalfWidth < 0
+                || config.ObstacleHalfHeight < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.ObstacleHalfWidth));
+            if (config.ObstacleContactDamage < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.ObstacleContactDamage));
+            if (config.BreakableObstacleScore < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.BreakableObstacleScore));
             if (config.EnemyHpMultiplierNumerator < 1)
                 throw new ArgumentOutOfRangeException(
                     nameof(config.EnemyHpMultiplierNumerator));
@@ -2750,6 +3012,19 @@ namespace Shmup.Core.Simulation
             public EnemyDefinition Definition { get; }
             public int X { get; }
             public int Y { get; }
+        }
+
+        readonly struct ScheduledObstacle
+        {
+            public ScheduledObstacle(int tick, ObstacleSpawn obstacle)
+            {
+                Tick = tick;
+                Obstacle = obstacle
+                    ?? throw new ArgumentNullException(nameof(obstacle));
+            }
+
+            public int Tick { get; }
+            public ObstacleSpawn Obstacle { get; }
         }
     }
 }

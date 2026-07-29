@@ -152,6 +152,8 @@ namespace Shmup.Core.Content
         public int[] traversableLaneMasks;
         [DataMember]
         public SpawnDto[] spawns;
+        [DataMember]
+        public ObstacleDto[] obstacles;
     }
 
     [DataContract]
@@ -163,6 +165,19 @@ namespace Shmup.Core.Content
         public string enemyId;
         [DataMember]
         public decimal? y;
+    }
+
+    [DataContract]
+    internal sealed class ObstacleDto
+    {
+        [DataMember]
+        public string type;
+        [DataMember]
+        public decimal? x;
+        [DataMember]
+        public decimal? y;
+        [DataMember]
+        public int? hp;
     }
 
     [DataContract]

@@ -89,6 +89,7 @@ namespace Shmup.Core.Simulation
                 steppedBattle.Enemies.Count,
                 totalScore,
                 steppedBattle.EventsThisTick.Length);
+            FoldInt32(steppedBattle.Obstacles.Count);
         }
 
         public void FoldTick(
@@ -185,6 +186,16 @@ namespace Shmup.Core.Simulation
                     FoldInt32(spawn.X);
                     FoldInt32(spawn.Y);
                 }
+
+                FoldInt32(segment.Obstacles.Count);
+                for (int j = 0; j < segment.Obstacles.Count; j++)
+                {
+                    ObstacleSpawn obstacle = segment.Obstacles[j];
+                    FoldInt32((int)obstacle.Type);
+                    FoldInt32(obstacle.X);
+                    FoldInt32(obstacle.Y);
+                    FoldInt32(obstacle.Hp);
+                }
             }
         }
 
@@ -250,6 +261,17 @@ namespace Shmup.Core.Simulation
                 FoldInt32(enemy.X);
                 FoldInt32(enemy.Y);
                 FoldInt32(enemy.Hp);
+            }
+
+            FoldInt32(battle.Obstacles.Count);
+            for (int i = 0; i < battle.Obstacles.Count; i++)
+            {
+                ObstacleState obstacle = battle.Obstacles[i];
+                FoldInt32(obstacle.Id);
+                FoldInt32((int)obstacle.Type);
+                FoldInt32(obstacle.X);
+                FoldInt32(obstacle.Y);
+                FoldInt32(obstacle.Hp);
             }
 
             FoldInt32(battle.Capsules.Count);

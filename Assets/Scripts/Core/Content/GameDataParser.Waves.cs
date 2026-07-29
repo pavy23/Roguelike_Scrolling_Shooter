@@ -153,6 +153,53 @@ namespace Shmup.Core.Content
                         spawnPath + ".y"));
             }
 
+            ObstacleDto[] obstacleSource = source.obstacles
+                ?? Array.Empty<ObstacleDto>();
+            var obstacles = new ObstacleSpawn[obstacleSource.Length];
+            for (int i = 0; i < obstacleSource.Length; i++)
+            {
+                string obstaclePath = $"{path}.obstacles[{i}]";
+                ObstacleDto obstacle = obstacleSource[i];
+                if (obstacle == null)
+                    throw Error(obstaclePath, "cannot be null.");
+
+                string typeText = RequireText(
+                    obstacle.type,
+                    obstaclePath + ".type");
+                ObstacleType type;
+                if (string.Equals(typeText, "solid", StringComparison.Ordinal))
+                    type = ObstacleType.Solid;
+                else if (string.Equals(
+                    typeText,
+                    "breakable",
+                    StringComparison.Ordinal))
+                    type = ObstacleType.Breakable;
+                else
+                    throw Error(
+                        obstaclePath + ".type",
+                        "must be 'solid' or 'breakable'.");
+
+                int hp = Require(obstacle.hp, obstaclePath + ".hp");
+                if (type == ObstacleType.Solid && hp != 0)
+                    throw Error(
+                        obstaclePath + ".hp",
+                        "must be zero for a solid obstacle.");
+                if (type == ObstacleType.Breakable && hp < 1)
+                    throw Error(
+                        obstaclePath + ".hp",
+                        "must be positive for a breakable obstacle.");
+
+                obstacles[i] = new ObstacleSpawn(
+                    type,
+                    ToSubUnits(
+                        Require(obstacle.x, obstaclePath + ".x"),
+                        obstaclePath + ".x"),
+                    ToSubUnits(
+                        Require(obstacle.y, obstaclePath + ".y"),
+                        obstaclePath + ".y"),
+                    hp);
+            }
+
             return new StageSegmentTemplate(
                 RequireText(source.id, path + ".id"),
                 Require(source.difficultyMin, path + ".difficultyMin"),
@@ -164,6 +211,7 @@ namespace Shmup.Core.Content
                     source.traversableLaneMasks,
                     path + ".traversableLaneMasks"),
                 spawns,
+                obstacles,
                 OptionalText(source.theme, path + ".theme"));
         }
 
