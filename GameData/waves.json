@@ -79,7 +79,7 @@
     {
       "id": "seg_sine_pair",
       "difficultyMin": 1,
-      "difficultyMax": 5,
+      "difficultyMax": 2,
       "lengthTicks": 600,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
@@ -210,7 +210,7 @@
     {
       "id": "seg_swarm_fast",
       "difficultyMin": 2,
-      "difficultyMax": 5,
+      "difficultyMax": 3,
       "lengthTicks": 600,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
@@ -562,7 +562,7 @@
     {
       "id": "seg_sine_rush",
       "difficultyMin": 1,
-      "difficultyMax": 4,
+      "difficultyMax": 3,
       "lengthTicks": 660,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
@@ -1222,12 +1222,12 @@
       "spawns": [
         {
           "tick": 30,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 4.75
         },
         {
           "tick": 30,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": -4.75
         },
         {
@@ -1242,22 +1242,22 @@
         },
         {
           "tick": 100,
-          "enemyId": "zako_sine",
+          "enemyId": "zako_sine_slow",
           "y": 0
         },
         {
           "tick": 140,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 5.5
         },
         {
           "tick": 140,
-          "enemyId": "wisp_spark",
+          "enemyId": "elite_sine",
           "y": 0
         },
         {
           "tick": 140,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": -5.5
         },
         {
@@ -1301,6 +1301,16 @@
           "y": -4.75
         },
         {
+          "tick": 380,
+          "enemyId": "guardian_sphere",
+          "y": 2.5
+        },
+        {
+          "tick": 380,
+          "enemyId": "guardian_sphere",
+          "y": -2.5
+        },
+        {
           "tick": 400,
           "enemyId": "echo_wisp",
           "y": 3.25
@@ -1312,7 +1322,7 @@
         },
         {
           "tick": 450,
-          "enemyId": "wisp_spark",
+          "enemyId": "zako_tank",
           "y": 0
         },
         {
@@ -1327,22 +1337,22 @@
         },
         {
           "tick": 560,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 5.5
         },
         {
           "tick": 560,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 2.5
         },
         {
           "tick": 560,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": -2.5
         },
         {
           "tick": 560,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": -5.5
         },
         {
@@ -1381,17 +1391,17 @@
       "spawns": [
         {
           "tick": 30,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 3.25
         },
         {
           "tick": 40,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 0
         },
         {
           "tick": 50,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": -3.25
         },
         {
@@ -1406,22 +1416,22 @@
         },
         {
           "tick": 150,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 5.5
         },
         {
           "tick": 160,
-          "enemyId": "wisp_spark",
+          "enemyId": "zako_tank",
           "y": 2.5
         },
         {
           "tick": 170,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": -2.5
         },
         {
           "tick": 180,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": -5.5
         },
         {
@@ -1436,7 +1446,7 @@
         },
         {
           "tick": 290,
-          "enemyId": "echo_wisp",
+          "enemyId": "elite_sine",
           "y": 0
         },
         {
@@ -1455,6 +1465,11 @@
           "y": -3.25
         },
         {
+          "tick": 400,
+          "enemyId": "guardian_sphere",
+          "y": 0
+        },
+        {
           "tick": 420,
           "enemyId": "echo_wisp",
           "y": 1.5
@@ -1466,27 +1481,27 @@
         },
         {
           "tick": 480,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 4.75
         },
         {
           "tick": 490,
-          "enemyId": "wisp_spark",
+          "enemyId": "zako_tank",
           "y": 0
         },
         {
           "tick": 500,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": -4.75
         },
         {
           "tick": 560,
-          "enemyId": "zako_sine",
+          "enemyId": "zako_sine_slow",
           "y": 2.5
         },
         {
           "tick": 560,
-          "enemyId": "zako_sine",
+          "enemyId": "zako_sine_slow",
           "y": -2.5
         },
         {
@@ -1502,6 +1517,11 @@
         {
           "tick": 680,
           "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 700,
+          "enemyId": "mini_crystal",
           "y": 0
         }
       ]
@@ -1984,7 +2004,7 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 1900,
+      "hp": 20000,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
@@ -2009,7 +2029,7 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 2400,
+      "hp": 24000,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,

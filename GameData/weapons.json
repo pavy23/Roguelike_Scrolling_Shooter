@@ -16,6 +16,7 @@
       "slot": "Missile",
       "baseDamage": 20,
       "fireIntervalTicks": 30,
+      "minimumFireIntervalTicks": 15,
       "projectileSpeed": 10,
       "projectileHalfWidth": 0.46875,
       "projectileHalfHeight": 0.28125,
