@@ -16,6 +16,10 @@ namespace Shmup.Presentation.Battle
         bool _paused;
         GUIStyle _titleStyle, _bodyStyle;
 
+        // REQ-009: 일시정지 중에도 매 프레임 문자열을 만들지 않도록 볼륨 % 기준으로 캐시
+        int _lastVolumePercent = -1;
+        string _bodyText = "";
+
         void Start()
         {
             AudioListener.volume = PlayerPrefs.GetFloat(VolumePrefKey, 1f);
@@ -75,11 +79,14 @@ namespace Shmup.Presentation.Battle
             GUI.color = Color.white;
 
             GUI.Label(new Rect(0, height * 0.32f, width, 44f), "PAUSED", _titleStyle);
-            GUI.Label(
-                new Rect(0, height * 0.45f, width, 90f),
-                $"VOLUME  {(int)(AudioListener.volume * 100f)}%   (←/→)\n\n" +
-                "ESC  RESUME      O  OPTIONS      Q  QUIT TO TITLE",
-                _bodyStyle);
+            int volumePercent = (int)(AudioListener.volume * 100f);
+            if (volumePercent != _lastVolumePercent)
+            {
+                _lastVolumePercent = volumePercent;
+                _bodyText = $"VOLUME  {volumePercent}%   (←/→)\n\n" +
+                            "ESC  RESUME      O  OPTIONS      Q  QUIT TO TITLE";
+            }
+            GUI.Label(new Rect(0, height * 0.45f, width, 90f), _bodyText, _bodyStyle);
         }
 
         void EnsureStyles()

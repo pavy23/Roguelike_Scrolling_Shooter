@@ -351,3 +351,23 @@ GEMINI 계측: 에디터 90초(4배속) 동안 Total Allocated +33.7MB, Mono Hea
 유력 용의자: IMGUI 오버레이(DevCheats/ScoreHud 등)의 매 프레임 문자열 보간·GUIStyle 생성.
 후속: (1) 스탠드얼론 빌드에서 재계측해 에디터 오버헤드 분리, (2) IMGUI HUD의 TextMeshPro
 전환(M5 폴리시 후보), (3) Core 경로 무할당 확인은 CODEX 프로파일 테스트로.
+
+---
+
+## [ ] REQ-010 → CODEX: 미사일 최소 발사 간격이 데이터에서 오지 않는 버그 (GEMINI 검산 발견)
+
+weapons.json 미사일 fireIntervalTicks=30인데 BattleSimConfig.MissileMinimumFireIntervalTicks
+기본값도 30이라, GameDataSet.ApplyTo가 최소 간격을 복사하지 않아 레벨업 연사 증가(5틱/레벨)가
+전부 30틱 캡에 막힌다 (GameDataSet.cs:133 인근 — interval만 복사, minimum 미복사).
+요청: weapons.json에 minimumFireIntervalTicks 선택 필드를 파싱해 ApplyTo에서 복사하고
+(누락 시 폴백은 fireIntervalTicks의 절반 권장), MainShot 쪽도 같은 문제 없는지 점검.
+회귀 테스트 포함. 데이터 필드 추가는 GROK에 REQ-011로 요청함.
+
+## [ ] REQ-011 → GROK: GEMINI 밸런스 검산 후속 3건 (§7 잠정 표기 유지)
+
+1. Stage 3→4 난이도 역전: nebula 세그먼트 평균 HP -13.7% (wisp 편중 + 저난이도 공용
+   세그먼트 잔존). difficultyMin 상향 또는 nebula 세그먼트 증량으로 단조 증가 복원.
+2. weapons.json 미사일에 minimumFireIntervalTicks: 15 추가 (REQ-010과 짝).
+3. 풀 파워업 DPS 1880 (기본 대비 25배) → 최종 보스 TTK 1.27초. 후반 보스 HP 상향
+   (boss_nebula/boss_core 중심) 또는 패시브 보상 스택 상한으로 TTK 10초+ 확보.
+   전부 잠정(§7) — 사람 플레이 피드백 전 확정 금지.

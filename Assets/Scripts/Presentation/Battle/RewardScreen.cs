@@ -16,6 +16,10 @@ namespace Shmup.Presentation.Battle
 
         GUIStyle _titleStyle, _optionStyle;
 
+        // REQ-009: 보상 대기 동안 매 프레임 라벨을 만들지 않도록, 대기 진입 시 1회만 조립
+        readonly string[] _optionTexts = new string[8];
+        bool _labelsBuilt;
+
         void Update()
         {
             if (_director == null || !_director.AwaitingReward) return;
@@ -31,9 +35,19 @@ namespace Shmup.Presentation.Battle
 
         void OnGUI()
         {
-            if (_director == null || !_director.AwaitingReward) return;
+            if (_director == null || !_director.AwaitingReward)
+            {
+                _labelsBuilt = false;   // 다음 보상 화면에서 다시 조립
+                return;
+            }
             var options = _director.RewardOptions;
             if (options == null) return;
+            if (!_labelsBuilt)
+            {
+                for (int i = 0; i < options.Count && i < _optionTexts.Length; i++)
+                    _optionTexts[i] = $"[{i + 1}]\n{Describe(options[i])}";
+                _labelsBuilt = true;
+            }
 
             EnsureStyles();
             float width = Screen.width, height = Screen.height;
@@ -60,7 +74,7 @@ namespace Shmup.Presentation.Battle
                 GUI.color = new Color(0.08f, 0.12f, 0.22f, 0.92f);
                 GUI.DrawTexture(rect, Texture2D.whiteTexture);
                 GUI.color = Color.white;
-                GUI.Label(rect, $"[{i + 1}]\n{Describe(options[i])}", _optionStyle);
+                GUI.Label(rect, i < _optionTexts.Length ? _optionTexts[i] : "", _optionStyle);
             }
         }
 

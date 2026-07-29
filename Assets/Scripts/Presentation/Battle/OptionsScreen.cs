@@ -30,6 +30,8 @@ namespace Shmup.Presentation.Battle
         int _resolutionIndex;
         InputActionRebindingExtensions.RebindingOperation _rebind;
         GUIStyle _titleStyle, _bodyStyle;
+        string _panelText;
+        int _panelKey = -1;
 
         void Start()
         {
@@ -138,6 +140,7 @@ namespace Shmup.Presentation.Battle
             fire.Enable();
             if (_input != null && _input.Actions != null)
                 PlayerPrefs.SetString(BindingsPrefKey, _input.Actions.SaveBindingOverridesAsJson());
+            _panelText = null;   // 바인딩 표시 갱신
         }
 
         void CancelRebind()
@@ -150,6 +153,7 @@ namespace Shmup.Presentation.Battle
             if (_input == null || _input.Actions == null) return;
             _input.Actions.RemoveAllBindingOverrides();
             PlayerPrefs.DeleteKey(BindingsPrefKey);
+            _panelText = null;   // 바인딩 표시 갱신
         }
 
         void LoadBindings()
@@ -173,21 +177,28 @@ namespace Shmup.Presentation.Battle
                 return;
             }
 
-            var resolution = Resolutions[_resolutionIndex];
-            var fire = FindFireAction();
-            string fireBinding = fire != null
-                ? InputControlPath.ToHumanReadableString(
-                    fire.bindings[0].effectivePath,
-                    InputControlPath.HumanReadableStringOptions.OmitDevice)
-                : "?";
-            DrawPanel(
-                $"OPTIONS\n\n" +
-                $"[R] RESOLUTION   {resolution.x} x {resolution.y}\n" +
-                $"[F] FULLSCREEN   {(Screen.fullScreen ? "ON" : "OFF")}\n" +
-                $"[B] REBIND FIRE  (now: {fireBinding})\n" +
-                "[1]~[4] REBIND MOVE  (up/down/left/right)\n" +
-                $"[X] RESET BINDINGS\n\n" +
-                "[O] CLOSE");
+            // REQ-009: 열려 있는 동안 매 프레임 문자열을 만들지 않도록 상태 키 기준으로 캐시
+            int panelKey = (_resolutionIndex << 1) | (Screen.fullScreen ? 1 : 0);
+            if (_panelText == null || panelKey != _panelKey)
+            {
+                _panelKey = panelKey;
+                var resolution = Resolutions[_resolutionIndex];
+                var fire = FindFireAction();
+                string fireBinding = fire != null
+                    ? InputControlPath.ToHumanReadableString(
+                        fire.bindings[0].effectivePath,
+                        InputControlPath.HumanReadableStringOptions.OmitDevice)
+                    : "?";
+                _panelText =
+                    $"OPTIONS\n\n" +
+                    $"[R] RESOLUTION   {resolution.x} x {resolution.y}\n" +
+                    $"[F] FULLSCREEN   {(Screen.fullScreen ? "ON" : "OFF")}\n" +
+                    $"[B] REBIND FIRE  (now: {fireBinding})\n" +
+                    "[1]~[4] REBIND MOVE  (up/down/left/right)\n" +
+                    $"[X] RESET BINDINGS\n\n" +
+                    "[O] CLOSE";
+            }
+            DrawPanel(_panelText);
         }
 
         void DrawPanel(string text)

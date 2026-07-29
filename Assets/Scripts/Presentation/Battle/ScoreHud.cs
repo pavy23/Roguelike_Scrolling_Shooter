@@ -10,6 +10,10 @@ namespace Shmup.Presentation.Battle
 
         GUIStyle _style;
 
+        // 점수는 킬 시점에만 변하므로 문자열을 값 기준으로 캐시한다 (REQ-009: OnGUI 프레임당 할당 금지)
+        long _lastScore = long.MinValue;
+        string _scoreText = "";
+
         void OnGUI()
         {
             if (_director == null) return;
@@ -21,9 +25,15 @@ namespace Shmup.Presentation.Battle
                     fontStyle = FontStyle.Bold,
                     normal = { textColor = new Color(0.95f, 0.9f, 0.6f) }
                 };
+            long score = _director.TotalScore;
+            if (score != _lastScore)
+            {
+                _lastScore = score;
+                _scoreText = score.ToString("D8");
+            }
             GUI.Label(
                 new Rect(0, 6, Screen.width - 12, _style.fontSize * 1.5f),
-                _director.TotalScore.ToString("D8"),
+                _scoreText,
                 _style);
         }
     }
