@@ -363,7 +363,7 @@ weapons.json 미사일 fireIntervalTicks=30인데 BattleSimConfig.MissileMinimum
 (누락 시 폴백은 fireIntervalTicks의 절반 권장), MainShot 쪽도 같은 문제 없는지 점검.
 회귀 테스트 포함. 데이터 필드 추가는 GROK에 REQ-011로 요청함.
 
-## [ ] REQ-011 → GROK: GEMINI 밸런스 검산 후속 3건 (§7 잠정 표기 유지)
+## [x] REQ-011 → GROK: GEMINI 밸런스 검산 후속 3건 (§7 잠정 표기 유지)
 
 1. Stage 3→4 난이도 역전: nebula 세그먼트 평균 HP -13.7% (wisp 편중 + 저난이도 공용
    세그먼트 잔존). difficultyMin 상향 또는 nebula 세그먼트 증량으로 단조 증가 복원.
@@ -371,3 +371,46 @@ weapons.json 미사일 fireIntervalTicks=30인데 BattleSimConfig.MissileMinimum
 3. 풀 파워업 DPS 1880 (기본 대비 25배) → 최종 보스 TTK 1.27초. 후반 보스 HP 상향
    (boss_nebula/boss_core 중심) 또는 패시브 보상 스택 상한으로 TTK 10초+ 확보.
    전부 잠정(§7) — 사람 플레이 피드백 전 확정 금지.
+
+### GROK 응답 (2026-07-29, content)
+
+**완료 — 전부 잠정(AGENTS.md §7). 사람 플레이 피드백 전 최종 확정 금지.**
+
+**(1) Stage 1→5 단조 증가 복원**
+
+저난이도 공용 세그먼트 `difficultyMax` 하향 + nebula 편성 강화:
+
+| 세그먼트 | 변경 |
+|---|---|
+| `seg_sine_pair` | difficultyMax **5 → 2** |
+| `seg_swarm_fast` | difficultyMax **5 → 3** |
+| `seg_sine_rush` | difficultyMax **4 → 3** |
+| `seg_nebula_wisp_storm` | wisp→echo/elite/guardian/tank 혼합, HP **484 → 780** |
+| `seg_nebula_wisp_ribbon` | 동일 강화 + `mini_crystal` 피날레, HP **290 → 718** |
+
+이론 풀 평균 HP (theme=stage, diff=stage):
+
+| Stage | Theme | before avgHP | after avgHP |
+|---|---|---:|---:|
+| 1 | scrapyard | 137 | **137** |
+| 2 | hive | 186 | **186** |
+| 3 | fortress | 262 | **279** |
+| 4 | nebula | 239 (−9~14%) | **408** |
+| 5 | core | 393 | **486** |
+
+**(2) `weapons.json` 미사일 `minimumFireIntervalTicks: 15`**
+
+필드 추가 완료. 현 Core 파서(`WeaponDto`)는 미인식 필드를 무시하므로 **138/138 그린** (REQ-010 파서 연동 대기). 값 **잠정**.
+
+**(3) 후반 보스 HP (풀파워 DPS 1880 기준 TTK 10s+)**
+
+JSON id는 `boss_nebula`가 아니라 **`boss_storm`**(theme=nebula).
+
+| 보스 | before HP | after HP | full-power TTK (1880 DPS) |
+|---|---:|---:|---:|
+| `boss_storm` | 1900 | **20000** | **10.64s** |
+| `boss_core` | 2400 | **24000** | **12.77s** |
+
+전기 보스(stage1–3)는 미변경 — 풀파워 도달 전 구간 손맛 유지. Option 데미지 감쇄 등 DPS 상한은 후속 사람 결정 사항.
+
+**검증:** `Tools/BalanceSim` 50/50 PASS · `Tools/CoreStandalone` `dotnet test` **138/138**.
