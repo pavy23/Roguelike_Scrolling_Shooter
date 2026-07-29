@@ -140,7 +140,8 @@ namespace Shmup.Core.Simulation
             : this(
                 id, PowerUpSlot.MainShot, baseDamage, fireIntervalTicks,
                 projectileSpeedNumerator, projectileSpeedDenominator,
-                projectileHalfWidth, projectileHalfHeight, 1)
+                projectileHalfWidth, projectileHalfHeight, 1,
+                fireIntervalTicks / 2)
         {
         }
 
@@ -154,6 +155,25 @@ namespace Shmup.Core.Simulation
             int projectileHalfWidth,
             int projectileHalfHeight,
             int maxLevel)
+            : this(
+                id, slot, baseDamage, fireIntervalTicks,
+                projectileSpeedNumerator, projectileSpeedDenominator,
+                projectileHalfWidth, projectileHalfHeight, maxLevel,
+                fireIntervalTicks / 2)
+        {
+        }
+
+        public WeaponDefinition(
+            string id,
+            PowerUpSlot slot,
+            int baseDamage,
+            int fireIntervalTicks,
+            int projectileSpeedNumerator,
+            int projectileSpeedDenominator,
+            int projectileHalfWidth,
+            int projectileHalfHeight,
+            int maxLevel,
+            int minimumFireIntervalTicks)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Weapon id cannot be null or empty.", nameof(id));
@@ -163,6 +183,8 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(baseDamage));
             if (fireIntervalTicks < 0)
                 throw new ArgumentOutOfRangeException(nameof(fireIntervalTicks));
+            if (minimumFireIntervalTicks < 0)
+                throw new ArgumentOutOfRangeException(nameof(minimumFireIntervalTicks));
             if (projectileSpeedNumerator < 0)
                 throw new ArgumentOutOfRangeException(nameof(projectileSpeedNumerator));
             if (projectileSpeedDenominator < 1)
@@ -178,6 +200,7 @@ namespace Shmup.Core.Simulation
             Slot = slot;
             BaseDamage = baseDamage;
             FireIntervalTicks = fireIntervalTicks;
+            MinimumFireIntervalTicks = minimumFireIntervalTicks;
             ProjectileSpeedNumerator = projectileSpeedNumerator;
             ProjectileSpeedDenominator = projectileSpeedDenominator;
             ProjectileHalfWidth = projectileHalfWidth;
@@ -189,6 +212,7 @@ namespace Shmup.Core.Simulation
         public PowerUpSlot Slot { get; }
         public int BaseDamage { get; }
         public int FireIntervalTicks { get; }
+        public int MinimumFireIntervalTicks { get; }
         public int ProjectileSpeedNumerator { get; }
         public int ProjectileSpeedDenominator { get; }
         public int ProjectileHalfWidth { get; }

@@ -33,11 +33,20 @@ namespace Shmup.Core.Content
                 ExactFraction speed = ToPerTickSpeed(
                     Require(item.projectileSpeed, path + ".projectileSpeed"),
                     path + ".projectileSpeed");
+                int fireIntervalTicks = Require(
+                    item.fireIntervalTicks,
+                    path + ".fireIntervalTicks");
+                int minimumFireIntervalTicks =
+                    item.minimumFireIntervalTicks ?? fireIntervalTicks / 2;
+                if (minimumFireIntervalTicks < 0)
+                    throw Error(
+                        path + ".minimumFireIntervalTicks",
+                        "cannot be negative.");
                 var definition = new WeaponDefinition(
                     RequireText(item.id, path + ".id"),
                     slot,
                     Require(item.baseDamage, path + ".baseDamage"),
-                    Require(item.fireIntervalTicks, path + ".fireIntervalTicks"),
+                    fireIntervalTicks,
                     speed.Numerator,
                     speed.Denominator,
                     ToSubUnits(
@@ -46,7 +55,8 @@ namespace Shmup.Core.Content
                     ToSubUnits(
                         Require(item.projectileHalfHeight, path + ".projectileHalfHeight"),
                         path + ".projectileHalfHeight"),
-                    Require(item.maxLevel, path + ".maxLevel"));
+                    Require(item.maxLevel, path + ".maxLevel"),
+                    minimumFireIntervalTicks);
 
                 definitions[i] = definition;
                 seenSlots[(int)slot] = true;

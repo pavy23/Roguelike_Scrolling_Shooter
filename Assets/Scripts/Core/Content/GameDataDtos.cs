@@ -76,6 +76,8 @@ namespace Shmup.Core.Content
         [DataMember]
         public int? fireIntervalTicks;
         [DataMember]
+        public int? minimumFireIntervalTicks;
+        [DataMember]
         public decimal? projectileSpeed;
         [DataMember]
         public decimal? projectileHalfWidth;

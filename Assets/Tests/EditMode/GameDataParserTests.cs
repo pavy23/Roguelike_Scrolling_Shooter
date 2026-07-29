@@ -119,6 +119,11 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(3072, main.ProjectileSpeedNumerator);
             Assert.AreEqual(60, main.ProjectileSpeedDenominator);
             Assert.AreEqual(24, main.ProjectileHalfHeight);
+            Assert.AreEqual(4, main.MinimumFireIntervalTicks);
+            Assert.AreEqual(
+                15,
+                data.BattleContent.FindWeapon(PowerUpSlot.Missile)
+                    .MinimumFireIntervalTicks);
 
             Assert.AreEqual(768, data.ScrollSpeedNumerator);
             Assert.AreEqual(60, data.ScrollSpeedDenominator);
@@ -221,6 +226,8 @@ namespace Shmup.Core.Tests
             BattleSimConfig second = data.CreateBattleSimConfig();
 
             Assert.AreEqual(20, first.MissileBaseDamage);
+            Assert.AreEqual(4, first.MainShotMinimumFireIntervalTicks);
+            Assert.AreEqual(15, first.MissileMinimumFireIntervalTicks);
             Assert.AreEqual(1536, first.MissileSpeedXNumerator);
             Assert.AreEqual(60, first.MissileSpeedXDenominator);
             Assert.AreEqual(80, first.MissileHalfWidth);
@@ -236,6 +243,56 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(1, data.Ships.Count);
             Assert.AreEqual("default", data.DefaultShip.Id);
             Assert.AreEqual("default", data.CreateMetaState().SelectedShipId);
+        }
+
+        [Test]
+        public void Parse_ExplicitWeaponMinimumIntervals_AreAppliedToBothFiringWeapons()
+        {
+            string explicitMinimums = WeaponsJson
+                .Replace(
+                    @"""fireIntervalTicks"": 8,",
+                    @"""fireIntervalTicks"": 8, ""minimumFireIntervalTicks"": 3,")
+                .Replace(
+                    @"""fireIntervalTicks"": 30,",
+                    @"""fireIntervalTicks"": 30, ""minimumFireIntervalTicks"": 11,");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                explicitMinimums,
+                WavesJson);
+            BattleSimConfig config = data.CreateBattleSimConfig();
+
+            Assert.AreEqual(
+                3,
+                data.BattleContent.FindWeapon(PowerUpSlot.MainShot)
+                    .MinimumFireIntervalTicks);
+            Assert.AreEqual(
+                11,
+                data.BattleContent.FindWeapon(PowerUpSlot.Missile)
+                    .MinimumFireIntervalTicks);
+            Assert.AreEqual(3, config.MainShotMinimumFireIntervalTicks);
+            Assert.AreEqual(11, config.MissileMinimumFireIntervalTicks);
+        }
+
+        [Test]
+        public void Parse_MissingWeaponMinimumIntervals_FallBackToHalfRoundedDown()
+        {
+            string oddIntervals = WeaponsJson
+                .Replace(
+                    @"""fireIntervalTicks"": 8,",
+                    @"""fireIntervalTicks"": 9,")
+                .Replace(
+                    @"""fireIntervalTicks"": 30,",
+                    @"""fireIntervalTicks"": 31,");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                oddIntervals,
+                WavesJson);
+            BattleSimConfig config = data.CreateBattleSimConfig();
+
+            Assert.AreEqual(4, config.MainShotMinimumFireIntervalTicks);
+            Assert.AreEqual(15, config.MissileMinimumFireIntervalTicks);
         }
 
         [Test]

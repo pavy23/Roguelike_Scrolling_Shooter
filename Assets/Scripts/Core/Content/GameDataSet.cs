@@ -126,11 +126,13 @@ namespace Shmup.Core.Content
             config.PlayerBulletSpeedDenominator = main.ProjectileSpeedDenominator;
             config.MainShotBaseDamage = main.BaseDamage;
             config.FireIntervalTicks = main.FireIntervalTicks;
+            config.MainShotMinimumFireIntervalTicks = main.MinimumFireIntervalTicks;
             config.CapsuleNoDropWeight = CapsuleNoDropWeight;
             config.ScrollSpeedNumerator = ScrollSpeedNumerator;
             config.ScrollSpeedDenominator = ScrollSpeedDenominator;
             config.MissileBaseDamage = _missile.BaseDamage;
             config.MissileFireIntervalTicks = _missile.FireIntervalTicks;
+            config.MissileMinimumFireIntervalTicks = _missile.MinimumFireIntervalTicks;
             config.MissileSpeedXNumerator = _missile.ProjectileSpeedNumerator;
             config.MissileSpeedXDenominator = _missile.ProjectileSpeedDenominator;
             config.MissileHalfWidth = _missile.ProjectileHalfWidth;
