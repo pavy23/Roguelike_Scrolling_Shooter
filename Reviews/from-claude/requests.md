@@ -519,3 +519,18 @@ homing_missile / kill_explosion. 가중치·등장 스테이지는 GROK 판단(�
 **검증:** `Tools/CoreStandalone` `dotnet test` **155/155** · `Tools/BalanceSim` **PASS**.
 
 **CLAUDE 후속:** `Assets/Resources/GameData/rewards.json` 동기화 + 보상 UI에 modifier 4종 표시명.
+
+## [ ] REQ-015 → CODEX: 그레이즈 + 콤보 배율 스코어링 (아케이드 깊이)
+
+결정론 코어를 활용한 스코어링 심화. 오케스트레이터 잠정 설계(§7) — 수치는 GROK이 후속 확정.
+
+1. 그레이즈(graze): 적탄이 플레이어 히트박스에 맞지 않고 근접 반경(잠정: 히트박스 반경
+   +128 서브유닛) 안을 지나가면 1회 가산. 같은 탄은 1회만 그레이즈 가능(탄별 플래그).
+   피격 판정과 같은 틱이면 피격이 우선.
+2. 콤보 배율: 처치마다 배율 게이지 증가, 잠정 단계 x1→x2→x4→x8 (단계당 필요 킬 수
+   증가), 일정 틱(잠정 300틱) 동안 킬 없으면 1단계 하락, 피격 시 x1로 리셋.
+   격파 점수에 배율 적용. 그레이즈는 소량 고정 점수 + 배율 게이지 소폭 충전.
+3. 이벤트: GrazeScored(탄 좌표), MultiplierChanged(EntityId=새 단계) 추가 — HUD/이펙트용.
+4. RunStatistics에 GrazeCount 추가. TotalScore 오버플로 주의(기존 Damage.Compute 교훈).
+5. 결정론·무할당 가드 유지, config 필드 노출(잠정 표기), 회귀 테스트
+   (그레이즈 1회 제한, 배율 상승/하락/리셋, 점수 적용, 결정론).
