@@ -50,7 +50,7 @@ namespace Shmup.DeterminismAudit
             catch (Exception ex)
             {
                 Console.Error.WriteLine(
-                    $"Determinism audit failed: {ex.GetType().Name}: {ex.Message}");
+                    $"Determinism audit failed: {ex}");
                 return AuditFailure;
             }
         }
@@ -61,24 +61,24 @@ namespace Shmup.DeterminismAudit
             var scenarios = new[]
             {
                 new AuditScenario(
-                    "seed-0-first", 0UL, 5, 65_000,
+                    "seed-0-first", 0UL, 5, 120_000,
                     RewardChoiceStrategy.First),
                 new AuditScenario(
-                    "seed-1-last", 1UL, 5, 65_000,
+                    "seed-1-last", 1UL, 5, 120_000,
                     RewardChoiceStrategy.Last),
                 new AuditScenario(
-                    "seed-12345-rotating", 12_345UL, 5, 65_000,
+                    "seed-12345-rotating", 12_345UL, 5, 120_000,
                     RewardChoiceStrategy.Rotating),
                 new AuditScenario(
-                    "seed-deadbeef-rotating", 0xDEADBEEFUL, 5, 65_000,
+                    "seed-deadbeef-rotating", 0xDEADBEEFUL, 5, 120_000,
                     RewardChoiceStrategy.Rotating),
                 new AuditScenario(
-                    "seed-max-prefer-capped", ulong.MaxValue, 5, 100_000,
+                    "seed-max-prefer-capped", ulong.MaxValue, 5, 160_000,
                     RewardChoiceStrategy.PreferCapped)
             };
 
             Console.WriteLine(
-                "suite=determinism-audit-03 "
+                "suite=determinism-audit-04 "
                 + $"scenarios={scenarios.Length} state=full-observable");
             for (int i = 0; i < scenarios.Length; i++)
             {
@@ -96,6 +96,13 @@ namespace Shmup.DeterminismAudit
                     throw new InvalidOperationException(
                         $"Scenario '{scenarios[i].Name}' did not reach "
                         + $"RunCleared (state={first.FinalState}).");
+                int expectedRooms =
+                    scenarios[i].StageCount
+                    * RunProgressionConfig.DefaultRoomsPerBiome;
+                if (first.CompletedRooms != expectedRooms)
+                    throw new InvalidOperationException(
+                        $"Scenario '{scenarios[i].Name}' completed only "
+                        + $"{first.CompletedRooms}/{expectedRooms} rooms.");
 
                 Console.WriteLine("PASS " + first.Format());
             }
@@ -180,8 +187,13 @@ namespace Shmup.DeterminismAudit
                         run,
                         executedTicks);
                     RouteOption option = run.RouteOptions[optionIndex];
+                    bool nextBiome =
+                        run.RoomIndex >= run.RoomsPerBiome;
                     hasher.FoldRouteChoice(
-                        run.StageIndex + 1,
+                        nextBiome
+                            ? run.BiomeIndex + 1
+                            : run.BiomeIndex,
+                        nextBiome ? 1 : run.RoomIndex + 1,
                         optionIndex,
                         in option);
                     run.ChooseRoute(optionIndex);
@@ -204,6 +216,7 @@ namespace Shmup.DeterminismAudit
                 hasher.Hash,
                 executedTicks,
                 run.Statistics.StagesCleared,
+                run.Statistics.RoomsCleared,
                 rewardChoices,
                 routeChoices,
                 cappedChoices,
@@ -640,6 +653,7 @@ namespace Shmup.DeterminismAudit
                 ulong hash,
                 int executedTicks,
                 int completedStages,
+                int completedRooms,
                 int rewardChoices,
                 int routeChoices,
                 int cappedChoices,
@@ -650,6 +664,7 @@ namespace Shmup.DeterminismAudit
                 Hash = hash;
                 ExecutedTicks = executedTicks;
                 CompletedStages = completedStages;
+                CompletedRooms = completedRooms;
                 RewardChoices = rewardChoices;
                 RouteChoices = routeChoices;
                 CappedChoices = cappedChoices;
@@ -661,6 +676,7 @@ namespace Shmup.DeterminismAudit
             public ulong Hash { get; }
             public int ExecutedTicks { get; }
             public int CompletedStages { get; }
+            public int CompletedRooms { get; }
             public int RewardChoices { get; }
             public int RouteChoices { get; }
             public int CappedChoices { get; }
@@ -673,6 +689,7 @@ namespace Shmup.DeterminismAudit
                     && Hash == other.Hash
                     && ExecutedTicks == other.ExecutedTicks
                     && CompletedStages == other.CompletedStages
+                    && CompletedRooms == other.CompletedRooms
                     && RewardChoices == other.RewardChoices
                     && RouteChoices == other.RouteChoices
                     && CappedChoices == other.CappedChoices
@@ -685,6 +702,8 @@ namespace Shmup.DeterminismAudit
                 return $"name={Scenario.Name} hash={Hash:X16} "
                     + $"seed={Scenario.Seed} strategy={Scenario.Strategy} "
                     + $"completedStages={CompletedStages}/{Scenario.StageCount} "
+                    + $"completedRooms={CompletedRooms}/"
+                    + $"{Scenario.StageCount * RunProgressionConfig.DefaultRoomsPerBiome} "
                     + $"ticks={ExecutedTicks} rewardChoices={RewardChoices} "
                     + $"routeChoices={RouteChoices} "
                     + $"cappedChoices={CappedChoices} "

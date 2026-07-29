@@ -255,8 +255,10 @@ namespace Shmup.Core.Tests
 
             AssertAll(() =>
             {
-                Assert.AreEqual(2, run.StageIndex);
+                Assert.AreEqual(1, run.BiomeIndex);
+                Assert.AreEqual(2, run.RoomIndex);
                 Assert.AreEqual(1L, run.Statistics.GrazeCount);
+                Assert.AreEqual(1, run.Statistics.RoomsCleared);
             });
 
             run.Step(in none);

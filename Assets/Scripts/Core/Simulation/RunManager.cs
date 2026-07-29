@@ -90,9 +90,26 @@ namespace Shmup.Core.Simulation
             int optionIndex,
             string themeId,
             EncounterType encounterType)
+            : this(
+                stageIndex,
+                1,
+                optionIndex,
+                themeId,
+                encounterType)
         {
-            if (stageIndex < 2)
-                throw new ArgumentOutOfRangeException(nameof(stageIndex));
+        }
+
+        public RouteChoice(
+            int biomeIndex,
+            int roomIndex,
+            int optionIndex,
+            string themeId,
+            EncounterType encounterType)
+        {
+            if (biomeIndex < 1)
+                throw new ArgumentOutOfRangeException(nameof(biomeIndex));
+            if (roomIndex < 1)
+                throw new ArgumentOutOfRangeException(nameof(roomIndex));
             if (optionIndex < 0
                 || optionIndex >= RunManager.MaximumRouteOptionCount)
                 throw new ArgumentOutOfRangeException(nameof(optionIndex));
@@ -102,14 +119,18 @@ namespace Shmup.Core.Simulation
                     nameof(themeId));
             if (!Enum.IsDefined(typeof(EncounterType), encounterType))
                 throw new ArgumentOutOfRangeException(nameof(encounterType));
-            StageIndex = stageIndex;
+            BiomeIndex = biomeIndex;
+            RoomIndex = roomIndex;
             OptionIndex = optionIndex;
             ThemeId = themeId;
             EncounterType = encounterType;
         }
 
-        /// <summary>The stage entered by this choice.</summary>
-        public int StageIndex { get; }
+        /// <summary>The biome entered by this choice. Legacy alias: StageIndex.</summary>
+        public int BiomeIndex { get; }
+        public int StageIndex => BiomeIndex;
+        /// <summary>The regular room entered by this choice.</summary>
+        public int RoomIndex { get; }
         public int OptionIndex { get; }
         public string ThemeId { get; }
         public EncounterType EncounterType { get; }
@@ -222,7 +243,10 @@ namespace Shmup.Core.Simulation
         }
     }
 
-    /// <summary>Configurable integer linear difficulty curve for successive stages.</summary>
+    /// <summary>
+    /// Configurable integer linear difficulty curve evaluated once per biome.
+    /// The Stage name remains for source compatibility with existing consumers.
+    /// </summary>
     public sealed class StageDifficultyCurve
     {
         public StageDifficultyCurve(
@@ -264,34 +288,52 @@ namespace Shmup.Core.Simulation
         }
     }
 
-    /// <summary>
-    /// Immutable run-length rule. Keeping this separate from battle tuning leaves
-    /// a stable extension point for a future post-clear loop without implementing
-    /// that loop in the first campaign.
-    /// </summary>
+    /// <summary>Immutable biome/room hierarchy for one campaign loop.</summary>
     public sealed class RunProgressionConfig
     {
-        public const int DefaultFinalStageIndex = 5;
+        public const int DefaultBiomeCount = 5;
+        public const int DefaultRoomsPerBiome = 6;
+        public const int DefaultFinalStageIndex = DefaultBiomeCount;
 
+        /// <summary>
+        /// Legacy constructor: one regular room per biome. Existing callers and
+        /// migrated pre-biome recordings preserve their former stage cadence.
+        /// New campaigns should use the two-argument constructor.
+        /// </summary>
         public RunProgressionConfig(int finalStageIndex)
+            : this(finalStageIndex, 1)
         {
-            if (finalStageIndex < 1)
-                throw new ArgumentOutOfRangeException(
-                    nameof(finalStageIndex));
-            FinalStageIndex = finalStageIndex;
         }
 
-        public int FinalStageIndex { get; }
+        public RunProgressionConfig(int biomeCount, int roomsPerBiome)
+        {
+            if (biomeCount < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(biomeCount));
+            if (roomsPerBiome < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(roomsPerBiome));
+            BiomeCount = biomeCount;
+            RoomsPerBiome = roomsPerBiome;
+        }
+
+        public int BiomeCount { get; }
+        public int RoomsPerBiome { get; }
+        public int FinalStageIndex => BiomeCount;
 
         public static RunProgressionConfig CreateDefault()
         {
-            return new RunProgressionConfig(DefaultFinalStageIndex);
+            return new RunProgressionConfig(
+                DefaultBiomeCount,
+                DefaultRoomsPerBiome);
         }
 
-        public bool IsFinalStage(int stageIndex)
+        public bool IsFinalBiome(int biomeIndex)
         {
-            return stageIndex >= FinalStageIndex;
+            return biomeIndex >= BiomeCount;
         }
+
+        public bool IsFinalStage(int stageIndex) => IsFinalBiome(stageIndex);
     }
 
     /// <summary>
@@ -306,7 +348,8 @@ namespace Shmup.Core.Simulation
             long kills,
             long capsulesCollected,
             long grazeCount,
-            int stagesCleared)
+            int stagesCleared,
+            int roomsCleared)
         {
             ShotsFired = shotsFired;
             ShotsHit = shotsHit;
@@ -314,6 +357,7 @@ namespace Shmup.Core.Simulation
             CapsulesCollected = capsulesCollected;
             GrazeCount = grazeCount;
             StagesCleared = stagesCleared;
+            RoomsCleared = roomsCleared;
         }
 
         public long ShotsFired { get; }
@@ -322,10 +366,12 @@ namespace Shmup.Core.Simulation
         public long CapsulesCollected { get; }
         public long GrazeCount { get; }
         public int StagesCleared { get; }
+        public int BiomesCleared => StagesCleared;
+        public int RoomsCleared { get; }
     }
 
     /// <summary>
-    /// Owns one roguelike run: deterministic stage creation, battle replacement,
+    /// Owns one roguelike run: deterministic biome/room creation, battle replacement,
     /// death state, and power-up carry into a restarted run.
     /// </summary>
     public sealed class RunManager
@@ -333,6 +379,7 @@ namespace Shmup.Core.Simulation
         const int BattleSimulationStream = 1;
         const int RewardSelectionStream = 2;
         const int RouteSelectionStream = 3;
+        const int RoomGenerationStream = 4;
         public const int RewardOptionCount = 3;
         public const int MinimumRouteOptionCount = 2;
         public const int MaximumRouteOptionCount = 3;
@@ -399,6 +446,7 @@ namespace Shmup.Core.Simulation
         long _completedCapsulesCollected;
         long _completedGrazeCount;
         int _stagesCleared;
+        int _roomsCleared;
         bool _activateHeld;
         int[] _stageStartPowerUpLevels;
         int _stageStartPowerUpCursor;
@@ -409,6 +457,7 @@ namespace Shmup.Core.Simulation
         long _stageStartCapsulesCollected;
         long _stageStartGrazeCount;
         int _stageStartStagesCleared;
+        int _stageStartRoomsCleared;
         int _stageStartPlayerHp;
         int _stageStartShieldRemaining;
         BattleModifier _stageStartActiveModifiers;
@@ -418,6 +467,7 @@ namespace Shmup.Core.Simulation
         int _stageStartPlayerSpeedDenominator;
         int _rewardSelectionsRemaining;
         int _rewardSelectionRound;
+        bool _rewardFromBiomeBoss;
 
         public RunManager(
             ulong runSeed,
@@ -759,16 +809,26 @@ namespace Shmup.Core.Simulation
 
             _runSeed = runSeed;
             RunNumber = 1;
-            StageIndex = 1;
+            BiomeIndex = 1;
+            RoomIndex = 1;
+            IsBiomeBoss = false;
             State = RunState.Playing;
             if (buildInitialStage)
                 BuildCurrentStage();
         }
 
         public int RunNumber { get; private set; }
-        public int StageIndex { get; private set; }
+        /// <summary>Current biome. StageIndex remains a compatibility alias.</summary>
+        public int BiomeIndex { get; private set; }
+        public int StageIndex => BiomeIndex;
+        /// <summary>Current regular-room slot (1..RoomsPerBiome).</summary>
+        public int RoomIndex { get; private set; }
+        /// <summary>True after the final regular room while fighting the biome boss.</summary>
+        public bool IsBiomeBoss { get; private set; }
         public RunState State { get; private set; }
         public int FinalStageIndex => _progressionConfig.FinalStageIndex;
+        public int BiomeCount => _progressionConfig.BiomeCount;
+        public int RoomsPerBiome => _progressionConfig.RoomsPerBiome;
         public bool IsFinished =>
             State == RunState.RunOver || State == RunState.RunCleared;
         public ulong RunSeed => _runSeed;
@@ -792,7 +852,8 @@ namespace Shmup.Core.Simulation
                         _completedCapsulesCollected,
                         battle.CapsulesCollected),
                     AddSaturated(_completedGrazeCount, battle.GrazeCount),
-                    _stagesCleared);
+                    _stagesCleared,
+                    _roomsCleared);
             }
         }
         public int Difficulty { get; private set; }
@@ -811,14 +872,16 @@ namespace Shmup.Core.Simulation
         /// <summary>Two or three deterministic map nodes while AwaitingRoute.</summary>
         public IReadOnlyList<RouteOption> RouteOptions => _routeOptions;
         IReadOnlyList<RouteOption> _routeOptions = Array.Empty<RouteOption>();
+        IReadOnlyList<RouteOption> _preparedRouteOptions =
+            Array.Empty<RouteOption>();
         public IReadOnlyList<RouteChoice> RouteChoiceHistory =>
             _routeChoiceHistoryView;
 
         /// <summary>
-        /// Exports the checkpoint captured immediately before the current stage's
-        /// tick zero. Calling this during a stage therefore resumes at that
-        /// stage's beginning, not at the current tick. Reward and run-over states
-        /// are rejected because neither represents a resumable playing stage.
+        /// Exports the checkpoint captured immediately before the current room or
+        /// biome-boss boundary's tick zero. Calling this during combat therefore
+        /// resumes at that boundary, not at the current tick. Choice and terminal
+        /// states are rejected because they are not resumable playing boundaries.
         /// </summary>
         public RunSuspendData ExportSuspendData()
         {
@@ -860,6 +923,8 @@ namespace Shmup.Core.Simulation
                 routeChoices[i] = new RouteChoiceData
                 {
                     stageIndex = choice.StageIndex,
+                    biomeIndex = choice.BiomeIndex,
+                    roomIndex = choice.RoomIndex,
                     optionIndex = choice.OptionIndex,
                     themeId = choice.ThemeId,
                     encounterType = (int)choice.EncounterType
@@ -872,6 +937,9 @@ namespace Shmup.Core.Simulation
                 runSeed = _runSeed,
                 runNumber = RunNumber,
                 stageIndex = StageIndex,
+                biomeIndex = BiomeIndex,
+                roomIndex = RoomIndex,
+                isBiomeBoss = IsBiomeBoss,
                 score = _stageStartScore,
                 shotsFired = _stageStartShotsFired,
                 shotsHit = _stageStartShotsHit,
@@ -879,6 +947,7 @@ namespace Shmup.Core.Simulation
                 capsulesCollected = _stageStartCapsulesCollected,
                 grazeCount = _stageStartGrazeCount,
                 stagesCleared = _stageStartStagesCleared,
+                roomsCleared = _stageStartRoomsCleared,
                 powerUpLevels =
                     (int[])_stageStartPowerUpLevels.Clone(),
                 powerUpCursor = _stageStartPowerUpCursor,
@@ -898,7 +967,9 @@ namespace Shmup.Core.Simulation
                 difficultyMultiplierDenominator =
                     _difficultyMultiplierDenominator,
                 routeChoices = routeChoices,
-                finalStageIndex = FinalStageIndex
+                finalStageIndex = FinalStageIndex,
+                biomeCount = BiomeCount,
+                roomsPerBiome = RoomsPerBiome
             };
             SaveDataIntegrity.Seal(data);
             return data;
@@ -999,12 +1070,16 @@ namespace Shmup.Core.Simulation
                 resolvedShip,
                 difficultyMultiplierNumerator,
                 difficultyMultiplierDenominator,
-                new RunProgressionConfig(data.finalStageIndex),
+                new RunProgressionConfig(
+                    data.biomeCount,
+                    data.roomsPerBiome),
                 false);
 
             manager._runSeed = data.runSeed;
             manager.RunNumber = data.runNumber;
-            manager.StageIndex = data.stageIndex;
+            manager.BiomeIndex = data.biomeIndex;
+            manager.RoomIndex = data.roomIndex;
+            manager.IsBiomeBoss = data.isBiomeBoss;
             manager.State = RunState.Playing;
             manager._rewardOptions = Array.Empty<RewardOption>();
             manager._routeOptions = Array.Empty<RouteOption>();
@@ -1016,6 +1091,7 @@ namespace Shmup.Core.Simulation
                 data.capsulesCollected;
             manager._completedGrazeCount = data.grazeCount;
             manager._stagesCleared = data.stagesCleared;
+            manager._roomsCleared = data.roomsCleared;
             manager.ActiveModifiers =
                 (BattleModifier)data.activeModifiers;
             manager._battleConfig.PlayerMaxHp = data.playerHp;
@@ -1034,7 +1110,7 @@ namespace Shmup.Core.Simulation
                 manager._rewardAcquisitionCounts);
             manager.RestoreRouteChoices(
                 data.routeChoices,
-                data.schemaVersion >= 3);
+                true);
             manager.PowerUpGauge.RestoreState(
                 data.powerUpLevels,
                 data.powerUpCursor);
@@ -1074,45 +1150,38 @@ namespace Shmup.Core.Simulation
 
             // 보스전이 있는 스테이지는 StageCleared(보스 격파)로 끝나고 보상 선택으로 넘어간다.
             // 보스 데이터가 없는 플랜(레거시/테스트)은 기존 틱 소진 규칙 유지.
-            if (Battle is BattleSim battleSim && battleSim.HasBossBattle)
+            if (IsBiomeBoss)
             {
-                if (battleSim.BossDefeated)
+                bool bossCleared =
+                    Battle is BattleSim battleSim
+                    && battleSim.HasBossBattle
+                        ? battleSim.BossDefeated
+                        : Battle.Tick >= _stageLengthTicks;
+                if (bossCleared)
                 {
                     IncrementStagesCleared();
-                    if (_progressionConfig.IsFinalStage(StageIndex))
+                    if (_progressionConfig.IsFinalBiome(BiomeIndex))
                         CompleteRun();
                     else
-                        BeginRewardSelection();
+                        BeginRewardSelection(true);
                 }
                 return;
             }
 
             if (Battle.Tick >= _stageLengthTicks)
             {
-                IncrementStagesCleared();
-                if (_progressionConfig.IsFinalStage(StageIndex))
-                {
-                    CompleteRun();
-                    return;
-                }
-                if (StagePlan.EncounterType == EncounterType.Normal)
-                {
-                    // Legacy bossless plans keep their original automatic flow.
-                    AdvanceStage();
-                }
+                IncrementRoomsCleared();
+                if (StagePlan.EncounterType == EncounterType.Elite)
+                    BeginRewardSelection(false);
                 else
-                {
-                    BeginRewardSelection();
-                }
+                    BeginRouteSelectionOrAdvance();
             }
         }
 
-        void BeginRewardSelection()
+        void BeginRewardSelection(bool fromBiomeBoss)
         {
-            _rewardSelectionsRemaining =
-                StagePlan.EncounterType == EncounterType.Rare
-                    ? _battleConfig.RareRewardSelectionCount
-                    : 1;
+            _rewardFromBiomeBoss = fromBiomeBoss;
+            _rewardSelectionsRemaining = 1;
             _rewardSelectionRound = 0;
             _rewardOptions = GenerateRewardOptions();
             State = RunState.AwaitingReward;
@@ -1122,8 +1191,10 @@ namespace Shmup.Core.Simulation
         {
             _rewardSelectionsRemaining = 0;
             _rewardSelectionRound = 0;
+            _rewardFromBiomeBoss = false;
             _rewardOptions = Array.Empty<RewardOption>();
             _routeOptions = Array.Empty<RouteOption>();
+            _preparedRouteOptions = Array.Empty<RouteOption>();
             State = RunState.RunCleared;
         }
 
@@ -1137,10 +1208,6 @@ namespace Shmup.Core.Simulation
                 throw new InvalidOperationException("No reward is awaiting selection.");
             if (optionIndex < 0 || optionIndex >= _rewardOptions.Count)
                 throw new ArgumentOutOfRangeException(nameof(optionIndex));
-            if (StageIndex == int.MaxValue)
-                throw new InvalidOperationException(
-                    "The stage counter is exhausted.");
-
             int catalogIndex = _rewardOptionCatalogIndices[optionIndex];
             ApplyReward(_rewardOptions[optionIndex]);
             if (_rewardAcquisitionCounts[catalogIndex] < int.MaxValue)
@@ -1153,15 +1220,14 @@ namespace Shmup.Core.Simulation
                 return;
             }
             _rewardOptions = Array.Empty<RewardOption>();
-            _routeOptions = GenerateRouteOptions(StageIndex + 1);
-            if (_routeOptions.Count >= MinimumRouteOptionCount)
+            if (_rewardFromBiomeBoss)
             {
-                State = RunState.AwaitingRoute;
+                _rewardFromBiomeBoss = false;
+                AdvanceBiome();
                 return;
             }
 
-            State = RunState.Playing;
-            AdvanceStage();
+            BeginRouteSelectionOrAdvance();
         }
 
         public void ChooseRoute(int optionIndex)
@@ -1171,20 +1237,42 @@ namespace Shmup.Core.Simulation
                     "No route is awaiting selection.");
             if (optionIndex < 0 || optionIndex >= _routeOptions.Count)
                 throw new ArgumentOutOfRangeException(nameof(optionIndex));
-            if (StageIndex == int.MaxValue)
-                throw new InvalidOperationException(
-                    "The stage counter is exhausted.");
-
             RouteOption option = _routeOptions[optionIndex];
-            int targetStageIndex = StageIndex + 1;
+            bool routesToNextBiome = RoomIndex >= RoomsPerBiome;
+            int targetBiomeIndex = routesToNextBiome
+                ? BiomeIndex + 1
+                : BiomeIndex;
+            int targetRoomIndex = routesToNextBiome
+                ? 1
+                : RoomIndex + 1;
             _routeChoiceHistory.Add(new RouteChoice(
-                targetStageIndex,
+                targetBiomeIndex,
+                targetRoomIndex,
                 optionIndex,
                 option.ThemeId,
                 option.EncounterType));
             _routeOptions = Array.Empty<RouteOption>();
             State = RunState.Playing;
-            AdvanceStage();
+            if (routesToNextBiome)
+                AdvanceToBiomeBoss();
+            else
+                AdvanceRoom();
+        }
+
+        void BeginRouteSelectionOrAdvance()
+        {
+            _routeOptions = _preparedRouteOptions;
+            _preparedRouteOptions = Array.Empty<RouteOption>();
+            if (_routeOptions.Count >= MinimumRouteOptionCount)
+            {
+                State = RunState.AwaitingRoute;
+                return;
+            }
+
+            if (RoomIndex >= RoomsPerBiome)
+                AdvanceToBiomeBoss();
+            else
+                AdvanceRoom();
         }
 
         void ApplyReward(in RewardOption option)
@@ -1238,8 +1326,8 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < rewards.Count; i++)
             {
                 RewardDefinition reward = rewards[i];
-                if (StageIndex < reward.StageIndexMin
-                    || StageIndex > reward.StageIndexMax)
+                if (BiomeIndex < reward.StageIndexMin
+                    || BiomeIndex > reward.StageIndexMax)
                     continue;
                 if (reward.MaxPerRun.HasValue
                     && _rewardAcquisitionCounts[i] >= reward.MaxPerRun.Value)
@@ -1253,13 +1341,13 @@ namespace Shmup.Core.Simulation
 
             if (eligibleCount < RewardOptionCount)
                 throw new InvalidOperationException(
-                    $"Stage {StageIndex} has {eligibleCount} eligible rewards; "
+                    $"Biome {BiomeIndex} has {eligibleCount} eligible rewards; "
                     + $"{RewardOptionCount} are required.");
 
             _rewardRng.ResetForked(
                 _runSeed,
                 RewardSelectionStream,
-                StageIndex);
+                GetRewardSequence());
             for (int i = 0; i < _rewardSelectionRound; i++)
                 _rewardRng.NextULong();
             int poolCount = eligibleCount;
@@ -1335,35 +1423,27 @@ namespace Shmup.Core.Simulation
         }
 
         IReadOnlyList<RouteOption> GenerateRouteOptions(
-            int targetStageIndex)
+            int targetBiomeIndex,
+            int targetRoomIndex)
         {
             if (!(_stageGenerator is IRouteStageGenerator routeGenerator)
-                || routeGenerator.ThemeIds.Count
-                    < MinimumRouteOptionCount)
+                || routeGenerator.ThemeIds.Count == 0)
                 return Array.Empty<RouteOption>();
-
-            if (_progressionConfig.IsFinalStage(targetStageIndex))
-                return Array.Empty<RouteOption>();
-
-            // Every full theme cycle ends in a deterministic final-boss floor.
-            // That floor uses the run permutation directly and has no map choice.
-            if (targetStageIndex % routeGenerator.ThemeIds.Count == 0)
+            if (targetBiomeIndex < 1
+                || targetBiomeIndex > BiomeCount
+                || targetRoomIndex < 1
+                || targetRoomIndex > RoomsPerBiome)
                 return Array.Empty<RouteOption>();
 
             int targetDifficulty =
-                _difficultyCurve.GetDifficulty(targetStageIndex);
-            IReadOnlyList<string> themeOrder =
-                routeGenerator.GetThemeOrder(_runSeed);
-            if (themeOrder.Count < MinimumRouteOptionCount)
-                return Array.Empty<RouteOption>();
+                _difficultyCurve.GetDifficulty(targetBiomeIndex);
+            string themeId = GetBiomeThemeId(targetBiomeIndex);
 
             _routeRng.ResetForked(
                 _runSeed,
                 RouteSelectionStream,
-                targetStageIndex);
-            int desiredCount = Math.Min(
-                MaximumRouteOptionCount,
-                themeOrder.Count);
+                GetRoomSequence(targetBiomeIndex, targetRoomIndex));
+            int desiredCount = MaximumRouteOptionCount;
             if (desiredCount > MinimumRouteOptionCount)
                 desiredCount = _routeRng.NextInt(2, desiredCount + 1);
             bool includeRare =
@@ -1378,63 +1458,45 @@ namespace Shmup.Core.Simulation
 
             var options = new RouteOption[desiredCount];
             int optionCount = 0;
-            int start = _routeRng.NextInt(0, themeOrder.Count);
-            for (int offset = 0;
-                offset < themeOrder.Count
-                    && optionCount < desiredCount;
-                offset++)
+            if (rareSlot == 0
+                && routeGenerator.CanGenerateRoute(
+                    themeId,
+                    targetBiomeIndex,
+                    targetDifficulty,
+                    EncounterType.Rare))
             {
-                string themeId =
-                    themeOrder[(start + offset) % themeOrder.Count];
-                bool duplicateTheme = false;
-                for (int existing = 0;
-                    existing < optionCount;
-                    existing++)
-                {
-                    if (string.Equals(
-                            options[existing].ThemeId,
-                            themeId,
-                            StringComparison.Ordinal))
-                    {
-                        duplicateTheme = true;
-                        break;
-                    }
-                }
-                if (duplicateTheme)
-                    continue;
+                options[optionCount++] =
+                    new RouteOption(themeId, EncounterType.Rare);
+            }
 
+            const int commonEncounterCount = 4;
+            int encounterStart =
+                _routeRng.NextInt(0, commonEncounterCount);
+            for (int encounterOffset = 0;
+                encounterOffset < commonEncounterCount
+                    && optionCount < desiredCount;
+                encounterOffset++)
+            {
+                var encounterType = (EncounterType)(
+                    (encounterStart + encounterOffset)
+                    % commonEncounterCount);
+                if (!routeGenerator.CanGenerateRoute(
+                        themeId,
+                        targetBiomeIndex,
+                        targetDifficulty,
+                        encounterType))
+                    continue;
+                options[optionCount++] =
+                    new RouteOption(themeId, encounterType);
                 if (optionCount == rareSlot
                     && routeGenerator.CanGenerateRoute(
                         themeId,
-                        targetStageIndex,
+                        targetBiomeIndex,
                         targetDifficulty,
                         EncounterType.Rare))
                 {
                     options[optionCount++] =
                         new RouteOption(themeId, EncounterType.Rare);
-                    continue;
-                }
-
-                const int commonEncounterCount = 4;
-                int encounterStart =
-                    _routeRng.NextInt(0, commonEncounterCount);
-                for (int encounterOffset = 0;
-                    encounterOffset < commonEncounterCount;
-                    encounterOffset++)
-                {
-                    var encounterType = (EncounterType)(
-                        (encounterStart + encounterOffset)
-                        % commonEncounterCount);
-                    if (!routeGenerator.CanGenerateRoute(
-                            themeId,
-                            targetStageIndex,
-                            targetDifficulty,
-                            encounterType))
-                        continue;
-
-                    options[optionCount++] =
-                        new RouteOption(themeId, encounterType);
-                    break;
                 }
             }
 
@@ -1470,10 +1532,13 @@ namespace Shmup.Core.Simulation
 
             _runSeed = newRunSeed;
             RunNumber++;
-            StageIndex = 1;
+            BiomeIndex = 1;
+            RoomIndex = 1;
+            IsBiomeBoss = false;
             State = RunState.Playing;
             _rewardOptions = Array.Empty<RewardOption>();
             _routeOptions = Array.Empty<RouteOption>();
+            _preparedRouteOptions = Array.Empty<RouteOption>();
             _routeChoiceHistory.Clear();
             _completedStageScore = 0;
             _completedShotsFired = 0;
@@ -1482,6 +1547,7 @@ namespace Shmup.Core.Simulation
             _completedCapsulesCollected = 0;
             _completedGrazeCount = 0;
             _stagesCleared = 0;
+            _roomsCleared = 0;
             Array.Clear(
                 _rewardAcquisitionCounts,
                 0,
@@ -1495,10 +1561,41 @@ namespace Shmup.Core.Simulation
             BuildCurrentStage();
         }
 
-        void AdvanceStage()
+        void AdvanceRoom()
         {
-            if (StageIndex == int.MaxValue)
-                throw new InvalidOperationException("The stage counter is exhausted.");
+            if (RoomIndex >= RoomsPerBiome)
+                throw new InvalidOperationException(
+                    "The regular-room counter is already at the biome boundary.");
+            AccumulateCompletedBattle();
+            RoomIndex++;
+            IsBiomeBoss = false;
+            State = RunState.Playing;
+            BuildCurrentStage();
+        }
+
+        void AdvanceToBiomeBoss()
+        {
+            AccumulateCompletedBattle();
+            IsBiomeBoss = true;
+            State = RunState.Playing;
+            BuildCurrentStage();
+        }
+
+        void AdvanceBiome()
+        {
+            if (BiomeIndex >= BiomeCount)
+                throw new InvalidOperationException(
+                    "The biome counter is already at the campaign boundary.");
+            AccumulateCompletedBattle();
+            BiomeIndex++;
+            RoomIndex = 1;
+            IsBiomeBoss = false;
+            State = RunState.Playing;
+            BuildCurrentStage();
+        }
+
+        void AccumulateCompletedBattle()
+        {
             BattleStatistics battle = Battle.Statistics;
             _completedStageScore = TotalScore;
             _completedShotsFired = AddSaturated(
@@ -1516,14 +1613,18 @@ namespace Shmup.Core.Simulation
             _completedGrazeCount = AddSaturated(
                 _completedGrazeCount,
                 battle.GrazeCount);
-            StageIndex++;
-            BuildCurrentStage();
         }
 
         void IncrementStagesCleared()
         {
             if (_stagesCleared < int.MaxValue)
                 _stagesCleared++;
+        }
+
+        void IncrementRoomsCleared()
+        {
+            if (_roomsCleared < int.MaxValue)
+                _roomsCleared++;
         }
 
         static long AddSaturated(long left, long right)
@@ -1624,16 +1725,35 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     "Suspend stageIndex must be positive.",
                     nameof(data));
-            if (data.finalStageIndex < 1
-                || data.stageIndex > data.finalStageIndex)
+            if (data.biomeCount < 1
+                || data.finalStageIndex != data.biomeCount
+                || data.biomeIndex < 1
+                || data.biomeIndex > data.biomeCount
+                || data.stageIndex != data.biomeIndex)
             {
                 throw new ArgumentException(
-                    "Suspend finalStageIndex is invalid for its stage.",
+                    "Suspend biome progression is invalid.",
                     nameof(data));
             }
-            if (data.stagesCleared != data.stageIndex - 1)
+            if (data.roomsPerBiome < 1
+                || data.roomIndex < 1
+                || data.roomIndex > data.roomsPerBiome)
                 throw new ArgumentException(
-                    "Suspend stagesCleared must match the stage boundary.",
+                    "Suspend room progression is invalid.",
+                    nameof(data));
+            if (data.stagesCleared != data.biomeIndex - 1)
+                throw new ArgumentException(
+                    "Suspend biomesCleared must match the biome boundary.",
+                    nameof(data));
+            long expectedRoomsCleared =
+                (long)(data.biomeIndex - 1) * data.roomsPerBiome
+                + (data.isBiomeBoss
+                    ? data.roomsPerBiome
+                    : data.roomIndex - 1);
+            if (expectedRoomsCleared > int.MaxValue
+                || data.roomsCleared != (int)expectedRoomsCleared)
+                throw new ArgumentException(
+                    "Suspend roomsCleared must match the room boundary.",
                     nameof(data));
             if (data.schemaVersion >= 3 && data.routeChoices == null)
                 throw new ArgumentException(
@@ -1641,13 +1761,27 @@ namespace Shmup.Core.Simulation
                     nameof(data));
             if (data.routeChoices != null)
             {
-                int previousRouteStage = 1;
+                int previousRouteBiome = 0;
+                int previousRouteRoom = 0;
                 for (int i = 0; i < data.routeChoices.Length; i++)
                 {
                     RouteChoiceData choice = data.routeChoices[i];
+                    bool isPendingNextBiomeChoice =
+                        data.isBiomeBoss
+                        && data.biomeIndex < data.biomeCount
+                        && choice != null
+                        && choice.biomeIndex == data.biomeIndex + 1
+                        && choice.roomIndex == 1;
                     if (choice == null
-                        || choice.stageIndex <= previousRouteStage
-                        || choice.stageIndex > data.stageIndex
+                        || choice.biomeIndex < 1
+                        || (choice.biomeIndex > data.biomeIndex
+                            && !isPendingNextBiomeChoice)
+                        || choice.roomIndex < 1
+                        || choice.roomIndex > data.roomsPerBiome
+                        || choice.stageIndex != choice.biomeIndex
+                        || choice.biomeIndex < previousRouteBiome
+                        || (choice.biomeIndex == previousRouteBiome
+                            && choice.roomIndex <= previousRouteRoom)
                         || choice.optionIndex < 0
                         || choice.optionIndex >= MaximumRouteOptionCount
                         || string.IsNullOrEmpty(choice.themeId)
@@ -1659,7 +1793,8 @@ namespace Shmup.Core.Simulation
                             "Suspend route choice history is invalid.",
                             nameof(data));
                     }
-                    previousRouteStage = choice.stageIndex;
+                    previousRouteBiome = choice.biomeIndex;
+                    previousRouteRoom = choice.roomIndex;
                 }
             }
             if (data.score < 0
@@ -1785,10 +1920,11 @@ namespace Shmup.Core.Simulation
                 }
                 previousCatalogIndex = catalogIndex;
                 totalAcquisitions += acquisition.count;
-                if (totalAcquisitions > data.stagesCleared)
+                if (totalAcquisitions
+                    > (long)data.roomsCleared + data.stagesCleared)
                     throw new ArgumentException(
                         "Suspend reward acquisitions exceed cleared "
-                        + "stage count.",
+                        + "reward boundaries.",
                         nameof(data));
             }
         }
@@ -1819,8 +1955,20 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < choices.Length; i++)
             {
                 RouteChoiceData data = choices[i];
+                if (data.roomIndex == 1)
+                {
+                    _routeChoiceHistory.Add(new RouteChoice(
+                        data.biomeIndex,
+                        data.roomIndex,
+                        data.optionIndex,
+                        data.themeId,
+                        (EncounterType)data.encounterType));
+                    continue;
+                }
                 IReadOnlyList<RouteOption> options =
-                    GenerateRouteOptions(data.stageIndex);
+                    GenerateRouteOptions(
+                        data.biomeIndex,
+                        data.roomIndex);
                 if (data.optionIndex < 0
                     || data.optionIndex >= options.Count)
                 {
@@ -1845,7 +1993,8 @@ namespace Shmup.Core.Simulation
                 }
 
                 _routeChoiceHistory.Add(new RouteChoice(
-                    data.stageIndex,
+                    data.biomeIndex,
+                    data.roomIndex,
                     data.optionIndex,
                     data.themeId,
                     encounterType));
@@ -1855,24 +2004,36 @@ namespace Shmup.Core.Simulation
                 return;
 
             int historyIndex = 0;
-            for (int targetStage = 2;
-                targetStage <= StageIndex;
-                targetStage++)
+            for (int biome = 1; biome <= BiomeIndex; biome++)
             {
-                IReadOnlyList<RouteOption> options =
-                    GenerateRouteOptions(targetStage);
-                if (options.Count < MinimumRouteOptionCount)
-                    continue;
-                if (historyIndex >= _routeChoiceHistory.Count
-                    || _routeChoiceHistory[historyIndex].StageIndex
-                        != targetStage)
+                int lastRoom = biome < BiomeIndex || IsBiomeBoss
+                    ? RoomsPerBiome
+                    : RoomIndex;
+                for (int room = 2; room <= lastRoom; room++)
                 {
-                    throw new ArgumentException(
-                        "Suspend route choice history is incomplete.",
-                        "data");
+                    IReadOnlyList<RouteOption> options =
+                        GenerateRouteOptions(biome, room);
+                    if (options.Count < MinimumRouteOptionCount)
+                        continue;
+                    while (historyIndex < _routeChoiceHistory.Count
+                        && _routeChoiceHistory[historyIndex].RoomIndex == 1)
+                        historyIndex++;
+                    if (historyIndex >= _routeChoiceHistory.Count
+                        || _routeChoiceHistory[historyIndex].BiomeIndex
+                            != biome
+                        || _routeChoiceHistory[historyIndex].RoomIndex
+                            != room)
+                    {
+                        throw new ArgumentException(
+                            "Suspend route choice history is incomplete.",
+                            "data");
+                    }
+                    historyIndex++;
                 }
-                historyIndex++;
             }
+            while (historyIndex < _routeChoiceHistory.Count
+                && _routeChoiceHistory[historyIndex].RoomIndex == 1)
+                historyIndex++;
             if (historyIndex != _routeChoiceHistory.Count)
             {
                 throw new ArgumentException(
@@ -1927,35 +2088,71 @@ namespace Shmup.Core.Simulation
 
         void BuildCurrentStage()
         {
-            Difficulty = _difficultyCurve.GetDifficulty(StageIndex);
-            if (TryGetRouteChoice(
-                    StageIndex,
-                    out RouteChoice routeChoice)
-                && _stageGenerator
-                    is IRouteStageGenerator routeGenerator)
+            Difficulty = _difficultyCurve.GetDifficulty(BiomeIndex);
+            ulong generationSeed = GetRoomGenerationSeed(
+                BiomeIndex,
+                RoomIndex,
+                IsBiomeBoss);
+            StagePlan generated;
+            if (_stageGenerator is IRouteStageGenerator routeGenerator)
             {
-                StagePlan = routeGenerator.GenerateRoute(
+                StagePlan basePlan = _stageGenerator.Generate(
                     _runSeed,
-                    StageIndex,
-                    Difficulty,
-                    routeChoice.ThemeId,
-                    routeChoice.EncounterType);
+                    BiomeIndex,
+                    Difficulty);
+                if (basePlan == null)
+                    throw new InvalidOperationException(
+                        "The stage generator returned no biome base plan.");
+                if (!IsBiomeBoss
+                    && RoomIndex == 1
+                    && !TryGetRouteChoice(
+                        BiomeIndex,
+                        RoomIndex,
+                        out _))
+                {
+                    generated = basePlan;
+                }
+                else
+                {
+                    string themeId = basePlan.ThemeId;
+                    EncounterType encounterType = EncounterType.Normal;
+                    if (TryGetRouteChoice(
+                            BiomeIndex,
+                            RoomIndex,
+                            out RouteChoice routeChoice))
+                    {
+                        themeId = routeChoice.ThemeId;
+                        if (!IsBiomeBoss)
+                            encounterType = routeChoice.EncounterType;
+                    }
+                    generated = routeGenerator.GenerateRoute(
+                        generationSeed,
+                        BiomeIndex,
+                        Difficulty,
+                        themeId,
+                        encounterType);
+                }
             }
             else
             {
-                StagePlan = _stageGenerator.Generate(
-                    _runSeed,
-                    StageIndex,
+                generated = _stageGenerator.Generate(
+                    generationSeed,
+                    BiomeIndex,
                     Difficulty);
             }
-            if (StagePlan == null)
+            if (generated == null)
                 throw new InvalidOperationException(
                     "The stage generator returned no plan.");
+            StagePlan = IsBiomeBoss
+                ? CreateBiomeBossPlan(generated)
+                : CreateRegularRoomPlan(generated);
             _stageLengthTicks = GetStageLengthTicks(StagePlan);
 
             Rng battleRng = new Rng(_runSeed)
                 .Fork(BattleSimulationStream)
-                .Fork(StageIndex);
+                .Fork(BiomeIndex)
+                .Fork(RoomIndex)
+                .Fork(IsBiomeBoss ? 1 : 0);
             Battle = new BattleSim(
                 _battleConfig,
                 battleRng,
@@ -1963,26 +2160,142 @@ namespace Shmup.Core.Simulation
                 _battleContent,
                 PowerUpGauge,
                 ActiveModifiers);
+            _preparedRouteOptions = GenerateExitRouteOptions();
             CaptureStageStart();
         }
 
+        IReadOnlyList<RouteOption> GenerateExitRouteOptions()
+        {
+            if (IsBiomeBoss)
+                return Array.Empty<RouteOption>();
+            if (RoomIndex < RoomsPerBiome)
+            {
+                return GenerateRouteOptions(
+                    BiomeIndex,
+                    RoomIndex + 1);
+            }
+            if (BiomeIndex < BiomeCount)
+                return GenerateRouteOptions(BiomeIndex + 1, 1);
+            return Array.Empty<RouteOption>();
+        }
+
         bool TryGetRouteChoice(
-            int stageIndex,
+            int biomeIndex,
+            int roomIndex,
             out RouteChoice routeChoice)
         {
             for (int i = _routeChoiceHistory.Count - 1; i >= 0; i--)
             {
                 RouteChoice candidate = _routeChoiceHistory[i];
-                if (candidate.StageIndex == stageIndex)
+                if (candidate.BiomeIndex == biomeIndex
+                    && candidate.RoomIndex == roomIndex)
                 {
                     routeChoice = candidate;
                     return true;
                 }
-                if (candidate.StageIndex < stageIndex)
+                if (candidate.BiomeIndex < biomeIndex
+                    || (candidate.BiomeIndex == biomeIndex
+                        && candidate.RoomIndex < roomIndex))
                     break;
             }
             routeChoice = default;
             return false;
+        }
+
+        string GetBiomeThemeId(int biomeIndex)
+        {
+            StagePlan basePlan = _stageGenerator.Generate(
+                _runSeed,
+                biomeIndex,
+                _difficultyCurve.GetDifficulty(biomeIndex));
+            if (basePlan == null)
+                throw new InvalidOperationException(
+                    "The stage generator returned no biome base plan.");
+            return basePlan.ThemeId;
+        }
+
+        ulong GetRoomGenerationSeed(
+            int biomeIndex,
+            int roomIndex,
+            bool isBiomeBoss)
+        {
+            if (roomIndex == 1 && !isBiomeBoss)
+                return _runSeed;
+            var rng = new Rng(_runSeed)
+                .Fork(RoomGenerationStream)
+                .Fork(biomeIndex)
+                .Fork(roomIndex)
+                .Fork(isBiomeBoss ? 1 : 0);
+            return rng.NextULong();
+        }
+
+        int GetRoomSequence(int biomeIndex, int roomIndex)
+        {
+            long sequence =
+                (long)(biomeIndex - 1) * RoomsPerBiome + roomIndex;
+            if (sequence > int.MaxValue)
+                throw new InvalidOperationException(
+                    "The room sequence exceeds the supported range.");
+            return (int)sequence;
+        }
+
+        int GetRewardSequence()
+        {
+            int roomSequence = GetRoomSequence(BiomeIndex, RoomIndex);
+            if (!IsBiomeBoss)
+                return roomSequence;
+            long bossSequence =
+                (long)BiomeCount * RoomsPerBiome + BiomeIndex;
+            if (bossSequence > int.MaxValue)
+                throw new InvalidOperationException(
+                    "The reward sequence exceeds the supported range.");
+            return (int)bossSequence;
+        }
+
+        static StagePlan CreateRegularRoomPlan(StagePlan source)
+        {
+            return new StagePlan(
+                source.Segments,
+                string.Empty,
+                source.LaneCount,
+                source.StartLaneMask,
+                source.BossEntryLaneMask,
+                0,
+                0,
+                0,
+                0,
+                Array.Empty<BossPhase>(),
+                source.ThemeId,
+                source.RequestedThemeId,
+                source.EncounterType);
+        }
+
+        static StagePlan CreateBiomeBossPlan(StagePlan source)
+        {
+            int laneMask = source.BossEntryLaneMask != 0
+                ? source.BossEntryLaneMask
+                : source.StartLaneMask != 0 ? source.StartLaneMask : 1;
+            var entry = new StageSegment(
+                "__biome_boss_entry__",
+                1,
+                Array.Empty<SpawnEvent>(),
+                laneMask,
+                laneMask,
+                new[] { laneMask });
+            return new StagePlan(
+                new[] { entry },
+                source.BossId,
+                source.LaneCount,
+                laneMask,
+                laneMask,
+                source.BossMaxHp,
+                source.BossHalfWidth,
+                source.BossHalfHeight,
+                source.BossHoldX,
+                source.BossPhases,
+                source.ThemeId,
+                source.RequestedThemeId,
+                EncounterType.Normal);
         }
 
         void CaptureStageStart()
@@ -2001,6 +2314,7 @@ namespace Shmup.Core.Simulation
                 _completedCapsulesCollected;
             _stageStartGrazeCount = _completedGrazeCount;
             _stageStartStagesCleared = _stagesCleared;
+            _stageStartRoomsCleared = _roomsCleared;
             _stageStartPlayerHp = Battle.PlayerHp;
             _stageStartShieldRemaining =
                 Battle.ShieldRemaining;

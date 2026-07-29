@@ -11,7 +11,7 @@ namespace Shmup.Core.Tests
         const int Lane = 1;
 
         [Test]
-        public void RouteCandidatesAreDeterministicAndUseDistinctThemes()
+        public void RouteCandidatesAreDeterministicWithinCurrentBiomeTheme()
         {
             RunManager first = CreateRun(77UL, EncounterType.Supply);
             RunManager second = CreateRun(77UL, EncounterType.Supply);
@@ -30,11 +30,14 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual(
                     first.RouteOptions[i].EncounterType,
                     second.RouteOptions[i].EncounterType);
+                Assert.AreEqual(
+                    first.StagePlan.ThemeId,
+                    first.RouteOptions[i].ThemeId);
                 for (int earlier = 0; earlier < i; earlier++)
                 {
                     Assert.AreNotEqual(
-                        first.RouteOptions[earlier].ThemeId,
-                        first.RouteOptions[i].ThemeId);
+                        first.RouteOptions[earlier].EncounterType,
+                        first.RouteOptions[i].EncounterType);
                 }
             }
         }
@@ -139,19 +142,13 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void RareClearGrantsConfiguredTwoRewardSelections()
+        public void RareClearRoutesWithoutInflationaryRewardSelection()
         {
             RunManager run = CreateRun(91UL, EncounterType.Rare);
             run.Step(InputCommand.None);
-            Assert.AreEqual(RunState.AwaitingReward, run.State);
-            Assert.AreEqual(EncounterType.Rare, run.StagePlan.EncounterType);
-
-            run.ChooseReward(0);
-            Assert.AreEqual(RunState.AwaitingReward, run.State);
-            Assert.AreEqual(1, run.StageIndex);
-
-            run.ChooseReward(0);
             Assert.AreEqual(RunState.AwaitingRoute, run.State);
+            Assert.AreEqual(EncounterType.Rare, run.StagePlan.EncounterType);
+            Assert.AreEqual(0, run.RewardOptions.Count);
         }
 
         [Test]
@@ -276,7 +273,8 @@ namespace Shmup.Core.Tests
             run.ChooseRoute(0);
 
             Assert.AreEqual(RunState.Playing, run.State);
-            Assert.AreEqual(2, run.StageIndex);
+            Assert.AreEqual(1, run.BiomeIndex);
+            Assert.AreEqual(2, run.RoomIndex);
             Assert.AreEqual(selected.ThemeId, run.StagePlan.ThemeId);
             Assert.AreEqual(
                 selected.EncounterType,
@@ -291,7 +289,6 @@ namespace Shmup.Core.Tests
             var recorder = new InputRecorder(source);
             recorder.Record(InputCommand.None);
             source.Step(InputCommand.None);
-            source.ChooseReward(0);
             RouteOption selected = source.RouteOptions[1];
             source.ChooseRoute(1);
 
@@ -317,7 +314,6 @@ namespace Shmup.Core.Tests
                 EncounterType.Supply);
             foreach (InputCommand input in playback)
                 replay.Step(in input);
-            replay.ChooseReward(0);
             RouteChoice replayChoice = playback.RouteChoices[0];
             replay.ChooseRoute(replayChoice.OptionIndex);
 
@@ -366,8 +362,6 @@ namespace Shmup.Core.Tests
         static void ReachRouteChoice(RunManager run)
         {
             run.Step(InputCommand.None);
-            Assert.AreEqual(RunState.AwaitingReward, run.State);
-            run.ChooseReward(0);
             Assert.AreEqual(RunState.AwaitingRoute, run.State);
         }
 

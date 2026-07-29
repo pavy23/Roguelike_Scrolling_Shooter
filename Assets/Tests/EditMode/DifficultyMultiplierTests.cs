@@ -55,7 +55,13 @@ namespace Shmup.Core.Tests
                 4,
                 true);
             InputCommand none = InputCommand.None;
-            run.Step(in none);
+            for (int guard = 0;
+                guard < 100
+                    && !(run.IsBiomeBoss
+                        && run.Battle is BattleSim bossBattle
+                        && bossBattle.BossActive);
+                guard++)
+                run.Step(in none);
 
             Assert.AreEqual(3, run.DifficultyMultiplierNumerator);
             Assert.AreEqual(2, run.DifficultyMultiplierDenominator);

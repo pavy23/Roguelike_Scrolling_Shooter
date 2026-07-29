@@ -30,7 +30,9 @@ namespace Shmup.Core
             }
             if (source.schemaVersion
                     < RunSuspendData.CurrentSchemaVersion
-                && !string.IsNullOrEmpty(source.checksum))
+                && !string.IsNullOrEmpty(source.checksum)
+                && !(source.schemaVersion == 4
+                    && HasValidRunSuspendV4Checksum(source)))
             {
                 throw Corrupted(
                     "Legacy run suspend contains an unexpected checksum.");
@@ -71,12 +73,39 @@ namespace Shmup.Core
                         : 1,
                 routeChoices =
                     source.schemaVersion >= 3
-                        ? Clone(source.routeChoices)
+                        ? Clone(
+                            source.routeChoices,
+                            source.schemaVersion >= 5)
                         : Array.Empty<RouteChoiceData>(),
                 finalStageIndex =
                     source.schemaVersion >= 4
                         ? source.finalStageIndex
-                        : RunProgressionConfig.DefaultFinalStageIndex
+                        : RunProgressionConfig.DefaultFinalStageIndex,
+                biomeIndex =
+                    source.schemaVersion >= 5
+                        ? source.biomeIndex
+                        : source.stageIndex,
+                roomIndex =
+                    source.schemaVersion >= 5
+                        ? source.roomIndex
+                        : 1,
+                isBiomeBoss =
+                    source.schemaVersion >= 5
+                        && source.isBiomeBoss,
+                biomeCount =
+                    source.schemaVersion >= 5
+                        ? source.biomeCount
+                        : source.schemaVersion >= 4
+                            ? source.finalStageIndex
+                            : RunProgressionConfig.DefaultBiomeCount,
+                roomsPerBiome =
+                    source.schemaVersion >= 5
+                        ? source.roomsPerBiome
+                        : 1,
+                roomsCleared =
+                    source.schemaVersion >= 5
+                        ? source.roomsCleared
+                        : Math.Max(0, source.stageIndex - 1)
             };
             Seal(migrated);
             return migrated;
@@ -104,7 +133,9 @@ namespace Shmup.Core
             }
             if (source.schemaVersion
                     < InputRecordingData.CurrentSchemaVersion
-                && !string.IsNullOrEmpty(source.checksum))
+                && !string.IsNullOrEmpty(source.checksum)
+                && !(source.schemaVersion == 5
+                    && HasValidInputRecordingV5Checksum(source)))
             {
                 throw Corrupted(
                     "Legacy input recording contains an unexpected checksum.");
@@ -127,12 +158,24 @@ namespace Shmup.Core
                         : 1,
                 routeChoices =
                     source.schemaVersion >= 4
-                        ? Clone(source.routeChoices)
+                        ? Clone(
+                            source.routeChoices,
+                            source.schemaVersion >= 6)
                         : Array.Empty<RouteChoiceData>(),
                 finalStageIndex =
                     source.schemaVersion >= 5
                         ? source.finalStageIndex
-                        : RunProgressionConfig.DefaultFinalStageIndex
+                        : RunProgressionConfig.DefaultFinalStageIndex,
+                biomeCount =
+                    source.schemaVersion >= 6
+                        ? source.biomeCount
+                        : source.schemaVersion >= 5
+                            ? source.finalStageIndex
+                            : RunProgressionConfig.DefaultBiomeCount,
+                roomsPerBiome =
+                    source.schemaVersion >= 6
+                        ? source.roomsPerBiome
+                        : 1
             };
             Seal(migrated);
             return migrated;
@@ -249,7 +292,7 @@ namespace Shmup.Core
             hash.Add(data.powerUpCursor);
             hash.Add(data.playerHp);
             hash.Add(data.shieldRemaining);
-            Add(hash, data.rewardAcquisitions);
+            Add(ref hash, data.rewardAcquisitions);
             hash.Add(data.activeModifiers);
             hash.Add(data.shipId);
             hash.Add(data.fireIntervalTicks);
@@ -258,8 +301,14 @@ namespace Shmup.Core
             hash.Add(data.playerSpeedDenominator);
             hash.Add(data.difficultyMultiplierNumerator);
             hash.Add(data.difficultyMultiplierDenominator);
-            Add(hash, data.routeChoices);
+            Add(ref hash, data.routeChoices);
             hash.Add(data.finalStageIndex);
+            hash.Add(data.biomeIndex);
+            hash.Add(data.roomIndex);
+            hash.Add(data.isBiomeBoss);
+            hash.Add(data.biomeCount);
+            hash.Add(data.roomsPerBiome);
+            hash.Add(data.roomsCleared);
             return hash.ToString();
         }
 
@@ -290,9 +339,63 @@ namespace Shmup.Core
             }
             hash.Add(data.difficultyMultiplierNumerator);
             hash.Add(data.difficultyMultiplierDenominator);
-            Add(hash, data.routeChoices);
+            Add(ref hash, data.routeChoices);
             hash.Add(data.finalStageIndex);
+            hash.Add(data.biomeCount);
+            hash.Add(data.roomsPerBiome);
             return hash.ToString();
+        }
+
+        static bool HasValidRunSuspendV4Checksum(RunSuspendData data)
+        {
+            if (!IsChecksum(data.checksum))
+                return false;
+            var hash = new CanonicalHash("RunSuspendData");
+            hash.Add(data.schemaVersion);
+            hash.Add(data.runSeed);
+            hash.Add(data.runNumber);
+            hash.Add(data.stageIndex);
+            hash.Add(data.score);
+            hash.Add(data.shotsFired);
+            hash.Add(data.shotsHit);
+            hash.Add(data.kills);
+            hash.Add(data.capsulesCollected);
+            hash.Add(data.grazeCount);
+            hash.Add(data.stagesCleared);
+            hash.Add(data.powerUpLevels);
+            hash.Add(data.powerUpCursor);
+            hash.Add(data.playerHp);
+            hash.Add(data.shieldRemaining);
+            hash.Add(data.activeModifiers);
+            hash.Add(data.shipId);
+            hash.Add(data.fireIntervalTicks);
+            hash.Add(data.mainShotBaseDamage);
+            hash.Add(data.playerSpeedNumerator);
+            hash.Add(data.playerSpeedDenominator);
+            hash.Add(data.difficultyMultiplierNumerator);
+            hash.Add(data.difficultyMultiplierDenominator);
+            hash.Add(data.finalStageIndex);
+            return string.Equals(
+                data.checksum,
+                hash.ToString(),
+                StringComparison.Ordinal);
+        }
+
+        static bool HasValidInputRecordingV5Checksum(InputRecordingData data)
+        {
+            if (!IsChecksum(data.checksum))
+                return false;
+            var hash = new CanonicalHash("InputRecordingData");
+            hash.Add(data.schemaVersion);
+            hash.Add(data.totalTicks);
+            AddInputRuns(ref hash, data.runs);
+            hash.Add(data.difficultyMultiplierNumerator);
+            hash.Add(data.difficultyMultiplierDenominator);
+            hash.Add(data.finalStageIndex);
+            return string.Equals(
+                data.checksum,
+                hash.ToString(),
+                StringComparison.Ordinal);
         }
 
         static string ComputeChecksum(MetaStateData data)
@@ -306,7 +409,7 @@ namespace Shmup.Core
         }
 
         static void Add(
-            CanonicalHash hash,
+            ref CanonicalHash hash,
             RewardAcquisitionData[] acquisitions)
         {
             if (acquisitions == null)
@@ -327,7 +430,7 @@ namespace Shmup.Core
         }
 
         static void Add(
-            CanonicalHash hash,
+            ref CanonicalHash hash,
             RouteChoiceData[] choices)
         {
             if (choices == null)
@@ -346,6 +449,32 @@ namespace Shmup.Core
                 hash.Add(choice.optionIndex);
                 hash.Add(choice.themeId);
                 hash.Add(choice.encounterType);
+                hash.Add(choice.biomeIndex);
+                hash.Add(choice.roomIndex);
+            }
+        }
+
+        static void AddInputRuns(
+            ref CanonicalHash hash,
+            InputRunData[] runs)
+        {
+            if (runs == null)
+            {
+                hash.Add(-1);
+                return;
+            }
+            hash.Add(runs.Length);
+            for (int i = 0; i < runs.Length; i++)
+            {
+                InputRunData run = runs[i];
+                hash.Add(run != null);
+                if (run == null)
+                    continue;
+                hash.Add(run.moveX);
+                hash.Add(run.moveY);
+                hash.Add(run.fire);
+                hash.Add(run.activate);
+                hash.Add(run.tickCount);
             }
         }
 
@@ -379,7 +508,9 @@ namespace Shmup.Core
             return copy;
         }
 
-        static RouteChoiceData[] Clone(RouteChoiceData[] source)
+        static RouteChoiceData[] Clone(
+            RouteChoiceData[] source,
+            bool includeRoomPosition)
         {
             if (source == null)
                 return null;
@@ -392,6 +523,12 @@ namespace Shmup.Core
                     : new RouteChoiceData
                     {
                         stageIndex = item.stageIndex,
+                        biomeIndex = includeRoomPosition
+                            ? item.biomeIndex
+                            : item.stageIndex,
+                        roomIndex = includeRoomPosition
+                            ? item.roomIndex
+                            : 1,
                         optionIndex = item.optionIndex,
                         themeId = item.themeId,
                         encounterType = item.encounterType
