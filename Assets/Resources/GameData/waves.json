@@ -205,6 +205,20 @@
           "enemyId": "zako_tank",
           "y": 2.5
         }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": 4.0,
+          "hp": 20
+        }
       ]
     },
     {
@@ -308,6 +322,26 @@
           "enemyId": "zako_fast",
           "y": -4.75
         }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": 0.0,
+          "hp": 15
+        }
       ]
     },
     {
@@ -391,6 +425,26 @@
           "enemyId": "zako_tank",
           "y": 1.5
         }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 17.5,
+          "y": 2.5,
+          "hp": 25
+        }
       ]
     },
     {
@@ -458,6 +512,26 @@
           "tick": 600,
           "enemyId": "zako_tank",
           "y": -2.5
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": -3.0,
+          "hp": 20
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": 0.0,
+          "hp": 15
         }
       ]
     },
@@ -556,6 +630,32 @@
           "tick": 650,
           "enemyId": "elite_sine",
           "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 16.0,
+          "y": 7.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": 3.25,
+          "hp": 30
         }
       ]
     },
@@ -754,6 +854,32 @@
           "enemyId": "mini_horror",
           "y": 0
         }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -4.75,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 13.0,
+          "y": 0.0,
+          "hp": 20
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": 3.25,
+          "hp": 25
+        }
       ]
     },
     {
@@ -887,6 +1013,32 @@
           "tick": 580,
           "enemyId": "sting_hornet",
           "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": 1.5,
+          "hp": 20
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": -2.5,
+          "hp": 20
         }
       ]
     },
@@ -1031,6 +1183,38 @@
           "tick": 850,
           "enemyId": "mini_destroyer",
           "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": 7.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 12.5,
+          "y": 0.0,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": 3.25,
+          "hp": 35
         }
       ]
     },
@@ -1206,6 +1390,38 @@
           "enemyId": "elite_sine",
           "y": 0
         }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 17.0,
+          "y": 4.0,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": -1.5,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 19.5,
+          "y": 0.0,
+          "hp": 40
+        }
       ]
     },
     {
@@ -1375,6 +1591,44 @@
           "enemyId": "mini_crystal",
           "y": 0
         }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 13.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 17.0,
+          "y": 7.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 11.5,
+          "y": 0.0,
+          "hp": 25
+        },
+        {
+          "type": "breakable",
+          "x": 15.0,
+          "y": 3.25,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": -3.25,
+          "hp": 35
+        }
       ]
     },
     {
@@ -1523,6 +1777,44 @@
           "tick": 700,
           "enemyId": "mini_crystal",
           "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.5,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.5,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 16.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 13.0,
+          "y": 1.5,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": -2.5,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 20.0,
+          "y": 0.0,
+          "hp": 40
         }
       ]
     },
@@ -1707,6 +1999,50 @@
           "tick": 860,
           "enemyId": "mini_walker",
           "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 9.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": 7.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": -7.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 11.0,
+          "y": 0.0,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 14.5,
+          "y": 3.25,
+          "hp": 45
+        },
+        {
+          "type": "breakable",
+          "x": 19.5,
+          "y": -1.5,
+          "hp": 50
         }
       ]
     },
@@ -1916,6 +2252,50 @@
           "tick": 800,
           "enemyId": "elite_sine",
           "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": 7.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 17.5,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 12.0,
+          "y": 0.0,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 15.5,
+          "y": 2.5,
+          "hp": 45
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": -3.0,
+          "hp": 50
         }
       ]
     }
