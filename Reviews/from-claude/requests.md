@@ -342,3 +342,12 @@ HP 회복, (후순위) 고유 패시브. 가중치/스테이지 제한 포함. `
 
 **후속:** CODEX가 파서·RunManager 연동 필요 → `Reviews/from-grok/requests.md` **REQ-G001**.
 고유 패시브 타입은 후순위(미포함). 보상·보스 수치 최종 확정은 사람 (AGENTS.md §7).
+
+---
+
+## [ ] REQ-009 → CLAUDE(자체)/CODEX: 프레임당 GC 할당 조사 (GEMINI 성능 패스 #01 후속)
+
+GEMINI 계측: 에디터 90초(4배속) 동안 Total Allocated +33.7MB, Mono Heap +40MB 연속 증가.
+유력 용의자: IMGUI 오버레이(DevCheats/ScoreHud 등)의 매 프레임 문자열 보간·GUIStyle 생성.
+후속: (1) 스탠드얼론 빌드에서 재계측해 에디터 오버헤드 분리, (2) IMGUI HUD의 TextMeshPro
+전환(M5 폴리시 후보), (3) Core 경로 무할당 확인은 CODEX 프로파일 테스트로.

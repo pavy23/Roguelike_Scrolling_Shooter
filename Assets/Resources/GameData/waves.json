@@ -748,6 +748,11 @@
           "tick": 620,
           "enemyId": "zako_straight",
           "y": 0
+        },
+        {
+          "tick": 680,
+          "enemyId": "mini_horror",
+          "y": 0
         }
       ]
     },
@@ -1020,6 +1025,11 @@
         {
           "tick": 790,
           "enemyId": "interceptor_rush",
+          "y": 0
+        },
+        {
+          "tick": 850,
+          "enemyId": "mini_destroyer",
           "y": 0
         }
       ]
@@ -1349,6 +1359,11 @@
           "tick": 700,
           "enemyId": "wisp_spark",
           "y": -1.5
+        },
+        {
+          "tick": 740,
+          "enemyId": "mini_crystal",
+          "y": 0
         }
       ]
     },
@@ -1667,6 +1682,11 @@
           "tick": 840,
           "enemyId": "interceptor_rush",
           "y": -2.5
+        },
+        {
+          "tick": 860,
+          "enemyId": "mini_walker",
+          "y": 0
         }
       ]
     },

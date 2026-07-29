@@ -67,6 +67,10 @@ namespace Shmup.Presentation.Battle
                 Apply(!Screen.fullScreen);
             if (keyboard.bKey.wasPressedThisFrame)
                 StartRebindFire();
+            if (keyboard.digit1Key.wasPressedThisFrame) StartRebindMovePart("up");
+            if (keyboard.digit2Key.wasPressedThisFrame) StartRebindMovePart("down");
+            if (keyboard.digit3Key.wasPressedThisFrame) StartRebindMovePart("left");
+            if (keyboard.digit4Key.wasPressedThisFrame) StartRebindMovePart("right");
             if (keyboard.xKey.wasPressedThisFrame)
                 ResetBindings();
         }
@@ -90,13 +94,40 @@ namespace Shmup.Presentation.Battle
         {
             var fire = FindFireAction();
             if (fire == null) return;
-            fire.Disable();
-            _rebind = fire.PerformInteractiveRebinding()
+            StartRebind(fire, -1);
+        }
+
+        /// <summary>Move 2D 컴포지트의 키보드 파트(up/down/left/right)를 리바인딩한다.</summary>
+        void StartRebindMovePart(string partName)
+        {
+            if (_input == null || _input.Actions == null) return;
+            var move = _input.Actions.FindAction("Move", throwIfNotFound: false);
+            if (move == null) return;
+            for (int i = 0; i < move.bindings.Count; i++)
+            {
+                var binding = move.bindings[i];
+                if (binding.isPartOfComposite
+                    && string.Equals(binding.name, partName, System.StringComparison.OrdinalIgnoreCase)
+                    && binding.path.StartsWith("<Keyboard>", System.StringComparison.Ordinal))
+                {
+                    StartRebind(move, i);
+                    return;
+                }
+            }
+        }
+
+        void StartRebind(InputAction action, int bindingIndex)
+        {
+            action.Disable();
+            var operation = bindingIndex >= 0
+                ? action.PerformInteractiveRebinding(bindingIndex)
+                : action.PerformInteractiveRebinding();
+            _rebind = operation
                 .WithControlsExcluding("<Mouse>/position")
                 .WithControlsExcluding("<Mouse>/delta")
                 .WithCancelingThrough("<Keyboard>/escape")
-                .OnComplete(_ => FinishRebind(fire))
-                .OnCancel(_ => FinishRebind(fire))
+                .OnComplete(_ => FinishRebind(action))
+                .OnCancel(_ => FinishRebind(action))
                 .Start();
         }
 
@@ -154,6 +185,7 @@ namespace Shmup.Presentation.Battle
                 $"[R] RESOLUTION   {resolution.x} x {resolution.y}\n" +
                 $"[F] FULLSCREEN   {(Screen.fullScreen ? "ON" : "OFF")}\n" +
                 $"[B] REBIND FIRE  (now: {fireBinding})\n" +
+                "[1]~[4] REBIND MOVE  (up/down/left/right)\n" +
                 $"[X] RESET BINDINGS\n\n" +
                 "[O] CLOSE");
         }
