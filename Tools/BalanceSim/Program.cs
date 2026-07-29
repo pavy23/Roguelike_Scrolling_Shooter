@@ -12,6 +12,7 @@
 // 10) Segment weights: catalog bias for common vs spectacle segments (REQ-029).
 // 11) Encounter types: Normal/Elite/Supply/Hazard/Rare risk-reward sketch (REQ-028/029).
 // 12) Capsule drops after magnet: expected recovery band (REQ-029).
+// 13) Boss redesign: TTK 35–45s @ biome DPS, full-power ≥12s, 3 phases, threat mono (REQ-033).
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -89,6 +90,26 @@ static class Program
     const double MaxStageCapsuleExpectation = 16.0;
     const double MaxSupplyNodeCapsuleExpectation = 18.0;
 
+    // Boss redesign TTK / phase gates (REQ-033, provisional §7).
+    // Biome path: 6 rooms then boss event — expected DPS at reach, not theoretical max.
+    const double BossFullPowerDps = 1880.0;
+    const double BossTtkExpectedMin = 35.0;
+    const double BossTtkExpectedMax = 45.0;
+    const double BossTtkFullMin = 12.0;
+    const int BossRequiredPhaseCount = 3;
+    // Equal-split remaining-HP ratios for phase 1 / phase 2 (Core N-way equal split).
+    const double BossPhaseThreshold0 = 2.0 / 3.0; // enter phase 1
+    const double BossPhaseThreshold1 = 1.0 / 3.0; // enter phase 2
+    // Expected biome-reach DPS anchors (see analyze_stage_hp.py).
+    static readonly (string Id, double ExpectedDps)[] BossExpectedDps =
+    {
+        ("boss_stage1", 550.0),
+        ("boss_hive", 650.0),
+        ("boss_fortress", 750.0),
+        ("boss_storm", 900.0),
+        ("boss_core", 1050.0),
+    };
+
     static int Main()
     {
         string root = FindRepoRoot();
@@ -146,6 +167,8 @@ static class Program
         failures += CheckEncounterBalance(data);
         Console.WriteLine();
         failures += CheckCapsuleDropAfterMagnet(data);
+        Console.WriteLine();
+        failures += CheckBossRedesign(data);
 
         Console.WriteLine();
         if (failures == 0)
@@ -1227,11 +1250,30 @@ static class Program
         if (boss.Phases == null || boss.Phases.Count < 2)
         {
             Console.WriteLine(
-                $"FAIL density: boss '{boss.BossId}' needs ≥2 phases for phase-2 stress.");
+                $"FAIL density: boss '{boss.BossId}' needs ≥2 phases for density stress.");
             return 1;
         }
 
-        BossPhase phase2 = boss.Phases[boss.Phases.Count - 1];
+        // REQ-033: densest packing is usually mid spread (not final rapid).
+        // Pick the phase with max concurrent estimate for pool stress.
+        BossPhase densestPhase = boss.Phases[0];
+        int densestIdx = 0;
+        double densestConcurrent = -1;
+        for (int pi = 0; pi < boss.Phases.Count; pi++)
+        {
+            BossPhase cand = boss.Phases[pi];
+            double spd = cand.BulletSpeedNumerator / (double)cand.BulletSpeedDenominator;
+            // travel filled below; use ways/interval * 1/speed as density proxy pre-travel.
+            double proxy = cand.Ways / (double)cand.FireIntervalTicks / Math.Max(1e-9, spd);
+            if (proxy > densestConcurrent)
+            {
+                densestConcurrent = proxy;
+                densestPhase = cand;
+                densestIdx = pi;
+            }
+        }
+
+        BossPhase phase2 = densestPhase;
         int enemyWaysFaithful = 1; // Core: non-boss shooters fire 1 aimed shot.
         int maxWays = phase2.Ways;
 
@@ -1258,7 +1300,8 @@ static class Program
             phase2.BulletSpeedDenominator);
 
         Console.WriteLine(
-            $"  Boss '{boss.BossId}' phase2: interval={phase2.FireIntervalTicks}t " +
+            $"  Boss '{boss.BossId}' densest phase p{densestIdx}: " +
+            $"interval={phase2.FireIntervalTicks}t " +
             $"ways={phase2.Ways} speed={phase2.BulletSpeedNumerator}/" +
             $"{phase2.BulletSpeedDenominator} su/tick " +
             $"travel≈{travelSubUnits / (double)SimSpace.SubUnitsPerWorldUnit:F1}u " +
@@ -1267,7 +1310,7 @@ static class Program
             $"  Regular enemy bullet life (Core default speed 8u/s, same travel)≈{enemyBulletLife}t");
         Console.WriteLine(
             $"  Enemy n-way: faithful={enemyWaysFaithful} (Core aimed single); " +
-            $"stress maxWays={maxWays} (apply boss phase2 ways to every concurrent shooter)");
+            $"stress maxWays={maxWays} (apply densest-phase ways to every concurrent shooter)");
 
         int peakEnemies = 0;
         int peakShooters = 0;
@@ -1611,8 +1654,9 @@ static class Program
     }
 
     /// <summary>
-    /// Empty short stage + boss only. Fire until phase 2, then stop firing so
-    /// phase-2 n-way can reach steady packing without defeating the boss.
+    /// Empty short stage + boss only. Fire until densest phase (index ≥1 with
+    /// REQ-033 3-phase spread mid), then stop firing so n-way packing can settle
+    /// without defeating the boss.
     /// </summary>
     static DensityProbeResult ProbeBossOnlyBulletPeak(
         GameDataSet data,
@@ -1680,8 +1724,8 @@ static class Program
 
         for (int t = 0; t < 180 * SimSpace.TicksPerSecond; t++)
         {
-            // Wait until boss has finished entry (at holdX) so phase-2 volleys exist.
-            // Fire only until phase 2, then hold so we do not melt the boss.
+            // Wait until boss has finished entry (at holdX) so densest-phase volleys exist.
+            // Fire until phase ≥1 (spread mid with 3 phases), then hold so we do not melt.
             bool atHold = sim.BossActive && sim.Boss.X <= holdX;
             bool shouldFire = atHold && !inPhase2;
             InputCommand input = shouldFire ? fire : none;
@@ -1694,6 +1738,7 @@ static class Program
                 continue;
             }
 
+            // Phase index 1 = first transition (spread) under equal-split 3-phase data.
             if (sim.Boss.Phase >= 1)
                 inPhase2 = true;
 
@@ -3326,6 +3371,174 @@ static class Program
 
         if (failures == 0)
             Console.WriteLine("PASS: capsule drop EV band after magnet.");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-033 boss redesign gates: HP curve mono, TTK 35–45s @ biome DPS,
+    /// full-power ≥12s, exactly 3 phases, phase threat mono, equal-split thresholds.
+    /// All gates provisional (AGENTS.md §7).
+    /// </summary>
+    static int CheckBossRedesign(GameDataSet data)
+    {
+        int failures = 0;
+        IReadOnlyList<StageBossTemplate> bosses = data.StageGeneration.Bosses;
+
+        Console.WriteLine(
+            "Boss redesign (REQ-033, provisional §7): " +
+            $"TTK {BossTtkExpectedMin:F0}–{BossTtkExpectedMax:F0}s @ biome DPS · " +
+            $"full-power ≥{BossTtkFullMin:F0}s · phases={BossRequiredPhaseCount} · " +
+            "threat mono · equal-split thresholds");
+
+        if (bosses.Count != BossExpectedDps.Length)
+        {
+            Console.WriteLine(
+                $"FAIL boss: expected {BossExpectedDps.Length} bosses, got {bosses.Count}.");
+            return 1;
+        }
+
+        var byId = new Dictionary<string, StageBossTemplate>(StringComparer.Ordinal);
+        for (int i = 0; i < bosses.Count; i++)
+            byId[bosses[i].BossId] = bosses[i];
+
+        int prevHp = 0;
+        for (int i = 0; i < BossExpectedDps.Length; i++)
+        {
+            string id = BossExpectedDps[i].Id;
+            double expectedDps = BossExpectedDps[i].ExpectedDps;
+            if (!byId.TryGetValue(id, out StageBossTemplate boss))
+            {
+                Console.WriteLine($"FAIL boss: missing catalog entry '{id}'.");
+                failures++;
+                continue;
+            }
+
+            int hp = boss.MaxHp;
+            if (i > 0 && hp <= prevHp)
+            {
+                Console.WriteLine(
+                    $"FAIL boss: HP curve not strictly mono at '{id}' " +
+                    $"(hp={hp} ≤ prev={prevHp}).");
+                failures++;
+            }
+            prevHp = hp;
+
+            double ttkExpected = hp / expectedDps;
+            double ttkFull = hp / BossFullPowerDps;
+            bool midOk = ttkExpected >= BossTtkExpectedMin && ttkExpected <= BossTtkExpectedMax;
+            bool fullOk = ttkFull >= BossTtkFullMin;
+
+            Console.WriteLine(
+                $"  {id,-16} hp={hp,6} @ {expectedDps,6:F0} DPS → TTK={ttkExpected:F1}s " +
+                $"[{(midOk ? "midOK" : "OUT")}]  full@{BossFullPowerDps:F0} → " +
+                $"{ttkFull:F1}s [{(fullOk ? "floorOK" : "BELOW")}]");
+
+            if (!midOk)
+            {
+                Console.WriteLine(
+                    $"FAIL boss: '{id}' expected TTK {ttkExpected:F1}s outside " +
+                    $"[{BossTtkExpectedMin:F0},{BossTtkExpectedMax:F0}]s.");
+                failures++;
+            }
+
+            if (!fullOk)
+            {
+                Console.WriteLine(
+                    $"FAIL boss: '{id}' full-power TTK {ttkFull:F1}s < {BossTtkFullMin:F0}s.");
+                failures++;
+            }
+
+            if (boss.Phases == null || boss.Phases.Count != BossRequiredPhaseCount)
+            {
+                Console.WriteLine(
+                    $"FAIL boss: '{id}' needs exactly {BossRequiredPhaseCount} phases, " +
+                    $"got {boss.Phases?.Count ?? 0}.");
+                failures++;
+                continue;
+            }
+
+            // Document Core equal-split thresholds (remaining HP ratios).
+            // nextPhase = (maxHp - hp) * N / maxHp → phase1 @ remaining 2/3, phase2 @ 1/3.
+            int hpEnterP1 = (int)((long)hp * 2 / 3); // remaining when damage reaches maxHp/3
+            int hpEnterP2 = (int)((long)hp / 3);
+            Console.WriteLine(
+                $"    phase thresholds (Core equal-split remaining): " +
+                $"p1≤{hpEnterP1} ({BossPhaseThreshold0:F3})  p2≤{hpEnterP2} ({BossPhaseThreshold1:F3})");
+
+            double prevThreat = -1.0;
+            for (int p = 0; p < boss.Phases.Count; p++)
+            {
+                BossPhase phase = boss.Phases[p];
+                double speedWu = phase.BulletSpeedNumerator / (double)phase.BulletSpeedDenominator
+                    * SimSpace.TicksPerSecond / SimSpace.SubUnitsPerWorldUnit;
+                double threat = phase.Ways * speedWu / phase.FireIntervalTicks;
+                string personality = p == 0 ? "aimed" : p == 1 ? "spread" : "rapid";
+                Console.WriteLine(
+                    $"    p{p} {personality,-6} int={phase.FireIntervalTicks,3}t " +
+                    $"ways={phase.Ways} spd≈{speedWu:F1}u/s threat={threat:F3}" +
+                    (prevThreat < 0 ? "" : threat > prevThreat ? " monoOK" : " MONO FAIL"));
+
+                // Personality soft check: aimed low ways, spread high ways, rapid high speed.
+                if (p == 0 && phase.Ways > 4)
+                {
+                    Console.WriteLine(
+                        $"WARN boss: '{id}' p0 ways={phase.Ways} high for aimed (expected ≤4).");
+                }
+
+                if (p == 1)
+                {
+                    int waysP0 = boss.Phases[0].Ways;
+                    if (phase.Ways <= waysP0)
+                    {
+                        Console.WriteLine(
+                            $"FAIL boss: '{id}' spread ways {phase.Ways} must exceed aimed {waysP0}.");
+                        failures++;
+                    }
+                }
+
+                if (p == 2)
+                {
+                    double speedP1 = boss.Phases[1].BulletSpeedNumerator
+                        / (double)boss.Phases[1].BulletSpeedDenominator
+                        * SimSpace.TicksPerSecond / SimSpace.SubUnitsPerWorldUnit;
+                    if (speedWu <= speedP1)
+                    {
+                        Console.WriteLine(
+                            $"FAIL boss: '{id}' rapid speed {speedWu:F1} must exceed " +
+                            $"spread {speedP1:F1}.");
+                        failures++;
+                    }
+
+                    if (phase.Ways >= boss.Phases[1].Ways)
+                    {
+                        Console.WriteLine(
+                            $"FAIL boss: '{id}' rapid ways {phase.Ways} must be fewer " +
+                            $"than spread {boss.Phases[1].Ways}.");
+                        failures++;
+                    }
+                }
+
+                if (prevThreat >= 0 && threat <= prevThreat)
+                {
+                    Console.WriteLine(
+                        $"FAIL boss: '{id}' phase threat not strictly mono " +
+                        $"(p{p - 1}={prevThreat:F3} → p{p}={threat:F3}).");
+                    failures++;
+                }
+
+                prevThreat = threat;
+            }
+        }
+
+        // Movement personality is not data-driven (Core: single sine hover).
+        Console.WriteLine(
+            "  movement: Core uses single sine hover for all phases — " +
+            "phase-specific movement NOT supported in data. " +
+            "Recommendation for CODEX: optional per-phase move profile " +
+            "(hover / vertical sweep / dash) keyed by phase index.");
+
+        if (failures == 0)
+            Console.WriteLine("PASS: boss redesign TTK / phases / threat mono.");
         return failures;
     }
 
