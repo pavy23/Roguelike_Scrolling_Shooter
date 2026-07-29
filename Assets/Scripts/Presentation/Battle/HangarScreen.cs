@@ -16,11 +16,14 @@ namespace Shmup.Presentation.Battle
     {
         [SerializeField] Font _font;
         [SerializeField] Font _fontBold;
+        [SerializeField] string[] _shipIds;
+        [SerializeField] Sprite[] _shipSprites;
 
         GameDataSet _data;
         MetaState _meta;
         int _cursor;
         Text _headerText, _bodyText;
+        Image _preview;
         int _shownCursor = -1;
         long _shownCurrency = -1;
         string _shownSelected;
@@ -43,6 +46,27 @@ namespace Shmup.Presentation.Battle
             _bodyText = UiKit.CreateCornerText(canvas.transform, _font, "", 11,
                 UiKit.TextMain, new Vector2(0.5f, 0f), new Vector2(0f, 14f),
                 TextAnchor.LowerCenter, "Body");
+
+            // 기체 미리보기 (픽셀 ×2 확대)
+            var previewGo = new GameObject("ShipPreview");
+            previewGo.transform.SetParent(canvas.transform, false);
+            _preview = previewGo.AddComponent<Image>();
+            _preview.raycastTarget = false;
+            var rect = _preview.rectTransform;
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0f);
+            rect.pivot = new Vector2(0.5f, 0f);
+            rect.anchoredPosition = new Vector2(0f, 74f);
+            _preview.enabled = false;
+        }
+
+        Sprite SpriteForShip(string shipId)
+        {
+            if (_shipIds == null || _shipSprites == null) return null;
+            int count = Mathf.Min(_shipIds.Length, _shipSprites.Length);
+            for (int i = 0; i < count; i++)
+                if (string.Equals(_shipIds[i], shipId, System.StringComparison.Ordinal))
+                    return _shipSprites[i];
+            return null;
         }
 
         void Update()
@@ -94,6 +118,19 @@ namespace Shmup.Presentation.Battle
 
             _headerText.text =
                 $"HANGAR  ◄ {_cursor + 1}/{_data.Ships.Count} ►      CREDIT {_meta.TotalCurrency:N0}";
+
+            var previewSprite = SpriteForShip(ship.Id);
+            if (_preview != null)
+            {
+                _preview.enabled = previewSprite != null;
+                if (previewSprite != null)
+                {
+                    _preview.sprite = previewSprite;
+                    _preview.rectTransform.sizeDelta = previewSprite.rect.size * 2f;
+                    // 미해금 함선은 실루엣으로
+                    _preview.color = _meta.IsUnlocked(ship.Id) ? Color.white : new Color(0.1f, 0.12f, 0.2f, 0.9f);
+                }
+            }
             bool unlocked = _meta.IsUnlocked(ship.Id);
             string status = unlocked
                 ? (_meta.SelectedShipId == ship.Id ? "[SELECTED]" : "[OWNED]")

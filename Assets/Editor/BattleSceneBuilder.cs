@@ -787,6 +787,38 @@ namespace Shmup.EditorTools
                 SetReferenceArray(animator, "_frames", shipFrames);
             }
 
+            // 함선별 스프라이트 (밸런스/스피드/탱커 차별화, 2026-07-29 사람 지시)
+            var shipIds = new[] { "starter", "interceptor", "bulwark" };
+            var shipSprites = new Sprite[]
+            {
+                shipSprite,
+                LoadExternalSprite("ship_interceptor.png", "ship_interceptor"),
+                LoadExternalSprite("ship_bulwark.png", "ship_bulwark")
+            };
+            SetStringArray(director, "_shipSpriteIds", shipIds);
+            SetReferenceArray(director, "_shipSprites", shipSprites);
+            SetReference(director, "_laserShotSprite",
+                LoadExternalSprite("bullet_laser.png", "bullet_laser"));
+            SetReference(director, "_spreadShotSprite",
+                LoadExternalSprite("bullet_spread.png", "bullet_spread"));
+
+            // 장애물 (REQ-023): 테마×계열 스프라이트, _themeIds 순서와 정렬
+            var obstacleRoot = new GameObject("Obstacles");
+            obstacleRoot.transform.SetParent(battleRoot.transform, false);
+            var armorSprite = LoadExternalSprite("obstacle_armor_block.png", "obstacle_armor_block");
+            var sporeSprite = LoadExternalSprite("obstacle_spore_pillar.png", "obstacle_spore_pillar");
+            var crystalSprite = LoadExternalSprite("obstacle_crystal.png", "obstacle_crystal");
+            var coreBlockSprite = LoadExternalSprite("obstacle_core_block.png", "obstacle_core_block");
+            var obstaclePrefab = WriteSpritePrefab(
+                PrefabDir + "/Obstacle.prefab", "Obstacle",
+                armorSprite != null ? armorSprite : shipSprite, 9);
+            SetReference(director, "_obstacleRoot", obstacleRoot.transform);
+            SetReference(director, "_obstaclePrefab", obstaclePrefab);
+            SetReferenceArray(director, "_obstacleSolidSprites", new[]
+                { armorSprite, armorSprite, armorSprite, armorSprite, coreBlockSprite });
+            SetReferenceArray(director, "_obstacleBreakableSprites", new[]
+                { crystalSprite, sporeSprite, crystalSprite, crystalSprite, crystalSprite });
+
             // UI 픽셀 폰트 (Galmuri, OFL — Assets/Fonts/Galmuri-LICENSE-OFL.txt)
             var uiFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Galmuri9.ttf");
             var uiFontBold = AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Galmuri11-Bold.ttf");
@@ -1119,6 +1151,13 @@ namespace Shmup.EditorTools
             var hangar = root.AddComponent<HangarScreen>();   // 함선 해금형 메타 (2026-07-29)
             SetReference(hangar, "_font", titleFont);
             SetReference(hangar, "_fontBold", titleFontBold);
+            SetStringArray(hangar, "_shipIds", new[] { "starter", "interceptor", "bulwark" });
+            SetReferenceArray(hangar, "_shipSprites", new Sprite[]
+            {
+                LoadExternalSprite("player_ship.png", "player_ship"),
+                LoadExternalSprite("ship_interceptor.png", "ship_interceptor"),
+                LoadExternalSprite("ship_bulwark.png", "ship_bulwark")
+            });
 
             // 타이틀 BGM (bgmgen title 프리셋, 시드 0 잠정)
             var titleBgm = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Bgm/bgm_title.wav");

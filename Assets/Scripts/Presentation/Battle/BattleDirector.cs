@@ -100,6 +100,48 @@ namespace Shmup.Presentation.Battle
         float _damageFlashAge = float.MaxValue;
         const float DamageFlashDuration = 0.3f;
 
+        // 함선별 스프라이트 (밸런스/스피드/탱커) — 선택 함선에 맞는 기체 비주얼 적용
+        [SerializeField] string[] _shipSpriteIds;
+        [SerializeField] Sprite[] _shipSprites;
+        // 장애물 (REQ-023): 테마×계열 스프라이트, _themeIds와 인덱스 정렬
+        [SerializeField] Transform _obstacleRoot;
+        [SerializeField] GameObject _obstaclePrefab;
+        [SerializeField] Sprite[] _obstacleSolidSprites;
+        [SerializeField] Sprite[] _obstacleBreakableSprites;
+        SpritePool _obstaclePool;
+        readonly Dictionary<int, Transform> _obstacleViews = new Dictionary<int, Transform>(32);
+
+        // 무기 계열별 주무기 탄 스프라이트 (REQ-022): laser/spread가 없으면 vulcan 폴백
+        [SerializeField] Sprite _laserShotSprite;
+        [SerializeField] Sprite _spreadShotSprite;
+
+        void ApplyWeaponBulletSprite(Shmup.Core.WeaponType weaponType)
+        {
+            if (weaponType == Shmup.Core.WeaponType.Laser && _laserShotSprite != null)
+                _mainShotSprite = _laserShotSprite;
+            else if (weaponType == Shmup.Core.WeaponType.Spread && _spreadShotSprite != null)
+                _mainShotSprite = _spreadShotSprite;
+            // Vulcan은 프리팹 원본(_mainShotSprite 초기값) 유지
+        }
+
+        void ApplyShipSprite(string shipId)
+        {
+            if (_playerTransform == null || _shipSpriteIds == null || _shipSprites == null) return;
+            var renderer = _playerTransform.GetComponent<SpriteRenderer>();
+            if (renderer == null) return;
+            int count = Mathf.Min(_shipSpriteIds.Length, _shipSprites.Length);
+            for (int i = 0; i < count; i++)
+            {
+                if (!string.Equals(_shipSpriteIds[i], shipId, System.StringComparison.Ordinal)) continue;
+                if (_shipSprites[i] == null) return;
+                renderer.sprite = _shipSprites[i];
+                // 엔진 프레임 애니는 starter 전용 아트 — 다른 함선은 정지 스프라이트 유지
+                var animator = _playerTransform.GetComponent<PlayerShipAnimator>();
+                if (animator != null) animator.enabled = i == 0;
+                return;
+            }
+        }
+
         // 주스 연출 (REQ 없음 — 순수 표현, 시뮬 비관여)
         [SerializeField] JuiceDirector _juice;
         [SerializeField] SpriteRenderer _muzzleFlash;
@@ -295,6 +337,8 @@ namespace Shmup.Presentation.Battle
             }
             _sim = _run.Battle;
 
+            ApplyShipSprite(selectedShip != null ? selectedShip.Id : null);
+
             // 라이브 신규 런만 녹화한다 (리플레이/이어하기 런은 제외 — 첫 목숨 기준)
             if (!_replayMode && pending == null)
             {
@@ -312,9 +356,13 @@ namespace Shmup.Presentation.Battle
             _capsulePool = new SpritePool(_capsulePrefab, _capsuleRoot, 16, "Capsule");
             _fxPool = new SpritePool(_explosionPrefab, _fxRoot, 16, "Explosion");
             _optionPool = new SpritePool(_optionPrefab, _optionRoot, 4, "Option");
+            if (_obstaclePrefab != null && _obstacleRoot != null)
+                _obstaclePool = new SpritePool(_obstaclePrefab, _obstacleRoot, config.MaxObstacles, "Obstacle");
 
             var bulletPrefabRenderer = _bulletPrefab.GetComponent<SpriteRenderer>();
             _mainShotSprite = bulletPrefabRenderer != null ? bulletPrefabRenderer.sprite : null;
+            if (selectedShip != null)
+                ApplyWeaponBulletSprite(selectedShip.WeaponType);
 
             if (_damageFlash != null)
                 _damageFlash.color = new Color(1f, 0.2f, 0.2f, 0f);
@@ -474,6 +522,9 @@ namespace Shmup.Presentation.Battle
                         SpawnExplosion(SimView.ToWorld(e.X, e.Y), 1.4f);    // 광역 폭발 (대형)
                         if (_juice != null) _juice.Shake(0.1f);
                         break;
+                    case SimEventType.ObstacleDestroyed:
+                        SpawnExplosion(SimView.ToWorld(e.X, e.Y), 0.9f);
+                        break;
                 }
             }
             RefreshBattle();
@@ -493,6 +544,7 @@ namespace Shmup.Presentation.Battle
             ReleaseAll(_enemyViews, _enemyPool);
             ReleaseAll(_capsuleViews, _capsulePool);
             ReleaseAll(_optionViews, _optionPool);
+            if (_obstaclePool != null) ReleaseAll(_obstacleViews, _obstaclePool);
             _enemyRenderers.Clear();
             _enemyDeathTints.Clear();
             _lastHp = -1;   // 배틀 교체 직후 HP 차이를 피격 플래시로 오인하지 않게
@@ -572,8 +624,64 @@ namespace Shmup.Presentation.Battle
             SyncOptions();
             SyncEnemies();
             SyncCapsules();
+            SyncObstacles();
             SyncShield();
             SyncBoss();
+        }
+
+        /// <summary>장애물 뷰 동기화 (REQ-023). 테마×계열로 스프라이트를 고른다.</summary>
+        void SyncObstacles()
+        {
+            if (_obstaclePool == null) return;
+            var obstacles = _sim.Obstacles;
+            _aliveIds.Clear();
+            for (int i = 0; i < obstacles.Count; i++)
+            {
+                var obstacle = obstacles[i];
+                _aliveIds.Add(obstacle.Id);
+                if (!_obstacleViews.TryGetValue(obstacle.Id, out var view))
+                {
+                    view = _obstaclePool.Acquire();
+                    if (view == null) continue;
+                    _obstacleViews.Add(obstacle.Id, view);
+                    var renderer = view.GetComponent<SpriteRenderer>();
+                    if (renderer != null)
+                    {
+                        var sprite = SpriteForObstacle(obstacle.Type);
+                        if (sprite != null) renderer.sprite = sprite;
+                        renderer.color = Color.white;
+                    }
+                }
+                view.localPosition = SimView.ToWorld(obstacle.X, obstacle.Y);
+            }
+
+            _retiredIds.Clear();
+            foreach (var pair in _obstacleViews)
+                if (!_aliveIds.Contains(pair.Key))
+                    _retiredIds.Add(pair.Key);
+            for (int i = 0; i < _retiredIds.Count; i++)
+            {
+                int id = _retiredIds[i];
+                _obstaclePool.Release(_obstacleViews[id]);
+                _obstacleViews.Remove(id);
+            }
+        }
+
+        Sprite SpriteForObstacle(ObstacleType type)
+        {
+            bool solid = type == ObstacleType.Solid;
+            string themeId = CurrentThemeId;
+            if (!string.IsNullOrEmpty(themeId) && _themeIds != null)
+            {
+                int count = Mathf.Min(_themeIds.Length,
+                    Mathf.Min(_obstacleSolidSprites?.Length ?? 0, _obstacleBreakableSprites?.Length ?? 0));
+                for (int i = 0; i < count; i++)
+                    if (string.Equals(_themeIds[i], themeId, System.StringComparison.Ordinal))
+                        return solid ? _obstacleSolidSprites[i] : _obstacleBreakableSprites[i];
+            }
+            return solid
+                ? (_obstacleSolidSprites != null && _obstacleSolidSprites.Length > 0 ? _obstacleSolidSprites[0] : null)
+                : (_obstacleBreakableSprites != null && _obstacleBreakableSprites.Length > 0 ? _obstacleBreakableSprites[0] : null);
         }
 
         Sprite SpriteForBulletKind(BulletKind kind)
