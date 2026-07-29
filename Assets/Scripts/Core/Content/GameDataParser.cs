@@ -9,7 +9,7 @@ using Shmup.Core.Simulation;
 namespace Shmup.Core.Content
 {
     /// <summary>
-    /// Unity-free parser for enemies.json, weapons.json, waves.json schema v2,
+    /// Unity-free parser for enemies.json schema v2/v3, weapons.json and waves.json schema v2,
     /// rewards.json schema v1, optional ships.json schema v1, optional
     /// scoring.json schema v1, and optional player.json schema v1 tuning.
     /// Decimal source values are converted with decimal arithmetic only.
@@ -17,6 +17,7 @@ namespace Shmup.Core.Content
     public static partial class GameDataParser
     {
         public const int SupportedSchemaVersion = 2;
+        public const int SupportedEnemiesSchemaVersion = 3;
 
         public static GameDataSet Parse(
             string enemiesJson,
@@ -136,7 +137,7 @@ namespace Shmup.Core.Content
                 || ex is InvalidOperationException)
             {
                 throw new GameDataParseException(
-                    "GameData schema v2 validation failed.", ex);
+                    "GameData schema validation failed.", ex);
             }
         }
 
@@ -196,10 +197,11 @@ namespace Shmup.Core.Content
         static EnemiesParseResult ParseEnemies(EnemiesDto root)
         {
             int schemaVersion = Require(root.schemaVersion, "enemies.json.schemaVersion");
-            if (schemaVersion != SupportedSchemaVersion)
+            if (schemaVersion != SupportedSchemaVersion
+                && schemaVersion != SupportedEnemiesSchemaVersion)
                 throw Error(
                     "enemies.json.schemaVersion",
-                    $"must be {SupportedSchemaVersion}, but was {schemaVersion}.");
+                    $"must be {SupportedSchemaVersion} or {SupportedEnemiesSchemaVersion}, but was {schemaVersion}.");
             if (root.dropTable == null)
                 throw Error("enemies.json.dropTable", "is required.");
             int noDropWeight = Require(
@@ -212,7 +214,7 @@ namespace Shmup.Core.Content
             var definitions = new EnemyDefinition[source.Length];
             for (int i = 0; i < source.Length; i++)
             {
-                definitions[i] = ParseEnemy(source[i], i);
+                definitions[i] = ParseEnemy(source[i], i, schemaVersion);
                 if ((long)noDropWeight + definitions[i].DropWeight > int.MaxValue)
                     throw Error(
                         $"enemies.json.enemies[{i}].dropWeight",
@@ -221,11 +223,43 @@ namespace Shmup.Core.Content
             return new EnemiesParseResult(definitions, noDropWeight);
         }
 
-        static EnemyDefinition ParseEnemy(EnemyDto source, int index)
+        static EnemyDefinition ParseEnemy(EnemyDto source, int index, int schemaVersion)
         {
             string path = $"enemies.json.enemies[{index}]";
             if (source == null)
                 throw Error(path, "cannot be null.");
+
+            EnemyMovementParseResult movement = schemaVersion == SupportedSchemaVersion
+                ? ParseLegacyMovement(source, path)
+                : ParseMovement(source.movement, path + ".movement");
+
+            return new EnemyDefinition(
+                RequireText(source.id, path + ".id"),
+                RequireText(source.displayName, path + ".displayName"),
+                Require(source.hp, path + ".hp"),
+                Require(source.contactDamage, path + ".contactDamage"),
+                Require(source.scoreValue, path + ".scoreValue"),
+                movement.Pattern,
+                movement.Speed.Numerator,
+                movement.Speed.Denominator,
+                Require(source.fireIntervalTicks, path + ".fireIntervalTicks"),
+                ToSubUnits(Require(source.halfWidth, path + ".halfWidth"), path + ".halfWidth"),
+                ToSubUnits(Require(source.halfHeight, path + ".halfHeight"), path + ".halfHeight"),
+                Require(source.dropWeight, path + ".dropWeight"),
+                movement.Amplitude.Numerator,
+                movement.Amplitude.Denominator,
+                movement.PeriodTicks,
+                movement.DelayTicks,
+                movement.DurationTicks,
+                movement.PauseTicks);
+        }
+
+        static EnemyMovementParseResult ParseLegacyMovement(EnemyDto source, string path)
+        {
+            if (source.movement != null)
+                throw Error(
+                    path + ".movement",
+                    $"requires enemies.json.schemaVersion {SupportedEnemiesSchemaVersion}.");
 
             ExactFraction speed = ToPerTickSpeed(
                 Require(source.moveSpeed, path + ".moveSpeed"),
@@ -236,22 +270,78 @@ namespace Shmup.Core.Content
             if (amplitude.Numerator < 0)
                 throw Error(path + ".amplitude", "cannot be negative.");
 
-            return new EnemyDefinition(
-                RequireText(source.id, path + ".id"),
-                RequireText(source.displayName, path + ".displayName"),
-                Require(source.hp, path + ".hp"),
-                Require(source.contactDamage, path + ".contactDamage"),
-                Require(source.scoreValue, path + ".scoreValue"),
+            return new EnemyMovementParseResult(
                 ParseMovePattern(source.movePattern, path + ".movePattern"),
-                speed.Numerator,
-                speed.Denominator,
-                Require(source.fireIntervalTicks, path + ".fireIntervalTicks"),
-                ToSubUnits(Require(source.halfWidth, path + ".halfWidth"), path + ".halfWidth"),
-                ToSubUnits(Require(source.halfHeight, path + ".halfHeight"), path + ".halfHeight"),
-                Require(source.dropWeight, path + ".dropWeight"),
-                amplitude.Numerator,
-                amplitude.Denominator,
-                Require(source.periodTicks, path + ".periodTicks"));
+                speed,
+                amplitude,
+                Require(source.periodTicks, path + ".periodTicks"),
+                0,
+                1,
+                0);
+        }
+
+        static EnemyMovementParseResult ParseMovement(
+            EnemyMovementDto source,
+            string path)
+        {
+            if (source == null)
+                throw Error(path, "is required.");
+
+            EnemyMovePattern pattern = ParseMovePattern(
+                source.pattern,
+                path + ".pattern");
+            decimal speedValue = pattern == EnemyMovePattern.Static
+                ? source.speed ?? 0m
+                : Require(source.speed, path + ".speed");
+            ExactFraction speed = ToPerTickSpeed(speedValue, path + ".speed");
+
+            bool usesWave = pattern == EnemyMovePattern.Sine
+                || pattern == EnemyMovePattern.Zigzag;
+            decimal amplitudeValue = usesWave
+                ? Require(source.amplitude, path + ".amplitude")
+                : source.amplitude ?? 0m;
+            ExactFraction amplitude = ToSubUnitFraction(
+                amplitudeValue,
+                path + ".amplitude");
+            if (amplitude.Numerator < 0)
+                throw Error(path + ".amplitude", "cannot be negative.");
+
+            int periodTicks = usesWave
+                ? Require(source.periodTicks, path + ".periodTicks")
+                : source.periodTicks ?? 1;
+            if (periodTicks < 1)
+                throw Error(path + ".periodTicks", "must be at least 1.");
+
+            int delayTicks = pattern == EnemyMovePattern.Dive
+                ? Require(source.delayTicks, path + ".delayTicks")
+                : source.delayTicks ?? 0;
+            if (delayTicks < 0)
+                throw Error(path + ".delayTicks", "cannot be negative.");
+
+            bool usesDuration = pattern == EnemyMovePattern.Dive
+                || pattern == EnemyMovePattern.Dash;
+            int durationTicks = usesDuration
+                ? Require(source.durationTicks, path + ".durationTicks")
+                : source.durationTicks ?? 1;
+            if (durationTicks < 1)
+                throw Error(path + ".durationTicks", "must be at least 1.");
+
+            int pauseTicks = pattern == EnemyMovePattern.Dash
+                ? Require(source.pauseTicks, path + ".pauseTicks")
+                : source.pauseTicks ?? 0;
+            if (pauseTicks < 0)
+                throw Error(path + ".pauseTicks", "cannot be negative.");
+            if (pattern == EnemyMovePattern.Dash && pauseTicks < 1)
+                throw Error(path + ".pauseTicks", "must be at least 1.");
+
+            return new EnemyMovementParseResult(
+                pattern,
+                speed,
+                amplitude,
+                periodTicks,
+                delayTicks,
+                durationTicks,
+                pauseTicks);
         }
 
         static EnemyMovePattern ParseMovePattern(string value, string path)
@@ -261,6 +351,9 @@ namespace Shmup.Core.Content
                 case "straight": return EnemyMovePattern.Straight;
                 case "sine": return EnemyMovePattern.Sine;
                 case "static": return EnemyMovePattern.Static;
+                case "dive": return EnemyMovePattern.Dive;
+                case "zigzag": return EnemyMovePattern.Zigzag;
+                case "dash": return EnemyMovePattern.Dash;
                 default: throw Error(path, $"has unknown value '{value}'.");
             }
         }
@@ -458,6 +551,35 @@ namespace Shmup.Core.Content
                 case "kill_explosion": return BattleModifier.KillExplosion;
                 default: throw Error(path, $"has unknown value '{value}'.");
             }
+        }
+
+        readonly struct EnemyMovementParseResult
+        {
+            public EnemyMovementParseResult(
+                EnemyMovePattern pattern,
+                ExactFraction speed,
+                ExactFraction amplitude,
+                int periodTicks,
+                int delayTicks,
+                int durationTicks,
+                int pauseTicks)
+            {
+                Pattern = pattern;
+                Speed = speed;
+                Amplitude = amplitude;
+                PeriodTicks = periodTicks;
+                DelayTicks = delayTicks;
+                DurationTicks = durationTicks;
+                PauseTicks = pauseTicks;
+            }
+
+            public EnemyMovePattern Pattern { get; }
+            public ExactFraction Speed { get; }
+            public ExactFraction Amplitude { get; }
+            public int PeriodTicks { get; }
+            public int DelayTicks { get; }
+            public int DurationTicks { get; }
+            public int PauseTicks { get; }
         }
 
         internal readonly struct EnemiesParseResult

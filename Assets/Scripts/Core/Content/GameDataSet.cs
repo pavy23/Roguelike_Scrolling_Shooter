@@ -135,6 +135,8 @@ namespace Shmup.Core.Content
             config.MainShotBaseDamage = main.BaseDamage;
             config.FireIntervalTicks = main.FireIntervalTicks;
             config.MainShotMinimumFireIntervalTicks = main.MinimumFireIntervalTicks;
+            config.MainShotHalfWidth = main.ProjectileHalfWidth;
+            config.MainShotHalfHeight = main.ProjectileHalfHeight;
             config.CapsuleNoDropWeight = CapsuleNoDropWeight;
             config.ScrollSpeedNumerator = ScrollSpeedNumerator;
             config.ScrollSpeedDenominator = ScrollSpeedDenominator;

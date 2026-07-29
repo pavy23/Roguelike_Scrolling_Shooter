@@ -5,6 +5,14 @@ using System.Runtime.Serialization;
 
 namespace Shmup.Core
 {
+    /// <summary>Primary weapon family selected by ships.json.</summary>
+    public enum WeaponType
+    {
+        Vulcan = 0,
+        Laser = 1,
+        Spread = 2
+    }
+
     /// <summary>
     /// Immutable ship tuning sourced from GameData/ships.json.
     /// Movement is an exact multiplier and starting levels use PowerUpSlot order.
@@ -21,6 +29,27 @@ namespace Shmup.Core
             int moveSpeedMultiplierDenominator,
             int[] startingPowerUpLevels,
             long unlockCost)
+            : this(
+                id,
+                displayName,
+                moveSpeedMultiplierNumerator,
+                moveSpeedMultiplierDenominator,
+                startingPowerUpLevels,
+                unlockCost,
+                WeaponType.Vulcan,
+                null)
+        {
+        }
+
+        public ShipDefinition(
+            string id,
+            string displayName,
+            int moveSpeedMultiplierNumerator,
+            int moveSpeedMultiplierDenominator,
+            int[] startingPowerUpLevels,
+            long unlockCost,
+            WeaponType weaponType,
+            int? maxHp)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Ship id cannot be null or empty.", nameof(id));
@@ -42,6 +71,10 @@ namespace Shmup.Core
                     nameof(startingPowerUpLevels));
             if (unlockCost < 0)
                 throw new ArgumentOutOfRangeException(nameof(unlockCost));
+            if (!Enum.IsDefined(typeof(WeaponType), weaponType))
+                throw new ArgumentOutOfRangeException(nameof(weaponType));
+            if (maxHp.HasValue && maxHp.Value < 1)
+                throw new ArgumentOutOfRangeException(nameof(maxHp));
 
             _startingPowerUpLevels = (int[])startingPowerUpLevels.Clone();
             for (int i = 0; i < _startingPowerUpLevels.Length; i++)
@@ -57,6 +90,8 @@ namespace Shmup.Core
             MoveSpeedMultiplierNumerator = moveSpeedMultiplierNumerator;
             MoveSpeedMultiplierDenominator = moveSpeedMultiplierDenominator;
             UnlockCost = unlockCost;
+            WeaponType = weaponType;
+            MaxHp = maxHp;
             _readOnlyStartingPowerUpLevels =
                 Array.AsReadOnly(_startingPowerUpLevels);
         }
@@ -68,6 +103,11 @@ namespace Shmup.Core
         public IReadOnlyList<int> StartingPowerUpLevels =>
             _readOnlyStartingPowerUpLevels;
         public long UnlockCost { get; }
+        public WeaponType WeaponType { get; }
+        /// <summary>
+        /// Ship-specific starting hull. Null preserves BattleSimConfig.PlayerMaxHp.
+        /// </summary>
+        public int? MaxHp { get; }
 
         public int[] ExportStartingPowerUpLevels()
         {

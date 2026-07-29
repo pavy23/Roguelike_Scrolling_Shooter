@@ -65,6 +65,99 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void DivePattern_LocksPlayerYOnceAndFollowsDeterministicTrajectory()
+        {
+            EnemyDefinition enemy = Enemy(
+                "dive",
+                EnemyMovePattern.Dive,
+                speedNumerator: 2,
+                movementDelayTicks: 2,
+                movementDurationTicks: 4);
+            BattleContent content = Content(enemy);
+            StagePlan plan = Plan(Segment(
+                "dive",
+                100,
+                new SpawnEvent(0, enemy.Id, 100, 40)));
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpawnY = -20;
+            var first = CreateSim(plan, content, config, 21UL);
+            var second = CreateSim(plan, content, config, 21UL);
+            InputCommand none = InputCommand.None;
+            int[] expectedY = { 40, 40, 25, 10, -5, -20, -20 };
+
+            for (int tick = 0; tick < expectedY.Length; tick++)
+            {
+                first.Step(in none);
+                second.Step(in none);
+                Assert.AreEqual(98 - 2 * tick, first.Enemies[0].X, $"tick {tick + 1}");
+                Assert.AreEqual(expectedY[tick], first.Enemies[0].Y, $"tick {tick + 1}");
+                Assert.AreEqual(first.Enemies[0].X, second.Enemies[0].X, $"tick {tick + 1}");
+                Assert.AreEqual(first.Enemies[0].Y, second.Enemies[0].Y, $"tick {tick + 1}");
+            }
+        }
+
+        [Test]
+        public void ZigzagPattern_UsesDeterministicTriangleWaveTrajectory()
+        {
+            EnemyDefinition enemy = Enemy(
+                "zigzag",
+                EnemyMovePattern.Zigzag,
+                speedNumerator: 2,
+                sineAmplitude: 40,
+                sinePeriodTicks: 8);
+            BattleContent content = Content(enemy);
+            StagePlan plan = Plan(Segment(
+                "zigzag",
+                100,
+                new SpawnEvent(0, enemy.Id, 100, 0)));
+            var first = CreateSim(plan, content, CreateConfig(), 22UL);
+            var second = CreateSim(plan, content, CreateConfig(), 22UL);
+            InputCommand none = InputCommand.None;
+            int[] expectedY = { 20, 40, 20, 0, -20, -40, -20, 0 };
+
+            for (int tick = 0; tick < expectedY.Length; tick++)
+            {
+                first.Step(in none);
+                second.Step(in none);
+                Assert.AreEqual(98 - 2 * tick, first.Enemies[0].X, $"tick {tick + 1}");
+                Assert.AreEqual(expectedY[tick], first.Enemies[0].Y, $"tick {tick + 1}");
+                Assert.AreEqual(first.Enemies[0].X, second.Enemies[0].X, $"tick {tick + 1}");
+                Assert.AreEqual(first.Enemies[0].Y, second.Enemies[0].Y, $"tick {tick + 1}");
+            }
+        }
+
+        [Test]
+        public void DashPattern_RepeatsPauseAndBurstWithoutLosingDeterminism()
+        {
+            EnemyDefinition enemy = Enemy(
+                "dash",
+                EnemyMovePattern.Dash,
+                speedNumerator: 3,
+                speedDenominator: 2,
+                movementDurationTicks: 2,
+                movementPauseTicks: 2);
+            BattleContent content = Content(enemy);
+            StagePlan plan = Plan(Segment(
+                "dash",
+                100,
+                new SpawnEvent(0, enemy.Id, 100, 0)));
+            var first = CreateSim(plan, content, CreateConfig(), 23UL);
+            var second = CreateSim(plan, content, CreateConfig(), 23UL);
+            InputCommand none = InputCommand.None;
+            int[] expectedX = { 100, 100, 99, 97, 97, 97, 96, 94 };
+
+            for (int tick = 0; tick < expectedX.Length; tick++)
+            {
+                first.Step(in none);
+                second.Step(in none);
+                Assert.AreEqual(expectedX[tick], first.Enemies[0].X, $"tick {tick + 1}");
+                Assert.AreEqual(0, first.Enemies[0].Y, $"tick {tick + 1}");
+                Assert.AreEqual(first.Enemies[0].X, second.Enemies[0].X, $"tick {tick + 1}");
+                Assert.AreEqual(first.Enemies[0].Y, second.Enemies[0].Y, $"tick {tick + 1}");
+            }
+        }
+
+        [Test]
         public void PlayerBulletKill_DropsAndCollectsCapsuleThroughGauge()
         {
             EnemyDefinition enemy = Enemy("dropper", EnemyMovePattern.Static, hp: 10, dropWeight: 1);
@@ -178,6 +271,43 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(98, sim.Enemies[0].X);
             sim.Step(in none);
             Assert.AreEqual(95, sim.Enemies[0].X);
+        }
+
+        [Test]
+        public void DroppedCapsule_DriftsWithExactScrollDeltaAndDespawnsOffscreen()
+        {
+            EnemyDefinition enemy = Enemy(
+                "dropper",
+                EnemyMovePattern.Static,
+                hp: 1,
+                dropWeight: 1);
+            var weapon = new WeaponDefinition("shot", 1, 60, 0, 1, 200, 0);
+            BattleContent content = Content(weapon, enemy);
+            StagePlan plan = Plan(Segment(
+                "capsule_scroll",
+                100,
+                new SpawnEvent(0, enemy.Id, 10, 0)));
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpawnX = -100;
+            config.ScrollSpeedNumerator = 5;
+            config.ScrollSpeedDenominator = 2;
+            config.EnemyDespawnX = -1;
+            config.CapsuleNoDropWeight = 0;
+            var sim = CreateSim(plan, content, config, 24UL);
+            var fire = new InputCommand(0, 0, true);
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in fire);
+            sim.Step(in none);
+            Assert.AreEqual(1, sim.Capsules.Count);
+            Assert.AreEqual(5, sim.Capsules[0].X);
+
+            sim.Step(in none);
+            Assert.AreEqual(3, sim.Capsules[0].X);
+            sim.Step(in none);
+            Assert.AreEqual(0, sim.Capsules[0].X);
+            sim.Step(in none);
+            Assert.AreEqual(0, sim.Capsules.Count);
         }
 
         [Test]
@@ -307,7 +437,10 @@ namespace Shmup.Core.Tests
             int speedDenominator = 1,
             int dropWeight = 0,
             int sineAmplitude = 0,
-            int sinePeriodTicks = 64)
+            int sinePeriodTicks = 64,
+            int movementDelayTicks = 0,
+            int movementDurationTicks = 1,
+            int movementPauseTicks = 0)
         {
             return new EnemyDefinition(
                 id,
@@ -324,7 +457,10 @@ namespace Shmup.Core.Tests
                 dropWeight,
                 sineAmplitude,
                 1,
-                sinePeriodTicks);
+                sinePeriodTicks,
+                movementDelayTicks,
+                movementDurationTicks,
+                movementPauseTicks);
         }
 
         static StageSegment Segment(

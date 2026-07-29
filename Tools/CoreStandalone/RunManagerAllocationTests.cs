@@ -86,6 +86,49 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void NewEnemyMovementPatternsAllocateNoManagedMemoryPerTick()
+        {
+            BattleSim sim = CreateMovementBattle();
+            InputCommand none = InputCommand.None;
+            for (int i = 0; i < 10; i++)
+                sim.Step(in none);
+
+            GC.GetAllocatedBytesForCurrentThread();
+            long before = GC.GetAllocatedBytesForCurrentThread();
+
+            for (int i = 0; i < 60; i++)
+                sim.Step(in none);
+
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.AreEqual(
+                0L,
+                allocated,
+                "Dive, zigzag, or dash movement allocated managed heap memory.");
+        }
+
+        [Test]
+        public void SpreadVolleyAllocatesNoManagedMemoryPerTick()
+        {
+            BattleSim sim = CreateSpreadBattle();
+            var fire = new InputCommand(0, 0, true);
+            for (int i = 0; i < WarmupTicks; i++)
+                sim.Step(in fire);
+
+            GC.GetAllocatedBytesForCurrentThread();
+            long before = GC.GetAllocatedBytesForCurrentThread();
+
+            for (int i = 0; i < MeasuredTicks; i++)
+                sim.Step(in fire);
+
+            long allocated =
+                GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.AreEqual(
+                0L,
+                allocated,
+                "Spread-shot spawning or movement allocated managed heap memory.");
+        }
+
+        [Test]
         public void InputRecorderRecordAllocatesNoManagedMemory()
         {
             InputCommand none = InputCommand.None;
@@ -234,6 +277,136 @@ namespace Shmup.Core.Tests
             return new BattleSim(
                 config,
                 new Rng(15UL),
+                plan,
+                content,
+                PowerUpGauge.CreateDefault());
+        }
+
+        static BattleSim CreateMovementBattle()
+        {
+            EnemyDefinition[] enemies =
+            {
+                new EnemyDefinition(
+                    "dive",
+                    "Dive",
+                    100,
+                    0,
+                    0,
+                    EnemyMovePattern.Dive,
+                    3,
+                    2,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    1,
+                    1,
+                    2,
+                    8,
+                    0),
+                new EnemyDefinition(
+                    "zigzag",
+                    "Zigzag",
+                    100,
+                    0,
+                    0,
+                    EnemyMovePattern.Zigzag,
+                    5,
+                    3,
+                    0,
+                    0,
+                    0,
+                    0,
+                    256,
+                    1,
+                    32,
+                    0,
+                    1,
+                    0),
+                new EnemyDefinition(
+                    "dash",
+                    "Dash",
+                    100,
+                    0,
+                    0,
+                    EnemyMovePattern.Dash,
+                    7,
+                    2,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    1,
+                    1,
+                    0,
+                    4,
+                    6)
+            };
+            var weapon = new WeaponDefinition("movement_shot", 0, 0, 0, 1, 0, 0);
+            var content = new BattleContent(enemies, new[] { weapon }, weapon.Id);
+            var segment = new StageSegment(
+                "movement_segment",
+                1000,
+                new[]
+                {
+                    new SpawnEvent(0, enemies[0].Id, 10000, 500),
+                    new SpawnEvent(0, enemies[1].Id, 10000, 0),
+                    new SpawnEvent(0, enemies[2].Id, 10000, -500)
+                },
+                1,
+                1,
+                new[] { 1 });
+            var plan = new StagePlan(new[] { segment }, "none", 1, 1, 1);
+            BattleSimConfig config = CreateConfig();
+            config.EnemyDespawnX = -1000000;
+
+            return new BattleSim(
+                config,
+                new Rng(25UL),
+                plan,
+                content,
+                PowerUpGauge.CreateDefault());
+        }
+
+        static BattleSim CreateSpreadBattle()
+        {
+            var weapon = new WeaponDefinition(
+                "spread_guard",
+                1,
+                1,
+                96,
+                1,
+                0,
+                0);
+            var content = new BattleContent(
+                Array.Empty<EnemyDefinition>(),
+                new[] { weapon },
+                weapon.Id);
+            var plan = new StagePlan(
+                new[]
+                {
+                    new StageSegment(
+                        "spread_guard",
+                        10000,
+                        Array.Empty<SpawnEvent>(),
+                        1,
+                        1,
+                        new[] { 1 })
+                },
+                "none",
+                1,
+                1,
+                1);
+            BattleSimConfig config = CreateConfig();
+            config.PlayerWeaponType = WeaponType.Spread;
+            config.MaxBullets = 256;
+            config.BulletDespawnX = 2000;
+
+            return new BattleSim(
+                config,
+                new Rng(35UL),
                 plan,
                 content,
                 PowerUpGauge.CreateDefault());

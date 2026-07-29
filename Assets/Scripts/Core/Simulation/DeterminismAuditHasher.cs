@@ -133,6 +133,10 @@ namespace Shmup.Core.Simulation
             FoldInt32(ship.MoveSpeedMultiplierNumerator);
             FoldInt32(ship.MoveSpeedMultiplierDenominator);
             FoldInt64(ship.UnlockCost);
+            FoldInt32((int)ship.WeaponType);
+            FoldBool(ship.MaxHp.HasValue);
+            if (ship.MaxHp.HasValue)
+                FoldInt32(ship.MaxHp.Value);
             FoldInt32(ship.StartingPowerUpLevels.Count);
             for (int i = 0; i < ship.StartingPowerUpLevels.Count; i++)
                 FoldInt32(ship.StartingPowerUpLevels[i]);
@@ -215,6 +219,7 @@ namespace Shmup.Core.Simulation
             FoldInt32(battle.PlayerY);
             FoldInt32(battle.PlayerHp);
             FoldInt32(battle.ShieldRemaining);
+            FoldInt32((int)battle.PlayerWeaponType);
 
             FoldInt32(battle.Bullets.Count);
             for (int i = 0; i < battle.Bullets.Count; i++)

@@ -578,13 +578,24 @@ namespace Shmup.Core.Simulation
                 _battleContent.PlayerWeapon.BaseDamage;
             _battleConfig.FireIntervalTicks =
                 _battleContent.PlayerWeapon.FireIntervalTicks;
+            _battleConfig.PlayerBulletSpeedNumerator =
+                _battleContent.PlayerWeapon.ProjectileSpeedNumerator;
+            _battleConfig.PlayerBulletSpeedDenominator =
+                _battleContent.PlayerWeapon.ProjectileSpeedDenominator;
+            _battleConfig.MainShotHalfWidth =
+                _battleContent.PlayerWeapon.ProjectileHalfWidth;
+            _battleConfig.MainShotHalfHeight =
+                _battleContent.PlayerWeapon.ProjectileHalfHeight;
             _battleConfig.UseConfiguredMainShotStats = true;
-            _initialPlayerMaxHp = _battleConfig.PlayerMaxHp;
 
             _powerUpMaxLevels = new int[PowerUpGauge.SlotCount];
             for (int i = 0; i < _powerUpMaxLevels.Length; i++)
                 _powerUpMaxLevels[i] = PowerUpGauge.GetMaxLevel((PowerUpSlot)i);
             ApplyShipSpeedMultiplier(_battleConfig, _ship);
+            ApplyShipWeaponProfile(_battleConfig, _ship);
+            if (_ship.MaxHp.HasValue)
+                _battleConfig.PlayerMaxHp = _ship.MaxHp.Value;
+            _initialPlayerMaxHp = _battleConfig.PlayerMaxHp;
             _initialFireIntervalTicks = _battleConfig.FireIntervalTicks;
             _initialMainShotBaseDamage = _battleConfig.MainShotBaseDamage;
             _initialPlayerSpeedNumerator = _battleConfig.PlayerSpeedNumerator;
@@ -1483,6 +1494,62 @@ namespace Shmup.Core.Simulation
 
             config.PlayerSpeedNumerator = (int)numerator;
             config.PlayerSpeedDenominator = (int)denominator;
+        }
+
+        static void ApplyShipWeaponProfile(
+            BattleSimConfig config,
+            ShipDefinition ship)
+        {
+            config.PlayerWeaponType = ship.WeaponType;
+            switch (ship.WeaponType)
+            {
+                case WeaponType.Vulcan:
+                    return;
+                case WeaponType.Laser:
+                    config.MainShotBaseDamage =
+                        config.LaserBaseDamage;
+                    config.FireIntervalTicks =
+                        config.LaserFireIntervalTicks;
+                    config.MainShotRapidFireStartLevel =
+                        config.LaserRapidFireStartLevel;
+                    config.MainShotFireIntervalReductionPerLevel =
+                        config.LaserFireIntervalReductionPerLevel;
+                    config.MainShotMinimumFireIntervalTicks =
+                        config.LaserMinimumFireIntervalTicks;
+                    config.PlayerBulletSpeedNumerator =
+                        config.LaserSpeedNumerator;
+                    config.PlayerBulletSpeedDenominator =
+                        config.LaserSpeedDenominator;
+                    config.MainShotHalfWidth =
+                        config.LaserHalfWidth;
+                    config.MainShotHalfHeight =
+                        config.LaserHalfHeight;
+                    return;
+                case WeaponType.Spread:
+                    config.MainShotBaseDamage =
+                        config.SpreadBaseDamage;
+                    config.FireIntervalTicks =
+                        config.SpreadFireIntervalTicks;
+                    config.MainShotRapidFireStartLevel =
+                        config.SpreadRapidFireStartLevel;
+                    config.MainShotFireIntervalReductionPerLevel =
+                        config.SpreadFireIntervalReductionPerLevel;
+                    config.MainShotMinimumFireIntervalTicks =
+                        config.SpreadMinimumFireIntervalTicks;
+                    config.PlayerBulletSpeedNumerator =
+                        config.SpreadSpeedNumerator;
+                    config.PlayerBulletSpeedDenominator =
+                        config.SpreadSpeedDenominator;
+                    config.MainShotHalfWidth =
+                        config.SpreadHalfWidth;
+                    config.MainShotHalfHeight =
+                        config.SpreadHalfHeight;
+                    return;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(ship),
+                        $"Ship '{ship.Id}' has an unsupported weapon type.");
+            }
         }
 
         static void NormalizeDifficultyMultiplier(

@@ -53,6 +53,27 @@ namespace Shmup.Core.Content
         public decimal? amplitude;
         [DataMember]
         public int? periodTicks;
+        [DataMember]
+        public EnemyMovementDto movement;
+    }
+
+    [DataContract]
+    internal sealed class EnemyMovementDto
+    {
+        [DataMember]
+        public string pattern;
+        [DataMember]
+        public decimal? speed;
+        [DataMember]
+        public decimal? amplitude;
+        [DataMember]
+        public int? periodTicks;
+        [DataMember]
+        public int? delayTicks;
+        [DataMember]
+        public int? durationTicks;
+        [DataMember]
+        public int? pauseTicks;
     }
 
     [DataContract]
@@ -244,6 +265,10 @@ namespace Shmup.Core.Content
         public int[] startingPowerUpLevels;
         [DataMember]
         public long? unlockCost;
+        [DataMember]
+        public string weaponType;
+        [DataMember]
+        public int? maxHp;
     }
 
     [DataContract]

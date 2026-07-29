@@ -59,7 +59,9 @@ namespace Shmup.Core.Content
                         item.moveSpeedMultiplierDenominator,
                         path + ".moveSpeedMultiplierDenominator"),
                     levelCopy,
-                    unlockCost);
+                    unlockCost,
+                    ParseWeaponType(item.weaponType, path + ".weaponType"),
+                    ParseShipMaxHp(item.maxHp, path + ".maxHp"));
                 for (int previous = 0; previous < i; previous++)
                 {
                     if (string.Equals(
@@ -81,6 +83,28 @@ namespace Shmup.Core.Content
                     "ships.json.ships",
                     "must contain at least one zero-cost starting ship.");
             return definitions;
+        }
+
+        static WeaponType ParseWeaponType(string value, string path)
+        {
+            if (value == null)
+                return WeaponType.Vulcan;
+            switch (RequireText(value, path))
+            {
+                case "vulcan": return WeaponType.Vulcan;
+                case "laser": return WeaponType.Laser;
+                case "spread": return WeaponType.Spread;
+                default: throw Error(path, $"has unknown value '{value}'.");
+            }
+        }
+
+        static int? ParseShipMaxHp(int? value, string path)
+        {
+            if (!value.HasValue)
+                return null;
+            if (value.Value < 1)
+                throw Error(path, "must be positive.");
+            return value.Value;
         }
     }
 }
