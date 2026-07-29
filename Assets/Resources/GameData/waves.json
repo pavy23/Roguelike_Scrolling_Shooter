@@ -56,12 +56,12 @@
         },
         {
           "tick": 250,
-          "enemyId": "rust_skimmer",
+          "enemyId": "pipe_rat",
           "y": -1.5
         },
         {
           "tick": 320,
-          "enemyId": "rust_skimmer",
+          "enemyId": "pipe_rat",
           "y": 4
         },
         {
@@ -612,7 +612,7 @@
         },
         {
           "tick": 300,
-          "enemyId": "rust_skimmer",
+          "enemyId": "pipe_rat",
           "y": 1.5
         },
         {
@@ -622,7 +622,7 @@
         },
         {
           "tick": 420,
-          "enemyId": "rust_skimmer",
+          "enemyId": "pipe_rat",
           "y": 0
         },
         {
@@ -681,12 +681,12 @@
         },
         {
           "tick": 180,
-          "enemyId": "spore_drifter",
+          "enemyId": "sting_hornet",
           "y": 4
         },
         {
           "tick": 180,
-          "enemyId": "spore_drifter",
+          "enemyId": "sting_hornet",
           "y": -4
         },
         {
@@ -711,7 +711,7 @@
         },
         {
           "tick": 360,
-          "enemyId": "spore_drifter",
+          "enemyId": "sting_hornet",
           "y": 0
         },
         {
@@ -726,12 +726,12 @@
         },
         {
           "tick": 500,
-          "enemyId": "spore_drifter",
+          "enemyId": "sting_hornet",
           "y": 4.75
         },
         {
           "tick": 500,
-          "enemyId": "spore_drifter",
+          "enemyId": "sting_hornet",
           "y": -4.75
         },
         {
@@ -790,7 +790,7 @@
         },
         {
           "tick": 100,
-          "enemyId": "spore_drifter",
+          "enemyId": "sting_hornet",
           "y": 0
         },
         {
@@ -840,12 +840,12 @@
         },
         {
           "tick": 340,
-          "enemyId": "spore_drifter",
+          "enemyId": "sting_hornet",
           "y": 4
         },
         {
           "tick": 340,
-          "enemyId": "spore_drifter",
+          "enemyId": "sting_hornet",
           "y": -4
         },
         {
@@ -885,7 +885,7 @@
         },
         {
           "tick": 580,
-          "enemyId": "spore_drifter",
+          "enemyId": "sting_hornet",
           "y": 0
         }
       ]
@@ -1560,27 +1560,27 @@
         },
         {
           "tick": 100,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": 4.75
         },
         {
           "tick": 110,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": 1.5
         },
         {
           "tick": 120,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": -1.5
         },
         {
           "tick": 130,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": -4.75
         },
         {
           "tick": 180,
-          "enemyId": "sentry_drone",
+          "enemyId": "phase_disc",
           "y": 0
         },
         {
@@ -1630,27 +1630,27 @@
         },
         {
           "tick": 450,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": 3.25
         },
         {
           "tick": 460,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": 0
         },
         {
           "tick": 470,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": -3.25
         },
         {
           "tick": 520,
-          "enemyId": "sentry_drone",
+          "enemyId": "phase_disc",
           "y": 4.75
         },
         {
           "tick": 520,
-          "enemyId": "sentry_drone",
+          "enemyId": "phase_disc",
           "y": -4.75
         },
         {
@@ -1700,7 +1700,7 @@
         },
         {
           "tick": 840,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": -2.5
         },
         {
@@ -1734,22 +1734,22 @@
         },
         {
           "tick": 40,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": 4.75
         },
         {
           "tick": 50,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": 1.5
         },
         {
           "tick": 60,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": -1.5
         },
         {
           "tick": 70,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": -4.75
         },
         {
@@ -1789,12 +1789,12 @@
         },
         {
           "tick": 250,
-          "enemyId": "sentry_drone",
+          "enemyId": "phase_disc",
           "y": 4
         },
         {
           "tick": 250,
-          "enemyId": "sentry_drone",
+          "enemyId": "phase_disc",
           "y": -4
         },
         {
@@ -1814,22 +1814,22 @@
         },
         {
           "tick": 370,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": 4
         },
         {
           "tick": 380,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": 1.5
         },
         {
           "tick": 390,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": -1.5
         },
         {
           "tick": 400,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": -4
         },
         {
@@ -1859,12 +1859,12 @@
         },
         {
           "tick": 560,
-          "enemyId": "sentry_drone",
+          "enemyId": "phase_disc",
           "y": 2.5
         },
         {
           "tick": 560,
-          "enemyId": "sentry_drone",
+          "enemyId": "phase_disc",
           "y": -2.5
         },
         {
@@ -1889,22 +1889,22 @@
         },
         {
           "tick": 680,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": 5.5
         },
         {
           "tick": 690,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": 2.5
         },
         {
           "tick": 700,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": -2.5
         },
         {
           "tick": 710,
-          "enemyId": "interceptor_rush",
+          "enemyId": "rift_blade",
           "y": -5.5
         },
         {

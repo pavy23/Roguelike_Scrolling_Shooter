@@ -707,6 +707,10 @@ namespace Shmup.EditorTools
             AddEnemySprite("junk_roller", LoadExternalSprite("enemy_junk_roller.png", "enemy_junk_roller"));
             AddEnemySprite("void_moth", LoadExternalSprite("enemy_void_moth.png", "enemy_void_moth"));
             AddEnemySprite("shard_prism", LoadExternalSprite("enemy_shard_prism.png", "enemy_shard_prism"));
+            AddEnemySprite("sting_hornet", LoadExternalSprite("enemy_sting_hornet.png", "enemy_sting_hornet"));
+            AddEnemySprite("pipe_rat", LoadExternalSprite("enemy_pipe_rat.png", "enemy_pipe_rat"));
+            AddEnemySprite("phase_disc", LoadExternalSprite("enemy_phase_disc.png", "enemy_phase_disc"));
+            AddEnemySprite("rift_blade", LoadExternalSprite("enemy_rift_blade.png", "enemy_rift_blade"));
             SetStringArray(director, "_enemySpritePrefixes", enemyTypePrefixes.ToArray());
             SetReferenceArray(director, "_enemySprites", enemyTypeSprites.ToArray());
 
