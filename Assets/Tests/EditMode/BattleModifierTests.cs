@@ -150,6 +150,50 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void KillExplosionCapsTargetsByDistanceThenLowerId()
+        {
+            BattleSimConfig config = Config();
+            config.KillExplosionRadiusSubUnits = 100;
+            config.KillExplosionDamage = 1;
+            config.KillExplosionMaxTargets = 4;
+            BattleSim sim = CreateSim(
+                BattleModifier.KillExplosion,
+                config,
+                Gauge(),
+                123UL,
+                new[]
+                {
+                    Enemy("source", 1),
+                    Enemy("tie_low", 2),
+                    Enemy("farther", 2),
+                    Enemy("nearest", 2),
+                    Enemy("tie_high", 2),
+                    Enemy("second_nearest", 2),
+                    Enemy("third_nearest", 2)
+                },
+                new[]
+                {
+                    Spawn(0, "source", 100, 0),
+                    Spawn(0, "tie_low", 100, 30),
+                    Spawn(0, "farther", 100, 40),
+                    Spawn(0, "nearest", 100, 10),
+                    Spawn(0, "tie_high", 100, -30),
+                    Spawn(0, "second_nearest", 100, 20),
+                    Spawn(0, "third_nearest", 100, 25)
+                });
+
+            FireOnceThenStep(sim, 1);
+
+            Assert.AreEqual(6, sim.Enemies.Count);
+            Assert.AreEqual(1, sim.Enemies[0].Hp, "Lower id wins the distance tie.");
+            Assert.AreEqual(2, sim.Enemies[1].Hp, "A farther target is capped.");
+            Assert.AreEqual(1, sim.Enemies[2].Hp);
+            Assert.AreEqual(2, sim.Enemies[3].Hp, "Higher id loses the distance tie.");
+            Assert.AreEqual(1, sim.Enemies[4].Hp);
+            Assert.AreEqual(1, sim.Enemies[5].Hp);
+        }
+
+        [Test]
         public void CombinedModifiersRemainDeterministicForSameSeed()
         {
             const BattleModifier all =

@@ -42,6 +42,10 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 -(SimSpace.PlayfieldHalfWidthSubUnits + SimSpace.DespawnMarginSubUnits),
                 config.EnemyDespawnX);
+            // Provisional modifier balance values (AGENTS.md §7).
+            Assert.AreEqual(384, config.KillExplosionRadiusSubUnits);
+            Assert.AreEqual(1, config.KillExplosionDamage);
+            Assert.AreEqual(4, config.KillExplosionMaxTargets);
         }
 
         [Test]
@@ -209,6 +213,11 @@ namespace Shmup.Core.Tests
 
             config = CreateConfig();
             config.BulletDespawnX = -1;
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => new BattleSim(config, new Rng(1UL)));
+
+            config = CreateConfig();
+            config.KillExplosionMaxTargets = -1;
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => new BattleSim(config, new Rng(1UL)));
         }
