@@ -2,80 +2,123 @@ using Shmup.Core;
 using Shmup.Core.Simulation;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 namespace Shmup.Presentation.Battle
 {
     /// <summary>
-    /// 스테이지 클리어 보상 3택 오버레이 (REQ-007). RunManager가 AwaitingReward로
-    /// 멈춰 있는 동안만 그려지고, 1/2/3 키로 선택을 Core에 전달할 뿐 결정은 내리지 않는다.
+    /// 스테이지 클리어 보상 3택 (UGUI + 픽셀 폰트, REQ-007).
+    /// 키보드 1/2/3 즉시 선택, 패드/방향키 좌우 이동 + South(A)/Enter 확정.
+    /// RunManager가 AwaitingReward로 멈춰 있는 동안만 표시 — 선택만 Core에 전달한다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class RewardScreen : MonoBehaviour
     {
+        const int MaxOptions = 3;
+
         [SerializeField] BattleDirector _director;
+        [SerializeField] Font _font;
+        [SerializeField] Font _fontBold;
 
-        GUIStyle _titleStyle, _optionStyle;
-
-        // REQ-009: 보상 대기 동안 매 프레임 라벨을 만들지 않도록, 대기 진입 시 1회만 조립
-        readonly string[] _optionTexts = new string[8];
+        GameObject _root;
+        readonly Image[] _boxBorders = new Image[MaxOptions];
+        readonly Text[] _boxTexts = new Text[MaxOptions];
         bool _labelsBuilt;
+        int _cursor;
+
+        void Start()
+        {
+            var canvas = UiKit.CreateCanvas("RewardCanvas", 70);
+            canvas.transform.SetParent(transform, false);
+            _root = canvas.gameObject;
+
+            UiKit.CreateDim(canvas.transform, new Color(0f, 0.01f, 0.05f, 0.55f));
+            UiKit.CreateCornerText(canvas.transform, _fontBold, "STAGE CLEAR — CHOOSE REWARD", 16,
+                UiKit.TextAccent, new Vector2(0.5f, 1f), new Vector2(0f, -86f),
+                TextAnchor.UpperCenter, "Title");
+
+            const float boxWidth = 150f, boxHeight = 64f, gap = 14f;
+            float totalWidth = MaxOptions * boxWidth + (MaxOptions - 1) * gap;
+            for (int i = 0; i < MaxOptions; i++)
+            {
+                var panel = UiKit.CreatePanel(canvas.transform, new Vector2(boxWidth, boxHeight), $"Option{i}");
+                panel.anchoredPosition = new Vector2(
+                    -totalWidth / 2f + boxWidth / 2f + i * (boxWidth + gap), -10f);
+                _boxBorders[i] = panel.GetComponent<Image>();
+                _boxTexts[i] = UiKit.CreateTextStretch(panel, _font, "", 10,
+                    UiKit.TextMain, TextAnchor.MiddleCenter, 4f, "Label");
+            }
+            UiKit.CreateCornerText(canvas.transform, _font,
+                "[1]~[3] 즉시 선택      ◄/► 이동  (A)/[ENTER] 확정", 10, UiKit.TextDim,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, -66f), TextAnchor.MiddleCenter, "Hints");
+
+            _root.SetActive(false);
+        }
 
         void Update()
         {
-            if (_director == null || !_director.AwaitingReward) return;
-            var keyboard = Keyboard.current;
-            if (keyboard == null) return;
-            if (keyboard.digit1Key.wasPressedThisFrame || keyboard.numpad1Key.wasPressedThisFrame)
-                _director.ChooseReward(0);
-            else if (keyboard.digit2Key.wasPressedThisFrame || keyboard.numpad2Key.wasPressedThisFrame)
-                _director.ChooseReward(1);
-            else if (keyboard.digit3Key.wasPressedThisFrame || keyboard.numpad3Key.wasPressedThisFrame)
-                _director.ChooseReward(2);
-        }
-
-        void OnGUI()
-        {
-            if (_director == null || !_director.AwaitingReward)
+            if (_director == null || _root == null) return;
+            bool awaiting = _director.AwaitingReward;
+            if (_root.activeSelf != awaiting)
+                _root.SetActive(awaiting);
+            if (!awaiting)
             {
-                _labelsBuilt = false;   // 다음 보상 화면에서 다시 조립
+                _labelsBuilt = false;
                 return;
             }
+
             var options = _director.RewardOptions;
             if (options == null) return;
             if (!_labelsBuilt)
             {
-                for (int i = 0; i < options.Count && i < _optionTexts.Length; i++)
-                    _optionTexts[i] = $"[{i + 1}]\n{Describe(options[i])}";
                 _labelsBuilt = true;
+                _cursor = 0;
+                for (int i = 0; i < MaxOptions; i++)
+                {
+                    bool used = i < options.Count;
+                    _boxBorders[i].gameObject.SetActive(used);
+                    if (used)
+                        _boxTexts[i].text = $"[{i + 1}]\n{Describe(options[i])}";
+                }
             }
 
-            EnsureStyles();
-            float width = Screen.width, height = Screen.height;
+            var keyboard = Keyboard.current;
+            var gamepad = Gamepad.current;
 
-            GUI.color = new Color(0f, 0f, 0f, 0.6f);
-            GUI.DrawTexture(new Rect(0, 0, width, height), Texture2D.whiteTexture);
-            GUI.color = Color.white;
-
-            GUI.Label(
-                new Rect(0, height * 0.24f, width, 40f),
-                "STAGE CLEAR — CHOOSE REWARD",
-                _titleStyle);
-
-            float boxWidth = Mathf.Min(320f, width * 0.26f);
-            float boxHeight = 84f;
-            float gap = 24f;
-            float totalWidth = options.Count * boxWidth + (options.Count - 1) * gap;
-            float startX = (width - totalWidth) / 2f;
-            float y = height * 0.4f;
-
-            for (int i = 0; i < options.Count; i++)
+            // 즉시 선택 (1/2/3)
+            if (keyboard != null)
             {
-                var rect = new Rect(startX + i * (boxWidth + gap), y, boxWidth, boxHeight);
-                GUI.color = new Color(0.08f, 0.12f, 0.22f, 0.92f);
-                GUI.DrawTexture(rect, Texture2D.whiteTexture);
-                GUI.color = Color.white;
-                GUI.Label(rect, i < _optionTexts.Length ? _optionTexts[i] : "", _optionStyle);
+                if (keyboard.digit1Key.wasPressedThisFrame || keyboard.numpad1Key.wasPressedThisFrame) { _director.ChooseReward(0); return; }
+                if (keyboard.digit2Key.wasPressedThisFrame || keyboard.numpad2Key.wasPressedThisFrame) { _director.ChooseReward(1); return; }
+                if (keyboard.digit3Key.wasPressedThisFrame || keyboard.numpad3Key.wasPressedThisFrame) { _director.ChooseReward(2); return; }
             }
+
+            // 커서 이동 + 확정
+            int move = 0;
+            if (keyboard != null)
+            {
+                if (keyboard.leftArrowKey.wasPressedThisFrame) move = -1;
+                if (keyboard.rightArrowKey.wasPressedThisFrame) move = 1;
+            }
+            if (gamepad != null)
+            {
+                if (gamepad.dpad.left.wasPressedThisFrame || gamepad.leftStick.left.wasPressedThisFrame) move = -1;
+                if (gamepad.dpad.right.wasPressedThisFrame || gamepad.leftStick.right.wasPressedThisFrame) move = 1;
+            }
+            if (move != 0)
+                _cursor = Mathf.Clamp(_cursor + move, 0, options.Count - 1);
+
+            bool confirm = (keyboard != null && keyboard.enterKey.wasPressedThisFrame)
+                        || (gamepad != null && gamepad.buttonSouth.wasPressedThisFrame);
+            if (confirm)
+            {
+                _director.ChooseReward(_cursor);
+                return;
+            }
+
+            for (int i = 0; i < MaxOptions; i++)
+                if (_boxBorders[i].gameObject.activeSelf)
+                    _boxBorders[i].color = i == _cursor ? UiKit.TextAccent : UiKit.PanelBorder;
         }
 
         static string Describe(in RewardOption option)
@@ -123,24 +166,6 @@ namespace Shmup.Presentation.Battle
                 case PowerUpSlot.Shield: return "SHIELD";
                 default: return slot.ToString();
             }
-        }
-
-        void EnsureStyles()
-        {
-            if (_titleStyle != null) return;
-            _titleStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 26,
-                alignment = TextAnchor.MiddleCenter,
-                fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(1f, 0.85f, 0.4f) }
-            };
-            _optionStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 18,
-                alignment = TextAnchor.MiddleCenter,
-                normal = { textColor = new Color(0.85f, 0.92f, 1f) }
-            };
         }
     }
 }

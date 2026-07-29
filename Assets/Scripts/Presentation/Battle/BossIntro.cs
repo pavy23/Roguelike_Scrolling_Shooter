@@ -1,9 +1,10 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Shmup.Presentation.Battle
 {
     /// <summary>
-    /// 보스 등장 연출 (M2): BossSpawned 이벤트에 맞춰 director가 Trigger()를 호출하면
+    /// 보스 등장 연출 (UGUI): BossSpawned 이벤트에 맞춰 director가 Trigger()를 호출하면
     /// 2.4초 동안 깜빡이는 WARNING 배너를 그린다. 순수 표현.
     /// </summary>
     [DisallowMultipleComponent]
@@ -12,41 +13,50 @@ namespace Shmup.Presentation.Battle
         const float Duration = 2.4f;
         const float BlinkHz = 3f;
 
+        [SerializeField] Font _fontBold;
+
         float _age = float.MaxValue;
-        GUIStyle _style;
+        GameObject _banner;
 
         public void Trigger()
         {
             _age = 0f;
         }
 
-        void Update()
+        void Start()
         {
-            if (_age < Duration)
-                _age += Time.deltaTime;
+            var canvas = UiKit.CreateCanvas("BossIntroCanvas", 60);
+            canvas.transform.SetParent(transform, false);
+
+            var band = new GameObject("Band");
+            band.transform.SetParent(canvas.transform, false);
+            var bandImage = band.AddComponent<Image>();
+            bandImage.color = new Color(0.6f, 0.05f, 0.05f, 0.3f);
+            bandImage.raycastTarget = false;
+            var rect = bandImage.rectTransform;
+            rect.anchorMin = new Vector2(0f, 0.5f);
+            rect.anchorMax = new Vector2(1f, 0.5f);
+            rect.sizeDelta = new Vector2(0f, 56f);
+
+            UiKit.CreateTextStretch(rect, _fontBold, "!! WARNING !!", 26,
+                UiKit.TextDanger, TextAnchor.MiddleCenter, 0f, "Warning");
+
+            _banner = band;
+            _banner.SetActive(false);
         }
 
-        void OnGUI()
+        void Update()
         {
-            if (_age >= Duration) return;
-            if (Mathf.Repeat(_age * BlinkHz, 1f) > 0.55f) return;
-
-            if (_style == null)
+            if (_banner == null) return;
+            if (_age >= Duration)
             {
-                _style = new GUIStyle(GUI.skin.label)
-                {
-                    fontSize = 40,
-                    alignment = TextAnchor.MiddleCenter,
-                    fontStyle = FontStyle.Bold,
-                    normal = { textColor = new Color(1f, 0.25f, 0.2f) }
-                };
+                if (_banner.activeSelf) _banner.SetActive(false);
+                return;
             }
-
-            float width = Screen.width, height = Screen.height;
-            GUI.color = new Color(0.6f, 0.05f, 0.05f, 0.25f);
-            GUI.DrawTexture(new Rect(0, height * 0.38f, width, height * 0.16f), Texture2D.whiteTexture);
-            GUI.color = Color.white;
-            GUI.Label(new Rect(0, height * 0.38f, width, height * 0.16f), "!! WARNING !!", _style);
+            _age += Time.deltaTime;
+            bool visible = Mathf.Repeat(_age * BlinkHz, 1f) <= 0.55f;
+            if (_banner.activeSelf != visible)
+                _banner.SetActive(visible);
         }
     }
 }

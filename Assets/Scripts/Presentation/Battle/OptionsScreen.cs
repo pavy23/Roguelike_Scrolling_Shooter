@@ -1,11 +1,11 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 namespace Shmup.Presentation.Battle
 {
     /// <summary>
-    /// 옵션 화면 v1 (M4): 해상도 프리셋·전체화면·발사 키 리바인딩.
+    /// 옵션 화면 (UGUI + 픽셀 폰트): 해상도 프리셋·전체화면·키 리바인딩·접근성 토글.
     /// 일시정지 중 O 키로 연다. 설정은 PlayerPrefs에 저장하고 시작 시 복원한다.
     /// 리바인딩은 Input System 바인딩 오버라이드(JSON)로 저장 — 시뮬에는 영향 없음.
     /// </summary>
@@ -26,11 +26,15 @@ namespace Shmup.Presentation.Battle
 
         [SerializeField] PlayerInputReader _input;
         [SerializeField] JuiceDirector _juice;
+        [SerializeField] Font _font;
+        [SerializeField] Font _fontBold;
 
         bool _open;
         int _resolutionIndex;
         InputActionRebindingExtensions.RebindingOperation _rebind;
-        GUIStyle _titleStyle, _bodyStyle;
+
+        GameObject _root;
+        Text _bodyText;
         string _panelText;
         int _panelKey = -1;
 
@@ -43,6 +47,17 @@ namespace Shmup.Presentation.Battle
             if (!Application.isEditor)
                 Apply(fullscreen);
             LoadBindings();
+
+            var canvas = UiKit.CreateCanvas("OptionsCanvas", 85);
+            canvas.transform.SetParent(transform, false);
+            _root = canvas.gameObject;
+            UiKit.CreateDim(canvas.transform, new Color(0f, 0.01f, 0.05f, 0.7f));
+            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(340f, 190f));
+            UiKit.CreateCornerText(panel, _fontBold, "OPTIONS", 16, UiKit.TextMain,
+                new Vector2(0.5f, 1f), new Vector2(0f, -10f), TextAnchor.UpperCenter, "Title");
+            _bodyText = UiKit.CreateTextStretch(panel, _font, "", 11,
+                UiKit.TextMain, TextAnchor.MiddleCenter, 10f, "Body");
+            _root.SetActive(false);
         }
 
         void Update()
@@ -54,20 +69,30 @@ namespace Shmup.Presentation.Battle
             if (_rebind != null)
             {
                 if (keyboard.escapeKey.wasPressedThisFrame) CancelRebind();
+                SetVisible(true, "PRESS ANY KEY\n\n(ESC cancel)");
                 return;
             }
 
             if (keyboard.oKey.wasPressedThisFrame && Time.timeScale == 0f)
                 _open = !_open;
-            if (!_open) return;
+            if (Time.timeScale != 0f) _open = false;   // 일시정지 해제 시 자동 닫힘
+            if (!_open)
+            {
+                SetVisible(false, null);
+                return;
+            }
 
             if (keyboard.rKey.wasPressedThisFrame)
             {
                 _resolutionIndex = (_resolutionIndex + 1) % Resolutions.Length;
                 Apply(Screen.fullScreen);
+                _panelText = null;
             }
             if (keyboard.fKey.wasPressedThisFrame)
+            {
                 Apply(!Screen.fullScreen);
+                _panelText = null;
+            }
             if (keyboard.bKey.wasPressedThisFrame)
                 StartRebindFire();
             if (keyboard.digit1Key.wasPressedThisFrame) StartRebindMovePart("up");
@@ -80,6 +105,43 @@ namespace Shmup.Presentation.Battle
                 ToggleAccessibilityPref(JuiceDirector.ShakePrefKey, 1);
             if (keyboard.gKey.wasPressedThisFrame)
                 ToggleAccessibilityPref(JuiceDirector.FlashReducePrefKey, 0);
+
+            RefreshPanelText();
+            SetVisible(true, _panelText);
+        }
+
+        void SetVisible(bool visible, string body)
+        {
+            if (_root == null) return;
+            if (_root.activeSelf != visible)
+                _root.SetActive(visible);
+            if (visible && _bodyText != null && body != null && _bodyText.text != body)
+                _bodyText.text = body;
+        }
+
+        void RefreshPanelText()
+        {
+            int panelKey = (_resolutionIndex << 1) | (Screen.fullScreen ? 1 : 0);
+            if (_panelText != null && panelKey == _panelKey) return;
+            _panelKey = panelKey;
+            var resolution = Resolutions[_resolutionIndex];
+            var fire = FindFireAction();
+            string fireBinding = fire != null
+                ? InputControlPath.ToHumanReadableString(
+                    fire.bindings[0].effectivePath,
+                    InputControlPath.HumanReadableStringOptions.OmitDevice)
+                : "?";
+            bool shakeOn = PlayerPrefs.GetInt(JuiceDirector.ShakePrefKey, 1) == 1;
+            bool flashReduce = PlayerPrefs.GetInt(JuiceDirector.FlashReducePrefKey, 0) == 1;
+            _panelText =
+                $"[R] RESOLUTION   {resolution.x} x {resolution.y}\n" +
+                $"[F] FULLSCREEN   {(Screen.fullScreen ? "ON" : "OFF")}\n" +
+                $"[B] REBIND FIRE  (now: {fireBinding})\n" +
+                "[1]~[4] REBIND MOVE  (up/down/left/right)\n" +
+                "[X] RESET BINDINGS\n" +
+                $"[S] SCREEN SHAKE   {(shakeOn ? "ON" : "OFF")}\n" +
+                $"[G] REDUCE FLASH   {(flashReduce ? "ON" : "OFF")}\n\n" +
+                "[O] CLOSE";
         }
 
         void Apply(bool fullscreen)
@@ -89,6 +151,14 @@ namespace Shmup.Presentation.Battle
                 Screen.SetResolution(resolution.x, resolution.y, fullscreen);
             PlayerPrefs.SetInt(ResolutionPrefKey, _resolutionIndex);
             PlayerPrefs.SetInt(FullscreenPrefKey, fullscreen ? 1 : 0);
+        }
+
+        void ToggleAccessibilityPref(string key, int defaultValue)
+        {
+            int next = PlayerPrefs.GetInt(key, defaultValue) == 1 ? 0 : 1;
+            PlayerPrefs.SetInt(key, next);
+            if (_juice != null) _juice.ReloadPrefs();
+            _panelText = null;
         }
 
         InputAction FindFireAction()
@@ -153,14 +223,6 @@ namespace Shmup.Presentation.Battle
             _rebind?.Cancel();
         }
 
-        void ToggleAccessibilityPref(string key, int defaultValue)
-        {
-            int next = PlayerPrefs.GetInt(key, defaultValue) == 1 ? 0 : 1;
-            PlayerPrefs.SetInt(key, next);
-            if (_juice != null) _juice.ReloadPrefs();
-            _panelText = null;
-        }
-
         void ResetBindings()
         {
             if (_input == null || _input.Actions == null) return;
@@ -175,68 +237,6 @@ namespace Shmup.Presentation.Battle
             string json = PlayerPrefs.GetString(BindingsPrefKey, null);
             if (!string.IsNullOrEmpty(json))
                 _input.Actions.LoadBindingOverridesFromJson(json);
-        }
-
-        void OnGUI()
-        {
-            if (_rebind != null)
-            {
-                DrawPanel("PRESS ANY KEY FOR FIRE   (ESC cancel)");
-                return;
-            }
-            if (!_open || Time.timeScale != 0f)
-            {
-                _open = _open && Time.timeScale == 0f;
-                return;
-            }
-
-            // REQ-009: 열려 있는 동안 매 프레임 문자열을 만들지 않도록 상태 키 기준으로 캐시
-            int panelKey = (_resolutionIndex << 1) | (Screen.fullScreen ? 1 : 0);
-            if (_panelText == null || panelKey != _panelKey)
-            {
-                _panelKey = panelKey;
-                var resolution = Resolutions[_resolutionIndex];
-                var fire = FindFireAction();
-                string fireBinding = fire != null
-                    ? InputControlPath.ToHumanReadableString(
-                        fire.bindings[0].effectivePath,
-                        InputControlPath.HumanReadableStringOptions.OmitDevice)
-                    : "?";
-                bool shakeOn = PlayerPrefs.GetInt(JuiceDirector.ShakePrefKey, 1) == 1;
-                bool flashReduce = PlayerPrefs.GetInt(JuiceDirector.FlashReducePrefKey, 0) == 1;
-                _panelText =
-                    $"OPTIONS\n\n" +
-                    $"[R] RESOLUTION   {resolution.x} x {resolution.y}\n" +
-                    $"[F] FULLSCREEN   {(Screen.fullScreen ? "ON" : "OFF")}\n" +
-                    $"[B] REBIND FIRE  (now: {fireBinding})\n" +
-                    "[1]~[4] REBIND MOVE  (up/down/left/right)\n" +
-                    $"[X] RESET BINDINGS\n" +
-                    $"[S] SCREEN SHAKE   {(shakeOn ? "ON" : "OFF")}\n" +
-                    $"[G] REDUCE FLASH   {(flashReduce ? "ON" : "OFF")}\n\n" +
-                    "[O] CLOSE";
-            }
-            DrawPanel(_panelText);
-        }
-
-        void DrawPanel(string text)
-        {
-            EnsureStyles();
-            float width = Screen.width, height = Screen.height;
-            GUI.color = new Color(0f, 0f, 0f, 0.75f);
-            GUI.DrawTexture(new Rect(width * 0.25f, height * 0.2f, width * 0.5f, height * 0.55f), Texture2D.whiteTexture);
-            GUI.color = Color.white;
-            GUI.Label(new Rect(width * 0.25f, height * 0.22f, width * 0.5f, height * 0.5f), text, _bodyStyle);
-        }
-
-        void EnsureStyles()
-        {
-            if (_bodyStyle != null) return;
-            _bodyStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 18,
-                alignment = TextAnchor.UpperCenter,
-                normal = { textColor = new Color(0.85f, 0.92f, 1f) }
-            };
         }
     }
 }

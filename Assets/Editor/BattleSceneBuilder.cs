@@ -747,11 +747,27 @@ namespace Shmup.EditorTools
                 SetReferenceArray(animator, "_frames", shipFrames);
             }
 
+            // UI 픽셀 폰트 (Galmuri, OFL — Assets/Fonts/Galmuri-LICENSE-OFL.txt)
+            var uiFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Galmuri9.ttf");
+            var uiFontBold = AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Galmuri11-Bold.ttf");
+            if (uiFont == null || uiFontBold == null)
+                Debug.LogWarning("[BattleSceneBuilder] Assets/Fonts/Galmuri*.ttf 를 못 찾았다 — UI 텍스트가 비어 보인다.");
+
             var rewardScreen = battleRoot.AddComponent<RewardScreen>();
             SetReference(rewardScreen, "_director", director);
-            battleRoot.AddComponent<PauseScreen>();
+            SetReference(rewardScreen, "_font", uiFont);
+            SetReference(rewardScreen, "_fontBold", uiFontBold);
+            var pause = battleRoot.AddComponent<PauseScreen>();
+            SetReference(pause, "_font", uiFont);
+            SetReference(pause, "_fontBold", uiFontBold);
             var options = battleRoot.AddComponent<OptionsScreen>();
             SetReference(options, "_input", inputReader);
+            SetReference(options, "_font", uiFont);
+            SetReference(options, "_fontBold", uiFontBold);
+            var gameOver = battleRoot.AddComponent<GameOverScreen>();
+            SetReference(gameOver, "_director", director);
+            SetReference(gameOver, "_font", uiFont);
+            SetReference(gameOver, "_fontBold", uiFontBold);
 
             // 주스 연출 허브 (M4+ 게임 필): 히트스톱·슬로모·화면 흔들림 + 접근성 토글
             var juice = battleRoot.AddComponent<JuiceDirector>();
@@ -776,8 +792,10 @@ namespace Shmup.EditorTools
             }
             var bossIntro = battleRoot.AddComponent<BossIntro>();
             SetReference(director, "_bossIntro", bossIntro);
+            SetReference(bossIntro, "_fontBold", uiFontBold);
             var scoreHud = battleRoot.AddComponent<ScoreHud>();
             SetReference(scoreHud, "_director", director);
+            SetReference(scoreHud, "_fontBold", uiFontBold);
 
             CreateHud(director, hudSlotSprite, hudPipSprite);
             CreateBackground(director, starsFarSprite, starsNearSprite);
@@ -1029,11 +1047,17 @@ namespace Shmup.EditorTools
             CreateCamera();
 
             var root = CreateStarLayers(farSprite, nearSprite, out var layers);
+            var titleFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Galmuri9.ttf");
+            var titleFontBold = AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Galmuri11-Bold.ttf");
             var title = root.AddComponent<TitleScreen>();
             SetReferenceArray(title, "_layers", layers);
             SetFloatArray(title, "_factors", StarLayerFactors);
             SetFloat(title, "_tileWidth", RefResolutionX / (float)AssetsPPU);
-            root.AddComponent<HangarScreen>();   // 함선 해금형 메타 (2026-07-29)
+            SetReference(title, "_font", titleFont);
+            SetReference(title, "_fontBold", titleFontBold);
+            var hangar = root.AddComponent<HangarScreen>();   // 함선 해금형 메타 (2026-07-29)
+            SetReference(hangar, "_font", titleFont);
+            SetReference(hangar, "_fontBold", titleFontBold);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, TitleScenePath);

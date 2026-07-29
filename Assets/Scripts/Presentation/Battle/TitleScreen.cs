@@ -1,12 +1,14 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace Shmup.Presentation.Battle
 {
     /// <summary>
-    /// 플레이스홀더 타이틀 화면. 스타필드가 천천히 흐르고, 시드를 확인/수정한 뒤
-    /// Space/Enter로 출격한다. 시각은 IMGUI 임시 — HD 도트 아트가 오면 교체.
+    /// 타이틀 화면 (UGUI + 픽셀 폰트). 스타필드가 천천히 흐르고, 시드를 확인/수정한 뒤
+    /// Space/Enter/(A)로 출격한다. 시드 편집은 숫자 키 + 백스페이스 직접 처리
+    /// (InputField/EventSystem 의존 없이 패드와 공존).
     ///
     /// 시드는 방문할 때마다 새로 뽑는다. 이건 "이번 런을 무엇으로 할지"의 선택일 뿐이고
     /// (Presentation 소관), 같은 시드를 넣으면 같은 런이 나오는 것은 Core가 보장한다.
@@ -18,13 +20,32 @@ namespace Shmup.Presentation.Battle
         [SerializeField] float[] _factors;
         [SerializeField] float _tileWidth = 24f;
         [SerializeField] float _driftSpeed = 1.2f;
+        [SerializeField] Font _font;
+        [SerializeField] Font _fontBold;
 
         string _seedText;
-        GUIStyle _titleStyle, _promptStyle, _labelStyle;
+        Text _promptText, _seedValueText;
+        string _shownSeed;
 
         void Start()
         {
             _seedText = ((uint)System.Environment.TickCount).ToString();
+
+            var canvas = UiKit.CreateCanvas("TitleCanvas", 50);
+            canvas.transform.SetParent(transform, false);
+
+            UiKit.CreateCornerText(canvas.transform, _fontBold, "ROGUELIKE", 40,
+                new Color(0.62f, 0.83f, 1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -58f),
+                TextAnchor.UpperCenter, "Title1");
+            UiKit.CreateCornerText(canvas.transform, _fontBold, "SCROLLING SHOOTER", 40,
+                new Color(0.62f, 0.83f, 1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -102f),
+                TextAnchor.UpperCenter, "Title2");
+            _promptText = UiKit.CreateCornerText(canvas.transform, _font,
+                "PRESS SPACE / (A) TO LAUNCH", 14, UiKit.TextAccent,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, -46f), TextAnchor.MiddleCenter, "Prompt");
+            _seedValueText = UiKit.CreateCornerText(canvas.transform, _font, "", 11,
+                UiKit.TextDim, new Vector2(0.5f, 0f), new Vector2(0f, 66f),
+                TextAnchor.LowerCenter, "Seed");
         }
 
         void Update()
@@ -41,9 +62,45 @@ namespace Shmup.Presentation.Battle
             }
 
             var keyboard = Keyboard.current;
-            if (keyboard != null &&
-                (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame))
+            var gamepad = Gamepad.current;
+
+            if (keyboard != null)
+            {
+                EditSeed(keyboard);
+                if (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame)
+                {
+                    StartRun();
+                    return;
+                }
+            }
+            if (gamepad != null && gamepad.buttonSouth.wasPressedThisFrame)
+            {
                 StartRun();
+                return;
+            }
+
+            // 깜빡이는 출격 안내
+            bool promptVisible = Mathf.Repeat(Time.time, 1f) < 0.7f;
+            if (_promptText != null && _promptText.enabled != promptVisible)
+                _promptText.enabled = promptVisible;
+
+            if (_seedValueText != null && !ReferenceEquals(_shownSeed, _seedText))
+            {
+                _shownSeed = _seedText;
+                _seedValueText.text = $"SEED  {_seedText}_   (숫자 입력/백스페이스로 수정)";
+            }
+        }
+
+        void EditSeed(Keyboard keyboard)
+        {
+            if (keyboard.backspaceKey.wasPressedThisFrame && _seedText.Length > 0)
+                _seedText = _seedText.Substring(0, _seedText.Length - 1);
+            for (Key key = Key.Digit1; key <= Key.Digit0; key++)
+            {
+                if (!keyboard[key].wasPressedThisFrame || _seedText.Length >= 12) continue;
+                int digit = key == Key.Digit0 ? 0 : key - Key.Digit1 + 1;
+                _seedText += (char)('0' + digit);
+            }
         }
 
         void StartRun()
@@ -52,42 +109,6 @@ namespace Shmup.Presentation.Battle
                 ? seed
                 : (uint)System.Environment.TickCount;
             SceneManager.LoadScene("Battle");
-        }
-
-        void OnGUI()
-        {
-            if (_titleStyle == null)
-            {
-                _titleStyle = new GUIStyle(GUI.skin.label)
-                {
-                    fontSize = Mathf.Max(28, Screen.height / 7),
-                    alignment = TextAnchor.MiddleCenter,
-                    fontStyle = FontStyle.Bold,
-                    normal = { textColor = new Color(0.62f, 0.83f, 1f, 1f) }
-                };
-                _promptStyle = new GUIStyle(GUI.skin.label)
-                {
-                    fontSize = Mathf.Max(14, Screen.height / 24),
-                    alignment = TextAnchor.MiddleCenter,
-                    normal = { textColor = new Color(1f, 0.88f, 0.55f, 1f) }
-                };
-                _labelStyle = new GUIStyle(GUI.skin.label)
-                {
-                    fontSize = Mathf.Max(12, Screen.height / 36),
-                    alignment = TextAnchor.MiddleRight,
-                    normal = { textColor = new Color(0.7f, 0.85f, 1f, 0.9f) }
-                };
-            }
-
-            float w = Screen.width, h = Screen.height;
-            GUI.Label(new Rect(0, h * 0.18f, w, h * 0.25f), "ROGUELIKE\nSCROLLING SHOOTER", _titleStyle);
-
-            // 깜빡이는 출격 안내
-            if (Mathf.Repeat(Time.time, 1f) < 0.7f)
-                GUI.Label(new Rect(0, h * 0.62f, w, h * 0.1f), "PRESS SPACE TO LAUNCH", _promptStyle);
-
-            GUI.Label(new Rect(w * 0.5f - 220, h * 0.78f, 150, 32), "SEED", _labelStyle);
-            _seedText = GUI.TextField(new Rect(w * 0.5f - 60, h * 0.78f, 200, 32), _seedText, 12);
         }
     }
 }
