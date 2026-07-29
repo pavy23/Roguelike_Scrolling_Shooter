@@ -114,6 +114,9 @@ namespace Shmup.Presentation.Battle
         float _muzzleAge = float.MaxValue;
         const float MuzzleDuration = 0.06f;
 
+        /// <summary>현재 콤보 배율 (MultiplierChanged 이벤트 추적, HUD 표시용).</summary>
+        public int ScoreMultiplier { get; private set; } = 1;
+
         // Step이 RunOver/AwaitingReward에서 no-op이면 EventsThisTick이 클리어되지 않는다 —
         // 같은 이벤트를 매 FixedUpdate 재소비하지 않도록 (배틀 인스턴스, 틱)으로 신선도 판정.
         IBattleSim _lastEventSim;
@@ -300,6 +303,12 @@ namespace Shmup.Presentation.Battle
                     case SimEventType.BulletRicocheted:
                         SpawnExplosion(SimView.ToWorld(e.X, e.Y), 0.45f);   // 도탄 스파크 (소형)
                         break;
+                    case SimEventType.GrazeScored:
+                        SpawnExplosion(SimView.ToWorld(e.X, e.Y), 0.3f);    // 그레이즈 스파크
+                        break;
+                    case SimEventType.MultiplierChanged:
+                        ScoreMultiplier = e.Arg;
+                        break;
                     case SimEventType.KillExplosionTriggered:
                         SpawnExplosion(SimView.ToWorld(e.X, e.Y), 1.4f);    // 광역 폭발 (대형)
                         if (_juice != null) _juice.Shake(0.1f);
@@ -327,6 +336,7 @@ namespace Shmup.Presentation.Battle
             _lastHp = -1;   // 배틀 교체 직후 HP 차이를 피격 플래시로 오인하지 않게
 
             _sim = battle;
+            ScoreMultiplier = 1;   // 새 배틀 인스턴스 — 배율 표시 초기화
             ApplyStageTheme();
             ApplyBossSprite();
         }

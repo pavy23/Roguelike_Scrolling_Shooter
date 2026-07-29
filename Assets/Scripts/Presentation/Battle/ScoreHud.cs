@@ -10,8 +10,9 @@ namespace Shmup.Presentation.Battle
         [SerializeField] BattleDirector _director;
         [SerializeField] Font _fontBold;
 
-        Text _text;
+        Text _text, _multiplierText;
         long _lastScore = long.MinValue;
+        int _lastMultiplier = -1;
 
         void Start()
         {
@@ -20,15 +21,42 @@ namespace Shmup.Presentation.Battle
             _text = UiKit.CreateCornerText(canvas.transform, _fontBold, "00000000", 16,
                 UiKit.TextAccent, new Vector2(1f, 1f), new Vector2(-8f, -4f),
                 TextAnchor.UpperRight, "Score");
+            _multiplierText = UiKit.CreateCornerText(canvas.transform, _fontBold, "x1", 12,
+                UiKit.TextDim, new Vector2(1f, 1f), new Vector2(-8f, -24f),
+                TextAnchor.UpperRight, "Multiplier");
         }
 
         void Update()
         {
             if (_director == null || _text == null) return;
             long score = _director.TotalScore;
-            if (score == _lastScore) return;   // 값이 바뀐 프레임에만 문자열 생성 (REQ-009)
-            _lastScore = score;
-            _text.text = score.ToString("D8");
+            if (score != _lastScore)   // 값이 바뀐 프레임에만 문자열 생성 (REQ-009)
+            {
+                _lastScore = score;
+                _text.text = score.ToString("D8");
+            }
+            int multiplier = _director.ScoreMultiplier;
+            if (multiplier != _lastMultiplier && _multiplierText != null)
+            {
+                _lastMultiplier = multiplier;
+                _multiplierText.text = MultiplierLabel(multiplier);
+                _multiplierText.color =
+                    multiplier >= 8 ? UiKit.TextDanger :
+                    multiplier >= 4 ? UiKit.TextAccent :
+                    multiplier >= 2 ? UiKit.TextMain : UiKit.TextDim;
+            }
+        }
+
+        static string MultiplierLabel(int multiplier)
+        {
+            switch (multiplier)   // 고정 문자열 — 프레임 루프 무할당
+            {
+                case 1: return "x1";
+                case 2: return "x2";
+                case 4: return "x4";
+                case 8: return "x8";
+                default: return "x" + multiplier;
+            }
         }
     }
 }
