@@ -467,7 +467,7 @@ config 필드로 노출하고 기본값은 잠정 — GROK이 REQ-014로 데이�
 파서는 modifier 타입 부재 시 기존과 동일하게 동작해야 한다.
 회귀 테스트: 모디파이어별 거동 + 결정론(동일 시드 2회) + 무할당 + 파서.
 
-## [ ] REQ-014 → GROK: 시너지 모디파이어 보상 데이터 (REQ-013 파서 완료됨)
+## [x] REQ-014 → GROK: 시너지 모디파이어 보상 데이터 (REQ-013 파서 완료됨)
 
 rewards.json에 type: modifier 항목 4종 추가 — modifierId: pierce_shot / ricochet /
 homing_missile / kill_explosion. 가중치·등장 스테이지는 GROK 판단(잠정 §7).
@@ -475,3 +475,47 @@ homing_missile / kill_explosion. 가중치·등장 스테이지는 GROK 판단(�
 초반(stage 1~2)부터 등장해 빌드 방향을 일찍 정하게, 기존 9종 대비 등장 비중은
 "3택에 모디파이어가 평균 1개꼴" 수준. BalanceSim에 모디파이어 조합 시뮬 추가해
 관통+처치폭발 등 조합 DPS 폭주 여부 확인. dotnet test 그린. 완료 기준은 커밋까지다.
+
+### GROK 응답 (2026-07-29, content)
+
+**완료 — 전부 잠정(AGENTS.md §7). 사람 플레이 피드백 전 최종 확정 금지.**
+
+`GameData/rewards.json`에 modifier 4종 추가 (카탈로그 9 → **13**):
+
+| id | type | modifierId | weight | stage | maxPerRun |
+|---|---|---|---:|---|---:|
+| `mod_pierce_shot` | modifier | pierce_shot | **2** | 1–99 | **1** |
+| `mod_ricochet` | modifier | ricochet | **2** | 1–99 | **1** |
+| `mod_homing_missile` | modifier | homing_missile | **2** | 1–99 | **1** |
+| `mod_kill_explosion` | modifier | kill_explosion | **2** | 1–99 | **1** |
+
+**가중치 근거 (가이드: 3택 평균 모디파이어 ≈1)**
+
+| 구간 | 총 weight | 모디파이어 weight | E[mods in 3-pick] (복원 근사) |
+|---|---:|---:|---:|
+| stage 1 | 20 (기존 12 + 8) | 8 | **≈1.20** |
+| stage 2+ | 23 (기존 15 + 8) | 8 | **≈1.04** |
+
+초반(stage 1)부터 등장해 빌드 방향을 조기에 고정. 동일 모디파이어 중복 무의미 → `maxPerRun: 1`.
+
+**BalanceSim 조합 검증 (밀집 팩 12기 HP1, spacing 0.5u, Core 기본 튜닝)**
+
+| 시나리오 | clearTicks | kills/s (proxy) | vs baseline |
+|---|---:|---:|---|
+| none | 107 | 6.7 | 1.00× |
+| pierce | 59 | 12.2 | 1.81× |
+| kill_explosion | 34 | 21.2 | 3.15× |
+| pierce+explosion | 26 | 27.7 | **4.12×** |
+
+- 콤보 vs 최강 단독(kill_explosion): **×1.31** — 초승산은 완만.
+- baseline 대비 ≥4× soft WARN 발화. 주원인은 밀집 저HP 팩에서의 **처치폭발 단독 강함**
+  (폭발 dmg 2 / radius 2u 기본값). 관통 자체보다 폭발 파라미터가 우선 튜닝 후보.
+- 연쇄 폭발은 Core가 금지(폭발 킬 재폭발 없음) — 폭주는 관통이 추가 킬 시드만 여는 형태.
+- Core config 수치(`KillExplosionDamage` 등)는 GameData 미이관. 조정 필요 시 CODEX/사람에게 요청.
+
+**테스트 동기화:** `GameDataParserTests.RepositoryApprovedV2Files_ParseCompletely`
+`Rewards.All.Count` **9 → 13** (카탈로그 확장 패턴).
+
+**검증:** `Tools/CoreStandalone` `dotnet test` **155/155** · `Tools/BalanceSim` **PASS**.
+
+**CLAUDE 후속:** `Assets/Resources/GameData/rewards.json` 동기화 + 보상 UI에 modifier 4종 표시명.

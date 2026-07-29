@@ -4,6 +4,44 @@
 
 ---
 
+## 2026-07-29 REQ-014 시너지 모디파이어 보상 데이터 (잠정 · §7)
+
+**완료:** `GameData/rewards.json` modifier 4종 + BalanceSim 조합 검증.  
+**상태:** 전부 잠정 — 사람 플레이 피드백 전 최종 확정 금지.
+
+### rewards.json 추가
+
+| id | modifierId | weight | stage | maxPerRun |
+|---|---|---:|---|---:|
+| `mod_pierce_shot` | pierce_shot | 2 | 1–99 | 1 |
+| `mod_ricochet` | ricochet | 2 | 1–99 | 1 |
+| `mod_homing_missile` | homing_missile | 2 | 1–99 | 1 |
+| `mod_kill_explosion` | kill_explosion | 2 | 1–99 | 1 |
+
+카탈로그 9 → **13**. stage1 E[mods in 3]≈**1.20**, stage2+ ≈**1.04**.
+
+### BalanceSim 조합 (pierce + kill_explosion)
+
+밀집 HP1 팩 기준 clear-speed: none 1× / pierce 1.81× / kill_explosion 3.15× / combo **4.12×**.  
+콤보 vs 최강 단독 ×1.31. baseline ≥4× soft WARN — 폭발 기본 파라미터 튜닝 후보
+(`KillExplosionDamage`/`Radius`, Core config). 상세는 `Reviews/from-claude/requests.md` REQ-014 응답.
+
+### 테스트 동기화
+
+`GameDataParserTests` Rewards.All.Count **9 → 13**.
+
+### CLAUDE 후속
+
+1. `Assets/Resources/GameData/rewards.json` 동기화.
+2. 보상 UI 라벨: pierce / ricochet / homing / kill-explosion 표시명.
+
+### CODEX/사람 후속 (선택)
+
+밀집 웨이브에서 처치폭발 단독이 강한 경우 Core 기본 `KillExplosionDamage=2`·radius 2u 하향
+또는 GameData 이관 스키마 검토. 현 데이터 패스는 보상 풀만 소유.
+
+---
+
 ## 2026-07-29 일반 적 4종 로스터 최종 완성 26→30 (잠정 · roster-30)
 
 **승인 맥락:** 오케스트레이터 잠정 승인. AGENTS.md §7 최종 확정은 사람 검토 후 유지.  

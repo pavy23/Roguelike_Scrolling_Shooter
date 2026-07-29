@@ -80,6 +80,42 @@
       "stageIndexMin": 2,
       "stageIndexMax": 99,
       "maxPerRun": 3
+    },
+    {
+      "id": "mod_pierce_shot",
+      "type": "modifier",
+      "modifierId": "pierce_shot",
+      "weight": 2,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99,
+      "maxPerRun": 1
+    },
+    {
+      "id": "mod_ricochet",
+      "type": "modifier",
+      "modifierId": "ricochet",
+      "weight": 2,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99,
+      "maxPerRun": 1
+    },
+    {
+      "id": "mod_homing_missile",
+      "type": "modifier",
+      "modifierId": "homing_missile",
+      "weight": 2,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99,
+      "maxPerRun": 1
+    },
+    {
+      "id": "mod_kill_explosion",
+      "type": "modifier",
+      "modifierId": "kill_explosion",
+      "weight": 2,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99,
+      "maxPerRun": 1
     }
   ]
 }

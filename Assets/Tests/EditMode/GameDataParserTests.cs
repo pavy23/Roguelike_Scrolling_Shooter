@@ -409,7 +409,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(16, data.StageGeneration.Segments.Count);
             Assert.AreEqual(5, data.StageGeneration.Bosses.Count);
             Assert.AreEqual(3, data.Rewards.OptionCount);
-            Assert.AreEqual(9, data.Rewards.All.Count);
+            Assert.AreEqual(13, data.Rewards.All.Count);
 
             // 640×360 재스케일(REQ-006) 후 elite_sine 진폭 = 3.0u = 768 서브유닛.
             EnemyDefinition elite = data.BattleContent.FindEnemy("elite_sine");
