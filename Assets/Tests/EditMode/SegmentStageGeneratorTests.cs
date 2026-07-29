@@ -25,7 +25,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void ThemeRotation_UsesExplicitOrderAndFiltersTemplates()
+        public void ThemePermutation_UsesExplicitOrderAndFiltersTemplates()
         {
             var catalog = new StageGenerationCatalog(
                 3,
@@ -50,8 +50,13 @@ namespace Shmup.Core.Tests
                 new[] { "nebula", "hive", "core" },
                 catalog.ThemeIds);
             AssertThemePlan(generator.Generate(77UL, 1, 1), "nebula");
-            AssertThemePlan(generator.Generate(77UL, 2, 1), "hive");
-            AssertThemePlan(generator.Generate(77UL, 3, 1), "core");
+            StagePlan second = generator.Generate(77UL, 2, 1);
+            StagePlan third = generator.Generate(77UL, 3, 1);
+            CollectionAssert.AreEquivalent(
+                new[] { "hive", "core" },
+                new[] { second.ThemeId, third.ThemeId });
+            AssertThemePlan(second, second.ThemeId);
+            AssertThemePlan(third, third.ThemeId);
             AssertThemePlan(generator.Generate(77UL, 4, 1), "nebula");
             AssertPlansEqual(
                 generator.Generate(77UL, 2, 1),
@@ -59,7 +64,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void ThemeRotation_WithoutExplicitOrderFallsBackToOrdinalUnion()
+        public void ThemePermutation_WithoutExplicitOrderUsesOrdinalUnion()
         {
             var catalog = new StageGenerationCatalog(
                 3,
@@ -83,8 +88,11 @@ namespace Shmup.Core.Tests
                 new[] { "core", "hive", "nebula" },
                 catalog.ThemeIds);
             AssertThemePlan(generator.Generate(77UL, 1, 1), "core");
-            AssertThemePlan(generator.Generate(77UL, 2, 1), "hive");
-            AssertThemePlan(generator.Generate(77UL, 3, 1), "nebula");
+            StagePlan second = generator.Generate(77UL, 2, 1);
+            StagePlan third = generator.Generate(77UL, 3, 1);
+            CollectionAssert.AreEquivalent(
+                new[] { "hive", "nebula" },
+                new[] { second.ThemeId, third.ThemeId });
         }
 
         [Test]
@@ -114,7 +122,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void ThemeFilterWithoutClearableAssembly_ThrowsThemeSpecificError()
+        public void UnassemblableShuffledTheme_UsesObservableDeterministicFallback()
         {
             var catalog = new StageGenerationCatalog(
                 3,
@@ -132,11 +140,85 @@ namespace Shmup.Core.Tests
                 });
             var generator = new SegmentStageGenerator(catalog);
 
-            InvalidOperationException error = Assert.Throws<InvalidOperationException>(
-                () => generator.Generate(1UL, 1, 1));
+            StagePlan first = generator.Generate(1UL, 1, 1);
+            StagePlan repeated = generator.Generate(1UL, 1, 1);
 
-            StringAssert.Contains("theme 'hive'", error.Message);
-            StringAssert.Contains("clearable stage", error.Message);
+            Assert.AreEqual("hive", first.RequestedThemeId);
+            Assert.AreEqual("scrapyard", first.ThemeId);
+            Assert.IsTrue(first.ThemeFallbackApplied);
+            Assert.AreEqual(
+                "scrapyard_route",
+                first.Segments[0].SegmentId);
+            Assert.AreEqual("scrapyard_boss", first.BossId);
+            Assert.IsTrue(StagePlanClearability.IsClearable(first));
+            AssertPlansEqual(first, repeated);
+        }
+
+        [Test]
+        public void SeededPermutation_FixesStageOneAndVariesAcrossRunSeeds()
+        {
+            var generator = CreateThemedGenerator();
+            string firstPermutation = null;
+            bool foundDifferentPermutation = false;
+
+            for (ulong seed = 0; seed < 64; seed++)
+            {
+                StagePlan stageOne = generator.Generate(seed, 1, 1);
+                Assert.AreEqual("scrapyard", stageOne.ThemeId);
+                Assert.AreEqual("scrapyard", stageOne.RequestedThemeId);
+                Assert.IsFalse(stageOne.ThemeFallbackApplied);
+
+                string permutation = ThemeSequence(
+                    generator,
+                    seed,
+                    2,
+                    5);
+                Assert.AreEqual(
+                    permutation,
+                    ThemeSequence(generator, seed, 2, 5));
+
+                if (firstPermutation == null)
+                    firstPermutation = permutation;
+                else if (!string.Equals(
+                    firstPermutation,
+                    permutation,
+                    StringComparison.Ordinal))
+                    foundDifferentPermutation = true;
+            }
+
+            Assert.IsTrue(
+                foundDifferentPermutation,
+                "Different run seeds should produce more than one theme order.");
+        }
+
+        [Test]
+        public void IndependentStageCalls_ReproduceResumeAndReplayThemeOrder()
+        {
+            const ulong Seed = 0x5EEDC0DEUL;
+            var uninterrupted = CreateThemedGenerator();
+            var resumed = CreateThemedGenerator();
+            var replayed = CreateThemedGenerator();
+
+            var expected = new StagePlan[7];
+            for (int stageIndex = 1; stageIndex <= expected.Length; stageIndex++)
+                expected[stageIndex - 1] =
+                    uninterrupted.Generate(Seed, stageIndex, 1);
+
+            int[] resumeOrder = { 5, 2, 7, 1, 6, 3, 4 };
+            for (int i = 0; i < resumeOrder.Length; i++)
+            {
+                int stageIndex = resumeOrder[i];
+                AssertPlansEqual(
+                    expected[stageIndex - 1],
+                    resumed.Generate(Seed, stageIndex, 1));
+            }
+
+            for (int stageIndex = 1; stageIndex <= expected.Length; stageIndex++)
+                AssertPlansEqual(
+                    expected[stageIndex - 1],
+                    replayed.Generate(Seed, stageIndex, 1));
+
+            Assert.AreEqual(expected[0].ThemeId, expected[5].ThemeId);
         }
 
         [Test]
@@ -238,6 +320,60 @@ namespace Shmup.Core.Tests
             return new SegmentStageGenerator(catalog);
         }
 
+        static SegmentStageGenerator CreateThemedGenerator()
+        {
+            string[] themes =
+            {
+                "scrapyard",
+                "hive",
+                "fortress",
+                "nebula",
+                "core"
+            };
+            var segments = new StageSegmentTemplate[themes.Length];
+            var bosses = new StageBossTemplate[themes.Length];
+            for (int i = 0; i < themes.Length; i++)
+            {
+                segments[i] = Segment(
+                    themes[i] + "_segment",
+                    Center,
+                    Center,
+                    Center,
+                    themes[i]);
+                bosses[i] = Boss(
+                    themes[i] + "_boss",
+                    Center,
+                    themes[i]);
+            }
+
+            return new SegmentStageGenerator(
+                new StageGenerationCatalog(
+                    3,
+                    1,
+                    Center,
+                    segments,
+                    bosses,
+                    themes));
+        }
+
+        static string ThemeSequence(
+            SegmentStageGenerator generator,
+            ulong seed,
+            int firstStage,
+            int lastStage)
+        {
+            string sequence = string.Empty;
+            for (int stageIndex = firstStage;
+                stageIndex <= lastStage;
+                stageIndex++)
+            {
+                if (sequence.Length > 0)
+                    sequence += "|";
+                sequence += generator.Generate(seed, stageIndex, 1).ThemeId;
+            }
+            return sequence;
+        }
+
         static StageSegmentTemplate Segment(
             string id,
             int entry,
@@ -292,6 +428,12 @@ namespace Shmup.Core.Tests
         static void AssertPlansEqual(StagePlan expected, StagePlan actual)
         {
             Assert.AreEqual(expected.ThemeId, actual.ThemeId);
+            Assert.AreEqual(
+                expected.RequestedThemeId,
+                actual.RequestedThemeId);
+            Assert.AreEqual(
+                expected.ThemeFallbackApplied,
+                actual.ThemeFallbackApplied);
             Assert.AreEqual(expected.BossId, actual.BossId);
             Assert.AreEqual(expected.LaneCount, actual.LaneCount);
             Assert.AreEqual(expected.StartLaneMask, actual.StartLaneMask);

@@ -515,6 +515,7 @@ namespace Shmup.Core.Generation
         const int StageGenerationStream = 0;
         const int SegmentSelectionStream = 0;
         const int BossSelectionStream = 1;
+        const int ThemePermutationStream = 2;
 
         readonly StageGenerationCatalog _catalog;
         readonly int _validLanes;
@@ -532,7 +533,12 @@ namespace Shmup.Core.Generation
             if (difficulty < 1)
                 throw new ArgumentOutOfRangeException(nameof(difficulty));
 
-            string themeId = SelectTheme(stageIndex);
+            string requestedThemeId;
+            string themeId = SelectTheme(
+                seed,
+                stageIndex,
+                difficulty,
+                out requestedThemeId);
             Rng stageRng = new Rng(seed)
                 .Fork(StageGenerationStream)
                 .Fork(stageIndex)
@@ -615,14 +621,74 @@ namespace Shmup.Core.Generation
                 selectedBoss.HalfHeight,
                 selectedBoss.HoldX,
                 selectedBoss.Phases,
-                themeId);
+                themeId,
+                requestedThemeId);
         }
 
-        string SelectTheme(int stageIndex)
+        string SelectTheme(
+            ulong seed,
+            int stageIndex,
+            int difficulty,
+            out string requestedThemeId)
         {
-            return _catalog.ThemeIds.Count == 0
-                ? null
-                : _catalog.ThemeIds[(stageIndex - 1) % _catalog.ThemeIds.Count];
+            if (_catalog.ThemeIds.Count == 0)
+            {
+                requestedThemeId = null;
+                return null;
+            }
+
+            string[] runOrder = BuildThemeOrder(seed);
+            int requestedIndex = (stageIndex - 1) % runOrder.Length;
+            requestedThemeId = runOrder[requestedIndex];
+
+            if (CanAssemble(
+                    requestedThemeId,
+                    stageIndex,
+                    difficulty))
+                return requestedThemeId;
+
+            for (int offset = 1; offset < runOrder.Length; offset++)
+            {
+                string fallback =
+                    runOrder[(requestedIndex + offset) % runOrder.Length];
+                if (CanAssemble(fallback, stageIndex, difficulty))
+                    return fallback;
+            }
+
+            return requestedThemeId;
+        }
+
+        string[] BuildThemeOrder(ulong seed)
+        {
+            var runOrder = new string[_catalog.ThemeIds.Count];
+            for (int i = 0; i < runOrder.Length; i++)
+                runOrder[i] = _catalog.ThemeIds[i];
+
+            Rng permutationRng = new Rng(seed)
+                .Fork(StageGenerationStream)
+                .Fork(ThemePermutationStream);
+            for (int i = runOrder.Length - 1; i > 1; i--)
+            {
+                int swapIndex = permutationRng.NextInt(1, i + 1);
+                string held = runOrder[i];
+                runOrder[i] = runOrder[swapIndex];
+                runOrder[swapIndex] = held;
+            }
+            return runOrder;
+        }
+
+        bool CanAssemble(
+            string themeId,
+            int stageIndex,
+            int difficulty)
+        {
+            return CanComplete(
+                _catalog.StartLaneMask,
+                _catalog.SegmentsPerStage,
+                stageIndex,
+                difficulty,
+                themeId,
+                new Dictionary<long, bool>());
         }
 
         static string CannotAssembleMessage(string themeId)
