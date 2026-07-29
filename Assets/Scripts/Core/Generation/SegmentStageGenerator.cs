@@ -548,7 +548,9 @@ namespace Shmup.Core.Generation
 
             var assembled = new StageSegment[_catalog.SegmentsPerStage];
             var completionCache = new Dictionary<long, bool>();
+            var selectedTemplates = new bool[_catalog.Segments.Count];
             int reachable = _catalog.StartLaneMask;
+            int previousTemplateIndex = -1;
 
             for (int position = 0; position < assembled.Length; position++)
             {
@@ -556,38 +558,40 @@ namespace Shmup.Core.Generation
                 var viableIndices = new List<int>();
                 var viableExits = new List<int>();
 
-                for (int i = 0; i < _catalog.Segments.Count; i++)
-                {
-                    StageSegmentTemplate candidate = _catalog.Segments[i];
-                    if (!candidate.SupportsDifficulty(difficulty)
-                        || !candidate.SupportsTheme(themeId))
-                        continue;
+                CollectUniqueCompletionCandidates(
+                    reachable,
+                    remaining,
+                    stageIndex,
+                    difficulty,
+                    themeId,
+                    selectedTemplates,
+                    viableIndices,
+                    viableExits);
 
-                    int exit = StagePlanClearability.Advance(
-                        reachable, candidate, _validLanes);
-                    if (exit == 0)
-                        continue;
-                    if (!CanComplete(
-                            exit,
-                            remaining,
-                            stageIndex,
-                            difficulty,
-                            themeId,
-                            completionCache))
-                        continue;
-
-                    viableIndices.Add(i);
-                    viableExits.Add(exit);
-                }
+                if (viableIndices.Count == 0)
+                    CollectRelaxedCandidates(
+                        reachable,
+                        remaining,
+                        stageIndex,
+                        difficulty,
+                        themeId,
+                        selectedTemplates,
+                        previousTemplateIndex,
+                        completionCache,
+                        viableIndices,
+                        viableExits);
 
                 if (viableIndices.Count == 0)
                     throw new InvalidOperationException(
                         CannotAssembleMessage(themeId));
 
                 int pick = segmentRng.NextInt(0, viableIndices.Count);
-                StageSegmentTemplate selected = _catalog.Segments[viableIndices[pick]];
+                int selectedIndex = viableIndices[pick];
+                StageSegmentTemplate selected = _catalog.Segments[selectedIndex];
                 assembled[position] = selected.CreateSegment();
                 reachable = viableExits[pick];
+                selectedTemplates[selectedIndex] = true;
+                previousTemplateIndex = selectedIndex;
             }
 
             var compatibleBosses = new List<int>();
@@ -623,6 +627,142 @@ namespace Shmup.Core.Generation
                 selectedBoss.Phases,
                 themeId,
                 requestedThemeId);
+        }
+
+        void CollectUniqueCompletionCandidates(
+            int reachable,
+            int segmentsRemaining,
+            int stageIndex,
+            int difficulty,
+            string themeId,
+            bool[] selectedTemplates,
+            ICollection<int> viableIndices,
+            ICollection<int> viableExits)
+        {
+            for (int i = 0; i < _catalog.Segments.Count; i++)
+            {
+                if (selectedTemplates[i])
+                    continue;
+
+                StageSegmentTemplate candidate = _catalog.Segments[i];
+                if (!candidate.SupportsDifficulty(difficulty)
+                    || !candidate.SupportsTheme(themeId))
+                    continue;
+
+                int exit = StagePlanClearability.Advance(
+                    reachable, candidate, _validLanes);
+                if (exit == 0)
+                    continue;
+
+                selectedTemplates[i] = true;
+                bool canComplete = CanCompleteWithoutReuse(
+                    exit,
+                    segmentsRemaining,
+                    stageIndex,
+                    difficulty,
+                    themeId,
+                    selectedTemplates);
+                selectedTemplates[i] = false;
+                if (!canComplete)
+                    continue;
+
+                viableIndices.Add(i);
+                viableExits.Add(exit);
+            }
+        }
+
+        void CollectRelaxedCandidates(
+            int reachable,
+            int segmentsRemaining,
+            int stageIndex,
+            int difficulty,
+            string themeId,
+            bool[] selectedTemplates,
+            int previousTemplateIndex,
+            IDictionary<long, bool> completionCache,
+            ICollection<int> viableIndices,
+            ICollection<int> viableExits)
+        {
+            for (int reusePriority = 0; reusePriority < 3; reusePriority++)
+            {
+                for (int i = 0; i < _catalog.Segments.Count; i++)
+                {
+                    bool wasSelected = selectedTemplates[i];
+                    bool matchesPriority =
+                        reusePriority == 0
+                            ? !wasSelected
+                            : reusePriority == 1
+                                ? wasSelected && i != previousTemplateIndex
+                                : i == previousTemplateIndex;
+                    if (!matchesPriority)
+                        continue;
+
+                    StageSegmentTemplate candidate = _catalog.Segments[i];
+                    if (!candidate.SupportsDifficulty(difficulty)
+                        || !candidate.SupportsTheme(themeId))
+                        continue;
+
+                    int exit = StagePlanClearability.Advance(
+                        reachable, candidate, _validLanes);
+                    if (exit == 0
+                        || !CanComplete(
+                            exit,
+                            segmentsRemaining,
+                            stageIndex,
+                            difficulty,
+                            themeId,
+                            completionCache))
+                        continue;
+
+                    viableIndices.Add(i);
+                    viableExits.Add(exit);
+                }
+
+                if (viableIndices.Count != 0)
+                    return;
+            }
+        }
+
+        bool CanCompleteWithoutReuse(
+            int reachable,
+            int segmentsRemaining,
+            int stageIndex,
+            int difficulty,
+            string themeId,
+            bool[] selectedTemplates)
+        {
+            if (segmentsRemaining == 0)
+                return HasReachableBoss(
+                    reachable, stageIndex, difficulty, themeId);
+
+            for (int i = 0; i < _catalog.Segments.Count; i++)
+            {
+                if (selectedTemplates[i])
+                    continue;
+
+                StageSegmentTemplate candidate = _catalog.Segments[i];
+                if (!candidate.SupportsDifficulty(difficulty)
+                    || !candidate.SupportsTheme(themeId))
+                    continue;
+
+                int exit = StagePlanClearability.Advance(
+                    reachable, candidate, _validLanes);
+                if (exit == 0)
+                    continue;
+
+                selectedTemplates[i] = true;
+                bool canComplete = CanCompleteWithoutReuse(
+                    exit,
+                    segmentsRemaining - 1,
+                    stageIndex,
+                    difficulty,
+                    themeId,
+                    selectedTemplates);
+                selectedTemplates[i] = false;
+                if (canComplete)
+                    return true;
+            }
+            return false;
         }
 
         string SelectTheme(

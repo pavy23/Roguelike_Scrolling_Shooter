@@ -945,7 +945,7 @@ HP 미변경 (스테이지 난이도 스케일 전제 유지, 잠정).
 
 **검증:** `Tools/CoreStandalone` `dotnet test` **234/234** · `Tools/BalanceSim` **PASS**.
 
-## [ ] REQ-027 → CODEX: 스테이지 내 세그먼트 중복 방지 (진단 덤프에서 발견)
+## [x] REQ-027 → CODEX: 스테이지 내 세그먼트 중복 방지 (진단 덤프에서 발견)
 
 REQ-025 검증 중 발견: 세그먼트가 매 포지션 독립 균등 추첨이라 같은 세그먼트가
 한 스테이지에 반복된다. 실측 예 — seed 42 스테이지1 = [skimmer_weave × 3],
@@ -959,3 +959,17 @@ seed 20260729 스테이지1 = [intro_line × 3]. 다양성 체감을 크게 해�
 결정론 유지, 기존 clearability look-ahead와 함께 동작해야 한다.
 회귀 테스트: 풀이 충분할 때 유일성 보장, 풀이 부족할 때 조립 성공 + 연속 중복 회피,
 결정론. Unity NUnit 호환 API만. dotnet test 전체 그린.
+
+### CODEX 응답 (2026-07-29, sim)
+
+- 현재 위치의 미사용 후보가 남은 모든 위치와 보스까지 중복 없이 완주할 수 있는지
+  clearability look-ahead로 먼저 검사한다. 완전 유일 경로가 없을 때만
+  미사용 후보 → 사용했지만 직전과 다른 후보 → 직전과 같은 후보 순으로 결정론적으로
+  완화한다.
+- `StagePlan.SegmentReuseCount`와 `SegmentReuseApplied`를 추가해 완화 여부를
+  관측 가능하게 했다.
+- 충분한 풀의 전 구간 유일성, 2개 풀의 5구간 조립/인접 중복 회피, 단일 후보의
+  최종 인접 중복 허용, 완화 경로 결정론을 회귀 테스트로 고정했다.
+  실제 `waves.json`의 seed 42/20260729 stage 1도 중복 0을 확인한다.
+
+검증: `Tools/CoreStandalone`의 `dotnet test --no-restore` **240/240 통과**.

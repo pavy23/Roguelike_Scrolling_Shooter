@@ -850,6 +850,22 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(first.BossId, second.BossId);
             for (int i = 0; i < first.Segments.Count; i++)
                 Assert.AreEqual(first.Segments[i].SegmentId, second.Segments[i].SegmentId);
+
+            ulong[] reportedDuplicateSeeds = { 42UL, 20260729UL };
+            for (int seedIndex = 0;
+                seedIndex < reportedDuplicateSeeds.Length;
+                seedIndex++)
+            {
+                StagePlan reported = generator.Generate(
+                    reportedDuplicateSeeds[seedIndex],
+                    1,
+                    1);
+                Assert.AreEqual(
+                    0,
+                    reported.SegmentReuseCount,
+                    $"seed {reportedDuplicateSeeds[seedIndex]} reused a segment");
+                Assert.IsFalse(reported.SegmentReuseApplied);
+            }
         }
 
         [Test]

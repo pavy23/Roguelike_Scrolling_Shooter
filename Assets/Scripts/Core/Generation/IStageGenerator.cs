@@ -154,6 +154,7 @@ namespace Shmup.Core.Generation
             BossPhases = CopyPhases(bossPhases);
             ThemeId = themeId;
             RequestedThemeId = requestedThemeId;
+            SegmentReuseCount = CountSegmentReuses(Segments);
         }
 
         public IReadOnlyList<StageSegment> Segments { get; }
@@ -187,6 +188,35 @@ namespace Shmup.Core.Generation
                 ThemeId,
                 RequestedThemeId,
                 StringComparison.Ordinal);
+        /// <summary>
+        /// Number of segment positions that reuse an id selected earlier in this
+        /// stage. Zero means the generator assembled a fully unique sequence.
+        /// </summary>
+        public int SegmentReuseCount { get; }
+        /// <summary>
+        /// True when the catalog or clearability constraints required reuse.
+        /// </summary>
+        public bool SegmentReuseApplied => SegmentReuseCount != 0;
+
+        static int CountSegmentReuses(IReadOnlyList<StageSegment> segments)
+        {
+            int count = 0;
+            for (int i = 0; i < segments.Count; i++)
+            {
+                for (int earlier = 0; earlier < i; earlier++)
+                {
+                    if (!string.Equals(
+                            segments[i].SegmentId,
+                            segments[earlier].SegmentId,
+                            StringComparison.Ordinal))
+                        continue;
+
+                    count++;
+                    break;
+                }
+            }
+            return count;
+        }
 
         static IReadOnlyList<BossPhase> CopyPhases(IReadOnlyList<BossPhase> source)
         {

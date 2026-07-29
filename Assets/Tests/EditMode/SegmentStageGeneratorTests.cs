@@ -249,6 +249,112 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void SufficientPool_UsesUniqueSegmentsAcrossWholeStage()
+        {
+            var catalog = new StageGenerationCatalog(
+                3,
+                3,
+                Center,
+                new[]
+                {
+                    Segment("alpha", Center, Center, Center),
+                    Segment("beta", Center, Center, Center),
+                    Segment("gamma", Center, Center, Center),
+                    Segment("delta", Center, Center, Center)
+                },
+                new[]
+                {
+                    new StageBossTemplate("boss", 1, 1, 1, 5, Center)
+                });
+            var generator = new SegmentStageGenerator(catalog);
+
+            for (ulong seed = 0; seed < 100; seed++)
+            {
+                StagePlan plan = generator.Generate(seed, 1, 2);
+
+                Assert.AreEqual(0, plan.SegmentReuseCount);
+                Assert.IsFalse(plan.SegmentReuseApplied);
+                for (int i = 0; i < plan.Segments.Count; i++)
+                {
+                    for (int earlier = 0; earlier < i; earlier++)
+                    {
+                        Assert.AreNotEqual(
+                            plan.Segments[earlier].SegmentId,
+                            plan.Segments[i].SegmentId,
+                            $"seed {seed} repeated a segment");
+                    }
+                }
+                Assert.IsTrue(StagePlanClearability.IsClearable(plan));
+            }
+        }
+
+        [Test]
+        public void InsufficientPool_AssemblesAndAvoidsAdjacentRepeats()
+        {
+            var generator = CreateInsufficientPoolGenerator();
+
+            for (ulong seed = 0; seed < 100; seed++)
+            {
+                StagePlan plan = generator.Generate(seed, 1, 2);
+
+                Assert.AreEqual(5, plan.Segments.Count);
+                Assert.AreEqual(3, plan.SegmentReuseCount);
+                Assert.IsTrue(plan.SegmentReuseApplied);
+                for (int i = 1; i < plan.Segments.Count; i++)
+                {
+                    Assert.AreNotEqual(
+                        plan.Segments[i - 1].SegmentId,
+                        plan.Segments[i].SegmentId,
+                        $"seed {seed} repeated adjacent segments");
+                }
+                Assert.IsTrue(StagePlanClearability.IsClearable(plan));
+            }
+        }
+
+        [Test]
+        public void InsufficientPool_RelaxedSelectionRemainsDeterministic()
+        {
+            var generator = CreateInsufficientPoolGenerator();
+
+            StagePlan first = generator.Generate(20260729UL, 1, 2);
+            StagePlan repeated = generator.Generate(20260729UL, 1, 2);
+
+            AssertPlansEqual(first, repeated);
+            Assert.IsTrue(first.SegmentReuseApplied);
+        }
+
+        [Test]
+        public void SingleCandidatePool_AllowsAdjacentRepeatsAsLastResort()
+        {
+            var catalog = new StageGenerationCatalog(
+                3,
+                3,
+                Center,
+                new[]
+                {
+                    Segment("only_route", Center, Center, Center)
+                },
+                new[]
+                {
+                    new StageBossTemplate("boss", 1, 1, 1, 5, Center)
+                });
+            var generator = new SegmentStageGenerator(catalog);
+
+            StagePlan plan = generator.Generate(42UL, 1, 2);
+
+            Assert.AreEqual(3, plan.Segments.Count);
+            Assert.AreEqual(2, plan.SegmentReuseCount);
+            Assert.IsTrue(plan.SegmentReuseApplied);
+            Assert.AreEqual(
+                plan.Segments[0].SegmentId,
+                plan.Segments[1].SegmentId);
+            Assert.AreEqual(
+                plan.Segments[1].SegmentId,
+                plan.Segments[2].SegmentId);
+            Assert.IsTrue(StagePlanClearability.IsClearable(plan));
+        }
+
+        [Test]
         public void NoClearableAssembly_ThrowsInsteadOfReturningImpossiblePlan()
         {
             var catalog = new StageGenerationCatalog(
@@ -316,6 +422,24 @@ namespace Shmup.Core.Tests
                 {
                     new StageBossTemplate("right_boss_a", 1, 1, 1, 5, Right),
                     new StageBossTemplate("right_boss_b", 1, 1, 1, 5, Right)
+                });
+            return new SegmentStageGenerator(catalog);
+        }
+
+        static SegmentStageGenerator CreateInsufficientPoolGenerator()
+        {
+            var catalog = new StageGenerationCatalog(
+                3,
+                5,
+                Center,
+                new[]
+                {
+                    Segment("alpha", Center, Center, Center),
+                    Segment("beta", Center, Center, Center)
+                },
+                new[]
+                {
+                    new StageBossTemplate("boss", 1, 1, 1, 5, Center)
                 });
             return new SegmentStageGenerator(catalog);
         }
@@ -434,6 +558,12 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 expected.ThemeFallbackApplied,
                 actual.ThemeFallbackApplied);
+            Assert.AreEqual(
+                expected.SegmentReuseCount,
+                actual.SegmentReuseCount);
+            Assert.AreEqual(
+                expected.SegmentReuseApplied,
+                actual.SegmentReuseApplied);
             Assert.AreEqual(expected.BossId, actual.BossId);
             Assert.AreEqual(expected.LaneCount, actual.LaneCount);
             Assert.AreEqual(expected.StartLaneMask, actual.StartLaneMask);
