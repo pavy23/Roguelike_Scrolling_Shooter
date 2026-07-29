@@ -4,6 +4,87 @@
 
 ---
 
+## 2026-07-29 미니보스급 중형 4종 로스터 증원 (잠정 · 7장 표기)
+
+**승인 맥락:** 오케스트레이터 잠정 승인. AGENTS.md §7 최종 확정은 사람 검토 후 유지.  
+**범위:** `GameData/enemies.json` · `waves.json` + `GameDataParserTests` 개수 동기. 스키마 변경 없음.
+
+### enemies.json — 신규 4종 (id 접두 `mini_`, 뷰 스프라이트 매핑용)
+
+히트박스 공통: 64×48px @ PPU16 → **halfWidth 2.0 / halfHeight 1.5**. scoreValue **800–1500** 미니보스급.
+
+| id | 계열 | movePattern | hp | moveSpeed | fireInterval | score | dropWeight | 의도 |
+|---|---|---|---|---|---|---|---|---|
+| `mini_destroyer` | 요새/스크랩 | straight | **200** | **1.5** (저속) | **55** | 1200 | 14 | 저속 직선 사격형. 중형 앵커. |
+| `mini_horror` | 하이브 | sine | **180** | 2.5 | 70 | 1100 | 14 | **대진폭** sine (amp **4.5**, period 120t). 화면 점유. |
+| `mini_walker` | 요새/코어 | static | **250** | 0 | **48** | 1500 | 15 | 정지 사격형. 최고 HP·점수. 터렛(90t)보다 촘촘. |
+| `mini_crystal` | 성운 | sine | **160** | **4.5** (고속) | **40** | 1000 | 13 | 사인 고속 사격. period 90t, amp 3.25. |
+
+- `contactDamage: 2` (엘리트·탱커와 동일 위험 신호).
+- amp 4.5 @ y=0 → 피크 ±4.5 < halfH 11.25 − halfHeight 1.5 = 9.75 (이탈 없음).
+
+### waves.json — 테마별 기존 세그먼트 후반 스폰 1기씩 (신설 세그먼트 없음)
+
+| 세그먼트 | theme | difficulty | tick | enemyId | y |
+|---|---|---|---|---|---|
+| `seg_fortress_sentry_grid` | fortress | 3–5 | **850** / length 900 | `mini_destroyer` | 0 |
+| `seg_hive_spore_cloud` | hive | 2–5 | **680** / length 720 | `mini_horror` | 0 |
+| `seg_nebula_wisp_storm` | nebula | 3–5 | **740** / length 780 | `mini_crystal` | 0 |
+| `seg_core_guardian_wall` | core | 4–5 | **860** / length 900 | `mini_walker` | 0 |
+
+- 스크랩(scrapyard) 전용 세그먼트는 없음 → destroyer는 fortress 세그먼트에 배치 (요새/스크랩 계열).
+- 후반 틱 단독 스폰으로 잡졸 밀도와 겹치지 않게 미니보스 피날레 연출.
+
+### 이론 검산 (잠정)
+
+메인만 풀히트 DPS≈75 가정:
+
+| id | TTK | 비고 |
+|---|---|---|
+| mini_crystal 160 | ≈2.1s | 고속 사인·고연사로 회피 부담이 본 DPS 교환 |
+| mini_horror 180 | ≈2.4s | 대진폭 회피 동선 |
+| mini_destroyer 200 | ≈2.7s | 저속 사격 앵커 |
+| mini_walker 250 | ≈3.3s | 정지 고화력. fire 48t ≈ 1.25 볼리/초 |
+
+elite_sine(hp50, score600) 대비 체력 3–5×·점수 1.7–2.5×. 세그먼트당 1기라 스테이지 총 기대 시간은 소폭 증가.
+
+### 테스트 동기화 (CODEX 소유 파일 최소 수정)
+
+`Assets/Tests/EditMode/GameDataParserTests.cs`  
+`RepositoryApprovedV2Files_ParseCompletely` — Enemies **14 → 18**. Segments/Bosses 불변(16/5).
+
+### 검증
+
+- `cd Tools/CoreStandalone && dotnet test`
+- `cd Tools/BalanceSim && dotnet run` — stage×difficulty 50조합 조립
+
+### CLAUDE 후속
+
+1. `Assets/Resources/GameData/enemies.json` · `waves.json` 동기화.
+2. 뷰 스프라이트: id 접두 `mini_` 4종 (64×48 권장) 매핑.
+
+---
+
+## [x] REQ-G005 → CODEX 소유 파일 수정 기록: `GameDataParserTests` 카탈로그 개수 (미니보스 4종)
+
+**무엇이 / 왜**
+
+미니보스급 중형 4종 로스터 증원에 따라 저장소 `GameData/enemies.json` 카탈로그 개수가 늘어났다.
+`Assets/Tests/EditMode/GameDataParserTests.cs`의 `RepositoryApprovedV2Files_ParseCompletely`가
+고정 개수로 검증하므로 **CODEX 소유 파일**을 함께 갱신했다 (콘텐츠 커밋이 테스트 그린을 유지하려면 불가피).
+
+| 항목 | before | after |
+|---|---|---|
+| Enemies | 14 | **18** (`mini_destroyer`, `mini_horror`, `mini_walker`, `mini_crystal`) |
+| Segments | 16 | **16** (기존 테마 세그먼트 후반 스폰만 추가) |
+| Bosses | 5 | **5** (불변) |
+
+**변경 파일:** `Assets/Tests/EditMode/GameDataParserTests.cs` — Assert 개수만 갱신. 스키마/파서 API 변경 없음.
+
+**CODEX 후속 (선택):** sim 브랜치 머지 시 동일 Assert가 이미 content 쪽 값이면 no-op.
+
+---
+
 ## 2026-07-29 rewards.json 런 지속 패시브 3종 (M3 시너지 · 잠정)
 
 **완료:** `GameData/rewards.json`에 패시브 보상 3종 추가 + 기존 6종 weight 상향.  

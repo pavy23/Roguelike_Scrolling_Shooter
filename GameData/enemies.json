@@ -213,6 +213,66 @@
       "halfHeight": 0.9375,
       "amplitude": 0,
       "periodTicks": 1
+    },
+    {
+      "id": "mini_destroyer",
+      "displayName": "Mini Destroyer",
+      "hp": 200,
+      "contactDamage": 2,
+      "scoreValue": 1200,
+      "movePattern": "straight",
+      "moveSpeed": 1.5,
+      "fireIntervalTicks": 55,
+      "dropWeight": 14,
+      "halfWidth": 2.0,
+      "halfHeight": 1.5,
+      "amplitude": 0,
+      "periodTicks": 1
+    },
+    {
+      "id": "mini_horror",
+      "displayName": "Mini Horror",
+      "hp": 180,
+      "contactDamage": 2,
+      "scoreValue": 1100,
+      "movePattern": "sine",
+      "moveSpeed": 2.5,
+      "fireIntervalTicks": 70,
+      "dropWeight": 14,
+      "halfWidth": 2.0,
+      "halfHeight": 1.5,
+      "amplitude": 4.5,
+      "periodTicks": 120
+    },
+    {
+      "id": "mini_walker",
+      "displayName": "Mini Walker",
+      "hp": 250,
+      "contactDamage": 2,
+      "scoreValue": 1500,
+      "movePattern": "static",
+      "moveSpeed": 0,
+      "fireIntervalTicks": 48,
+      "dropWeight": 15,
+      "halfWidth": 2.0,
+      "halfHeight": 1.5,
+      "amplitude": 0,
+      "periodTicks": 1
+    },
+    {
+      "id": "mini_crystal",
+      "displayName": "Mini Crystal",
+      "hp": 160,
+      "contactDamage": 2,
+      "scoreValue": 1000,
+      "movePattern": "sine",
+      "moveSpeed": 4.5,
+      "fireIntervalTicks": 40,
+      "dropWeight": 13,
+      "halfWidth": 2.0,
+      "halfHeight": 1.5,
+      "amplitude": 3.25,
+      "periodTicks": 90
     }
   ]
 }
