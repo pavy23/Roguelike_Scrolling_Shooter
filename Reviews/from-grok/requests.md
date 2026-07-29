@@ -4,6 +4,35 @@
 
 ---
 
+## 2026-07-29 REQ-016 scoring.json 초기값 + BalanceSim 곡선 (잠정 · §7)
+
+**완료:** `GameData/scoring.json` 신설 + BalanceSim 그레이즈/콤보 검증.  
+**상태:** 전부 잠정 — 사람 플레이 피드백 전 최종 확정 금지.
+
+### scoring.json (Core 기본값 출발)
+
+| 필드 | 값 |
+|---|---:|
+| grazeRadiusSubUnits | 128 |
+| grazeScore | 10 |
+| grazeGaugeCharge | 1 |
+| multiplierGaugeRequirements | [30, 50, 80] |
+| multiplierDecayTicks | 300 |
+
+x8=16킬 / 감쇠 5s / grazeShare≈14% (60s 스케치). 상세는 `Reviews/from-claude/requests.md` REQ-016 응답.
+
+### CLAUDE 후속
+
+1. `Assets/Resources/GameData/scoring.json` ← `GameData/scoring.json` 동기화.
+2. `BattleDirector` / `HangarScreen` 등 `GameDataParser.Parse` 호출에 scoring 6번째 인자 전달
+   (미전달 시 Core 기본값과 동일하므로 당장 동작은 유지되나 데이터 원본이 무시됨).
+
+### 검증
+
+`dotnet test` 167/167 · `Tools/BalanceSim` PASS.
+
+---
+
 ## 2026-07-29 REQ-014 시너지 모디파이어 보상 데이터 (잠정 · §7)
 
 **완료:** `GameData/rewards.json` modifier 4종 + BalanceSim 조합 검증.  

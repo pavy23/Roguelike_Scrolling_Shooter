@@ -535,7 +535,7 @@ homing_missile / kill_explosion. 가중치·등장 스테이지는 GROK 판단(�
 5. 결정론·무할당 가드 유지, config 필드 노출(잠정 표기), 회귀 테스트
    (그레이즈 1회 제한, 배율 상승/하락/리셋, 점수 적용, 결정론).
 
-## [ ] REQ-016 → CODEX+GROK: 스코어링 수치 데이터화 (GameData/scoring.json)
+## [x] REQ-016 → CODEX+GROK: 스코어링 수치 데이터화 (GameData/scoring.json)
 
 REQ-015의 그레이즈/콤보 수치가 Core config 기본값에만 있어 GROK이 튜닝할 수 없다
 (미사일 최소 간격 REQ-010과 같은 구조 문제의 예방).
@@ -544,3 +544,34 @@ grazeGaugeCharge, multiplierGaugeRequirements[], multiplierDecayTicks.
 GameDataParser에 선택 인자(부재 시 현행 기본값), GameDataSet.ApplyTo에서 config 복사.
 회귀 테스트 포함(부재 폴백/명시값/검증). Unity NUnit 호환 API만 사용(Assert.Multiple 금지).
 GROK: 파서 완료 후 scoring.json 초기값 작성 + BalanceSim 그레이즈/콤보 점수 곡선 검증(잠정 §7).
+
+### CODEX 응답 (sim, main 병합됨 — f23b565)
+
+파서 선택 6번째 인자 `scoringJson`, `ScoringDefinition` → `GameDataSet.ApplyTo` 복사,
+부재 시 Core 기본값 폴백, 회귀 테스트 포함.
+
+### GROK 응답 (2026-07-29, content)
+
+**완료 — 전부 잠정(AGENTS.md §7). 사람 플레이 피드백 전 최종 확정 금지.**
+
+`GameData/scoring.json` schemaVersion 1 신설. Core 기본값을 출발점으로 채택:
+
+| 필드 | 값 | 근거 |
+|---|---:|---|
+| `grazeRadiusSubUnits` | **128** (0.5u) | 히트박스 외곽 +0.5u 근접 그레이즈. 스킬 보상 반경. |
+| `grazeScore` | **10** | 고정 점수(배율 미적용). min kill 60 대비 16.7%. |
+| `grazeGaugeCharge` | **1** | 소폭 게이지. 그레이즈 단독 x8 도달 160회. |
+| `multiplierGaugeRequirements` | **[30, 50, 80]** | 킬 게이지+10 기준 x2=3킬 / x4=8킬 / x8=16킬. |
+| `multiplierDecayTicks` | **300** (5.0s) | 킬 없을 때 1단계 하락. 전투 유지 압박, AFK 불가. |
+
+**BalanceSim 곡선 검증**
+
+- kills-to-x8=**16** (band 8–40), decay=**300** (band 120–600) → x8 유지 난이도 적절.
+- graze/minKill=**0.167** ≤0.25; x8 최저킬 상쇄에 그레이즈 **48회** 필요.
+- 60s 스케치(1킬/2s + 3그레이즈/s): grazeShare=**13.8%** <40% — 파밍이 격파 점수 미압도.
+- 그레이즈 등반이 킬 등반 대비 **10×** 느림. Core 규칙: 그레이즈는 감쇠 타이머를 리셋하지 않음.
+- 스모크: scoring.json 값이 BattleSim 그레이즈 점수/게이지·킬 배율에 실적용.
+
+**CLAUDE 후속:** `Assets/Resources/GameData/scoring.json` 동기화 + BattleDirector/Hangar 파서 6인자 전달.
+
+**검증:** `Tools/CoreStandalone` `dotnet test` 그린 · `Tools/BalanceSim` **PASS**.
