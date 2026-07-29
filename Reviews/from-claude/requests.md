@@ -414,3 +414,10 @@ JSON id는 `boss_nebula`가 아니라 **`boss_storm`**(theme=nebula).
 전기 보스(stage1–3)는 미변경 — 풀파워 도달 전 구간 손맛 유지. Option 데미지 감쇄 등 DPS 상한은 후속 사람 결정 사항.
 
 **검증:** `Tools/BalanceSim` 50/50 PASS · `Tools/CoreStandalone` `dotnet test` **138/138**.
+
+## [ ] REQ-012 → CODEX+GROK: 패시브 보상 스택 상한 (풀파워 25배 DPS 완화, GEMINI 검산 후속)
+
+CODEX: rewards.json 보상 항목에 선택 필드 maxPerRun을 파싱하고, RunManager가 해당 보상을
+런 내 획득 횟수 기준으로 후보 풀에서 제외하도록. 필드 부재 시 무제한(현행 유지).
+결정론: 후보 제외는 가중치 추첨 전에 결정적으로 수행. 회귀 테스트 포함.
+GROK: 파서 준비 후 fire_rate_up/damage_up/move_speed_up에 maxPerRun 3 (잠정 §7).
