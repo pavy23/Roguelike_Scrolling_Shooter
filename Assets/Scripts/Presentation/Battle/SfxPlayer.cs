@@ -30,6 +30,10 @@ namespace Shmup.Presentation.Battle
             if (_source == null) return;
             Array.Clear(_playedThisStep, 0, _playedThisStep.Length);
 
+            // 반복 피로 완화: 틱 단위 ±4% 피치 랜덤 (표현 전용 — 시뮬 Rng와 무관)
+            if (events.Length > 0)
+                _source.pitch = 1f + (UnityEngine.Random.value - 0.5f) * 0.08f;
+
             for (int i = 0; i < events.Length; i++)
             {
                 switch (events[i].Type)

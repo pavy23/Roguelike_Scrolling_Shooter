@@ -1027,6 +1027,12 @@ namespace Shmup.EditorTools
             SetReference(player, "_source", source);
             SetStringArray(player, "_themeIds", themeIds);
             SetReferenceArray(player, "_clips", clips);
+            SetReference(player, "_bossClip",
+                AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Bgm/bgm_boss.wav"));
+            SetReference(player, "_clearJingle",
+                AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Sfx/jingle_clear.wav"));
+            SetReference(player, "_gameOverJingle",
+                AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Sfx/jingle_gameover.wav"));
         }
 
         static AudioClip LoadClip(string name)
@@ -1058,6 +1064,20 @@ namespace Shmup.EditorTools
             var hangar = root.AddComponent<HangarScreen>();   // 함선 해금형 메타 (2026-07-29)
             SetReference(hangar, "_font", titleFont);
             SetReference(hangar, "_fontBold", titleFontBold);
+
+            // 타이틀 BGM (bgmgen title 프리셋, 시드 0 잠정)
+            var titleBgm = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Bgm/bgm_title.wav");
+            if (titleBgm != null)
+            {
+                var bgmGo = new GameObject("TitleBgm");
+                bgmGo.transform.SetParent(root.transform, false);
+                var bgmSource = bgmGo.AddComponent<AudioSource>();
+                bgmSource.clip = titleBgm;
+                bgmSource.loop = true;
+                bgmSource.playOnAwake = true;
+                bgmSource.volume = 0.45f;
+                bgmSource.spatialBlend = 0f;
+            }
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, TitleScenePath);

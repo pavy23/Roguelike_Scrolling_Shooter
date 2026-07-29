@@ -117,6 +117,9 @@ namespace Shmup.Presentation.Battle
         /// <summary>현재 콤보 배율 (MultiplierChanged 이벤트 추적, HUD 표시용).</summary>
         public int ScoreMultiplier { get; private set; } = 1;
 
+        /// <summary>보스전 진행 중 여부 (BgmPlayer 보스 트랙 전환용).</summary>
+        public bool BossActive => _sim != null && _sim.BossActive;
+
         // Step이 RunOver/AwaitingReward에서 no-op이면 EventsThisTick이 클리어되지 않는다 —
         // 같은 이벤트를 매 FixedUpdate 재소비하지 않도록 (배틀 인스턴스, 틱)으로 신선도 판정.
         IBattleSim _lastEventSim;
