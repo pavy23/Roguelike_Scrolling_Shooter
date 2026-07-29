@@ -15,6 +15,7 @@ namespace Shmup.Core.Content
         readonly int[] _powerUpMaxLevels;
         readonly WeaponDefinition _missile;
         readonly ReadOnlyCollection<ShipDefinition> _ships;
+        readonly ScoringDefinition _scoring;
 
         internal GameDataSet(
             BattleContent battleContent,
@@ -25,7 +26,8 @@ namespace Shmup.Core.Content
             int[] powerUpMaxLevels,
             WeaponDefinition missile,
             RewardCatalog rewards,
-            IReadOnlyList<ShipDefinition> ships)
+            IReadOnlyList<ShipDefinition> ships,
+            ScoringDefinition scoring)
         {
             BattleContent = battleContent ?? throw new ArgumentNullException(nameof(battleContent));
             StageGeneration = stageGeneration ?? throw new ArgumentNullException(nameof(stageGeneration));
@@ -46,6 +48,7 @@ namespace Shmup.Core.Content
             _powerUpMaxLevels = (int[])powerUpMaxLevels.Clone();
             _missile = missile ?? throw new ArgumentNullException(nameof(missile));
             Rewards = rewards;
+            _scoring = scoring;
 
             if (ships == null) throw new ArgumentNullException(nameof(ships));
             if (ships.Count == 0)
@@ -137,8 +140,50 @@ namespace Shmup.Core.Content
             config.MissileSpeedXDenominator = _missile.ProjectileSpeedDenominator;
             config.MissileHalfWidth = _missile.ProjectileHalfWidth;
             config.MissileHalfHeight = _missile.ProjectileHalfHeight;
+            if (_scoring != null)
+            {
+                config.GrazeExtraRadiusSubUnits = _scoring.GrazeRadiusSubUnits;
+                config.GrazeScore = _scoring.GrazeScore;
+                config.GrazeComboGaugeGain = _scoring.GrazeGaugeCharge;
+                config.ComboGaugeRequiredForLevel2 =
+                    _scoring.MultiplierGaugeRequirements[0];
+                config.ComboGaugeRequiredForLevel3 =
+                    _scoring.MultiplierGaugeRequirements[1];
+                config.ComboGaugeRequiredForLevel4 =
+                    _scoring.MultiplierGaugeRequirements[2];
+                config.ComboDecayTicks = _scoring.MultiplierDecayTicks;
+            }
             return config;
         }
+    }
+
+    internal sealed class ScoringDefinition
+    {
+        public const int MultiplierRequirementCount = 3;
+
+        readonly int[] _multiplierGaugeRequirements;
+
+        public ScoringDefinition(
+            int grazeRadiusSubUnits,
+            int grazeScore,
+            int grazeGaugeCharge,
+            int[] multiplierGaugeRequirements,
+            int multiplierDecayTicks)
+        {
+            GrazeRadiusSubUnits = grazeRadiusSubUnits;
+            GrazeScore = grazeScore;
+            GrazeGaugeCharge = grazeGaugeCharge;
+            _multiplierGaugeRequirements =
+                (int[])multiplierGaugeRequirements.Clone();
+            MultiplierDecayTicks = multiplierDecayTicks;
+        }
+
+        public int GrazeRadiusSubUnits { get; }
+        public int GrazeScore { get; }
+        public int GrazeGaugeCharge { get; }
+        public IReadOnlyList<int> MultiplierGaugeRequirements =>
+            _multiplierGaugeRequirements;
+        public int MultiplierDecayTicks { get; }
     }
 
     public sealed class GameDataParseException : FormatException

@@ -245,6 +245,23 @@ namespace Shmup.Core.Content
         [DataMember]
         public long? unlockCost;
     }
+
+    [DataContract]
+    internal sealed class ScoringDto
+    {
+        [DataMember]
+        public int? schemaVersion;
+        [DataMember]
+        public int? grazeRadiusSubUnits;
+        [DataMember]
+        public int? grazeScore;
+        [DataMember]
+        public int? grazeGaugeCharge;
+        [DataMember]
+        public int[] multiplierGaugeRequirements;
+        [DataMember]
+        public int? multiplierDecayTicks;
+    }
 }
 
 #pragma warning restore CS0649

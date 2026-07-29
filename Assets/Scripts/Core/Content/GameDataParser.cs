@@ -10,7 +10,8 @@ namespace Shmup.Core.Content
 {
     /// <summary>
     /// Unity-free parser for enemies.json, weapons.json, waves.json schema v2,
-    /// rewards.json schema v1, and optional ships.json schema v1.
+    /// rewards.json schema v1, optional ships.json schema v1, and optional
+    /// scoring.json schema v1.
     /// Decimal source values are converted with decimal arithmetic only.
     /// </summary>
     public static partial class GameDataParser
@@ -46,6 +47,23 @@ namespace Shmup.Core.Content
             string rewardsJson,
             string shipsJson)
         {
+            return Parse(
+                enemiesJson,
+                weaponsJson,
+                wavesJson,
+                rewardsJson,
+                shipsJson,
+                null);
+        }
+
+        public static GameDataSet Parse(
+            string enemiesJson,
+            string weaponsJson,
+            string wavesJson,
+            string rewardsJson,
+            string shipsJson,
+            string scoringJson = null)
+        {
             try
             {
                 EnemiesParseResult enemies = ParseEnemies(
@@ -67,6 +85,10 @@ namespace Shmup.Core.Content
                     : ParseShips(
                         Deserialize<ShipsDto>(shipsJson, "ships.json"),
                         weapons.MaxLevels);
+                ScoringDefinition scoring = scoringJson == null
+                    ? null
+                    : ParseScoring(
+                        Deserialize<ScoringDto>(scoringJson, "scoring.json"));
 
                 return new GameDataSet(
                     content,
@@ -77,7 +99,8 @@ namespace Shmup.Core.Content
                     weapons.MaxLevels,
                     weapons.Missile,
                     rewards,
-                    ships);
+                    ships,
+                    scoring);
             }
             catch (GameDataParseException)
             {
@@ -232,6 +255,70 @@ namespace Shmup.Core.Content
                 }
             }
             return new RewardCatalog(optionCount, definitions);
+        }
+
+        static ScoringDefinition ParseScoring(ScoringDto root)
+        {
+            const int supportedScoringSchemaVersion = 1;
+            int schemaVersion = Require(
+                root.schemaVersion,
+                "scoring.json.schemaVersion");
+            if (schemaVersion != supportedScoringSchemaVersion)
+                throw Error(
+                    "scoring.json.schemaVersion",
+                    $"must be {supportedScoringSchemaVersion}, but was {schemaVersion}.");
+
+            int grazeRadiusSubUnits = Require(
+                root.grazeRadiusSubUnits,
+                "scoring.json.grazeRadiusSubUnits");
+            if (grazeRadiusSubUnits < 0)
+                throw Error(
+                    "scoring.json.grazeRadiusSubUnits",
+                    "cannot be negative.");
+
+            int grazeScore = Require(root.grazeScore, "scoring.json.grazeScore");
+            if (grazeScore < 0)
+                throw Error("scoring.json.grazeScore", "cannot be negative.");
+
+            int grazeGaugeCharge = Require(
+                root.grazeGaugeCharge,
+                "scoring.json.grazeGaugeCharge");
+            if (grazeGaugeCharge < 0)
+                throw Error(
+                    "scoring.json.grazeGaugeCharge",
+                    "cannot be negative.");
+
+            int[] requirements = RequireArray(
+                root.multiplierGaugeRequirements,
+                "scoring.json.multiplierGaugeRequirements",
+                allowEmpty: true);
+            if (requirements.Length != ScoringDefinition.MultiplierRequirementCount)
+                throw Error(
+                    "scoring.json.multiplierGaugeRequirements",
+                    $"must contain exactly {ScoringDefinition.MultiplierRequirementCount} entries.");
+            var requirementCopy = (int[])requirements.Clone();
+            for (int i = 0; i < requirementCopy.Length; i++)
+            {
+                if (requirementCopy[i] < 1)
+                    throw Error(
+                        $"scoring.json.multiplierGaugeRequirements[{i}]",
+                        "must be positive.");
+            }
+
+            int multiplierDecayTicks = Require(
+                root.multiplierDecayTicks,
+                "scoring.json.multiplierDecayTicks");
+            if (multiplierDecayTicks < 1)
+                throw Error(
+                    "scoring.json.multiplierDecayTicks",
+                    "must be positive.");
+
+            return new ScoringDefinition(
+                grazeRadiusSubUnits,
+                grazeScore,
+                grazeGaugeCharge,
+                requirementCopy,
+                multiplierDecayTicks);
         }
 
         static RewardDefinition ParseReward(RewardDto source, int index)

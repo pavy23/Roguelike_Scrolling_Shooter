@@ -324,9 +324,8 @@ namespace Shmup.Core.Simulation
         public int KillExplosionDamage { get; set; } = 1;
         public int KillExplosionMaxTargets { get; set; } = 4;
 
-        // Provisional graze/combo scoring tuning (REQ-015, AGENTS.md §7).
-        // These remain configurable until GROK analysis and the human balance
-        // pass approve authoritative GameData values.
+        // Fallback graze/combo scoring tuning (REQ-015/016, AGENTS.md §7).
+        // Optional scoring.json values replace these through GameDataSet.
         public int GrazeExtraRadiusSubUnits { get; set; } =
             SimSpace.SubUnitsPerWorldUnit / 2;
         public int GrazeScore { get; set; } = 10;

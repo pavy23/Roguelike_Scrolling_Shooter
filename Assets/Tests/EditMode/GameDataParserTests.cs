@@ -95,6 +95,15 @@ namespace Shmup.Core.Tests
   ]
 }";
 
+        const string ScoringJson = @"{
+  ""schemaVersion"": 1,
+  ""grazeRadiusSubUnits"": 192,
+  ""grazeScore"": 25,
+  ""grazeGaugeCharge"": 4,
+  ""multiplierGaugeRequirements"": [12, 34, 56],
+  ""multiplierDecayTicks"": 240
+}";
+
         [Test]
         public void Parse_ApprovedV2_BuildsExactRuntimeModels()
         {
@@ -138,6 +147,105 @@ namespace Shmup.Core.Tests
             Assert.IsNull(stages.Bosses[0].ThemeId);
             Assert.AreEqual(0, stages.ThemeIds.Count);
             Assert.IsNull(new SegmentStageGenerator(stages).Generate(1UL, 1, 1).ThemeId);
+        }
+
+        [Test]
+        public void Parse_FiveArgumentsRetainsDefaultScoringTuning()
+        {
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson,
+                RewardsJson,
+                ShipsJson);
+            BattleSimConfig config = data.CreateBattleSimConfig();
+
+            Assert.AreEqual(128, config.GrazeExtraRadiusSubUnits);
+            Assert.AreEqual(10, config.GrazeScore);
+            Assert.AreEqual(1, config.GrazeComboGaugeGain);
+            Assert.AreEqual(30, config.ComboGaugeRequiredForLevel2);
+            Assert.AreEqual(50, config.ComboGaugeRequiredForLevel3);
+            Assert.AreEqual(80, config.ComboGaugeRequiredForLevel4);
+            Assert.AreEqual(300, config.ComboDecayTicks);
+        }
+
+        [Test]
+        public void Parse_OptionalScoringV1CopiesValuesToBattleConfig()
+        {
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson,
+                RewardsJson,
+                ShipsJson,
+                ScoringJson);
+            BattleSimConfig config = data.CreateBattleSimConfig();
+
+            Assert.AreEqual(192, config.GrazeExtraRadiusSubUnits);
+            Assert.AreEqual(25, config.GrazeScore);
+            Assert.AreEqual(4, config.GrazeComboGaugeGain);
+            Assert.AreEqual(12, config.ComboGaugeRequiredForLevel2);
+            Assert.AreEqual(34, config.ComboGaugeRequiredForLevel3);
+            Assert.AreEqual(56, config.ComboGaugeRequiredForLevel4);
+            Assert.AreEqual(240, config.ComboDecayTicks);
+        }
+
+        [Test]
+        public void Parse_ScoringRejectsInvalidValuesWithPaths()
+        {
+            string[] invalidJson =
+            {
+                ScoringJson.Replace(
+                    @"""schemaVersion"": 1",
+                    @"""schemaVersion"": 2"),
+                ScoringJson.Replace(
+                    @"""grazeRadiusSubUnits"": 192",
+                    @"""grazeRadiusSubUnits"": -1"),
+                ScoringJson.Replace(
+                    @"""grazeScore"": 25",
+                    @"""grazeScore"": -1"),
+                ScoringJson.Replace(
+                    @"  ""grazeScore"": 25,",
+                    ""),
+                ScoringJson.Replace(
+                    @"""grazeGaugeCharge"": 4",
+                    @"""grazeGaugeCharge"": -1"),
+                ScoringJson.Replace(
+                    @"[12, 34, 56]",
+                    @"[12, 34]"),
+                ScoringJson.Replace(
+                    @"[12, 34, 56]",
+                    @"[12, 0, 56]"),
+                ScoringJson.Replace(
+                    @"""multiplierDecayTicks"": 240",
+                    @"""multiplierDecayTicks"": 0")
+            };
+            string[] expectedPaths =
+            {
+                "scoring.json.schemaVersion",
+                "scoring.json.grazeRadiusSubUnits",
+                "scoring.json.grazeScore",
+                "scoring.json.grazeScore",
+                "scoring.json.grazeGaugeCharge",
+                "scoring.json.multiplierGaugeRequirements",
+                "scoring.json.multiplierGaugeRequirements[1]",
+                "scoring.json.multiplierDecayTicks"
+            };
+
+            for (int i = 0; i < invalidJson.Length; i++)
+            {
+                string json = invalidJson[i];
+                GameDataParseException error =
+                    Assert.Throws<GameDataParseException>(
+                        () => GameDataParser.Parse(
+                            EnemiesJson,
+                            WeaponsJson,
+                            WavesJson,
+                            RewardsJson,
+                            ShipsJson,
+                            json));
+                StringAssert.Contains(expectedPaths[i], error.Message);
+            }
         }
 
         [Test]
