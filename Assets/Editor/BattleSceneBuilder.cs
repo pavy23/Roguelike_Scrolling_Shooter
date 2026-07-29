@@ -845,6 +845,14 @@ namespace Shmup.EditorTools
             SetReference(onboarding, "_director", director);
             SetReference(onboarding, "_font", uiFont);
 
+            // 점수 팝업 + 저체력 경고 (즉효 개선 묶음)
+            var popups = battleRoot.AddComponent<ScorePopups>();
+            SetReference(popups, "_font", uiFontBold);
+            SetReference(director, "_scorePopups", popups);
+            var lowHp = battleRoot.AddComponent<LowHpWarning>();
+            SetReference(lowHp, "_director", director);
+            SetReference(lowHp, "_warningClip", LoadClip("sfx_warning"));
+
             // 주스 연출 허브 (M4+ 게임 필): 히트스톱·슬로모·화면 흔들림 + 접근성 토글
             var juice = battleRoot.AddComponent<JuiceDirector>();
             var mainCamera = GameObject.Find("Main Camera");
@@ -852,6 +860,7 @@ namespace Shmup.EditorTools
                 SetReference(juice, "_cameraTransform", mainCamera.transform);
             SetReference(director, "_juice", juice);
             SetReference(options, "_juice", juice);
+            SetReference(lowHp, "_juice", juice);
 
             // 머즐 플래시: 기체 코 앞에 고정, PlayerFired 이벤트로 director가 깜빡인다
             var muzzleSprite = LoadExternalSprite("fx_muzzle_00.png", "fx_muzzle_00");
@@ -1069,6 +1078,8 @@ namespace Shmup.EditorTools
             SetReference(player, "_explosion", LoadClip("sfx_explosion"));
             SetReference(player, "_pickup", LoadClip("sfx_pickup"));
             SetReference(player, "_powerup", LoadClip("sfx_powerup"));
+            SetReference(player, "_laserBeam", LoadClip("sfx_laser_beam"));
+            SetReference(player, "_spreadShot", LoadClip("sfx_laser_spread"));
             SetReference(director, "_sfx", player);
         }
 

@@ -16,7 +16,7 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Font _fontBold;
 
         GameObject _root;
-        Text _scoreText, _statsText;
+        Text _scoreText, _statsText, _extraText, _modifierText;
         int _shownRun = int.MinValue;
 
         void Start()
@@ -26,7 +26,7 @@ namespace Shmup.Presentation.Battle
             _root = canvas.gameObject;
 
             UiKit.CreateDim(canvas.transform, new Color(0.35f, 0.02f, 0.05f, 0.45f));
-            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(380f, 150f));
+            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(400f, 180f));
 
             UiKit.CreateCornerText(panel, _fontBold, "GAME OVER", 22, UiKit.TextDanger,
                 new Vector2(0.5f, 1f), new Vector2(0f, -14f), TextAnchor.UpperCenter, "Title");
@@ -34,6 +34,10 @@ namespace Shmup.Presentation.Battle
                 new Vector2(0.5f, 1f), new Vector2(0f, -52f), TextAnchor.UpperCenter, "Score");
             _statsText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextMain,
                 new Vector2(0.5f, 1f), new Vector2(0f, -74f), TextAnchor.UpperCenter, "Stats");
+            _extraText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextDim,
+                new Vector2(0.5f, 1f), new Vector2(0f, -96f), TextAnchor.UpperCenter, "Extra");
+            _modifierText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextAccent,
+                new Vector2(0.5f, 1f), new Vector2(0f, -118f), TextAnchor.UpperCenter, "Modifiers");
             UiKit.CreateCornerText(panel, _font,
                 "[ENTER]/(A) 재출격 - 파워업 승계      [R]/(B) 타이틀", 11, UiKit.TextDim,
                 new Vector2(0.5f, 0f), new Vector2(0f, 16f), TextAnchor.LowerCenter, "Hints");
@@ -59,6 +63,9 @@ namespace Shmup.Presentation.Battle
                     $"SCORE  {_director.TotalScore:D8}   (run {_director.RunNumber}, stage {_director.StageIndex})";
                 _statsText.text =
                     $"KILLS {stats.Kills}   CAPSULES {stats.CapsulesCollected}   ACC {accuracy:0.#}%   SHOTS {stats.ShotsFired}";
+                _extraText.text =
+                    $"BEST COMBO x{_director.BestMultiplier}   GRAZE {stats.GrazeCount}";
+                _modifierText.text = DescribeModifiers(_director.ActiveModifiers);
             }
 
             var keyboard = Keyboard.current;
@@ -69,6 +76,29 @@ namespace Shmup.Presentation.Battle
                         || (gamepad != null && gamepad.buttonEast.wasPressedThisFrame);
             if (restart) _director.RestartRun();
             else if (toTitle) UnityEngine.SceneManagement.SceneManager.LoadScene("Title");
+        }
+
+        static string DescribeModifiers(Shmup.Core.Simulation.BattleModifier modifiers)
+        {
+            if (modifiers == Shmup.Core.Simulation.BattleModifier.None) return "";
+            var sb = new System.Text.StringBuilder(64);
+            sb.Append("BUILD: ");
+            AppendModifier(sb, modifiers, Shmup.Core.Simulation.BattleModifier.PierceShot, "PIERCE");
+            AppendModifier(sb, modifiers, Shmup.Core.Simulation.BattleModifier.Ricochet, "RICOCHET");
+            AppendModifier(sb, modifiers, Shmup.Core.Simulation.BattleModifier.HomingMissile, "HOMING");
+            AppendModifier(sb, modifiers, Shmup.Core.Simulation.BattleModifier.KillExplosion, "BLAST");
+            return sb.ToString();
+        }
+
+        static void AppendModifier(
+            System.Text.StringBuilder sb,
+            Shmup.Core.Simulation.BattleModifier modifiers,
+            Shmup.Core.Simulation.BattleModifier flag,
+            string label)
+        {
+            if ((modifiers & flag) == 0) return;
+            if (sb.Length > 7) sb.Append(" + ");
+            sb.Append(label);
         }
     }
 }

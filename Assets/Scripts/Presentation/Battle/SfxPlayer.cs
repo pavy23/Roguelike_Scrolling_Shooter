@@ -18,6 +18,16 @@ namespace Shmup.Presentation.Battle
         [SerializeField] AudioClip _explosion;
         [SerializeField] AudioClip _pickup;
         [SerializeField] AudioClip _powerup;
+        [SerializeField] AudioClip _laserBeam;     // laser 계열 발사음
+        [SerializeField] AudioClip _spreadShot;    // spread 계열 발사음
+
+        /// <summary>선택 함선의 주무기 계열 — 발사음을 계열별로 바꾼다 (REQ-022 후속).</summary>
+        public Shmup.Core.WeaponType WeaponFamily { get; set; } = Shmup.Core.WeaponType.Vulcan;
+
+        AudioClip FireClip =>
+            WeaponFamily == Shmup.Core.WeaponType.Laser && _laserBeam != null ? _laserBeam :
+            WeaponFamily == Shmup.Core.WeaponType.Spread && _spreadShot != null ? _spreadShot :
+            _laser;
 
         [Range(0f, 1f)]
         [SerializeField] float _laserVolume = 0.35f;
@@ -39,7 +49,7 @@ namespace Shmup.Presentation.Battle
                 switch (events[i].Type)
                 {
                     case SimEventType.PlayerFired:
-                        PlayOnce(0, _laser, _laserVolume);
+                        PlayOnce(0, FireClip, _laserVolume);
                         break;
                     case SimEventType.EnemyHit:
                         PlayOnce(1, _hit, 0.5f);

@@ -160,6 +160,14 @@ namespace Shmup.Presentation.Battle
         /// <summary>현재 콤보 배율 (MultiplierChanged 이벤트 추적, HUD 표시용).</summary>
         public int ScoreMultiplier { get; private set; } = 1;
 
+        /// <summary>이번 런에서 도달한 최고 배율 (게임오버 요약용).</summary>
+        public int BestMultiplier { get; private set; } = 1;
+
+        /// <summary>런 지속 모디파이어 (게임오버 요약용).</summary>
+        public BattleModifier ActiveModifiers => _run != null ? _run.ActiveModifiers : BattleModifier.None;
+
+        [SerializeField] ScorePopups _scorePopups;
+
         /// <summary>보스전 진행 중 여부 (BgmPlayer 보스 트랙 전환용).</summary>
         public bool BossActive => _sim != null && _sim.BossActive;
 
@@ -229,12 +237,20 @@ namespace Shmup.Presentation.Battle
         public bool IsRunOver => _run != null && _run.State == RunState.RunOver;
 
         /// <summary>런 오버 상태에서만 유효. 새 시드로 재출격 — 파워업 레벨은 MetaProgression 승계를 따른다.</summary>
+        /// <summary>재출격 시 요약 지표 초기화 (RestartRun 경유).</summary>
+        void ResetRunSummary()
+        {
+            BestMultiplier = 1;
+            ScoreMultiplier = 1;
+        }
+
         public void RestartRun()
         {
             if (_run == null || _run.State != RunState.RunOver) return;
             ulong newSeed = (uint)System.Environment.TickCount ^ ((ulong)(uint)_run.RunNumber << 32);
             _run.Restart(newSeed);
             Seed = (long)newSeed;
+            ResetRunSummary();
             RefreshBattle();
             SyncViews();
         }
@@ -338,6 +354,8 @@ namespace Shmup.Presentation.Battle
             _sim = _run.Battle;
 
             ApplyShipSprite(selectedShip != null ? selectedShip.Id : null);
+            if (_sfx != null && selectedShip != null)
+                _sfx.WeaponFamily = selectedShip.WeaponType;   // 계열별 발사음
 
             // 라이브 신규 런만 녹화한다 (리플레이/이어하기 런은 제외 — 첫 목숨 기준)
             if (!_replayMode && pending == null)
@@ -475,6 +493,8 @@ namespace Shmup.Presentation.Battle
                         SpawnExplosion(SimView.ToWorld(e.X, e.Y), 1f,
                             _enemyDeathTints.TryGetValue(e.EntityId, out var deathTint)
                                 ? deathTint : Color.white);
+                        if (_scorePopups != null)
+                            _scorePopups.Spawn(SimView.ToWorld(e.X, e.Y), e.Arg);   // Arg = 부여 점수 (REQ-024)
                         break;
                     case SimEventType.PlayerKilled:
                         SpawnExplosion(SimView.ToWorld(e.X, e.Y));
@@ -517,6 +537,7 @@ namespace Shmup.Presentation.Battle
                         break;
                     case SimEventType.MultiplierChanged:
                         ScoreMultiplier = e.Arg;
+                        if (e.Arg > BestMultiplier) BestMultiplier = e.Arg;
                         break;
                     case SimEventType.KillExplosionTriggered:
                         SpawnExplosion(SimView.ToWorld(e.X, e.Y), 1.4f);    // 광역 폭발 (대형)
@@ -524,6 +545,8 @@ namespace Shmup.Presentation.Battle
                         break;
                     case SimEventType.ObstacleDestroyed:
                         SpawnExplosion(SimView.ToWorld(e.X, e.Y), 0.9f);
+                        if (_scorePopups != null)
+                            _scorePopups.Spawn(SimView.ToWorld(e.X, e.Y), e.Arg);
                         break;
                 }
             }
