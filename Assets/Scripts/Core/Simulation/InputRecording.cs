@@ -1,0 +1,330 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
+
+namespace Shmup.Core.Simulation
+{
+    /// <summary>Serializer-facing run-length encoded input command.</summary>
+    [Serializable]
+    [DataContract]
+    public sealed class InputRunData
+    {
+        [DataMember(Order = 0)]
+        public int moveX;
+
+        [DataMember(Order = 1)]
+        public int moveY;
+
+        [DataMember(Order = 2)]
+        public bool fire;
+
+        [DataMember(Order = 3)]
+        public int tickCount;
+    }
+
+    /// <summary>
+    /// Serializer-facing input recording. Presentation owns persistence.
+    /// </summary>
+    [Serializable]
+    [DataContract]
+    public sealed class InputRecordingData
+    {
+        public const int CurrentSchemaVersion = 1;
+
+        [DataMember(Order = 0)]
+        public int schemaVersion;
+
+        [DataMember(Order = 1)]
+        public int totalTicks;
+
+        [DataMember(Order = 2)]
+        public InputRunData[] runs;
+    }
+
+    /// <summary>
+    /// Run-length recorder for commands supplied to RunManager.Step.
+    /// Its value-type run buffer is fully reserved at construction, so every
+    /// successful Record call is allocation-free. Export is the allocation
+    /// boundary that creates serializer-facing reference types.
+    /// </summary>
+    public sealed class InputRecorder
+    {
+        const int DefaultRunCapacity = 4096;
+
+        readonly InputRun[] _runs;
+        int _runCount;
+        int _totalTicks;
+
+        public InputRecorder()
+            : this(DefaultRunCapacity)
+        {
+        }
+
+        public InputRecorder(int runCapacity)
+        {
+            if (runCapacity < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(runCapacity));
+            _runs = new InputRun[runCapacity];
+        }
+
+        public int Capacity => _runs.Length;
+        public int RunCount => _runCount;
+        public int TotalTicks => _totalTicks;
+
+        public void Record(in InputCommand input)
+        {
+            if (_totalTicks == int.MaxValue)
+                throw new InvalidOperationException(
+                    "An input recording cannot exceed Int32.MaxValue ticks.");
+
+            if (_runCount > 0
+                && HasSameCommand(_runs[_runCount - 1], in input))
+            {
+                _runs[_runCount - 1].TickCount++;
+                _totalTicks++;
+                return;
+            }
+
+            if (_runCount == _runs.Length)
+            {
+                throw new InvalidOperationException(
+                    "The input recording run capacity has been exhausted.");
+            }
+            _runs[_runCount++] = new InputRun(in input, 1);
+            _totalTicks++;
+        }
+
+        public void Reset()
+        {
+            _runCount = 0;
+            _totalTicks = 0;
+        }
+
+        /// <summary>
+        /// Creates an independent serializer-facing copy. Empty recordings are
+        /// rejected because they cannot reproduce a run.
+        /// </summary>
+        public InputRecordingData Export()
+        {
+            if (_totalTicks == 0)
+                throw new InvalidOperationException(
+                    "An empty input recording cannot be exported.");
+
+            var exportedRuns = new InputRunData[_runCount];
+            for (int i = 0; i < _runCount; i++)
+            {
+                InputRun run = _runs[i];
+                exportedRuns[i] = new InputRunData
+                {
+                    moveX = run.MoveX,
+                    moveY = run.MoveY,
+                    fire = run.Fire,
+                    tickCount = run.TickCount
+                };
+            }
+
+            return new InputRecordingData
+            {
+                schemaVersion = InputRecordingData.CurrentSchemaVersion,
+                totalTicks = _totalTicks,
+                runs = exportedRuns
+            };
+        }
+
+        static bool HasSameCommand(
+            in InputRun run,
+            in InputCommand command)
+        {
+            return run.MoveX == command.MoveX
+                && run.MoveY == command.MoveY
+                && run.Fire == command.Fire;
+        }
+
+        struct InputRun
+        {
+            public InputRun(in InputCommand command, int tickCount)
+            {
+                MoveX = command.MoveX;
+                MoveY = command.MoveY;
+                Fire = command.Fire;
+                TickCount = tickCount;
+            }
+
+            public int MoveX;
+            public int MoveY;
+            public bool Fire;
+            public int TickCount;
+        }
+    }
+
+    /// <summary>
+    /// Validates and snapshots an input recording, then enumerates exactly one
+    /// InputCommand per recorded tick.
+    /// </summary>
+    public sealed class InputPlayback : IEnumerable<InputCommand>
+    {
+        readonly PlaybackRun[] _runs;
+
+        public InputPlayback(InputRecordingData data)
+        {
+            if (data == null)
+                throw new ArgumentNullException(nameof(data));
+            Validate(data);
+
+            TotalTicks = data.totalTicks;
+            _runs = new PlaybackRun[data.runs.Length];
+            for (int i = 0; i < data.runs.Length; i++)
+            {
+                InputRunData run = data.runs[i];
+                _runs[i] = new PlaybackRun(
+                    new InputCommand(run.moveX, run.moveY, run.fire),
+                    run.tickCount);
+            }
+        }
+
+        public int TotalTicks { get; }
+        public int RunCount => _runs.Length;
+
+        public Enumerator GetEnumerator()
+        {
+            return new Enumerator(_runs);
+        }
+
+        IEnumerator<InputCommand>
+            IEnumerable<InputCommand>.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        static void Validate(InputRecordingData data)
+        {
+            if (data.schemaVersion
+                != InputRecordingData.CurrentSchemaVersion)
+            {
+                throw Corrupted(
+                    "The input recording schema version is unsupported.");
+            }
+            if (data.totalTicks < 1)
+                throw Corrupted(
+                    "The input recording must contain at least one tick.");
+            if (data.runs == null || data.runs.Length == 0)
+                throw Corrupted(
+                    "The input recording must contain at least one run.");
+            if (data.runs.Length > data.totalTicks)
+                throw Corrupted(
+                    "The input recording has more runs than ticks.");
+
+            long tickSum = 0;
+            InputRunData previous = null;
+            for (int i = 0; i < data.runs.Length; i++)
+            {
+                InputRunData run = data.runs[i];
+                if (run == null)
+                    throw Corrupted(
+                        "Input recording runs cannot contain null.");
+                if (run.moveX < -1 || run.moveX > 1
+                    || run.moveY < -1 || run.moveY > 1)
+                {
+                    throw Corrupted(
+                        "Input recording movement must be digital.");
+                }
+                if (run.tickCount < 1)
+                    throw Corrupted(
+                        "Input recording run lengths must be positive.");
+                if (previous != null
+                    && previous.moveX == run.moveX
+                    && previous.moveY == run.moveY
+                    && previous.fire == run.fire)
+                {
+                    throw Corrupted(
+                        "Adjacent identical input runs are not canonical.");
+                }
+
+                tickSum += run.tickCount;
+                if (tickSum > int.MaxValue)
+                    throw Corrupted(
+                        "The input recording tick count overflowed.");
+                previous = run;
+            }
+
+            if (tickSum != data.totalTicks)
+                throw Corrupted(
+                    "Input recording run lengths do not match totalTicks.");
+        }
+
+        static ArgumentException Corrupted(string message)
+        {
+            return new ArgumentException(message, "data");
+        }
+
+        internal readonly struct PlaybackRun
+        {
+            public PlaybackRun(
+                InputCommand command,
+                int tickCount)
+            {
+                Command = command;
+                TickCount = tickCount;
+            }
+
+            public InputCommand Command { get; }
+            public int TickCount { get; }
+        }
+
+        public struct Enumerator : IEnumerator<InputCommand>
+        {
+            readonly PlaybackRun[] _runs;
+            int _runIndex;
+            int _remainingTicks;
+            InputCommand _current;
+
+            internal Enumerator(PlaybackRun[] runs)
+            {
+                _runs = runs;
+                _runIndex = -1;
+                _remainingTicks = 0;
+                _current = default;
+            }
+
+            public InputCommand Current => _current;
+            object IEnumerator.Current => _current;
+
+            public bool MoveNext()
+            {
+                if (_remainingTicks > 0)
+                {
+                    _remainingTicks--;
+                    return true;
+                }
+
+                int nextRun = _runIndex + 1;
+                if (nextRun >= _runs.Length)
+                    return false;
+
+                _runIndex = nextRun;
+                PlaybackRun run = _runs[nextRun];
+                _current = run.Command;
+                _remainingTicks = run.TickCount - 1;
+                return true;
+            }
+
+            public void Reset()
+            {
+                _runIndex = -1;
+                _remainingTicks = 0;
+                _current = default;
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+    }
+}
