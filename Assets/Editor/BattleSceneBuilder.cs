@@ -703,6 +703,10 @@ namespace Shmup.EditorTools
             AddEnemySprite("brood_spitter", LoadExternalSprite("enemy_brood_spitter.png", "enemy_brood_spitter"));
             AddEnemySprite("mortar_drone", LoadExternalSprite("enemy_mortar_drone.png", "enemy_mortar_drone"));
             AddEnemySprite("echo_wisp", LoadExternalSprite("enemy_echo_wisp.png", "enemy_echo_wisp"));
+            AddEnemySprite("rust_skimmer", LoadExternalSprite("enemy_rust_skimmer.png", "enemy_rust_skimmer"));
+            AddEnemySprite("junk_roller", LoadExternalSprite("enemy_junk_roller.png", "enemy_junk_roller"));
+            AddEnemySprite("void_moth", LoadExternalSprite("enemy_void_moth.png", "enemy_void_moth"));
+            AddEnemySprite("shard_prism", LoadExternalSprite("enemy_shard_prism.png", "enemy_shard_prism"));
             SetStringArray(director, "_enemySpritePrefixes", enemyTypePrefixes.ToArray());
             SetReferenceArray(director, "_enemySprites", enemyTypeSprites.ToArray());
 
@@ -722,6 +726,7 @@ namespace Shmup.EditorTools
             {
                 "zako_straight", "zako_fast", "zako_sine", "turret", "zako_tank", "elite",
                 "spore", "lancer", "sentry", "interceptor", "wisp", "guardian",
+                "mini_destroyer", "mini_horror", "mini_walker", "mini_crystal",
                 "boss_stage1", "boss_hive", "boss_fortress", "boss_storm", "boss_core"
             })
                 AddAnim(prefix);
