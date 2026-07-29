@@ -820,3 +820,9 @@ solid 통로 + breakable 파밍. BalanceSim corridor/stage1 empty PASS. 상세�
 4. 결정론·무할당·풀 상한(MaxObstacles config), 회귀 테스트. 잠정 §7.
    Unity NUnit 호환 API만. GROK: 테마별 배치(hive 포자기둥/fortress 장갑블록/
    nebula 크리스탈/core 혼합, 밀도 점진 증가). CLAUDE: 테마별 스프라이트·뷰 풀.
+
+## [ ] REQ-024 → CODEX: EnemyKilled 이벤트 Arg를 부여 점수로 (점수 팝업용)
+
+현재 EnemyKilled.Arg는 데미지인데 소비처가 없다. 배율 적용된 실제 부여 점수로 바꿔
+Presentation이 +N 플로팅 팝업을 그릴 수 있게 하라. ObstacleDestroyed도 동일하게.
+Arg 의미 변경은 주석/독스트링 갱신, 관련 테스트 조정. 소규모.
