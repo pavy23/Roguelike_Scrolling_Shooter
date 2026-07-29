@@ -561,6 +561,12 @@ namespace Shmup.Core.Simulation
         readonly int _obstacleContactDamage, _breakableObstacleScore;
         readonly int _enemyHpMultiplierNumerator;
         readonly int _enemyHpMultiplierDenominator;
+        readonly int _encounterEnemyHpMultiplierNumerator;
+        readonly int _encounterEnemyHpMultiplierDenominator;
+        readonly int _capsuleDropMultiplierNumerator;
+        readonly int _capsuleDropMultiplierDenominator;
+        readonly int _encounterScoreMultiplierNumerator;
+        readonly int _encounterScoreMultiplierDenominator;
         readonly int _playerBulletDamage, _playerBulletHalfWidth, _playerBulletHalfHeight;
         readonly PowerUpGauge _powerUpGauge;
         readonly Rng _dropRng;
@@ -777,6 +783,24 @@ namespace Shmup.Core.Simulation
                 config.EnemyHpMultiplierNumerator;
             _enemyHpMultiplierDenominator =
                 config.EnemyHpMultiplierDenominator;
+            _encounterEnemyHpMultiplierNumerator = stageEnabled
+                ? stagePlan.EncounterEnemyHpMultiplierNumerator
+                : 1;
+            _encounterEnemyHpMultiplierDenominator = stageEnabled
+                ? stagePlan.EncounterEnemyHpMultiplierDenominator
+                : 1;
+            _capsuleDropMultiplierNumerator = stageEnabled
+                ? stagePlan.CapsuleDropMultiplierNumerator
+                : 1;
+            _capsuleDropMultiplierDenominator = stageEnabled
+                ? stagePlan.CapsuleDropMultiplierDenominator
+                : 1;
+            _encounterScoreMultiplierNumerator = stageEnabled
+                ? stagePlan.EncounterScoreMultiplierNumerator
+                : 1;
+            _encounterScoreMultiplierDenominator = stageEnabled
+                ? stagePlan.EncounterScoreMultiplierDenominator
+                : 1;
             _enemyBulletSpeedNumerator = config.EnemyBulletSpeedNumerator;
             _enemyBulletSpeedDenominator = config.EnemyBulletSpeedDenominator;
             _enemyBulletHalfWidth = config.EnemyBulletHalfWidth;
@@ -2201,6 +2225,11 @@ namespace Shmup.Core.Simulation
         int AwardScore(long baseScore)
         {
             long multipliedScore = MultiplySaturated(baseScore, ScoreMultiplier);
+            multipliedScore = ScalePositiveRatioSaturated(
+                multipliedScore,
+                _encounterScoreMultiplierNumerator,
+                _encounterScoreMultiplierDenominator,
+                false);
             long awardedScore = AddScoreSaturated(multipliedScore);
             return awardedScore >= int.MaxValue
                 ? int.MaxValue
@@ -2386,7 +2415,15 @@ namespace Shmup.Core.Simulation
         void TryDropCapsule(EnemyDefinition definition, int x, int y)
         {
             if (definition.DropWeight == 0) return;
-            int totalWeight = _capsuleNoDropWeight + definition.DropWeight;
+            long scaledWeight = ScalePositiveRatioSaturated(
+                definition.DropWeight,
+                _capsuleDropMultiplierNumerator,
+                _capsuleDropMultiplierDenominator,
+                false);
+            int dropWeight = scaledWeight >= int.MaxValue - _capsuleNoDropWeight
+                ? int.MaxValue - _capsuleNoDropWeight
+                : (int)scaledWeight;
+            int totalWeight = _capsuleNoDropWeight + dropWeight;
             if (_dropRng.NextInt(0, totalWeight) < _capsuleNoDropWeight) return;
             if (_nextCapsuleId == int.MaxValue)
                 throw new InvalidOperationException("The capsule id counter is exhausted.");
@@ -2704,13 +2741,37 @@ namespace Shmup.Core.Simulation
 
         int ScaleEnemyHp(int baseHp)
         {
-            long scaled =
-                ((long)baseHp * _enemyHpMultiplierNumerator
-                    + _enemyHpMultiplierDenominator - 1)
-                / _enemyHpMultiplierDenominator;
+            long scaled = ScalePositiveRatioSaturated(
+                baseHp,
+                _enemyHpMultiplierNumerator,
+                _enemyHpMultiplierDenominator,
+                true);
+            scaled = ScalePositiveRatioSaturated(
+                scaled,
+                _encounterEnemyHpMultiplierNumerator,
+                _encounterEnemyHpMultiplierDenominator,
+                true);
             return scaled >= int.MaxValue
                 ? int.MaxValue
                 : (int)scaled;
+        }
+
+        static long ScalePositiveRatioSaturated(
+            long value,
+            int numerator,
+            int denominator,
+            bool roundUp)
+        {
+            long quotient = value / denominator;
+            long remainder = value % denominator;
+            long whole = MultiplySaturated(quotient, numerator);
+            long fractionProduct = remainder * numerator;
+            long fraction = roundUp
+                ? (fractionProduct + denominator - 1) / denominator
+                : fractionProduct / denominator;
+            return whole > long.MaxValue - fraction
+                ? long.MaxValue
+                : whole + fraction;
         }
 
         static int SaturateToInt(long value)

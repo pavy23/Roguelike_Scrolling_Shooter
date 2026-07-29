@@ -16,6 +16,35 @@ namespace Shmup.Core.Generation
     }
 
     /// <summary>
+    /// Optional extension implemented by generators that can build an explicitly
+    /// chosen map route. Legacy generators only need IStageGenerator.
+    /// </summary>
+    public interface IRouteStageGenerator : IStageGenerator
+    {
+        IReadOnlyList<string> ThemeIds { get; }
+        IReadOnlyList<string> GetThemeOrder(ulong seed);
+        bool CanGenerateRoute(
+            string themeId,
+            int stageIndex,
+            int difficulty,
+            EncounterType encounterType);
+        StagePlan GenerateRoute(
+            ulong seed,
+            int stageIndex,
+            int difficulty,
+            string themeId,
+            EncounterType encounterType);
+    }
+
+    public enum EncounterType
+    {
+        Normal = 0,
+        Elite = 1,
+        Supply = 2,
+        Hazard = 3
+    }
+
+    /// <summary>
     /// 보스 페이즈 하나의 발사 파라미터 (REQ-007). 속도는 서브유닛/틱 유리수.
     /// Ways는 홀짝 모두 조준축을 중심으로 대칭 배치된다.
     /// </summary>
@@ -129,6 +158,37 @@ namespace Shmup.Core.Generation
             IReadOnlyList<BossPhase> bossPhases,
             string themeId,
             string requestedThemeId)
+            : this(
+                segments,
+                bossId,
+                laneCount,
+                startLaneMask,
+                bossEntryLaneMask,
+                bossMaxHp,
+                bossHalfWidth,
+                bossHalfHeight,
+                bossHoldX,
+                bossPhases,
+                themeId,
+                requestedThemeId,
+                EncounterType.Normal)
+        {
+        }
+
+        public StagePlan(
+            IReadOnlyList<StageSegment> segments,
+            string bossId,
+            int laneCount,
+            int startLaneMask,
+            int bossEntryLaneMask,
+            int bossMaxHp,
+            int bossHalfWidth,
+            int bossHalfHeight,
+            int bossHoldX,
+            IReadOnlyList<BossPhase> bossPhases,
+            string themeId,
+            string requestedThemeId,
+            EncounterType encounterType)
         {
             if (bossMaxHp < 0)
                 throw new ArgumentOutOfRangeException(nameof(bossMaxHp));
@@ -142,6 +202,8 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException(
                     "Requested theme id cannot be empty.",
                     nameof(requestedThemeId));
+            if (!Enum.IsDefined(typeof(EncounterType), encounterType))
+                throw new ArgumentOutOfRangeException(nameof(encounterType));
             Segments = Copy(segments, nameof(segments));
             BossId = bossId ?? throw new ArgumentNullException(nameof(bossId));
             LaneCount = laneCount;
@@ -154,6 +216,7 @@ namespace Shmup.Core.Generation
             BossPhases = CopyPhases(bossPhases);
             ThemeId = themeId;
             RequestedThemeId = requestedThemeId;
+            EncounterType = encounterType;
             SegmentReuseCount = CountSegmentReuses(Segments);
         }
 
@@ -182,6 +245,22 @@ namespace Shmup.Core.Generation
         /// replacement. Null for an unthemed catalog.
         /// </summary>
         public string RequestedThemeId { get; }
+        /// <summary>The route encounter rules applied to this generated plan.</summary>
+        public EncounterType EncounterType { get; }
+        /// <summary>Provisional per-encounter enemy HP scaling.</summary>
+        public int EncounterEnemyHpMultiplierNumerator =>
+            EncounterType == EncounterType.Elite ? 3 : 1;
+        public int EncounterEnemyHpMultiplierDenominator =>
+            EncounterType == EncounterType.Elite ? 2 : 1;
+        /// <summary>Provisional per-encounter capsule drop-weight scaling.</summary>
+        public int CapsuleDropMultiplierNumerator =>
+            EncounterType == EncounterType.Supply ? 4 : 1;
+        public int CapsuleDropMultiplierDenominator => 1;
+        /// <summary>Provisional per-encounter score scaling.</summary>
+        public int EncounterScoreMultiplierNumerator =>
+            EncounterType == EncounterType.Hazard ? 3 : 1;
+        public int EncounterScoreMultiplierDenominator =>
+            EncounterType == EncounterType.Hazard ? 2 : 1;
         /// <summary>True when ThemeId is a deterministic safety fallback.</summary>
         public bool ThemeFallbackApplied =>
             !string.Equals(

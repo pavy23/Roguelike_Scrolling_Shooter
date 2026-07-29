@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
+using Shmup.Core.Generation;
 
 namespace Shmup.Core.Simulation
 {
@@ -33,7 +34,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class InputRecordingData
     {
-        public const int CurrentSchemaVersion = 3;
+        public const int CurrentSchemaVersion = 4;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -49,6 +50,9 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 4)]
         public int difficultyMultiplierDenominator = 1;
+
+        [DataMember(Order = 5)]
+        public RouteChoiceData[] routeChoices;
     }
 
     /// <summary>
@@ -64,6 +68,8 @@ namespace Shmup.Core.Simulation
         readonly InputRun[] _runs;
         readonly int _difficultyMultiplierNumerator;
         readonly int _difficultyMultiplierDenominator;
+        readonly List<RouteChoice> _recordedRouteChoices;
+        readonly RunManager _routeSource;
         int _runCount;
         int _totalTicks;
 
@@ -83,6 +89,7 @@ namespace Shmup.Core.Simulation
                 GetDifficultyNumerator(run),
                 GetDifficultyDenominator(run))
         {
+            _routeSource = run;
         }
 
         public InputRecorder(
@@ -108,6 +115,7 @@ namespace Shmup.Core.Simulation
             _difficultyMultiplierDenominator =
                 difficultyMultiplierDenominator / divisor;
             _runs = new InputRun[runCapacity];
+            _recordedRouteChoices = new List<RouteChoice>();
         }
 
         public int Capacity => _runs.Length;
@@ -145,6 +153,31 @@ namespace Shmup.Core.Simulation
         {
             _runCount = 0;
             _totalTicks = 0;
+            _recordedRouteChoices.Clear();
+        }
+
+        public void RecordRouteChoice(
+            int stageIndex,
+            int optionIndex,
+            in RouteOption option)
+        {
+            if (_routeSource != null)
+                throw new InvalidOperationException(
+                    "A run-bound recorder reads route choices from its run.");
+            if (_recordedRouteChoices.Count > 0
+                && stageIndex
+                    <= _recordedRouteChoices[
+                        _recordedRouteChoices.Count - 1].StageIndex)
+            {
+                throw new ArgumentException(
+                    "Route choices must be recorded in increasing stage order.",
+                    nameof(stageIndex));
+            }
+            _recordedRouteChoices.Add(new RouteChoice(
+                stageIndex,
+                optionIndex,
+                option.ThemeId,
+                option.EncounterType));
         }
 
         /// <summary>
@@ -171,6 +204,24 @@ namespace Shmup.Core.Simulation
                 };
             }
 
+            IReadOnlyList<RouteChoice> routeChoices =
+                _routeSource != null
+                    ? _routeSource.RouteChoiceHistory
+                    : _recordedRouteChoices;
+            var exportedRouteChoices =
+                new RouteChoiceData[routeChoices.Count];
+            for (int i = 0; i < routeChoices.Count; i++)
+            {
+                RouteChoice choice = routeChoices[i];
+                exportedRouteChoices[i] = new RouteChoiceData
+                {
+                    stageIndex = choice.StageIndex,
+                    optionIndex = choice.OptionIndex,
+                    themeId = choice.ThemeId,
+                    encounterType = (int)choice.EncounterType
+                };
+            }
+
             return new InputRecordingData
             {
                 schemaVersion = InputRecordingData.CurrentSchemaVersion,
@@ -179,7 +230,8 @@ namespace Shmup.Core.Simulation
                 difficultyMultiplierNumerator =
                     _difficultyMultiplierNumerator,
                 difficultyMultiplierDenominator =
-                    _difficultyMultiplierDenominator
+                    _difficultyMultiplierDenominator,
+                routeChoices = exportedRouteChoices
             };
         }
 
@@ -244,6 +296,8 @@ namespace Shmup.Core.Simulation
     public sealed class InputPlayback : IEnumerable<InputCommand>
     {
         readonly PlaybackRun[] _runs;
+        readonly RouteChoice[] _routeChoices;
+        readonly IReadOnlyList<RouteChoice> _routeChoiceView;
 
         public InputPlayback(InputRecordingData data)
         {
@@ -279,12 +333,27 @@ namespace Shmup.Core.Simulation
                         run.activate),
                     run.tickCount);
             }
+            RouteChoiceData[] serializedChoices =
+                data.routeChoices ?? Array.Empty<RouteChoiceData>();
+            _routeChoices = new RouteChoice[serializedChoices.Length];
+            for (int i = 0; i < serializedChoices.Length; i++)
+            {
+                RouteChoiceData choice = serializedChoices[i];
+                _routeChoices[i] = new RouteChoice(
+                    choice.stageIndex,
+                    choice.optionIndex,
+                    choice.themeId,
+                    (EncounterType)choice.encounterType);
+            }
+            _routeChoiceView = Array.AsReadOnly(_routeChoices);
         }
 
         public int TotalTicks { get; }
         public int RunCount => _runs.Length;
         public int DifficultyMultiplierNumerator { get; }
         public int DifficultyMultiplierDenominator { get; }
+        public IReadOnlyList<RouteChoice> RouteChoices =>
+            _routeChoiceView;
 
         public Enumerator GetEnumerator()
         {
@@ -305,14 +374,14 @@ namespace Shmup.Core.Simulation
         static void Validate(InputRecordingData data)
         {
             if (data.schemaVersion != 2
+                && data.schemaVersion != 3
                 && data.schemaVersion
                     != InputRecordingData.CurrentSchemaVersion)
             {
                 throw Corrupted(
                     "The input recording schema version is unsupported.");
             }
-            if (data.schemaVersion
-                    == InputRecordingData.CurrentSchemaVersion
+            if (data.schemaVersion >= 3
                 && (data.difficultyMultiplierNumerator < 1
                     || data.difficultyMultiplierDenominator < 1))
             {
@@ -367,6 +436,35 @@ namespace Shmup.Core.Simulation
             if (tickSum != data.totalTicks)
                 throw Corrupted(
                     "Input recording run lengths do not match totalTicks.");
+
+            if (data.schemaVersion
+                    == InputRecordingData.CurrentSchemaVersion
+                && data.routeChoices == null)
+            {
+                throw Corrupted(
+                    "Input recording routeChoices cannot be null.");
+            }
+            RouteChoiceData[] choices =
+                data.routeChoices ?? Array.Empty<RouteChoiceData>();
+            int previousStageIndex = 1;
+            for (int i = 0; i < choices.Length; i++)
+            {
+                RouteChoiceData choice = choices[i];
+                if (choice == null
+                    || choice.stageIndex <= previousStageIndex
+                    || choice.optionIndex < 0
+                    || choice.optionIndex
+                        >= RunManager.MaximumRouteOptionCount
+                    || string.IsNullOrEmpty(choice.themeId)
+                    || !Enum.IsDefined(
+                        typeof(EncounterType),
+                        choice.encounterType))
+                {
+                    throw Corrupted(
+                        "Input recording route choice history is invalid.");
+                }
+                previousStageIndex = choice.stageIndex;
+            }
         }
 
         static ArgumentException Corrupted(string message)

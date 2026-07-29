@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Shmup.Core.Generation;
 
 namespace Shmup.Core.Simulation
@@ -9,7 +10,9 @@ namespace Shmup.Core.Simulation
         Playing = 0,
         RunOver = 1,
         /// <summary>보스 격파 후 보상 선택 대기 (REQ-007 요청 3). ChooseReward로 재개.</summary>
-        AwaitingReward = 2
+        AwaitingReward = 2,
+        /// <summary>Reward chosen; waiting for the next map node selection.</summary>
+        AwaitingRoute = 3
     }
 
     public enum RewardType
@@ -58,6 +61,56 @@ namespace Shmup.Core.Simulation
         public PowerUpSlot Slot { get; }
         public int Amount { get; }
         public BattleModifier ModifierId { get; }
+    }
+
+    public readonly struct RouteOption
+    {
+        public RouteOption(string themeId, EncounterType encounterType)
+        {
+            if (string.IsNullOrEmpty(themeId))
+                throw new ArgumentException(
+                    "Route theme id cannot be empty.",
+                    nameof(themeId));
+            if (!Enum.IsDefined(typeof(EncounterType), encounterType))
+                throw new ArgumentOutOfRangeException(nameof(encounterType));
+            ThemeId = themeId;
+            EncounterType = encounterType;
+        }
+
+        public string ThemeId { get; }
+        public EncounterType EncounterType { get; }
+    }
+
+    public readonly struct RouteChoice
+    {
+        public RouteChoice(
+            int stageIndex,
+            int optionIndex,
+            string themeId,
+            EncounterType encounterType)
+        {
+            if (stageIndex < 2)
+                throw new ArgumentOutOfRangeException(nameof(stageIndex));
+            if (optionIndex < 0
+                || optionIndex >= RunManager.MaximumRouteOptionCount)
+                throw new ArgumentOutOfRangeException(nameof(optionIndex));
+            if (string.IsNullOrEmpty(themeId))
+                throw new ArgumentException(
+                    "Route theme id cannot be empty.",
+                    nameof(themeId));
+            if (!Enum.IsDefined(typeof(EncounterType), encounterType))
+                throw new ArgumentOutOfRangeException(nameof(encounterType));
+            StageIndex = stageIndex;
+            OptionIndex = optionIndex;
+            ThemeId = themeId;
+            EncounterType = encounterType;
+        }
+
+        /// <summary>The stage entered by this choice.</summary>
+        public int StageIndex { get; }
+        public int OptionIndex { get; }
+        public string ThemeId { get; }
+        public EncounterType EncounterType { get; }
     }
 
     /// <summary>Immutable rewards.json entry used by deterministic run selection.</summary>
@@ -247,7 +300,10 @@ namespace Shmup.Core.Simulation
     {
         const int BattleSimulationStream = 1;
         const int RewardSelectionStream = 2;
+        const int RouteSelectionStream = 3;
         public const int RewardOptionCount = 3;
+        public const int MinimumRouteOptionCount = 2;
+        public const int MaximumRouteOptionCount = 3;
 
         static readonly RewardCatalog BuiltInRewards = new RewardCatalog(
             RewardOptionCount,
@@ -297,6 +353,9 @@ namespace Shmup.Core.Simulation
         readonly int[] _rewardAcquisitionCounts;
         readonly int[] _stageStartRewardAcquisitionCounts;
         readonly Rng _rewardRng;
+        readonly Rng _routeRng;
+        readonly List<RouteChoice> _routeChoiceHistory;
+        readonly ReadOnlyCollection<RouteChoice> _routeChoiceHistoryView;
 
         ulong _runSeed;
         int _stageLengthTicks;
@@ -574,6 +633,9 @@ namespace Shmup.Core.Simulation
             _stageStartPowerUpLevels =
                 new int[PowerUpGauge.SlotCount];
             _rewardRng = new Rng(0UL);
+            _routeRng = new Rng(0UL);
+            _routeChoiceHistory = new List<RouteChoice>();
+            _routeChoiceHistoryView = _routeChoiceHistory.AsReadOnly();
             _battleConfig.MainShotBaseDamage =
                 _battleContent.PlayerWeapon.BaseDamage;
             _battleConfig.FireIntervalTicks =
@@ -650,6 +712,11 @@ namespace Shmup.Core.Simulation
         /// <summary>AwaitingReward 상태에서만 유효. 항상 RewardOptionCount개.</summary>
         public IReadOnlyList<RewardOption> RewardOptions => _rewardOptions;
         IReadOnlyList<RewardOption> _rewardOptions = Array.Empty<RewardOption>();
+        /// <summary>Two or three deterministic map nodes while AwaitingRoute.</summary>
+        public IReadOnlyList<RouteOption> RouteOptions => _routeOptions;
+        IReadOnlyList<RouteOption> _routeOptions = Array.Empty<RouteOption>();
+        public IReadOnlyList<RouteChoice> RouteChoiceHistory =>
+            _routeChoiceHistoryView;
 
         /// <summary>
         /// Exports the checkpoint captured immediately before the current stage's
@@ -689,6 +756,20 @@ namespace Shmup.Core.Simulation
                 };
             }
 
+            var routeChoices =
+                new RouteChoiceData[_routeChoiceHistory.Count];
+            for (int i = 0; i < _routeChoiceHistory.Count; i++)
+            {
+                RouteChoice choice = _routeChoiceHistory[i];
+                routeChoices[i] = new RouteChoiceData
+                {
+                    stageIndex = choice.StageIndex,
+                    optionIndex = choice.OptionIndex,
+                    themeId = choice.ThemeId,
+                    encounterType = (int)choice.EncounterType
+                };
+            }
+
             return new RunSuspendData
             {
                 schemaVersion = RunSuspendData.CurrentSchemaVersion,
@@ -719,7 +800,8 @@ namespace Shmup.Core.Simulation
                 difficultyMultiplierNumerator =
                     _difficultyMultiplierNumerator,
                 difficultyMultiplierDenominator =
-                    _difficultyMultiplierDenominator
+                    _difficultyMultiplierDenominator,
+                routeChoices = routeChoices
             };
         }
 
@@ -824,6 +906,7 @@ namespace Shmup.Core.Simulation
             manager.StageIndex = data.stageIndex;
             manager.State = RunState.Playing;
             manager._rewardOptions = Array.Empty<RewardOption>();
+            manager._routeOptions = Array.Empty<RouteOption>();
             manager._completedStageScore = data.score;
             manager._completedShotsFired = data.shotsFired;
             manager._completedShotsHit = data.shotsHit;
@@ -848,6 +931,9 @@ namespace Shmup.Core.Simulation
                 data.rewardAcquisitions,
                 resolvedRewards,
                 manager._rewardAcquisitionCounts);
+            manager.RestoreRouteChoices(
+                data.routeChoices,
+                data.schemaVersion >= 3);
             manager.PowerUpGauge.RestoreState(
                 data.powerUpLevels,
                 data.powerUpCursor);
@@ -900,7 +986,16 @@ namespace Shmup.Core.Simulation
             if (Battle.Tick >= _stageLengthTicks)
             {
                 IncrementStagesCleared();
-                AdvanceStage();
+                if (StagePlan.EncounterType == EncounterType.Normal)
+                {
+                    // Legacy bossless plans keep their original automatic flow.
+                    AdvanceStage();
+                }
+                else
+                {
+                    _rewardOptions = GenerateRewardOptions();
+                    State = RunState.AwaitingReward;
+                }
             }
         }
 
@@ -914,12 +1009,45 @@ namespace Shmup.Core.Simulation
                 throw new InvalidOperationException("No reward is awaiting selection.");
             if (optionIndex < 0 || optionIndex >= _rewardOptions.Count)
                 throw new ArgumentOutOfRangeException(nameof(optionIndex));
+            if (StageIndex == int.MaxValue)
+                throw new InvalidOperationException(
+                    "The stage counter is exhausted.");
 
             int catalogIndex = _rewardOptionCatalogIndices[optionIndex];
             ApplyReward(_rewardOptions[optionIndex]);
             if (_rewardAcquisitionCounts[catalogIndex] < int.MaxValue)
                 _rewardAcquisitionCounts[catalogIndex]++;
             _rewardOptions = Array.Empty<RewardOption>();
+            _routeOptions = GenerateRouteOptions(StageIndex + 1);
+            if (_routeOptions.Count >= MinimumRouteOptionCount)
+            {
+                State = RunState.AwaitingRoute;
+                return;
+            }
+
+            State = RunState.Playing;
+            AdvanceStage();
+        }
+
+        public void ChooseRoute(int optionIndex)
+        {
+            if (State != RunState.AwaitingRoute)
+                throw new InvalidOperationException(
+                    "No route is awaiting selection.");
+            if (optionIndex < 0 || optionIndex >= _routeOptions.Count)
+                throw new ArgumentOutOfRangeException(nameof(optionIndex));
+            if (StageIndex == int.MaxValue)
+                throw new InvalidOperationException(
+                    "The stage counter is exhausted.");
+
+            RouteOption option = _routeOptions[optionIndex];
+            int targetStageIndex = StageIndex + 1;
+            _routeChoiceHistory.Add(new RouteChoice(
+                targetStageIndex,
+                optionIndex,
+                option.ThemeId,
+                option.EncounterType));
+            _routeOptions = Array.Empty<RouteOption>();
             State = RunState.Playing;
             AdvanceStage();
         }
@@ -998,7 +1126,55 @@ namespace Shmup.Core.Simulation
                 RewardSelectionStream,
                 StageIndex);
             int poolCount = eligibleCount;
-            for (int i = 0; i < _rewardOptionBuffer.Length; i++)
+            int optionStart = 0;
+            if (StagePlan.EncounterType == EncounterType.Elite)
+            {
+                int modifierWeight = 0;
+                for (int i = 0; i < poolCount; i++)
+                {
+                    if (_rewardPool[i].Type == RewardType.Modifier)
+                        modifierWeight += _rewardWeights[i];
+                }
+
+                if (modifierWeight > 0)
+                {
+                    int roll = _rewardRng.NextInt(0, modifierWeight);
+                    int modifierPick = -1;
+                    for (int i = 0; i < poolCount; i++)
+                    {
+                        if (_rewardPool[i].Type != RewardType.Modifier)
+                            continue;
+                        if (roll < _rewardWeights[i])
+                        {
+                            modifierPick = i;
+                            break;
+                        }
+                        roll -= _rewardWeights[i];
+                    }
+
+                    RewardDefinition modifier =
+                        _rewardPool[modifierPick];
+                    _rewardOptionCatalogIndices[0] =
+                        _rewardPoolCatalogIndices[modifierPick];
+                    _rewardOptionBuffer[0] = new RewardOption(
+                        modifier.Id,
+                        modifier.Type,
+                        modifier.Slot,
+                        modifier.Amount,
+                        modifier.ModifierId);
+                    int last = --poolCount;
+                    _rewardPool[modifierPick] = _rewardPool[last];
+                    _rewardPoolCatalogIndices[modifierPick] =
+                        _rewardPoolCatalogIndices[last];
+                    _rewardWeights[modifierPick] =
+                        _rewardWeights[last];
+                    optionStart = 1;
+                }
+            }
+
+            for (int i = optionStart;
+                i < _rewardOptionBuffer.Length;
+                i++)
             {
                 int pick = _rewardRng.PickWeighted(_rewardWeights, poolCount);
                 RewardDefinition selected = _rewardPool[pick];
@@ -1018,6 +1194,93 @@ namespace Shmup.Core.Simulation
                 _rewardWeights[pick] = _rewardWeights[last];
             }
             return _rewardOptionView;
+        }
+
+        IReadOnlyList<RouteOption> GenerateRouteOptions(
+            int targetStageIndex)
+        {
+            if (!(_stageGenerator is IRouteStageGenerator routeGenerator)
+                || routeGenerator.ThemeIds.Count
+                    < MinimumRouteOptionCount)
+                return Array.Empty<RouteOption>();
+
+            // Every full theme cycle ends in a deterministic final-boss floor.
+            // That floor uses the run permutation directly and has no map choice.
+            if (targetStageIndex % routeGenerator.ThemeIds.Count == 0)
+                return Array.Empty<RouteOption>();
+
+            int targetDifficulty =
+                _difficultyCurve.GetDifficulty(targetStageIndex);
+            IReadOnlyList<string> themeOrder =
+                routeGenerator.GetThemeOrder(_runSeed);
+            if (themeOrder.Count < MinimumRouteOptionCount)
+                return Array.Empty<RouteOption>();
+
+            _routeRng.ResetForked(
+                _runSeed,
+                RouteSelectionStream,
+                targetStageIndex);
+            int desiredCount = Math.Min(
+                MaximumRouteOptionCount,
+                themeOrder.Count);
+            if (desiredCount > MinimumRouteOptionCount)
+                desiredCount = _routeRng.NextInt(2, desiredCount + 1);
+
+            var options = new RouteOption[desiredCount];
+            int optionCount = 0;
+            int start = _routeRng.NextInt(0, themeOrder.Count);
+            for (int offset = 0;
+                offset < themeOrder.Count
+                    && optionCount < desiredCount;
+                offset++)
+            {
+                string themeId =
+                    themeOrder[(start + offset) % themeOrder.Count];
+                bool duplicateTheme = false;
+                for (int existing = 0;
+                    existing < optionCount;
+                    existing++)
+                {
+                    if (string.Equals(
+                            options[existing].ThemeId,
+                            themeId,
+                            StringComparison.Ordinal))
+                    {
+                        duplicateTheme = true;
+                        break;
+                    }
+                }
+                if (duplicateTheme)
+                    continue;
+
+                int encounterStart = _routeRng.NextInt(0, 4);
+                for (int encounterOffset = 0;
+                    encounterOffset < 4;
+                    encounterOffset++)
+                {
+                    var encounterType = (EncounterType)(
+                        (encounterStart + encounterOffset) % 4);
+                    if (!routeGenerator.CanGenerateRoute(
+                            themeId,
+                            targetStageIndex,
+                            targetDifficulty,
+                            encounterType))
+                        continue;
+
+                    options[optionCount++] =
+                        new RouteOption(themeId, encounterType);
+                    break;
+                }
+            }
+
+            if (optionCount < MinimumRouteOptionCount)
+                return Array.Empty<RouteOption>();
+            if (optionCount == options.Length)
+                return Array.AsReadOnly(options);
+
+            var trimmed = new RouteOption[optionCount];
+            Array.Copy(options, trimmed, optionCount);
+            return Array.AsReadOnly(trimmed);
         }
 
         public void Restart(ulong newRunSeed)
@@ -1045,6 +1308,8 @@ namespace Shmup.Core.Simulation
             StageIndex = 1;
             State = RunState.Playing;
             _rewardOptions = Array.Empty<RewardOption>();
+            _routeOptions = Array.Empty<RouteOption>();
+            _routeChoiceHistory.Clear();
             _completedStageScore = 0;
             _completedShotsFired = 0;
             _completedShotsHit = 0;
@@ -1175,6 +1440,7 @@ namespace Shmup.Core.Simulation
             if (data == null)
                 throw new ArgumentNullException(nameof(data));
             if (data.schemaVersion != 1
+                && data.schemaVersion != 2
                 && data.schemaVersion
                     != RunSuspendData.CurrentSchemaVersion)
             {
@@ -1199,6 +1465,33 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     "Suspend stagesCleared must match the stage boundary.",
                     nameof(data));
+            if (data.schemaVersion >= 3 && data.routeChoices == null)
+                throw new ArgumentException(
+                    "Suspend routeChoices cannot be null.",
+                    nameof(data));
+            if (data.routeChoices != null)
+            {
+                int previousRouteStage = 1;
+                for (int i = 0; i < data.routeChoices.Length; i++)
+                {
+                    RouteChoiceData choice = data.routeChoices[i];
+                    if (choice == null
+                        || choice.stageIndex <= previousRouteStage
+                        || choice.stageIndex > data.stageIndex
+                        || choice.optionIndex < 0
+                        || choice.optionIndex >= MaximumRouteOptionCount
+                        || string.IsNullOrEmpty(choice.themeId)
+                        || !Enum.IsDefined(
+                            typeof(EncounterType),
+                            choice.encounterType))
+                    {
+                        throw new ArgumentException(
+                            "Suspend route choice history is invalid.",
+                            nameof(data));
+                    }
+                    previousRouteStage = choice.stageIndex;
+                }
+            }
             if (data.score < 0
                 || data.shotsFired < 0
                 || data.shotsHit < 0
@@ -1345,6 +1638,80 @@ namespace Shmup.Core.Simulation
             }
         }
 
+        void RestoreRouteChoices(
+            RouteChoiceData[] choices,
+            bool requireCompleteHistory)
+        {
+            _routeChoiceHistory.Clear();
+            if (choices == null)
+                return;
+
+            for (int i = 0; i < choices.Length; i++)
+            {
+                RouteChoiceData data = choices[i];
+                IReadOnlyList<RouteOption> options =
+                    GenerateRouteOptions(data.stageIndex);
+                if (data.optionIndex < 0
+                    || data.optionIndex >= options.Count)
+                {
+                    throw new ArgumentException(
+                        "Suspend route option index is invalid.",
+                        "data");
+                }
+
+                RouteOption option = options[data.optionIndex];
+                var encounterType =
+                    (EncounterType)data.encounterType;
+                if (!string.Equals(
+                        data.themeId,
+                        option.ThemeId,
+                        StringComparison.Ordinal)
+                    || encounterType != option.EncounterType)
+                {
+                    throw new ArgumentException(
+                        "Suspend route choice does not match "
+                        + "the deterministic options.",
+                        "data");
+                }
+
+                _routeChoiceHistory.Add(new RouteChoice(
+                    data.stageIndex,
+                    data.optionIndex,
+                    data.themeId,
+                    encounterType));
+            }
+
+            if (!requireCompleteHistory)
+                return;
+
+            int historyIndex = 0;
+            for (int targetStage = 2;
+                targetStage <= StageIndex;
+                targetStage++)
+            {
+                IReadOnlyList<RouteOption> options =
+                    GenerateRouteOptions(targetStage);
+                if (options.Count < MinimumRouteOptionCount)
+                    continue;
+                if (historyIndex >= _routeChoiceHistory.Count
+                    || _routeChoiceHistory[historyIndex].StageIndex
+                        != targetStage)
+                {
+                    throw new ArgumentException(
+                        "Suspend route choice history is incomplete.",
+                        "data");
+                }
+                historyIndex++;
+            }
+            if (historyIndex != _routeChoiceHistory.Count)
+            {
+                throw new ArgumentException(
+                    "Suspend route choice history contains "
+                    + "unexpected stages.",
+                    "data");
+            }
+        }
+
         static int FindRewardIndex(
             RewardCatalog rewards,
             string rewardId)
@@ -1391,11 +1758,28 @@ namespace Shmup.Core.Simulation
         void BuildCurrentStage()
         {
             Difficulty = _difficultyCurve.GetDifficulty(StageIndex);
-            StagePlan = _stageGenerator.Generate(
-                _runSeed,
-                StageIndex,
-                Difficulty)
-                ?? throw new InvalidOperationException(
+            if (TryGetRouteChoice(
+                    StageIndex,
+                    out RouteChoice routeChoice)
+                && _stageGenerator
+                    is IRouteStageGenerator routeGenerator)
+            {
+                StagePlan = routeGenerator.GenerateRoute(
+                    _runSeed,
+                    StageIndex,
+                    Difficulty,
+                    routeChoice.ThemeId,
+                    routeChoice.EncounterType);
+            }
+            else
+            {
+                StagePlan = _stageGenerator.Generate(
+                    _runSeed,
+                    StageIndex,
+                    Difficulty);
+            }
+            if (StagePlan == null)
+                throw new InvalidOperationException(
                     "The stage generator returned no plan.");
             _stageLengthTicks = GetStageLengthTicks(StagePlan);
 
@@ -1410,6 +1794,25 @@ namespace Shmup.Core.Simulation
                 PowerUpGauge,
                 ActiveModifiers);
             CaptureStageStart();
+        }
+
+        bool TryGetRouteChoice(
+            int stageIndex,
+            out RouteChoice routeChoice)
+        {
+            for (int i = _routeChoiceHistory.Count - 1; i >= 0; i--)
+            {
+                RouteChoice candidate = _routeChoiceHistory[i];
+                if (candidate.StageIndex == stageIndex)
+                {
+                    routeChoice = candidate;
+                    return true;
+                }
+                if (candidate.StageIndex < stageIndex)
+                    break;
+            }
+            routeChoice = default;
+            return false;
         }
 
         void CaptureStageStart()

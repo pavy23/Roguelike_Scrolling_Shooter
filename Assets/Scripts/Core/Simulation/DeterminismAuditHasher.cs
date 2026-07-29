@@ -46,6 +46,8 @@ namespace Shmup.Core.Simulation
             FoldPowerUpGauge(run.PowerUpGauge);
             FoldStagePlan(run.StagePlan);
             FoldRewards(run.RewardOptions);
+            FoldRoutes(run.RouteOptions);
+            FoldRouteHistory(run.RouteChoiceHistory);
             FoldBattle(run.Battle);
         }
 
@@ -67,6 +69,17 @@ namespace Shmup.Core.Simulation
             FoldInt32((int)option.Type);
             FoldInt32((int)option.Slot);
             FoldInt32(option.Amount);
+        }
+
+        public void FoldRouteChoice(
+            int stageIndex,
+            int optionIndex,
+            in RouteOption option)
+        {
+            FoldInt32(stageIndex);
+            FoldInt32(optionIndex);
+            FoldString(option.ThemeId);
+            FoldInt32((int)option.EncounterType);
         }
 
         public void FoldTick(
@@ -148,6 +161,13 @@ namespace Shmup.Core.Simulation
             FoldString(plan.BossId);
             FoldString(plan.ThemeId);
             FoldString(plan.RequestedThemeId);
+            FoldInt32((int)plan.EncounterType);
+            FoldInt32(plan.EncounterEnemyHpMultiplierNumerator);
+            FoldInt32(plan.EncounterEnemyHpMultiplierDenominator);
+            FoldInt32(plan.CapsuleDropMultiplierNumerator);
+            FoldInt32(plan.CapsuleDropMultiplierDenominator);
+            FoldInt32(plan.EncounterScoreMultiplierNumerator);
+            FoldInt32(plan.EncounterScoreMultiplierDenominator);
             FoldInt32(plan.LaneCount);
             FoldInt32(plan.StartLaneMask);
             FoldInt32(plan.BossEntryLaneMask);
@@ -210,6 +230,31 @@ namespace Shmup.Core.Simulation
                 FoldInt32((int)reward.Type);
                 FoldInt32((int)reward.Slot);
                 FoldInt32(reward.Amount);
+                FoldInt32((int)reward.ModifierId);
+            }
+        }
+
+        void FoldRoutes(IReadOnlyList<RouteOption> routes)
+        {
+            FoldInt32(routes.Count);
+            for (int i = 0; i < routes.Count; i++)
+            {
+                RouteOption route = routes[i];
+                FoldString(route.ThemeId);
+                FoldInt32((int)route.EncounterType);
+            }
+        }
+
+        void FoldRouteHistory(IReadOnlyList<RouteChoice> history)
+        {
+            FoldInt32(history.Count);
+            for (int i = 0; i < history.Count; i++)
+            {
+                RouteChoice choice = history[i];
+                FoldInt32(choice.StageIndex);
+                FoldInt32(choice.OptionIndex);
+                FoldString(choice.ThemeId);
+                FoldInt32((int)choice.EncounterType);
             }
         }
 

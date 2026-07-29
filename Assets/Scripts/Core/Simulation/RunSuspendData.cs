@@ -18,6 +18,23 @@ namespace Shmup.Core.Simulation
         public int count;
     }
 
+    [Serializable]
+    [DataContract]
+    public sealed class RouteChoiceData
+    {
+        [DataMember(Order = 0)]
+        public int stageIndex;
+
+        [DataMember(Order = 1)]
+        public int optionIndex;
+
+        [DataMember(Order = 2)]
+        public string themeId;
+
+        [DataMember(Order = 3)]
+        public int encounterType;
+    }
+
     /// <summary>
     /// Serializer-facing checkpoint for the beginning of a stage.
     /// Presentation owns file persistence. Exporting during a stage deliberately
@@ -27,7 +44,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class RunSuspendData
     {
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -103,5 +120,8 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 23)]
         public int difficultyMultiplierDenominator;
+
+        [DataMember(Order = 24)]
+        public RouteChoiceData[] routeChoices;
     }
 }

@@ -869,6 +869,59 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void RepositoryWaveCatalogSupportsEveryRouteEncounterType()
+        {
+            string root = FindRepositoryRoot();
+            GameDataSet data = GameDataParser.Parse(
+                ReadUtf8(Path.Combine(root, "GameData", "enemies.json")),
+                ReadUtf8(Path.Combine(root, "GameData", "weapons.json")),
+                ReadUtf8(Path.Combine(root, "GameData", "waves.json")),
+                ReadUtf8(Path.Combine(root, "GameData", "rewards.json")),
+                ReadUtf8(Path.Combine(root, "GameData", "ships.json")),
+                ReadUtf8(Path.Combine(root, "GameData", "scoring.json")),
+                ReadUtf8(Path.Combine(root, "GameData", "player.json")));
+            var generator =
+                new SegmentStageGenerator(data.StageGeneration);
+
+            for (int themeIndex = 0;
+                themeIndex < data.StageGeneration.ThemeIds.Count;
+                themeIndex++)
+            {
+                string themeId =
+                    data.StageGeneration.ThemeIds[themeIndex];
+                for (int difficulty = 2;
+                    difficulty <= 5;
+                    difficulty++)
+                {
+                    for (int encounter = 0; encounter < 4; encounter++)
+                    {
+                        var encounterType = (EncounterType)encounter;
+                        Assert.IsTrue(
+                            generator.CanGenerateRoute(
+                                themeId,
+                                difficulty,
+                                difficulty,
+                                encounterType),
+                            themeId + " d" + difficulty
+                                + " " + encounterType);
+                        StagePlan plan = generator.GenerateRoute(
+                            0xC0FFEEUL,
+                            difficulty,
+                            difficulty,
+                            themeId,
+                            encounterType);
+                        Assert.AreEqual(themeId, plan.ThemeId);
+                        Assert.AreEqual(
+                            encounterType,
+                            plan.EncounterType);
+                        Assert.IsTrue(
+                            StagePlanClearability.IsClearable(plan));
+                    }
+                }
+            }
+        }
+
+        [Test]
         public void Parse_RejectsUnsupportedSchemaVersionWithPath()
         {
             string invalid = EnemiesJson.Replace('2', '1');

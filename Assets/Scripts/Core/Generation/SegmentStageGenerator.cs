@@ -510,12 +510,13 @@ namespace Shmup.Core.Generation
     /// Deterministically assembles compatible segment templates. Look-ahead removes
     /// choices that would strand the player before a later segment or the boss.
     /// </summary>
-    public sealed class SegmentStageGenerator : IStageGenerator
+    public sealed class SegmentStageGenerator : IRouteStageGenerator
     {
         const int StageGenerationStream = 0;
         const int SegmentSelectionStream = 0;
         const int BossSelectionStream = 1;
         const int ThemePermutationStream = 2;
+        const int HazardCenterOffsetSubUnits = 256;
 
         readonly StageGenerationCatalog _catalog;
         readonly int _validLanes;
@@ -524,6 +525,13 @@ namespace Shmup.Core.Generation
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _validLanes = StagePlanClearability.GetValidLaneMask(catalog.LaneCount);
+        }
+
+        public IReadOnlyList<string> ThemeIds => _catalog.ThemeIds;
+
+        public IReadOnlyList<string> GetThemeOrder(ulong seed)
+        {
+            return Array.AsReadOnly(BuildThemeOrder(seed));
         }
 
         public StagePlan Generate(ulong seed, int stageIndex, int difficulty)
@@ -539,6 +547,85 @@ namespace Shmup.Core.Generation
                 stageIndex,
                 difficulty,
                 out requestedThemeId);
+            return GenerateCore(
+                seed,
+                stageIndex,
+                difficulty,
+                themeId,
+                requestedThemeId,
+                EncounterType.Normal);
+        }
+
+        public bool CanGenerateRoute(
+            string themeId,
+            int stageIndex,
+            int difficulty,
+            EncounterType encounterType)
+        {
+            if (string.IsNullOrEmpty(themeId)
+                || stageIndex < 1
+                || difficulty < 1
+                || !Enum.IsDefined(typeof(EncounterType), encounterType))
+                return false;
+            if (!ContainsTheme(themeId))
+                return false;
+
+            int segmentCount = GetSegmentCount(encounterType);
+            return CanAssemble(
+                themeId,
+                stageIndex,
+                difficulty,
+                segmentCount);
+        }
+
+        public StagePlan GenerateRoute(
+            ulong seed,
+            int stageIndex,
+            int difficulty,
+            string themeId,
+            EncounterType encounterType)
+        {
+            if (stageIndex < 1)
+                throw new ArgumentOutOfRangeException(nameof(stageIndex));
+            if (difficulty < 1)
+                throw new ArgumentOutOfRangeException(nameof(difficulty));
+            if (string.IsNullOrEmpty(themeId))
+                throw new ArgumentException(
+                    "Route theme id cannot be empty.",
+                    nameof(themeId));
+            if (!Enum.IsDefined(typeof(EncounterType), encounterType))
+                throw new ArgumentOutOfRangeException(nameof(encounterType));
+            if (!ContainsTheme(themeId))
+                throw new ArgumentException(
+                    $"Route theme '{themeId}' is not in the catalog.",
+                    nameof(themeId));
+            if (!CanGenerateRoute(
+                    themeId,
+                    stageIndex,
+                    difficulty,
+                    encounterType))
+            {
+                throw new InvalidOperationException(
+                    CannotAssembleMessage(themeId));
+            }
+
+            return GenerateCore(
+                seed,
+                stageIndex,
+                difficulty,
+                themeId,
+                themeId,
+                encounterType);
+        }
+
+        StagePlan GenerateCore(
+            ulong seed,
+            int stageIndex,
+            int difficulty,
+            string themeId,
+            string requestedThemeId,
+            EncounterType encounterType)
+        {
             Rng stageRng = new Rng(seed)
                 .Fork(StageGenerationStream)
                 .Fork(stageIndex)
@@ -546,7 +633,7 @@ namespace Shmup.Core.Generation
             Rng segmentRng = stageRng.Fork(SegmentSelectionStream);
             Rng bossRng = stageRng.Fork(BossSelectionStream);
 
-            var assembled = new StageSegment[_catalog.SegmentsPerStage];
+            var assembled = new StageSegment[GetSegmentCount(encounterType)];
             var completionCache = new Dictionary<long, bool>();
             var selectedTemplates = new bool[_catalog.Segments.Count];
             int reachable = _catalog.StartLaneMask;
@@ -585,7 +672,9 @@ namespace Shmup.Core.Generation
                     throw new InvalidOperationException(
                         CannotAssembleMessage(themeId));
 
-                int pick = segmentRng.NextInt(0, viableIndices.Count);
+                int pick = encounterType == EncounterType.Supply
+                    ? FindLowestCombatCandidate(viableIndices)
+                    : segmentRng.NextInt(0, viableIndices.Count);
                 int selectedIndex = viableIndices[pick];
                 StageSegmentTemplate selected = _catalog.Segments[selectedIndex];
                 assembled[position] = selected.CreateSegment();
@@ -614,7 +703,7 @@ namespace Shmup.Core.Generation
             StageBossTemplate selectedBoss =
                 _catalog.Bosses[compatibleBosses[bossPick]];
 
-            return new StagePlan(
+            StagePlan normalPlan = new StagePlan(
                 assembled,
                 selectedBoss.BossId,
                 _catalog.LaneCount,
@@ -626,7 +715,139 @@ namespace Shmup.Core.Generation
                 selectedBoss.HoldX,
                 selectedBoss.Phases,
                 themeId,
-                requestedThemeId);
+                requestedThemeId,
+                encounterType);
+            return ApplyEncounterPlan(normalPlan, encounterType);
+        }
+
+        int FindLowestCombatCandidate(IReadOnlyList<int> viableIndices)
+        {
+            int best = 0;
+            int bestSpawnCount =
+                _catalog.Segments[viableIndices[0]].Spawns.Count;
+            for (int i = 1; i < viableIndices.Count; i++)
+            {
+                int spawnCount =
+                    _catalog.Segments[viableIndices[i]].Spawns.Count;
+                if (spawnCount < bestSpawnCount)
+                {
+                    best = i;
+                    bestSpawnCount = spawnCount;
+                }
+            }
+            return best;
+        }
+
+        int GetSegmentCount(EncounterType encounterType)
+        {
+            return encounterType == EncounterType.Elite
+                || encounterType == EncounterType.Supply
+                ? 1
+                : _catalog.SegmentsPerStage;
+        }
+
+        bool ContainsTheme(string themeId)
+        {
+            for (int i = 0; i < _catalog.ThemeIds.Count; i++)
+            {
+                if (string.Equals(
+                        _catalog.ThemeIds[i],
+                        themeId,
+                        StringComparison.Ordinal))
+                    return true;
+            }
+            return false;
+        }
+
+        static StagePlan ApplyEncounterPlan(
+            StagePlan source,
+            EncounterType encounterType)
+        {
+            IReadOnlyList<StageSegment> segments = source.Segments;
+            string bossId = source.BossId;
+            int bossMaxHp = source.BossMaxHp;
+            int bossHalfWidth = source.BossHalfWidth;
+            int bossHalfHeight = source.BossHalfHeight;
+            int bossHoldX = source.BossHoldX;
+            IReadOnlyList<BossPhase> bossPhases = source.BossPhases;
+
+            if (encounterType == EncounterType.Supply)
+            {
+                bossId = string.Empty;
+                bossMaxHp = 0;
+                bossHalfWidth = 0;
+                bossHalfHeight = 0;
+                bossHoldX = 0;
+                bossPhases = Array.Empty<BossPhase>();
+            }
+            else if (encounterType == EncounterType.Hazard)
+            {
+                segments = AddHazardObstacles(source.Segments);
+            }
+
+            return new StagePlan(
+                segments,
+                bossId,
+                source.LaneCount,
+                source.StartLaneMask,
+                source.BossEntryLaneMask,
+                bossMaxHp,
+                bossHalfWidth,
+                bossHalfHeight,
+                bossHoldX,
+                bossPhases,
+                source.ThemeId,
+                source.RequestedThemeId,
+                encounterType);
+        }
+
+        static IReadOnlyList<StageSegment> AddHazardObstacles(
+            IReadOnlyList<StageSegment> source)
+        {
+            var segments = new StageSegment[source.Count];
+            for (int i = 0; i < source.Count; i++)
+            {
+                StageSegment segment = source[i];
+                int extraCount = (segment.Obstacles.Count + 1) / 2;
+                if (extraCount == 0)
+                {
+                    segments[i] = segment;
+                    continue;
+                }
+
+                var obstacles =
+                    new ObstacleSpawn[segment.Obstacles.Count + extraCount];
+                for (int obstacleIndex = 0;
+                    obstacleIndex < segment.Obstacles.Count;
+                    obstacleIndex++)
+                {
+                    obstacles[obstacleIndex] =
+                        segment.Obstacles[obstacleIndex];
+                }
+                for (int extra = 0; extra < extraCount; extra++)
+                {
+                    ObstacleSpawn original = segment.Obstacles[extra];
+                    int mirroredY = original.Y == 0
+                        ? HazardCenterOffsetSubUnits
+                        : -original.Y;
+                    obstacles[segment.Obstacles.Count + extra] =
+                        new ObstacleSpawn(
+                            original.Type,
+                            original.X,
+                            mirroredY,
+                            original.Hp);
+                }
+
+                segments[i] = new StageSegment(
+                    segment.SegmentId,
+                    segment.LengthTicks,
+                    segment.Spawns,
+                    segment.EntryLaneMask,
+                    segment.ExitLaneMask,
+                    segment.TraversableLaneMasks,
+                    obstacles);
+            }
+            return Array.AsReadOnly(segments);
         }
 
         void CollectUniqueCompletionCandidates(
@@ -822,9 +1043,22 @@ namespace Shmup.Core.Generation
             int stageIndex,
             int difficulty)
         {
+            return CanAssemble(
+                themeId,
+                stageIndex,
+                difficulty,
+                _catalog.SegmentsPerStage);
+        }
+
+        bool CanAssemble(
+            string themeId,
+            int stageIndex,
+            int difficulty,
+            int segmentCount)
+        {
             return CanComplete(
                 _catalog.StartLaneMask,
-                _catalog.SegmentsPerStage,
+                segmentCount,
                 stageIndex,
                 difficulty,
                 themeId,
@@ -926,6 +1160,9 @@ namespace Shmup.Core.Generation
                 if (reachable == 0)
                     return false;
             }
+            if (plan.EncounterType == EncounterType.Supply
+                && plan.BossMaxHp == 0)
+                return true;
             return (reachable & plan.BossEntryLaneMask) != 0;
         }
 

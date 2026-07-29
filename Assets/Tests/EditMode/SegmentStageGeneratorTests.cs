@@ -559,6 +559,9 @@ namespace Shmup.Core.Tests
                 expected.ThemeFallbackApplied,
                 actual.ThemeFallbackApplied);
             Assert.AreEqual(
+                expected.EncounterType,
+                actual.EncounterType);
+            Assert.AreEqual(
                 expected.SegmentReuseCount,
                 actual.SegmentReuseCount);
             Assert.AreEqual(
