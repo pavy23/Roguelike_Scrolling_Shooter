@@ -556,11 +556,11 @@ namespace Shmup.Core.Simulation
             _bulletVelYNumerators = new List<int>(bulletCapacity);
             _bulletVelDenominators = new List<int>(bulletCapacity);
             _readOnlyBullets = _bullets.AsReadOnly();
-            _options = new List<OptionState>();
-            _readOnlyOptions = _options.AsReadOnly();
             int maxOptionLevel = powerUpGauge == null
                 ? 0
                 : powerUpGauge.GetMaxLevel(PowerUpSlot.Option);
+            _options = new List<OptionState>(maxOptionLevel);
+            _readOnlyOptions = _options.AsReadOnly();
             long historyCapacity = (long)maxOptionLevel * _optionFollowDelayTicks + 1;
             if (historyCapacity > int.MaxValue)
                 throw new ArgumentOutOfRangeException(
@@ -568,13 +568,14 @@ namespace Shmup.Core.Simulation
                     "Option history capacity exceeds the supported range.");
             _playerHistoryX = new int[(int)historyCapacity];
             _playerHistoryY = new int[(int)historyCapacity];
-            _enemies = new List<EnemyState>();
-            _enemyDefinitions = new List<EnemyDefinition>();
-            _enemyXRemainders = new List<int>();
-            _enemySpawnYs = new List<int>();
-            _enemyAges = new List<int>();
+            int spawnCapacity = _scheduledSpawns.Length;
+            _enemies = new List<EnemyState>(spawnCapacity);
+            _enemyDefinitions = new List<EnemyDefinition>(spawnCapacity);
+            _enemyXRemainders = new List<int>(spawnCapacity);
+            _enemySpawnYs = new List<int>(spawnCapacity);
+            _enemyAges = new List<int>(spawnCapacity);
             _readOnlyEnemies = _enemies.AsReadOnly();
-            _capsules = new List<CapsuleState>();
+            _capsules = new List<CapsuleState>(spawnCapacity);
             _readOnlyCapsules = _capsules.AsReadOnly();
 
             PlayerX = config.PlayerSpawnX;

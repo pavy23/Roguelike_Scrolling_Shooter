@@ -14,6 +14,7 @@
   <ItemGroup>
     <Compile Include="..\..\Assets\Scripts\Core\**\*.cs" LinkBase="Core" />
     <Compile Include="..\..\Assets\Tests\EditMode\**\*.cs" LinkBase="Tests" />
+    <Compile Include="RunManagerAllocationTests.cs" />
   </ItemGroup>
 
   <ItemGroup>

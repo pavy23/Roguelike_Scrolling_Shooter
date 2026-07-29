@@ -250,6 +250,11 @@ namespace Shmup.Core.Simulation
         readonly int _initialMainShotBaseDamage;
         readonly int _initialPlayerSpeedNumerator;
         readonly int _initialPlayerSpeedDenominator;
+        readonly RewardDefinition[] _rewardPool;
+        readonly int[] _rewardWeights;
+        readonly RewardOption[] _rewardOptionBuffer;
+        readonly IReadOnlyList<RewardOption> _rewardOptionView;
+        readonly Rng _rewardRng;
 
         ulong _runSeed;
         int _stageLengthTicks;
@@ -392,6 +397,11 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     $"RunManager requires exactly {RewardOptionCount} reward options.",
                     nameof(rewards));
+            _rewardPool = new RewardDefinition[_rewards.All.Count];
+            _rewardWeights = new int[_rewards.All.Count];
+            _rewardOptionBuffer = new RewardOption[RewardOptionCount];
+            _rewardOptionView = Array.AsReadOnly(_rewardOptionBuffer);
+            _rewardRng = new Rng(0UL);
             _battleConfig.MainShotBaseDamage =
                 _battleContent.PlayerWeapon.BaseDamage;
             _battleConfig.FireIntervalTicks =
@@ -539,39 +549,45 @@ namespace Shmup.Core.Simulation
         /// <summary>시드·스테이지·주입 카탈로그의 결정론적 가중 비복원 선택.</summary>
         IReadOnlyList<RewardOption> GenerateRewardOptions()
         {
-            IReadOnlyList<RewardDefinition> eligible =
-                _rewards.EligibleForStage(StageIndex);
-            if (eligible.Count < RewardOptionCount)
+            IReadOnlyList<RewardDefinition> rewards = _rewards.All;
+            int eligibleCount = 0;
+            for (int i = 0; i < rewards.Count; i++)
+            {
+                RewardDefinition reward = rewards[i];
+                if (StageIndex < reward.StageIndexMin
+                    || StageIndex > reward.StageIndexMax)
+                    continue;
+
+                _rewardPool[eligibleCount] = reward;
+                _rewardWeights[eligibleCount] = reward.Weight;
+                eligibleCount++;
+            }
+
+            if (eligibleCount < RewardOptionCount)
                 throw new InvalidOperationException(
-                    $"Stage {StageIndex} has {eligible.Count} eligible rewards; "
+                    $"Stage {StageIndex} has {eligibleCount} eligible rewards; "
                     + $"{RewardOptionCount} are required.");
 
-            var pool = new List<RewardDefinition>(eligible);
-            var weights = new List<int>(eligible.Count);
-            for (int i = 0; i < eligible.Count; i++)
-                weights.Add(eligible[i].Weight);
-
-            Rng rewardRng = new Rng(_runSeed)
-                .Fork(RewardSelectionStream)
-                .Fork(StageIndex);
-            var options = new RewardOption[RewardOptionCount];
-            for (int i = 0; i < options.Length; i++)
+            _rewardRng.ResetForked(
+                _runSeed,
+                RewardSelectionStream,
+                StageIndex);
+            int poolCount = eligibleCount;
+            for (int i = 0; i < _rewardOptionBuffer.Length; i++)
             {
-                int pick = rewardRng.PickWeighted(weights);
-                RewardDefinition selected = pool[pick];
-                options[i] = new RewardOption(
+                int pick = _rewardRng.PickWeighted(_rewardWeights, poolCount);
+                RewardDefinition selected = _rewardPool[pick];
+                _rewardOptionBuffer[i] = new RewardOption(
                     selected.Id,
                     selected.Type,
                     selected.Slot,
                     selected.Amount);
 
-                int last = pool.Count - 1;
-                pool[pick] = pool[last];
-                weights[pick] = weights[last];
-                pool.RemoveAt(last);
-                weights.RemoveAt(last);
+                int last = --poolCount;
+                _rewardPool[pick] = _rewardPool[last];
+                _rewardWeights[pick] = _rewardWeights[last];
             }
-            return Array.AsReadOnly(options);
+            return _rewardOptionView;
         }
 
         public void Restart(ulong newRunSeed)

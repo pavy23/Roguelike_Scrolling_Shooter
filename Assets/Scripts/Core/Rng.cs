@@ -12,10 +12,15 @@ namespace Shmup.Core
     /// </summary>
     public sealed class Rng
     {
-        readonly ulong _seed;
+        ulong _seed;
         ulong _s0, _s1, _s2, _s3;
 
         public Rng(ulong seed)
+        {
+            Reset(seed);
+        }
+
+        void Reset(ulong seed)
         {
             _seed = seed;
             ulong sm = seed;
@@ -25,6 +30,15 @@ namespace Shmup.Core
             _s3 = SplitMix64(ref sm);
             if ((_s0 | _s1 | _s2 | _s3) == 0UL)
                 _s0 = 0x9E3779B97F4A7C15UL;
+        }
+
+        internal void ResetForked(
+            ulong seed,
+            int streamId,
+            int childStreamId)
+        {
+            ulong childSeed = DeriveSeed(seed, streamId);
+            Reset(DeriveSeed(childSeed, childStreamId));
         }
 
         /// <summary>The seed this instance was constructed with. Forks derive from this, not from consumed state.</summary>
@@ -96,6 +110,31 @@ namespace Shmup.Core
             return weights.Count - 1;
         }
 
+        internal int PickWeighted(int[] weights, int count)
+        {
+            if (weights == null) throw new ArgumentNullException(nameof(weights));
+            if (count < 0 || count > weights.Length)
+                throw new ArgumentOutOfRangeException(nameof(count));
+
+            long total = 0;
+            for (int i = 0; i < count; i++)
+            {
+                if (weights[i] < 0)
+                    throw new ArgumentException("weights must be non-negative");
+                total += weights[i];
+            }
+            if (total <= 0)
+                throw new ArgumentException("weights must sum to a positive value");
+
+            long roll = (long)NextBelow((ulong)total);
+            for (int i = 0; i < count; i++)
+            {
+                roll -= weights[i];
+                if (roll < 0) return i;
+            }
+            return count - 1;
+        }
+
         /// <summary>
         /// Derive an independent stream from this Rng's original seed.
         /// Same (seed, streamId) always yields the same stream, regardless of how much
@@ -104,8 +143,15 @@ namespace Shmup.Core
         /// </summary>
         public Rng Fork(int streamId)
         {
-            ulong childSeed = Mix(_seed + 0x9E3779B97F4A7C15UL * ((ulong)(uint)streamId + 1UL));
-            return new Rng(childSeed);
+            return new Rng(DeriveSeed(_seed, streamId));
+        }
+
+        static ulong DeriveSeed(ulong seed, int streamId)
+        {
+            return Mix(
+                seed
+                + 0x9E3779B97F4A7C15UL
+                * ((ulong)(uint)streamId + 1UL));
         }
 
         ulong NextBelow(ulong bound)
