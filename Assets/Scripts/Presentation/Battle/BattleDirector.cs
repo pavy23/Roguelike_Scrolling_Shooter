@@ -84,6 +84,7 @@ namespace Shmup.Presentation.Battle
         readonly Dictionary<int, Transform> _capsuleViews = new Dictionary<int, Transform>(16);
         readonly Dictionary<int, Transform> _optionViews = new Dictionary<int, Transform>(4);
         readonly Dictionary<int, SpriteRenderer> _enemyRenderers = new Dictionary<int, SpriteRenderer>(32);
+        readonly Dictionary<int, Color> _enemyDeathTints = new Dictionary<int, Color>(32);   // 테마별 폭발 틴트
         SpritePool _optionPool;
         Sprite _mainShotSprite;   // Awake에서 탄 프리팹 원본 스프라이트 캡처
         readonly HashSet<int> _aliveIds = new HashSet<int>();
@@ -312,7 +313,9 @@ namespace Shmup.Presentation.Battle
                         PunchEnemy(e.EntityId);
                         break;
                     case SimEventType.EnemyKilled:
-                        SpawnExplosion(SimView.ToWorld(e.X, e.Y));
+                        SpawnExplosion(SimView.ToWorld(e.X, e.Y), 1f,
+                            _enemyDeathTints.TryGetValue(e.EntityId, out var deathTint)
+                                ? deathTint : Color.white);
                         break;
                     case SimEventType.PlayerKilled:
                         SpawnExplosion(SimView.ToWorld(e.X, e.Y));
@@ -380,6 +383,7 @@ namespace Shmup.Presentation.Battle
             ReleaseAll(_capsuleViews, _capsulePool);
             ReleaseAll(_optionViews, _optionPool);
             _enemyRenderers.Clear();
+            _enemyDeathTints.Clear();
             _lastHp = -1;   // 배틀 교체 직후 HP 차이를 피격 플래시로 오인하지 않게
 
             _sim = battle;
@@ -624,6 +628,7 @@ namespace Shmup.Presentation.Battle
 
                     var renderer = view.GetComponent<SpriteRenderer>();
                     _enemyRenderers[enemy.Id] = renderer;
+                    _enemyDeathTints[enemy.Id] = DeathTintFor(enemy.DefinitionId);
                     if (renderer != null)
                     {
                         Sprite typed = SpriteForEnemy(enemy.DefinitionId);
@@ -664,6 +669,7 @@ namespace Shmup.Presentation.Battle
                 _enemyPool.Release(_enemyViews[id]);
                 _enemyViews.Remove(id);
                 _enemyRenderers.Remove(id);
+                _enemyDeathTints.Remove(id);
             }
         }
 
@@ -674,7 +680,39 @@ namespace Shmup.Presentation.Battle
             ? _explosionFrames.Length / 30f
             : ExplosionDuration;
 
+        // 테마 계열별 폭발 틴트 — 기계는 흰색(원색), 유기체는 녹황, 스크랩은 주황, 에너지는 청보라
+        static Color DeathTintFor(string definitionId)
+        {
+            if (string.IsNullOrEmpty(definitionId)) return Color.white;
+            if (definitionId.StartsWith("spore", System.StringComparison.Ordinal)
+                || definitionId.StartsWith("brood_", System.StringComparison.Ordinal)
+                || definitionId.StartsWith("sting_", System.StringComparison.Ordinal)
+                || definitionId.StartsWith("lancer", System.StringComparison.Ordinal)
+                || definitionId.StartsWith("mini_horror", System.StringComparison.Ordinal))
+                return new Color(0.75f, 1f, 0.6f);
+            if (definitionId.StartsWith("scrap_", System.StringComparison.Ordinal)
+                || definitionId.StartsWith("rust_", System.StringComparison.Ordinal)
+                || definitionId.StartsWith("junk_", System.StringComparison.Ordinal)
+                || definitionId.StartsWith("pipe_", System.StringComparison.Ordinal)
+                || definitionId.StartsWith("zako_tank", System.StringComparison.Ordinal))
+                return new Color(1f, 0.8f, 0.55f);
+            if (definitionId.StartsWith("wisp", System.StringComparison.Ordinal)
+                || definitionId.StartsWith("echo_", System.StringComparison.Ordinal)
+                || definitionId.StartsWith("void_", System.StringComparison.Ordinal)
+                || definitionId.StartsWith("shard_", System.StringComparison.Ordinal)
+                || definitionId.StartsWith("phase_", System.StringComparison.Ordinal)
+                || definitionId.StartsWith("rift_", System.StringComparison.Ordinal)
+                || definitionId.StartsWith("mini_crystal", System.StringComparison.Ordinal))
+                return new Color(0.72f, 0.85f, 1f);
+            return Color.white;
+        }
+
         void SpawnExplosion(Vector3 position, float scale = 1f)
+        {
+            SpawnExplosion(position, scale, Color.white);
+        }
+
+        void SpawnExplosion(Vector3 position, float scale, Color tint)
         {
             var fx = _fxPool.Acquire();
             if (fx == null) return;
@@ -686,7 +724,7 @@ namespace Shmup.Presentation.Battle
                 if (renderer != null)
                 {
                     renderer.sprite = _explosionFrames[0];
-                    renderer.color = Color.white;
+                    renderer.color = tint;
                 }
             }
             else

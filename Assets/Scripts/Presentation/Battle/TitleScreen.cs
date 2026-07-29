@@ -35,18 +35,22 @@ namespace Shmup.Presentation.Battle
             var canvas = UiKit.CreateCanvas("TitleCanvas", 50);
             canvas.transform.SetParent(transform, false);
 
-            UiKit.CreateCornerText(canvas.transform, _fontBold, "ROGUELIKE", 40,
+            var title1 = UiKit.CreateCornerText(canvas.transform, _fontBold, "ROGUELIKE", 40,
                 new Color(0.62f, 0.83f, 1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -58f),
                 TextAnchor.UpperCenter, "Title1");
-            UiKit.CreateCornerText(canvas.transform, _fontBold, "SCROLLING SHOOTER", 40,
+            var title2 = UiKit.CreateCornerText(canvas.transform, _fontBold, "SCROLLING SHOOTER", 40,
                 new Color(0.62f, 0.83f, 1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -102f),
                 TextAnchor.UpperCenter, "Title2");
+            UiKit.AddShadow(title1, 3f);
+            UiKit.AddShadow(title2, 3f);
             _promptText = UiKit.CreateCornerText(canvas.transform, _font,
                 "PRESS SPACE / (A) TO LAUNCH", 14, UiKit.TextAccent,
-                new Vector2(0.5f, 0.5f), new Vector2(0f, -46f), TextAnchor.MiddleCenter, "Prompt");
+                new Vector2(0.5f, 1f), new Vector2(0f, -160f), TextAnchor.UpperCenter, "Prompt");
+            UiKit.AddShadow(_promptText);
             _seedValueText = UiKit.CreateCornerText(canvas.transform, _font, "", 11,
                 UiKit.TextDim, new Vector2(0.5f, 0f), new Vector2(0f, 66f),
                 TextAnchor.LowerCenter, "Seed");
+            UiKit.AddShadow(_seedValueText);
 
             // 이어하기 (REQ-017): 저장된 런이 있으면 안내 표시
             _suspended = RunSave.TryLoad();
@@ -54,8 +58,9 @@ namespace Shmup.Presentation.Battle
             {
                 _continueText = UiKit.CreateCornerText(canvas.transform, _font,
                     $"[C]/(X) CONTINUE — stage {_suspended.stageIndex}, score {_suspended.score:N0}",
-                    12, UiKit.TextAccent, new Vector2(0.5f, 0.5f), new Vector2(0f, -74f),
-                    TextAnchor.MiddleCenter, "Continue");
+                    12, UiKit.TextAccent, new Vector2(0.5f, 1f), new Vector2(0f, -182f),
+                    TextAnchor.UpperCenter, "Continue");
+                UiKit.AddShadow(_continueText);
             }
         }
 

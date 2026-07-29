@@ -98,6 +98,14 @@ namespace Shmup.Presentation.Battle
             return text;
         }
 
+        /// <summary>픽셀풍 드롭 섀도 (키아트 위 텍스트 가독성용).</summary>
+        public static void AddShadow(Graphic graphic, float distance = 2f)
+        {
+            var shadow = graphic.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            shadow.effectDistance = new Vector2(distance, -distance);
+        }
+
         static Image CreateImage(Transform parent, string name, Color color)
         {
             var go = new GameObject(name);

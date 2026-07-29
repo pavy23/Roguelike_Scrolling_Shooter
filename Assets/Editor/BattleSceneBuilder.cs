@@ -767,6 +767,9 @@ namespace Shmup.EditorTools
             {
                 "zako_straight", "zako_fast", "zako_sine", "turret", "zako_tank", "elite",
                 "spore", "lancer", "sentry", "interceptor", "wisp", "guardian",
+                "scrap_tumbler", "brood_spitter", "mortar_drone", "echo_wisp",
+                "rust_skimmer", "junk_roller", "void_moth", "shard_prism",
+                "sting_hornet", "pipe_rat", "phase_disc", "rift_blade",
                 "mini_destroyer", "mini_horror", "mini_walker", "mini_crystal",
                 "boss_stage1", "boss_hive", "boss_fortress", "boss_storm", "boss_core"
             })
@@ -1091,6 +1094,17 @@ namespace Shmup.EditorTools
             CreateCamera();
 
             var root = CreateStarLayers(farSprite, nearSprite, out var layers);
+            // 키아트 (gpt-image-1.5, 잠정 채택 — 우주 영역이 투명이라 뒤의 패럴랙스 별이 비친다)
+            var keyartSprite = LoadExternalSprite("title_keyart.png", "title_keyart");
+            if (keyartSprite != null)
+            {
+                var keyart = new GameObject("TitleKeyArt");
+                keyart.transform.SetParent(root.transform, false);
+                var keyartRenderer = keyart.AddComponent<SpriteRenderer>();
+                keyartRenderer.sprite = keyartSprite;
+                keyartRenderer.sortingOrder = 3;   // 별 레이어 위, UI(오버레이 캔버스) 아래
+            }
+
             var titleFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Galmuri9.ttf");
             var titleFontBold = AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Galmuri11-Bold.ttf");
             var title = root.AddComponent<TitleScreen>();
