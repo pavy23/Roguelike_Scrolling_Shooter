@@ -297,6 +297,13 @@ namespace Shmup.Presentation.Battle
                     case SimEventType.PlayerFired:
                         _muzzleAge = 0f;
                         break;
+                    case SimEventType.BulletRicocheted:
+                        SpawnExplosion(SimView.ToWorld(e.X, e.Y), 0.45f);   // 도탄 스파크 (소형)
+                        break;
+                    case SimEventType.KillExplosionTriggered:
+                        SpawnExplosion(SimView.ToWorld(e.X, e.Y), 1.4f);    // 광역 폭발 (대형)
+                        if (_juice != null) _juice.Shake(0.1f);
+                        break;
                 }
             }
             RefreshBattle();
@@ -610,7 +617,7 @@ namespace Shmup.Presentation.Battle
             ? _explosionFrames.Length / 30f
             : ExplosionDuration;
 
-        void SpawnExplosion(Vector3 position)
+        void SpawnExplosion(Vector3 position, float scale = 1f)
         {
             var fx = _fxPool.Acquire();
             if (fx == null) return;
@@ -618,7 +625,7 @@ namespace Shmup.Presentation.Battle
             var renderer = fx.GetComponent<SpriteRenderer>();
             if (HasExplosionFrames)
             {
-                fx.localScale = Vector3.one;
+                fx.localScale = Vector3.one * scale;
                 if (renderer != null)
                 {
                     renderer.sprite = _explosionFrames[0];
@@ -627,7 +634,7 @@ namespace Shmup.Presentation.Battle
             }
             else
             {
-                fx.localScale = Vector3.one * 0.6f;
+                fx.localScale = Vector3.one * (0.6f * scale);
             }
             _activeFx.Add(fx);
             _activeFxRenderers.Add(renderer);

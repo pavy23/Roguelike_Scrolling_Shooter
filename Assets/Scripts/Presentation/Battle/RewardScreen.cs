@@ -94,8 +94,22 @@ namespace Shmup.Presentation.Battle
                     return $"DAMAGE +{option.Amount}";
                 case RewardType.MoveSpeedUp:
                     return $"ENGINE +{option.Amount}";
+                case RewardType.Modifier:
+                    return ModifierName(option.ModifierId);
                 default:
                     return option.Type.ToString();
+            }
+        }
+
+        static string ModifierName(BattleModifier modifier)
+        {
+            switch (modifier)
+            {
+                case BattleModifier.PierceShot: return "PIERCE SHOT\nshots pierce +1 enemy";
+                case BattleModifier.Ricochet: return "RICOCHET\nshots bounce to nearby foe";
+                case BattleModifier.HomingMissile: return "HOMING MISSILE\nmissiles seek enemies";
+                case BattleModifier.KillExplosion: return "KILL EXPLOSION\nkills damage nearby foes";
+                default: return modifier.ToString();
             }
         }
 
