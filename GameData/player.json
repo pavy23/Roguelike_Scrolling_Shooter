@@ -5,6 +5,7 @@
     "spawnX": -13.0,
     "spawnY": 0.0,
     "hitboxRadius": 0.375,
-    "maxBullets": 64
+    "maxBullets": 256
   }
 }
+
