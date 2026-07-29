@@ -304,16 +304,18 @@ namespace Shmup.Core.Simulation
         /// <summary>적탄 전용 예산 — 플레이어 탄 풀(MaxBullets)을 잠식하지 않는다.</summary>
         public int MaxEnemyBullets { get; set; } = 32;
 
-        // Provisional synergy tuning (REQ-013). These stay configurable until
-        // the human/GROK balance pass approves authoritative GameData values.
+        // Provisional synergy tuning (REQ-013, AGENTS.md §7). These stay
+        // configurable until the human/GROK balance pass approves authoritative
+        // GameData values.
         public int PierceShotEnemyCount { get; set; } = 1;
         public int RicochetRangeSubUnits { get; set; } =
             8 * SimSpace.SubUnitsPerWorldUnit;
         /// <summary>Maximum homing turn per tick in 1/64-turn SineLut slots.</summary>
         public int HomingMissileTurnLutSlotsPerTick { get; set; } = 1;
         public int KillExplosionRadiusSubUnits { get; set; } =
-            2 * SimSpace.SubUnitsPerWorldUnit;
-        public int KillExplosionDamage { get; set; } = 2;
+            3 * SimSpace.SubUnitsPerWorldUnit / 2;
+        public int KillExplosionDamage { get; set; } = 1;
+        public int KillExplosionMaxTargets { get; set; } = 4;
 
         /// <summary>
         /// Defaults sourced from player.json, main_shot, and the 40 by 22.5 unit view
@@ -451,6 +453,7 @@ namespace Shmup.Core.Simulation
         readonly int _pierceShotEnemyCount, _ricochetRangeSubUnits;
         readonly int _homingMissileTurnLutSlotsPerTick;
         readonly int _killExplosionRadiusSubUnits, _killExplosionDamage;
+        readonly int _killExplosionMaxTargets;
 
         // 보스 (REQ-007). _bossMaxHp == 0 이면 이 스테이지에 보스전 없음.
         readonly int _bossMaxHp, _bossHalfWidth, _bossHalfHeight, _bossHoldX;
@@ -466,6 +469,7 @@ namespace Shmup.Core.Simulation
 
         readonly SimEvent[] _events;
         readonly int[] _enemyScanIds;
+        readonly long[] _enemyScanDistances;
         int _eventCount;
         long _shotsFired, _shotsHit, _kills, _capsulesCollected;
 
@@ -592,6 +596,7 @@ namespace Shmup.Core.Simulation
                 config.HomingMissileTurnLutSlotsPerTick;
             _killExplosionRadiusSubUnits = config.KillExplosionRadiusSubUnits;
             _killExplosionDamage = config.KillExplosionDamage;
+            _killExplosionMaxTargets = config.KillExplosionMaxTargets;
             _powerUpGauge = powerUpGauge;
             _dropRng = rng.Fork(DropRngStream);
 
@@ -684,6 +689,7 @@ namespace Shmup.Core.Simulation
             _capsules = new List<CapsuleState>(spawnCapacity);
             _readOnlyCapsules = _capsules.AsReadOnly();
             _enemyScanIds = new int[spawnCapacity];
+            _enemyScanDistances = new long[spawnCapacity];
             long eventCapacity = 64L
                 + 3L * spawnCapacity
                 + 2L * bulletCapacity;
@@ -1544,7 +1550,9 @@ namespace Shmup.Core.Simulation
                 centerX,
                 centerY,
                 _killExplosionDamage);
-            if (_killExplosionDamage == 0 || _killExplosionRadiusSubUnits == 0)
+            if (_killExplosionDamage == 0
+                || _killExplosionRadiusSubUnits == 0
+                || _killExplosionMaxTargets == 0)
                 return;
 
             long radiusSquared =
@@ -1553,15 +1561,37 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < _enemies.Count; i++)
             {
                 EnemyState enemy = _enemies[i];
-                if (SquaredDistanceSaturated(
-                        centerX,
-                        centerY,
-                        enemy.X,
-                        enemy.Y) <= radiusSquared)
-                    _enemyScanIds[scanCount++] = enemy.Id;
+                long distanceSquared = SquaredDistanceSaturated(
+                    centerX,
+                    centerY,
+                    enemy.X,
+                    enemy.Y);
+                if (distanceSquared > radiusSquared)
+                    continue;
+
+                int insertIndex = scanCount;
+                while (insertIndex > 0
+                    && (distanceSquared < _enemyScanDistances[insertIndex - 1]
+                        || (distanceSquared == _enemyScanDistances[insertIndex - 1]
+                            && enemy.Id < _enemyScanIds[insertIndex - 1])))
+                {
+                    insertIndex--;
+                }
+                if (insertIndex >= _killExplosionMaxTargets)
+                    continue;
+
+                int nextCount = Math.Min(scanCount + 1, _killExplosionMaxTargets);
+                for (int shift = nextCount - 1; shift > insertIndex; shift--)
+                {
+                    _enemyScanIds[shift] = _enemyScanIds[shift - 1];
+                    _enemyScanDistances[shift] = _enemyScanDistances[shift - 1];
+                }
+                _enemyScanIds[insertIndex] = enemy.Id;
+                _enemyScanDistances[insertIndex] = distanceSquared;
+                scanCount = nextCount;
             }
 
-            // IDs were captured in the stable spawn/list order before removals.
+            // IDs were captured nearest-first, breaking distance ties by lower id.
             // Explosion kills intentionally call no explosion method themselves.
             for (int scan = 0; scan < scanCount; scan++)
             {
@@ -2054,6 +2084,9 @@ namespace Shmup.Core.Simulation
                     nameof(config.KillExplosionRadiusSubUnits));
             if (config.KillExplosionDamage < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.KillExplosionDamage));
+            if (config.KillExplosionMaxTargets < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.KillExplosionMaxTargets));
             if ((long)config.MaxBullets + config.MaxEnemyBullets > int.MaxValue)
                 throw new ArgumentOutOfRangeException(
                     nameof(config.MaxEnemyBullets),
