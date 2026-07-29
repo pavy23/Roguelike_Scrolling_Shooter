@@ -809,6 +809,9 @@ namespace Shmup.EditorTools
             SetReference(gameOver, "_director", director);
             SetReference(gameOver, "_font", uiFont);
             SetReference(gameOver, "_fontBold", uiFontBold);
+            var onboarding = battleRoot.AddComponent<OnboardingHints>();
+            SetReference(onboarding, "_director", director);
+            SetReference(onboarding, "_font", uiFont);
 
             // 주스 연출 허브 (M4+ 게임 필): 히트스톱·슬로모·화면 흔들림 + 접근성 토글
             var juice = battleRoot.AddComponent<JuiceDirector>();

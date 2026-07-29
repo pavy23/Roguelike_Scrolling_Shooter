@@ -27,6 +27,8 @@ namespace Shmup.Presentation.Battle
         Text _promptText, _seedValueText, _continueText;
         string _shownSeed;
         Shmup.Core.Simulation.RunSuspendData _suspended;
+        ReplayFileData _replay;
+        int _dailyDateInt;
 
         void Start()
         {
@@ -58,9 +60,27 @@ namespace Shmup.Presentation.Battle
             {
                 _continueText = UiKit.CreateCornerText(canvas.transform, _font,
                     $"[C]/(X) CONTINUE — stage {_suspended.stageIndex}, score {_suspended.score:N0}",
-                    12, UiKit.TextAccent, new Vector2(0.5f, 1f), new Vector2(0f, -182f),
-                    TextAnchor.UpperCenter, "Continue");
+                    11, UiKit.TextAccent, new Vector2(0f, 0.5f), new Vector2(14f, 34f),
+                    TextAnchor.MiddleLeft, "Continue");
                 UiKit.AddShadow(_continueText);
+            }
+
+            // 데일리 런 (REQ-018): 날짜는 Presentation이 읽고 Core는 순수 해시만
+            var todayUtc = System.DateTime.UtcNow;
+            _dailyDateInt = todayUtc.Year * 10000 + todayUtc.Month * 100 + todayUtc.Day;
+            var daily = UiKit.CreateCornerText(canvas.transform, _font,
+                $"[D]/(RB) DAILY RUN {todayUtc:MM-dd}", 11, UiKit.TextMain,
+                new Vector2(0f, 0.5f), new Vector2(14f, 12f), TextAnchor.MiddleLeft, "Daily");
+            UiKit.AddShadow(daily);
+
+            // 마지막 런 리플레이 (REQ-018/019)
+            _replay = ReplaySave.TryLoad();
+            if (_replay != null)
+            {
+                var replayText = UiKit.CreateCornerText(canvas.transform, _font,
+                    $"[V]/(LB) REPLAY — {_replay.finalScore:N0}", 11, UiKit.TextMain,
+                    new Vector2(0f, 0.5f), new Vector2(14f, -10f), TextAnchor.MiddleLeft, "Replay");
+                UiKit.AddShadow(replayText);
             }
         }
 
@@ -103,6 +123,26 @@ namespace Shmup.Presentation.Battle
                 BattleDirector.PendingResume = _suspended;
                 RunSave.Delete();   // 소비형 — 재저장은 다음 중단 시점에
                 DevArgs.RuntimeSeed = (long)_suspended.runSeed;   // HUD 시드 표시 일치
+                SceneManager.LoadScene("Battle");
+                return;
+            }
+
+            // 데일리 런: 같은 날짜 → 전 세계 같은 시드 (Core DailySeed)
+            if ((keyboard != null && keyboard.dKey.wasPressedThisFrame)
+                || (gamepad != null && gamepad.rightShoulder.wasPressedThisFrame))
+            {
+                DevArgs.RuntimeSeed = (long)Shmup.Core.DailySeed.FromDate(_dailyDateInt);
+                SceneManager.LoadScene("Battle");
+                return;
+            }
+
+            // 마지막 런 리플레이
+            if (_replay != null &&
+                ((keyboard != null && keyboard.vKey.wasPressedThisFrame)
+                 || (gamepad != null && gamepad.leftShoulder.wasPressedThisFrame)))
+            {
+                BattleDirector.PendingReplay = _replay;
+                DevArgs.RuntimeSeed = _replay.seed;
                 SceneManager.LoadScene("Battle");
                 return;
             }

@@ -124,6 +124,23 @@ namespace Shmup.Presentation.Battle
         /// <summary>타이틀 CONTINUE가 채우는 이어하기 데이터 — Awake에서 1회 소비.</summary>
         public static Shmup.Core.Simulation.RunSuspendData PendingResume;
 
+        /// <summary>타이틀 REPLAY가 채우는 재생 데이터 — Awake에서 1회 소비.</summary>
+        public static ReplayFileData PendingReplay;
+
+        // 리플레이/녹화 (REQ-018/019). 기록은 Playing 틱의 명령만 담는다 — 보상 대기 길이가
+        // 달라도 스트림이 어긋나지 않는다. 보상 선택은 별도 목록(rewardChoices)으로 재현.
+        InputRecorder _recorder;
+        bool _recordingActive;
+        readonly List<int> _recordedChoices = new List<int>(8);
+        bool _replayMode;
+        InputPlayback.Enumerator _playback;
+        int _replayChoiceCursor;
+        bool _replayStreamEnded;
+        float _replayEndTimer = 3f;
+        string _recordShipId;
+
+        public bool ReplayMode => _replayMode;
+
         /// <summary>현재 런을 스테이지 경계 스냅샷으로 저장 (Playing 상태에서만 유효).</summary>
         public void SaveRunToDisk()
         {
@@ -133,7 +150,7 @@ namespace Shmup.Presentation.Battle
 
         void OnApplicationQuit()
         {
-            if (_run != null && !IsRunOver)
+            if (_run != null && !IsRunOver && !_replayMode)
                 SaveRunToDisk();
         }
 
@@ -205,6 +222,19 @@ namespace Shmup.Presentation.Battle
             _meta = MetaSave.Load(data);
             var selectedShip = data.FindShip(_meta.SelectedShipId) ?? data.DefaultShip;
 
+            // 리플레이 모드 (REQ-018/019): 기록 당시의 함선·시드로 재현. 이어하기보다 우선.
+            var pendingReplay = PendingReplay;
+            PendingReplay = null;
+            if (pendingReplay != null)
+            {
+                _replayMode = true;
+                selectedShip = data.FindShip(pendingReplay.shipId) ?? selectedShip;
+                _playback = new InputPlayback(pendingReplay.recording).GetEnumerator();
+                _recordedChoices.Clear();
+                if (pendingReplay.rewardChoices != null)
+                    _recordedChoices.AddRange(pendingReplay.rewardChoices);
+            }
+
             var config = data.CreateBattleSimConfig();
             // 스키마에 아직 없는 잠정값 (스키마 v3 후보 — GameData로 옮기면 이 블록 제거)
             // EnemyDespawnX는 REQ-005 이후 Core 기본값(-22u, SimSpace 상수 파생)을 그대로 쓴다.
@@ -218,6 +248,7 @@ namespace Shmup.Presentation.Battle
             // 이어하기(REQ-017): 타이틀이 PendingResume을 채우면 새 런 대신 리줌한다.
             var pending = PendingResume;
             PendingResume = null;
+            if (_replayMode) pending = null;   // 리플레이는 항상 새 런 재현
             if (pending != null)
             {
                 try
@@ -249,6 +280,15 @@ namespace Shmup.Presentation.Battle
                     selectedShip);
             _sim = _run.Battle;
 
+            // 라이브 신규 런만 녹화한다 (리플레이/이어하기 런은 제외 — 첫 목숨 기준)
+            if (!_replayMode && pending == null)
+            {
+                _recorder = new InputRecorder();
+                _recordingActive = true;
+                _recordedChoices.Clear();
+                _recordShipId = selectedShip != null ? selectedShip.Id : null;
+            }
+
             // 풀 용량은 Core가 허용하는 최대 개수와 맞춘다 — 런타임에 풀이 부족해질 수 없다.
             // 시뮬 Bullets는 플레이어탄+적탄 합산 리스트 — 풀도 합산 용량이어야 한다 (GROK 스트레스 검증 후속)
             _bulletPool = new SpritePool(
@@ -278,15 +318,55 @@ namespace Shmup.Presentation.Battle
             AnimatePunches();
             AnimateMuzzleFlash();
             TickPendingBooms();
+
+            // 리플레이 종료 → 잠시 후 타이틀 복귀
+            if (_replayMode && (IsRunOver || _replayStreamEnded))
+            {
+                _replayEndTimer -= Time.unscaledDeltaTime;
+                if (_replayEndTimer <= 0f)
+                {
+                    _replayMode = false;
+                    UnityEngine.SceneManagement.SceneManager.LoadScene("Title");
+                }
+            }
         }
 
         void FixedUpdate()
         {
             if (_run == null) return;
-            _run.Step(_input.ConsumeCommand());
 
-            // 런 종료 시 점수를 메타 재화로 1회 적립 (함선 해금 재원)
+            bool playingBefore = _run.State == RunState.Playing;
+            InputCommand command;
+            if (_replayMode)
+            {
+                if (playingBefore)
+                {
+                    if (_playback.MoveNext()) command = _playback.Current;
+                    else { command = InputCommand.None; _replayStreamEnded = true; }
+                }
+                else
+                {
+                    command = InputCommand.None;
+                    // 보상 대기: 기록된 선택을 즉시 재현 (기록도 Playing 틱만 담아 정렬 유지)
+                    if (_run.State == RunState.AwaitingReward)
+                    {
+                        int choice = _replayChoiceCursor < _recordedChoices.Count
+                            ? _recordedChoices[_replayChoiceCursor++] : 0;
+                        _run.ChooseReward(choice);
+                    }
+                }
+            }
+            else
+            {
+                command = _input.ConsumeCommand();
+            }
+            if (_recordingActive && playingBefore)
+                _recorder.Record(in command);
+            _run.Step(command);
+
+            // 런 종료 시 점수를 메타 재화로 1회 적립 (함선 해금 재원). 리플레이는 비적립.
             if (_run.State == RunState.RunOver
+                && !_replayMode
                 && _meta != null
                 && _run.RunNumber != _lastCreditedRunNumber)
             {
@@ -294,6 +374,20 @@ namespace Shmup.Presentation.Battle
                 _meta.CreditScore(_run.TotalScore);
                 MetaSave.Save(_meta);
                 RunSave.Delete();   // 런 종료 — 이어하기 무효화
+
+                // 첫 목숨 녹화 종료 → 마지막 런 리플레이 저장
+                if (_recordingActive)
+                {
+                    _recordingActive = false;
+                    ReplaySave.Save(new ReplayFileData
+                    {
+                        seed = Seed,
+                        shipId = _recordShipId,
+                        finalScore = _run.TotalScore,
+                        rewardChoices = _recordedChoices.ToArray(),
+                        recording = _recorder.Export()
+                    });
+                }
             }
 
             // 이벤트는 스텝 직후 같은 호출 안에서 소비한다 — 다음 Step에서 클리어되기 때문.
@@ -507,6 +601,8 @@ namespace Shmup.Presentation.Battle
         public void ChooseReward(int index)
         {
             if (!AwaitingReward) return;
+            if (_replayMode) return;   // 리플레이 중 수동 선택 금지 (자동 재현)
+            if (_recordingActive) _recordedChoices.Add(index);
             _run.ChooseReward(index);
             RefreshBattle();
             SyncViews();

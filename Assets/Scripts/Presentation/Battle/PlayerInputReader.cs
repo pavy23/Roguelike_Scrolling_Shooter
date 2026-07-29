@@ -33,6 +33,8 @@ namespace Shmup.Presentation.Battle
         Vector2 _move;
         bool _fireHeld;
         bool _firePressedThisFrame;
+        bool _activateHeld;
+        bool _activatePressedThisFrame;
 
         void Awake()
         {
@@ -82,6 +84,16 @@ namespace Shmup.Presentation.Battle
             _move = _moveAction.ReadValue<Vector2>();
             _fireHeld = _fireAction.IsPressed();
             if (_fireAction.WasPressedThisFrame()) _firePressedThisFrame = true;
+
+            // 게이지 활성화 (REQ-019): X키 / 패드 (Y). 액션 에셋에 항목이 없어 직접 샘플링 —
+            // 리바인딩 통합은 후속 (Reviews 기록). 상승 에지 판정은 Core가 한다.
+            var keyboard = Keyboard.current;
+            var gamepad = Gamepad.current;
+            _activateHeld = (keyboard != null && keyboard.xKey.isPressed)
+                         || (gamepad != null && gamepad.buttonNorth.isPressed);
+            if ((keyboard != null && keyboard.xKey.wasPressedThisFrame)
+                || (gamepad != null && gamepad.buttonNorth.wasPressedThisFrame))
+                _activatePressedThisFrame = true;
         }
 
         /// <summary>한 틱 분량의 입력을 만들어 반환하고 눌림 래치를 소모한다.</summary>
@@ -90,8 +102,10 @@ namespace Shmup.Presentation.Battle
             if (!enabled) return InputCommand.None;
 
             var command = new InputCommand(Digital(_move.x), Digital(_move.y),
-                                           _fireHeld || _firePressedThisFrame);
+                                           _fireHeld || _firePressedThisFrame,
+                                           _activateHeld || _activatePressedThisFrame);
             _firePressedThisFrame = false;
+            _activatePressedThisFrame = false;
             return command;
         }
 
