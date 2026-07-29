@@ -312,6 +312,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(2, data.Rewards.All[0].Weight);
             Assert.AreEqual(2, data.Rewards.All[0].MaxPerRun);
             Assert.IsNull(data.Rewards.All[1].MaxPerRun);
+            Assert.AreEqual(BattleModifier.None, data.Rewards.All[1].ModifierId);
             Assert.AreEqual(PowerUpSlot.Missile, data.Rewards.All[2].Slot);
             Assert.AreEqual(2, data.Rewards.All[2].StageIndexMin);
             Assert.AreEqual(8, data.Rewards.All[2].StageIndexMax);
@@ -571,6 +572,66 @@ namespace Shmup.Core.Tests
                     json);
                 Assert.AreEqual(expected[i], data.Rewards.All[0].Type);
             }
+        }
+
+        [Test]
+        public void Parse_ModifierRewardsMapsAllIdsAndKeepsAmountOptional()
+        {
+            const string modifierRewards = @"{
+  ""schemaVersion"": 1,
+  ""optionCount"": 3,
+  ""rewards"": [
+    { ""id"": ""pierce"", ""type"": ""modifier"", ""modifierId"": ""pierce_shot"",
+      ""weight"": 1, ""stageIndexMin"": 1, ""stageIndexMax"": 99 },
+    { ""id"": ""bounce"", ""type"": ""modifier"", ""modifierId"": ""ricochet"",
+      ""weight"": 1, ""stageIndexMin"": 1, ""stageIndexMax"": 99 },
+    { ""id"": ""homing"", ""type"": ""modifier"", ""modifierId"": ""homing_missile"",
+      ""weight"": 1, ""stageIndexMin"": 1, ""stageIndexMax"": 99 },
+    { ""id"": ""explosion"", ""type"": ""modifier"", ""modifierId"": ""kill_explosion"",
+      ""weight"": 1, ""stageIndexMin"": 1, ""stageIndexMax"": 99 }
+  ]
+}";
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson,
+                modifierRewards);
+
+            Assert.AreEqual(RewardType.Modifier, data.Rewards.All[0].Type);
+            Assert.AreEqual(BattleModifier.PierceShot, data.Rewards.All[0].ModifierId);
+            Assert.AreEqual(BattleModifier.Ricochet, data.Rewards.All[1].ModifierId);
+            Assert.AreEqual(BattleModifier.HomingMissile, data.Rewards.All[2].ModifierId);
+            Assert.AreEqual(BattleModifier.KillExplosion, data.Rewards.All[3].ModifierId);
+            Assert.AreEqual(1, data.Rewards.All[0].Amount);
+        }
+
+        [Test]
+        public void Parse_ModifierIdIsRequiredOnlyForModifierRewards()
+        {
+            string missing = RewardsJson.Replace(
+                @"""type"": ""capsules""",
+                @"""type"": ""modifier""");
+            GameDataParseException missingError =
+                Assert.Throws<GameDataParseException>(
+                    () => GameDataParser.Parse(
+                        EnemiesJson,
+                        WeaponsJson,
+                        WavesJson,
+                        missing));
+            StringAssert.Contains("rewards[0].modifierId", missingError.Message);
+
+            string misplaced = RewardsJson.Replace(
+                @"""type"": ""capsules"", ""amount"": 3",
+                @"""type"": ""capsules"", ""modifierId"": ""ricochet"", ""amount"": 3");
+            GameDataParseException misplacedError =
+                Assert.Throws<GameDataParseException>(
+                    () => GameDataParser.Parse(
+                        EnemiesJson,
+                        WeaponsJson,
+                        WavesJson,
+                        misplaced));
+            StringAssert.Contains("rewards[0].modifierId", misplacedError.Message);
         }
 
         [Test]

@@ -22,7 +22,8 @@ namespace Shmup.Core.Simulation
         RepairHp = 2,
         FireRateUp = 3,
         DamageUp = 4,
-        MoveSpeedUp = 5
+        MoveSpeedUp = 5,
+        Modifier = 6
     }
 
     /// <summary>보상 후보 하나.</summary>
@@ -34,17 +35,29 @@ namespace Shmup.Core.Simulation
         }
 
         public RewardOption(string id, RewardType type, PowerUpSlot slot, int amount)
+            : this(id, type, slot, amount, BattleModifier.None)
+        {
+        }
+
+        public RewardOption(
+            string id,
+            RewardType type,
+            PowerUpSlot slot,
+            int amount,
+            BattleModifier modifierId)
         {
             Id = id;
             Type = type;
             Slot = slot;
             Amount = amount;
+            ModifierId = modifierId;
         }
 
         public string Id { get; }
         public RewardType Type { get; }
         public PowerUpSlot Slot { get; }
         public int Amount { get; }
+        public BattleModifier ModifierId { get; }
     }
 
     /// <summary>Immutable rewards.json entry used by deterministic run selection.</summary>
@@ -58,7 +71,8 @@ namespace Shmup.Core.Simulation
             int weight,
             int stageIndexMin,
             int stageIndexMax,
-            int? maxPerRun = null)
+            int? maxPerRun = null,
+            BattleModifier modifierId = BattleModifier.None)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Reward id cannot be empty.", nameof(id));
@@ -72,6 +86,17 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(stageIndexMax));
             if (maxPerRun.HasValue && maxPerRun.Value < 1)
                 throw new ArgumentOutOfRangeException(nameof(maxPerRun));
+            if (type == RewardType.Modifier)
+            {
+                if (!BattleModifierRules.IsSingleKnown(modifierId))
+                    throw new ArgumentOutOfRangeException(nameof(modifierId));
+            }
+            else if (modifierId != BattleModifier.None)
+            {
+                throw new ArgumentException(
+                    "Only modifier rewards can specify a modifier id.",
+                    nameof(modifierId));
+            }
 
             Id = id;
             Type = type;
@@ -81,6 +106,7 @@ namespace Shmup.Core.Simulation
             StageIndexMin = stageIndexMin;
             StageIndexMax = stageIndexMax;
             MaxPerRun = maxPerRun;
+            ModifierId = modifierId;
         }
 
         public string Id { get; }
@@ -92,6 +118,7 @@ namespace Shmup.Core.Simulation
         public int StageIndexMax { get; }
         /// <summary>Maximum acquisitions in one run; null means unlimited.</summary>
         public int? MaxPerRun { get; }
+        public BattleModifier ModifierId { get; }
     }
 
     /// <summary>Immutable reward pool parsed from rewards.json.</summary>
@@ -464,6 +491,11 @@ namespace Shmup.Core.Simulation
         public StagePlan StagePlan { get; private set; }
         public IBattleSim Battle { get; private set; }
         public PowerUpGauge PowerUpGauge { get; private set; }
+        /// <summary>
+        /// Rule-changing rewards active for this run. They carry through death
+        /// restarts, matching power-up carry policy, and start empty on a new manager.
+        /// </summary>
+        public BattleModifier ActiveModifiers { get; private set; }
 
         /// <summary>AwaitingReward 상태에서만 유효. 항상 RewardOptionCount개.</summary>
         public IReadOnlyList<RewardOption> RewardOptions => _rewardOptions;
@@ -556,6 +588,9 @@ namespace Shmup.Core.Simulation
                 case RewardType.MoveSpeedUp:
                     AddMoveSpeed(_battleConfig, option.Amount);
                     break;
+                case RewardType.Modifier:
+                    ActiveModifiers |= option.ModifierId;
+                    break;
                 default:
                     throw new InvalidOperationException($"Unknown reward type {option.Type}.");
             }
@@ -602,7 +637,8 @@ namespace Shmup.Core.Simulation
                     selected.Id,
                     selected.Type,
                     selected.Slot,
-                    selected.Amount);
+                    selected.Amount,
+                    selected.ModifierId);
 
                 int last = --poolCount;
                 _rewardPool[pick] = _rewardPool[last];
@@ -774,7 +810,8 @@ namespace Shmup.Core.Simulation
                 battleRng,
                 StagePlan,
                 _battleContent,
-                PowerUpGauge);
+                PowerUpGauge,
+                ActiveModifiers);
         }
 
         void ApplyShipStartingLevels(PowerUpGauge gauge)

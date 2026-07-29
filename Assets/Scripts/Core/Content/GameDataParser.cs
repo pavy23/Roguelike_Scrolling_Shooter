@@ -242,6 +242,7 @@ namespace Shmup.Core.Content
 
             RewardType type = ParseRewardType(source.type, path + ".type");
             PowerUpSlot slot = PowerUpSlot.MainShot;
+            BattleModifier modifierId = BattleModifier.None;
             if (type == RewardType.SlotLevel)
             {
                 slot = ParsePowerUpSlot(source.slot, path + ".slot");
@@ -251,7 +252,22 @@ namespace Shmup.Core.Content
                 throw Error(path + ".slot", "is only valid for slotLevel rewards.");
             }
 
-            int amount = Require(source.amount, path + ".amount");
+            if (type == RewardType.Modifier)
+            {
+                modifierId = ParseModifierId(
+                    source.modifierId,
+                    path + ".modifierId");
+            }
+            else if (source.modifierId != null)
+            {
+                throw Error(
+                    path + ".modifierId",
+                    "is only valid for modifier rewards.");
+            }
+
+            int amount = type == RewardType.Modifier && !source.amount.HasValue
+                ? 1
+                : Require(source.amount, path + ".amount");
             if (amount < 1)
                 throw Error(path + ".amount", "must be positive.");
             int weight = Require(source.weight, path + ".weight");
@@ -280,7 +296,8 @@ namespace Shmup.Core.Content
                 weight,
                 stageIndexMin,
                 stageIndexMax,
-                source.maxPerRun);
+                source.maxPerRun,
+                modifierId);
         }
 
         static RewardType ParseRewardType(string value, string path)
@@ -293,6 +310,19 @@ namespace Shmup.Core.Content
                 case "fireRateUp": return RewardType.FireRateUp;
                 case "damageUp": return RewardType.DamageUp;
                 case "moveSpeedUp": return RewardType.MoveSpeedUp;
+                case "modifier": return RewardType.Modifier;
+                default: throw Error(path, $"has unknown value '{value}'.");
+            }
+        }
+
+        static BattleModifier ParseModifierId(string value, string path)
+        {
+            switch (RequireText(value, path))
+            {
+                case "pierce_shot": return BattleModifier.PierceShot;
+                case "ricochet": return BattleModifier.Ricochet;
+                case "homing_missile": return BattleModifier.HomingMissile;
+                case "kill_explosion": return BattleModifier.KillExplosion;
                 default: throw Error(path, $"has unknown value '{value}'.");
             }
         }
