@@ -119,12 +119,12 @@
         },
         {
           "tick": 300,
-          "enemyId": "zako_sine_slow",
+          "enemyId": "scrap_tumbler",
           "y": 5.5
         },
         {
           "tick": 300,
-          "enemyId": "zako_sine_slow",
+          "enemyId": "scrap_tumbler",
           "y": -5.5
         },
         {
@@ -373,7 +373,7 @@
         },
         {
           "tick": 450,
-          "enemyId": "zako_sine_slow",
+          "enemyId": "scrap_tumbler",
           "y": 4.75
         },
         {
@@ -383,7 +383,7 @@
         },
         {
           "tick": 520,
-          "enemyId": "zako_straight",
+          "enemyId": "scrap_tumbler",
           "y": 0
         },
         {
@@ -691,12 +691,12 @@
         },
         {
           "tick": 240,
-          "enemyId": "zako_straight",
+          "enemyId": "brood_spitter",
           "y": 1.5
         },
         {
           "tick": 240,
-          "enemyId": "zako_straight",
+          "enemyId": "brood_spitter",
           "y": -1.5
         },
         {
@@ -716,12 +716,12 @@
         },
         {
           "tick": 420,
-          "enemyId": "zako_sine_slow",
+          "enemyId": "brood_spitter",
           "y": 3.25
         },
         {
           "tick": 420,
-          "enemyId": "zako_sine_slow",
+          "enemyId": "brood_spitter",
           "y": -3.25
         },
         {
@@ -746,7 +746,7 @@
         },
         {
           "tick": 620,
-          "enemyId": "zako_straight",
+          "enemyId": "brood_spitter",
           "y": 0
         },
         {
@@ -810,12 +810,12 @@
         },
         {
           "tick": 200,
-          "enemyId": "zako_fast",
+          "enemyId": "brood_spitter",
           "y": 2.5
         },
         {
           "tick": 210,
-          "enemyId": "zako_fast",
+          "enemyId": "brood_spitter",
           "y": -2.5
         },
         {
@@ -860,12 +860,12 @@
         },
         {
           "tick": 460,
-          "enemyId": "zako_sine",
+          "enemyId": "brood_spitter",
           "y": 3.25
         },
         {
           "tick": 460,
-          "enemyId": "zako_sine",
+          "enemyId": "brood_spitter",
           "y": -3.25
         },
         {
@@ -929,12 +929,12 @@
         },
         {
           "tick": 160,
-          "enemyId": "sentry_drone",
+          "enemyId": "mortar_drone",
           "y": 5.5
         },
         {
           "tick": 160,
-          "enemyId": "sentry_drone",
+          "enemyId": "mortar_drone",
           "y": 1.5
         },
         {
@@ -974,22 +974,22 @@
         },
         {
           "tick": 420,
-          "enemyId": "zako_straight",
+          "enemyId": "scrap_tumbler",
           "y": 4
         },
         {
           "tick": 440,
-          "enemyId": "zako_straight",
+          "enemyId": "scrap_tumbler",
           "y": 1.5
         },
         {
           "tick": 500,
-          "enemyId": "sentry_drone",
+          "enemyId": "mortar_drone",
           "y": 4.75
         },
         {
           "tick": 500,
-          "enemyId": "sentry_drone",
+          "enemyId": "mortar_drone",
           "y": 0.75
         },
         {
@@ -1009,7 +1009,7 @@
         },
         {
           "tick": 680,
-          "enemyId": "sentry_drone",
+          "enemyId": "mortar_drone",
           "y": 3.25
         },
         {
@@ -1113,7 +1113,7 @@
         },
         {
           "tick": 280,
-          "enemyId": "sentry_drone",
+          "enemyId": "mortar_drone",
           "y": 0
         },
         {
@@ -1148,12 +1148,12 @@
         },
         {
           "tick": 460,
-          "enemyId": "sentry_drone",
+          "enemyId": "mortar_drone",
           "y": 4
         },
         {
           "tick": 460,
-          "enemyId": "sentry_drone",
+          "enemyId": "mortar_drone",
           "y": -4
         },
         {
@@ -1272,22 +1272,22 @@
         },
         {
           "tick": 250,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 4
         },
         {
           "tick": 260,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 1.5
         },
         {
           "tick": 270,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": -1.5
         },
         {
           "tick": 280,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": -4
         },
         {
@@ -1302,12 +1302,12 @@
         },
         {
           "tick": 400,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 3.25
         },
         {
           "tick": 400,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": -3.25
         },
         {
@@ -1352,12 +1352,12 @@
         },
         {
           "tick": 700,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 1.5
         },
         {
           "tick": 700,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": -1.5
         },
         {
@@ -1431,17 +1431,17 @@
         },
         {
           "tick": 280,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 4
         },
         {
           "tick": 290,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 0
         },
         {
           "tick": 300,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": -4
         },
         {
@@ -1456,12 +1456,12 @@
         },
         {
           "tick": 420,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 1.5
         },
         {
           "tick": 420,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": -1.5
         },
         {
@@ -1491,12 +1491,12 @@
         },
         {
           "tick": 620,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": 3.25
         },
         {
           "tick": 630,
-          "enemyId": "wisp_spark",
+          "enemyId": "echo_wisp",
           "y": -3.25
         },
         {
