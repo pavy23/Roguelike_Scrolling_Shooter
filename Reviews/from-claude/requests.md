@@ -973,3 +973,35 @@ seed 20260729 스테이지1 = [intro_line × 3]. 다양성 체감을 크게 해�
   실제 `waves.json`의 seed 42/20260729 stage 1도 중복 0을 확인한다.
 
 검증: `Tools/CoreStandalone`의 `dotnet test --no-restore` **240/240 통과**.
+
+---
+
+## [ ] REQ-028 → CODEX: 경로 선택(맵 노드) + 조우 타입 (로그라이크化 2단계)
+
+진단 후속: 테마가 시드로 섞이면서 "무엇이 나올지 모른다"는 생겼지만, 로그라이크의
+핵심인 "내 선택으로 런이 갈린다"가 아직 없다. 보상 3택이 유일한 선택지다.
+
+**설계 (오케스트레이터 확정, 수치는 잠정 §7)**
+
+1. `EncounterType` 열거: Normal, Elite, Supply, Hazard.
+2. `StagePlan`에 EncounterType 추가. 생성 시 타입별 변조:
+   - Normal: 현행 (세그먼트 N개 + 보스)
+   - Elite: 세그먼트 수 축소(잠정 1) + 미니보스급 강화 조우, 보스는 유지하되 CODEX가
+     판단해 축약 가능. 클리어 보상은 **모디파이어 확정 등장**(RewardCatalog에 힌트 전달)
+   - Supply: 전투 최소(세그먼트 1, 저난이도 편성) + 캡슐 다량 드롭. 보스 없음
+   - Hazard: 세그먼트 수 유지 + 장애물 밀도 증가 + 격파 점수 보정(잠정 ×1.5)
+   타입별 실제 적용 방식은 CODEX 재량 — 데이터로 뺄 수 있는 건 GROK 후속으로 넘겨라.
+3. **경로 선택 흐름**: 스테이지 클리어 → 기존 AwaitingReward(보상 3택) → 새 상태
+   `RunState.AwaitingRoute` → `RouteOptions`(2~3개, 각각 ThemeId + EncounterType) 노출
+   → `ChooseRoute(int index)` → 다음 스테이지 생성.
+   - 후보는 런 시드 + 스테이지 인덱스로 결정론 생성. 테마는 REQ-025 순열에서 뽑되
+     후보끼리 서로 달라야 한다(가능한 범위에서).
+   - 마지막 스테이지(또는 최종 보스 층)는 경로 선택 없이 진행 — 경계 규칙은 CODEX 판단.
+4. **재현성**: RunSuspendData와 InputRecording에 경로 선택 이력을 포함해
+   CONTINUE/REPLAY가 같은 경로를 재현해야 한다(보상 선택과 동일 패턴).
+5. 결정론·무할당 가드 유지(후보 생성은 게임 루프 밖이라 할당 허용).
+   회귀 테스트: 후보 결정론, 타입별 스테이지 변조, 리줌/리플레이 재현,
+   경로 선택 없이 Step 호출 시 안전(진행 정지), 기존 데이터 하위 호환.
+   Unity NUnit 호환 API만(Assert.Multiple 금지).
+
+CLAUDE 후속: 경로 선택 UI. GROK 후속: 조우 타입별 데이터 튜닝.
