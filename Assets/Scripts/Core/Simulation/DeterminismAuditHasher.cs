@@ -37,6 +37,7 @@ namespace Shmup.Core.Simulation
             FoldInt64(statistics.ShotsHit);
             FoldInt64(statistics.Kills);
             FoldInt64(statistics.CapsulesCollected);
+            FoldInt64(statistics.GrazeCount);
             FoldInt32(statistics.StagesCleared);
 
             FoldShip(run.Ship);
@@ -203,6 +204,10 @@ namespace Shmup.Core.Simulation
             FoldInt64(statistics.ShotsHit);
             FoldInt64(statistics.Kills);
             FoldInt64(statistics.CapsulesCollected);
+            FoldInt64(statistics.GrazeCount);
+            FoldInt32(battle.MultiplierLevel);
+            FoldInt32(battle.ScoreMultiplier);
+            FoldInt32(battle.ComboGauge);
             FoldInt64(battle.ScrollX);
             FoldInt32(battle.PlayerX);
             FoldInt32(battle.PlayerY);
