@@ -148,6 +148,14 @@ namespace Shmup.Core.Content
             config.MissileSpeedXDenominator = _missile.ProjectileSpeedDenominator;
             config.MissileHalfWidth = _missile.ProjectileHalfWidth;
             config.MissileHalfHeight = _missile.ProjectileHalfHeight;
+            ApplyMissileFamily(
+                config,
+                BattleContent.FindMissileFamily(
+                    BattleContent.DefaultMissileFamily));
+            ApplyOptionFormation(
+                config,
+                BattleContent.FindOptionFormation(
+                    BattleContent.DefaultOptionFormation));
             if (_scoring != null)
             {
                 config.GrazeExtraRadiusSubUnits = _scoring.GrazeRadiusSubUnits;
@@ -162,6 +170,63 @@ namespace Shmup.Core.Content
                 config.ComboDecayTicks = _scoring.MultiplierDecayTicks;
             }
             return config;
+        }
+
+        static void ApplyMissileFamily(
+            BattleSimConfig config,
+            MissileFamilyDefinition definition)
+        {
+            config.MissileFamily = definition.Family;
+            config.MissileBaseDamage = definition.BaseDamage;
+            config.MissileFireIntervalTicks =
+                definition.FireIntervalTicks;
+            config.MissileMinimumFireIntervalTicks =
+                definition.MinimumFireIntervalTicks;
+            config.MissileFireIntervalReductionPerLevel =
+                definition.FireIntervalReductionPerLevel;
+            config.MissileSpeedXNumerator =
+                definition.SpeedXNumerator;
+            config.MissileSpeedXDenominator =
+                definition.SpeedXDenominator;
+            config.MissileFallSpeedYNumerator =
+                definition.FallSpeedYNumerator;
+            config.MissileFallSpeedYDenominator =
+                definition.FallSpeedYDenominator;
+            config.MissilePierceEnemyCount =
+                definition.PierceEnemyCount;
+            config.MissileExplosionDamage =
+                definition.ExplosionDamage;
+            config.MissileExplosionRadiusSubUnits =
+                definition.ExplosionRadiusSubUnits;
+            config.MissileExplosionMaxTargets =
+                definition.ExplosionMaxTargets;
+        }
+
+        static void ApplyOptionFormation(
+            BattleSimConfig config,
+            OptionFormationDefinition definition)
+        {
+            config.OptionFormation = definition.Formation;
+            config.OptionFollowDelayTicks =
+                definition.FollowDelayTicks;
+            config.OptionFixedOffsetXs =
+                Copy(definition.OffsetXs);
+            config.OptionFixedOffsetYs =
+                Copy(definition.OffsetYs);
+            config.OptionOrbitRadiusSubUnits =
+                definition.OrbitRadiusSubUnits;
+            config.OptionOrbitAngularLutSlotsNumerator =
+                definition.AngularLutSlotsNumerator;
+            config.OptionOrbitAngularLutSlotsDenominator =
+                definition.AngularLutSlotsDenominator;
+        }
+
+        static int[] Copy(IReadOnlyList<int> source)
+        {
+            var copy = new int[source.Count];
+            for (int i = 0; i < copy.Length; i++)
+                copy[i] = source[i];
+            return copy;
         }
     }
 

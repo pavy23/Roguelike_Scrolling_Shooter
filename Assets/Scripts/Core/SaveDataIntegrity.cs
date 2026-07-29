@@ -31,6 +31,8 @@ namespace Shmup.Core
             if (source.schemaVersion
                     < RunSuspendData.CurrentSchemaVersion
                 && !string.IsNullOrEmpty(source.checksum)
+                && !(source.schemaVersion == 5
+                    && HasValidRunSuspendV5Checksum(source))
                 && !(source.schemaVersion == 4
                     && HasValidRunSuspendV4Checksum(source)))
             {
@@ -105,7 +107,15 @@ namespace Shmup.Core
                 roomsCleared =
                     source.schemaVersion >= 5
                         ? source.roomsCleared
-                        : Math.Max(0, source.stageIndex - 1)
+                        : Math.Max(0, source.stageIndex - 1),
+                missileFamily =
+                    source.schemaVersion >= 6
+                        ? source.missileFamily
+                        : (int)MissileFamily.Straight,
+                optionFormation =
+                    source.schemaVersion >= 6
+                        ? source.optionFormation
+                        : (int)OptionFormation.Trail
             };
             Seal(migrated);
             return migrated;
@@ -134,6 +144,8 @@ namespace Shmup.Core
             if (source.schemaVersion
                     < InputRecordingData.CurrentSchemaVersion
                 && !string.IsNullOrEmpty(source.checksum)
+                && !(source.schemaVersion == 6
+                    && HasValidInputRecordingV6Checksum(source))
                 && !(source.schemaVersion == 5
                     && HasValidInputRecordingV5Checksum(source)))
             {
@@ -175,7 +187,15 @@ namespace Shmup.Core
                 roomsPerBiome =
                     source.schemaVersion >= 6
                         ? source.roomsPerBiome
-                        : 1
+                        : 1,
+                missileFamily =
+                    source.schemaVersion >= 7
+                        ? source.missileFamily
+                        : (int)MissileFamily.Straight,
+                optionFormation =
+                    source.schemaVersion >= 7
+                        ? source.optionFormation
+                        : (int)OptionFormation.Trail
             };
             Seal(migrated);
             return migrated;
@@ -309,6 +329,8 @@ namespace Shmup.Core
             hash.Add(data.biomeCount);
             hash.Add(data.roomsPerBiome);
             hash.Add(data.roomsCleared);
+            hash.Add(data.missileFamily);
+            hash.Add(data.optionFormation);
             return hash.ToString();
         }
 
@@ -343,7 +365,74 @@ namespace Shmup.Core
             hash.Add(data.finalStageIndex);
             hash.Add(data.biomeCount);
             hash.Add(data.roomsPerBiome);
+            hash.Add(data.missileFamily);
+            hash.Add(data.optionFormation);
             return hash.ToString();
+        }
+
+        static bool HasValidRunSuspendV5Checksum(
+            RunSuspendData data)
+        {
+            if (!IsChecksum(data.checksum))
+                return false;
+            var hash = new CanonicalHash("RunSuspendData");
+            hash.Add(data.schemaVersion);
+            hash.Add(data.runSeed);
+            hash.Add(data.runNumber);
+            hash.Add(data.stageIndex);
+            hash.Add(data.score);
+            hash.Add(data.shotsFired);
+            hash.Add(data.shotsHit);
+            hash.Add(data.kills);
+            hash.Add(data.capsulesCollected);
+            hash.Add(data.grazeCount);
+            hash.Add(data.stagesCleared);
+            hash.Add(data.powerUpLevels);
+            hash.Add(data.powerUpCursor);
+            hash.Add(data.playerHp);
+            hash.Add(data.shieldRemaining);
+            Add(ref hash, data.rewardAcquisitions);
+            hash.Add(data.activeModifiers);
+            hash.Add(data.shipId);
+            hash.Add(data.fireIntervalTicks);
+            hash.Add(data.mainShotBaseDamage);
+            hash.Add(data.playerSpeedNumerator);
+            hash.Add(data.playerSpeedDenominator);
+            hash.Add(data.difficultyMultiplierNumerator);
+            hash.Add(data.difficultyMultiplierDenominator);
+            Add(ref hash, data.routeChoices);
+            hash.Add(data.finalStageIndex);
+            hash.Add(data.biomeIndex);
+            hash.Add(data.roomIndex);
+            hash.Add(data.isBiomeBoss);
+            hash.Add(data.biomeCount);
+            hash.Add(data.roomsPerBiome);
+            hash.Add(data.roomsCleared);
+            return string.Equals(
+                data.checksum,
+                hash.ToString(),
+                StringComparison.Ordinal);
+        }
+
+        static bool HasValidInputRecordingV6Checksum(
+            InputRecordingData data)
+        {
+            if (!IsChecksum(data.checksum))
+                return false;
+            var hash = new CanonicalHash("InputRecordingData");
+            hash.Add(data.schemaVersion);
+            hash.Add(data.totalTicks);
+            AddInputRuns(ref hash, data.runs);
+            hash.Add(data.difficultyMultiplierNumerator);
+            hash.Add(data.difficultyMultiplierDenominator);
+            Add(ref hash, data.routeChoices);
+            hash.Add(data.finalStageIndex);
+            hash.Add(data.biomeCount);
+            hash.Add(data.roomsPerBiome);
+            return string.Equals(
+                data.checksum,
+                hash.ToString(),
+                StringComparison.Ordinal);
         }
 
         static bool HasValidRunSuspendV4Checksum(RunSuspendData data)

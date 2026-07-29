@@ -51,6 +51,9 @@ namespace Shmup.Core.Simulation
 
             FoldShip(run.Ship);
             FoldPowerUpGauge(run.PowerUpGauge);
+            FoldInt32((int)run.ActiveModifiers);
+            FoldInt32((int)run.CurrentMissileFamily);
+            FoldInt32((int)run.CurrentOptionFormation);
             FoldStagePlan(run.StagePlan);
             FoldRewards(run.RewardOptions);
             FoldRoutes(run.RouteOptions);
@@ -76,6 +79,8 @@ namespace Shmup.Core.Simulation
             FoldInt32((int)option.Type);
             FoldInt32((int)option.Slot);
             FoldInt32(option.Amount);
+            FoldInt32((int)option.MissileFamily);
+            FoldInt32((int)option.OptionFormation);
         }
 
         public void FoldRouteChoice(
@@ -248,6 +253,8 @@ namespace Shmup.Core.Simulation
                 FoldInt32((int)reward.Slot);
                 FoldInt32(reward.Amount);
                 FoldInt32((int)reward.ModifierId);
+                FoldInt32((int)reward.MissileFamily);
+                FoldInt32((int)reward.OptionFormation);
             }
         }
 

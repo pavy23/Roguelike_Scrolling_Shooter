@@ -28,7 +28,9 @@ namespace Shmup.Core.Simulation
         FireRateUp = 3,
         DamageUp = 4,
         MoveSpeedUp = 5,
-        Modifier = 6
+        Modifier = 6,
+        MissileFamily = 7,
+        OptionFormation = 8
     }
 
     /// <summary>보상 후보 하나.</summary>
@@ -50,12 +52,33 @@ namespace Shmup.Core.Simulation
             PowerUpSlot slot,
             int amount,
             BattleModifier modifierId)
+            : this(
+                id,
+                type,
+                slot,
+                amount,
+                modifierId,
+                MissileFamily.Straight,
+                OptionFormation.Trail)
+        {
+        }
+
+        public RewardOption(
+            string id,
+            RewardType type,
+            PowerUpSlot slot,
+            int amount,
+            BattleModifier modifierId,
+            MissileFamily missileFamily,
+            OptionFormation optionFormation)
         {
             Id = id;
             Type = type;
             Slot = slot;
             Amount = amount;
             ModifierId = modifierId;
+            MissileFamily = missileFamily;
+            OptionFormation = optionFormation;
         }
 
         public string Id { get; }
@@ -63,6 +86,8 @@ namespace Shmup.Core.Simulation
         public PowerUpSlot Slot { get; }
         public int Amount { get; }
         public BattleModifier ModifierId { get; }
+        public MissileFamily MissileFamily { get; }
+        public OptionFormation OptionFormation { get; }
     }
 
     public readonly struct RouteOption
@@ -148,7 +173,9 @@ namespace Shmup.Core.Simulation
             int stageIndexMin,
             int stageIndexMax,
             int? maxPerRun = null,
-            BattleModifier modifierId = BattleModifier.None)
+            BattleModifier modifierId = BattleModifier.None,
+            MissileFamily missileFamily = MissileFamily.Straight,
+            OptionFormation optionFormation = OptionFormation.Trail)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Reward id cannot be empty.", nameof(id));
@@ -173,6 +200,18 @@ namespace Shmup.Core.Simulation
                     "Only modifier rewards can specify a modifier id.",
                     nameof(modifierId));
             }
+            if (type == RewardType.MissileFamily
+                && !Enum.IsDefined(
+                    typeof(MissileFamily),
+                    missileFamily))
+                throw new ArgumentOutOfRangeException(
+                    nameof(missileFamily));
+            if (type == RewardType.OptionFormation
+                && !Enum.IsDefined(
+                    typeof(OptionFormation),
+                    optionFormation))
+                throw new ArgumentOutOfRangeException(
+                    nameof(optionFormation));
 
             Id = id;
             Type = type;
@@ -183,6 +222,8 @@ namespace Shmup.Core.Simulation
             StageIndexMax = stageIndexMax;
             MaxPerRun = maxPerRun;
             ModifierId = modifierId;
+            MissileFamily = missileFamily;
+            OptionFormation = optionFormation;
         }
 
         public string Id { get; }
@@ -195,6 +236,8 @@ namespace Shmup.Core.Simulation
         /// <summary>Maximum acquisitions in one run; null means unlimited.</summary>
         public int? MaxPerRun { get; }
         public BattleModifier ModifierId { get; }
+        public MissileFamily MissileFamily { get; }
+        public OptionFormation OptionFormation { get; }
     }
 
     /// <summary>Immutable reward pool parsed from rewards.json.</summary>
@@ -461,6 +504,8 @@ namespace Shmup.Core.Simulation
         int _stageStartPlayerHp;
         int _stageStartShieldRemaining;
         BattleModifier _stageStartActiveModifiers;
+        MissileFamily _stageStartMissileFamily;
+        OptionFormation _stageStartOptionFormation;
         int _stageStartFireIntervalTicks;
         int _stageStartMainShotBaseDamage;
         int _stageStartPlayerSpeedNumerator;
@@ -764,6 +809,24 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     $"RunManager requires exactly {RewardOptionCount} reward options.",
                     nameof(rewards));
+            for (int i = 0; i < _rewards.All.Count; i++)
+            {
+                RewardDefinition reward = _rewards.All[i];
+                if (reward.Type == RewardType.MissileFamily
+                    && _battleContent.FindMissileFamily(
+                        reward.MissileFamily) == null)
+                    throw new ArgumentException(
+                        $"Reward '{reward.Id}' references an unavailable "
+                        + "missile family.",
+                        nameof(rewards));
+                if (reward.Type == RewardType.OptionFormation
+                    && _battleContent.FindOptionFormation(
+                        reward.OptionFormation) == null)
+                    throw new ArgumentException(
+                        $"Reward '{reward.Id}' references an unavailable "
+                        + "option formation.",
+                        nameof(rewards));
+            }
             _rewardPool = new RewardDefinition[_rewards.All.Count];
             _rewardPoolCatalogIndices = new int[_rewards.All.Count];
             _rewardWeights = new int[_rewards.All.Count];
@@ -806,6 +869,11 @@ namespace Shmup.Core.Simulation
             _initialPlayerSpeedNumerator = _battleConfig.PlayerSpeedNumerator;
             _initialPlayerSpeedDenominator = _battleConfig.PlayerSpeedDenominator;
             ApplyShipStartingLevels(PowerUpGauge);
+            CurrentMissileFamily =
+                _battleContent.DefaultMissileFamily;
+            CurrentOptionFormation =
+                _battleContent.DefaultOptionFormation;
+            ApplyCurrentLoadoutProfiles();
 
             _runSeed = runSeed;
             RunNumber = 1;
@@ -865,6 +933,8 @@ namespace Shmup.Core.Simulation
         /// restarts, matching power-up carry policy, and start empty on a new manager.
         /// </summary>
         public BattleModifier ActiveModifiers { get; private set; }
+        public MissileFamily CurrentMissileFamily { get; private set; }
+        public OptionFormation CurrentOptionFormation { get; private set; }
 
         /// <summary>AwaitingReward 상태에서만 유효. 항상 RewardOptionCount개.</summary>
         public IReadOnlyList<RewardOption> RewardOptions => _rewardOptions;
@@ -955,6 +1025,8 @@ namespace Shmup.Core.Simulation
                 shieldRemaining = _stageStartShieldRemaining,
                 rewardAcquisitions = acquisitions,
                 activeModifiers = (int)_stageStartActiveModifiers,
+                missileFamily = (int)_stageStartMissileFamily,
+                optionFormation = (int)_stageStartOptionFormation,
                 shipId = _ship.Id,
                 fireIntervalTicks = _stageStartFireIntervalTicks,
                 mainShotBaseDamage = _stageStartMainShotBaseDamage,
@@ -1094,6 +1166,11 @@ namespace Shmup.Core.Simulation
             manager._roomsCleared = data.roomsCleared;
             manager.ActiveModifiers =
                 (BattleModifier)data.activeModifiers;
+            manager.CurrentMissileFamily =
+                (MissileFamily)data.missileFamily;
+            manager.CurrentOptionFormation =
+                (OptionFormation)data.optionFormation;
+            manager.ApplyCurrentLoadoutProfiles();
             manager._battleConfig.PlayerMaxHp = data.playerHp;
             manager._battleConfig.FireIntervalTicks =
                 data.fireIntervalTicks;
@@ -1313,6 +1390,14 @@ namespace Shmup.Core.Simulation
                 case RewardType.Modifier:
                     ActiveModifiers |= option.ModifierId;
                     break;
+                case RewardType.MissileFamily:
+                    CurrentMissileFamily = option.MissileFamily;
+                    ApplyCurrentLoadoutProfiles();
+                    break;
+                case RewardType.OptionFormation:
+                    CurrentOptionFormation = option.OptionFormation;
+                    ApplyCurrentLoadoutProfiles();
+                    break;
                 default:
                     throw new InvalidOperationException($"Unknown reward type {option.Type}.");
             }
@@ -1331,6 +1416,14 @@ namespace Shmup.Core.Simulation
                     continue;
                 if (reward.MaxPerRun.HasValue
                     && _rewardAcquisitionCounts[i] >= reward.MaxPerRun.Value)
+                    continue;
+                if (reward.Type == RewardType.MissileFamily
+                    && reward.MissileFamily
+                        == CurrentMissileFamily)
+                    continue;
+                if (reward.Type == RewardType.OptionFormation
+                    && reward.OptionFormation
+                        == CurrentOptionFormation)
                     continue;
 
                 _rewardPool[eligibleCount] = reward;
@@ -1387,7 +1480,9 @@ namespace Shmup.Core.Simulation
                         modifier.Type,
                         modifier.Slot,
                         modifier.Amount,
-                        modifier.ModifierId);
+                        modifier.ModifierId,
+                        modifier.MissileFamily,
+                        modifier.OptionFormation);
                     int last = --poolCount;
                     _rewardPool[modifierPick] = _rewardPool[last];
                     _rewardPoolCatalogIndices[modifierPick] =
@@ -1411,7 +1506,9 @@ namespace Shmup.Core.Simulation
                     selected.Type,
                     selected.Slot,
                     selected.Amount,
-                    selected.ModifierId);
+                    selected.ModifierId,
+                    selected.MissileFamily,
+                    selected.OptionFormation);
 
                 int last = --poolCount;
                 _rewardPool[pick] = _rewardPool[last];
@@ -1713,6 +1810,15 @@ namespace Shmup.Core.Simulation
                     + $"{data.schemaVersion}.",
                     nameof(data));
             }
+            if (!Enum.IsDefined(
+                    typeof(MissileFamily),
+                    data.missileFamily)
+                || !Enum.IsDefined(
+                    typeof(OptionFormation),
+                    data.optionFormation))
+                throw new ArgumentException(
+                    "Suspend weapon loadout is invalid.",
+                    nameof(data));
             ResolveSuspendDifficulty(
                 data,
                 out _,
@@ -2086,8 +2192,73 @@ namespace Shmup.Core.Simulation
                 data.difficultyMultiplierDenominator / divisor;
         }
 
+        void ApplyCurrentLoadoutProfiles()
+        {
+            MissileFamilyDefinition missile =
+                _battleContent.FindMissileFamily(
+                    CurrentMissileFamily);
+            if (missile == null)
+                throw new InvalidOperationException(
+                    $"Missile family '{CurrentMissileFamily}' "
+                    + "is not present in BattleContent.");
+            _battleConfig.MissileFamily = missile.Family;
+            _battleConfig.MissileBaseDamage = missile.BaseDamage;
+            _battleConfig.MissileFireIntervalTicks =
+                missile.FireIntervalTicks;
+            _battleConfig.MissileMinimumFireIntervalTicks =
+                missile.MinimumFireIntervalTicks;
+            _battleConfig.MissileFireIntervalReductionPerLevel =
+                missile.FireIntervalReductionPerLevel;
+            _battleConfig.MissileSpeedXNumerator =
+                missile.SpeedXNumerator;
+            _battleConfig.MissileSpeedXDenominator =
+                missile.SpeedXDenominator;
+            _battleConfig.MissileFallSpeedYNumerator =
+                missile.FallSpeedYNumerator;
+            _battleConfig.MissileFallSpeedYDenominator =
+                missile.FallSpeedYDenominator;
+            _battleConfig.MissilePierceEnemyCount =
+                missile.PierceEnemyCount;
+            _battleConfig.MissileExplosionDamage =
+                missile.ExplosionDamage;
+            _battleConfig.MissileExplosionRadiusSubUnits =
+                missile.ExplosionRadiusSubUnits;
+            _battleConfig.MissileExplosionMaxTargets =
+                missile.ExplosionMaxTargets;
+
+            OptionFormationDefinition option =
+                _battleContent.FindOptionFormation(
+                    CurrentOptionFormation);
+            if (option == null)
+                throw new InvalidOperationException(
+                    $"Option formation '{CurrentOptionFormation}' "
+                    + "is not present in BattleContent.");
+            _battleConfig.OptionFormation = option.Formation;
+            _battleConfig.OptionFollowDelayTicks =
+                option.FollowDelayTicks;
+            _battleConfig.OptionFixedOffsetXs =
+                CopyIntegers(option.OffsetXs);
+            _battleConfig.OptionFixedOffsetYs =
+                CopyIntegers(option.OffsetYs);
+            _battleConfig.OptionOrbitRadiusSubUnits =
+                option.OrbitRadiusSubUnits;
+            _battleConfig.OptionOrbitAngularLutSlotsNumerator =
+                option.AngularLutSlotsNumerator;
+            _battleConfig.OptionOrbitAngularLutSlotsDenominator =
+                option.AngularLutSlotsDenominator;
+        }
+
+        static int[] CopyIntegers(IReadOnlyList<int> source)
+        {
+            var copy = new int[source.Count];
+            for (int i = 0; i < copy.Length; i++)
+                copy[i] = source[i];
+            return copy;
+        }
+
         void BuildCurrentStage()
         {
+            ApplyCurrentLoadoutProfiles();
             Difficulty = _difficultyCurve.GetDifficulty(BiomeIndex);
             ulong generationSeed = GetRoomGenerationSeed(
                 BiomeIndex,
@@ -2319,6 +2490,8 @@ namespace Shmup.Core.Simulation
             _stageStartShieldRemaining =
                 Battle.ShieldRemaining;
             _stageStartActiveModifiers = ActiveModifiers;
+            _stageStartMissileFamily = CurrentMissileFamily;
+            _stageStartOptionFormation = CurrentOptionFormation;
             _stageStartFireIntervalTicks =
                 _battleConfig.FireIntervalTicks;
             _stageStartMainShotBaseDamage =

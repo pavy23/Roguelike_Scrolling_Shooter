@@ -4,6 +4,172 @@ using System.Collections.ObjectModel;
 
 namespace Shmup.Core.Simulation
 {
+    public enum MissileFamily
+    {
+        Straight = 0,
+        SpreadBomb = 1,
+        PiercingLance = 2
+    }
+
+    public enum OptionFormation
+    {
+        Trail = 0,
+        Fixed = 1,
+        Orbit = 2
+    }
+
+    public sealed class MissileFamilyDefinition
+    {
+        public MissileFamilyDefinition(
+            MissileFamily family,
+            int baseDamage,
+            int fireIntervalTicks,
+            int minimumFireIntervalTicks,
+            int fireIntervalReductionPerLevel,
+            int speedXNumerator,
+            int speedXDenominator,
+            int fallSpeedYNumerator,
+            int fallSpeedYDenominator,
+            int pierceEnemyCount,
+            int explosionDamage,
+            int explosionRadiusSubUnits,
+            int explosionMaxTargets)
+        {
+            if (!Enum.IsDefined(typeof(MissileFamily), family))
+                throw new ArgumentOutOfRangeException(nameof(family));
+            if (baseDamage < 0
+                || fireIntervalTicks < 1
+                || minimumFireIntervalTicks < 1
+                || fireIntervalReductionPerLevel < 0
+                || speedXNumerator < 0
+                || speedXDenominator < 1
+                || fallSpeedYNumerator < 0
+                || fallSpeedYDenominator < 1
+                || pierceEnemyCount < 0
+                || explosionDamage < 0
+                || explosionRadiusSubUnits < 0
+                || explosionMaxTargets < 0)
+                throw new ArgumentOutOfRangeException(nameof(baseDamage));
+            Family = family;
+            BaseDamage = baseDamage;
+            FireIntervalTicks = fireIntervalTicks;
+            MinimumFireIntervalTicks = minimumFireIntervalTicks;
+            FireIntervalReductionPerLevel =
+                fireIntervalReductionPerLevel;
+            SpeedXNumerator = speedXNumerator;
+            SpeedXDenominator = speedXDenominator;
+            FallSpeedYNumerator = fallSpeedYNumerator;
+            FallSpeedYDenominator = fallSpeedYDenominator;
+            PierceEnemyCount = pierceEnemyCount;
+            ExplosionDamage = explosionDamage;
+            ExplosionRadiusSubUnits = explosionRadiusSubUnits;
+            ExplosionMaxTargets = explosionMaxTargets;
+        }
+
+        public MissileFamily Family { get; }
+        public string Id => MissileFamilyIds.ToId(Family);
+        public int BaseDamage { get; }
+        public int FireIntervalTicks { get; }
+        public int MinimumFireIntervalTicks { get; }
+        public int FireIntervalReductionPerLevel { get; }
+        public int SpeedXNumerator { get; }
+        public int SpeedXDenominator { get; }
+        public int FallSpeedYNumerator { get; }
+        public int FallSpeedYDenominator { get; }
+        public int PierceEnemyCount { get; }
+        public int ExplosionDamage { get; }
+        public int ExplosionRadiusSubUnits { get; }
+        public int ExplosionMaxTargets { get; }
+    }
+
+    public sealed class OptionFormationDefinition
+    {
+        readonly ReadOnlyCollection<int> _offsetXs;
+        readonly ReadOnlyCollection<int> _offsetYs;
+
+        public OptionFormationDefinition(
+            OptionFormation formation,
+            int followDelayTicks,
+            int[] offsetXs,
+            int[] offsetYs,
+            int orbitRadiusSubUnits,
+            int angularLutSlotsNumerator,
+            int angularLutSlotsDenominator)
+        {
+            if (!Enum.IsDefined(typeof(OptionFormation), formation))
+                throw new ArgumentOutOfRangeException(nameof(formation));
+            if (followDelayTicks < 0
+                || orbitRadiusSubUnits < 0
+                || angularLutSlotsNumerator < 0
+                || angularLutSlotsDenominator < 1)
+                throw new ArgumentOutOfRangeException(nameof(followDelayTicks));
+            if (offsetXs == null || offsetYs == null
+                || offsetXs.Length != offsetYs.Length)
+                throw new ArgumentException(
+                    "Option formation offsets must have matching arrays.");
+            if (formation == OptionFormation.Trail
+                && followDelayTicks < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(followDelayTicks));
+            if (formation == OptionFormation.Fixed
+                && offsetXs.Length == 0)
+                throw new ArgumentException(
+                    "Fixed formation requires offsets.",
+                    nameof(offsetXs));
+            if (formation == OptionFormation.Orbit
+                && (orbitRadiusSubUnits < 1
+                    || angularLutSlotsNumerator < 1))
+                throw new ArgumentOutOfRangeException(
+                    nameof(orbitRadiusSubUnits));
+            Formation = formation;
+            FollowDelayTicks = followDelayTicks;
+            _offsetXs = Array.AsReadOnly(
+                (int[])offsetXs.Clone());
+            _offsetYs = Array.AsReadOnly(
+                (int[])offsetYs.Clone());
+            OrbitRadiusSubUnits = orbitRadiusSubUnits;
+            AngularLutSlotsNumerator = angularLutSlotsNumerator;
+            AngularLutSlotsDenominator = angularLutSlotsDenominator;
+        }
+
+        public OptionFormation Formation { get; }
+        public string Id => OptionFormationIds.ToId(Formation);
+        public int FollowDelayTicks { get; }
+        public IReadOnlyList<int> OffsetXs => _offsetXs;
+        public IReadOnlyList<int> OffsetYs => _offsetYs;
+        public int OrbitRadiusSubUnits { get; }
+        public int AngularLutSlotsNumerator { get; }
+        public int AngularLutSlotsDenominator { get; }
+    }
+
+    public static class MissileFamilyIds
+    {
+        public static string ToId(MissileFamily family)
+        {
+            switch (family)
+            {
+                case MissileFamily.Straight: return "straight";
+                case MissileFamily.SpreadBomb: return "spread_bomb";
+                case MissileFamily.PiercingLance: return "piercing_lance";
+                default: throw new ArgumentOutOfRangeException(nameof(family));
+            }
+        }
+    }
+
+    public static class OptionFormationIds
+    {
+        public static string ToId(OptionFormation formation)
+        {
+            switch (formation)
+            {
+                case OptionFormation.Trail: return "trail";
+                case OptionFormation.Fixed: return "fixed";
+                case OptionFormation.Orbit: return "orbit";
+                default: throw new ArgumentOutOfRangeException(nameof(formation));
+            }
+        }
+    }
+
     public enum EnemyMovePattern
     {
         Straight = 0,
@@ -296,11 +462,32 @@ namespace Shmup.Core.Simulation
     {
         readonly ReadOnlyCollection<EnemyDefinition> _enemies;
         readonly ReadOnlyCollection<WeaponDefinition> _weapons;
+        readonly ReadOnlyCollection<MissileFamilyDefinition> _missileFamilies;
+        readonly ReadOnlyCollection<OptionFormationDefinition> _optionFormations;
 
         public BattleContent(
             IReadOnlyList<EnemyDefinition> enemies,
             IReadOnlyList<WeaponDefinition> weapons,
             string playerWeaponId)
+            : this(
+                enemies,
+                weapons,
+                playerWeaponId,
+                CreateLegacyMissileFamilies(weapons),
+                MissileFamily.Straight,
+                CreateLegacyOptionFormations(),
+                OptionFormation.Trail)
+        {
+        }
+
+        public BattleContent(
+            IReadOnlyList<EnemyDefinition> enemies,
+            IReadOnlyList<WeaponDefinition> weapons,
+            string playerWeaponId,
+            IReadOnlyList<MissileFamilyDefinition> missileFamilies,
+            MissileFamily defaultMissileFamily,
+            IReadOnlyList<OptionFormationDefinition> optionFormations,
+            OptionFormation defaultOptionFormation)
         {
             if (enemies == null) throw new ArgumentNullException(nameof(enemies));
             if (weapons == null) throw new ArgumentNullException(nameof(weapons));
@@ -332,11 +519,47 @@ namespace Shmup.Core.Simulation
             PlayerWeapon = FindWeapon(playerWeaponId) ?? throw new ArgumentException(
                 "The player weapon id is not present in the weapon definitions.",
                 nameof(playerWeaponId));
+            _missileFamilies = CopyMissileFamilies(missileFamilies);
+            _optionFormations = CopyOptionFormations(optionFormations);
+            DefaultMissileFamily = defaultMissileFamily;
+            DefaultOptionFormation = defaultOptionFormation;
+            if (FindMissileFamily(defaultMissileFamily) == null)
+                throw new ArgumentException(
+                    "The default missile family is not present.",
+                    nameof(defaultMissileFamily));
+            if (FindOptionFormation(defaultOptionFormation) == null)
+                throw new ArgumentException(
+                    "The default option formation is not present.",
+                    nameof(defaultOptionFormation));
         }
 
         public IReadOnlyList<EnemyDefinition> Enemies => _enemies;
         public IReadOnlyList<WeaponDefinition> Weapons => _weapons;
+        public IReadOnlyList<MissileFamilyDefinition> MissileFamilies =>
+            _missileFamilies;
+        public IReadOnlyList<OptionFormationDefinition> OptionFormations =>
+            _optionFormations;
         public WeaponDefinition PlayerWeapon { get; }
+        public MissileFamily DefaultMissileFamily { get; }
+        public OptionFormation DefaultOptionFormation { get; }
+
+        public MissileFamilyDefinition FindMissileFamily(
+            MissileFamily family)
+        {
+            for (int i = 0; i < _missileFamilies.Count; i++)
+                if (_missileFamilies[i].Family == family)
+                    return _missileFamilies[i];
+            return null;
+        }
+
+        public OptionFormationDefinition FindOptionFormation(
+            OptionFormation formation)
+        {
+            for (int i = 0; i < _optionFormations.Count; i++)
+                if (_optionFormations[i].Formation == formation)
+                    return _optionFormations[i];
+            return null;
+        }
 
         public EnemyDefinition FindEnemy(string id)
         {
@@ -384,6 +607,105 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < count; i++)
                 if (string.Equals(definitions[i].Id, id, StringComparison.Ordinal))
                     throw new ArgumentException($"Duplicate weapon id '{id}'.");
+        }
+
+        static ReadOnlyCollection<MissileFamilyDefinition>
+            CopyMissileFamilies(
+                IReadOnlyList<MissileFamilyDefinition> source)
+        {
+            if (source == null || source.Count == 0)
+                throw new ArgumentException(
+                    "At least one missile family is required.",
+                    nameof(source));
+            var copy = new MissileFamilyDefinition[source.Count];
+            for (int i = 0; i < copy.Length; i++)
+            {
+                copy[i] = source[i] ?? throw new ArgumentException(
+                    "Missile families cannot contain null.",
+                    nameof(source));
+                for (int previous = 0; previous < i; previous++)
+                    if (copy[previous].Family == copy[i].Family)
+                        throw new ArgumentException(
+                            "Missile families cannot be duplicated.",
+                            nameof(source));
+            }
+            return new ReadOnlyCollection<MissileFamilyDefinition>(copy);
+        }
+
+        static ReadOnlyCollection<OptionFormationDefinition>
+            CopyOptionFormations(
+                IReadOnlyList<OptionFormationDefinition> source)
+        {
+            if (source == null || source.Count == 0)
+                throw new ArgumentException(
+                    "At least one option formation is required.",
+                    nameof(source));
+            var copy = new OptionFormationDefinition[source.Count];
+            for (int i = 0; i < copy.Length; i++)
+            {
+                copy[i] = source[i] ?? throw new ArgumentException(
+                    "Option formations cannot contain null.",
+                    nameof(source));
+                for (int previous = 0; previous < i; previous++)
+                    if (copy[previous].Formation == copy[i].Formation)
+                        throw new ArgumentException(
+                            "Option formations cannot be duplicated.",
+                            nameof(source));
+            }
+            return new ReadOnlyCollection<OptionFormationDefinition>(copy);
+        }
+
+        static IReadOnlyList<MissileFamilyDefinition>
+            CreateLegacyMissileFamilies(
+                IReadOnlyList<WeaponDefinition> weapons)
+        {
+            WeaponDefinition missile = null;
+            if (weapons != null)
+                for (int i = 0; i < weapons.Count; i++)
+                    if (weapons[i] != null
+                        && weapons[i].Slot == PowerUpSlot.Missile)
+                    {
+                        missile = weapons[i];
+                        break;
+                    }
+            int u = SimSpace.SubUnitsPerWorldUnit;
+            return new[]
+            {
+                new MissileFamilyDefinition(
+                    MissileFamily.Straight,
+                    missile == null ? 2 : missile.BaseDamage,
+                    missile == null ? 45 : missile.FireIntervalTicks,
+                    missile == null ? 30 : missile.MinimumFireIntervalTicks,
+                    5,
+                    missile == null
+                        ? 13 * u
+                        : missile.ProjectileSpeedNumerator,
+                    missile == null
+                        ? SimSpace.TicksPerSecond
+                        : missile.ProjectileSpeedDenominator,
+                    5 * u,
+                    SimSpace.TicksPerSecond,
+                    0,
+                    0,
+                    0,
+                    0)
+            };
+        }
+
+        static IReadOnlyList<OptionFormationDefinition>
+            CreateLegacyOptionFormations()
+        {
+            return new[]
+            {
+                new OptionFormationDefinition(
+                    OptionFormation.Trail,
+                    12,
+                    Array.Empty<int>(),
+                    Array.Empty<int>(),
+                    0,
+                    0,
+                    1)
+            };
         }
     }
 }

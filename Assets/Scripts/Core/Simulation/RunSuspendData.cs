@@ -50,7 +50,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class RunSuspendData
     {
-        public const int CurrentSchemaVersion = 5;
+        public const int CurrentSchemaVersion = 6;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -153,5 +153,11 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 32)]
         public int roomsCleared;
+
+        [DataMember(Order = 33)]
+        public int missileFamily;
+
+        [DataMember(Order = 34)]
+        public int optionFormation;
     }
 }

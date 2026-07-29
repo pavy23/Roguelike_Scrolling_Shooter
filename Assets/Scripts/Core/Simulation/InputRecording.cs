@@ -34,7 +34,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class InputRecordingData
     {
-        public const int CurrentSchemaVersion = 6;
+        public const int CurrentSchemaVersion = 7;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -65,6 +65,12 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 9)]
         public int roomsPerBiome;
+
+        [DataMember(Order = 10)]
+        public int missileFamily;
+
+        [DataMember(Order = 11)]
+        public int optionFormation;
     }
 
     /// <summary>
@@ -82,6 +88,8 @@ namespace Shmup.Core.Simulation
         readonly int _difficultyMultiplierDenominator;
         readonly int _finalStageIndex;
         readonly int _roomsPerBiome;
+        readonly MissileFamily _missileFamily;
+        readonly OptionFormation _optionFormation;
         readonly List<RouteChoice> _recordedRouteChoices;
         readonly RunManager _routeSource;
         int _runCount;
@@ -116,6 +124,8 @@ namespace Shmup.Core.Simulation
                 GetRoomsPerBiome(run))
         {
             _routeSource = run;
+            _missileFamily = run.CurrentMissileFamily;
+            _optionFormation = run.CurrentOptionFormation;
         }
 
         public InputRecorder(
@@ -177,6 +187,8 @@ namespace Shmup.Core.Simulation
                 difficultyMultiplierDenominator / divisor;
             _finalStageIndex = biomeCount;
             _roomsPerBiome = roomsPerBiome;
+            _missileFamily = MissileFamily.Straight;
+            _optionFormation = OptionFormation.Trail;
             _runs = new InputRun[runCapacity];
             _recordedRouteChoices = new List<RouteChoice>();
         }
@@ -314,7 +326,9 @@ namespace Shmup.Core.Simulation
                 routeChoices = exportedRouteChoices,
                 finalStageIndex = _finalStageIndex,
                 biomeCount = _finalStageIndex,
-                roomsPerBiome = _roomsPerBiome
+                roomsPerBiome = _roomsPerBiome,
+                missileFamily = (int)_missileFamily,
+                optionFormation = (int)_optionFormation
             };
             SaveDataIntegrity.Seal(data);
             return data;
@@ -423,6 +437,10 @@ namespace Shmup.Core.Simulation
                 data.difficultyMultiplierDenominator / divisor;
             BiomeCount = data.biomeCount;
             RoomsPerBiome = data.roomsPerBiome;
+            MissileFamily =
+                (MissileFamily)data.missileFamily;
+            OptionFormation =
+                (OptionFormation)data.optionFormation;
             _runs = new PlaybackRun[data.runs.Length];
             for (int i = 0; i < data.runs.Length; i++)
             {
@@ -458,6 +476,8 @@ namespace Shmup.Core.Simulation
         public int FinalStageIndex => BiomeCount;
         public int BiomeCount { get; }
         public int RoomsPerBiome { get; }
+        public MissileFamily MissileFamily { get; }
+        public OptionFormation OptionFormation { get; }
         public IReadOnlyList<RouteChoice> RouteChoices =>
             _routeChoiceView;
 
@@ -499,6 +519,14 @@ namespace Shmup.Core.Simulation
             if (data.roomsPerBiome < 1)
                 throw Corrupted(
                     "The input recording roomsPerBiome must be positive.");
+            if (!Enum.IsDefined(
+                    typeof(MissileFamily),
+                    data.missileFamily)
+                || !Enum.IsDefined(
+                    typeof(OptionFormation),
+                    data.optionFormation))
+                throw Corrupted(
+                    "The input recording weapon loadout is invalid.");
             if (data.totalTicks < 1)
                 throw Corrupted(
                     "The input recording must contain at least one tick.");
