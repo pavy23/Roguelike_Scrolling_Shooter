@@ -292,6 +292,12 @@ namespace Shmup.Core.Simulation
         public int CapsuleNoDropWeight { get; set; }
         public int ScrollSpeedNumerator { get; set; }
         public int ScrollSpeedDenominator { get; set; } = 1;
+        /// <summary>
+        /// Provisional run difficulty tuning (REQ-020, AGENTS.md section 7).
+        /// Applied with deterministic ceiling to regular-enemy and boss HP only.
+        /// </summary>
+        public int EnemyHpMultiplierNumerator { get; set; } = 1;
+        public int EnemyHpMultiplierDenominator { get; set; } = 1;
 
         // Provisional power-up tuning. These are deliberately configurable until
         // the human balance pass replaces them with approved GameData values.
@@ -456,6 +462,8 @@ namespace Shmup.Core.Simulation
         readonly int _capsuleHalfWidth, _capsuleHalfHeight;
         readonly int _capsuleNoDropWeight;
         readonly int _scrollSpeedNumerator, _scrollSpeedDenominator;
+        readonly int _enemyHpMultiplierNumerator;
+        readonly int _enemyHpMultiplierDenominator;
         readonly int _playerBulletDamage, _playerBulletHalfWidth, _playerBulletHalfHeight;
         readonly PowerUpGauge _powerUpGauge;
         readonly Rng _dropRng;
@@ -632,6 +640,10 @@ namespace Shmup.Core.Simulation
             _capsuleNoDropWeight = config.CapsuleNoDropWeight;
             _scrollSpeedNumerator = config.ScrollSpeedNumerator;
             _scrollSpeedDenominator = config.ScrollSpeedDenominator;
+            _enemyHpMultiplierNumerator =
+                config.EnemyHpMultiplierNumerator;
+            _enemyHpMultiplierDenominator =
+                config.EnemyHpMultiplierDenominator;
             _enemyBulletSpeedNumerator = config.EnemyBulletSpeedNumerator;
             _enemyBulletSpeedDenominator = config.EnemyBulletSpeedDenominator;
             _enemyBulletHalfWidth = config.EnemyBulletHalfWidth;
@@ -670,7 +682,7 @@ namespace Shmup.Core.Simulation
             if (stageEnabled && stagePlan.BossMaxHp > 0)
             {
                 const int u = SimSpace.SubUnitsPerWorldUnit;
-                _bossMaxHp = stagePlan.BossMaxHp;
+                _bossMaxHp = ScaleEnemyHp(stagePlan.BossMaxHp);
                 _bossHalfWidth = stagePlan.BossHalfWidth > 0 ? stagePlan.BossHalfWidth : 3 * u;
                 _bossHalfHeight = stagePlan.BossHalfHeight > 0 ? stagePlan.BossHalfHeight : 2 * u;
                 _bossHoldX = stagePlan.BossHoldX != 0 ? stagePlan.BossHoldX : 14 * u;
@@ -1241,7 +1253,11 @@ namespace Shmup.Core.Simulation
                     throw new InvalidOperationException("The enemy id counter is exhausted.");
 
                 _enemies.Add(new EnemyState(
-                    _nextEnemyId++, spawn.Definition.Id, spawn.X, spawn.Y, spawn.Definition.MaxHp));
+                    _nextEnemyId++,
+                    spawn.Definition.Id,
+                    spawn.X,
+                    spawn.Y,
+                    ScaleEnemyHp(spawn.Definition.MaxHp)));
                 _enemyDefinitions.Add(spawn.Definition);
                 _enemyXRemainders.Add(0);
                 _enemySpawnYs.Add(spawn.Y);
@@ -2141,6 +2157,17 @@ namespace Shmup.Core.Simulation
                 && yDistance <= (long)leftHalfHeight + rightHalfHeight;
         }
 
+        int ScaleEnemyHp(int baseHp)
+        {
+            long scaled =
+                ((long)baseHp * _enemyHpMultiplierNumerator
+                    + _enemyHpMultiplierDenominator - 1)
+                / _enemyHpMultiplierDenominator;
+            return scaled >= int.MaxValue
+                ? int.MaxValue
+                : (int)scaled;
+        }
+
         static int SaturateToInt(long value)
         {
             if (value < int.MinValue) return int.MinValue;
@@ -2271,6 +2298,12 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(config.ScrollSpeedNumerator));
             if (config.ScrollSpeedDenominator < 1)
                 throw new ArgumentOutOfRangeException(nameof(config.ScrollSpeedDenominator));
+            if (config.EnemyHpMultiplierNumerator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.EnemyHpMultiplierNumerator));
+            if (config.EnemyHpMultiplierDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.EnemyHpMultiplierDenominator));
             if (config.EnemyBulletSpeedNumerator < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.EnemyBulletSpeedNumerator));
             if (config.EnemyBulletSpeedDenominator < 1)

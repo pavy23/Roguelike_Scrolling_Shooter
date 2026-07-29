@@ -33,7 +33,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class InputRecordingData
     {
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -43,6 +43,12 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 2)]
         public InputRunData[] runs;
+
+        [DataMember(Order = 3)]
+        public int difficultyMultiplierNumerator = 1;
+
+        [DataMember(Order = 4)]
+        public int difficultyMultiplierDenominator = 1;
     }
 
     /// <summary>
@@ -56,25 +62,61 @@ namespace Shmup.Core.Simulation
         const int DefaultRunCapacity = 4096;
 
         readonly InputRun[] _runs;
+        readonly int _difficultyMultiplierNumerator;
+        readonly int _difficultyMultiplierDenominator;
         int _runCount;
         int _totalTicks;
 
         public InputRecorder()
-            : this(DefaultRunCapacity)
+            : this(DefaultRunCapacity, 1, 1)
         {
         }
 
         public InputRecorder(int runCapacity)
+            : this(runCapacity, 1, 1)
+        {
+        }
+
+        public InputRecorder(RunManager run)
+            : this(
+                DefaultRunCapacity,
+                GetDifficultyNumerator(run),
+                GetDifficultyDenominator(run))
+        {
+        }
+
+        public InputRecorder(
+            int runCapacity,
+            int difficultyMultiplierNumerator,
+            int difficultyMultiplierDenominator)
         {
             if (runCapacity < 1)
                 throw new ArgumentOutOfRangeException(
                     nameof(runCapacity));
+            if (difficultyMultiplierNumerator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(difficultyMultiplierNumerator));
+            if (difficultyMultiplierDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(difficultyMultiplierDenominator));
+
+            int divisor = GreatestCommonDivisor(
+                difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator);
+            _difficultyMultiplierNumerator =
+                difficultyMultiplierNumerator / divisor;
+            _difficultyMultiplierDenominator =
+                difficultyMultiplierDenominator / divisor;
             _runs = new InputRun[runCapacity];
         }
 
         public int Capacity => _runs.Length;
         public int RunCount => _runCount;
         public int TotalTicks => _totalTicks;
+        public int DifficultyMultiplierNumerator =>
+            _difficultyMultiplierNumerator;
+        public int DifficultyMultiplierDenominator =>
+            _difficultyMultiplierDenominator;
 
         public void Record(in InputCommand input)
         {
@@ -133,8 +175,37 @@ namespace Shmup.Core.Simulation
             {
                 schemaVersion = InputRecordingData.CurrentSchemaVersion,
                 totalTicks = _totalTicks,
-                runs = exportedRuns
+                runs = exportedRuns,
+                difficultyMultiplierNumerator =
+                    _difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator =
+                    _difficultyMultiplierDenominator
             };
+        }
+
+        static int GetDifficultyNumerator(RunManager run)
+        {
+            if (run == null)
+                throw new ArgumentNullException(nameof(run));
+            return run.DifficultyMultiplierNumerator;
+        }
+
+        static int GetDifficultyDenominator(RunManager run)
+        {
+            if (run == null)
+                throw new ArgumentNullException(nameof(run));
+            return run.DifficultyMultiplierDenominator;
+        }
+
+        static int GreatestCommonDivisor(int left, int right)
+        {
+            while (right != 0)
+            {
+                int remainder = left % right;
+                left = right;
+                right = remainder;
+            }
+            return left;
         }
 
         static bool HasSameCommand(
@@ -181,6 +252,21 @@ namespace Shmup.Core.Simulation
             Validate(data);
 
             TotalTicks = data.totalTicks;
+            if (data.schemaVersion == 2)
+            {
+                DifficultyMultiplierNumerator = 1;
+                DifficultyMultiplierDenominator = 1;
+            }
+            else
+            {
+                int divisor = GreatestCommonDivisor(
+                    data.difficultyMultiplierNumerator,
+                    data.difficultyMultiplierDenominator);
+                DifficultyMultiplierNumerator =
+                    data.difficultyMultiplierNumerator / divisor;
+                DifficultyMultiplierDenominator =
+                    data.difficultyMultiplierDenominator / divisor;
+            }
             _runs = new PlaybackRun[data.runs.Length];
             for (int i = 0; i < data.runs.Length; i++)
             {
@@ -197,6 +283,8 @@ namespace Shmup.Core.Simulation
 
         public int TotalTicks { get; }
         public int RunCount => _runs.Length;
+        public int DifficultyMultiplierNumerator { get; }
+        public int DifficultyMultiplierDenominator { get; }
 
         public Enumerator GetEnumerator()
         {
@@ -216,11 +304,21 @@ namespace Shmup.Core.Simulation
 
         static void Validate(InputRecordingData data)
         {
-            if (data.schemaVersion
-                != InputRecordingData.CurrentSchemaVersion)
+            if (data.schemaVersion != 2
+                && data.schemaVersion
+                    != InputRecordingData.CurrentSchemaVersion)
             {
                 throw Corrupted(
                     "The input recording schema version is unsupported.");
+            }
+            if (data.schemaVersion
+                    == InputRecordingData.CurrentSchemaVersion
+                && (data.difficultyMultiplierNumerator < 1
+                    || data.difficultyMultiplierDenominator < 1))
+            {
+                throw Corrupted(
+                    "The input recording difficulty multiplier "
+                    + "must be positive.");
             }
             if (data.totalTicks < 1)
                 throw Corrupted(
@@ -274,6 +372,17 @@ namespace Shmup.Core.Simulation
         static ArgumentException Corrupted(string message)
         {
             return new ArgumentException(message, "data");
+        }
+
+        static int GreatestCommonDivisor(int left, int right)
+        {
+            while (right != 0)
+            {
+                int remainder = left % right;
+                left = right;
+                right = remainder;
+            }
+            return left;
         }
 
         internal readonly struct PlaybackRun

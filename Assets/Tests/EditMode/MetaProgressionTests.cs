@@ -28,6 +28,20 @@ namespace Shmup.Core.Tests
             var meta = new MetaProgression(0.5);
             var carried = meta.ApplyDeathCarry(new[] { 5, 3, 4, 1 });
             CollectionAssert.AreEqual(new[] { 2, 1, 2, 0 }, carried);
+            Assert.AreEqual(1, meta.CarryNumerator);
+            Assert.AreEqual(2, meta.CarryDenominator);
+            Assert.AreEqual(0.5, meta.CarryFraction);
+        }
+
+        [Test]
+        public void IntegerFraction_ReducesAndPreservesLegacyResult()
+        {
+            var meta = new MetaProgression(2, 4);
+            var carried = meta.ApplyDeathCarry(new[] { 5, 3, 4, 1 });
+
+            CollectionAssert.AreEqual(new[] { 2, 1, 2, 0 }, carried);
+            Assert.AreEqual(1, meta.CarryNumerator);
+            Assert.AreEqual(2, meta.CarryDenominator);
         }
 
         [Test]
@@ -35,6 +49,12 @@ namespace Shmup.Core.Tests
         {
             Assert.Throws<ArgumentOutOfRangeException>(() => new MetaProgression(-0.1));
             Assert.Throws<ArgumentOutOfRangeException>(() => new MetaProgression(1.1));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => new MetaProgression(-1, 2));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => new MetaProgression(1, 0));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => new MetaProgression(3, 2));
         }
 
         [Test]

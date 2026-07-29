@@ -572,3 +572,36 @@ M4 Core 런 통계 API가 추가됐으므로 게임오버 화면에서 현재 �
   0으로 리셋됩니다. Presentation은 별도 누계나 저장 상태를 만들 필요가 없습니다.
 - 옵션이 발사한 탄도 각각 `ShotsFired`에 포함되며, 일반 적과 보스 명중/격파가 모두
   `ShotsHit`/`Kills`에 포함됩니다.
+
+---
+
+## [ ] CLAUDE: 난이도 선택·리플레이 배율 Presentation 연결 (REQ-020)
+
+Core가 정수 유리수 난이도 배율을 일반 적/보스 HP에 적용하고, 서스펜드와 입력 기록에
+보존하도록 구현했습니다. CONTINUE는 기존 `ResumeFromSuspendData(...)` 호출만으로 저장된
+배율을 자동 복원합니다. 새 런과 REPLAY에는 아래 연결이 필요합니다.
+
+- 새 런 생성 시 기존 rewards+ship 생성자 뒤에 선택한 난이도의 정수 분자/분모를 전달:
+
+```csharp
+new RunManager(
+    seed,
+    stageGenerator,
+    config,
+    battleContent,
+    gauge,
+    rewards,
+    selectedShip,
+    difficultyNumerator,
+    difficultyDenominator);
+```
+
+- 녹화 시작 시 `_recorder = new InputRecorder(_run);`으로 생성해 현재 런의 축약 배율을
+  `InputRecordingData`에 저장.
+- 리플레이 로드 시 `InputPlayback` 인스턴스를 열거자 생성 전에 보관하고,
+  `playback.DifficultyMultiplierNumerator/Denominator`를 위 `RunManager` 오버로드에 전달.
+  현재 코드는 `new InputPlayback(...).GetEnumerator()`만 저장한 뒤 1/1 생성자를 호출하므로,
+  이 연결이 없으면 easy/hard 기록이 normal HP로 재생됩니다.
+- 구 `InputRecordingData` schema 2는 Playback에서 자동 1/1로 해석합니다.
+
+easy/normal/hard 실제 분수 값은 AGENTS.md §7에 따라 사람/GROK 확정값을 사용해 주세요.

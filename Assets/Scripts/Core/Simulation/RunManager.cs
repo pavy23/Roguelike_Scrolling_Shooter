@@ -280,6 +280,8 @@ namespace Shmup.Core.Simulation
         readonly StageDifficultyCurve _difficultyCurve;
         readonly RewardCatalog _rewards;
         readonly ShipDefinition _ship;
+        readonly int _difficultyMultiplierNumerator;
+        readonly int _difficultyMultiplierDenominator;
         readonly int[] _powerUpMaxLevels;
         readonly int _initialPlayerMaxHp;
         readonly int _initialFireIntervalTicks;
@@ -335,10 +337,12 @@ namespace Shmup.Core.Simulation
                 battleConfig,
                 battleContent,
                 powerUpGauge,
-                new MetaProgression(1.0),
+                new MetaProgression(1, 1),
                 StageDifficultyCurve.CreateDefault(),
                 null,
-                null)
+                null,
+                1,
+                1)
         {
         }
 
@@ -355,10 +359,12 @@ namespace Shmup.Core.Simulation
                 battleConfig,
                 battleContent,
                 powerUpGauge,
-                new MetaProgression(1.0),
+                new MetaProgression(1, 1),
                 StageDifficultyCurve.CreateDefault(),
                 rewards,
-                null)
+                null,
+                1,
+                1)
         {
         }
 
@@ -376,10 +382,42 @@ namespace Shmup.Core.Simulation
                 battleConfig,
                 battleContent,
                 powerUpGauge,
-                new MetaProgression(1.0),
+                new MetaProgression(1, 1),
                 StageDifficultyCurve.CreateDefault(),
                 rewards,
-                ship)
+                ship,
+                1,
+                1)
+        {
+        }
+
+        /// <summary>
+        /// Creates a run with provisional enemy-HP difficulty scaling.
+        /// The fraction is reduced and applied with ceiling; 1/1 preserves
+        /// the legacy behavior. Preset values remain a human balance decision.
+        /// </summary>
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            RewardCatalog rewards,
+            ShipDefinition ship,
+            int difficultyMultiplierNumerator,
+            int difficultyMultiplierDenominator)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                ship,
+                difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator)
         {
         }
 
@@ -400,7 +438,9 @@ namespace Shmup.Core.Simulation
                 metaProgression,
                 difficultyCurve,
                 null,
-                null)
+                null,
+                1,
+                1)
         {
         }
 
@@ -422,7 +462,9 @@ namespace Shmup.Core.Simulation
                 metaProgression,
                 difficultyCurve,
                 rewards,
-                null)
+                null,
+                1,
+                1)
         {
         }
 
@@ -446,6 +488,35 @@ namespace Shmup.Core.Simulation
                 difficultyCurve,
                 rewards,
                 ship,
+                1,
+                1)
+        {
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            MetaProgression metaProgression,
+            StageDifficultyCurve difficultyCurve,
+            RewardCatalog rewards,
+            ShipDefinition ship,
+            int difficultyMultiplierNumerator,
+            int difficultyMultiplierDenominator)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                metaProgression,
+                difficultyCurve,
+                rewards,
+                ship,
+                difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator,
                 true)
         {
         }
@@ -460,6 +531,8 @@ namespace Shmup.Core.Simulation
             StageDifficultyCurve difficultyCurve,
             RewardCatalog rewards,
             ShipDefinition ship,
+            int difficultyMultiplierNumerator,
+            int difficultyMultiplierDenominator,
             bool buildInitialStage)
         {
             _stageGenerator = stageGenerator
@@ -476,6 +549,15 @@ namespace Shmup.Core.Simulation
                 ?? throw new ArgumentNullException(nameof(difficultyCurve));
             _rewards = rewards ?? BuiltInRewards;
             _ship = ship ?? ShipDefinition.CreateDefault();
+            NormalizeDifficultyMultiplier(
+                difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator,
+                out _difficultyMultiplierNumerator,
+                out _difficultyMultiplierDenominator);
+            _battleConfig.EnemyHpMultiplierNumerator =
+                _difficultyMultiplierNumerator;
+            _battleConfig.EnemyHpMultiplierDenominator =
+                _difficultyMultiplierDenominator;
             if (_rewards.OptionCount != RewardOptionCount)
                 throw new ArgumentException(
                     $"RunManager requires exactly {RewardOptionCount} reward options.",
@@ -522,6 +604,10 @@ namespace Shmup.Core.Simulation
         public RunState State { get; private set; }
         public ulong RunSeed => _runSeed;
         public ShipDefinition Ship => _ship;
+        public int DifficultyMultiplierNumerator =>
+            _difficultyMultiplierNumerator;
+        public int DifficultyMultiplierDenominator =>
+            _difficultyMultiplierDenominator;
         /// <summary>Score earned across completed and current stages of this run.</summary>
         public long TotalScore => AddSaturated(_completedStageScore, Battle.Score);
         public RunStatistics Statistics
@@ -618,7 +704,11 @@ namespace Shmup.Core.Simulation
                 playerSpeedNumerator =
                     _stageStartPlayerSpeedNumerator,
                 playerSpeedDenominator =
-                    _stageStartPlayerSpeedDenominator
+                    _stageStartPlayerSpeedDenominator,
+                difficultyMultiplierNumerator =
+                    _difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator =
+                    _difficultyMultiplierDenominator
             };
         }
 
@@ -635,7 +725,7 @@ namespace Shmup.Core.Simulation
                 battleConfig,
                 battleContent,
                 powerUpGauge,
-                new MetaProgression(1.0),
+                new MetaProgression(1, 1),
                 StageDifficultyCurve.CreateDefault(),
                 null,
                 null);
@@ -656,7 +746,7 @@ namespace Shmup.Core.Simulation
                 battleConfig,
                 battleContent,
                 powerUpGauge,
-                new MetaProgression(1.0),
+                new MetaProgression(1, 1),
                 StageDifficultyCurve.CreateDefault(),
                 rewards,
                 ship);
@@ -699,6 +789,10 @@ namespace Shmup.Core.Simulation
                 powerUpGauge,
                 resolvedRewards,
                 resolvedShip);
+            ResolveSuspendDifficulty(
+                data,
+                out int difficultyMultiplierNumerator,
+                out int difficultyMultiplierDenominator);
 
             var manager = new RunManager(
                 data.runSeed,
@@ -710,6 +804,8 @@ namespace Shmup.Core.Simulation
                 difficultyCurve,
                 resolvedRewards,
                 resolvedShip,
+                difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator,
                 false);
 
             manager._runSeed = data.runSeed;
@@ -1067,14 +1163,19 @@ namespace Shmup.Core.Simulation
         {
             if (data == null)
                 throw new ArgumentNullException(nameof(data));
-            if (data.schemaVersion
-                != RunSuspendData.CurrentSchemaVersion)
+            if (data.schemaVersion != 1
+                && data.schemaVersion
+                    != RunSuspendData.CurrentSchemaVersion)
             {
                 throw new ArgumentException(
                     $"Unsupported suspend schema version "
                     + $"{data.schemaVersion}.",
                     nameof(data));
             }
+            ResolveSuspendDifficulty(
+                data,
+                out _,
+                out _);
             if (data.runNumber < 1)
                 throw new ArgumentException(
                     "Suspend runNumber must be positive.",
@@ -1248,6 +1349,34 @@ namespace Shmup.Core.Simulation
             return -1;
         }
 
+        static void ResolveSuspendDifficulty(
+            RunSuspendData data,
+            out int numerator,
+            out int denominator)
+        {
+            if (data.schemaVersion == 1)
+            {
+                numerator = 1;
+                denominator = 1;
+                return;
+            }
+            if (data.difficultyMultiplierNumerator < 1
+                || data.difficultyMultiplierDenominator < 1)
+            {
+                throw new ArgumentException(
+                    "Suspend difficulty multiplier must be positive.",
+                    nameof(data));
+            }
+
+            int divisor = GreatestCommonDivisor(
+                data.difficultyMultiplierNumerator,
+                data.difficultyMultiplierDenominator);
+            numerator =
+                data.difficultyMultiplierNumerator / divisor;
+            denominator =
+                data.difficultyMultiplierDenominator / divisor;
+        }
+
         void BuildCurrentStage()
         {
             Difficulty = _difficultyCurve.GetDifficulty(StageIndex);
@@ -1354,6 +1483,32 @@ namespace Shmup.Core.Simulation
 
             config.PlayerSpeedNumerator = (int)numerator;
             config.PlayerSpeedDenominator = (int)denominator;
+        }
+
+        static void NormalizeDifficultyMultiplier(
+            int difficultyMultiplierNumerator,
+            int difficultyMultiplierDenominator,
+            out int reducedNumerator,
+            out int reducedDenominator)
+        {
+            if (difficultyMultiplierNumerator < 1)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(difficultyMultiplierNumerator));
+            }
+            if (difficultyMultiplierDenominator < 1)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(difficultyMultiplierDenominator));
+            }
+
+            int divisor = GreatestCommonDivisor(
+                difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator);
+            reducedNumerator =
+                difficultyMultiplierNumerator / divisor;
+            reducedDenominator =
+                difficultyMultiplierDenominator / divisor;
         }
 
         static int GreatestCommonDivisor(int left, int right)

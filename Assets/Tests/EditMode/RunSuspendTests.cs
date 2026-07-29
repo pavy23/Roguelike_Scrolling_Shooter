@@ -174,6 +174,27 @@ namespace Shmup.Core.Tests
             RunSuspendData badModifiers = source.ExportSuspendData();
             badModifiers.activeModifiers = 1 << 20;
             AssertRejectedBeforeGeneration(badModifiers);
+
+            RunSuspendData badDifficulty = source.ExportSuspendData();
+            badDifficulty.difficultyMultiplierNumerator = 0;
+            AssertRejectedBeforeGeneration(badDifficulty);
+        }
+
+        [Test]
+        public void SchemaOneSuspend_DefaultsToNormalDifficulty()
+        {
+            RunManager source = CreateRun(new BoundaryStageGenerator());
+            RunSuspendData legacy = source.ExportSuspendData();
+            legacy.schemaVersion = 1;
+            legacy.difficultyMultiplierNumerator = 0;
+            legacy.difficultyMultiplierDenominator = 0;
+
+            RunManager resumed = Resume(
+                legacy,
+                new BoundaryStageGenerator());
+
+            Assert.AreEqual(1, resumed.DifficultyMultiplierNumerator);
+            Assert.AreEqual(1, resumed.DifficultyMultiplierDenominator);
         }
 
         [Test]
@@ -389,6 +410,12 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 expected.playerSpeedDenominator,
                 actual.playerSpeedDenominator);
+            Assert.AreEqual(
+                expected.difficultyMultiplierNumerator,
+                actual.difficultyMultiplierNumerator);
+            Assert.AreEqual(
+                expected.difficultyMultiplierDenominator,
+                actual.difficultyMultiplierDenominator);
             Assert.AreEqual(
                 expected.rewardAcquisitions.Length,
                 actual.rewardAcquisitions.Length);

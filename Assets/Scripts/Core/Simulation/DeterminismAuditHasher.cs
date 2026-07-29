@@ -30,6 +30,8 @@ namespace Shmup.Core.Simulation
             FoldInt32((int)run.State);
             FoldUInt64(run.RunSeed);
             FoldInt32(run.Difficulty);
+            FoldInt32(run.DifficultyMultiplierNumerator);
+            FoldInt32(run.DifficultyMultiplierDenominator);
             FoldInt64(run.TotalScore);
 
             RunStatistics statistics = run.Statistics;

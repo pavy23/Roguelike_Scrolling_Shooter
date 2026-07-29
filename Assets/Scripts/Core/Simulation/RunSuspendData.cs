@@ -27,7 +27,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class RunSuspendData
     {
-        public const int CurrentSchemaVersion = 1;
+        public const int CurrentSchemaVersion = 2;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -97,5 +97,11 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 21)]
         public int playerSpeedDenominator;
+
+        [DataMember(Order = 22)]
+        public int difficultyMultiplierNumerator;
+
+        [DataMember(Order = 23)]
+        public int difficultyMultiplierDenominator;
     }
 }

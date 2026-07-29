@@ -38,6 +38,8 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(4, exported.runs[2].tickCount);
             Assert.AreEqual(9, playback.TotalTicks);
             Assert.AreEqual(3, playback.RunCount);
+            Assert.AreEqual(1, playback.DifficultyMultiplierNumerator);
+            Assert.AreEqual(1, playback.DifficultyMultiplierDenominator);
             Assert.AreEqual(9, commands.Count);
             AssertCommand(commands[0], 0, 0, false, false);
             AssertCommand(commands[2], 0, 0, false, false);
@@ -221,6 +223,10 @@ namespace Shmup.Core.Tests
             mismatchedTotal.totalTicks++;
             AssertRejected(mismatchedTotal);
 
+            InputRecordingData invalidDifficulty = ValidData();
+            invalidDifficulty.difficultyMultiplierDenominator = 0;
+            AssertRejected(invalidDifficulty);
+
             InputRecordingData duplicateAdjacentRuns = new InputRecordingData
             {
                 schemaVersion =
@@ -274,6 +280,20 @@ namespace Shmup.Core.Tests
                 }
             };
             AssertRejected(overflowedTicks);
+        }
+
+        [Test]
+        public void SchemaTwoRecording_DefaultsToNormalDifficulty()
+        {
+            InputRecordingData legacy = ValidData();
+            legacy.schemaVersion = 2;
+            legacy.difficultyMultiplierNumerator = 0;
+            legacy.difficultyMultiplierDenominator = 0;
+
+            var playback = new InputPlayback(legacy);
+
+            Assert.AreEqual(1, playback.DifficultyMultiplierNumerator);
+            Assert.AreEqual(1, playback.DifficultyMultiplierDenominator);
         }
 
         [Test]

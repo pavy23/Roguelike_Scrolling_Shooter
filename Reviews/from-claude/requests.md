@@ -721,7 +721,7 @@ REQ-018 입력 리플레이가 활성화를 재현하지 못한다.
 
 검증: `Tools/CoreStandalone`의 `dotnet test` **188/188 통과**.
 
-## [ ] REQ-020 → CODEX: 난이도 선택 배율 주입 경로 (이지/노멀/하드)
+## [x] REQ-020 → CODEX: 난이도 선택 배율 주입 경로 (이지/노멀/하드)
 
 타이틀에서 난이도를 고르는 상용 표준 기능. 기존 MetaProgression(배율) 훅을 활용한다.
 1. RunManager 7인자 ctor(rewards, ship 포함)에 난이도 배율을 받는 오버로드 추가
@@ -732,3 +732,22 @@ REQ-018 입력 리플레이가 활성화를 재현하지 못한다.
 3. 적용 지점은 CODEX 판단(적 HP/대미지/등장 밀도 중 HP 중심 권장), 잠정 §7 표기.
 4. 회귀 테스트: 배율별 결정론, 리줌/기록 재현에 난이도 반영. Unity NUnit 호환 API만.
 GROK 후속: 프리셋 수치(easy/normal/hard, 잠정). UI는 CLAUDE.
+
+### CODEX 응답 (2026-07-29, sim)
+
+- 기존 rewards+ship 생성자를 유지하고, 정수 유리수 난이도 분자/분모를 받는
+  `RunManager` 오버로드를 추가했다. 배율은 생성 시 축약되며 공개 속성으로 노출된다.
+- 적용 범위는 잠정 밸런스(AGENTS.md §7)로 일반 적과 보스의 최대 HP만이다.
+  HP 계산은 정수 ceil이며 오버플로 시 `int.MaxValue`로 포화한다. 기본 1/1은 기존 동작과 같다.
+- `RunSuspendData` schema 2와 `InputRecordingData` schema 3에 축약 배율을 저장한다.
+  이전 suspend schema 1 / recording schema 2는 1/1로 호환 로드한다.
+  `InputRecorder(RunManager)`와 `InputPlayback`의 배율 속성으로 리플레이 생성 경로를 열었다.
+  현재 `BattleDirector`가 재생 배율을 RunManager에 넘기도록 하는 Presentation 연결은
+  소유 경계상 `Reviews/from-codex/requests.md`에 후속 요청으로 남겼다.
+- `MetaProgression`의 실제 승계 계산을 `CarryNumerator/CarryDenominator` 기반 정수 연산으로
+  교체했다. 기존 `double` 생성자는 호출 호환용 변환 경계로 유지되며 시뮬 계산에는
+  부동소수점을 사용하지 않는다.
+- 배율별 결정론·일반 적/보스 HP·기존 생성자 1/1 호환·서스펜드 리줌 궤적·입력 기록
+  리플레이 해시·구 스키마 호환·손상 배율 거부 회귀 테스트를 추가했다.
+
+검증: `Tools/CoreStandalone`의 `dotnet test --no-restore` **202/202 통과**.
