@@ -720,3 +720,15 @@ REQ-018 입력 리플레이가 활성화를 재현하지 못한다.
   고정했다. 독립 할당 계측에서 변화 경계를 포함한 `Record`는 0바이트였다.
 
 검증: `Tools/CoreStandalone`의 `dotnet test` **188/188 통과**.
+
+## [ ] REQ-020 → CODEX: 난이도 선택 배율 주입 경로 (이지/노멀/하드)
+
+타이틀에서 난이도를 고르는 상용 표준 기능. 기존 MetaProgression(배율) 훅을 활용한다.
+1. RunManager 7인자 ctor(rewards, ship 포함)에 난이도 배율을 받는 오버로드 추가
+   (기존 호출 호환 유지). 배율은 유리수(분자/분모 정수)로 — §4 부동소수점 금지 확인
+   (MetaProgression이 double이면 정수 유리수로 대체 검토, 기존 동작 보존).
+2. RunSuspendData와 InputRecordingData(또는 리플레이 래퍼가 쓸 수 있게 RunManager
+   Export)에 난이도가 보존되어 CONTINUE/REPLAY가 같은 난이도로 재현되게.
+3. 적용 지점은 CODEX 판단(적 HP/대미지/등장 밀도 중 HP 중심 권장), 잠정 §7 표기.
+4. 회귀 테스트: 배율별 결정론, 리줌/기록 재현에 난이도 반영. Unity NUnit 호환 API만.
+GROK 후속: 프리셋 수치(easy/normal/hard, 잠정). UI는 CLAUDE.
