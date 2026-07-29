@@ -28,6 +28,11 @@ namespace Shmup.Core.Simulation
             FoldInt32(run.RunNumber);
             FoldInt32(run.StageIndex);
             FoldInt32(run.FinalStageIndex);
+            FoldInt32(run.BiomeIndex);
+            FoldInt32(run.RoomIndex);
+            FoldBool(run.IsBiomeBoss);
+            FoldInt32(run.BiomeCount);
+            FoldInt32(run.RoomsPerBiome);
             FoldInt32((int)run.State);
             FoldUInt64(run.RunSeed);
             FoldInt32(run.Difficulty);
@@ -42,6 +47,7 @@ namespace Shmup.Core.Simulation
             FoldInt64(statistics.CapsulesCollected);
             FoldInt64(statistics.GrazeCount);
             FoldInt32(statistics.StagesCleared);
+            FoldInt32(statistics.RoomsCleared);
 
             FoldShip(run.Ship);
             FoldPowerUpGauge(run.PowerUpGauge);
@@ -77,7 +83,17 @@ namespace Shmup.Core.Simulation
             int optionIndex,
             in RouteOption option)
         {
-            FoldInt32(stageIndex);
+            FoldRouteChoice(stageIndex, 1, optionIndex, in option);
+        }
+
+        public void FoldRouteChoice(
+            int biomeIndex,
+            int roomIndex,
+            int optionIndex,
+            in RouteOption option)
+        {
+            FoldInt32(biomeIndex);
+            FoldInt32(roomIndex);
             FoldInt32(optionIndex);
             FoldString(option.ThemeId);
             FoldInt32((int)option.EncounterType);
@@ -252,7 +268,8 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < history.Count; i++)
             {
                 RouteChoice choice = history[i];
-                FoldInt32(choice.StageIndex);
+                FoldInt32(choice.BiomeIndex);
+                FoldInt32(choice.RoomIndex);
                 FoldInt32(choice.OptionIndex);
                 FoldString(choice.ThemeId);
                 FoldInt32((int)choice.EncounterType);

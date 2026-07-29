@@ -99,13 +99,15 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(RunState.RunCleared, first.FinalState);
             Assert.AreEqual(5, first.StagesCleared);
             Assert.AreEqual(4, first.RewardChoices);
-            Assert.AreEqual(3, first.RouteChoices);
+            Assert.AreEqual(29, first.RouteChoices);
+            Assert.AreEqual(30, first.RoomsCleared);
             Assert.AreEqual(first.Hash, second.Hash);
             Assert.AreEqual(first.Ticks, second.Ticks);
             Assert.AreEqual(
                 first.RewardChoices,
                 second.RewardChoices);
             Assert.AreEqual(first.RouteChoices, second.RouteChoices);
+            Assert.AreEqual(first.RoomsCleared, second.RoomsCleared);
         }
 
         [Test]
@@ -121,11 +123,14 @@ namespace Shmup.Core.Tests
 
             DrivePlayingTicks(twoStageRun, 500);
             Assert.AreEqual(
+                RunState.AwaitingRoute,
+                twoStageRun.State);
+            twoStageRun.ChooseRoute(0);
+            DrivePlayingTicks(twoStageRun, 500);
+            Assert.AreEqual(
                 RunState.AwaitingReward,
                 twoStageRun.State);
             twoStageRun.ChooseReward(0);
-            if (twoStageRun.State == RunState.AwaitingRoute)
-                twoStageRun.ChooseRoute(0);
             DrivePlayingTicks(twoStageRun, 500);
 
             Assert.AreEqual(RunState.RunCleared, twoStageRun.State);
@@ -162,8 +167,13 @@ namespace Shmup.Core.Tests
                         (run.StageIndex + routes)
                         % run.RouteOptions.Count;
                     RouteOption option = run.RouteOptions[optionIndex];
+                    bool nextBiome =
+                        run.RoomIndex >= run.RoomsPerBiome;
                     hasher.FoldRouteChoice(
-                        run.StageIndex + 1,
+                        nextBiome
+                            ? run.BiomeIndex + 1
+                            : run.BiomeIndex,
+                        nextBiome ? 1 : run.RoomIndex + 1,
                         optionIndex,
                         in option);
                     run.ChooseRoute(optionIndex);
@@ -184,6 +194,7 @@ namespace Shmup.Core.Tests
                 rewards,
                 routes,
                 run.Statistics.StagesCleared,
+                run.Statistics.RoomsCleared,
                 run.State);
         }
 
@@ -271,6 +282,7 @@ namespace Shmup.Core.Tests
                 int rewardChoices,
                 int routeChoices,
                 int stagesCleared,
+                int roomsCleared,
                 RunState finalState)
             {
                 Hash = hash;
@@ -278,6 +290,7 @@ namespace Shmup.Core.Tests
                 RewardChoices = rewardChoices;
                 RouteChoices = routeChoices;
                 StagesCleared = stagesCleared;
+                RoomsCleared = roomsCleared;
                 FinalState = finalState;
             }
 
@@ -286,6 +299,7 @@ namespace Shmup.Core.Tests
             public int RewardChoices { get; }
             public int RouteChoices { get; }
             public int StagesCleared { get; }
+            public int RoomsCleared { get; }
             public RunState FinalState { get; }
         }
 

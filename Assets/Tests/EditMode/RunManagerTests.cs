@@ -32,7 +32,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void CompletedStageAdvancesWithConfigurableCappedLinearDifficulty()
+        public void CompletedRoomsKeepDifficultyAtCurrentBiome()
         {
             var generator = new TestStageGenerator(false, 1, 2);
             var curve = new StageDifficultyCurve(2, 2, 5);
@@ -48,17 +48,24 @@ namespace Shmup.Core.Tests
 
             AssertCall(generator.Calls[0], 22UL, 1, 2);
             Step(manager, 3, in none);
-            Assert.AreEqual(2, manager.StageIndex);
+            Assert.AreEqual(1, manager.BiomeIndex);
+            Assert.AreEqual(2, manager.RoomIndex);
             Assert.AreEqual(0, manager.Battle.Tick);
-            AssertCall(generator.Calls[1], 22UL, 2, 4);
+            Assert.AreEqual(2, manager.Difficulty);
+            Assert.AreEqual(1, generator.Calls[1].StageIndex);
+            Assert.AreEqual(2, generator.Calls[1].Difficulty);
 
             Step(manager, 3, in none);
-            Assert.AreEqual(3, manager.StageIndex);
-            AssertCall(generator.Calls[2], 22UL, 3, 5);
+            Assert.AreEqual(1, manager.BiomeIndex);
+            Assert.AreEqual(3, manager.RoomIndex);
+            Assert.AreEqual(2, manager.Difficulty);
+            Assert.AreEqual(1, generator.Calls[2].StageIndex);
+            Assert.AreEqual(2, generator.Calls[2].Difficulty);
 
             Step(manager, 3, in none);
-            Assert.AreEqual(4, manager.StageIndex);
-            AssertCall(generator.Calls[3], 22UL, 4, 5);
+            Assert.AreEqual(1, manager.BiomeIndex);
+            Assert.AreEqual(4, manager.RoomIndex);
+            Assert.AreEqual(2, manager.Difficulty);
         }
 
         [Test]
@@ -74,24 +81,28 @@ namespace Shmup.Core.Tests
 
             Step(manager, 2, in fire);
 
-            Assert.AreEqual(2, manager.StageIndex);
+            Assert.AreEqual(1, manager.BiomeIndex);
+            Assert.AreEqual(2, manager.RoomIndex);
             Assert.AreEqual(75L, manager.TotalScore);
             Assert.AreEqual(0L, manager.Battle.Score);
             Assert.AreEqual(2L, manager.Statistics.ShotsFired);
             Assert.AreEqual(1L, manager.Statistics.ShotsHit);
             Assert.AreEqual(1L, manager.Statistics.Kills);
             Assert.AreEqual(0L, manager.Statistics.CapsulesCollected);
-            Assert.AreEqual(1, manager.Statistics.StagesCleared);
+            Assert.AreEqual(0, manager.Statistics.StagesCleared);
+            Assert.AreEqual(1, manager.Statistics.RoomsCleared);
 
             Step(manager, 2, in fire);
 
-            Assert.AreEqual(3, manager.StageIndex);
+            Assert.AreEqual(1, manager.BiomeIndex);
+            Assert.AreEqual(3, manager.RoomIndex);
             Assert.AreEqual(150L, manager.TotalScore);
             Assert.AreEqual(4L, manager.Statistics.ShotsFired);
             Assert.AreEqual(2L, manager.Statistics.ShotsHit);
             Assert.AreEqual(2L, manager.Statistics.Kills);
             Assert.AreEqual(0L, manager.Statistics.CapsulesCollected);
-            Assert.AreEqual(2, manager.Statistics.StagesCleared);
+            Assert.AreEqual(0, manager.Statistics.StagesCleared);
+            Assert.AreEqual(2, manager.Statistics.RoomsCleared);
         }
 
         [Test]
@@ -109,9 +120,11 @@ namespace Shmup.Core.Tests
 
             Step(manager, 2, in fire);
 
-            Assert.AreEqual(2, manager.StageIndex);
+            Assert.AreEqual(1, manager.BiomeIndex);
+            Assert.AreEqual(2, manager.RoomIndex);
             Assert.AreEqual(1L, manager.Statistics.CapsulesCollected);
-            Assert.AreEqual(1, manager.Statistics.StagesCleared);
+            Assert.AreEqual(0, manager.Statistics.StagesCleared);
+            Assert.AreEqual(1, manager.Statistics.RoomsCleared);
         }
 
         [Test]

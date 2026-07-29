@@ -33,18 +33,24 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 3)]
         public int encounterType;
+
+        [DataMember(Order = 4)]
+        public int biomeIndex;
+
+        [DataMember(Order = 5)]
+        public int roomIndex;
     }
 
     /// <summary>
-    /// Serializer-facing checkpoint for the beginning of a stage.
+    /// Serializer-facing checkpoint for the beginning of a room or biome boss.
     /// Presentation owns file persistence. Exporting during a stage deliberately
-    /// returns the state captured before tick zero, so resuming restarts that stage.
+    /// returns the state captured before tick zero, so resuming restarts that boundary.
     /// </summary>
     [Serializable]
     [DataContract]
     public sealed class RunSuspendData
     {
-        public const int CurrentSchemaVersion = 4;
+        public const int CurrentSchemaVersion = 5;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -129,5 +135,23 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 26)]
         public string checksum;
+
+        [DataMember(Order = 27)]
+        public int biomeIndex;
+
+        [DataMember(Order = 28)]
+        public int roomIndex;
+
+        [DataMember(Order = 29)]
+        public bool isBiomeBoss;
+
+        [DataMember(Order = 30)]
+        public int biomeCount;
+
+        [DataMember(Order = 31)]
+        public int roomsPerBiome;
+
+        [DataMember(Order = 32)]
+        public int roomsCleared;
     }
 }

@@ -18,7 +18,8 @@ namespace Shmup.Core.Tests
             Step(run, 17, in fire);
             RunSuspendData duringStage = run.ExportSuspendData();
 
-            Assert.AreEqual(2, duringStage.stageIndex);
+            Assert.AreEqual(1, duringStage.biomeIndex);
+            Assert.AreEqual(1, duringStage.roomIndex);
             Assert.AreEqual(atStageStart.score, duringStage.score);
             Assert.AreEqual(
                 atStageStart.shotsFired,
@@ -105,6 +106,8 @@ namespace Shmup.Core.Tests
             InputCommand none = InputCommand.None;
             Step(source, 3, in none);
             RunSuspendData data = source.ExportSuspendData();
+            data.roomIndex = 2;
+            data.roomsCleared = 1;
             data.playerHp = 7;
             data.rewardAcquisitions = new[]
             {
@@ -557,7 +560,7 @@ namespace Shmup.Core.Tests
                 Rng rng = new Rng(seed)
                     .Fork(stageIndex)
                     .Fork(difficulty);
-                int length = stageIndex == 1 ? 3 : 200;
+                int length = 200;
                 SpawnEvent[] spawns = stageIndex == 1
                     ? Array.Empty<SpawnEvent>()
                     : new[]
