@@ -51,22 +51,22 @@
         },
         {
           "tick": 220,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": 1.5
         },
         {
           "tick": 250,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": -1.5
         },
         {
           "tick": 320,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": 4
         },
         {
           "tick": 350,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": 0
         },
         {
@@ -109,12 +109,12 @@
         },
         {
           "tick": 200,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": 4
         },
         {
           "tick": 200,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": -4
         },
         {
@@ -129,12 +129,12 @@
         },
         {
           "tick": 420,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": 4.75
         },
         {
           "tick": 420,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": -4.75
         }
       ]
@@ -597,12 +597,12 @@
         },
         {
           "tick": 200,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": 4
         },
         {
           "tick": 200,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": 0.75
         },
         {
@@ -612,7 +612,7 @@
         },
         {
           "tick": 300,
-          "enemyId": "zako_sine",
+          "enemyId": "rust_skimmer",
           "y": 1.5
         },
         {
@@ -622,12 +622,12 @@
         },
         {
           "tick": 420,
-          "enemyId": "zako_sine",
+          "enemyId": "rust_skimmer",
           "y": 0
         },
         {
           "tick": 440,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": 4.75
         },
         {
@@ -637,7 +637,7 @@
         },
         {
           "tick": 540,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": 4
         }
       ]
@@ -1272,22 +1272,22 @@
         },
         {
           "tick": 250,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": 4
         },
         {
           "tick": 260,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": 1.5
         },
         {
           "tick": 270,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": -1.5
         },
         {
           "tick": 280,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": -4
         },
         {
@@ -1312,12 +1312,12 @@
         },
         {
           "tick": 400,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": 3.25
         },
         {
           "tick": 400,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": -3.25
         },
         {
@@ -1337,22 +1337,22 @@
         },
         {
           "tick": 560,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": 5.5
         },
         {
           "tick": 560,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": 2.5
         },
         {
           "tick": 560,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": -2.5
         },
         {
           "tick": 560,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": -5.5
         },
         {
@@ -1362,12 +1362,12 @@
         },
         {
           "tick": 700,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": 1.5
         },
         {
           "tick": 700,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": -1.5
         },
         {
@@ -1441,7 +1441,7 @@
         },
         {
           "tick": 280,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": 4
         },
         {
@@ -1451,7 +1451,7 @@
         },
         {
           "tick": 300,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": -4
         },
         {
@@ -1471,17 +1471,17 @@
         },
         {
           "tick": 420,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": 1.5
         },
         {
           "tick": 420,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": -1.5
         },
         {
           "tick": 480,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": 4.75
         },
         {
@@ -1491,7 +1491,7 @@
         },
         {
           "tick": 500,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": -4.75
         },
         {
@@ -1506,12 +1506,12 @@
         },
         {
           "tick": 620,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": 3.25
         },
         {
           "tick": 630,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
           "y": -3.25
         },
         {
@@ -1615,12 +1615,12 @@
         },
         {
           "tick": 360,
-          "enemyId": "guardian_sphere",
+          "enemyId": "shard_prism",
           "y": 4
         },
         {
           "tick": 360,
-          "enemyId": "guardian_sphere",
+          "enemyId": "shard_prism",
           "y": -4
         },
         {
@@ -1655,12 +1655,12 @@
         },
         {
           "tick": 580,
-          "enemyId": "guardian_sphere",
+          "enemyId": "shard_prism",
           "y": 1.5
         },
         {
           "tick": 580,
-          "enemyId": "guardian_sphere",
+          "enemyId": "shard_prism",
           "y": -1.5
         },
         {
@@ -1690,7 +1690,7 @@
         },
         {
           "tick": 760,
-          "enemyId": "guardian_sphere",
+          "enemyId": "shard_prism",
           "y": 0
         },
         {
@@ -1754,12 +1754,12 @@
         },
         {
           "tick": 110,
-          "enemyId": "guardian_sphere",
+          "enemyId": "shard_prism",
           "y": 3.25
         },
         {
           "tick": 110,
-          "enemyId": "guardian_sphere",
+          "enemyId": "shard_prism",
           "y": -3.25
         },
         {
@@ -1799,7 +1799,7 @@
         },
         {
           "tick": 300,
-          "enemyId": "guardian_sphere",
+          "enemyId": "shard_prism",
           "y": 0
         },
         {
@@ -1834,12 +1834,12 @@
         },
         {
           "tick": 450,
-          "enemyId": "guardian_sphere",
+          "enemyId": "shard_prism",
           "y": 4.75
         },
         {
           "tick": 450,
-          "enemyId": "guardian_sphere",
+          "enemyId": "shard_prism",
           "y": -4.75
         },
         {
@@ -1869,12 +1869,12 @@
         },
         {
           "tick": 600,
-          "enemyId": "guardian_sphere",
+          "enemyId": "shard_prism",
           "y": 1.5
         },
         {
           "tick": 600,
-          "enemyId": "guardian_sphere",
+          "enemyId": "shard_prism",
           "y": -1.5
         },
         {
@@ -1909,7 +1909,7 @@
         },
         {
           "tick": 760,
-          "enemyId": "guardian_sphere",
+          "enemyId": "shard_prism",
           "y": 0
         },
         {
