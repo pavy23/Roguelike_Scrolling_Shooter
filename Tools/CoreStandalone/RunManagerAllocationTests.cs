@@ -85,6 +85,36 @@ namespace Shmup.Core.Tests
             });
         }
 
+        [Test]
+        public void InputRecorderRecordAllocatesNoManagedMemory()
+        {
+            InputCommand none = InputCommand.None;
+            var moving = new InputCommand(1, -1, true);
+            var warmup = new InputRecorder(2);
+            warmup.Record(in none);
+            warmup.Record(in moving);
+
+            var measured = new InputRecorder(2);
+            GC.GetAllocatedBytesForCurrentThread();
+            long before = GC.GetAllocatedBytesForCurrentThread();
+
+            for (int tick = 0; tick < MeasuredTicks; tick++)
+            {
+                InputCommand input =
+                    tick < MeasuredTicks / 2 ? none : moving;
+                measured.Record(in input);
+            }
+
+            long allocated =
+                GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.AreEqual(
+                0L,
+                allocated,
+                "InputRecorder.Record allocated managed heap memory.");
+            Assert.AreEqual(2, measured.RunCount);
+            Assert.AreEqual(MeasuredTicks, measured.TotalTicks);
+        }
+
         static RunManager CreateRun()
         {
             EnemyDefinition enemy = new EnemyDefinition(

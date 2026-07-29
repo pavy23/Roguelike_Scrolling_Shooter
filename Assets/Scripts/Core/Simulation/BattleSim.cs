@@ -147,15 +147,26 @@ namespace Shmup.Core.Simulation
     public readonly struct InputCommand
     {
         public InputCommand(int moveX, int moveY, bool fire)
+            : this(moveX, moveY, fire, false)
+        {
+        }
+
+        public InputCommand(
+            int moveX,
+            int moveY,
+            bool fire,
+            bool activate)
         {
             MoveX = Clamp(moveX);
             MoveY = Clamp(moveY);
             Fire = fire;
+            Activate = activate;
         }
 
         public int MoveX { get; }
         public int MoveY { get; }
         public bool Fire { get; }
+        public bool Activate { get; }
         public static InputCommand None => default;
         static int Clamp(int value) => value < 0 ? -1 : value > 0 ? 1 : 0;
     }
@@ -519,7 +530,7 @@ namespace Shmup.Core.Simulation
         int _playerHistoryCount;
         int _bulletHitRecordCount;
         int _multiplierLevel, _comboGauge, _ticksSinceLastKill;
-        bool _killScoredThisTick;
+        bool _killScoredThisTick, _activateHeld;
 
         /// <summary>Backward-compatible stage-less player movement and basic-shot simulation.</summary>
         public BattleSim(BattleSimConfig config, Rng rng)
@@ -818,6 +829,10 @@ namespace Shmup.Core.Simulation
             PlayerX = AdvancePlayerAxis(PlayerX, input.MoveX, ref _playerXRemainder, _playerMinX, _playerMaxX);
             PlayerY = AdvancePlayerAxis(PlayerY, input.MoveY, ref _playerYRemainder, _playerMinY, _playerMaxY);
             RecordPlayerPosition();
+            bool activatePressed = input.Activate && !_activateHeld;
+            _activateHeld = input.Activate;
+            if (activatePressed && _powerUpGauge != null)
+                _powerUpGauge.Activate();
             ReadPowerUpLevels();
             UpdateOptionPositions();
             AdvanceBullets();

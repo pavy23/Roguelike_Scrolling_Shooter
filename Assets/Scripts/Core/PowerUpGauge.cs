@@ -55,6 +55,8 @@ namespace Shmup.Core
         /// <summary>
         /// Upgrade the highlighted slot. Returns false (and keeps the cursor) when
         /// nothing is highlighted or the slot is already at max level.
+        /// Direct calls bypass InputCommand and InputRecorder, so they are intended
+        /// only for state setup or explicitly non-replayable development cheats.
         /// </summary>
         public bool Activate()
         {

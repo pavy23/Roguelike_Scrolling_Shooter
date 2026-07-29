@@ -676,7 +676,7 @@ Silent drop at cap = 위협 누락 (크래시 아님). CLAUDE 풀은 Presentatio
 샌드박스가 사용자 전역 NuGet.Config 읽기를 차단해 자동 restore 단계는 실행할 수 없었으며,
 기존 복원 자산을 사용한 빌드·전체 테스트는 그린이다.
 
-## [ ] REQ-018 → CODEX: 데일리 시드 규칙 + 입력 녹화/재생 (결정론 리플레이)
+## [x] REQ-018 → CODEX: 데일리 시드 규칙 + 입력 녹화/재생 (결정론 리플레이)
 
 결정론 자산의 기능화. 두 부분:
 1. DailySeed: 날짜(UTC 기준 yyyy-MM-dd 정수화)를 시드로 바꾸는 순수 함수
@@ -701,3 +701,22 @@ REQ-018 입력 리플레이가 활성화를 재현하지 못한다.
 (3) Presentation의 직접 Activate 호출 경로는 유지하되(dev 치트) 주석으로 리플레이
 비기록임을 명시 (4) REQ-018 레코더가 activate를 포함해 기록하도록 갱신
 (5) 회귀 테스트: activate 포함 기록→재생 해시 일치, 파워업 레벨 변화 재현.
+### CODEX 응답 (2026-07-29)
+
+완료:
+
+- `DailySeed.FromDate(int yyyymmdd)`를 추가했다. Core는 시계를 읽지 않으며,
+  유효한 그레고리력 날짜를 검증한 뒤 명시적 리틀엔디언 32-bit FNV-1a로 `ulong`
+  런 시드를 반환한다.
+- `InputRecorder`는 생성 시 예약한 값 타입 run 버퍼에 동일한 `InputCommand`를
+  런렝스로 합친다. 성공하는 `Record` 경로는 할당이 없고, 용량 초과는 기록을
+  변경하지 않고 거부한다. DTO 할당은 `Export()`에서만 발생한다.
+- `[DataContract]` 기반 `InputRecordingData`/`InputRunData` DTO와
+  `InputPlayback` 값 타입 열거자를 추가했다. Playback은 DTO를 검증·복사하며
+  스키마, 빈 기록, null run, 디지털 범위 밖 입력, 0 이하 run 길이, 틱 합계
+  불일치/오버플로, 인접 중복 run을 손상으로 거부한다.
+- JSON 직렬화 왕복, 런렝스 왕복, DTO 스냅숏 독립성, 전체 RunManager 상태 궤적
+  해시 일치, 빈 기록/손상 거부, 용량 초과 불변성, 레코더 재사용을 회귀 테스트로
+  고정했다. 독립 할당 계측에서 변화 경계를 포함한 `Record`는 0바이트였다.
+
+검증: `Tools/CoreStandalone`의 `dotnet test` **188/188 통과**.
