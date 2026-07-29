@@ -237,6 +237,8 @@ namespace Shmup.Core.Simulation
     /// <summary>Integer-only tuning. Fractional speeds use numerator/denominator pairs.</summary>
     public sealed class BattleSimConfig
     {
+        internal const int DefaultMaxEnemyBullets = 128;
+
         int _playerSpeedNumerator, _bulletSpeedNumerator;
         int _playerSpeedDenominator = 1, _bulletSpeedDenominator = 1;
 
@@ -309,7 +311,7 @@ namespace Shmup.Core.Simulation
         public int EnemyBulletHalfHeight { get; set; } = 3 * SimSpace.SubUnitsPerWorldUnit / 16;
         public int EnemyBulletDamage { get; set; } = 1;
         /// <summary>적탄 전용 예산 — 플레이어 탄 풀(MaxBullets)을 잠식하지 않는다.</summary>
-        public int MaxEnemyBullets { get; set; } = 32;
+        public int MaxEnemyBullets { get; set; } = DefaultMaxEnemyBullets;
 
         // Provisional synergy tuning (REQ-013, AGENTS.md §7). These stay
         // configurable until the human/GROK balance pass approves authoritative

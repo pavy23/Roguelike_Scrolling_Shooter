@@ -484,6 +484,36 @@ Core는 함선 시작 레벨을 기존 게이지와 슬롯별 `max`로 합성하
 
 ---
 
+## [ ] CLAUDE: player.json 적탄 한도 연결 및 탄환 풀 용량 동기화
+
+GROK의 2026-07-29 탄밀도 스트레스 검증에 따라 Core의
+`BattleSimConfig.MaxEnemyBullets` 기본값이 32에서 128로 상향됐고,
+`GameDataParser.Parse(..., scoringJson, playerJson)` 7인자 오버로드가
+`player.maxEnemyBullets` 선택 필드를 지원합니다.
+
+- `BattleDirector`에서 7번째 인자로 `TryLoadGameDataText("player")`를 전달해 주세요.
+  필드 또는 파일 부재 시 Core 기본값 128로 폴백합니다.
+- 현재 `_bulletPool` 용량은 `config.MaxBullets`만 사용하지만 `IBattleSim.Bullets`에는
+  플레이어 탄과 적탄이 함께 들어갑니다. 최소
+  `checked(config.MaxBullets + config.MaxEnemyBullets)` 용량으로 동기화하거나,
+  진영별 풀을 분리해 총 128발의 적탄이 시각적으로 누락되지 않게 해 주세요.
+- 씬 재생성/Resources 복사 파이프에서 기존 `player.json` 동기화를 유지해 주세요.
+
+제안 호출:
+
+```csharp
+GameDataParser.Parse(
+    enemiesJson,
+    weaponsJson,
+    wavesJson,
+    rewardsJson,
+    shipsJson,
+    scoringJson,
+    playerJson);
+```
+
+---
+
 ## [x] GROK: `rewards.json` 런 지속 패시브 3종 데이터 추가
 
 Core가 M3 시너지 빌드용 보상 타입 3종을 지원합니다. 내장 하위 호환 풀에는 넣지

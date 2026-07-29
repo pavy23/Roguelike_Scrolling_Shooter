@@ -183,6 +183,30 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void EnemyFireAtBudgetSkipsAdditionalShot()
+        {
+            EnemyDefinition turret = new EnemyDefinition(
+                "turret", "Turret", 30, 0, 0, EnemyMovePattern.Static,
+                0, 1, 1, 0, 0, 0, 0, 1, 64);
+            BattleContent content = Content(turret);
+            StagePlan plan = new StagePlan(
+                new[] { Segment("t", 10, new SpawnEvent(0, turret.Id, 500, 200)) },
+                "boss", 1, 1, 1);
+            BattleSimConfig config = CreateConfig();
+            config.MaxEnemyBullets = 1;
+            var sim = new BattleSim(
+                config, new Rng(20UL), plan, content, PowerUpGauge.CreateDefault());
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in none);
+            int firstBulletId = sim.Bullets[0].Id;
+            sim.Step(in none);
+
+            Assert.AreEqual(1, CountBullets(sim, BulletFaction.Enemy));
+            Assert.AreEqual(firstBulletId, sim.Bullets[0].Id);
+        }
+
+        [Test]
         public void EvenWayBossSpreadIsCenteredOnAimAxis()
         {
             BattleSimConfig config = CreateConfig();

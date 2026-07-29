@@ -10,8 +10,8 @@ namespace Shmup.Core.Content
 {
     /// <summary>
     /// Unity-free parser for enemies.json, weapons.json, waves.json schema v2,
-    /// rewards.json schema v1, optional ships.json schema v1, and optional
-    /// scoring.json schema v1.
+    /// rewards.json schema v1, optional ships.json schema v1, optional
+    /// scoring.json schema v1, and optional player.json schema v1 tuning.
     /// Decimal source values are converted with decimal arithmetic only.
     /// </summary>
     public static partial class GameDataParser
@@ -64,6 +64,25 @@ namespace Shmup.Core.Content
             string shipsJson,
             string scoringJson = null)
         {
+            return Parse(
+                enemiesJson,
+                weaponsJson,
+                wavesJson,
+                rewardsJson,
+                shipsJson,
+                scoringJson,
+                null);
+        }
+
+        public static GameDataSet Parse(
+            string enemiesJson,
+            string weaponsJson,
+            string wavesJson,
+            string rewardsJson,
+            string shipsJson,
+            string scoringJson,
+            string playerJson)
+        {
             try
             {
                 EnemiesParseResult enemies = ParseEnemies(
@@ -89,6 +108,10 @@ namespace Shmup.Core.Content
                     ? null
                     : ParseScoring(
                         Deserialize<ScoringDto>(scoringJson, "scoring.json"));
+                int maxEnemyBullets = playerJson == null
+                    ? BattleSimConfig.DefaultMaxEnemyBullets
+                    : ParsePlayer(
+                        Deserialize<PlayerRootDto>(playerJson, "player.json"));
 
                 return new GameDataSet(
                     content,
@@ -96,6 +119,7 @@ namespace Shmup.Core.Content
                     enemies.NoDropWeight,
                     waves.ScrollSpeed.Numerator,
                     waves.ScrollSpeed.Denominator,
+                    maxEnemyBullets,
                     weapons.MaxLevels,
                     weapons.Missile,
                     rewards,
@@ -114,6 +138,28 @@ namespace Shmup.Core.Content
                 throw new GameDataParseException(
                     "GameData schema v2 validation failed.", ex);
             }
+        }
+
+        static int ParsePlayer(PlayerRootDto root)
+        {
+            const int supportedSchemaVersion = 1;
+            int schemaVersion = Require(
+                root.schemaVersion,
+                "player.json.schemaVersion");
+            if (schemaVersion != supportedSchemaVersion)
+                throw Error(
+                    "player.json.schemaVersion",
+                    $"must be {supportedSchemaVersion}, but was {schemaVersion}.");
+            if (root.player == null)
+                throw Error("player.json.player", "is required.");
+
+            int maxEnemyBullets = root.player.maxEnemyBullets
+                ?? BattleSimConfig.DefaultMaxEnemyBullets;
+            if (maxEnemyBullets < 0)
+                throw Error(
+                    "player.json.player.maxEnemyBullets",
+                    "cannot be negative.");
+            return maxEnemyBullets;
         }
 
         static T Deserialize<T>(string json, string fileName)

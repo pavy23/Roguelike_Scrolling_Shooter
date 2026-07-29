@@ -104,6 +104,13 @@ namespace Shmup.Core.Tests
   ""multiplierDecayTicks"": 240
 }";
 
+        const string PlayerJson = @"{
+  ""schemaVersion"": 1,
+  ""player"": {
+    ""maxEnemyBullets"": 96
+  }
+}";
+
         [Test]
         public void Parse_ApprovedV2_BuildsExactRuntimeModels()
         {
@@ -188,6 +195,76 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(34, config.ComboGaugeRequiredForLevel3);
             Assert.AreEqual(56, config.ComboGaugeRequiredForLevel4);
             Assert.AreEqual(240, config.ComboDecayTicks);
+        }
+
+        [Test]
+        public void Parse_OptionalPlayerMaxEnemyBulletsCopiesValueToBattleConfig()
+        {
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson,
+                RewardsJson,
+                ShipsJson,
+                ScoringJson,
+                PlayerJson);
+
+            Assert.AreEqual(96, data.CreateBattleSimConfig().MaxEnemyBullets);
+        }
+
+        [Test]
+        public void Parse_MissingPlayerMaxEnemyBulletsRetainsDefault()
+        {
+            const string playerWithoutEnemyCap = @"{
+  ""schemaVersion"": 1,
+  ""player"": {}
+}";
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson,
+                RewardsJson,
+                ShipsJson,
+                ScoringJson,
+                playerWithoutEnemyCap);
+
+            Assert.AreEqual(128, data.CreateBattleSimConfig().MaxEnemyBullets);
+        }
+
+        [Test]
+        public void Parse_PlayerRejectsInvalidSchemaAndEnemyBulletCapWithPaths()
+        {
+            string invalidSchema = PlayerJson.Replace(
+                @"""schemaVersion"": 1",
+                @"""schemaVersion"": 2");
+            GameDataParseException schemaError =
+                Assert.Throws<GameDataParseException>(
+                    () => GameDataParser.Parse(
+                        EnemiesJson,
+                        WeaponsJson,
+                        WavesJson,
+                        RewardsJson,
+                        ShipsJson,
+                        ScoringJson,
+                        invalidSchema));
+            StringAssert.Contains("player.json.schemaVersion", schemaError.Message);
+
+            string negativeCap = PlayerJson.Replace(
+                @"""maxEnemyBullets"": 96",
+                @"""maxEnemyBullets"": -1");
+            GameDataParseException capError =
+                Assert.Throws<GameDataParseException>(
+                    () => GameDataParser.Parse(
+                        EnemiesJson,
+                        WeaponsJson,
+                        WavesJson,
+                        RewardsJson,
+                        ShipsJson,
+                        ScoringJson,
+                        negativeCap));
+            StringAssert.Contains(
+                "player.json.player.maxEnemyBullets",
+                capError.Message);
         }
 
         [Test]
@@ -510,7 +587,10 @@ namespace Shmup.Core.Tests
                 ReadUtf8(Path.Combine(root, "GameData", "enemies.json")),
                 ReadUtf8(Path.Combine(root, "GameData", "weapons.json")),
                 ReadUtf8(Path.Combine(root, "GameData", "waves.json")),
-                ReadUtf8(Path.Combine(root, "GameData", "rewards.json")));
+                ReadUtf8(Path.Combine(root, "GameData", "rewards.json")),
+                null,
+                null,
+                ReadUtf8(Path.Combine(root, "GameData", "player.json")));
 
             Assert.AreEqual(30, data.BattleContent.Enemies.Count);
             Assert.AreEqual(4, data.BattleContent.Weapons.Count);
@@ -518,6 +598,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(5, data.StageGeneration.Bosses.Count);
             Assert.AreEqual(3, data.Rewards.OptionCount);
             Assert.AreEqual(13, data.Rewards.All.Count);
+            Assert.AreEqual(128, data.CreateBattleSimConfig().MaxEnemyBullets);
 
             // 640×360 재스케일(REQ-006) 후 elite_sine 진폭 = 3.0u = 768 서브유닛.
             EnemyDefinition elite = data.BattleContent.FindEnemy("elite_sine");

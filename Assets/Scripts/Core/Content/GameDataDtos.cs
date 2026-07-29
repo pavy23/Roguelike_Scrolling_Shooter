@@ -262,6 +262,22 @@ namespace Shmup.Core.Content
         [DataMember]
         public int? multiplierDecayTicks;
     }
+
+    [DataContract]
+    internal sealed class PlayerRootDto
+    {
+        [DataMember]
+        public int? schemaVersion;
+        [DataMember]
+        public PlayerDto player;
+    }
+
+    [DataContract]
+    internal sealed class PlayerDto
+    {
+        [DataMember]
+        public int? maxEnemyBullets;
+    }
 }
 
 #pragma warning restore CS0649

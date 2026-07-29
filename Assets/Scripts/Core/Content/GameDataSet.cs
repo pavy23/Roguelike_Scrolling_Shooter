@@ -16,6 +16,7 @@ namespace Shmup.Core.Content
         readonly WeaponDefinition _missile;
         readonly ReadOnlyCollection<ShipDefinition> _ships;
         readonly ScoringDefinition _scoring;
+        readonly int _maxEnemyBullets;
 
         internal GameDataSet(
             BattleContent battleContent,
@@ -23,6 +24,7 @@ namespace Shmup.Core.Content
             int capsuleNoDropWeight,
             int scrollSpeedNumerator,
             int scrollSpeedDenominator,
+            int maxEnemyBullets,
             int[] powerUpMaxLevels,
             WeaponDefinition missile,
             RewardCatalog rewards,
@@ -37,6 +39,8 @@ namespace Shmup.Core.Content
                 throw new ArgumentOutOfRangeException(nameof(scrollSpeedNumerator));
             if (scrollSpeedDenominator < 1)
                 throw new ArgumentOutOfRangeException(nameof(scrollSpeedDenominator));
+            if (maxEnemyBullets < 0)
+                throw new ArgumentOutOfRangeException(nameof(maxEnemyBullets));
             if (powerUpMaxLevels == null)
                 throw new ArgumentNullException(nameof(powerUpMaxLevels));
             if (powerUpMaxLevels.Length != PowerUpGauge.SlotCount)
@@ -45,6 +49,7 @@ namespace Shmup.Core.Content
             CapsuleNoDropWeight = capsuleNoDropWeight;
             ScrollSpeedNumerator = scrollSpeedNumerator;
             ScrollSpeedDenominator = scrollSpeedDenominator;
+            _maxEnemyBullets = maxEnemyBullets;
             _powerUpMaxLevels = (int[])powerUpMaxLevels.Clone();
             _missile = missile ?? throw new ArgumentNullException(nameof(missile));
             Rewards = rewards;
@@ -133,6 +138,7 @@ namespace Shmup.Core.Content
             config.CapsuleNoDropWeight = CapsuleNoDropWeight;
             config.ScrollSpeedNumerator = ScrollSpeedNumerator;
             config.ScrollSpeedDenominator = ScrollSpeedDenominator;
+            config.MaxEnemyBullets = _maxEnemyBullets;
             config.MissileBaseDamage = _missile.BaseDamage;
             config.MissileFireIntervalTicks = _missile.FireIntervalTicks;
             config.MissileMinimumFireIntervalTicks = _missile.MinimumFireIntervalTicks;

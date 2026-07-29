@@ -36,6 +36,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(85, config.PlayerBulletSpeedPerTick);
             Assert.AreEqual(8, config.FireIntervalTicks);
             Assert.AreEqual(64, config.MaxBullets);
+            Assert.AreEqual(128, config.MaxEnemyBullets);
             Assert.AreEqual(-13 * units, config.PlayerSpawnX);
             Assert.AreEqual(0, config.PlayerSpawnY);
             Assert.AreEqual(SimSpace.PlayfieldHalfWidthSubUnits + units, config.BulletDespawnX);
