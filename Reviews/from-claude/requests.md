@@ -575,3 +575,16 @@ GROK: 파서 완료 후 scoring.json 초기값 작성 + BalanceSim 그레이즈/
 **CLAUDE 후속:** `Assets/Resources/GameData/scoring.json` 동기화 + BattleDirector/Hangar 파서 6인자 전달.
 
 **검증:** `Tools/CoreStandalone` `dotnet test` 그린 · `Tools/BalanceSim` **PASS**.
+
+## [ ] REQ-017 → CODEX: 런 중단 저장 (스테이지 경계 서스펜드/리줌)
+
+상용 로그라이트 표준 기능. 결정론 덕에 전체 상태 직렬화 대신 스테이지 경계 스냅샷으로 충분.
+- RunManager.ExportSuspendData(): 스테이지 시작 시점 기준 — 시드, 런 번호, 스테이지 인덱스,
+  점수, 통계, 게이지/HP/실드, 패시브 보상 획득 이력(획득 카운트 포함), ActiveModifiers,
+  함선 id. 직렬화 가능한 평범한 데이터 클래스(MetaStateData 패턴).
+- RunManager 리줌 생성자/팩토리: 데이터로부터 해당 스테이지 시작 상태를 재구성.
+  같은 시드+스테이지의 StagePlan이 재현되고 이후 진행이 결정론적이어야 한다.
+- 중단 시점이 스테이지 중간이면 그 스테이지 처음부터 재개(체크포인트 관례) — 문서화.
+- 회귀 테스트: export→resume 라운드트립, 리줌 후 N틱 진행 == 연속 플레이 N틱(동일 스테이지
+  시작 기준), 데이터 손상 시 안전 거부. Unity NUnit 호환 API만(Assert.Multiple 금지).
+파일 저장/로드와 타이틀 CONTINUE UI는 CLAUDE 몫 (MetaSave 패턴 재사용).
