@@ -690,3 +690,14 @@ Silent drop at cap = 위협 누락 (크래시 아님). CLAUDE 풀은 Presentatio
    런렝스 왕복, 빈 기록/손상 거부. 무할당: 기록 버퍼는 증폭 재할당 허용(게임 루프 밖
    Export 시점만 할당), 틱당 기록은 무할당. Unity NUnit 호환 API만.
 파일 저장·재생 UI·데일리 메뉴는 CLAUDE 몫.
+
+## [ ] REQ-019 → CODEX: 게이지 활성화를 InputCommand로 편입 (리플레이 무결성)
+
+발견: 파워업 게이지 활성화가 DevCheats F10(dev 치트)에서 Presentation이 Gauge.Activate()를
+직접 호출하는 경로뿐이다. 정식 입력이 없고, 시뮬 입력 스트림 밖에서 상태를 바꾸므로
+REQ-018 입력 리플레이가 활성화를 재현하지 못한다.
+요청: (1) InputCommand에 activate(bool) 필드 추가 - 기존 3인자 생성자 호환 유지
+(2) RunManager/BattleSim Step이 activate 상승 에지에서 게이지 활성화를 수행
+(3) Presentation의 직접 Activate 호출 경로는 유지하되(dev 치트) 주석으로 리플레이
+비기록임을 명시 (4) REQ-018 레코더가 activate를 포함해 기록하도록 갱신
+(5) 회귀 테스트: activate 포함 기록→재생 해시 일치, 파워업 레벨 변화 재현.
