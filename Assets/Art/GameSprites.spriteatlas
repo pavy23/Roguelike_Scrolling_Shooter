@@ -110,6 +110,7 @@ SpriteAtlas:
     - 8843ffb3907cd3449ae8e8f8169ea460: 21300000
     - 1b1bfac362c98e649b99efd0d43ff71c: 21300000
     - 5bfcfde3126037d49bbdd7ce4d28ef76: 21300000
+    - 89d491f3e489fbd408aa22818173c8cd: 21300000
     - a88a7e349225c56409e4e8f00a6c11dd: 21300000
     - e9fb9e34ce9716f4d9b1bae940ea2cd9: 21300000
     - 20b950843e9259b4a8b43759ba669a5e: 21300000
@@ -210,6 +211,7 @@ SpriteAtlas:
     - c8070e6abccca6b4890476c15b8d931d: 21300000
     - c024af6aada73dc4eacbfd54e40d99b5: 21300000
     - c88ffa7a3cbea0a429ceb13cad56cfa5: 21300000
+    - 9d887daaeea145641911d350b74bfa69: 21300000
     - b76917ca1de0f744885e29b8b2157d4d: 21300000
     - e88345da26dacf347938147897dc3aaf: 21300000
     - 238616da43973fb4b8f1409c1f7822fe: 21300000
@@ -262,6 +264,7 @@ SpriteAtlas:
     - e7b233ad9897fd0499fdd54ea4d8ae6a: 21300000
     - ec0307adb9f0a194f971f4589a48406d: 21300000
     - 697dbead558598d49aa78b45e7a58b96: 21300000
+    - c45fcabddae89da4f837af8c9916c52e: 21300000
     - 214184dde387ae64ab2c0cdc26a61f07: 21300000
     - d3275cdd0d48deb43b43ccadebed2ee2: 21300000
     - f7af12ed9e0353f4d928db15131d120d: 21300000
@@ -280,6 +283,7 @@ SpriteAtlas:
     - f333bb8e6bd06594e9f16e68c39f8308: 21300000
     - a52e399e1ac33064b9c0116acf4dacb1: 21300000
     - 832eb3aecf72dd3408dada8cda7ba377: 21300000
+    - 755596aef1138724bb782914e937affd: 21300000
     - 44d8b6bea86685b4d8b09abefbfdfda5: 21300000
     - 1941b8be153c1d34cbbe524e2b707e6e: 21300000
     - 382be8be2dd0aaf4b984294475780ec4: 21300000
@@ -360,6 +364,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 8843ffb3907cd3449ae8e8f8169ea460, type: 3}
   - {fileID: 21300000, guid: 1b1bfac362c98e649b99efd0d43ff71c, type: 3}
   - {fileID: 21300000, guid: 5bfcfde3126037d49bbdd7ce4d28ef76, type: 3}
+  - {fileID: 21300000, guid: 89d491f3e489fbd408aa22818173c8cd, type: 3}
   - {fileID: 21300000, guid: a88a7e349225c56409e4e8f00a6c11dd, type: 3}
   - {fileID: 21300000, guid: e9fb9e34ce9716f4d9b1bae940ea2cd9, type: 3}
   - {fileID: 21300000, guid: 20b950843e9259b4a8b43759ba669a5e, type: 3}
@@ -460,6 +465,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: c8070e6abccca6b4890476c15b8d931d, type: 3}
   - {fileID: 21300000, guid: c024af6aada73dc4eacbfd54e40d99b5, type: 3}
   - {fileID: 21300000, guid: c88ffa7a3cbea0a429ceb13cad56cfa5, type: 3}
+  - {fileID: 21300000, guid: 9d887daaeea145641911d350b74bfa69, type: 3}
   - {fileID: 21300000, guid: b76917ca1de0f744885e29b8b2157d4d, type: 3}
   - {fileID: 21300000, guid: e88345da26dacf347938147897dc3aaf, type: 3}
   - {fileID: 21300000, guid: 238616da43973fb4b8f1409c1f7822fe, type: 3}
@@ -512,6 +518,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: e7b233ad9897fd0499fdd54ea4d8ae6a, type: 3}
   - {fileID: 21300000, guid: ec0307adb9f0a194f971f4589a48406d, type: 3}
   - {fileID: 21300000, guid: 697dbead558598d49aa78b45e7a58b96, type: 3}
+  - {fileID: 21300000, guid: c45fcabddae89da4f837af8c9916c52e, type: 3}
   - {fileID: 21300000, guid: 214184dde387ae64ab2c0cdc26a61f07, type: 3}
   - {fileID: 21300000, guid: d3275cdd0d48deb43b43ccadebed2ee2, type: 3}
   - {fileID: 21300000, guid: f7af12ed9e0353f4d928db15131d120d, type: 3}
@@ -530,6 +537,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: f333bb8e6bd06594e9f16e68c39f8308, type: 3}
   - {fileID: 21300000, guid: a52e399e1ac33064b9c0116acf4dacb1, type: 3}
   - {fileID: 21300000, guid: 832eb3aecf72dd3408dada8cda7ba377, type: 3}
+  - {fileID: 21300000, guid: 755596aef1138724bb782914e937affd, type: 3}
   - {fileID: 21300000, guid: 44d8b6bea86685b4d8b09abefbfdfda5, type: 3}
   - {fileID: 21300000, guid: 1941b8be153c1d34cbbe524e2b707e6e, type: 3}
   - {fileID: 21300000, guid: 382be8be2dd0aaf4b984294475780ec4, type: 3}
@@ -609,6 +617,7 @@ SpriteAtlas:
   - enemy_shard_prism
   - anim_void_moth_04
   - anim_spore_01
+  - icon_node_battle
   - ship_interceptor
   - hive_far
   - anim_boss_stage1_03
@@ -709,6 +718,7 @@ SpriteAtlas:
   - anim_mortar_drone_00
   - enemy_junk_roller
   - enemy_sentry
+  - icon_node_elite
   - boss_core
   - scrap_mid
   - enemy_guardian
@@ -761,6 +771,7 @@ SpriteAtlas:
   - fx_explosion_01
   - anim_junk_roller_02
   - anim_boss_stage1_04
+  - icon_node_hazard
   - anim_phase_disc_00
   - enemy_elite
   - anim_scrap_tumbler_00
@@ -779,6 +790,7 @@ SpriteAtlas:
   - anim_zako_tank_01
   - hud_icon_3
   - anim_phase_disc_02
+  - icon_node_supply
   - anim_junk_roller_03
   - anim_zako_tank_00
   - enemy_brood_spitter

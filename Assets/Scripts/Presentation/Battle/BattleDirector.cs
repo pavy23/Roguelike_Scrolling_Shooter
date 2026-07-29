@@ -168,6 +168,23 @@ namespace Shmup.Presentation.Battle
 
         [SerializeField] ScorePopups _scorePopups;
 
+        // 경로 선택 (REQ-028): RouteScreen이 읽고 고르는 얇은 어댑터
+        public bool AwaitingRoute => _run != null && _run.State == RunState.AwaitingRoute;
+        public IReadOnlyList<RouteOption> RouteOptions => _run != null ? _run.RouteOptions : null;
+
+        public void ChooseRoute(int index)
+        {
+            if (!AwaitingRoute) return;
+            if (_replayMode) return;              // 리플레이는 기록된 경로를 자동 재현
+            if (_recordingActive) _recordedRoutes.Add(index);
+            _run.ChooseRoute(index);
+            RefreshBattle();
+            SyncViews();
+        }
+
+        readonly List<int> _recordedRoutes = new List<int>(8);
+        int _replayRouteCursor;
+
         /// <summary>보스전 진행 중 여부 (BgmPlayer 보스 트랙 전환용).</summary>
         public bool BossActive => _sim != null && _sim.BossActive;
 
@@ -291,6 +308,9 @@ namespace Shmup.Presentation.Battle
                 _recordedChoices.Clear();
                 if (pendingReplay.rewardChoices != null)
                     _recordedChoices.AddRange(pendingReplay.rewardChoices);
+                _recordedRoutes.Clear();
+                if (pendingReplay.routeChoices != null)
+                    _recordedRoutes.AddRange(pendingReplay.routeChoices);
             }
 
             var config = data.CreateBattleSimConfig();
@@ -363,6 +383,7 @@ namespace Shmup.Presentation.Battle
                 _recorder = new InputRecorder();
                 _recordingActive = true;
                 _recordedChoices.Clear();
+                _recordedRoutes.Clear();
                 _recordShipId = selectedShip != null ? selectedShip.Id : null;
             }
 
@@ -435,6 +456,12 @@ namespace Shmup.Presentation.Battle
                             ? _recordedChoices[_replayChoiceCursor++] : 0;
                         _run.ChooseReward(choice);
                     }
+                    else if (_run.State == RunState.AwaitingRoute)
+                    {
+                        int route = _replayRouteCursor < _recordedRoutes.Count
+                            ? _recordedRoutes[_replayRouteCursor++] : 0;
+                        _run.ChooseRoute(route);
+                    }
                 }
             }
             else
@@ -468,6 +495,7 @@ namespace Shmup.Presentation.Battle
                         difficultyNumerator = _run.DifficultyMultiplierNumerator,
                         difficultyDenominator = _run.DifficultyMultiplierDenominator,
                         rewardChoices = _recordedChoices.ToArray(),
+                        routeChoices = _recordedRoutes.ToArray(),
                         recording = _recorder.Export()
                     });
                 }

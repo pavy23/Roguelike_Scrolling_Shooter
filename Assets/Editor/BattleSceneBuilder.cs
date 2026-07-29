@@ -837,6 +837,25 @@ namespace Shmup.EditorTools
             SetReference(options, "_input", inputReader);
             SetReference(options, "_font", uiFont);
             SetReference(options, "_fontBold", uiFontBold);
+            // 경로 선택 화면 (REQ-028)
+            var routeScreen = battleRoot.AddComponent<RouteScreen>();
+            SetReference(routeScreen, "_director", director);
+            SetReference(routeScreen, "_font", uiFont);
+            SetReference(routeScreen, "_fontBold", uiFontBold);
+            SetStringArray(routeScreen, "_encounterNames",
+                new[] { "BATTLE", "ELITE  (모디파이어 확정)", "SUPPLY  (보급)", "HAZARD  (점수 1.5x)" });
+            SetReferenceArray(routeScreen, "_encounterIcons", new[]
+            {
+                LoadExternalSprite("icon_node_battle.png", "icon_node_battle"),
+                LoadExternalSprite("icon_node_elite.png", "icon_node_elite"),
+                LoadExternalSprite("icon_node_supply.png", "icon_node_supply"),
+                LoadExternalSprite("icon_node_hazard.png", "icon_node_hazard")
+            });
+            SetStringArray(routeScreen, "_themeIds",
+                new[] { "scrapyard", "hive", "fortress", "nebula", "core" });
+            SetStringArray(routeScreen, "_themeNames",
+                new[] { "SCRAPYARD", "BIO HIVE", "FORTRESS", "NEBULA", "CORE" });
+
             var gameOver = battleRoot.AddComponent<GameOverScreen>();
             SetReference(gameOver, "_director", director);
             SetReference(gameOver, "_font", uiFont);

@@ -18,6 +18,7 @@ namespace Shmup.Presentation.Battle
         public int difficultyNumerator = 1;
         public int difficultyDenominator = 1;
         public int[] rewardChoices;
+        public int[] routeChoices;
         public InputRecordingData recording;
     }
 
