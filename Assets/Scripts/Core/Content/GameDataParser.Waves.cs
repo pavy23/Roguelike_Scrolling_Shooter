@@ -212,7 +212,16 @@ namespace Shmup.Core.Content
                     path + ".traversableLaneMasks"),
                 spawns,
                 obstacles,
-                OptionalText(source.theme, path + ".theme"));
+                OptionalText(source.theme, path + ".theme"),
+                ParseSegmentWeight(source.weight, path + ".weight"));
+        }
+
+        static int ParseSegmentWeight(int? source, string path)
+        {
+            int weight = source ?? StageSegmentTemplate.DefaultWeight;
+            if (weight < 1)
+                throw Error(path, "must be positive when present.");
+            return weight;
         }
 
         static StageBossTemplate ParseBoss(BossDto source, int index)

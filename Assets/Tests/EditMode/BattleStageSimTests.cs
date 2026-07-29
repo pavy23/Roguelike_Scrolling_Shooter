@@ -311,6 +311,65 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void CapsuleMagnetUsesDeterministicRationalTrajectory()
+        {
+            EnemyDefinition enemy = Enemy(
+                "magnet_dropper",
+                EnemyMovePattern.Static,
+                hp: 1,
+                dropWeight: 1);
+            var weapon =
+                new WeaponDefinition("shot", 1, 60, 0, 1, 200, 0);
+            BattleContent content = Content(weapon, enemy);
+            StagePlan plan = Plan(Segment(
+                "capsule_magnet",
+                100,
+                new SpawnEvent(0, enemy.Id, 10, 0)));
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpawnX = 0;
+            config.CapsuleMagnetRadiusSubUnits = 20;
+            config.CapsuleMagnetSpeedNumerator = 3;
+            config.CapsuleMagnetSpeedDenominator = 2;
+            BattleSim first = CreateSim(plan, content, config, 24UL);
+            BattleSim repeated = CreateSim(plan, content, config, 24UL);
+            var fire = new InputCommand(0, 0, true);
+            InputCommand none = InputCommand.None;
+
+            first.Step(in fire);
+            repeated.Step(in fire);
+            first.Step(in none);
+            repeated.Step(in none);
+            Assert.AreEqual(10, first.Capsules[0].X);
+
+            int[] expectedX = { 9, 7, 6, 4 };
+            for (int i = 0; i < expectedX.Length; i++)
+            {
+                first.Step(in none);
+                repeated.Step(in none);
+                Assert.AreEqual(expectedX[i], first.Capsules[0].X);
+                Assert.AreEqual(
+                    first.Capsules[0].X,
+                    repeated.Capsules[0].X);
+                Assert.AreEqual(
+                    first.Capsules[0].Y,
+                    repeated.Capsules[0].Y);
+            }
+
+            BattleSim measured =
+                CreateSim(plan, content, config, 24UL);
+            measured.Step(in fire);
+            measured.Step(in none);
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            measured.Step(in none);
+            long allocated =
+                GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.AreEqual(
+                0L,
+                allocated,
+                "Capsule attraction must use preallocated state.");
+        }
+
+        [Test]
         public void ScrollX_IsPureIntegerFunctionOfTick()
         {
             BattleSimConfig config = CreateConfig();

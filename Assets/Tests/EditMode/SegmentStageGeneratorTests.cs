@@ -289,6 +289,44 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void SegmentWeightsBiasSelectionWithoutBreakingDeterminism()
+        {
+            var catalog = new StageGenerationCatalog(
+                3,
+                1,
+                Center,
+                new[]
+                {
+                    WeightedSegment("common", 100),
+                    WeightedSegment("special", 1)
+                },
+                new[]
+                {
+                    new StageBossTemplate("boss", 1, 1, 1, 5, Center)
+                });
+            var generator = new SegmentStageGenerator(catalog);
+            int commonCount = 0;
+            int specialCount = 0;
+
+            for (ulong seed = 0; seed < 1000; seed++)
+            {
+                StagePlan first = generator.Generate(seed, 1, 2);
+                StagePlan repeated = generator.Generate(seed, 1, 2);
+                Assert.AreEqual(
+                    first.Segments[0].SegmentId,
+                    repeated.Segments[0].SegmentId);
+                Assert.IsTrue(StagePlanClearability.IsClearable(first));
+                if (first.Segments[0].SegmentId == "common")
+                    commonCount++;
+                else
+                    specialCount++;
+            }
+
+            Assert.Greater(commonCount, specialCount * 20);
+            Assert.Greater(specialCount, 0);
+        }
+
+        [Test]
         public void InsufficientPool_AssemblesAndAvoidsAdjacentRepeats()
         {
             var generator = CreateInsufficientPoolGenerator();
@@ -522,6 +560,24 @@ namespace Shmup.Core.Tests
                         0)
                 },
                 themeId);
+        }
+
+        static StageSegmentTemplate WeightedSegment(
+            string id,
+            int weight)
+        {
+            return new StageSegmentTemplate(
+                id,
+                1,
+                5,
+                600,
+                Center,
+                Center,
+                new[] { Center },
+                Array.Empty<SpawnEvent>(),
+                Array.Empty<ObstacleSpawn>(),
+                null,
+                weight);
         }
 
         static StageBossTemplate Boss(string id, int entry, string themeId)

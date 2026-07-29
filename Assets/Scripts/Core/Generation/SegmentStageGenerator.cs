@@ -194,6 +194,8 @@ namespace Shmup.Core.Generation
 
     public sealed class StageSegmentTemplate
     {
+        public const int DefaultWeight = 10;
+
         public StageSegmentTemplate(
             string segmentId,
             int difficultyMin,
@@ -251,6 +253,33 @@ namespace Shmup.Core.Generation
             IReadOnlyList<SpawnEvent> spawns,
             IReadOnlyList<ObstacleSpawn> obstacles,
             string themeId)
+            : this(
+                segmentId,
+                difficultyMin,
+                difficultyMax,
+                lengthTicks,
+                entryLaneMask,
+                exitLaneMask,
+                traversableLaneMasks,
+                spawns,
+                obstacles,
+                themeId,
+                DefaultWeight)
+        {
+        }
+
+        public StageSegmentTemplate(
+            string segmentId,
+            int difficultyMin,
+            int difficultyMax,
+            int lengthTicks,
+            int entryLaneMask,
+            int exitLaneMask,
+            IReadOnlyList<int> traversableLaneMasks,
+            IReadOnlyList<SpawnEvent> spawns,
+            IReadOnlyList<ObstacleSpawn> obstacles,
+            string themeId,
+            int weight)
         {
             SegmentId = segmentId ?? throw new ArgumentNullException(nameof(segmentId));
             DifficultyMin = difficultyMin;
@@ -262,6 +291,7 @@ namespace Shmup.Core.Generation
             Spawns = CopySpawns(spawns);
             Obstacles = CopyObstacles(obstacles);
             ThemeId = themeId;
+            Weight = weight;
         }
 
         public string SegmentId { get; }
@@ -274,6 +304,7 @@ namespace Shmup.Core.Generation
         public IReadOnlyList<SpawnEvent> Spawns { get; }
         public IReadOnlyList<ObstacleSpawn> Obstacles { get; }
         public string ThemeId { get; }
+        public int Weight { get; }
 
         internal bool SupportsDifficulty(int difficulty)
         {
@@ -296,6 +327,8 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException("Segment difficulty range is invalid.");
             if (LengthTicks < 1)
                 throw new ArgumentException("Segment length must be positive.");
+            if (Weight < 1)
+                throw new ArgumentException("Segment weight must be positive.");
 
             StagePlanClearability.ValidateLaneMask(
                 EntryLaneMask, validLanes, nameof(EntryLaneMask));
@@ -674,7 +707,7 @@ namespace Shmup.Core.Generation
 
                 int pick = encounterType == EncounterType.Supply
                     ? FindLowestCombatCandidate(viableIndices)
-                    : segmentRng.NextInt(0, viableIndices.Count);
+                    : PickWeightedCandidate(segmentRng, viableIndices);
                 int selectedIndex = viableIndices[pick];
                 StageSegmentTemplate selected = _catalog.Segments[selectedIndex];
                 assembled[position] = selected.CreateSegment();
@@ -736,6 +769,16 @@ namespace Shmup.Core.Generation
                 }
             }
             return best;
+        }
+
+        int PickWeightedCandidate(
+            Rng rng,
+            IReadOnlyList<int> viableIndices)
+        {
+            var weights = new int[viableIndices.Count];
+            for (int i = 0; i < weights.Length; i++)
+                weights[i] = _catalog.Segments[viableIndices[i]].Weight;
+            return rng.PickWeighted(weights, weights.Length);
         }
 
         int GetSegmentCount(EncounterType encounterType)

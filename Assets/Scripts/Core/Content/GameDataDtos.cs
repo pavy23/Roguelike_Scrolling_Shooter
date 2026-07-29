@@ -137,6 +137,8 @@ namespace Shmup.Core.Content
         [DataMember]
         public string id;
         [DataMember]
+        public int? weight;
+        [DataMember]
         public string theme;
         [DataMember]
         public int? difficultyMin;

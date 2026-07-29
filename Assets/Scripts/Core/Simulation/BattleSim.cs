@@ -328,6 +328,19 @@ namespace Shmup.Core.Simulation
         public int CapsuleNoDropWeight { get; set; }
         public int ScrollSpeedNumerator { get; set; }
         public int ScrollSpeedDenominator { get; set; } = 1;
+        /// <summary>
+        /// Attraction radius in simulation subunits. Zero disables capsule magnetism.
+        /// </summary>
+        public int CapsuleMagnetRadiusSubUnits { get; set; }
+        /// <summary>Capsule attraction speed numerator in subunits per tick.</summary>
+        public int CapsuleMagnetSpeedNumerator { get; set; }
+        public int CapsuleMagnetSpeedDenominator { get; set; } = 1;
+
+        // Provisional route tuning (REQ-029, AGENTS.md section 7).
+        public int RareEncounterChanceNumerator { get; set; } = 12;
+        public int RareEncounterChanceDenominator { get; set; } = 100;
+        /// <summary>Number of reward choices earned after clearing a Rare node.</summary>
+        public int RareRewardSelectionCount { get; set; } = 2;
 
         // Provisional obstacle tuning (REQ-023, AGENTS.md section 7).
         // Shape and rewards remain configurable until the human balance pass.
@@ -472,7 +485,10 @@ namespace Shmup.Core.Simulation
                 PlayerSpawnY = 0,
                 PlayerMaxHp = 1,
                 PlayerHalfWidth = 3 * u / 8,
-                PlayerHalfHeight = 3 * u / 8
+                PlayerHalfHeight = 3 * u / 8,
+                CapsuleMagnetRadiusSubUnits = 3 * u,
+                CapsuleMagnetSpeedNumerator = 8 * u,
+                CapsuleMagnetSpeedDenominator = SimSpace.TicksPerSecond
             };
         }
 
@@ -520,6 +536,7 @@ namespace Shmup.Core.Simulation
     {
         const int DropRngStream = 1;
         const int SineScale = 1024;
+        const int CapsuleMagnetDirectionScale = 1024;
         const long MaxSquareRoot = 3037000499L;
         // 회전 전 조준 벡터를 이 범위로 축소하면 회전 후 제곱합과
         // speedNumerator 곱이 모두 long 범위에 머문다.
@@ -556,6 +573,9 @@ namespace Shmup.Core.Simulation
         readonly int _playerHalfWidth, _playerHalfHeight;
         readonly int _capsuleHalfWidth, _capsuleHalfHeight;
         readonly int _capsuleNoDropWeight;
+        readonly int _capsuleMagnetRadiusSubUnits;
+        readonly int _capsuleMagnetSpeedNumerator;
+        readonly int _capsuleMagnetSpeedDenominator;
         readonly int _scrollSpeedNumerator, _scrollSpeedDenominator;
         readonly int _maxObstacles, _obstacleHalfWidth, _obstacleHalfHeight;
         readonly int _obstacleContactDamage, _breakableObstacleScore;
@@ -599,6 +619,8 @@ namespace Shmup.Core.Simulation
         readonly List<ObstacleState> _obstacles;
         readonly ReadOnlyCollection<ObstacleState> _readOnlyObstacles;
         readonly List<CapsuleState> _capsules;
+        readonly List<long> _capsuleMagnetXRemainders;
+        readonly List<long> _capsuleMagnetYRemainders;
         readonly ReadOnlyCollection<CapsuleState> _readOnlyCapsules;
         readonly ScheduledSpawn[] _scheduledSpawns;
         readonly ScheduledObstacle[] _scheduledObstacles;
@@ -772,6 +794,12 @@ namespace Shmup.Core.Simulation
             _capsuleHalfWidth = config.CapsuleHalfWidth;
             _capsuleHalfHeight = config.CapsuleHalfHeight;
             _capsuleNoDropWeight = config.CapsuleNoDropWeight;
+            _capsuleMagnetRadiusSubUnits =
+                config.CapsuleMagnetRadiusSubUnits;
+            _capsuleMagnetSpeedNumerator =
+                config.CapsuleMagnetSpeedNumerator;
+            _capsuleMagnetSpeedDenominator =
+                config.CapsuleMagnetSpeedDenominator;
             _scrollSpeedNumerator = config.ScrollSpeedNumerator;
             _scrollSpeedDenominator = config.ScrollSpeedDenominator;
             _maxObstacles = config.MaxObstacles;
@@ -985,6 +1013,8 @@ namespace Shmup.Core.Simulation
             _obstacles = new List<ObstacleState>(_maxObstacles);
             _readOnlyObstacles = _obstacles.AsReadOnly();
             _capsules = new List<CapsuleState>(spawnCapacity);
+            _capsuleMagnetXRemainders = new List<long>(spawnCapacity);
+            _capsuleMagnetYRemainders = new List<long>(spawnCapacity);
             _readOnlyCapsules = _capsules.AsReadOnly();
             _enemyScanIds = new int[spawnCapacity];
             _enemyScanDistances = new long[spawnCapacity];
@@ -1748,19 +1778,90 @@ namespace Shmup.Core.Simulation
             while (index < _capsules.Count)
             {
                 CapsuleState capsule = _capsules[index];
-                long nextX = capsule.X - scrollDelta;
+                int nextX = SaturateToInt(capsule.X - scrollDelta);
+                int nextY = capsule.Y;
+                if (_capsuleMagnetRadiusSubUnits > 0
+                    && _capsuleMagnetSpeedNumerator > 0
+                    && SquaredDistanceSaturated(
+                        nextX,
+                        nextY,
+                        PlayerX,
+                        PlayerY)
+                        <= SquaredRadiusSaturated(
+                            _capsuleMagnetRadiusSubUnits))
+                {
+                    long dx = (long)PlayerX - nextX;
+                    long dy = (long)PlayerY - nextY;
+                    long length = IntegerSqrt(dx * dx + dy * dy);
+                    if (length > 0)
+                    {
+                        long directionX =
+                            dx * CapsuleMagnetDirectionScale / length;
+                        long directionY =
+                            dy * CapsuleMagnetDirectionScale / length;
+                        long denominator =
+                            (long)_capsuleMagnetSpeedDenominator
+                            * CapsuleMagnetDirectionScale;
+                        long xRemainder =
+                            _capsuleMagnetXRemainders[index];
+                        long yRemainder =
+                            _capsuleMagnetYRemainders[index];
+                        nextX = AdvanceCapsuleMagnetAxis(
+                            nextX,
+                            PlayerX,
+                            (long)_capsuleMagnetSpeedNumerator
+                                * directionX,
+                            denominator,
+                            ref xRemainder);
+                        nextY = AdvanceCapsuleMagnetAxis(
+                            nextY,
+                            PlayerY,
+                            (long)_capsuleMagnetSpeedNumerator
+                                * directionY,
+                            denominator,
+                            ref yRemainder);
+                        _capsuleMagnetXRemainders[index] = xRemainder;
+                        _capsuleMagnetYRemainders[index] = yRemainder;
+                    }
+                }
+                else
+                {
+                    _capsuleMagnetXRemainders[index] = 0;
+                    _capsuleMagnetYRemainders[index] = 0;
+                }
+
                 if (nextX < _enemyDespawnX)
                 {
-                    _capsules.RemoveAt(index);
+                    RemoveCapsuleAt(index);
                     continue;
                 }
 
                 _capsules[index] = new CapsuleState(
                     capsule.Id,
-                    SaturateToInt(nextX),
-                    capsule.Y);
+                    nextX,
+                    nextY);
                 index++;
             }
+        }
+
+        static int AdvanceCapsuleMagnetAxis(
+            int position,
+            int target,
+            long velocityNumerator,
+            long velocityDenominator,
+            ref long remainder)
+        {
+            long accumulated = remainder + velocityNumerator;
+            long delta = accumulated / velocityDenominator;
+            long next = (long)position + delta;
+            if ((target >= position && next >= target)
+                || (target <= position && next <= target))
+            {
+                remainder = 0;
+                return target;
+            }
+            remainder = accumulated % velocityDenominator;
+            return SaturateToInt(next);
         }
 
         void AdvanceObstacles()
@@ -2406,7 +2507,7 @@ namespace Shmup.Core.Simulation
                     continue;
                 }
 
-                _capsules.RemoveAt(index);
+                RemoveCapsuleAt(index);
                 _powerUpGauge.Collect();
                 EmitEvent(SimEventType.CapsulePicked, capsule.Id, capsule.X, capsule.Y, 0);
             }
@@ -2429,7 +2530,16 @@ namespace Shmup.Core.Simulation
                 throw new InvalidOperationException("The capsule id counter is exhausted.");
             int capsuleId = _nextCapsuleId++;
             _capsules.Add(new CapsuleState(capsuleId, x, y));
+            _capsuleMagnetXRemainders.Add(0);
+            _capsuleMagnetYRemainders.Add(0);
             EmitEvent(SimEventType.CapsuleDropped, capsuleId, x, y, 0);
+        }
+
+        void RemoveCapsuleAt(int index)
+        {
+            _capsules.RemoveAt(index);
+            _capsuleMagnetXRemainders.RemoveAt(index);
+            _capsuleMagnetYRemainders.RemoveAt(index);
         }
 
         void SpawnMainShotVolley()
@@ -2969,6 +3079,24 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(config.ScrollSpeedNumerator));
             if (config.ScrollSpeedDenominator < 1)
                 throw new ArgumentOutOfRangeException(nameof(config.ScrollSpeedDenominator));
+            if (config.CapsuleMagnetRadiusSubUnits < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.CapsuleMagnetRadiusSubUnits));
+            if (config.CapsuleMagnetSpeedNumerator < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.CapsuleMagnetSpeedNumerator));
+            if (config.CapsuleMagnetSpeedDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.CapsuleMagnetSpeedDenominator));
+            if (config.RareEncounterChanceNumerator < 0
+                || config.RareEncounterChanceDenominator < 1
+                || config.RareEncounterChanceNumerator
+                    > config.RareEncounterChanceDenominator)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.RareEncounterChanceNumerator));
+            if (config.RareRewardSelectionCount < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.RareRewardSelectionCount));
             if (config.MaxObstacles < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.MaxObstacles));
             if (config.ObstacleHalfWidth < 0

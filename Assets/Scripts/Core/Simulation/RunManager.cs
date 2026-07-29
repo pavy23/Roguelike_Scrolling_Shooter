@@ -383,6 +383,8 @@ namespace Shmup.Core.Simulation
         int _stageStartMainShotBaseDamage;
         int _stageStartPlayerSpeedNumerator;
         int _stageStartPlayerSpeedDenominator;
+        int _rewardSelectionsRemaining;
+        int _rewardSelectionRound;
 
         public RunManager(
             ulong runSeed,
@@ -977,8 +979,7 @@ namespace Shmup.Core.Simulation
                 if (battleSim.BossDefeated)
                 {
                     IncrementStagesCleared();
-                    _rewardOptions = GenerateRewardOptions();
-                    State = RunState.AwaitingReward;
+                    BeginRewardSelection();
                 }
                 return;
             }
@@ -993,10 +994,20 @@ namespace Shmup.Core.Simulation
                 }
                 else
                 {
-                    _rewardOptions = GenerateRewardOptions();
-                    State = RunState.AwaitingReward;
+                    BeginRewardSelection();
                 }
             }
+        }
+
+        void BeginRewardSelection()
+        {
+            _rewardSelectionsRemaining =
+                StagePlan.EncounterType == EncounterType.Rare
+                    ? _battleConfig.RareRewardSelectionCount
+                    : 1;
+            _rewardSelectionRound = 0;
+            _rewardOptions = GenerateRewardOptions();
+            State = RunState.AwaitingReward;
         }
 
         /// <summary>
@@ -1017,6 +1028,13 @@ namespace Shmup.Core.Simulation
             ApplyReward(_rewardOptions[optionIndex]);
             if (_rewardAcquisitionCounts[catalogIndex] < int.MaxValue)
                 _rewardAcquisitionCounts[catalogIndex]++;
+            _rewardSelectionsRemaining--;
+            if (_rewardSelectionsRemaining > 0)
+            {
+                _rewardSelectionRound++;
+                _rewardOptions = GenerateRewardOptions();
+                return;
+            }
             _rewardOptions = Array.Empty<RewardOption>();
             _routeOptions = GenerateRouteOptions(StageIndex + 1);
             if (_routeOptions.Count >= MinimumRouteOptionCount)
@@ -1125,9 +1143,12 @@ namespace Shmup.Core.Simulation
                 _runSeed,
                 RewardSelectionStream,
                 StageIndex);
+            for (int i = 0; i < _rewardSelectionRound; i++)
+                _rewardRng.NextULong();
             int poolCount = eligibleCount;
             int optionStart = 0;
-            if (StagePlan.EncounterType == EncounterType.Elite)
+            if (StagePlan.EncounterType == EncounterType.Elite
+                || StagePlan.EncounterType == EncounterType.Rare)
             {
                 int modifierWeight = 0;
                 for (int i = 0; i < poolCount; i++)
@@ -1225,6 +1246,15 @@ namespace Shmup.Core.Simulation
                 themeOrder.Count);
             if (desiredCount > MinimumRouteOptionCount)
                 desiredCount = _routeRng.NextInt(2, desiredCount + 1);
+            bool includeRare =
+                _battleConfig.RareEncounterChanceNumerator > 0
+                && _routeRng.NextInt(
+                    0,
+                    _battleConfig.RareEncounterChanceDenominator)
+                    < _battleConfig.RareEncounterChanceNumerator;
+            int rareSlot = includeRare
+                ? _routeRng.NextInt(0, desiredCount)
+                : -1;
 
             var options = new RouteOption[desiredCount];
             int optionCount = 0;
@@ -1253,13 +1283,28 @@ namespace Shmup.Core.Simulation
                 if (duplicateTheme)
                     continue;
 
-                int encounterStart = _routeRng.NextInt(0, 4);
+                if (optionCount == rareSlot
+                    && routeGenerator.CanGenerateRoute(
+                        themeId,
+                        targetStageIndex,
+                        targetDifficulty,
+                        EncounterType.Rare))
+                {
+                    options[optionCount++] =
+                        new RouteOption(themeId, EncounterType.Rare);
+                    continue;
+                }
+
+                const int commonEncounterCount = 4;
+                int encounterStart =
+                    _routeRng.NextInt(0, commonEncounterCount);
                 for (int encounterOffset = 0;
-                    encounterOffset < 4;
+                    encounterOffset < commonEncounterCount;
                     encounterOffset++)
                 {
                     var encounterType = (EncounterType)(
-                        (encounterStart + encounterOffset) % 4);
+                        (encounterStart + encounterOffset)
+                        % commonEncounterCount);
                     if (!routeGenerator.CanGenerateRoute(
                             themeId,
                             targetStageIndex,

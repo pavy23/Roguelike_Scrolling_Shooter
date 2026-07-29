@@ -41,7 +41,8 @@ namespace Shmup.Core.Generation
         Normal = 0,
         Elite = 1,
         Supply = 2,
-        Hazard = 3
+        Hazard = 3,
+        Rare = 4
     }
 
     /// <summary>
@@ -249,7 +250,9 @@ namespace Shmup.Core.Generation
         public EncounterType EncounterType { get; }
         /// <summary>Provisional per-encounter enemy HP scaling.</summary>
         public int EncounterEnemyHpMultiplierNumerator =>
-            EncounterType == EncounterType.Elite ? 3 : 1;
+            EncounterType == EncounterType.Rare
+                ? 2
+                : EncounterType == EncounterType.Elite ? 3 : 1;
         public int EncounterEnemyHpMultiplierDenominator =>
             EncounterType == EncounterType.Elite ? 2 : 1;
         /// <summary>Provisional per-encounter capsule drop-weight scaling.</summary>

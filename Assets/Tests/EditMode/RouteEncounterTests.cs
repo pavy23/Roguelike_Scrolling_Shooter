@@ -74,6 +74,8 @@ namespace Shmup.Core.Tests
                 123UL, 2, 2, "alpha", EncounterType.Supply);
             StagePlan hazard = generator.GenerateRoute(
                 123UL, 2, 2, "alpha", EncounterType.Hazard);
+            StagePlan rare = generator.GenerateRoute(
+                123UL, 2, 2, "alpha", EncounterType.Rare);
 
             Assert.AreEqual(3, normal.Segments.Count);
             Assert.AreEqual(1, elite.Segments.Count);
@@ -91,6 +93,65 @@ namespace Shmup.Core.Tests
                 CountObstacles(normal));
             Assert.AreEqual(3, hazard.EncounterScoreMultiplierNumerator);
             Assert.AreEqual(2, hazard.EncounterScoreMultiplierDenominator);
+            Assert.AreEqual(normal.Segments.Count, rare.Segments.Count);
+            Assert.AreEqual(2, rare.EncounterEnemyHpMultiplierNumerator);
+            Assert.AreEqual(1, rare.EncounterEnemyHpMultiplierDenominator);
+        }
+
+        [Test]
+        public void RareRouteFrequencyIsLowDeterministicAndAtMostOneSlot()
+        {
+            int runsWithRare = 0;
+            for (ulong seed = 0; seed < 1000; seed++)
+            {
+                RunManager run = CreateRun(seed, EncounterType.Supply);
+                ReachRouteChoice(run);
+                int rareCount = 0;
+                for (int i = 0; i < run.RouteOptions.Count; i++)
+                {
+                    if (run.RouteOptions[i].EncounterType
+                        == EncounterType.Rare)
+                        rareCount++;
+                }
+                Assert.LessOrEqual(rareCount, 1);
+                if (rareCount == 1)
+                    runsWithRare++;
+
+                RunManager repeated =
+                    CreateRun(seed, EncounterType.Supply);
+                ReachRouteChoice(repeated);
+                Assert.AreEqual(
+                    run.RouteOptions.Count,
+                    repeated.RouteOptions.Count);
+                for (int i = 0; i < run.RouteOptions.Count; i++)
+                {
+                    Assert.AreEqual(
+                        run.RouteOptions[i].ThemeId,
+                        repeated.RouteOptions[i].ThemeId);
+                    Assert.AreEqual(
+                        run.RouteOptions[i].EncounterType,
+                        repeated.RouteOptions[i].EncounterType);
+                }
+            }
+
+            Assert.GreaterOrEqual(runsWithRare, 80);
+            Assert.LessOrEqual(runsWithRare, 160);
+        }
+
+        [Test]
+        public void RareClearGrantsConfiguredTwoRewardSelections()
+        {
+            RunManager run = CreateRun(91UL, EncounterType.Rare);
+            run.Step(InputCommand.None);
+            Assert.AreEqual(RunState.AwaitingReward, run.State);
+            Assert.AreEqual(EncounterType.Rare, run.StagePlan.EncounterType);
+
+            run.ChooseReward(0);
+            Assert.AreEqual(RunState.AwaitingReward, run.State);
+            Assert.AreEqual(1, run.StageIndex);
+
+            run.ChooseReward(0);
+            Assert.AreEqual(RunState.AwaitingRoute, run.State);
         }
 
         [Test]

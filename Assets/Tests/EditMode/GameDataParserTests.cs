@@ -185,6 +185,9 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(-11 * SimSpace.SubUnitsPerWorldUnit / 2, spawn.Y);
             Assert.AreEqual(500, stages.Bosses[0].MaxHp);
             Assert.AreEqual(0, stages.Segments[0].Obstacles.Count);
+            Assert.AreEqual(
+                StageSegmentTemplate.DefaultWeight,
+                stages.Segments[0].Weight);
             Assert.IsNull(stages.Segments[0].ThemeId);
             Assert.IsNull(stages.Bosses[0].ThemeId);
             Assert.AreEqual(0, stages.ThemeIds.Count);
@@ -866,6 +869,32 @@ namespace Shmup.Core.Tests
                     $"seed {reportedDuplicateSeeds[seedIndex]} reused a segment");
                 Assert.IsFalse(reported.SegmentReuseApplied);
             }
+        }
+
+        [Test]
+        public void Parse_WaveSegmentWeightIsOptionalAndMustBePositive()
+        {
+            string weighted = WavesJson.Replace(
+                @"""id"": ""seg"",",
+                @"""id"": ""seg"", ""weight"": 37,");
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                weighted);
+            Assert.AreEqual(37, data.StageGeneration.Segments[0].Weight);
+
+            string invalid = WavesJson.Replace(
+                @"""id"": ""seg"",",
+                @"""id"": ""seg"", ""weight"": 0,");
+            GameDataParseException error =
+                Assert.Throws<GameDataParseException>(
+                    () => GameDataParser.Parse(
+                        EnemiesJson,
+                        WeaponsJson,
+                        invalid));
+            StringAssert.Contains(
+                "waves.json.segments[0].weight",
+                error.Message);
         }
 
         [Test]
