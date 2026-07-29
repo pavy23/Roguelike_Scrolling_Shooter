@@ -4,6 +4,48 @@
 
 ---
 
+## 2026-07-30 REQ-033 보스 전면 재설계 완료 + CODEX 권고 (잠정 · §7)
+
+**완료 (content):** `GameData/waves.json` 보스 5종 HP 24000–45000 · 페이즈 3 · aimed/spread/rapid.
+BalanceSim `CheckBossRedesign` · `analyze_stage_hp.py` 기대 화력 갱신.
+**상세:** `Reviews/from-claude/requests.md` REQ-033 응답.
+**상태:** 전부 잠정 — 사람 플레이 피드백 전 최종 확정 금지.
+
+### CLAUDE 후속
+
+1. `Assets/Resources/GameData/waves.json` ← `GameData/waves.json` 동기화 (보스 HP·페이즈).
+2. 보스 페이즈 전환 VFX/SFX가 `BossPhaseChanged` Arg(0/1/2)를 쓰는지 확인 (3페이즈).
+
+### CODEX 권고 — REQ-G033: 페이즈별 보스 이동 프로파일
+
+**무엇이:** 현재 `BattleSim` 보스는 진입 후 **전 페이즈 단일 사인 호버**만 한다.
+REQ-033 데이터는 탄 패턴 성격(조준/확산/고속)만 구분 가능. 40초 전투 체감 분리를 위해
+페이즈별 이동 성격이 있으면 좋다.
+
+**제안 (잠정 §7, 구현은 CODEX 재량):**
+
+```csharp
+// GameData phase optional fields (ignored today):
+// "moveProfile": "hover" | "verticalSweep" | "dash"
+public enum BossMoveProfile { Hover = 0, VerticalSweep = 1, Dash = 2 }
+// BossPhase or parallel array on StageBossTemplate
+```
+
+| 페이즈 | 권고 moveProfile | 의도 |
+|---|---|---|
+| p0 aimed | hover | 현행 사인 — 조준 읽기 여유 |
+| p1 spread | verticalSweep | 세로 왕복 폭 확대 — 탄막 회피 레인 압박 |
+| p2 rapid | dash | 짧은 돌진/정지 반복 — 고속탄과 타이밍 겹침 |
+
+결정론·정수 궤적·기존 hover 하위 호환. 필드 부재 시 Hover 폴백.
+커스텀 `phaseHpThresholds` 파싱은 **불필요** — 현 equal-N split이 데이터 문서값(2/3, 1/3)과 일치.
+
+### 검증
+
+`dotnet test` 254/254 · `Tools/BalanceSim` PASS.
+
+---
+
 ## 2026-07-29 REQ-029 세그먼트 weight · 조우 검산 · 자석 드롭 보정 (잠정 · §7)
 
 **완료:** `GameData/waves.json` 38세그 `weight` · `enemies.json` `noDropWeight` 8→12 · BalanceSim 조우/드롭 검산.  

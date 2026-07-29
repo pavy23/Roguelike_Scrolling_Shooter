@@ -5531,20 +5531,32 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 1000,
+      "hp": 24000,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
+      "phaseHpThresholds": [0.667, 0.333],
       "phases": [
         {
+          "pattern": "aimed",
+          "hpEnterRatio": 1.0,
           "fireIntervalTicks": 55,
           "ways": 3,
           "bulletSpeed": 9.0
         },
         {
-          "fireIntervalTicks": 45,
-          "ways": 5,
-          "bulletSpeed": 10.0
+          "pattern": "spread",
+          "hpEnterRatio": 0.667,
+          "fireIntervalTicks": 48,
+          "ways": 6,
+          "bulletSpeed": 8.0
+        },
+        {
+          "pattern": "rapid",
+          "hpEnterRatio": 0.333,
+          "fireIntervalTicks": 28,
+          "ways": 2,
+          "bulletSpeed": 14.5
         }
       ]
     },
@@ -5556,20 +5568,32 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 1300,
+      "hp": 28000,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
+      "phaseHpThresholds": [0.667, 0.333],
       "phases": [
         {
-          "fireIntervalTicks": 48,
-          "ways": 4,
+          "pattern": "aimed",
+          "hpEnterRatio": 1.0,
+          "fireIntervalTicks": 50,
+          "ways": 3,
           "bulletSpeed": 9.5
         },
         {
-          "fireIntervalTicks": 40,
-          "ways": 5,
-          "bulletSpeed": 10.5
+          "pattern": "spread",
+          "hpEnterRatio": 0.667,
+          "fireIntervalTicks": 44,
+          "ways": 7,
+          "bulletSpeed": 8.5
+        },
+        {
+          "pattern": "rapid",
+          "hpEnterRatio": 0.333,
+          "fireIntervalTicks": 24,
+          "ways": 3,
+          "bulletSpeed": 14.0
         }
       ]
     },
@@ -5581,20 +5605,32 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 1600,
+      "hp": 32000,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
+      "phaseHpThresholds": [0.667, 0.333],
       "phases": [
         {
-          "fireIntervalTicks": 42,
-          "ways": 5,
+          "pattern": "aimed",
+          "hpEnterRatio": 1.0,
+          "fireIntervalTicks": 46,
+          "ways": 4,
           "bulletSpeed": 10.0
         },
         {
-          "fireIntervalTicks": 38,
-          "ways": 6,
-          "bulletSpeed": 11.0
+          "pattern": "spread",
+          "hpEnterRatio": 0.667,
+          "fireIntervalTicks": 40,
+          "ways": 8,
+          "bulletSpeed": 9.0
+        },
+        {
+          "pattern": "rapid",
+          "hpEnterRatio": 0.333,
+          "fireIntervalTicks": 22,
+          "ways": 3,
+          "bulletSpeed": 15.0
         }
       ]
     },
@@ -5606,20 +5642,32 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 4000,
+      "hp": 38000,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
+      "phaseHpThresholds": [0.667, 0.333],
       "phases": [
         {
-          "fireIntervalTicks": 40,
-          "ways": 5,
-          "bulletSpeed": 11.0
+          "pattern": "aimed",
+          "hpEnterRatio": 1.0,
+          "fireIntervalTicks": 42,
+          "ways": 4,
+          "bulletSpeed": 10.5
         },
         {
-          "fireIntervalTicks": 36,
-          "ways": 7,
-          "bulletSpeed": 11.5
+          "pattern": "spread",
+          "hpEnterRatio": 0.667,
+          "fireIntervalTicks": 38,
+          "ways": 8,
+          "bulletSpeed": 9.5
+        },
+        {
+          "pattern": "rapid",
+          "hpEnterRatio": 0.333,
+          "fireIntervalTicks": 20,
+          "ways": 3,
+          "bulletSpeed": 15.5
         }
       ]
     },
@@ -5631,20 +5679,32 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 4500,
+      "hp": 45000,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
+      "phaseHpThresholds": [0.667, 0.333],
       "phases": [
         {
-          "fireIntervalTicks": 38,
-          "ways": 7,
-          "bulletSpeed": 12.0
+          "pattern": "aimed",
+          "hpEnterRatio": 1.0,
+          "fireIntervalTicks": 40,
+          "ways": 4,
+          "bulletSpeed": 11.0
         },
         {
-          "fireIntervalTicks": 34,
-          "ways": 9,
-          "bulletSpeed": 12.5
+          "pattern": "spread",
+          "hpEnterRatio": 0.667,
+          "fireIntervalTicks": 36,
+          "ways": 7,
+          "bulletSpeed": 10.0
+        },
+        {
+          "pattern": "rapid",
+          "hpEnterRatio": 0.333,
+          "fireIntervalTicks": 16,
+          "ways": 3,
+          "bulletSpeed": 16.0
         }
       ]
     }
