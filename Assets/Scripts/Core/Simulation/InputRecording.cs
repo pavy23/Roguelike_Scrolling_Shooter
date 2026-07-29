@@ -34,7 +34,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class InputRecordingData
     {
-        public const int CurrentSchemaVersion = 4;
+        public const int CurrentSchemaVersion = 5;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -53,6 +53,12 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 5)]
         public RouteChoiceData[] routeChoices;
+
+        [DataMember(Order = 6)]
+        public int finalStageIndex;
+
+        [DataMember(Order = 7)]
+        public string checksum;
     }
 
     /// <summary>
@@ -68,18 +74,27 @@ namespace Shmup.Core.Simulation
         readonly InputRun[] _runs;
         readonly int _difficultyMultiplierNumerator;
         readonly int _difficultyMultiplierDenominator;
+        readonly int _finalStageIndex;
         readonly List<RouteChoice> _recordedRouteChoices;
         readonly RunManager _routeSource;
         int _runCount;
         int _totalTicks;
 
         public InputRecorder()
-            : this(DefaultRunCapacity, 1, 1)
+            : this(
+                DefaultRunCapacity,
+                1,
+                1,
+                RunProgressionConfig.DefaultFinalStageIndex)
         {
         }
 
         public InputRecorder(int runCapacity)
-            : this(runCapacity, 1, 1)
+            : this(
+                runCapacity,
+                1,
+                1,
+                RunProgressionConfig.DefaultFinalStageIndex)
         {
         }
 
@@ -87,7 +102,8 @@ namespace Shmup.Core.Simulation
             : this(
                 DefaultRunCapacity,
                 GetDifficultyNumerator(run),
-                GetDifficultyDenominator(run))
+                GetDifficultyDenominator(run),
+                GetFinalStageIndex(run))
         {
             _routeSource = run;
         }
@@ -96,6 +112,19 @@ namespace Shmup.Core.Simulation
             int runCapacity,
             int difficultyMultiplierNumerator,
             int difficultyMultiplierDenominator)
+            : this(
+                runCapacity,
+                difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator,
+                RunProgressionConfig.DefaultFinalStageIndex)
+        {
+        }
+
+        public InputRecorder(
+            int runCapacity,
+            int difficultyMultiplierNumerator,
+            int difficultyMultiplierDenominator,
+            int finalStageIndex)
         {
             if (runCapacity < 1)
                 throw new ArgumentOutOfRangeException(
@@ -106,6 +135,9 @@ namespace Shmup.Core.Simulation
             if (difficultyMultiplierDenominator < 1)
                 throw new ArgumentOutOfRangeException(
                     nameof(difficultyMultiplierDenominator));
+            if (finalStageIndex < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(finalStageIndex));
 
             int divisor = GreatestCommonDivisor(
                 difficultyMultiplierNumerator,
@@ -114,6 +146,7 @@ namespace Shmup.Core.Simulation
                 difficultyMultiplierNumerator / divisor;
             _difficultyMultiplierDenominator =
                 difficultyMultiplierDenominator / divisor;
+            _finalStageIndex = finalStageIndex;
             _runs = new InputRun[runCapacity];
             _recordedRouteChoices = new List<RouteChoice>();
         }
@@ -125,6 +158,7 @@ namespace Shmup.Core.Simulation
             _difficultyMultiplierNumerator;
         public int DifficultyMultiplierDenominator =>
             _difficultyMultiplierDenominator;
+        public int FinalStageIndex => _finalStageIndex;
 
         public void Record(in InputCommand input)
         {
@@ -222,7 +256,7 @@ namespace Shmup.Core.Simulation
                 };
             }
 
-            return new InputRecordingData
+            var data = new InputRecordingData
             {
                 schemaVersion = InputRecordingData.CurrentSchemaVersion,
                 totalTicks = _totalTicks,
@@ -231,8 +265,11 @@ namespace Shmup.Core.Simulation
                     _difficultyMultiplierNumerator,
                 difficultyMultiplierDenominator =
                     _difficultyMultiplierDenominator,
-                routeChoices = exportedRouteChoices
+                routeChoices = exportedRouteChoices,
+                finalStageIndex = _finalStageIndex
             };
+            SaveDataIntegrity.Seal(data);
+            return data;
         }
 
         static int GetDifficultyNumerator(RunManager run)
@@ -247,6 +284,13 @@ namespace Shmup.Core.Simulation
             if (run == null)
                 throw new ArgumentNullException(nameof(run));
             return run.DifficultyMultiplierDenominator;
+        }
+
+        static int GetFinalStageIndex(RunManager run)
+        {
+            if (run == null)
+                throw new ArgumentNullException(nameof(run));
+            return run.FinalStageIndex;
         }
 
         static int GreatestCommonDivisor(int left, int right)
@@ -301,26 +345,18 @@ namespace Shmup.Core.Simulation
 
         public InputPlayback(InputRecordingData data)
         {
-            if (data == null)
-                throw new ArgumentNullException(nameof(data));
+            data = SaveDataIntegrity.MigrateAndValidate(data);
             Validate(data);
 
             TotalTicks = data.totalTicks;
-            if (data.schemaVersion == 2)
-            {
-                DifficultyMultiplierNumerator = 1;
-                DifficultyMultiplierDenominator = 1;
-            }
-            else
-            {
-                int divisor = GreatestCommonDivisor(
-                    data.difficultyMultiplierNumerator,
-                    data.difficultyMultiplierDenominator);
-                DifficultyMultiplierNumerator =
-                    data.difficultyMultiplierNumerator / divisor;
-                DifficultyMultiplierDenominator =
-                    data.difficultyMultiplierDenominator / divisor;
-            }
+            int divisor = GreatestCommonDivisor(
+                data.difficultyMultiplierNumerator,
+                data.difficultyMultiplierDenominator);
+            DifficultyMultiplierNumerator =
+                data.difficultyMultiplierNumerator / divisor;
+            DifficultyMultiplierDenominator =
+                data.difficultyMultiplierDenominator / divisor;
+            FinalStageIndex = data.finalStageIndex;
             _runs = new PlaybackRun[data.runs.Length];
             for (int i = 0; i < data.runs.Length; i++)
             {
@@ -352,6 +388,7 @@ namespace Shmup.Core.Simulation
         public int RunCount => _runs.Length;
         public int DifficultyMultiplierNumerator { get; }
         public int DifficultyMultiplierDenominator { get; }
+        public int FinalStageIndex { get; }
         public IReadOnlyList<RouteChoice> RouteChoices =>
             _routeChoiceView;
 
@@ -373,22 +410,22 @@ namespace Shmup.Core.Simulation
 
         static void Validate(InputRecordingData data)
         {
-            if (data.schemaVersion != 2
-                && data.schemaVersion != 3
-                && data.schemaVersion
-                    != InputRecordingData.CurrentSchemaVersion)
+            if (data.schemaVersion
+                != InputRecordingData.CurrentSchemaVersion)
             {
                 throw Corrupted(
                     "The input recording schema version is unsupported.");
             }
-            if (data.schemaVersion >= 3
-                && (data.difficultyMultiplierNumerator < 1
-                    || data.difficultyMultiplierDenominator < 1))
+            if (data.difficultyMultiplierNumerator < 1
+                || data.difficultyMultiplierDenominator < 1)
             {
                 throw Corrupted(
                     "The input recording difficulty multiplier "
                     + "must be positive.");
             }
+            if (data.finalStageIndex < 1)
+                throw Corrupted(
+                    "The input recording finalStageIndex must be positive.");
             if (data.totalTicks < 1)
                 throw Corrupted(
                     "The input recording must contain at least one tick.");
@@ -437,9 +474,7 @@ namespace Shmup.Core.Simulation
                 throw Corrupted(
                     "Input recording run lengths do not match totalTicks.");
 
-            if (data.schemaVersion
-                    == InputRecordingData.CurrentSchemaVersion
-                && data.routeChoices == null)
+            if (data.routeChoices == null)
             {
                 throw Corrupted(
                     "Input recording routeChoices cannot be null.");

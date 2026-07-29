@@ -44,7 +44,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class RunSuspendData
     {
-        public const int CurrentSchemaVersion = 3;
+        public const int CurrentSchemaVersion = 4;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -123,5 +123,11 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 24)]
         public RouteChoiceData[] routeChoices;
+
+        [DataMember(Order = 25)]
+        public int finalStageIndex;
+
+        [DataMember(Order = 26)]
+        public string checksum;
     }
 }

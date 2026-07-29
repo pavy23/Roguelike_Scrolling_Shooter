@@ -27,6 +27,7 @@ namespace Shmup.Core.Simulation
 
             FoldInt32(run.RunNumber);
             FoldInt32(run.StageIndex);
+            FoldInt32(run.FinalStageIndex);
             FoldInt32((int)run.State);
             FoldUInt64(run.RunSeed);
             FoldInt32(run.Difficulty);

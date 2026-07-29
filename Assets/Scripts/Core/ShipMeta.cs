@@ -135,14 +135,23 @@ namespace Shmup.Core
     [DataContract]
     public sealed class MetaStateData
     {
+        public const int CurrentSchemaVersion = 1;
+
+        /// <summary>Zero denotes the legacy schema that had no version field.</summary>
         [DataMember(Order = 0)]
-        public long totalCurrency;
+        public int schemaVersion;
 
         [DataMember(Order = 1)]
-        public string[] unlockedShipIds;
+        public long totalCurrency;
 
         [DataMember(Order = 2)]
+        public string[] unlockedShipIds;
+
+        [DataMember(Order = 3)]
         public string selectedShipId;
+
+        [DataMember(Order = 4)]
+        public string checksum;
     }
 
     /// <summary>
@@ -214,7 +223,7 @@ namespace Shmup.Core
 
         public static MetaState FromData(MetaStateData data)
         {
-            if (data == null) throw new ArgumentNullException(nameof(data));
+            data = SaveDataIntegrity.MigrateAndValidate(data);
             return new MetaState(
                 data.totalCurrency,
                 data.unlockedShipIds,
@@ -223,12 +232,15 @@ namespace Shmup.Core
 
         public MetaStateData ExportData()
         {
-            return new MetaStateData
+            var data = new MetaStateData
             {
+                schemaVersion = MetaStateData.CurrentSchemaVersion,
                 totalCurrency = TotalCurrency,
                 unlockedShipIds = _unlockedShipIds.ToArray(),
                 selectedShipId = SelectedShipId
             };
+            SaveDataIntegrity.Seal(data);
+            return data;
         }
 
         /// <summary>Adds a completed run's non-negative score to currency.</summary>

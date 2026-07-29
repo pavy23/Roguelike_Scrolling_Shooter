@@ -343,6 +343,7 @@ namespace Shmup.Core.Tests
             RunManager run = CreateRun(5UL, EncounterType.Supply);
             RunSuspendData oldSuspend = run.ExportSuspendData();
             oldSuspend.schemaVersion = 2;
+            oldSuspend.checksum = null;
             oldSuspend.routeChoices = null;
             RunManager resumed = RunManager.ResumeFromSuspendData(
                 oldSuspend,
@@ -356,6 +357,7 @@ namespace Shmup.Core.Tests
             recorder.Record(InputCommand.None);
             InputRecordingData oldRecording = recorder.Export();
             oldRecording.schemaVersion = 3;
+            oldRecording.checksum = null;
             oldRecording.routeChoices = null;
             var playback = new InputPlayback(oldRecording);
             Assert.AreEqual(0, playback.RouteChoices.Count);

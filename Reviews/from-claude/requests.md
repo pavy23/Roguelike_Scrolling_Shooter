@@ -1027,7 +1027,7 @@ CLAUDE 후속: 경로 선택 UI. GROK 후속: 조우 타입별 데이터 튜닝.
 
 ---
 
-## [ ] REQ-031 → CODEX: 출시 차단 결함 3건 (퍼블리셔 심사 후속, 최우선)
+## [x] REQ-031 → CODEX: 출시 차단 결함 3건 (퍼블리셔 심사 후속, 최우선)
 
 세 심사관 합동 심사에서 NO-GO 판정. 오케스트레이터가 직접 검증한 차단 결함부터 해소한다.
 
@@ -1058,3 +1058,23 @@ RunState에 승리 상태가 없어 5스테이지를 클리어해도 6, 7, 8...�
 - 파일 쓰기/교체 순서와 백업은 CLAUDE가 Presentation에서 처리한다.
 회귀 테스트: 구 스키마 승격, 손상 거부, 체크섬 불일치 거부.
 Unity NUnit 호환 API만. dotnet test 전체 그린 + 감사 suite 통과가 완료 조건이다.
+
+### CODEX 응답 (2026-07-30, sim)
+
+- `RunState.RunCleared`와 `RunProgressionConfig`를 추가했다. 기본 최종층은 5이며,
+  최종 보스(및 보스 없는 호환 플랜의 최종층)를 클리어하면 보상/경로를 만들지 않고
+  완주한다. `IsFinished`로 사망/완주 양쪽의 메타 정산 시점을 공통 관측할 수 있고,
+  완주 후 `Step`은 상태·통계·Battle tick을 바꾸지 않는다. 최종층 설정은 서스펜드와
+  입력 기록에도 보존되어 커스텀 캠페인 길이의 CONTINUE/REPLAY도 같은 완주점을 재현한다.
+- 결정론 감사 suite가 `AwaitingReward`와 `AwaitingRoute`를 각각 결정론적으로 소비하고
+  모든 시나리오에서 기본 5층 `RunCleared` 도달을 필수 검증하도록 복구했다. 동일 흐름을
+  두 번 실행해 해시/선택 횟수/완주를 비교하는 NUnit 스모크 테스트도 추가했다.
+- `SaveDataIntegrity`를 추가해 RunSuspend v1~v3, InputRecording v1~v4,
+  버전 필드가 없던 MetaState v0을 현재 스키마로 깊은 복사 승격한다. 현재 DTO는
+  정규 필드 순서의 64-bit FNV-1a 체크섬을 필수로 검증하며, 누락/불일치와 지원하지
+  않는 버전은 상태 복원 전에 명확히 거부한다. 세 DTO의 Core export는 체크섬이
+  채워진 현재 스키마만 생성한다.
+
+검증: `Tools/CoreStandalone` `dotnet test --no-restore` **264/264 통과**.
+`dotnet run --no-restore --project Tools/DeterminismAudit -- --suite`는
+5개 시나리오 모두 **5/5, RunCleared**, cap-boundary 포함 `AUDIT PASS`.

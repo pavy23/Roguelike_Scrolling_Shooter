@@ -12,7 +12,9 @@ namespace Shmup.Core.Simulation
         /// <summary>보스 격파 후 보상 선택 대기 (REQ-007 요청 3). ChooseReward로 재개.</summary>
         AwaitingReward = 2,
         /// <summary>Reward chosen; waiting for the next map node selection.</summary>
-        AwaitingRoute = 3
+        AwaitingRoute = 3,
+        /// <summary>The configured final stage was cleared successfully.</summary>
+        RunCleared = 4
     }
 
     public enum RewardType
@@ -263,6 +265,36 @@ namespace Shmup.Core.Simulation
     }
 
     /// <summary>
+    /// Immutable run-length rule. Keeping this separate from battle tuning leaves
+    /// a stable extension point for a future post-clear loop without implementing
+    /// that loop in the first campaign.
+    /// </summary>
+    public sealed class RunProgressionConfig
+    {
+        public const int DefaultFinalStageIndex = 5;
+
+        public RunProgressionConfig(int finalStageIndex)
+        {
+            if (finalStageIndex < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(finalStageIndex));
+            FinalStageIndex = finalStageIndex;
+        }
+
+        public int FinalStageIndex { get; }
+
+        public static RunProgressionConfig CreateDefault()
+        {
+            return new RunProgressionConfig(DefaultFinalStageIndex);
+        }
+
+        public bool IsFinalStage(int stageIndex)
+        {
+            return stageIndex >= FinalStageIndex;
+        }
+    }
+
+    /// <summary>
     /// Read-only counters accumulated across the current run.
     /// Accuracy is intentionally left to consumers as ShotsHit / ShotsFired.
     /// </summary>
@@ -334,6 +366,7 @@ namespace Shmup.Core.Simulation
         readonly BattleContent _battleContent;
         readonly MetaProgression _metaProgression;
         readonly StageDifficultyCurve _difficultyCurve;
+        readonly RunProgressionConfig _progressionConfig;
         readonly RewardCatalog _rewards;
         readonly ShipDefinition _ship;
         readonly int _difficultyMultiplierNumerator;
@@ -426,6 +459,30 @@ namespace Shmup.Core.Simulation
                 null,
                 1,
                 1)
+        {
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            RunProgressionConfig progressionConfig)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                null,
+                null,
+                1,
+                1,
+                progressionConfig,
+                true)
         {
         }
 
@@ -578,6 +635,37 @@ namespace Shmup.Core.Simulation
                 ship,
                 difficultyMultiplierNumerator,
                 difficultyMultiplierDenominator,
+                null,
+                true)
+        {
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            MetaProgression metaProgression,
+            StageDifficultyCurve difficultyCurve,
+            RewardCatalog rewards,
+            ShipDefinition ship,
+            int difficultyMultiplierNumerator,
+            int difficultyMultiplierDenominator,
+            RunProgressionConfig progressionConfig)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                metaProgression,
+                difficultyCurve,
+                rewards,
+                ship,
+                difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator,
+                progressionConfig,
                 true)
         {
         }
@@ -594,6 +682,7 @@ namespace Shmup.Core.Simulation
             ShipDefinition ship,
             int difficultyMultiplierNumerator,
             int difficultyMultiplierDenominator,
+            RunProgressionConfig progressionConfig,
             bool buildInitialStage)
         {
             _stageGenerator = stageGenerator
@@ -608,6 +697,8 @@ namespace Shmup.Core.Simulation
                 ?? throw new ArgumentNullException(nameof(metaProgression));
             _difficultyCurve = difficultyCurve
                 ?? throw new ArgumentNullException(nameof(difficultyCurve));
+            _progressionConfig =
+                progressionConfig ?? RunProgressionConfig.CreateDefault();
             _rewards = rewards ?? BuiltInRewards;
             _ship = ship ?? ShipDefinition.CreateDefault();
             NormalizeDifficultyMultiplier(
@@ -677,6 +768,9 @@ namespace Shmup.Core.Simulation
         public int RunNumber { get; private set; }
         public int StageIndex { get; private set; }
         public RunState State { get; private set; }
+        public int FinalStageIndex => _progressionConfig.FinalStageIndex;
+        public bool IsFinished =>
+            State == RunState.RunOver || State == RunState.RunCleared;
         public ulong RunSeed => _runSeed;
         public ShipDefinition Ship => _ship;
         public int DifficultyMultiplierNumerator =>
@@ -772,7 +866,7 @@ namespace Shmup.Core.Simulation
                 };
             }
 
-            return new RunSuspendData
+            var data = new RunSuspendData
             {
                 schemaVersion = RunSuspendData.CurrentSchemaVersion,
                 runSeed = _runSeed,
@@ -803,8 +897,11 @@ namespace Shmup.Core.Simulation
                     _difficultyMultiplierNumerator,
                 difficultyMultiplierDenominator =
                     _difficultyMultiplierDenominator,
-                routeChoices = routeChoices
+                routeChoices = routeChoices,
+                finalStageIndex = FinalStageIndex
             };
+            SaveDataIntegrity.Seal(data);
+            return data;
         }
 
         public static RunManager ResumeFromSuspendData(
@@ -863,6 +960,7 @@ namespace Shmup.Core.Simulation
             RewardCatalog rewards,
             ShipDefinition ship)
         {
+            data = SaveDataIntegrity.MigrateAndValidate(data);
             if (stageGenerator == null)
                 throw new ArgumentNullException(nameof(stageGenerator));
             if (battleConfig == null)
@@ -901,6 +999,7 @@ namespace Shmup.Core.Simulation
                 resolvedShip,
                 difficultyMultiplierNumerator,
                 difficultyMultiplierDenominator,
+                new RunProgressionConfig(data.finalStageIndex),
                 false);
 
             manager._runSeed = data.runSeed;
@@ -955,10 +1054,11 @@ namespace Shmup.Core.Simulation
 
         public void Step(in InputCommand input)
         {
-            bool activatePressed = input.Activate && !_activateHeld;
-            _activateHeld = input.Activate;
             if (State != RunState.Playing)
                 return;
+
+            bool activatePressed = input.Activate && !_activateHeld;
+            _activateHeld = input.Activate;
 
             var battleInput = new InputCommand(
                 input.MoveX,
@@ -979,7 +1079,10 @@ namespace Shmup.Core.Simulation
                 if (battleSim.BossDefeated)
                 {
                     IncrementStagesCleared();
-                    BeginRewardSelection();
+                    if (_progressionConfig.IsFinalStage(StageIndex))
+                        CompleteRun();
+                    else
+                        BeginRewardSelection();
                 }
                 return;
             }
@@ -987,6 +1090,11 @@ namespace Shmup.Core.Simulation
             if (Battle.Tick >= _stageLengthTicks)
             {
                 IncrementStagesCleared();
+                if (_progressionConfig.IsFinalStage(StageIndex))
+                {
+                    CompleteRun();
+                    return;
+                }
                 if (StagePlan.EncounterType == EncounterType.Normal)
                 {
                     // Legacy bossless plans keep their original automatic flow.
@@ -1008,6 +1116,15 @@ namespace Shmup.Core.Simulation
             _rewardSelectionRound = 0;
             _rewardOptions = GenerateRewardOptions();
             State = RunState.AwaitingReward;
+        }
+
+        void CompleteRun()
+        {
+            _rewardSelectionsRemaining = 0;
+            _rewardSelectionRound = 0;
+            _rewardOptions = Array.Empty<RewardOption>();
+            _routeOptions = Array.Empty<RouteOption>();
+            State = RunState.RunCleared;
         }
 
         /// <summary>
@@ -1223,6 +1340,9 @@ namespace Shmup.Core.Simulation
             if (!(_stageGenerator is IRouteStageGenerator routeGenerator)
                 || routeGenerator.ThemeIds.Count
                     < MinimumRouteOptionCount)
+                return Array.Empty<RouteOption>();
+
+            if (_progressionConfig.IsFinalStage(targetStageIndex))
                 return Array.Empty<RouteOption>();
 
             // Every full theme cycle ends in a deterministic final-boss floor.
@@ -1484,10 +1604,8 @@ namespace Shmup.Core.Simulation
         {
             if (data == null)
                 throw new ArgumentNullException(nameof(data));
-            if (data.schemaVersion != 1
-                && data.schemaVersion != 2
-                && data.schemaVersion
-                    != RunSuspendData.CurrentSchemaVersion)
+            if (data.schemaVersion
+                != RunSuspendData.CurrentSchemaVersion)
             {
                 throw new ArgumentException(
                     $"Unsupported suspend schema version "
@@ -1506,6 +1624,13 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     "Suspend stageIndex must be positive.",
                     nameof(data));
+            if (data.finalStageIndex < 1
+                || data.stageIndex > data.finalStageIndex)
+            {
+                throw new ArgumentException(
+                    "Suspend finalStageIndex is invalid for its stage.",
+                    nameof(data));
+            }
             if (data.stagesCleared != data.stageIndex - 1)
                 throw new ArgumentException(
                     "Suspend stagesCleared must match the stage boundary.",

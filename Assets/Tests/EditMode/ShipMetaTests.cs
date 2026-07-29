@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Runtime.Serialization.Json;
 using NUnit.Framework;
@@ -85,6 +86,44 @@ namespace Shmup.Core.Tests
             Assert.IsFalse(state.TryUnlock(expensive));
             Assert.AreEqual(99L, state.TotalCurrency);
             Assert.IsFalse(state.IsUnlocked(expensive.Id));
+        }
+
+        [Test]
+        public void LegacyMetaState_MigratesAndReceivesChecksum()
+        {
+            var legacy = new MetaStateData
+            {
+                totalCurrency = 25,
+                unlockedShipIds = new[] { "default" },
+                selectedShipId = "default"
+            };
+
+            MetaStateData migrated =
+                SaveDataIntegrity.MigrateAndValidate(legacy);
+            MetaState state = MetaState.FromData(migrated);
+
+            Assert.AreEqual(
+                MetaStateData.CurrentSchemaVersion,
+                migrated.schemaVersion);
+            Assert.IsTrue(
+                SaveDataIntegrity.HasValidChecksum(migrated));
+            Assert.AreEqual(25, state.TotalCurrency);
+            Assert.AreEqual(0, legacy.schemaVersion);
+        }
+
+        [Test]
+        public void CurrentMetaChecksumMismatch_IsClearlyRejected()
+        {
+            MetaStateData corrupted =
+                MetaState.CreateDefault(ShipDefinition.CreateDefault())
+                    .ExportData();
+            corrupted.totalCurrency++;
+
+            ArgumentException error =
+                Assert.Throws<ArgumentException>(
+                    () => MetaState.FromData(corrupted));
+
+            StringAssert.Contains("checksum", error.Message);
         }
 
         [Test]

@@ -61,24 +61,24 @@ namespace Shmup.DeterminismAudit
             var scenarios = new[]
             {
                 new AuditScenario(
-                    "seed-0-first", 0UL, 4, 50_000,
+                    "seed-0-first", 0UL, 5, 65_000,
                     RewardChoiceStrategy.First),
                 new AuditScenario(
-                    "seed-1-last", 1UL, 6, 75_000,
+                    "seed-1-last", 1UL, 5, 65_000,
                     RewardChoiceStrategy.Last),
                 new AuditScenario(
-                    "seed-12345-rotating", 12_345UL, 8, 110_000,
+                    "seed-12345-rotating", 12_345UL, 5, 65_000,
                     RewardChoiceStrategy.Rotating),
                 new AuditScenario(
-                    "seed-deadbeef-rotating", 0xDEADBEEFUL, 10, 145_000,
+                    "seed-deadbeef-rotating", 0xDEADBEEFUL, 5, 65_000,
                     RewardChoiceStrategy.Rotating),
                 new AuditScenario(
-                    "seed-max-prefer-capped", ulong.MaxValue, 14, 210_000,
+                    "seed-max-prefer-capped", ulong.MaxValue, 5, 100_000,
                     RewardChoiceStrategy.PreferCapped)
             };
 
             Console.WriteLine(
-                "suite=determinism-audit-02 "
+                "suite=determinism-audit-03 "
                 + $"scenarios={scenarios.Length} state=full-observable");
             for (int i = 0; i < scenarios.Length; i++)
             {
@@ -92,6 +92,10 @@ namespace Shmup.DeterminismAudit
                     throw new InvalidOperationException(
                         $"Scenario '{scenarios[i].Name}' completed only "
                         + $"{first.CompletedStages}/{scenarios[i].StageCount} stages.");
+                if (first.FinalState != RunState.RunCleared)
+                    throw new InvalidOperationException(
+                        $"Scenario '{scenarios[i].Name}' did not reach "
+                        + $"RunCleared (state={first.FinalState}).");
 
                 Console.WriteLine("PASS " + first.Format());
             }
@@ -125,17 +129,19 @@ namespace Shmup.DeterminismAudit
                 data.BattleContent,
                 data.CreatePowerUpGauge(),
                 data.Rewards,
-                data.DefaultShip);
+                CreateAuditShip(data.DefaultShip));
             var hasher = new DeterminismAuditHasher();
             int[] rewardCounts = new int[data.Rewards.All.Count];
             int executedTicks = 0;
             int rewardChoices = 0;
+            int routeChoices = 0;
             int cappedChoices = 0;
 
             hasher.FoldRunState(run);
             while (executedTicks < scenario.TickCount
                 && run.StageIndex <= scenario.StageCount
-                && run.State != RunState.RunOver)
+                && run.State != RunState.RunOver
+                && run.State != RunState.RunCleared)
             {
                 if (run.State == RunState.AwaitingReward)
                 {
@@ -167,6 +173,23 @@ namespace Shmup.DeterminismAudit
                     continue;
                 }
 
+                if (run.State == RunState.AwaitingRoute)
+                {
+                    int optionIndex = SelectRoute(
+                        scenario.Strategy,
+                        run,
+                        executedTicks);
+                    RouteOption option = run.RouteOptions[optionIndex];
+                    hasher.FoldRouteChoice(
+                        run.StageIndex + 1,
+                        optionIndex,
+                        in option);
+                    run.ChooseRoute(optionIndex);
+                    routeChoices++;
+                    hasher.FoldRunState(run);
+                    continue;
+                }
+
                 InputCommand input = CreateInput(
                     scenario.Seed,
                     executedTicks,
@@ -182,9 +205,23 @@ namespace Shmup.DeterminismAudit
                 executedTicks,
                 run.Statistics.StagesCleared,
                 rewardChoices,
+                routeChoices,
                 cappedChoices,
                 run.StageIndex,
                 run.State);
+        }
+
+        static int SelectRoute(
+            RewardChoiceStrategy strategy,
+            RunManager run,
+            int executedTicks)
+        {
+            if (strategy == RewardChoiceStrategy.First)
+                return 0;
+            if (strategy == RewardChoiceStrategy.Last)
+                return run.RouteOptions.Count - 1;
+            return (run.StageIndex + executedTicks)
+                % run.RouteOptions.Count;
         }
 
         static int SelectReward(
@@ -481,6 +518,21 @@ namespace Shmup.DeterminismAudit
                     : null);
         }
 
+        static ShipDefinition CreateAuditShip(ShipDefinition source)
+        {
+            if (source == null)
+                return ShipDefinition.CreateDefault();
+            return new ShipDefinition(
+                source.Id,
+                source.DisplayName,
+                source.MoveSpeedMultiplierNumerator,
+                source.MoveSpeedMultiplierDenominator,
+                source.ExportStartingPowerUpLevels(),
+                source.UnlockCost,
+                source.WeaponType,
+                null);
+        }
+
         static bool TryParseSeed(string value, out ulong seed)
         {
             if (value != null && value.StartsWith(
@@ -589,6 +641,7 @@ namespace Shmup.DeterminismAudit
                 int executedTicks,
                 int completedStages,
                 int rewardChoices,
+                int routeChoices,
                 int cappedChoices,
                 int finalStage,
                 RunState finalState)
@@ -598,6 +651,7 @@ namespace Shmup.DeterminismAudit
                 ExecutedTicks = executedTicks;
                 CompletedStages = completedStages;
                 RewardChoices = rewardChoices;
+                RouteChoices = routeChoices;
                 CappedChoices = cappedChoices;
                 FinalStage = finalStage;
                 FinalState = finalState;
@@ -608,6 +662,7 @@ namespace Shmup.DeterminismAudit
             public int ExecutedTicks { get; }
             public int CompletedStages { get; }
             public int RewardChoices { get; }
+            public int RouteChoices { get; }
             public int CappedChoices { get; }
             public int FinalStage { get; }
             public RunState FinalState { get; }
@@ -619,6 +674,7 @@ namespace Shmup.DeterminismAudit
                     && ExecutedTicks == other.ExecutedTicks
                     && CompletedStages == other.CompletedStages
                     && RewardChoices == other.RewardChoices
+                    && RouteChoices == other.RouteChoices
                     && CappedChoices == other.CappedChoices
                     && FinalStage == other.FinalStage
                     && FinalState == other.FinalState;
@@ -630,6 +686,7 @@ namespace Shmup.DeterminismAudit
                     + $"seed={Scenario.Seed} strategy={Scenario.Strategy} "
                     + $"completedStages={CompletedStages}/{Scenario.StageCount} "
                     + $"ticks={ExecutedTicks} rewardChoices={RewardChoices} "
+                    + $"routeChoices={RouteChoices} "
                     + $"cappedChoices={CappedChoices} "
                     + $"finalStage={FinalStage} state={FinalState}";
             }
