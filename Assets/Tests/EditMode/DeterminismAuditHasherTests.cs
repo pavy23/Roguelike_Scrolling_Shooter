@@ -1,4 +1,6 @@
+using System;
 using NUnit.Framework;
+using Shmup.Core.Generation;
 using Shmup.Core.Simulation;
 
 namespace Shmup.Core.Tests
@@ -43,6 +45,79 @@ namespace Shmup.Core.Tests
             Assert.AreNotEqual(baseline, Hash(1, 2, 0, 3, 4, 5, 6, 7, 8L, 10));
         }
 
+        [Test]
+        public void FullObservableRunStateMatchesForIdenticalRunsAndChangesAfterStep()
+        {
+            RunManager first = CreateRun(42UL);
+            RunManager second = CreateRun(42UL);
+            var firstHasher = new DeterminismAuditHasher();
+            var secondHasher = new DeterminismAuditHasher();
+            firstHasher.FoldRunState(first);
+            secondHasher.FoldRunState(second);
+            Assert.AreEqual(firstHasher.Hash, secondHasher.Hash);
+
+            var fire = new InputCommand(0, 0, true);
+            first.Step(in fire);
+            var changedHasher = new DeterminismAuditHasher();
+            changedHasher.FoldRunState(first);
+            Assert.AreNotEqual(firstHasher.Hash, changedHasher.Hash);
+        }
+
+        [Test]
+        public void RewardChoiceFieldsAffectHash()
+        {
+            ulong baseline = RewardChoiceHash(
+                1,
+                0,
+                new RewardOption(
+                    "reward",
+                    RewardType.Capsules,
+                    PowerUpSlot.MainShot,
+                    1));
+            Assert.AreNotEqual(
+                baseline,
+                RewardChoiceHash(
+                    2, 0,
+                    new RewardOption(
+                        "reward", RewardType.Capsules,
+                        PowerUpSlot.MainShot, 1)));
+            Assert.AreNotEqual(
+                baseline,
+                RewardChoiceHash(
+                    1, 1,
+                    new RewardOption(
+                        "reward", RewardType.Capsules,
+                        PowerUpSlot.MainShot, 1)));
+            Assert.AreNotEqual(
+                baseline,
+                RewardChoiceHash(
+                    1, 0,
+                    new RewardOption(
+                        "other", RewardType.Capsules,
+                        PowerUpSlot.MainShot, 1)));
+            Assert.AreNotEqual(
+                baseline,
+                RewardChoiceHash(
+                    1, 0,
+                    new RewardOption(
+                        "reward", RewardType.SlotLevel,
+                        PowerUpSlot.MainShot, 1)));
+            Assert.AreNotEqual(
+                baseline,
+                RewardChoiceHash(
+                    1, 0,
+                    new RewardOption(
+                        "reward", RewardType.Capsules,
+                        PowerUpSlot.Missile, 1)));
+            Assert.AreNotEqual(
+                baseline,
+                RewardChoiceHash(
+                    1, 0,
+                    new RewardOption(
+                        "reward", RewardType.Capsules,
+                        PowerUpSlot.MainShot, 2)));
+        }
+
         static ulong Hash(
             int runNumber,
             int stageIndex,
@@ -68,6 +143,59 @@ namespace Shmup.Core.Tests
                 totalScore,
                 eventCount);
             return hasher.Hash;
+        }
+
+        static ulong RewardChoiceHash(
+            int stageIndex,
+            int optionIndex,
+            RewardOption option)
+        {
+            var hasher = new DeterminismAuditHasher();
+            hasher.FoldRewardChoice(
+                stageIndex,
+                optionIndex,
+                in option);
+            return hasher.Hash;
+        }
+
+        static RunManager CreateRun(ulong seed)
+        {
+            var weapon = new WeaponDefinition(
+                "shot", 1, 1, 100, 1, 0, 0);
+            return new RunManager(
+                seed,
+                new FixedStageGenerator(),
+                BattleSimConfig.CreateDefault(),
+                new BattleContent(
+                    Array.Empty<EnemyDefinition>(),
+                    new[] { weapon },
+                    weapon.Id),
+                PowerUpGauge.CreateDefault());
+        }
+
+        sealed class FixedStageGenerator : IStageGenerator
+        {
+            public StagePlan Generate(
+                ulong seed,
+                int stageIndex,
+                int difficulty)
+            {
+                return new StagePlan(
+                    new[]
+                    {
+                        new StageSegment(
+                            "segment",
+                            100,
+                            Array.Empty<SpawnEvent>(),
+                            1,
+                            1,
+                            new[] { 1 })
+                    },
+                    "legacy",
+                    1,
+                    1,
+                    1);
+            }
         }
     }
 }
