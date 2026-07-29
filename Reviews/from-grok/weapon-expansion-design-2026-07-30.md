@@ -1,10 +1,10 @@
 # REQ-034 무기 확장 1단계 — 미사일 계열·옵션 포메이션 설계
 
 **작성:** GROK (content) · 2026-07-30  
-**상태:** 사전 설계 전용. **GameData 미수정** (CODEX 파서 선행 대기).  
+**상태:** 설계 수치 **GameData 반영 완료** (2026-07-30, weapons.json v3 + rewards 교체 보상 + BalanceSim 게이트).  
 **전부 잠정 (AGENTS.md §7)** — 사람 플레이 피드백 전 최종 확정 금지.  
 **원 요청:** `main` `Reviews/from-claude/requests.md` REQ-034  
-**후속 적용:** CODEX 스키마/런타임 후 `GameData/weapons.json` · `rewards.json` 반영 + BalanceSim 조합 검산.
+**전제:** CODEX 파서/런타임 병합 완료. `spread_bomb` 폭발 킬은 `kill_explosion` 비시드.
 
 ---
 
@@ -502,11 +502,12 @@ effective_missile = FamilyBehavior(straight|bomb|lance) ⊗ Homing?(steer)
 
 ### GROK 셀프 체크 (파서 이후)
 
-- [ ] 삼계열 L1 ST DPS 32–52, L3 95–130  
-- [ ] bomb+kill_exp 게이트 통과  
-- [ ] lance pierce와 pierce_shot 비합산 테스트 그린  
-- [ ] 보상 제외(현재 계열) 결정론  
-- [ ] GameData만 수정, Core 기본값과 ApplyTo 정합  
+- [x] 삼계열 L1 ST DPS 32–52, L3 95–130  
+- [x] bomb+kill_exp 게이트 통과  
+- [x] lance pierce와 pierce_shot 비합산 테스트 그린  
+- [x] 보상 제외(현재 계열) 결정론 (CODEX WeaponExpansionTests)  
+- [x] GameData 수치 반영 + BalanceSim 조합 게이트 그린  
+ 
 
 ---
 

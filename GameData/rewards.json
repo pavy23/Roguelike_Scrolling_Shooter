@@ -116,6 +116,55 @@
       "stageIndexMin": 1,
       "stageIndexMax": 99,
       "maxPerRun": 1
+    },
+    {
+      "id": "missile_family_straight",
+      "type": "missileFamily",
+      "familyId": "straight",
+      "weight": 1,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99
+    },
+    {
+      "id": "missile_family_spread_bomb",
+      "type": "missileFamily",
+      "familyId": "spread_bomb",
+      "weight": 2,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99
+    },
+    {
+      "id": "missile_family_piercing_lance",
+      "type": "missileFamily",
+      "familyId": "piercing_lance",
+      "weight": 2,
+      "stageIndexMin": 2,
+      "stageIndexMax": 99
+    },
+    {
+      "id": "option_formation_trail",
+      "type": "optionFormation",
+      "formationId": "trail",
+      "weight": 1,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99
+    },
+    {
+      "id": "option_formation_fixed",
+      "type": "optionFormation",
+      "formationId": "fixed",
+      "weight": 2,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99
+    },
+    {
+      "id": "option_formation_orbit",
+      "type": "optionFormation",
+      "formationId": "orbit",
+      "weight": 2,
+      "stageIndexMin": 2,
+      "stageIndexMax": 99
     }
   ]
 }
+

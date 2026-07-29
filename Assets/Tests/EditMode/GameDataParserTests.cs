@@ -822,10 +822,19 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(30, data.BattleContent.Enemies.Count);
             Assert.AreEqual(4, data.BattleContent.Weapons.Count);
+            Assert.AreEqual(3, data.BattleContent.MissileFamilies.Count);
+            Assert.AreEqual(3, data.BattleContent.OptionFormations.Count);
+            Assert.AreEqual(
+                MissileFamily.Straight,
+                data.BattleContent.DefaultMissileFamily);
+            Assert.AreEqual(
+                OptionFormation.Trail,
+                data.BattleContent.DefaultOptionFormation);
             Assert.AreEqual(38, data.StageGeneration.Segments.Count);
             Assert.AreEqual(5, data.StageGeneration.Bosses.Count);
             Assert.AreEqual(3, data.Rewards.OptionCount);
-            Assert.AreEqual(13, data.Rewards.All.Count);
+            // 13 base + 3 missileFamily + 3 optionFormation (REQ-034).
+            Assert.AreEqual(19, data.Rewards.All.Count);
             Assert.AreEqual(3, data.Ships.Count);
             Assert.AreEqual(
                 WeaponType.Vulcan,

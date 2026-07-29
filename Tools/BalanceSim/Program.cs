@@ -13,6 +13,7 @@
 // 11) Encounter types: Normal/Elite/Supply/Hazard/Rare risk-reward sketch (REQ-028/029).
 // 12) Capsule drops after magnet: expected recovery band (REQ-029).
 // 13) Boss redesign: TTK 35–45s @ biome DPS, full-power ≥12s, 3 phases, threat mono (REQ-033).
+// 14) REQ-034: missile families + option formations ST DPS / situation roles / combo gates.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -110,6 +111,18 @@ static class Program
         ("boss_core", 1050.0),
     };
 
+    // REQ-034 missile family / option formation gates (provisional §7).
+    const int MissileRapidFireStartLevel = 2;
+    const int MissileFamilyStSimTicks = 300;
+    const double MissileFamilyL1StMin = 32.0;
+    const double MissileFamilyL1StMax = 52.0;
+    const double MissileFamilyL3StMin = 95.0;
+    const double MissileFamilyL3StMax = 130.0;
+    const double MissileFamilyStMaxMinRatio = 1.25; // three lineages stay in same ST band
+    const double LancePierceShotClearRatioMax = 1.05; // missile-only: pierce_shot must not buff lance
+    const double BombKillExpClearRatioMax = 1.40; // bomb splash kills never reseed kill_explosion
+    const double BombKillExpVsBaselineWarn = 5.0;
+
     static int Main()
     {
         string root = FindRepoRoot();
@@ -169,6 +182,8 @@ static class Program
         failures += CheckCapsuleDropAfterMagnet(data);
         Console.WriteLine();
         failures += CheckBossRedesign(data);
+        Console.WriteLine();
+        failures += CheckWeaponExpansion(data);
 
         Console.WriteLine();
         if (failures == 0)
@@ -2774,6 +2789,781 @@ static class Program
                 throw new ArgumentOutOfRangeException(nameof(ship));
         }
     }
+
+    /// <summary>
+    /// REQ-034: missile families + option formations catalog, ST DPS alignment,
+    /// situation roles, pierce_shot non-stack on lance, bomb×kill_explosion gate,
+    /// and homing layered on each family (provisional §7).
+    /// </summary>
+    static int CheckWeaponExpansion(GameDataSet data)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "Weapon expansion REQ-034 (missile families + option formations, §7):");
+
+        IReadOnlyList<MissileFamilyDefinition> families =
+            data.BattleContent.MissileFamilies;
+        IReadOnlyList<OptionFormationDefinition> formations =
+            data.BattleContent.OptionFormations;
+
+        if (families.Count != 3)
+        {
+            Console.WriteLine(
+                $"FAIL weapons v3: expected 3 missileFamilies, got {families.Count}.");
+            return 1;
+        }
+        if (formations.Count != 3)
+        {
+            Console.WriteLine(
+                $"FAIL weapons v3: expected 3 optionFormations, got {formations.Count}.");
+            return 1;
+        }
+        if (data.BattleContent.DefaultMissileFamily != MissileFamily.Straight
+            || data.BattleContent.DefaultOptionFormation != OptionFormation.Trail)
+        {
+            Console.WriteLine(
+                $"FAIL weapons v3: defaults must be straight/trail " +
+                $"(got {data.BattleContent.DefaultMissileFamily}/" +
+                $"{data.BattleContent.DefaultOptionFormation}).");
+            failures++;
+        }
+
+        MissileFamilyDefinition straight =
+            data.BattleContent.FindMissileFamily(MissileFamily.Straight);
+        MissileFamilyDefinition bomb =
+            data.BattleContent.FindMissileFamily(MissileFamily.SpreadBomb);
+        MissileFamilyDefinition lance =
+            data.BattleContent.FindMissileFamily(MissileFamily.PiercingLance);
+        if (straight == null || bomb == null || lance == null)
+        {
+            Console.WriteLine("FAIL weapons v3: missing straight/spread_bomb/piercing_lance.");
+            return failures + 1;
+        }
+
+        // Catalog numeric anchors from design doc.
+        if (straight.BaseDamage != 20
+            || straight.FireIntervalTicks != 30
+            || straight.MinimumFireIntervalTicks != 15
+            || straight.FireIntervalReductionPerLevel != 5
+            || straight.PierceEnemyCount != 0
+            || straight.ExplosionDamage != 0)
+        {
+            Console.WriteLine("FAIL weapons v3: straight family numbers diverge from design.");
+            failures++;
+        }
+        if (bomb.BaseDamage != 12
+            || bomb.ExplosionDamage != 16
+            || bomb.FireIntervalTicks != 42
+            || bomb.MinimumFireIntervalTicks != 28
+            || bomb.FireIntervalReductionPerLevel != 5
+            || bomb.ExplosionMaxTargets != 5
+            || bomb.ExplosionRadiusSubUnits
+                != (int)(1.75m * SimSpace.SubUnitsPerWorldUnit))
+        {
+            Console.WriteLine(
+                $"FAIL weapons v3: spread_bomb numbers diverge " +
+                $"(radiusSu={bomb.ExplosionRadiusSubUnits}).");
+            failures++;
+        }
+        if (lance.BaseDamage != 40
+            || lance.FireIntervalTicks != 54
+            || lance.MinimumFireIntervalTicks != 36
+            || lance.FireIntervalReductionPerLevel != 6
+            || lance.PierceEnemyCount != 2
+            || lance.ExplosionDamage != 0)
+        {
+            Console.WriteLine("FAIL weapons v3: piercing_lance numbers diverge from design.");
+            failures++;
+        }
+
+        OptionFormationDefinition trail =
+            data.BattleContent.FindOptionFormation(OptionFormation.Trail);
+        OptionFormationDefinition fixedForm =
+            data.BattleContent.FindOptionFormation(OptionFormation.Fixed);
+        OptionFormationDefinition orbit =
+            data.BattleContent.FindOptionFormation(OptionFormation.Orbit);
+        if (trail == null || fixedForm == null || orbit == null)
+        {
+            Console.WriteLine("FAIL weapons v3: missing trail/fixed/orbit formations.");
+            return failures + 1;
+        }
+        if (trail.FollowDelayTicks != 12)
+        {
+            Console.WriteLine(
+                $"FAIL weapons v3: trail followDelayTicks={trail.FollowDelayTicks} expected 12.");
+            failures++;
+        }
+        if (fixedForm.OffsetXs.Count != 4 || fixedForm.OffsetYs.Count != 4)
+        {
+            Console.WriteLine("FAIL weapons v3: fixed formation needs 4 offsets.");
+            failures++;
+        }
+        else
+        {
+            int[] expectedX =
+            {
+                (int)(0.75m * SimSpace.SubUnitsPerWorldUnit),
+                (int)(0.75m * SimSpace.SubUnitsPerWorldUnit),
+                (int)(0.75m * SimSpace.SubUnitsPerWorldUnit),
+                (int)(0.75m * SimSpace.SubUnitsPerWorldUnit)
+            };
+            int[] expectedY =
+            {
+                (int)(1.5m * SimSpace.SubUnitsPerWorldUnit),
+                (int)(-1.5m * SimSpace.SubUnitsPerWorldUnit),
+                (int)(2.75m * SimSpace.SubUnitsPerWorldUnit),
+                (int)(-2.75m * SimSpace.SubUnitsPerWorldUnit)
+            };
+            for (int i = 0; i < 4; i++)
+            {
+                if (fixedForm.OffsetXs[i] != expectedX[i]
+                    || fixedForm.OffsetYs[i] != expectedY[i])
+                {
+                    Console.WriteLine(
+                        $"FAIL weapons v3: fixed offset[{i}]=" +
+                        $"({fixedForm.OffsetXs[i]},{fixedForm.OffsetYs[i]}) " +
+                        $"expected ({expectedX[i]},{expectedY[i]}).");
+                    failures++;
+                    break;
+                }
+            }
+        }
+        if (orbit.OrbitRadiusSubUnits
+                != (int)(1.75m * SimSpace.SubUnitsPerWorldUnit)
+            || orbit.AngularLutSlotsNumerator != 1
+            || orbit.AngularLutSlotsDenominator != 2)
+        {
+            Console.WriteLine(
+                $"FAIL weapons v3: orbit radius/angular " +
+                $"{orbit.OrbitRadiusSubUnits}/{orbit.AngularLutSlotsNumerator}/" +
+                $"{orbit.AngularLutSlotsDenominator}.");
+            failures++;
+        }
+
+        Console.WriteLine(
+            $"  catalog: families={families.Count} formations={formations.Count} " +
+            $"defaults={data.BattleContent.DefaultMissileFamily}/" +
+            $"{data.BattleContent.DefaultOptionFormation}");
+
+        // --- Theoretical ST DPS (design formula) ---
+        Console.WriteLine("  theoretical ST DPS (direct+explosion when bomb):");
+        var theoryL1 = new List<(string id, double dps)>();
+        var theoryL3 = new List<(string id, double dps)>();
+        foreach (MissileFamilyDefinition fam in new[] { straight, bomb, lance })
+        {
+            double dps1 = TheoreticalMissileStDps(fam, 1);
+            double dps3 = TheoreticalMissileStDps(fam, 3);
+            theoryL1.Add((fam.Id, dps1));
+            theoryL3.Add((fam.Id, dps3));
+            int interval1 = MissileIntervalAtLevel(fam, 1);
+            int interval3 = MissileIntervalAtLevel(fam, 3);
+            int shot1 = MissileStShotDamage(fam, 1);
+            int shot3 = MissileStShotDamage(fam, 3);
+            Console.WriteLine(
+                $"    {fam.Id,-16} L1 dmg/shot={shot1,3} interval={interval1,2} ST={dps1:F1}  " +
+                $"L3 dmg/shot={shot3,3} interval={interval3,2} ST={dps3:F1}");
+
+            if (dps1 < MissileFamilyL1StMin || dps1 > MissileFamilyL1StMax)
+            {
+                Console.WriteLine(
+                    $"FAIL weapons: {fam.Id} L1 ST {dps1:F1} outside " +
+                    $"[{MissileFamilyL1StMin},{MissileFamilyL1StMax}].");
+                failures++;
+            }
+            if (dps3 < MissileFamilyL3StMin || dps3 > MissileFamilyL3StMax)
+            {
+                Console.WriteLine(
+                    $"FAIL weapons: {fam.Id} L3 ST {dps3:F1} outside " +
+                    $"[{MissileFamilyL3StMin},{MissileFamilyL3StMax}].");
+                failures++;
+            }
+        }
+
+        double theoryL1Ratio = theoryL1.Max(r => r.dps) / theoryL1.Min(r => r.dps);
+        double theoryL3Ratio = theoryL3.Max(r => r.dps) / theoryL3.Min(r => r.dps);
+        Console.WriteLine(
+            $"    ST max/min L1={theoryL1Ratio:F2} L3={theoryL3Ratio:F2} " +
+            $"(band ≤{MissileFamilyStMaxMinRatio:F2})");
+        if (theoryL1Ratio > MissileFamilyStMaxMinRatio
+            || theoryL3Ratio > MissileFamilyStMaxMinRatio)
+        {
+            Console.WriteLine(
+                "FAIL weapons: family ST DPS band too wide (not co-aligned).");
+            failures++;
+        }
+
+        // --- Simulated ST DPS + homing layer ---
+        Console.WriteLine(
+            $"  simulated ST DPS ({MissileFamilyStSimTicks}t sponge, missile-only):");
+        var simL1 = new Dictionary<MissileFamily, double>();
+        foreach (MissileFamilyDefinition fam in new[] { straight, bomb, lance })
+        {
+            int dmgNone = SimulateMissileSingleTargetDamage(
+                data, fam, level: 1, BattleModifier.None, MissileFamilyStSimTicks);
+            int dmgHoming = SimulateMissileSingleTargetDamage(
+                data, fam, level: 1, BattleModifier.HomingMissile, MissileFamilyStSimTicks);
+            double dpsNone = dmgNone * (double)SimSpace.TicksPerSecond / MissileFamilyStSimTicks;
+            double dpsHoming =
+                dmgHoming * (double)SimSpace.TicksPerSecond / MissileFamilyStSimTicks;
+            simL1[fam.Family] = dpsNone;
+            double theory = TheoreticalMissileStDps(fam, 1);
+            double vsTheory = theory <= 0 ? 0 : dpsNone / theory;
+            Console.WriteLine(
+                $"    {fam.Id,-16} simST={dpsNone:F1} (×{vsTheory:F2} theory) " +
+                $"homingST={dpsHoming:F1}");
+
+            if (dmgNone <= 0)
+            {
+                Console.WriteLine($"FAIL weapons: {fam.Id} dealt no ST damage.");
+                failures++;
+            }
+            // Homing must not replace family: on a centered sponge ST should stay
+            // within a generous band of the plain shot (hit guarantee via large box).
+            if (dpsNone > 0)
+            {
+                double homingRatio = dpsHoming / dpsNone;
+                if (homingRatio < 0.85 || homingRatio > 1.15)
+                {
+                    Console.WriteLine(
+                        $"FAIL weapons: {fam.Id}+homing ST ratio {homingRatio:F2} " +
+                        "outside [0.85,1.15] on centered sponge " +
+                        "(homing should layer steer, not rewrite damage).");
+                    failures++;
+                }
+            }
+        }
+
+        // --- Situation roles: dense pack vs column ---
+        Console.WriteLine("  situation roles (missile L1 only, clear-time):");
+        int denseStraight = SimulateMissilePackClear(
+            data, straight, packSize: 5, enemyHp: 1, spacingSubUnits:
+            SimSpace.SubUnitsPerWorldUnit / 2, column: false, BattleModifier.None, 600);
+        int denseBomb = SimulateMissilePackClear(
+            data, bomb, packSize: 5, enemyHp: 1, spacingSubUnits:
+            SimSpace.SubUnitsPerWorldUnit / 2, column: false, BattleModifier.None, 600);
+        int denseLance = SimulateMissilePackClear(
+            data, lance, packSize: 5, enemyHp: 1, spacingSubUnits:
+            SimSpace.SubUnitsPerWorldUnit / 2, column: false, BattleModifier.None, 600);
+        Console.WriteLine(
+            $"    dense HP1×5: straight={denseStraight}t bomb={denseBomb}t lance={denseLance}t");
+        if (denseBomb <= 0 || denseStraight <= 0 || denseLance <= 0)
+        {
+            Console.WriteLine("FAIL weapons: dense pack did not clear for a family.");
+            failures++;
+        }
+        else if (denseBomb > denseStraight)
+        {
+            Console.WriteLine(
+                $"FAIL weapons: bomb dense clear {denseBomb}t should beat " +
+                $"straight {denseStraight}t (AoE role).");
+            failures++;
+        }
+
+        int colStraight = SimulateMissilePackClear(
+            data, straight, packSize: 3, enemyHp: 40, spacingSubUnits:
+            SimSpace.SubUnitsPerWorldUnit, column: true, BattleModifier.None, 900);
+        int colBomb = SimulateMissilePackClear(
+            data, bomb, packSize: 3, enemyHp: 40, spacingSubUnits:
+            SimSpace.SubUnitsPerWorldUnit, column: true, BattleModifier.None, 900);
+        int colLance = SimulateMissilePackClear(
+            data, lance, packSize: 3, enemyHp: 40, spacingSubUnits:
+            SimSpace.SubUnitsPerWorldUnit, column: true, BattleModifier.None, 900);
+        Console.WriteLine(
+            $"    column HP40×3: straight={colStraight}t bomb={colBomb}t lance={colLance}t");
+        if (colLance <= 0 || colStraight <= 0)
+        {
+            Console.WriteLine("FAIL weapons: column did not clear for straight/lance.");
+            failures++;
+        }
+        else if (colLance > colStraight)
+        {
+            Console.WriteLine(
+                $"FAIL weapons: lance column clear {colLance}t should beat " +
+                $"straight {colStraight}t (pierce role).");
+            failures++;
+        }
+
+        // --- pierce_shot must not stack onto piercing_lance missiles ---
+        int lanceAlone = SimulateMissilePackClear(
+            data, lance, packSize: 5, enemyHp: 1, spacingSubUnits:
+            SimSpace.SubUnitsPerWorldUnit, column: true, BattleModifier.None, 600);
+        int lancePierce = SimulateMissilePackClear(
+            data, lance, packSize: 5, enemyHp: 1, spacingSubUnits:
+            SimSpace.SubUnitsPerWorldUnit, column: true,
+            BattleModifier.PierceShot, 600);
+        Console.WriteLine(
+            $"  lance column×5: alone={lanceAlone}t +pierce_shot={lancePierce}t " +
+            "(missile-only; pierce_shot is main-only)");
+        if (lanceAlone <= 0 || lancePierce <= 0)
+        {
+            Console.WriteLine("FAIL weapons: lance pierce gate pack did not clear.");
+            failures++;
+        }
+        else
+        {
+            double pierceRatio = (double)lanceAlone / lancePierce;
+            Console.WriteLine(
+                $"    clear-speed ratio alone/pierce_shot = {pierceRatio:F2} " +
+                $"(must ≤{LancePierceShotClearRatioMax:F2})");
+            if (pierceRatio > LancePierceShotClearRatioMax)
+            {
+                Console.WriteLine(
+                    "FAIL weapons: pierce_shot appears to buff piercing_lance missiles " +
+                    "(must remain main-shot only).");
+                failures++;
+            }
+        }
+
+        // --- bomb × kill_explosion: splash kills never reseed (CODEX rule A) ---
+        int bombAlone = SimulateMissilePackClear(
+            data, bomb, packSize: 12, enemyHp: 1, spacingSubUnits:
+            SimSpace.SubUnitsPerWorldUnit / 2, column: false, BattleModifier.None, 900);
+        int bombKillExp = SimulateMissilePackClear(
+            data, bomb, packSize: 12, enemyHp: 1, spacingSubUnits:
+            SimSpace.SubUnitsPerWorldUnit / 2, column: false,
+            BattleModifier.KillExplosion, 900);
+        int baselineMain = SimulatePackClear(
+            BattleModifier.None, 12, 1, 900).TicksToClear;
+        Console.WriteLine(
+            $"  bomb×kill_explosion dense HP1×12: bomb={bombAlone}t " +
+            $"bomb+kill_exp={bombKillExp}t main-baseline≈{baselineMain}t");
+        if (bombAlone <= 0 || bombKillExp <= 0)
+        {
+            Console.WriteLine("FAIL weapons: bomb kill_exp gate pack did not clear.");
+            failures++;
+        }
+        else
+        {
+            double bombRatio = (double)bombAlone / bombKillExp;
+            Console.WriteLine(
+                $"    bomb+kill_exp clear-speed ×{bombRatio:F2} vs bomb alone " +
+                $"(hard ≤{BombKillExpClearRatioMax:F2}; splash kills must not reseed)");
+            if (bombRatio > BombKillExpClearRatioMax)
+            {
+                Console.WriteLine(
+                    "FAIL weapons: bomb+kill_explosion runaway " +
+                    "(explosion kills may be reseeding kill_explosion).");
+                failures++;
+            }
+            if (baselineMain > 0)
+            {
+                double vsBase = (double)baselineMain / bombKillExp;
+                Console.WriteLine(
+                    $"    bomb+kill_exp vs main-baseline clear-speed ×{vsBase:F2} " +
+                    $"(soft WARN ≥{BombKillExpVsBaselineWarn:F1}×)");
+                if (vsBase >= BombKillExpVsBaselineWarn)
+                {
+                    Console.WriteLine(
+                        $"WARN weapons: bomb+kill_exp ≥{BombKillExpVsBaselineWarn:F0}× " +
+                        "main baseline (§7 soft).");
+                }
+            }
+        }
+
+        // --- Reward catalog: family/formation switches + weights ---
+        failures += CheckWeaponExpansionRewards(data.Rewards);
+
+        if (failures == 0)
+            Console.WriteLine("PASS: weapon expansion catalog + DPS / combo gates.");
+        return failures;
+    }
+
+    static int CheckWeaponExpansionRewards(RewardCatalog rewards)
+    {
+        int failures = 0;
+        if (rewards == null)
+        {
+            Console.WriteLine("FAIL rewards: catalog null (weapon expansion).");
+            return 1;
+        }
+
+        var expectedFamily = new Dictionary<string, (MissileFamily fam, int weight, int stageMin)>(
+            StringComparer.Ordinal)
+        {
+            ["missile_family_straight"] = (MissileFamily.Straight, 1, 1),
+            ["missile_family_spread_bomb"] = (MissileFamily.SpreadBomb, 2, 1),
+            ["missile_family_piercing_lance"] = (MissileFamily.PiercingLance, 2, 2),
+        };
+        var expectedForm = new Dictionary<string, (OptionFormation form, int weight, int stageMin)>(
+            StringComparer.Ordinal)
+        {
+            ["option_formation_trail"] = (OptionFormation.Trail, 1, 1),
+            ["option_formation_fixed"] = (OptionFormation.Fixed, 2, 1),
+            ["option_formation_orbit"] = (OptionFormation.Orbit, 2, 2),
+        };
+
+        int famFormWeight1 = 0;
+        int famFormWeight2 = 0;
+        int totalWeight1 = 0;
+        int totalWeight2 = 0;
+        int foundFamily = 0;
+        int foundForm = 0;
+
+        Console.WriteLine("  reward switches (missileFamily / optionFormation):");
+        foreach (RewardDefinition def in rewards.All)
+        {
+            bool stage1 = def.StageIndexMin <= 1 && def.StageIndexMax >= 1;
+            bool stage2 = def.StageIndexMin <= 2 && def.StageIndexMax >= 2;
+            if (stage1) totalWeight1 += def.Weight;
+            if (stage2) totalWeight2 += def.Weight;
+
+            if (def.Type == RewardType.MissileFamily)
+            {
+                foundFamily++;
+                if (stage1) famFormWeight1 += def.Weight;
+                if (stage2) famFormWeight2 += def.Weight;
+                if (!expectedFamily.TryGetValue(def.Id, out var exp))
+                {
+                    Console.WriteLine($"FAIL rewards: unexpected missileFamily id '{def.Id}'.");
+                    failures++;
+                    continue;
+                }
+                if (def.MissileFamily != exp.fam
+                    || def.Weight != exp.weight
+                    || def.StageIndexMin != exp.stageMin)
+                {
+                    Console.WriteLine(
+                        $"FAIL rewards: {def.Id} family={def.MissileFamily} " +
+                        $"w={def.Weight} stageMin={def.StageIndexMin} " +
+                        $"(expected {exp.fam}/{exp.weight}/{exp.stageMin}).");
+                    failures++;
+                }
+                Console.WriteLine(
+                    $"    {def.Id,-32} family={def.MissileFamily,-14} " +
+                    $"w={def.Weight} stage={def.StageIndexMin}-{def.StageIndexMax}");
+                expectedFamily.Remove(def.Id);
+            }
+            else if (def.Type == RewardType.OptionFormation)
+            {
+                foundForm++;
+                if (stage1) famFormWeight1 += def.Weight;
+                if (stage2) famFormWeight2 += def.Weight;
+                if (!expectedForm.TryGetValue(def.Id, out var exp))
+                {
+                    Console.WriteLine(
+                        $"FAIL rewards: unexpected optionFormation id '{def.Id}'.");
+                    failures++;
+                    continue;
+                }
+                if (def.OptionFormation != exp.form
+                    || def.Weight != exp.weight
+                    || def.StageIndexMin != exp.stageMin)
+                {
+                    Console.WriteLine(
+                        $"FAIL rewards: {def.Id} form={def.OptionFormation} " +
+                        $"w={def.Weight} stageMin={def.StageIndexMin} " +
+                        $"(expected {exp.form}/{exp.weight}/{exp.stageMin}).");
+                    failures++;
+                }
+                Console.WriteLine(
+                    $"    {def.Id,-32} form={def.OptionFormation,-14} " +
+                    $"w={def.Weight} stage={def.StageIndexMin}-{def.StageIndexMax}");
+                expectedForm.Remove(def.Id);
+            }
+        }
+
+        foreach (string missing in expectedFamily.Keys)
+        {
+            Console.WriteLine($"FAIL rewards: missing missileFamily '{missing}'.");
+            failures++;
+        }
+        foreach (string missing in expectedForm.Keys)
+        {
+            Console.WriteLine($"FAIL rewards: missing optionFormation '{missing}'.");
+            failures++;
+        }
+        if (foundFamily != 3 || foundForm != 3)
+        {
+            Console.WriteLine(
+                $"FAIL rewards: expected 3 family + 3 formation entries " +
+                $"(got {foundFamily}+{foundForm}).");
+            failures++;
+        }
+
+        double e1 = totalWeight1 == 0 ? 0 : 3.0 * famFormWeight1 / totalWeight1;
+        double e2 = totalWeight2 == 0 ? 0 : 3.0 * famFormWeight2 / totalWeight2;
+        Console.WriteLine(
+            $"    E[family/form in 3-pick] stage1≈{e1:F2} " +
+            $"(w={famFormWeight1}/{totalWeight1}) stage2≈{e2:F2} " +
+            $"(w={famFormWeight2}/{totalWeight2})");
+        // Soft guide from design: stage1 ~0.5, stage2 ~0.8
+        if (e1 < 0.25 || e1 > 1.2)
+        {
+            Console.WriteLine(
+                $"WARN rewards: stage1 E[family/form]≈{e1:F2} outside guide [0.25,1.2] (§7).");
+        }
+        if (e2 < 0.40 || e2 > 1.4)
+        {
+            Console.WriteLine(
+                $"WARN rewards: stage2 E[family/form]≈{e2:F2} outside guide [0.40,1.4] (§7).");
+        }
+
+        return failures;
+    }
+
+    static int MissileStShotDamage(MissileFamilyDefinition fam, int level)
+    {
+        int direct = Damage.Compute(fam.BaseDamage, level);
+        int boom = fam.ExplosionDamage > 0
+            ? Damage.Compute(fam.ExplosionDamage, level)
+            : 0;
+        return direct + boom;
+    }
+
+    static int MissileIntervalAtLevel(MissileFamilyDefinition fam, int level)
+    {
+        // Mirrors BattleSim.ComputeReducedInterval with RapidFireStartLevel=2.
+        int reductions = Math.Max(0, level - MissileRapidFireStartLevel + 1);
+        long reduced = fam.FireIntervalTicks
+            - (long)reductions * fam.FireIntervalReductionPerLevel;
+        int effectiveMin = Math.Min(
+            fam.FireIntervalTicks,
+            fam.MinimumFireIntervalTicks);
+        return (int)Math.Max(effectiveMin, reduced);
+    }
+
+    static double TheoreticalMissileStDps(MissileFamilyDefinition fam, int level)
+    {
+        int interval = MissileIntervalAtLevel(fam, level);
+        if (interval < 1)
+            return 0;
+        return MissileStShotDamage(fam, level)
+            * (double)SimSpace.TicksPerSecond
+            / interval;
+    }
+
+    /// <summary>
+    /// Mirrors GameDataSet.ApplyMissileFamily (private) for lab configs.
+    /// </summary>
+    static void ApplyMissileFamilyToConfig(
+        BattleSimConfig config,
+        MissileFamilyDefinition definition)
+    {
+        config.MissileFamily = definition.Family;
+        config.MissileBaseDamage = definition.BaseDamage;
+        config.MissileFireIntervalTicks = definition.FireIntervalTicks;
+        config.MissileMinimumFireIntervalTicks =
+            definition.MinimumFireIntervalTicks;
+        config.MissileFireIntervalReductionPerLevel =
+            definition.FireIntervalReductionPerLevel;
+        config.MissileRapidFireStartLevel = MissileRapidFireStartLevel;
+        config.MissileSpeedXNumerator = definition.SpeedXNumerator;
+        config.MissileSpeedXDenominator = definition.SpeedXDenominator;
+        config.MissileFallSpeedYNumerator = definition.FallSpeedYNumerator;
+        config.MissileFallSpeedYDenominator = definition.FallSpeedYDenominator;
+        config.MissilePierceEnemyCount = definition.PierceEnemyCount;
+        config.MissileExplosionDamage = definition.ExplosionDamage;
+        config.MissileExplosionRadiusSubUnits =
+            definition.ExplosionRadiusSubUnits;
+        config.MissileExplosionMaxTargets = definition.ExplosionMaxTargets;
+    }
+
+    static int SimulateMissileSingleTargetDamage(
+        GameDataSet data,
+        MissileFamilyDefinition family,
+        int level,
+        BattleModifier modifiers,
+        int ticks)
+    {
+        BattleSimConfig config = data.CreateBattleSimConfig();
+        ApplyMissileFamilyToConfig(config, family);
+        // Core always volleys main on Fire; zero its damage so the lab is missile-only.
+        config.MainShotBaseDamage = 0;
+        config.UseConfiguredMainShotStats = true;
+        config.ScrollSpeedNumerator = 0;
+        config.ScrollSpeedDenominator = 1;
+        config.PlayerSpawnX = 0;
+        config.PlayerSpawnY = 0;
+        config.PlayerMinX = -10000;
+        config.PlayerMaxX = 10000;
+        config.PlayerMinY = -10000;
+        config.PlayerMaxY = 10000;
+        config.PlayerHalfWidth = 0;
+        config.PlayerHalfHeight = 0;
+        config.CapsuleNoDropWeight = 1_000_000;
+        config.MaxBullets = 128;
+        config.EnemyBulletDamage = 0;
+        config.MaxEnemyBullets = 0;
+        // Tall sponge (not touching player). Bomb fall ~3u over 2u of travel.
+        const int spongeHp = 1_000_000;
+        int halfW = SimSpace.SubUnitsPerWorldUnit / 2;
+        int halfH = 6 * SimSpace.SubUnitsPerWorldUnit;
+        var enemy = new EnemyDefinition(
+            "missile_sponge",
+            "missile_sponge",
+            spongeHp,
+            0,
+            0,
+            EnemyMovePattern.Static,
+            0,
+            1,
+            0,
+            halfW,
+            halfH,
+            0,
+            0,
+            1,
+            1);
+        // Keep clear of player contact (dx > halfW). Close enough for bomb fall.
+        int spongeX = 2 * SimSpace.SubUnitsPerWorldUnit;
+        int spongeY = family.Family == MissileFamily.SpreadBomb
+            ? -2 * SimSpace.SubUnitsPerWorldUnit
+            : 0;
+        WeaponDefinition main = data.BattleContent.PlayerWeapon;
+        var content = new BattleContent(
+            new[] { enemy },
+            data.BattleContent.Weapons.ToArray(),
+            main.Id,
+            data.BattleContent.MissileFamilies.ToArray(),
+            data.BattleContent.DefaultMissileFamily,
+            data.BattleContent.OptionFormations.ToArray(),
+            data.BattleContent.DefaultOptionFormation);
+        var segment = new StageSegment(
+            "missile_st_lab",
+            ticks + 10,
+            new[] { new SpawnEvent(0, enemy.Id, spongeX, spongeY) },
+            1,
+            1,
+            new[] { 1 });
+        var plan = new StagePlan(new[] { segment }, "legacy", 1, 1, 1);
+        PowerUpGauge gauge = PowerUpGauge.CreateDefault();
+        // Main 0 / Missile level / Option 0 / Shield 0
+        gauge.ImportLevels(new[] { 0, level, 0, 0 });
+
+        var sim = new BattleSim(
+            config,
+            new Rng(0x34F1UL),
+            plan,
+            content,
+            gauge,
+            modifiers);
+        InputCommand fire = new InputCommand(0, 0, true);
+        for (int t = 0; t < ticks; t++)
+            sim.Step(in fire);
+
+        if (sim.Enemies.Count == 0)
+            return spongeHp;
+        return spongeHp - sim.Enemies[0].Hp;
+    }
+
+    /// <summary>
+    /// Missile-only pack clear. column=true places enemies along +X (pierce lane);
+    /// column=false places a tight cluster around bomb impact altitude.
+    /// Returns ticks-to-clear, or 0 if not cleared.
+    /// </summary>
+    static int SimulateMissilePackClear(
+        GameDataSet data,
+        MissileFamilyDefinition family,
+        int packSize,
+        int enemyHp,
+        int spacingSubUnits,
+        bool column,
+        BattleModifier modifiers,
+        int maxTicks)
+    {
+        BattleSimConfig config = data.CreateBattleSimConfig();
+        ApplyMissileFamilyToConfig(config, family);
+        // Isolate missile DPS (main always volleys on Fire).
+        config.MainShotBaseDamage = 0;
+        config.UseConfiguredMainShotStats = true;
+        config.ScrollSpeedNumerator = 0;
+        config.ScrollSpeedDenominator = 1;
+        config.PlayerSpeedNumerator = 0;
+        config.PlayerSpeedDenominator = 1;
+        config.PlayerSpawnX = 0;
+        config.PlayerSpawnY = 0;
+        config.PlayerMinX = -10000;
+        config.PlayerMaxX = 10000;
+        config.PlayerMinY = -10000;
+        config.PlayerMaxY = 10000;
+        config.PlayerHalfWidth = 0;
+        config.PlayerHalfHeight = 0;
+        config.CapsuleNoDropWeight = 1_000_000;
+        config.MaxBullets = 128;
+        config.EnemyBulletDamage = 0;
+        config.MaxEnemyBullets = 0;
+
+        int half = SimSpace.SubUnitsPerWorldUnit / 3;
+        // Bomb impact altitude at x≈1.5u: fallSpeed 9u/s, speedX 6u/s → y≈-2.25u.
+        bool isBomb = family.Family == MissileFamily.SpreadBomb;
+        int impactX = (isBomb ? 3 : 2) * SimSpace.SubUnitsPerWorldUnit / (isBomb ? 2 : 1);
+        int impactY = isBomb ? -2 * SimSpace.SubUnitsPerWorldUnit : 0;
+        var enemies = new EnemyDefinition[packSize];
+        var spawns = new SpawnEvent[packSize];
+        for (int i = 0; i < packSize; i++)
+        {
+            string id = "m_fodder_" + i;
+            enemies[i] = new EnemyDefinition(
+                id,
+                id,
+                enemyHp,
+                0,
+                0, // contact damage 0 (still removed on touch — keep clear of player)
+                EnemyMovePattern.Static,
+                0,
+                1,
+                0,
+                half,
+                half,
+                0,
+                0,
+                1,
+                64);
+            int x;
+            int y;
+            if (column)
+            {
+                x = impactX + i * spacingSubUnits;
+                y = impactY;
+            }
+            else
+            {
+                // Tight cluster fully inside explosion radius (~1.75u) around impact.
+                int col = i % 4;
+                int row = i / 4;
+                x = impactX + (col - 1) * spacingSubUnits;
+                y = impactY + (row - 1) * spacingSubUnits;
+            }
+            spawns[i] = new SpawnEvent(0, id, x, y);
+        }
+
+        WeaponDefinition main = data.BattleContent.PlayerWeapon;
+        var content = new BattleContent(
+            enemies,
+            data.BattleContent.Weapons.ToArray(),
+            main.Id,
+            data.BattleContent.MissileFamilies.ToArray(),
+            data.BattleContent.DefaultMissileFamily,
+            data.BattleContent.OptionFormations.ToArray(),
+            data.BattleContent.DefaultOptionFormation);
+        var segment = new StageSegment(
+            "missile_pack",
+            maxTicks + 10,
+            spawns,
+            1,
+            1,
+            new[] { 1 });
+        var plan = new StagePlan(new[] { segment }, "legacy", 1, 1, 1);
+        PowerUpGauge gauge = PowerUpGauge.CreateDefault();
+        gauge.ImportLevels(new[] { 0, 1, 0, 0 });
+
+        var sim = new BattleSim(
+            config,
+            new Rng(0xB034UL),
+            plan,
+            content,
+            gauge,
+            modifiers);
+        InputCommand fire = new InputCommand(0, 0, true);
+        for (int tick = 1; tick <= maxTicks; tick++)
+        {
+            sim.Step(in fire);
+            if (sim.Enemies.Count == 0)
+                return tick;
+        }
+        return 0;
+    }
+
 
     static int CeilDiv(int numerator, int denominator)
     {
