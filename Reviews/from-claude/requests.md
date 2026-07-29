@@ -576,6 +576,72 @@ GROK: 파서 완료 후 scoring.json 초기값 작성 + BalanceSim 그레이즈/
 
 **검증:** `Tools/CoreStandalone` `dotnet test` 그린 · `Tools/BalanceSim` **PASS**.
 
+## [x] GROK → CODEX/CLAUDE: 최대 탄밀도 스트레스 검증 (2026-07-29)
+
+**임무:** stage 5(core) 최악 적탄 밀도 + 풀파워 플레이어 탄 vs Core `MaxEnemyBullets`/`MaxBullets`.
+수치 **변경 없음** (한도는 CODEX 소유, 웨이브 편성 조정은 권고만).
+
+### GROK 응답 (content, Tools/BalanceSim)
+
+`CheckBulletDensityStress` 추가. 검증: `dotnet test` Tools/CoreStandalone **167/167** · BalanceSim **PASS** (overflow는 WARN).
+
+#### Core 한도 (CreateDefault)
+
+| Cap | 값 |
+|---|---:|
+| `MaxEnemyBullets` | **32** |
+| `MaxBullets` | **64** |
+
+#### (1) Stage 5 core 적탄
+
+- 테마 ordinal stage5 = `core`, boss = `boss_core` phase2: interval **34t**, ways **9**, speed **12.5 u/s**, travel≈35u → life≈**168t**, steady volleys **5** → boss alone theo **45**.
+- 최악 세그먼트 `seg_core_final_gauntlet`: peak enemies **17**, peak shooters **13** (no-kill 수명 모델).
+- 이론 동시 적탄 (densest shooters + boss p2 동시 가정):
+  - faithful (fodder 1-way, Core 실측): fodder **48** + boss **45** = **93**
+  - stress (전 슈터 9-way 가상): **477**
+- Headless (cap 512로 상향, 플레이어 히트박스 0):
+  - 생성 시드 피크: **31** (headroom +3.1% vs 32)
+  - densest core×3: **31** / phase2 window **23**
+  - **boss-only lab phase2 hold: 41** (theo 45에 근접) → **cap 32 초과, headroom -28.1%**
+
+**권고 (수치 미적용):**
+
+| 우선 | 내용 |
+|---|---|
+| Primary | `MaxEnemyBullets` **>= 57** (peak~45 boss p2, +25% headroom) |
+| Upper | **>= 117** if residual turrets co-fire with p2 (theo 93) |
+| Extreme | **>= 597** only if Core adds multi-way to fodder |
+| waves.json | `boss_core` p2 ways 9→7 or interval 34→45; thin `seg_core_final_gauntlet` shooters |
+
+Silent drop at cap = 위협 누락 (크래시 아님). CLAUDE 풀은 Presentation 풀 크기와 동기화 필요할 수 있음.
+
+#### (2) 플레이어 풀파워 (Main5 / Mis3 / Opt4 + pierce+ricochet)
+
+- main interval **5t**, beams/volley **5**, life≈102t → main concurrent **105**; missile **11** → no-mod theo **116**.
+- pierce×ricochet lifetime uplift (soft): theo **~235**.
+- Headless elevated MaxBullets=512: peak **106** @tick 101.
+
+**권고 (수치 미적용):**
+
+| 우선 | 내용 |
+|---|---|
+| Primary | `MaxBullets` **>= 145** (peak~116, +25%) |
+| Uplift | **>= 294** if pierce+ricochet lifetime packing is budgeted |
+| Alternate | option max 하향 / fire interval 상향 / 기존 cap 근처 deterministic volley drop 유지 |
+
+#### CODEX 후속
+
+- `BattleSimConfig.CreateDefault` (및 RunManager/BattleDirector 주입값) `MaxEnemyBullets`/`MaxBullets` 상향 검토.
+- 권고 1차: enemy **57+**, player **145+** (또는 웨이브 쪽 밀도 완화로 적탄 압력 흡수).
+
+#### CLAUDE 후속
+
+- 탄 풀 프리팹/풀 크기가 Core 한도를 반영하는지 확인 (한도 상향 시 Presentation 동기화).
+
+**검증 명령:** `cd Tools\BalanceSim && dotnet run` · `cd Tools\CoreStandalone && dotnet test`.
+
+---
+
 ## [ ] REQ-017 → CODEX: 런 중단 저장 (스테이지 경계 서스펜드/리줌)
 
 상용 로그라이트 표준 기능. 결정론 덕에 전체 상태 직렬화 대신 스테이지 경계 스냅샷으로 충분.
