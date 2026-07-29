@@ -15,6 +15,8 @@ namespace Shmup.Presentation.Battle
         public long seed;
         public string shipId;
         public long finalScore;
+        public int difficultyNumerator = 1;
+        public int difficultyDenominator = 1;
         public int[] rewardChoices;
         public InputRecordingData recording;
     }

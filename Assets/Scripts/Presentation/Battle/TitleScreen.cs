@@ -29,6 +29,13 @@ namespace Shmup.Presentation.Battle
         Shmup.Core.Simulation.RunSuspendData _suspended;
         ReplayFileData _replay;
         int _dailyDateInt;
+        Text _difficultyText;
+
+        void RefreshDifficultyText()
+        {
+            if (_difficultyText != null)
+                _difficultyText.text = $"[T] DIFFICULTY ◄ {DifficultySelect.Label} ►";
+        }
 
         void Start()
         {
@@ -64,6 +71,13 @@ namespace Shmup.Presentation.Battle
                     TextAnchor.MiddleLeft, "Continue");
                 UiKit.AddShadow(_continueText);
             }
+
+            // 난이도 선택 (REQ-020): [T]/(dpad↑) 순환, 잠정 배율 §7
+            _difficultyText = UiKit.CreateCornerText(canvas.transform, _font, "", 11,
+                UiKit.TextMain, new Vector2(0f, 0.5f), new Vector2(14f, 56f),
+                TextAnchor.MiddleLeft, "Difficulty");
+            UiKit.AddShadow(_difficultyText);
+            RefreshDifficultyText();
 
             // 데일리 런 (REQ-018): 날짜는 Presentation이 읽고 Core는 순수 해시만
             var todayUtc = System.DateTime.UtcNow;
@@ -125,6 +139,14 @@ namespace Shmup.Presentation.Battle
                 DevArgs.RuntimeSeed = (long)_suspended.runSeed;   // HUD 시드 표시 일치
                 SceneManager.LoadScene("Battle");
                 return;
+            }
+
+            // 난이도 순환
+            if ((keyboard != null && keyboard.tKey.wasPressedThisFrame)
+                || (gamepad != null && gamepad.dpad.up.wasPressedThisFrame))
+            {
+                DifficultySelect.Index = (DifficultySelect.Index + 1) % 3;
+                RefreshDifficultyText();
             }
 
             // 데일리 런: 같은 날짜 → 전 세계 같은 시드 (Core DailySeed)

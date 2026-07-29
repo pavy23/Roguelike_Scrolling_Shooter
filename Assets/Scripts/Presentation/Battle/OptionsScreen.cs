@@ -5,9 +5,10 @@ using UnityEngine.UI;
 namespace Shmup.Presentation.Battle
 {
     /// <summary>
-    /// 옵션 화면 (UGUI + 픽셀 폰트): 해상도 프리셋·전체화면·키 리바인딩·접근성 토글.
-    /// 일시정지 중 O 키로 연다. 설정은 PlayerPrefs에 저장하고 시작 시 복원한다.
-    /// 리바인딩은 Input System 바인딩 오버라이드(JSON)로 저장 — 시뮬에는 영향 없음.
+    /// 옵션 화면 (UGUI + 픽셀 폰트): 해상도·전체화면·리바인딩·접근성 토글.
+    /// 일시정지 중 O/(Select)로 연다. 커서형 내비게이션(↑↓/(dpad) 이동, Enter/(A) 실행,
+    /// 해상도는 ←→ 순환) + 기존 키보드 단축키 병행. 설정은 PlayerPrefs 저장.
+    /// 리바인딩은 Input System 바인딩 오버라이드(JSON) — 시뮬에는 영향 없음.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class OptionsScreen : MonoBehaviour
@@ -24,19 +25,30 @@ namespace Shmup.Presentation.Battle
             new Vector2Int(2560, 1440)
         };
 
+        enum Item
+        {
+            Resolution = 0, Fullscreen, RebindFire,
+            RebindUp, RebindDown, RebindLeft, RebindRight,
+            ResetBindings, ScreenShake, ReduceFlash, Close
+        }
+        const int ItemCount = 11;
+
+        /// <summary>PauseScreen이 입력 충돌(볼륨 화살표 등)을 피하기 위한 상태 공유.</summary>
+        public static bool IsOpen { get; private set; }
+
         [SerializeField] PlayerInputReader _input;
         [SerializeField] JuiceDirector _juice;
         [SerializeField] Font _font;
         [SerializeField] Font _fontBold;
 
         bool _open;
+        int _cursor;
         int _resolutionIndex;
         InputActionRebindingExtensions.RebindingOperation _rebind;
 
         GameObject _root;
         Text _bodyText;
         string _panelText;
-        int _panelKey = -1;
 
         void Start()
         {
@@ -52,7 +64,7 @@ namespace Shmup.Presentation.Battle
             canvas.transform.SetParent(transform, false);
             _root = canvas.gameObject;
             UiKit.CreateDim(canvas.transform, new Color(0f, 0.01f, 0.05f, 0.7f));
-            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(340f, 190f));
+            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(360f, 210f));
             UiKit.CreateCornerText(panel, _fontBold, "OPTIONS", 16, UiKit.TextMain,
                 new Vector2(0.5f, 1f), new Vector2(0f, -10f), TextAnchor.UpperCenter, "Title");
             _bodyText = UiKit.CreateTextStretch(panel, _font, "", 11,
@@ -60,54 +72,126 @@ namespace Shmup.Presentation.Battle
             _root.SetActive(false);
         }
 
+        void OnDestroy()
+        {
+            IsOpen = false;
+        }
+
         void Update()
         {
             var keyboard = Keyboard.current;
-            if (keyboard == null) return;
+            var gamepad = Gamepad.current;
+            if (keyboard == null && gamepad == null) return;
 
             // 리바인딩 대기 중에는 다른 입력 처리를 멈춘다
             if (_rebind != null)
             {
-                if (keyboard.escapeKey.wasPressedThisFrame) CancelRebind();
+                if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) CancelRebind();
                 SetVisible(true, "PRESS ANY KEY\n\n(ESC cancel)");
                 return;
             }
 
-            if (keyboard.oKey.wasPressedThisFrame && Time.timeScale == 0f)
+            bool toggle = (keyboard != null && keyboard.oKey.wasPressedThisFrame)
+                       || (gamepad != null && gamepad.selectButton.wasPressedThisFrame);
+            if (toggle && Time.timeScale == 0f)
                 _open = !_open;
             if (Time.timeScale != 0f) _open = false;   // 일시정지 해제 시 자동 닫힘
+            IsOpen = _open;
             if (!_open)
             {
                 SetVisible(false, null);
                 return;
             }
 
-            if (keyboard.rKey.wasPressedThisFrame)
+            // 커서 이동
+            int move = 0;
+            if (keyboard != null)
             {
-                _resolutionIndex = (_resolutionIndex + 1) % Resolutions.Length;
+                if (keyboard.upArrowKey.wasPressedThisFrame) move = -1;
+                if (keyboard.downArrowKey.wasPressedThisFrame) move = 1;
+            }
+            if (gamepad != null)
+            {
+                if (gamepad.dpad.up.wasPressedThisFrame) move = -1;
+                if (gamepad.dpad.down.wasPressedThisFrame) move = 1;
+            }
+            if (move != 0)
+            {
+                _cursor = (_cursor + move + ItemCount) % ItemCount;
+                _panelText = null;
+            }
+
+            // 좌우: 해상도 항목 순환
+            int adjust = 0;
+            if (keyboard != null)
+            {
+                if (keyboard.leftArrowKey.wasPressedThisFrame) adjust = -1;
+                if (keyboard.rightArrowKey.wasPressedThisFrame) adjust = 1;
+            }
+            if (gamepad != null)
+            {
+                if (gamepad.dpad.left.wasPressedThisFrame) adjust = -1;
+                if (gamepad.dpad.right.wasPressedThisFrame) adjust = 1;
+            }
+            if (adjust != 0 && (Item)_cursor == Item.Resolution)
+            {
+                _resolutionIndex = (_resolutionIndex + adjust + Resolutions.Length) % Resolutions.Length;
                 Apply(Screen.fullScreen);
                 _panelText = null;
             }
-            if (keyboard.fKey.wasPressedThisFrame)
+
+            bool confirm = (keyboard != null && keyboard.enterKey.wasPressedThisFrame)
+                        || (gamepad != null && gamepad.buttonSouth.wasPressedThisFrame);
+            if (confirm)
+                ActivateItem((Item)_cursor);
+
+            // 키보드 단축키 병행 (기존 사용자 습관 유지)
+            if (keyboard != null)
             {
-                Apply(!Screen.fullScreen);
-                _panelText = null;
+                if (keyboard.rKey.wasPressedThisFrame) ActivateItem(Item.Resolution);
+                if (keyboard.fKey.wasPressedThisFrame) ActivateItem(Item.Fullscreen);
+                if (keyboard.bKey.wasPressedThisFrame) ActivateItem(Item.RebindFire);
+                if (keyboard.digit1Key.wasPressedThisFrame) ActivateItem(Item.RebindUp);
+                if (keyboard.digit2Key.wasPressedThisFrame) ActivateItem(Item.RebindDown);
+                if (keyboard.digit3Key.wasPressedThisFrame) ActivateItem(Item.RebindLeft);
+                if (keyboard.digit4Key.wasPressedThisFrame) ActivateItem(Item.RebindRight);
+                if (keyboard.xKey.wasPressedThisFrame) ActivateItem(Item.ResetBindings);
+                if (keyboard.sKey.wasPressedThisFrame) ActivateItem(Item.ScreenShake);
+                if (keyboard.gKey.wasPressedThisFrame) ActivateItem(Item.ReduceFlash);
             }
-            if (keyboard.bKey.wasPressedThisFrame)
-                StartRebindFire();
-            if (keyboard.digit1Key.wasPressedThisFrame) StartRebindMovePart("up");
-            if (keyboard.digit2Key.wasPressedThisFrame) StartRebindMovePart("down");
-            if (keyboard.digit3Key.wasPressedThisFrame) StartRebindMovePart("left");
-            if (keyboard.digit4Key.wasPressedThisFrame) StartRebindMovePart("right");
-            if (keyboard.xKey.wasPressedThisFrame)
-                ResetBindings();
-            if (keyboard.sKey.wasPressedThisFrame)
-                ToggleAccessibilityPref(JuiceDirector.ShakePrefKey, 1);
-            if (keyboard.gKey.wasPressedThisFrame)
-                ToggleAccessibilityPref(JuiceDirector.FlashReducePrefKey, 0);
 
             RefreshPanelText();
             SetVisible(true, _panelText);
+        }
+
+        void ActivateItem(Item item)
+        {
+            switch (item)
+            {
+                case Item.Resolution:
+                    _resolutionIndex = (_resolutionIndex + 1) % Resolutions.Length;
+                    Apply(Screen.fullScreen);
+                    break;
+                case Item.Fullscreen:
+                    Apply(!Screen.fullScreen);
+                    break;
+                case Item.RebindFire: StartRebindFire(); break;
+                case Item.RebindUp: StartRebindMovePart("up"); break;
+                case Item.RebindDown: StartRebindMovePart("down"); break;
+                case Item.RebindLeft: StartRebindMovePart("left"); break;
+                case Item.RebindRight: StartRebindMovePart("right"); break;
+                case Item.ResetBindings: ResetBindings(); break;
+                case Item.ScreenShake:
+                    ToggleAccessibilityPref(JuiceDirector.ShakePrefKey, 1);
+                    break;
+                case Item.ReduceFlash:
+                    ToggleAccessibilityPref(JuiceDirector.FlashReducePrefKey, 0);
+                    break;
+                case Item.Close:
+                    _open = false;
+                    break;
+            }
+            _panelText = null;
         }
 
         void SetVisible(bool visible, string body)
@@ -121,9 +205,7 @@ namespace Shmup.Presentation.Battle
 
         void RefreshPanelText()
         {
-            int panelKey = (_resolutionIndex << 1) | (Screen.fullScreen ? 1 : 0);
-            if (_panelText != null && panelKey == _panelKey) return;
-            _panelKey = panelKey;
+            if (_panelText != null) return;
             var resolution = Resolutions[_resolutionIndex];
             var fire = FindFireAction();
             string fireBinding = fire != null
@@ -133,15 +215,27 @@ namespace Shmup.Presentation.Battle
                 : "?";
             bool shakeOn = PlayerPrefs.GetInt(JuiceDirector.ShakePrefKey, 1) == 1;
             bool flashReduce = PlayerPrefs.GetInt(JuiceDirector.FlashReducePrefKey, 0) == 1;
-            _panelText =
-                $"[R] RESOLUTION   {resolution.x} x {resolution.y}\n" +
-                $"[F] FULLSCREEN   {(Screen.fullScreen ? "ON" : "OFF")}\n" +
-                $"[B] REBIND FIRE  (now: {fireBinding})\n" +
-                "[1]~[4] REBIND MOVE  (up/down/left/right)\n" +
-                "[X] RESET BINDINGS\n" +
-                $"[S] SCREEN SHAKE   {(shakeOn ? "ON" : "OFF")}\n" +
-                $"[G] REDUCE FLASH   {(flashReduce ? "ON" : "OFF")}\n\n" +
-                "[O] CLOSE";
+
+            var sb = new System.Text.StringBuilder(512);
+            AppendItem(sb, Item.Resolution, $"RESOLUTION   ◄ {resolution.x} x {resolution.y} ►");
+            AppendItem(sb, Item.Fullscreen, $"FULLSCREEN   {(Screen.fullScreen ? "ON" : "OFF")}");
+            AppendItem(sb, Item.RebindFire, $"REBIND FIRE  (now: {fireBinding})");
+            AppendItem(sb, Item.RebindUp, "REBIND MOVE UP");
+            AppendItem(sb, Item.RebindDown, "REBIND MOVE DOWN");
+            AppendItem(sb, Item.RebindLeft, "REBIND MOVE LEFT");
+            AppendItem(sb, Item.RebindRight, "REBIND MOVE RIGHT");
+            AppendItem(sb, Item.ResetBindings, "RESET BINDINGS");
+            AppendItem(sb, Item.ScreenShake, $"SCREEN SHAKE   {(shakeOn ? "ON" : "OFF")}");
+            AppendItem(sb, Item.ReduceFlash, $"REDUCE FLASH   {(flashReduce ? "ON" : "OFF")}");
+            AppendItem(sb, Item.Close, "CLOSE  [O]/(Select)");
+            _panelText = sb.ToString();
+        }
+
+        void AppendItem(System.Text.StringBuilder sb, Item item, string label)
+        {
+            sb.Append((int)item == _cursor ? "▶ " : "   ");
+            sb.Append(label);
+            if (item != Item.Close) sb.Append('\n');
         }
 
         void Apply(bool fullscreen)

@@ -38,7 +38,7 @@ namespace Shmup.Presentation.Battle
             _volumeText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextMain,
                 new Vector2(0.5f, 1f), new Vector2(0f, -46f), TextAnchor.UpperCenter, "Volume");
             UiKit.CreateCornerText(panel, _font,
-                "ESC/(Start) 계속    O 옵션    Q 타이틀", 11, UiKit.TextDim,
+                "ESC/(Start) 계속    O/(Select) 옵션    Q 타이틀", 11, UiKit.TextDim,
                 new Vector2(0.5f, 0f), new Vector2(0f, 14f), TextAnchor.LowerCenter, "Hints");
 
             _root.SetActive(false);
@@ -54,6 +54,7 @@ namespace Shmup.Presentation.Battle
             if (toggle)
                 SetPaused(!_paused);
             if (!_paused) return;
+            if (OptionsScreen.IsOpen) return;   // 옵션 내비게이션과 입력 충돌 방지
 
             if (keyboard != null)
             {

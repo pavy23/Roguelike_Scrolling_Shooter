@@ -270,6 +270,18 @@ namespace Shmup.Presentation.Battle
                 }
             }
             if (_run == null)
+            {
+                // 난이도 배율 (REQ-020): 새 런은 타이틀 선택, 리플레이는 기록 당시 값
+                int diffNum, diffDen;
+                if (_replayMode && pendingReplay != null)
+                {
+                    diffNum = Mathf.Max(1, pendingReplay.difficultyNumerator);
+                    diffDen = Mathf.Max(1, pendingReplay.difficultyDenominator);
+                }
+                else
+                {
+                    DifficultySelect.GetMultiplier(out diffNum, out diffDen);
+                }
                 _run = new RunManager(
                     (ulong)Seed,
                     new SegmentStageGenerator(data.StageGeneration),
@@ -277,7 +289,10 @@ namespace Shmup.Presentation.Battle
                     data.BattleContent,
                     data.CreatePowerUpGauge(),
                     data.Rewards,
-                    selectedShip);
+                    selectedShip,
+                    diffNum,
+                    diffDen);
+            }
             _sim = _run.Battle;
 
             // 라이브 신규 런만 녹화한다 (리플레이/이어하기 런은 제외 — 첫 목숨 기준)
@@ -384,6 +399,8 @@ namespace Shmup.Presentation.Battle
                         seed = Seed,
                         shipId = _recordShipId,
                         finalScore = _run.TotalScore,
+                        difficultyNumerator = _run.DifficultyMultiplierNumerator,
+                        difficultyDenominator = _run.DifficultyMultiplierDenominator,
                         rewardChoices = _recordedChoices.ToArray(),
                         recording = _recorder.Export()
                     });

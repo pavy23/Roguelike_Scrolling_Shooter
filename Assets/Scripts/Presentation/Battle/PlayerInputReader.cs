@@ -96,9 +96,20 @@ namespace Shmup.Presentation.Battle
                 _activatePressedThisFrame = true;
         }
 
+        /// <summary>데모 영상 녹화용 오토파일럿 (dev 전용 — 사인 이동 + 연사 + 주기 활성화).</summary>
+        public static bool AutopilotEnabled;
+
         /// <summary>한 틱 분량의 입력을 만들어 반환하고 눌림 래치를 소모한다.</summary>
         public InputCommand ConsumeCommand()
         {
+            if (AutopilotEnabled)
+            {
+                float t = Time.time;
+                int moveY = Mathf.Sin(t * 1.1f) > 0.25f ? 1 : (Mathf.Sin(t * 1.1f) < -0.25f ? -1 : 0);
+                int moveX = Mathf.Sin(t * 0.4f) > 0.5f ? 1 : (Mathf.Sin(t * 0.4f) < -0.6f ? -1 : 0);
+                bool activate = Mathf.Repeat(t, 9f) < 0.1f;   // ~9초마다 게이지 활성화
+                return new InputCommand(moveX, moveY, true, activate);
+            }
             if (!enabled) return InputCommand.None;
 
             var command = new InputCommand(Digital(_move.x), Digital(_move.y),
