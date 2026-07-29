@@ -1,7 +1,7 @@
 {
   "schemaVersion": 3,
   "dropTable": {
-    "noDropWeight": 8
+    "noDropWeight": 12
   },
   "enemies": [
     {

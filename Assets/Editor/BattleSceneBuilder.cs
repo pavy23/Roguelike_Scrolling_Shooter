@@ -868,6 +868,15 @@ namespace Shmup.EditorTools
             var popups = battleRoot.AddComponent<ScorePopups>();
             SetReference(popups, "_font", uiFontBold);
             SetReference(director, "_scorePopups", popups);
+            // 적 등장 예고 마커
+            var telegraphRoot = new GameObject("SpawnMarkers");
+            telegraphRoot.transform.SetParent(battleRoot.transform, false);
+            var telegraph = battleRoot.AddComponent<SpawnTelegraph>();
+            SetReference(telegraph, "_root", telegraphRoot.transform);
+            SetReference(telegraph, "_markerSprite",
+                LoadExternalSprite("fx_spawn_marker.png", "fx_spawn_marker"));
+            SetReference(director, "_spawnTelegraph", telegraph);
+
             var lowHp = battleRoot.AddComponent<LowHpWarning>();
             SetReference(lowHp, "_director", director);
             SetReference(lowHp, "_warningClip", LoadClip("sfx_warning"));

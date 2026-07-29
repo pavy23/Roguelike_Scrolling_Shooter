@@ -167,6 +167,10 @@ namespace Shmup.Presentation.Battle
         public BattleModifier ActiveModifiers => _run != null ? _run.ActiveModifiers : BattleModifier.None;
 
         [SerializeField] ScorePopups _scorePopups;
+        [SerializeField] SpawnTelegraph _spawnTelegraph;
+        int _lastBossHp = -1;
+        float _bossFlashAge = float.MaxValue;
+        const float BossFlashDuration = 0.09f;
 
         // 경로 선택 (REQ-028): RouteScreen이 읽고 고르는 얇은 어댑터
         public bool AwaitingRoute => _run != null && _run.State == RunState.AwaitingRoute;
@@ -602,6 +606,7 @@ namespace Shmup.Presentation.Battle
 
             _sim = battle;
             ScoreMultiplier = 1;   // 새 배틀 인스턴스 — 배율 표시 초기화
+            _lastBossHp = -1;      // 보스 피격 플래시 오인 방지
             ApplyStageTheme();
             ApplyBossSprite();
         }
@@ -756,6 +761,29 @@ namespace Shmup.Presentation.Battle
             if (_run != null && _run.StagePlan != null)
                 ApplyIdleAnimation(_bossRenderer, _run.StagePlan.BossId, 0);
 
+            // 보스 피격 플래시 + 빈사 맥동 (HP 바 외에 시각 피드백이 없던 문제)
+            int bossHp = _sim.Boss.Hp;
+            if (_lastBossHp >= 0 && bossHp < _lastBossHp)
+                _bossFlashAge = 0f;
+            _lastBossHp = bossHp;
+
+            var bossColor = Color.white;
+            if (_bossFlashAge < BossFlashDuration)
+            {
+                _bossFlashAge += Time.deltaTime;
+                float t = Mathf.Clamp01(_bossFlashAge / BossFlashDuration);
+                bossColor = Color.Lerp(new Color(1f, 0.55f, 0.55f), Color.white, t);
+            }
+            else if (_sim.Boss.MaxHp > 0 && bossHp * 4 <= _sim.Boss.MaxHp)
+            {
+                // 빈사(25% 이하): 붉은 맥동 — 접근성 플래시 감소 시 완화
+                float amplitude = _juice != null && _juice.FlashReduced ? 0.12f : 0.3f;
+                float pulse = (Mathf.Sin(Time.time * 7f) + 1f) * 0.5f * amplitude;
+                bossColor = new Color(1f, 1f - pulse, 1f - pulse);
+            }
+            if (_bossRenderer.color != bossColor)
+                _bossRenderer.color = bossColor;
+
             if (_bossHpFill != null && _sim.Boss.MaxHp > 0)
             {
                 float fraction = Mathf.Clamp01((float)_sim.Boss.Hp / _sim.Boss.MaxHp);
@@ -901,6 +929,10 @@ namespace Shmup.Presentation.Battle
                     var renderer = view.GetComponent<SpriteRenderer>();
                     _enemyRenderers[enemy.Id] = renderer;
                     _enemyDeathTints[enemy.Id] = DeathTintFor(enemy.DefinitionId);
+                    // 화면 밖에서 스폰된 적은 등장 예고 마커를 띄운다
+                    if (_spawnTelegraph != null
+                        && enemy.X > SimSpace.PlayfieldHalfWidthSubUnits)
+                        _spawnTelegraph.Warn(SimView.ToWorld(enemy.X, enemy.Y).y);
                     if (renderer != null)
                     {
                         Sprite typed = SpriteForEnemy(enemy.DefinitionId);

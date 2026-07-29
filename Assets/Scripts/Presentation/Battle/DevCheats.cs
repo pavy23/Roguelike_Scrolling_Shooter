@@ -17,13 +17,26 @@ namespace Shmup.Presentation.Battle
     {
         [SerializeField] BattleDirector _director;
 
+        /// <summary>F3으로 오버레이 표시 전환. 릴리스에서 기본 숨김 (개발 빌드는 기본 표시).</summary>
+        static bool _overlayVisible;
+        static bool _overlayDefaultResolved;
+
         GUIStyle _style;
+
+        void Awake()
+        {
+            // Debug.isDebugBuild는 필드 초기화 시점에 호출할 수 없다 (Unity 제약)
+            if (_overlayDefaultResolved) return;
+            _overlayDefaultResolved = true;
+            _overlayVisible = Debug.isDebugBuild || Application.isEditor;
+        }
 
         void Update()
         {
             var keyboard = Keyboard.current;
             if (keyboard == null || _director == null || _director.Gauge == null) return;
 
+            if (keyboard.f3Key.wasPressedThisFrame) _overlayVisible = !_overlayVisible;
             if (keyboard.f9Key.wasPressedThisFrame) _director.Gauge.Collect();
             if (keyboard.f10Key.wasPressedThisFrame) _director.Gauge.Activate();
             if (keyboard.f11Key.wasPressedThisFrame) _director.DevFastForward(600);   // 10초 스킵
@@ -38,7 +51,7 @@ namespace Shmup.Presentation.Battle
 
         void OnGUI()
         {
-            if (_director == null) return;
+            if (_director == null || !_overlayVisible) return;
 
             if (_style == null)
                 _style = new GUIStyle(GUI.skin.label)

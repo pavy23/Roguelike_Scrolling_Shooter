@@ -27,11 +27,11 @@ namespace Shmup.Presentation.Battle
 
         enum Item
         {
-            Resolution = 0, Fullscreen, RebindFire,
+            Resolution = 0, Fullscreen, RebindFire, RebindActivate,
             RebindUp, RebindDown, RebindLeft, RebindRight,
             ResetBindings, ScreenShake, ReduceFlash, Close
         }
-        const int ItemCount = 11;
+        const int ItemCount = 12;
 
         /// <summary>PauseScreen이 입력 충돌(볼륨 화살표 등)을 피하기 위한 상태 공유.</summary>
         public static bool IsOpen { get; private set; }
@@ -151,6 +151,7 @@ namespace Shmup.Presentation.Battle
                 if (keyboard.rKey.wasPressedThisFrame) ActivateItem(Item.Resolution);
                 if (keyboard.fKey.wasPressedThisFrame) ActivateItem(Item.Fullscreen);
                 if (keyboard.bKey.wasPressedThisFrame) ActivateItem(Item.RebindFire);
+                if (keyboard.nKey.wasPressedThisFrame) ActivateItem(Item.RebindActivate);
                 if (keyboard.digit1Key.wasPressedThisFrame) ActivateItem(Item.RebindUp);
                 if (keyboard.digit2Key.wasPressedThisFrame) ActivateItem(Item.RebindDown);
                 if (keyboard.digit3Key.wasPressedThisFrame) ActivateItem(Item.RebindLeft);
@@ -176,6 +177,7 @@ namespace Shmup.Presentation.Battle
                     Apply(!Screen.fullScreen);
                     break;
                 case Item.RebindFire: StartRebindFire(); break;
+                case Item.RebindActivate: StartRebindActivate(); break;
                 case Item.RebindUp: StartRebindMovePart("up"); break;
                 case Item.RebindDown: StartRebindMovePart("down"); break;
                 case Item.RebindLeft: StartRebindMovePart("left"); break;
@@ -219,7 +221,14 @@ namespace Shmup.Presentation.Battle
             var sb = new System.Text.StringBuilder(512);
             AppendItem(sb, Item.Resolution, $"RESOLUTION   ◄ {resolution.x} x {resolution.y} ►");
             AppendItem(sb, Item.Fullscreen, $"FULLSCREEN   {(Screen.fullScreen ? "ON" : "OFF")}");
+            var activate = FindActivateAction();
+            string activateBinding = activate != null
+                ? InputControlPath.ToHumanReadableString(
+                    activate.bindings[0].effectivePath,
+                    InputControlPath.HumanReadableStringOptions.OmitDevice)
+                : "?";
             AppendItem(sb, Item.RebindFire, $"REBIND FIRE  (now: {fireBinding})");
+            AppendItem(sb, Item.RebindActivate, $"REBIND ACTIVATE  (now: {activateBinding})");
             AppendItem(sb, Item.RebindUp, "REBIND MOVE UP");
             AppendItem(sb, Item.RebindDown, "REBIND MOVE DOWN");
             AppendItem(sb, Item.RebindLeft, "REBIND MOVE LEFT");
@@ -266,6 +275,19 @@ namespace Shmup.Presentation.Battle
             var fire = FindFireAction();
             if (fire == null) return;
             StartRebind(fire, -1);
+        }
+
+        InputAction FindActivateAction()
+        {
+            if (_input == null || _input.Actions == null) return null;
+            return _input.Actions.FindAction(_input.ActivateActionName, throwIfNotFound: false);
+        }
+
+        void StartRebindActivate()
+        {
+            var activate = FindActivateAction();
+            if (activate == null) return;
+            StartRebind(activate, -1);
         }
 
         /// <summary>Move 2D 컴포지트의 키보드 파트(up/down/left/right)를 리바인딩한다.</summary>

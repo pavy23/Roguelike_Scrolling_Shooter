@@ -17,6 +17,7 @@
       "id": "seg_intro_line",
       "difficultyMin": 1,
       "difficultyMax": 3,
+      "weight": 12,
       "lengthTicks": 600,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
@@ -80,6 +81,7 @@
       "id": "seg_sine_pair",
       "difficultyMin": 1,
       "difficultyMax": 2,
+      "weight": 10,
       "lengthTicks": 600,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
@@ -143,6 +145,7 @@
       "id": "seg_turret_floor",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 9,
       "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
@@ -225,6 +228,7 @@
       "id": "seg_swarm_fast",
       "difficultyMin": 2,
       "difficultyMax": 3,
+      "weight": 5,
       "lengthTicks": 600,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
@@ -348,6 +352,7 @@
       "id": "seg_mixed_mid",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 11,
       "lengthTicks": 720,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
@@ -451,6 +456,7 @@
       "id": "seg_turret_ceiling",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 9,
       "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
@@ -539,6 +545,7 @@
       "id": "seg_sandwich",
       "difficultyMin": 3,
       "difficultyMax": 5,
+      "weight": 6,
       "lengthTicks": 840,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
@@ -663,6 +670,7 @@
       "id": "seg_sine_rush",
       "difficultyMin": 1,
       "difficultyMax": 3,
+      "weight": 10,
       "lengthTicks": 660,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
@@ -744,15 +752,16 @@
     },
     {
       "id": "seg_hive_spore_cloud",
-      "theme": "hive",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 8,
       "lengthTicks": 720,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         7
       ],
+      "theme": "hive",
       "spawns": [
         {
           "tick": 30,
@@ -884,15 +893,16 @@
     },
     {
       "id": "seg_hive_lancer_rush",
-      "theme": "hive",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 4,
       "lengthTicks": 660,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         2
       ],
+      "theme": "hive",
       "spawns": [
         {
           "tick": 30,
@@ -1044,15 +1054,16 @@
     },
     {
       "id": "seg_fortress_sentry_grid",
-      "theme": "fortress",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 5,
       "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         6
       ],
+      "theme": "fortress",
       "spawns": [
         {
           "tick": 30,
@@ -1220,15 +1231,16 @@
     },
     {
       "id": "seg_fortress_interceptor_assault",
-      "theme": "fortress",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 3,
       "lengthTicks": 780,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         2
       ],
+      "theme": "fortress",
       "spawns": [
         {
           "tick": 20,
@@ -1426,15 +1438,16 @@
     },
     {
       "id": "seg_nebula_wisp_storm",
-      "theme": "nebula",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 4,
       "lengthTicks": 780,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         7
       ],
+      "theme": "nebula",
       "spawns": [
         {
           "tick": 30,
@@ -1633,15 +1646,16 @@
     },
     {
       "id": "seg_nebula_wisp_ribbon",
-      "theme": "nebula",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 5,
       "lengthTicks": 720,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         2
       ],
+      "theme": "nebula",
       "spawns": [
         {
           "tick": 30,
@@ -1820,15 +1834,16 @@
     },
     {
       "id": "seg_core_guardian_wall",
-      "theme": "core",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 3,
       "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         6
       ],
+      "theme": "core",
       "spawns": [
         {
           "tick": 20,
@@ -2048,15 +2063,16 @@
     },
     {
       "id": "seg_core_final_gauntlet",
-      "theme": "core",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 2,
       "lengthTicks": 840,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         2
       ],
+      "theme": "core",
       "spawns": [
         {
           "tick": 20,
@@ -2301,15 +2317,16 @@
     },
     {
       "id": "seg_scrap_debris_line",
-      "theme": "scrapyard",
       "difficultyMin": 1,
       "difficultyMax": 2,
+      "weight": 12,
       "lengthTicks": 600,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         7
       ],
+      "theme": "scrapyard",
       "spawns": [
         {
           "tick": 40,
@@ -2376,15 +2393,16 @@
     },
     {
       "id": "seg_scrap_pipe_dash",
-      "theme": "scrapyard",
       "difficultyMin": 1,
       "difficultyMax": 2,
+      "weight": 11,
       "lengthTicks": 600,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         7
       ],
+      "theme": "scrapyard",
       "spawns": [
         {
           "tick": 30,
@@ -2461,15 +2479,16 @@
     },
     {
       "id": "seg_scrap_skimmer_weave",
-      "theme": "scrapyard",
       "difficultyMin": 1,
       "difficultyMax": 3,
+      "weight": 10,
       "lengthTicks": 660,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         2
       ],
+      "theme": "scrapyard",
       "spawns": [
         {
           "tick": 40,
@@ -2551,15 +2570,16 @@
     },
     {
       "id": "seg_scrap_junk_corridor",
-      "theme": "scrapyard",
       "difficultyMin": 2,
       "difficultyMax": 4,
+      "weight": 7,
       "lengthTicks": 720,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         7
       ],
+      "theme": "scrapyard",
       "spawns": [
         {
           "tick": 30,
@@ -2681,15 +2701,16 @@
     },
     {
       "id": "seg_scrap_tumbler_pack",
-      "theme": "scrapyard",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 8,
       "lengthTicks": 720,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         7
       ],
+      "theme": "scrapyard",
       "spawns": [
         {
           "tick": 40,
@@ -2816,15 +2837,16 @@
     },
     {
       "id": "seg_scrap_rust_gauntlet",
-      "theme": "scrapyard",
       "difficultyMin": 3,
       "difficultyMax": 5,
+      "weight": 4,
       "lengthTicks": 780,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         6
       ],
+      "theme": "scrapyard",
       "spawns": [
         {
           "tick": 30,
@@ -2967,15 +2989,16 @@
     },
     {
       "id": "seg_hive_brood_wave",
-      "theme": "hive",
       "difficultyMin": 2,
       "difficultyMax": 4,
+      "weight": 10,
       "lengthTicks": 720,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         7
       ],
+      "theme": "hive",
       "spawns": [
         {
           "tick": 30,
@@ -3101,15 +3124,16 @@
     },
     {
       "id": "seg_hive_hornet_dive",
-      "theme": "hive",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 7,
       "lengthTicks": 660,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         7
       ],
+      "theme": "hive",
       "spawns": [
         {
           "tick": 30,
@@ -3241,15 +3265,16 @@
     },
     {
       "id": "seg_hive_organic_pulse",
-      "theme": "hive",
       "difficultyMin": 3,
       "difficultyMax": 5,
+      "weight": 6,
       "lengthTicks": 780,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         2
       ],
+      "theme": "hive",
       "spawns": [
         {
           "tick": 30,
@@ -3392,15 +3417,16 @@
     },
     {
       "id": "seg_hive_nest_choke",
-      "theme": "hive",
       "difficultyMin": 3,
       "difficultyMax": 5,
+      "weight": 5,
       "lengthTicks": 780,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         6
       ],
+      "theme": "hive",
       "spawns": [
         {
           "tick": 40,
@@ -3538,15 +3564,16 @@
     },
     {
       "id": "seg_fortress_mortar_line",
-      "theme": "fortress",
       "difficultyMin": 2,
       "difficultyMax": 4,
+      "weight": 9,
       "lengthTicks": 780,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         7
       ],
+      "theme": "fortress",
       "spawns": [
         {
           "tick": 30,
@@ -3678,15 +3705,16 @@
     },
     {
       "id": "seg_fortress_turret_cross",
-      "theme": "fortress",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 6,
       "lengthTicks": 840,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         6
       ],
+      "theme": "fortress",
       "spawns": [
         {
           "tick": 20,
@@ -3849,15 +3877,16 @@
     },
     {
       "id": "seg_fortress_drone_lattice",
-      "theme": "fortress",
       "difficultyMin": 3,
       "difficultyMax": 5,
+      "weight": 5,
       "lengthTicks": 840,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         7
       ],
+      "theme": "fortress",
       "spawns": [
         {
           "tick": 30,
@@ -4031,15 +4060,16 @@
     },
     {
       "id": "seg_fortress_armored_gate",
-      "theme": "fortress",
       "difficultyMin": 3,
       "difficultyMax": 5,
+      "weight": 3,
       "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         2
       ],
+      "theme": "fortress",
       "spawns": [
         {
           "tick": 20,
@@ -4218,15 +4248,16 @@
     },
     {
       "id": "seg_nebula_echo_ribbon",
-      "theme": "nebula",
       "difficultyMin": 2,
       "difficultyMax": 4,
+      "weight": 9,
       "lengthTicks": 720,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         7
       ],
+      "theme": "nebula",
       "spawns": [
         {
           "tick": 30,
@@ -4363,15 +4394,16 @@
     },
     {
       "id": "seg_nebula_void_moth_swarm",
-      "theme": "nebula",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 7,
       "lengthTicks": 720,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         7
       ],
+      "theme": "nebula",
       "spawns": [
         {
           "tick": 30,
@@ -4514,15 +4546,16 @@
     },
     {
       "id": "seg_nebula_crystal_drift",
-      "theme": "nebula",
       "difficultyMin": 3,
       "difficultyMax": 5,
+      "weight": 6,
       "lengthTicks": 780,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         2
       ],
+      "theme": "nebula",
       "spawns": [
         {
           "tick": 30,
@@ -4671,15 +4704,16 @@
     },
     {
       "id": "seg_nebula_prism_haze",
-      "theme": "nebula",
       "difficultyMin": 3,
       "difficultyMax": 5,
+      "weight": 5,
       "lengthTicks": 780,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         6
       ],
+      "theme": "nebula",
       "spawns": [
         {
           "tick": 40,
@@ -4828,15 +4862,16 @@
     },
     {
       "id": "seg_core_rift_blades",
-      "theme": "core",
       "difficultyMin": 2,
       "difficultyMax": 4,
+      "weight": 8,
       "lengthTicks": 720,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         7
       ],
+      "theme": "core",
       "spawns": [
         {
           "tick": 30,
@@ -4973,15 +5008,16 @@
     },
     {
       "id": "seg_core_phase_discs",
-      "theme": "core",
       "difficultyMin": 2,
       "difficultyMax": 5,
+      "weight": 7,
       "lengthTicks": 780,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         7
       ],
+      "theme": "core",
       "spawns": [
         {
           "tick": 30,
@@ -5129,15 +5165,16 @@
     },
     {
       "id": "seg_core_shard_battery",
-      "theme": "core",
       "difficultyMin": 3,
       "difficultyMax": 5,
+      "weight": 4,
       "lengthTicks": 840,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         6
       ],
+      "theme": "core",
       "spawns": [
         {
           "tick": 20,
@@ -5307,15 +5344,16 @@
     },
     {
       "id": "seg_core_void_mix",
-      "theme": "core",
       "difficultyMin": 3,
       "difficultyMax": 5,
+      "weight": 4,
       "lengthTicks": 840,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
         2
       ],
+      "theme": "core",
       "spawns": [
         {
           "tick": 30,

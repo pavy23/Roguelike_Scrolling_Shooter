@@ -19,6 +19,7 @@ namespace Shmup.Presentation.Battle
         [SerializeField] string _actionMapName = "Player";
         [SerializeField] string _moveActionName = "Move";
         [SerializeField] string _fireActionName = "Attack";
+        [SerializeField] string _activateActionName = "Activate";
 
         [Tooltip("아날로그 스틱을 디지털 8방향으로 바꿀 때의 임계값.")]
         [SerializeField, Range(0.05f, 0.95f)] float _deadZone = 0.4f;
@@ -26,9 +27,11 @@ namespace Shmup.Presentation.Battle
         /// <summary>옵션 화면(리바인딩)용 읽기 접근자.</summary>
         public InputActionAsset Actions => _actions;
         public string FireActionName => _fireActionName;
+        public string ActivateActionName => _activateActionName;
 
         InputAction _moveAction;
         InputAction _fireAction;
+        InputAction _activateAction;
 
         Vector2 _move;
         bool _fireHeld;
@@ -56,6 +59,8 @@ namespace Shmup.Presentation.Battle
 
             _moveAction = map.FindAction(_moveActionName, throwIfNotFound: false);
             _fireAction = map.FindAction(_fireActionName, throwIfNotFound: false);
+            // 게이지 활성화 (REQ-019). 액션이 없는 구 에셋이면 직접 키 샘플링으로 폴백.
+            _activateAction = map.FindAction(_activateActionName, throwIfNotFound: false);
             if (_moveAction == null || _fireAction == null)
             {
                 Debug.LogError($"[{nameof(PlayerInputReader)}] '{_moveActionName}' 또는 " +
@@ -68,12 +73,14 @@ namespace Shmup.Presentation.Battle
         {
             _moveAction?.Enable();
             _fireAction?.Enable();
+            _activateAction?.Enable();
         }
 
         void OnDisable()
         {
             _moveAction?.Disable();
             _fireAction?.Disable();
+            _activateAction?.Disable();
             _move = Vector2.zero;
             _fireHeld = false;
             _firePressedThisFrame = false;
@@ -85,15 +92,23 @@ namespace Shmup.Presentation.Battle
             _fireHeld = _fireAction.IsPressed();
             if (_fireAction.WasPressedThisFrame()) _firePressedThisFrame = true;
 
-            // 게이지 활성화 (REQ-019): X키 / 패드 (Y). 액션 에셋에 항목이 없어 직접 샘플링 —
-            // 리바인딩 통합은 후속 (Reviews 기록). 상승 에지 판정은 Core가 한다.
-            var keyboard = Keyboard.current;
-            var gamepad = Gamepad.current;
-            _activateHeld = (keyboard != null && keyboard.xKey.isPressed)
-                         || (gamepad != null && gamepad.buttonNorth.isPressed);
-            if ((keyboard != null && keyboard.xKey.wasPressedThisFrame)
-                || (gamepad != null && gamepad.buttonNorth.wasPressedThisFrame))
-                _activatePressedThisFrame = true;
+            // 게이지 활성화 (REQ-019): Activate 액션(기본 X / 패드 Y) — 리바인딩 가능.
+            // 액션이 없는 구 에셋에서는 하드코딩 키로 폴백한다. 상승 에지 판정은 Core가 한다.
+            if (_activateAction != null)
+            {
+                _activateHeld = _activateAction.IsPressed();
+                if (_activateAction.WasPressedThisFrame()) _activatePressedThisFrame = true;
+            }
+            else
+            {
+                var keyboard = Keyboard.current;
+                var gamepad = Gamepad.current;
+                _activateHeld = (keyboard != null && keyboard.xKey.isPressed)
+                             || (gamepad != null && gamepad.buttonNorth.isPressed);
+                if ((keyboard != null && keyboard.xKey.wasPressedThisFrame)
+                    || (gamepad != null && gamepad.buttonNorth.wasPressedThisFrame))
+                    _activatePressedThisFrame = true;
+            }
         }
 
         /// <summary>데모 영상 녹화용 오토파일럿 (dev 전용 — 사인 이동 + 연사 + 주기 활성화).</summary>
