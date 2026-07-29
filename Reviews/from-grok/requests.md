@@ -4,6 +4,53 @@
 
 ---
 
+## 2026-07-29 일반 적 4종 로스터 최종 완성 26→30 (잠정 · roster-30)
+
+**승인 맥락:** 오케스트레이터 잠정 승인. AGENTS.md §7 최종 확정은 사람 검토 후 유지.  
+**범위:** `GameData/enemies.json` · `waves.json` + `GameDataParserTests` 개수 동기. 스키마 변경 없음. `mini_` 접두 미사용.
+
+### 테마 분포 점검 (before → after, 시그니처 비미니 기준)
+
+| 테마 | before non-mini | after non-mini | 보강 |
+|---|---:|---:|---|
+| scrapyard | 3 | **4** | `pipe_rat` |
+| hive | 3 | **4** | `sting_hornet` |
+| fortress | 3 | 3 | — |
+| nebula | 3 | 3 | — |
+| core | **2** (최박) | **4** | `phase_disc`, `rift_blade` |
+
+우선순위: core(시그니처 최박)×2 · hive(테마 풀 unique 최박)×1 · scrapyard×1.
+
+### enemies.json — 신규 4종
+
+동일 HP 교체로 stage 1–5 avgHP 곡선 **137→186→279→408→486** 유지.
+
+| id | 테마 | movePattern | hp | moveSpeed | fireInterval | dropWeight | hitbox (half) | 의도 |
+|---|---|---|---|---|---|---|---|---|
+| `sting_hornet` | hive | sine | **8** | **6.75** | 0 | 3 | 0.75×0.5625 | 독침 호넷. 고속 사인 (amp 2.0 / 70t). |
+| `pipe_rat` | scrapyard | straight | **10** | **7.0** | 0 | 3 | 0.5625×0.46875 | 배관 쥐. 고속 직선 잡졸. |
+| `phase_disc` | core | static | **22** | 0 | **68** | 4 | 0.75×0.75 | 위상 원반. 코어 정지 사격 (sentry 계열). |
+| `rift_blade` | core | straight | **4** | **11.0** | 0 | 2 | 0.75×0.46875 | 균열 칼날. 초고속 직선 돌파. |
+
+### waves.json — 동일 HP 교체 (신설 세그먼트 없음)
+
+| 세그먼트 | 교체 |
+|---|---|
+| `seg_intro_line` / `seg_sine_rush` | rust_skimmer → pipe_rat (부분) |
+| `seg_hive_spore_cloud` / `seg_hive_lancer_rush` | spore_drifter → sting_hornet (부분) |
+| `seg_core_guardian_wall` / `seg_core_final_gauntlet` | sentry→phase_disc, interceptor→rift_blade (부분) |
+
+### 테스트 동기화
+
+`GameDataParserTests` Enemies **26 → 30**. Segments/Bosses 불변(16/5).
+
+### CLAUDE 후속
+
+1. `Assets/Resources/GameData/enemies.json` · `waves.json` 동기화.
+2. 뷰 스프라이트: 접두 `sting_` / `pipe_` / `phase_` / `rift_` 매핑.
+
+---
+
 ## 2026-07-29 일반 적 4종 로스터 증원 22→26 (잠정 · roster-30 목표)
 
 **승인 맥락:** 오케스트레이터 잠정 승인. AGENTS.md §7 최종 확정은 사람 검토 후 유지.  
