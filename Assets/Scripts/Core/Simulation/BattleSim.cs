@@ -272,8 +272,11 @@ namespace Shmup.Core.Simulation
 
         public int PlayerBulletSpeedNumerator { get => _bulletSpeedNumerator; set => _bulletSpeedNumerator = value; }
         public int PlayerBulletSpeedDenominator { get => _bulletSpeedDenominator; set => _bulletSpeedDenominator = value; }
+        public WeaponType PlayerWeaponType { get; set; } = WeaponType.Vulcan;
         public int MainShotBaseDamage { get; set; }
         public int FireIntervalTicks { get; set; }
+        public int MainShotHalfWidth { get; set; }
+        public int MainShotHalfHeight { get; set; }
         internal bool UseConfiguredMainShotStats { get; set; }
         public int MaxBullets { get; set; }
         public int PlayerMinX { get; set; }
@@ -304,6 +307,43 @@ namespace Shmup.Core.Simulation
         public int MainShotRapidFireStartLevel { get; set; } = 3;
         public int MainShotFireIntervalReductionPerLevel { get; set; } = 1;
         public int MainShotMinimumFireIntervalTicks { get; set; } = 4;
+
+        // Provisional primary-family profiles (REQ-022, AGENTS.md section 7).
+        // RunManager copies the selected profile into the resolved main-shot
+        // fields above, so passive rewards and suspend checkpoints keep using
+        // one stable set of integers.
+        public int LaserBaseDamage { get; set; } = 20;
+        public int LaserFireIntervalTicks { get; set; } = 16;
+        public int LaserRapidFireStartLevel { get; set; } = 2;
+        public int LaserFireIntervalReductionPerLevel { get; set; } = 2;
+        public int LaserMinimumFireIntervalTicks { get; set; } = 10;
+        public int LaserSpeedNumerator { get; set; } =
+            32 * SimSpace.SubUnitsPerWorldUnit;
+        public int LaserSpeedDenominator { get; set; } =
+            SimSpace.TicksPerSecond;
+        public int LaserHalfWidth { get; set; } =
+            SimSpace.SubUnitsPerWorldUnit / 2;
+        public int LaserHalfHeight { get; set; } =
+            SimSpace.SubUnitsPerWorldUnit / 16;
+        /// <summary>Enemies passed after the first laser hit.</summary>
+        public int LaserPierceEnemyCount { get; set; } = 2;
+
+        public int SpreadBaseDamage { get; set; } = 6;
+        public int SpreadFireIntervalTicks { get; set; } = 10;
+        public int SpreadRapidFireStartLevel { get; set; } = 3;
+        public int SpreadFireIntervalReductionPerLevel { get; set; } = 1;
+        public int SpreadMinimumFireIntervalTicks { get; set; } = 6;
+        public int SpreadSpeedNumerator { get; set; } =
+            18 * SimSpace.SubUnitsPerWorldUnit;
+        public int SpreadSpeedDenominator { get; set; } =
+            SimSpace.TicksPerSecond;
+        public int SpreadHalfWidth { get; set; } =
+            SimSpace.SubUnitsPerWorldUnit / 4;
+        public int SpreadHalfHeight { get; set; } =
+            SimSpace.SubUnitsPerWorldUnit / 8;
+        public int SpreadWays { get; set; } = 3;
+        /// <summary>Angular spacing in 1/64-turn SineLut slots.</summary>
+        public int SpreadStepLutSlots { get; set; } = 2;
         public int MissileBaseDamage { get; set; } = 2;
         public int MissileFireIntervalTicks { get; set; } = 45;
         public int MissileRapidFireStartLevel { get; set; } = 2;
@@ -374,7 +414,10 @@ namespace Shmup.Core.Simulation
                 PlayerSpeedDenominator = SimSpace.TicksPerSecond,
                 PlayerBulletSpeedNumerator = 20 * u,
                 PlayerBulletSpeedDenominator = SimSpace.TicksPerSecond,
+                MainShotBaseDamage = 10,
                 FireIntervalTicks = 8,
+                MainShotHalfWidth = 3 * u / 8,
+                MainShotHalfHeight = 9 * u / 64,
                 MaxBullets = 64,
                 PlayerMinX = -39 * u / 2,
                 PlayerMaxX = 39 * u / 2,
@@ -411,6 +454,7 @@ namespace Shmup.Core.Simulation
         int PlayerY { get; }
         int PlayerHp { get; }
         int ShieldRemaining { get; }
+        WeaponType PlayerWeaponType { get; }
         IReadOnlyList<BulletState> Bullets { get; }
         IReadOnlyList<OptionState> Options { get; }
         IReadOnlyList<EnemyState> Enemies { get; }
@@ -447,6 +491,9 @@ namespace Shmup.Core.Simulation
         readonly int _playerSpeedNumerator, _playerSpeedDenominator;
         readonly int _bulletSpeedNumerator, _bulletSpeedDenominator;
         readonly int _fireIntervalTicks, _maxBullets;
+        readonly WeaponType _playerWeaponType;
+        readonly int _mainShotBasePierceEnemyCount;
+        readonly int _spreadWays, _spreadStepLutSlots;
         readonly int _mainShotRapidFireStartLevel;
         readonly int _mainShotFireIntervalReductionPerLevel;
         readonly int _mainShotMinimumFireIntervalTicks;
@@ -612,10 +659,34 @@ namespace Shmup.Core.Simulation
             _playerSpeedNumerator = config.PlayerSpeedNumerator;
             _playerSpeedDenominator = config.PlayerSpeedDenominator;
             _maxBullets = config.MaxBullets;
-            _mainShotRapidFireStartLevel = config.MainShotRapidFireStartLevel;
-            _mainShotFireIntervalReductionPerLevel =
-                config.MainShotFireIntervalReductionPerLevel;
-            _mainShotMinimumFireIntervalTicks = config.MainShotMinimumFireIntervalTicks;
+            _playerWeaponType = config.PlayerWeaponType;
+            _mainShotBasePierceEnemyCount =
+                _playerWeaponType == WeaponType.Laser
+                    ? config.LaserPierceEnemyCount
+                    : 0;
+            _spreadWays = config.SpreadWays;
+            _spreadStepLutSlots = config.SpreadStepLutSlots;
+            bool useLaserProfile =
+                !config.UseConfiguredMainShotStats
+                && _playerWeaponType == WeaponType.Laser;
+            bool useSpreadProfile =
+                !config.UseConfiguredMainShotStats
+                && _playerWeaponType == WeaponType.Spread;
+            _mainShotRapidFireStartLevel = useLaserProfile
+                ? config.LaserRapidFireStartLevel
+                : useSpreadProfile
+                    ? config.SpreadRapidFireStartLevel
+                    : config.MainShotRapidFireStartLevel;
+            _mainShotFireIntervalReductionPerLevel = useLaserProfile
+                ? config.LaserFireIntervalReductionPerLevel
+                : useSpreadProfile
+                    ? config.SpreadFireIntervalReductionPerLevel
+                    : config.MainShotFireIntervalReductionPerLevel;
+            _mainShotMinimumFireIntervalTicks = useLaserProfile
+                ? config.LaserMinimumFireIntervalTicks
+                : useSpreadProfile
+                    ? config.SpreadMinimumFireIntervalTicks
+                    : config.MainShotMinimumFireIntervalTicks;
             _missileBaseDamage = config.MissileBaseDamage;
             _missileFireIntervalTicks = config.MissileFireIntervalTicks;
             _missileRapidFireStartLevel = config.MissileRapidFireStartLevel;
@@ -704,28 +775,80 @@ namespace Shmup.Core.Simulation
             if (stageEnabled)
             {
                 WeaponDefinition weapon = content.PlayerWeapon;
-                _bulletSpeedNumerator = weapon.ProjectileSpeedNumerator;
-                _bulletSpeedDenominator = weapon.ProjectileSpeedDenominator;
+                _bulletSpeedNumerator = config.UseConfiguredMainShotStats
+                    ? config.PlayerBulletSpeedNumerator
+                    : useLaserProfile
+                        ? config.LaserSpeedNumerator
+                        : useSpreadProfile
+                            ? config.SpreadSpeedNumerator
+                            : weapon.ProjectileSpeedNumerator;
+                _bulletSpeedDenominator = config.UseConfiguredMainShotStats
+                    ? config.PlayerBulletSpeedDenominator
+                    : useLaserProfile
+                        ? config.LaserSpeedDenominator
+                        : useSpreadProfile
+                            ? config.SpreadSpeedDenominator
+                            : weapon.ProjectileSpeedDenominator;
                 _fireIntervalTicks = config.UseConfiguredMainShotStats
                     ? config.FireIntervalTicks
-                    : weapon.FireIntervalTicks;
+                    : useLaserProfile
+                        ? config.LaserFireIntervalTicks
+                        : useSpreadProfile
+                            ? config.SpreadFireIntervalTicks
+                            : weapon.FireIntervalTicks;
                 _playerBulletDamage = config.UseConfiguredMainShotStats
                     ? config.MainShotBaseDamage
-                    : weapon.BaseDamage;
-                _playerBulletHalfWidth = weapon.ProjectileHalfWidth;
-                _playerBulletHalfHeight = weapon.ProjectileHalfHeight;
+                    : useLaserProfile
+                        ? config.LaserBaseDamage
+                        : useSpreadProfile
+                            ? config.SpreadBaseDamage
+                            : weapon.BaseDamage;
+                _playerBulletHalfWidth = config.UseConfiguredMainShotStats
+                    ? config.MainShotHalfWidth
+                    : useLaserProfile
+                        ? config.LaserHalfWidth
+                        : useSpreadProfile
+                            ? config.SpreadHalfWidth
+                            : weapon.ProjectileHalfWidth;
+                _playerBulletHalfHeight = config.UseConfiguredMainShotStats
+                    ? config.MainShotHalfHeight
+                    : useLaserProfile
+                        ? config.LaserHalfHeight
+                        : useSpreadProfile
+                            ? config.SpreadHalfHeight
+                            : weapon.ProjectileHalfHeight;
                 ValidateDropTotals(content, _capsuleNoDropWeight);
                 _scheduledSpawns = BuildSchedule(stagePlan, content, out long totalTicks);
                 _stageTotalTicks = (int)Math.Min(totalTicks, int.MaxValue);
             }
             else
             {
-                _bulletSpeedNumerator = config.PlayerBulletSpeedNumerator;
-                _bulletSpeedDenominator = config.PlayerBulletSpeedDenominator;
-                _fireIntervalTicks = config.FireIntervalTicks;
+                _bulletSpeedNumerator = useLaserProfile
+                    ? config.LaserSpeedNumerator
+                    : useSpreadProfile
+                        ? config.SpreadSpeedNumerator
+                        : config.PlayerBulletSpeedNumerator;
+                _bulletSpeedDenominator = useLaserProfile
+                    ? config.LaserSpeedDenominator
+                    : useSpreadProfile
+                        ? config.SpreadSpeedDenominator
+                        : config.PlayerBulletSpeedDenominator;
+                _fireIntervalTicks = useLaserProfile
+                    ? config.LaserFireIntervalTicks
+                    : useSpreadProfile
+                        ? config.SpreadFireIntervalTicks
+                        : config.FireIntervalTicks;
                 _playerBulletDamage = 0;
-                _playerBulletHalfWidth = 0;
-                _playerBulletHalfHeight = 0;
+                _playerBulletHalfWidth = useLaserProfile
+                    ? config.LaserHalfWidth
+                    : useSpreadProfile
+                        ? config.SpreadHalfWidth
+                        : 0;
+                _playerBulletHalfHeight = useLaserProfile
+                    ? config.LaserHalfHeight
+                    : useSpreadProfile
+                        ? config.SpreadHalfHeight
+                        : 0;
                 _scheduledSpawns = Array.Empty<ScheduledSpawn>();
             }
 
@@ -741,7 +864,10 @@ namespace Shmup.Core.Simulation
             _bulletHomingTargetIds = new List<int>(bulletCapacity);
             _bulletGrazeScored = new List<byte>(bulletCapacity);
             long hitRecordCapacity =
-                (long)_maxBullets * (_pierceShotEnemyCount + 2L);
+                (long)_maxBullets
+                * (_mainShotBasePierceEnemyCount
+                    + _pierceShotEnemyCount
+                    + 2L);
             if (hitRecordCapacity > int.MaxValue)
                 throw new ArgumentOutOfRangeException(
                     nameof(config.PierceShotEnemyCount),
@@ -808,6 +934,7 @@ namespace Shmup.Core.Simulation
         public int PlayerY { get; private set; }
         public int PlayerHp { get; private set; }
         public int ShieldRemaining { get; private set; }
+        public WeaponType PlayerWeaponType => _playerWeaponType;
         public IReadOnlyList<BulletState> Bullets => _readOnlyBullets;
         public IReadOnlyList<OptionState> Options => _readOnlyOptions;
         public IReadOnlyList<EnemyState> Enemies => _readOnlyEnemies;
@@ -2008,16 +2135,72 @@ namespace Shmup.Core.Simulation
         {
             if (_nextBulletId == int.MaxValue)
                 throw new InvalidOperationException("The bullet id counter is exhausted.");
-            SpawnBullet(BulletKind.MainShot, PlayerX, PlayerY);
+            SpawnMainShotFrom(PlayerX, PlayerY);
             EmitEvent(SimEventType.PlayerFired, 0, PlayerX, PlayerY, (int)BulletKind.MainShot);
             for (int i = 0; i < _options.Count && CountPlayerBullets() < _maxBullets; i++)
-                SpawnBullet(BulletKind.MainShot, _options[i].X, _options[i].Y);
+                SpawnMainShotFrom(_options[i].X, _options[i].Y);
             _cooldown = ComputeReducedInterval(
                 _fireIntervalTicks,
                 _mainShotLevel,
                 _mainShotRapidFireStartLevel,
                 _mainShotFireIntervalReductionPerLevel,
                 _mainShotMinimumFireIntervalTicks);
+        }
+
+        void SpawnMainShotFrom(int x, int y)
+        {
+            if (_playerWeaponType != WeaponType.Spread)
+            {
+                if (CountPlayerBullets() < _maxBullets)
+                    SpawnBullet(BulletKind.MainShot, x, y);
+                return;
+            }
+
+            int available = Math.Max(0, _maxBullets - CountPlayerBullets());
+            int shots = Math.Min(_spreadWays, available);
+            for (int i = 0; i < shots; i++)
+            {
+                long centeredIndex = 2L * i - (_spreadWays - 1L);
+                int rotation = (int)(
+                    (centeredIndex * _spreadStepLutSlots / 2)
+                    % SineLut.Length);
+                SpawnSpreadBullet(x, y, rotation);
+            }
+        }
+
+        void SpawnSpreadBullet(int x, int y, int lutRotation)
+        {
+            SpawnBullet(BulletKind.MainShot, x, y);
+            if (lutRotation == 0)
+                return;
+
+            int index = ((lutRotation % SineLut.Length)
+                + SineLut.Length)
+                % SineLut.Length;
+            int sin = SineLut[index];
+            int cos = SineLut[
+                (index + SineLut.Length / 4)
+                % SineLut.Length];
+            long velocityX = (long)_bulletSpeedNumerator * cos;
+            long velocityY = (long)_bulletSpeedNumerator * sin;
+            long velocityDenominator =
+                (long)_bulletSpeedDenominator * SineScale;
+            while (Math.Abs(velocityX) > int.MaxValue
+                || Math.Abs(velocityY) > int.MaxValue
+                || velocityDenominator > int.MaxValue)
+            {
+                velocityX >>= 1;
+                velocityY >>= 1;
+                velocityDenominator >>= 1;
+                if (velocityDenominator < 1)
+                    velocityDenominator = 1;
+            }
+
+            int bulletIndex = _bullets.Count - 1;
+            _bulletVelXNumerators[bulletIndex] = (int)velocityX;
+            _bulletVelYNumerators[bulletIndex] = (int)velocityY;
+            _bulletVelDenominators[bulletIndex] =
+                (int)velocityDenominator;
         }
 
         void SpawnMissile()
@@ -2044,13 +2227,22 @@ namespace Shmup.Core.Simulation
             _bulletVelDenominators.Add(0);
             _bulletPiercesRemaining.Add(
                 kind == BulletKind.MainShot
-                    && HasModifier(BattleModifier.PierceShot)
-                    ? _pierceShotEnemyCount
+                    ? GetMainShotPierceCount()
                     : 0);
             _bulletRicochetUsed.Add(0);
             _bulletHomingTargetIds.Add(0);
             _bulletGrazeScored.Add(0);
             IncrementSaturated(ref _shotsFired);
+        }
+
+        int GetMainShotPierceCount()
+        {
+            long count = _mainShotBasePierceEnemyCount;
+            if (HasModifier(BattleModifier.PierceShot))
+                count += _pierceShotEnemyCount;
+            return count >= int.MaxValue
+                ? int.MaxValue
+                : (int)count;
         }
 
         int CountEnemyBullets()
@@ -2331,6 +2523,9 @@ namespace Shmup.Core.Simulation
 
         static void Validate(BattleSimConfig config)
         {
+            if (!Enum.IsDefined(typeof(WeaponType), config.PlayerWeaponType))
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.PlayerWeaponType));
             if (config.PlayerSpeedNumerator < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.PlayerSpeedNumerator));
             if (config.PlayerSpeedDenominator <= 0)
@@ -2343,6 +2538,10 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(config.FireIntervalTicks));
             if (config.MainShotBaseDamage < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.MainShotBaseDamage));
+            if (config.MainShotHalfWidth < 0
+                || config.MainShotHalfHeight < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.MainShotHalfWidth));
             if (config.MaxBullets < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.MaxBullets));
             if (config.MainShotRapidFireStartLevel < 1)
@@ -2352,6 +2551,38 @@ namespace Shmup.Core.Simulation
                     nameof(config.MainShotFireIntervalReductionPerLevel));
             if (config.MainShotMinimumFireIntervalTicks < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.MainShotMinimumFireIntervalTicks));
+            ValidateWeaponProfile(
+                config.LaserBaseDamage,
+                config.LaserFireIntervalTicks,
+                config.LaserRapidFireStartLevel,
+                config.LaserFireIntervalReductionPerLevel,
+                config.LaserMinimumFireIntervalTicks,
+                config.LaserSpeedNumerator,
+                config.LaserSpeedDenominator,
+                config.LaserHalfWidth,
+                config.LaserHalfHeight,
+                nameof(config.LaserBaseDamage));
+            if (config.LaserPierceEnemyCount < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.LaserPierceEnemyCount));
+            ValidateWeaponProfile(
+                config.SpreadBaseDamage,
+                config.SpreadFireIntervalTicks,
+                config.SpreadRapidFireStartLevel,
+                config.SpreadFireIntervalReductionPerLevel,
+                config.SpreadMinimumFireIntervalTicks,
+                config.SpreadSpeedNumerator,
+                config.SpreadSpeedDenominator,
+                config.SpreadHalfWidth,
+                config.SpreadHalfHeight,
+                nameof(config.SpreadBaseDamage));
+            if (config.SpreadWays < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.SpreadWays));
+            if (config.SpreadStepLutSlots < 0
+                || config.SpreadStepLutSlots > SineLut.Length / 2)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.SpreadStepLutSlots));
             if (config.MissileBaseDamage < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.MissileBaseDamage));
             if (config.MissileFireIntervalTicks < 0)
@@ -2474,6 +2705,32 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(config.PlayerSpawnX));
             if (config.PlayerSpawnY < config.PlayerMinY || config.PlayerSpawnY > config.PlayerMaxY)
                 throw new ArgumentOutOfRangeException(nameof(config.PlayerSpawnY));
+        }
+
+        static void ValidateWeaponProfile(
+            int baseDamage,
+            int fireIntervalTicks,
+            int rapidFireStartLevel,
+            int fireIntervalReductionPerLevel,
+            int minimumFireIntervalTicks,
+            int speedNumerator,
+            int speedDenominator,
+            int halfWidth,
+            int halfHeight,
+            string parameterName)
+        {
+            if (baseDamage < 0
+                || fireIntervalTicks < 0
+                || rapidFireStartLevel < 1
+                || fireIntervalReductionPerLevel < 0
+                || minimumFireIntervalTicks < 0
+                || speedNumerator < 0
+                || speedDenominator < 1
+                || halfWidth < 0
+                || halfHeight < 0)
+            {
+                throw new ArgumentOutOfRangeException(parameterName);
+            }
         }
 
         sealed class ScheduledSpawn

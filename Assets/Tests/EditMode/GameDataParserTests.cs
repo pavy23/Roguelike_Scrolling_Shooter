@@ -614,11 +614,97 @@ namespace Shmup.Core.Tests
             Assert.AreEqual("Swift", swift.DisplayName);
             Assert.AreEqual(5, swift.MoveSpeedMultiplierNumerator);
             Assert.AreEqual(4, swift.MoveSpeedMultiplierDenominator);
+            Assert.AreEqual(WeaponType.Vulcan, swift.WeaponType);
+            Assert.IsFalse(swift.MaxHp.HasValue);
             CollectionAssert.AreEqual(
                 new[] { 1, 0, 1, 0 },
                 swift.StartingPowerUpLevels);
             Assert.AreEqual(1000L, swift.UnlockCost);
             Assert.IsFalse(data.Ships is ShipDefinition[]);
+        }
+
+        [Test]
+        public void Parse_ShipsReadsThreeConceptWeaponsAndHullValues()
+        {
+            const string concepts = @"{
+  ""schemaVersion"": 1,
+  ""ships"": [
+    {
+      ""id"": ""starter"", ""displayName"": ""Starter"",
+      ""moveSpeedMultiplierNumerator"": 1,
+      ""moveSpeedMultiplierDenominator"": 1,
+      ""startingPowerUpLevels"": [0, 0, 0, 0],
+      ""unlockCost"": 0, ""weaponType"": ""vulcan"", ""maxHp"": 3
+    },
+    {
+      ""id"": ""interceptor"", ""displayName"": ""Interceptor"",
+      ""moveSpeedMultiplierNumerator"": 5,
+      ""moveSpeedMultiplierDenominator"": 4,
+      ""startingPowerUpLevels"": [0, 0, 0, 0],
+      ""unlockCost"": 25000, ""weaponType"": ""laser"", ""maxHp"": 2
+    },
+    {
+      ""id"": ""bulwark"", ""displayName"": ""Bulwark"",
+      ""moveSpeedMultiplierNumerator"": 4,
+      ""moveSpeedMultiplierDenominator"": 5,
+      ""startingPowerUpLevels"": [0, 0, 0, 1],
+      ""unlockCost"": 50000, ""weaponType"": ""spread"", ""maxHp"": 5
+    }
+  ]
+}";
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson,
+                RewardsJson,
+                concepts);
+
+            Assert.AreEqual(
+                WeaponType.Vulcan,
+                data.FindShip("starter").WeaponType);
+            Assert.AreEqual(3, data.FindShip("starter").MaxHp);
+            Assert.AreEqual(
+                WeaponType.Laser,
+                data.FindShip("interceptor").WeaponType);
+            Assert.AreEqual(2, data.FindShip("interceptor").MaxHp);
+            Assert.AreEqual(
+                WeaponType.Spread,
+                data.FindShip("bulwark").WeaponType);
+            Assert.AreEqual(5, data.FindShip("bulwark").MaxHp);
+        }
+
+        [Test]
+        public void Parse_ShipsRejectsUnknownWeaponAndNonPositiveHull()
+        {
+            string unknownWeapon = ShipsJson.Replace(
+                @"""unlockCost"": 1000",
+                @"""unlockCost"": 1000, ""weaponType"": ""beam""");
+            GameDataParseException weaponError =
+                Assert.Throws<GameDataParseException>(
+                    () => GameDataParser.Parse(
+                        EnemiesJson,
+                        WeaponsJson,
+                        WavesJson,
+                        RewardsJson,
+                        unknownWeapon));
+            StringAssert.Contains(
+                "ships.json.ships[1].weaponType",
+                weaponError.Message);
+
+            string zeroHull = ShipsJson.Replace(
+                @"""unlockCost"": 1000",
+                @"""unlockCost"": 1000, ""maxHp"": 0");
+            GameDataParseException hpError =
+                Assert.Throws<GameDataParseException>(
+                    () => GameDataParser.Parse(
+                        EnemiesJson,
+                        WeaponsJson,
+                        WavesJson,
+                        RewardsJson,
+                        zeroHull));
+            StringAssert.Contains(
+                "ships.json.ships[1].maxHp",
+                hpError.Message);
         }
 
         [Test]
@@ -668,8 +754,8 @@ namespace Shmup.Core.Tests
                 ReadUtf8(Path.Combine(root, "GameData", "weapons.json")),
                 ReadUtf8(Path.Combine(root, "GameData", "waves.json")),
                 ReadUtf8(Path.Combine(root, "GameData", "rewards.json")),
-                null,
-                null,
+                ReadUtf8(Path.Combine(root, "GameData", "ships.json")),
+                ReadUtf8(Path.Combine(root, "GameData", "scoring.json")),
                 ReadUtf8(Path.Combine(root, "GameData", "player.json")));
 
             Assert.AreEqual(30, data.BattleContent.Enemies.Count);
@@ -678,6 +764,11 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(5, data.StageGeneration.Bosses.Count);
             Assert.AreEqual(3, data.Rewards.OptionCount);
             Assert.AreEqual(13, data.Rewards.All.Count);
+            Assert.AreEqual(3, data.Ships.Count);
+            Assert.AreEqual(
+                WeaponType.Vulcan,
+                data.FindShip("starter").WeaponType);
+            Assert.IsFalse(data.FindShip("starter").MaxHp.HasValue);
             Assert.AreEqual(128, data.CreateBattleSimConfig().MaxEnemyBullets);
 
             // 640×360 재스케일(REQ-006) 후 elite_sine 진폭 = 3.0u = 768 서브유닛.

@@ -265,6 +265,10 @@ namespace Shmup.Core.Content
         public int[] startingPowerUpLevels;
         [DataMember]
         public long? unlockCost;
+        [DataMember]
+        public string weaponType;
+        [DataMember]
+        public int? maxHp;
     }
 
     [DataContract]
