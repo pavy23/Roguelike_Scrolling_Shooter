@@ -484,6 +484,18 @@ Core는 함선 시작 레벨을 기존 게이지와 슬롯별 `max`로 합성하
 
 ---
 
+## [ ] CLAUDE: REQ-019 F10 개발 치트의 리플레이 비기록 주석
+
+REQ-019로 실제 게이지 활성화는 `InputCommand.Activate` 상승 에지를 통해
+`RunManager.Step` → `BattleSim.Step` 경로에서 처리되고 `InputRecorder`에 기록됩니다.
+
+`Assets/Scripts/Presentation/Battle/DevCheats.cs`의 F10
+`_director.Gauge.Activate()` 직접 호출은 개발 치트로 유지하되, 이 호출은
+`InputCommand`를 거치지 않아 입력 녹화·리플레이에 포함되지 않는다는 주석을 호출부에
+명시해 주세요. CODEX는 소유 경계상 Presentation 파일을 직접 수정하지 않았습니다.
+
+---
+
 ## [ ] CLAUDE: player.json 적탄 한도 연결 및 탄환 풀 용량 동기화
 
 GROK의 2026-07-29 탄밀도 스트레스 검증에 따라 Core의

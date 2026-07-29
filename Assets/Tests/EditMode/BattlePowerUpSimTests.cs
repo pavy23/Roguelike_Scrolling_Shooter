@@ -15,6 +15,42 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void ActivateInput_UsesRisingEdgesWithoutRepeatingWhileHeld()
+        {
+            var gauge = PowerUpGauge.CreateDefault();
+            gauge.Collect();
+            var sim = CreateSim(
+                CreateConfig(),
+                gauge,
+                EmptyPlan(),
+                Content(Weapon()),
+                0xAC71UL);
+            var held = new InputCommand(0, 0, false, true);
+            InputCommand released = InputCommand.None;
+
+            sim.Step(in held);
+            gauge.Collect();
+            sim.Step(in held);
+
+            Assert.AreEqual(
+                1,
+                gauge.GetLevel(PowerUpSlot.MainShot));
+            Assert.AreEqual(0, gauge.Cursor);
+
+            sim.Step(in released);
+            sim.Step(in held);
+
+            Assert.AreEqual(
+                2,
+                gauge.GetLevel(PowerUpSlot.MainShot));
+            Assert.AreEqual(PowerUpGauge.NoSelection, gauge.Cursor);
+            Assert.AreEqual(1, sim.EventsThisTick.Length);
+            Assert.AreEqual(
+                SimEventType.PowerUpLevelChanged,
+                sim.EventsThisTick[0].Type);
+        }
+
+        [Test]
         public void MainShotLevel_UsesDamageCurveAndReducesHighLevelFireInterval()
         {
             var gauge = Gauge(3, 0, 0, 0);

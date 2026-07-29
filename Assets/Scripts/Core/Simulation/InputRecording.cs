@@ -20,6 +20,9 @@ namespace Shmup.Core.Simulation
         public bool fire;
 
         [DataMember(Order = 3)]
+        public bool activate;
+
+        [DataMember(Order = 4)]
         public int tickCount;
     }
 
@@ -30,7 +33,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class InputRecordingData
     {
-        public const int CurrentSchemaVersion = 1;
+        public const int CurrentSchemaVersion = 2;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -121,6 +124,7 @@ namespace Shmup.Core.Simulation
                     moveX = run.MoveX,
                     moveY = run.MoveY,
                     fire = run.Fire,
+                    activate = run.Activate,
                     tickCount = run.TickCount
                 };
             }
@@ -139,7 +143,8 @@ namespace Shmup.Core.Simulation
         {
             return run.MoveX == command.MoveX
                 && run.MoveY == command.MoveY
-                && run.Fire == command.Fire;
+                && run.Fire == command.Fire
+                && run.Activate == command.Activate;
         }
 
         struct InputRun
@@ -149,12 +154,14 @@ namespace Shmup.Core.Simulation
                 MoveX = command.MoveX;
                 MoveY = command.MoveY;
                 Fire = command.Fire;
+                Activate = command.Activate;
                 TickCount = tickCount;
             }
 
             public int MoveX;
             public int MoveY;
             public bool Fire;
+            public bool Activate;
             public int TickCount;
         }
     }
@@ -179,7 +186,11 @@ namespace Shmup.Core.Simulation
             {
                 InputRunData run = data.runs[i];
                 _runs[i] = new PlaybackRun(
-                    new InputCommand(run.moveX, run.moveY, run.fire),
+                    new InputCommand(
+                        run.moveX,
+                        run.moveY,
+                        run.fire,
+                        run.activate),
                     run.tickCount);
             }
         }
@@ -241,7 +252,8 @@ namespace Shmup.Core.Simulation
                 if (previous != null
                     && previous.moveX == run.moveX
                     && previous.moveY == run.moveY
-                    && previous.fire == run.fire)
+                    && previous.fire == run.fire
+                    && previous.activate == run.activate)
                 {
                     throw Corrupted(
                         "Adjacent identical input runs are not canonical.");

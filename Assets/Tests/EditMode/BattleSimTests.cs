@@ -12,13 +12,17 @@ namespace Shmup.Core.Tests
         public void InputCommand_ClampsMovementToDigitalDirections()
         {
             var input = new InputCommand(-12, 5, true);
+            var activate = new InputCommand(0, 0, false, true);
 
             Assert.AreEqual(-1, input.MoveX);
             Assert.AreEqual(1, input.MoveY);
             Assert.IsTrue(input.Fire);
+            Assert.IsFalse(input.Activate);
+            Assert.IsTrue(activate.Activate);
             Assert.AreEqual(0, InputCommand.None.MoveX);
             Assert.AreEqual(0, InputCommand.None.MoveY);
             Assert.IsFalse(InputCommand.None.Fire);
+            Assert.IsFalse(InputCommand.None.Activate);
         }
 
         [Test]

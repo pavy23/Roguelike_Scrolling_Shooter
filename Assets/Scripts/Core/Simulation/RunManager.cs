@@ -305,6 +305,7 @@ namespace Shmup.Core.Simulation
         long _completedCapsulesCollected;
         long _completedGrazeCount;
         int _stagesCleared;
+        bool _activateHeld;
         int[] _stageStartPowerUpLevels;
         int _stageStartPowerUpCursor;
         long _stageStartScore;
@@ -759,10 +760,17 @@ namespace Shmup.Core.Simulation
 
         public void Step(in InputCommand input)
         {
+            bool activatePressed = input.Activate && !_activateHeld;
+            _activateHeld = input.Activate;
             if (State != RunState.Playing)
                 return;
 
-            Battle.Step(in input);
+            var battleInput = new InputCommand(
+                input.MoveX,
+                input.MoveY,
+                input.Fire,
+                activatePressed);
+            Battle.Step(in battleInput);
             if (Battle.PlayerHp <= 0)
             {
                 State = RunState.RunOver;
