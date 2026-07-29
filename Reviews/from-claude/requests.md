@@ -789,3 +789,19 @@ BattleSim 발사 로직 분기, 이벤트/통계 호환, 리플레이·서스펜
 - bulwark = 탱커: spread, 느린 이동, 시작 HP 5
 ships.json에 weaponType과 maxHp 필드 추가 파싱(부재 시 vulcan/3 폴백).
 BattleSimConfig.PlayerMaxHp가 함선별로 덮이도록. 수치 잠정 §7, GROK 확정 후속.
+
+## [ ] REQ-023 → CODEX: 스테이지 장애물 시스템 (사람 지시 2026-07-29)
+
+"스테이지마다 전용 기믹 — 1스테이지는 평범, 나머지는 장애물 조금씩."
+1. Obstacle 엔티티: 월드 스크롤과 함께 왼쪽 이동, 사각 히트박스, 플레이어 접촉 시
+   피해(적 충돌과 동일 규칙). 두 계열:
+   - solid: 파괴 불가, 플레이어 탄을 막는다(탄 소멸)
+   - breakable: HP 보유, 격파 가능(소량 점수), 적탄은 통과(플레이어만 유불리 비대칭 방지
+     여부는 CODEX 판단 - 결정 기록)
+2. waves.json 세그먼트에 obstacles 배열(type, x, y, 필요시 hp) — 데이터 주도, 부재 시
+   없음(하위 호환). 스테이지 1은 GROK이 비워 둔다.
+3. 이벤트: ObstacleDestroyed(좌표) — 표현용. 뷰 동기화용 읽기 전용 목록 노출
+   (Bullets/Enemies 패턴).
+4. 결정론·무할당·풀 상한(MaxObstacles config), 회귀 테스트. 잠정 §7.
+   Unity NUnit 호환 API만. GROK: 테마별 배치(hive 포자기둥/fortress 장갑블록/
+   nebula 크리스탈/core 혼합, 밀도 점진 증가). CLAUDE: 테마별 스프라이트·뷰 풀.
