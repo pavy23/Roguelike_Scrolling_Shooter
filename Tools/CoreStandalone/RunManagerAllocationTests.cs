@@ -107,6 +107,31 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void ObstacleScrollCollisionAndDestructionAllocateNoManagedMemory()
+        {
+            var fire = new InputCommand(0, 0, true);
+            InputCommand none = InputCommand.None;
+            BattleSim warmup = CreateObstacleBattle();
+            warmup.Step(in fire);
+            warmup.Step(in none);
+
+            BattleSim measured = CreateObstacleBattle();
+            measured.Step(in fire);
+            GC.GetAllocatedBytesForCurrentThread();
+            long before = GC.GetAllocatedBytesForCurrentThread();
+
+            measured.Step(in none);
+
+            long allocated =
+                GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.AreEqual(0, measured.Obstacles.Count);
+            Assert.AreEqual(
+                0L,
+                allocated,
+                "Obstacle movement, collision, destruction, or event emission allocated managed heap memory.");
+        }
+
+        [Test]
         public void SpreadVolleyAllocatesNoManagedMemoryPerTick()
         {
             BattleSim sim = CreateSpreadBattle();
@@ -407,6 +432,53 @@ namespace Shmup.Core.Tests
             return new BattleSim(
                 config,
                 new Rng(35UL),
+                plan,
+                content,
+                PowerUpGauge.CreateDefault());
+        }
+
+        static BattleSim CreateObstacleBattle()
+        {
+            var weapon = new WeaponDefinition(
+                "obstacle_guard",
+                10,
+                1,
+                1,
+                1,
+                0,
+                0);
+            var content = new BattleContent(
+                Array.Empty<EnemyDefinition>(),
+                new[] { weapon },
+                weapon.Id);
+            var segment = new StageSegment(
+                "obstacle_guard",
+                100,
+                Array.Empty<SpawnEvent>(),
+                1,
+                1,
+                new[] { 1 },
+                new[]
+                {
+                    new ObstacleSpawn(
+                        ObstacleType.Breakable,
+                        1,
+                        0,
+                        10)
+                });
+            var plan = new StagePlan(
+                new[] { segment },
+                "none",
+                1,
+                1,
+                1);
+            BattleSimConfig config = CreateConfig();
+            config.ObstacleHalfWidth = 0;
+            config.ObstacleHalfHeight = 0;
+
+            return new BattleSim(
+                config,
+                new Rng(45UL),
                 plan,
                 content,
                 PowerUpGauge.CreateDefault());

@@ -226,6 +226,31 @@ namespace Shmup.Core.Generation
             IReadOnlyList<int> traversableLaneMasks,
             IReadOnlyList<SpawnEvent> spawns,
             string themeId)
+            : this(
+                segmentId,
+                difficultyMin,
+                difficultyMax,
+                lengthTicks,
+                entryLaneMask,
+                exitLaneMask,
+                traversableLaneMasks,
+                spawns,
+                Array.Empty<ObstacleSpawn>(),
+                themeId)
+        {
+        }
+
+        public StageSegmentTemplate(
+            string segmentId,
+            int difficultyMin,
+            int difficultyMax,
+            int lengthTicks,
+            int entryLaneMask,
+            int exitLaneMask,
+            IReadOnlyList<int> traversableLaneMasks,
+            IReadOnlyList<SpawnEvent> spawns,
+            IReadOnlyList<ObstacleSpawn> obstacles,
+            string themeId)
         {
             SegmentId = segmentId ?? throw new ArgumentNullException(nameof(segmentId));
             DifficultyMin = difficultyMin;
@@ -235,6 +260,7 @@ namespace Shmup.Core.Generation
             ExitLaneMask = exitLaneMask;
             TraversableLaneMasks = CopyMasks(traversableLaneMasks);
             Spawns = CopySpawns(spawns);
+            Obstacles = CopyObstacles(obstacles);
             ThemeId = themeId;
         }
 
@@ -246,6 +272,7 @@ namespace Shmup.Core.Generation
         public int ExitLaneMask { get; }
         public IReadOnlyList<int> TraversableLaneMasks { get; }
         public IReadOnlyList<SpawnEvent> Spawns { get; }
+        public IReadOnlyList<ObstacleSpawn> Obstacles { get; }
         public string ThemeId { get; }
 
         internal bool SupportsDifficulty(int difficulty)
@@ -302,7 +329,8 @@ namespace Shmup.Core.Generation
                 Spawns,
                 EntryLaneMask,
                 ExitLaneMask,
-                TraversableLaneMasks);
+                TraversableLaneMasks,
+                Obstacles);
         }
 
         static IReadOnlyList<int> CopyMasks(IReadOnlyList<int> source)
@@ -322,6 +350,17 @@ namespace Shmup.Core.Generation
                 copy[i] = source[i] ?? throw new ArgumentException(
                     "Spawns cannot contain null.", nameof(source));
             return new ReadOnlyCollection<SpawnEvent>(copy);
+        }
+
+        static IReadOnlyList<ObstacleSpawn> CopyObstacles(
+            IReadOnlyList<ObstacleSpawn> source)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            var copy = new ObstacleSpawn[source.Count];
+            for (int i = 0; i < source.Count; i++)
+                copy[i] = source[i] ?? throw new ArgumentException(
+                    "Obstacles cannot contain null.", nameof(source));
+            return new ReadOnlyCollection<ObstacleSpawn>(copy);
         }
     }
 

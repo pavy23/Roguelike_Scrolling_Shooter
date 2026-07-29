@@ -377,15 +377,239 @@ namespace Shmup.Core.Tests
                 new SpawnEvent(1, enemy.Id, 20, 0)));
             var sim = CreateSim(plan, content, CreateConfig(), 6UL);
             IReadOnlyList<EnemyState> enemies = sim.Enemies;
+            IReadOnlyList<ObstacleState> obstacles = sim.Obstacles;
             IReadOnlyList<CapsuleState> capsules = sim.Capsules;
             InputCommand none = InputCommand.None;
 
             sim.Step(in none);
 
             Assert.AreSame(enemies, sim.Enemies);
+            Assert.AreSame(obstacles, sim.Obstacles);
             Assert.AreSame(capsules, sim.Capsules);
             Assert.IsFalse(enemies is List<EnemyState>);
+            Assert.IsFalse(obstacles is List<ObstacleState>);
             Assert.IsFalse(capsules is List<CapsuleState>);
+        }
+
+        [Test]
+        public void ObstacleScroll_UsesExactWorldScrollDelta()
+        {
+            StagePlan plan = Plan(ObstacleSegment(
+                "scroll",
+                20,
+                new ObstacleSpawn(ObstacleType.Solid, 10, 5, 0)));
+            BattleSimConfig config = CreateConfig();
+            config.ScrollSpeedNumerator = 5;
+            config.ScrollSpeedDenominator = 2;
+            var sim = CreateSim(plan, Content(), config, 31UL);
+            InputCommand none = InputCommand.None;
+
+            Assert.AreEqual(10, sim.Obstacles[0].X);
+            sim.Step(in none);
+            Assert.AreEqual(8, sim.Obstacles[0].X);
+            sim.Step(in none);
+            Assert.AreEqual(5, sim.Obstacles[0].X);
+            Assert.AreEqual(5, sim.Obstacles[0].Y);
+        }
+
+        [Test]
+        public void SolidObstacle_BlocksPlayerBulletAndCannotBeDamaged()
+        {
+            StagePlan plan = Plan(ObstacleSegment(
+                "solid",
+                20,
+                new ObstacleSpawn(ObstacleType.Solid, 1, 0, 0)));
+            WeaponDefinition weapon =
+                new WeaponDefinition("shot", 10, 1, 1, 1, 0, 0);
+            BattleSimConfig config = CreateConfig();
+            config.ObstacleHalfWidth = 0;
+            config.ObstacleHalfHeight = 0;
+            var sim = CreateSim(
+                plan,
+                Content(weapon),
+                config,
+                32UL);
+            var fire = new InputCommand(0, 0, true);
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in fire);
+            Assert.AreEqual(1, sim.Bullets.Count);
+            sim.Step(in none);
+
+            Assert.AreEqual(0, sim.Bullets.Count);
+            Assert.AreEqual(1, sim.Obstacles.Count);
+            Assert.AreEqual(ObstacleType.Solid, sim.Obstacles[0].Type);
+            Assert.AreEqual(0, sim.Obstacles[0].Hp);
+        }
+
+        [Test]
+        public void BreakableObstacle_TakesDamageAwardsScoreAndEmitsCoordinates()
+        {
+            StagePlan plan = Plan(ObstacleSegment(
+                "breakable",
+                20,
+                new ObstacleSpawn(
+                    ObstacleType.Breakable,
+                    1,
+                    0,
+                    10)));
+            WeaponDefinition weapon =
+                new WeaponDefinition("shot", 10, 1, 1, 1, 0, 0);
+            BattleSimConfig config = CreateConfig();
+            config.ObstacleHalfWidth = 0;
+            config.ObstacleHalfHeight = 0;
+            config.BreakableObstacleScore = 7;
+            var sim = CreateSim(
+                plan,
+                Content(weapon),
+                config,
+                33UL);
+            var fire = new InputCommand(0, 0, true);
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in fire);
+            sim.Step(in none);
+
+            Assert.AreEqual(0, sim.Obstacles.Count);
+            Assert.AreEqual(0, sim.Bullets.Count);
+            Assert.AreEqual(7, sim.Score);
+            SimEvent destroyed = FindEvent(
+                sim.EventsThisTick,
+                SimEventType.ObstacleDestroyed);
+            Assert.AreEqual(1, destroyed.EntityId);
+            Assert.AreEqual(1, destroyed.X);
+            Assert.AreEqual(0, destroyed.Y);
+            Assert.AreEqual(7, destroyed.Arg);
+        }
+
+        [Test]
+        public void ObstaclePlayerContact_AppliesConfiguredDamage()
+        {
+            StagePlan plan = Plan(ObstacleSegment(
+                "contact",
+                20,
+                new ObstacleSpawn(ObstacleType.Solid, 0, 0, 0)));
+            BattleSimConfig config = CreateConfig();
+            config.ObstacleHalfWidth = 0;
+            config.ObstacleHalfHeight = 0;
+            config.ObstacleContactDamage = 2;
+            config.PlayerMaxHp = 3;
+            var sim = CreateSim(plan, Content(), config, 34UL);
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in none);
+
+            Assert.AreEqual(1, sim.PlayerHp);
+            Assert.AreEqual(1, sim.Obstacles.Count);
+            SimEvent hit = FindEvent(
+                sim.EventsThisTick,
+                SimEventType.PlayerHit);
+            Assert.AreEqual(0, hit.EntityId);
+            Assert.AreEqual(2, hit.Arg);
+        }
+
+        [Test]
+        public void EnemyBullets_IntentionallyPassThroughObstacles()
+        {
+            var shooter = new EnemyDefinition(
+                "shooter",
+                "Shooter",
+                10,
+                0,
+                0,
+                EnemyMovePattern.Static,
+                0,
+                1,
+                1,
+                0,
+                0,
+                0,
+                0,
+                1,
+                1);
+            StageSegment segment = new StageSegment(
+                "pass",
+                20,
+                new[] { new SpawnEvent(0, shooter.Id, 10, 0) },
+                1,
+                1,
+                new[] { 1 },
+                new[]
+                {
+                    new ObstacleSpawn(ObstacleType.Solid, 10, 0, 0)
+                });
+            BattleSimConfig config = CreateConfig();
+            config.EnemyBulletSpeedNumerator = 0;
+            config.EnemyBulletHalfWidth = 0;
+            config.EnemyBulletHalfHeight = 0;
+            config.ObstacleHalfWidth = 0;
+            config.ObstacleHalfHeight = 0;
+            var sim = CreateSim(
+                Plan(segment),
+                Content(shooter),
+                config,
+                35UL);
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in none);
+
+            Assert.AreEqual(1, sim.Bullets.Count);
+            Assert.AreEqual(BulletFaction.Enemy, sim.Bullets[0].Faction);
+            Assert.AreEqual(sim.Obstacles[0].X, sim.Bullets[0].X);
+            Assert.AreEqual(sim.Obstacles[0].Y, sim.Bullets[0].Y);
+        }
+
+        [Test]
+        public void MaxObstacles_DeterministicallyCapsActiveList()
+        {
+            StagePlan plan = Plan(ObstacleSegment(
+                "cap",
+                20,
+                new ObstacleSpawn(ObstacleType.Solid, 10, 0, 0),
+                new ObstacleSpawn(
+                    ObstacleType.Breakable,
+                    20,
+                    0,
+                    1)));
+            BattleSimConfig config = CreateConfig();
+            config.MaxObstacles = 1;
+
+            var first = CreateSim(plan, Content(), config, 36UL);
+            var second = CreateSim(plan, Content(), config, 36UL);
+
+            Assert.AreEqual(1, first.Obstacles.Count);
+            Assert.AreEqual(1, second.Obstacles.Count);
+            Assert.AreEqual(ObstacleType.Solid, first.Obstacles[0].Type);
+            Assert.AreEqual(
+                first.Obstacles[0].X,
+                second.Obstacles[0].X);
+        }
+
+        [Test]
+        public void ObstacleSimulation_IsDeterministicAcrossIdenticalInputs()
+        {
+            StagePlan plan = Plan(ObstacleSegment(
+                "determinism",
+                40,
+                new ObstacleSpawn(ObstacleType.Solid, 20, -10, 0),
+                new ObstacleSpawn(
+                    ObstacleType.Breakable,
+                    30,
+                    10,
+                    20)));
+            BattleSimConfig config = CreateConfig();
+            config.ScrollSpeedNumerator = 7;
+            config.ScrollSpeedDenominator = 3;
+            var first = CreateSim(plan, Content(), config, 37UL);
+            var second = CreateSim(plan, Content(), config, 37UL);
+            InputCommand none = InputCommand.None;
+
+            for (int tick = 0; tick < 12; tick++)
+            {
+                first.Step(in none);
+                second.Step(in none);
+                AssertStatesEqual(first, second, tick);
+            }
         }
 
         [Test]
@@ -471,6 +695,32 @@ namespace Shmup.Core.Tests
             return new StageSegment(id, lengthTicks, spawns, 1, 1, new[] { 1 });
         }
 
+        static StageSegment ObstacleSegment(
+            string id,
+            int lengthTicks,
+            params ObstacleSpawn[] obstacles)
+        {
+            return new StageSegment(
+                id,
+                lengthTicks,
+                Array.Empty<SpawnEvent>(),
+                1,
+                1,
+                new[] { 1 },
+                obstacles);
+        }
+
+        static SimEvent FindEvent(
+            ReadOnlySpan<SimEvent> events,
+            SimEventType type)
+        {
+            for (int i = 0; i < events.Length; i++)
+                if (events[i].Type == type)
+                    return events[i];
+            Assert.Fail($"Expected event {type}.");
+            return default;
+        }
+
         static StagePlan Plan(params StageSegment[] segments)
         {
             return new StagePlan(segments, "boss", 1, 1, 1);
@@ -513,6 +763,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(expected.Score, actual.Score, $"tick {tick}");
             Assert.AreEqual(expected.Bullets.Count, actual.Bullets.Count, $"tick {tick}");
             Assert.AreEqual(expected.Enemies.Count, actual.Enemies.Count, $"tick {tick}");
+            Assert.AreEqual(expected.Obstacles.Count, actual.Obstacles.Count, $"tick {tick}");
             Assert.AreEqual(expected.Capsules.Count, actual.Capsules.Count, $"tick {tick}");
 
             for (int i = 0; i < expected.Bullets.Count; i++)
@@ -520,6 +771,15 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual(expected.Bullets[i].Id, actual.Bullets[i].Id, $"tick {tick}, bullet {i}");
                 Assert.AreEqual(expected.Bullets[i].X, actual.Bullets[i].X, $"tick {tick}, bullet {i}");
                 Assert.AreEqual(expected.Bullets[i].Y, actual.Bullets[i].Y, $"tick {tick}, bullet {i}");
+            }
+
+            for (int i = 0; i < expected.Obstacles.Count; i++)
+            {
+                Assert.AreEqual(expected.Obstacles[i].Id, actual.Obstacles[i].Id, $"tick {tick}, obstacle {i}");
+                Assert.AreEqual(expected.Obstacles[i].Type, actual.Obstacles[i].Type, $"tick {tick}, obstacle {i}");
+                Assert.AreEqual(expected.Obstacles[i].X, actual.Obstacles[i].X, $"tick {tick}, obstacle {i}");
+                Assert.AreEqual(expected.Obstacles[i].Y, actual.Obstacles[i].Y, $"tick {tick}, obstacle {i}");
+                Assert.AreEqual(expected.Obstacles[i].Hp, actual.Obstacles[i].Hp, $"tick {tick}, obstacle {i}");
             }
 
             for (int i = 0; i < expected.Enemies.Count; i++)
