@@ -4,6 +4,47 @@
 
 ---
 
+## 2026-07-29 일반 적 4종 로스터 증원 22→26 (잠정 · roster-30 목표)
+
+**승인 맥락:** 오케스트레이터 잠정 승인. AGENTS.md §7 최종 확정은 사람 검토 후 유지.  
+**범위:** `GameData/enemies.json` · `waves.json` · `rewards.json`(REQ-012) + `GameDataParserTests` 개수 동기. 스키마 변경 없음. `mini_` 접두 미사용.
+
+### enemies.json — 신규 4종 (부족 테마: scrapyard×2 / nebula×1 / core×1)
+
+동일 HP 교체로 stage 1–5 avgHP 곡선 **137→186→279→408→486** 유지.
+
+| id | 테마 | movePattern | hp | moveSpeed | fireInterval | dropWeight | hitbox (half) | 의도 |
+|---|---|---|---|---|---|---|---|---|
+| `rust_skimmer` | scrapyard | straight | **10** | **6.25** | 0 | 3 | 0.75×0.5625 | 녹슨 스킴머. 중속 직선 돌파. |
+| `junk_roller` | scrapyard | sine | **10** | **3.5** | 0 | 4 | 0.75×0.75 | 고철 롤러. 느린 사인 구르기 (amp 2.25 / 130t). |
+| `void_moth` | nebula | sine | **16** | **4.75** | **95** | 5 | 0.75×0.75 | 보이드 나방. 성운 사인·약사격 (amp 3.0 / 75t). |
+| `shard_prism` | core | straight | **60** | **1.5** | **75** | 10 | 0.9375×0.9375 | 코어 프리즘. 저속 고체력 사격 앵커. contact 2. |
+
+### waves.json — 동일 HP 교체 (신설 세그먼트 없음, themes/diff band 불변)
+
+| 세그먼트 | 교체 |
+|---|---|
+| `seg_intro_line` / `seg_sine_rush` | zako_straight/sine → rust_skimmer / junk_roller |
+| `seg_sine_pair` | zako_sine → junk_roller |
+| `seg_nebula_wisp_storm` / `ribbon` | echo_wisp → void_moth (부분) |
+| `seg_core_guardian_wall` / `final_gauntlet` | guardian_sphere → shard_prism (부분) |
+
+### REQ-012 — rewards.json maxPerRun
+
+`passive_fire_rate_1` / `passive_damage_1` / `passive_move_speed_1`에 **maxPerRun: 3** (잠정).  
+현 파서는 미인식 필드 무시 → 테스트 그린. CODEX 파서·RunManager 연동 대기.
+
+### 테스트 동기화
+
+`GameDataParserTests` Enemies **22 → 26**. Segments/Bosses 불변(16/5).
+
+### CLAUDE 후속
+
+1. `Assets/Resources/GameData/enemies.json` · `waves.json` · `rewards.json` 동기화.
+2. 뷰 스프라이트: 접두 `rust_` / `junk_` / `void_` / `shard_` 매핑.
+
+---
+
 ## 2026-07-29 미니보스급 중형 4종 로스터 증원 (잠정 · 7장 표기)
 
 **승인 맥락:** 오케스트레이터 잠정 승인. AGENTS.md §7 최종 확정은 사람 검토 후 유지.  

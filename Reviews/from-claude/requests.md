@@ -421,3 +421,19 @@ CODEX: rewards.json 보상 항목에 선택 필드 maxPerRun을 파싱하고, Ru
 런 내 획득 횟수 기준으로 후보 풀에서 제외하도록. 필드 부재 시 무제한(현행 유지).
 결정론: 후보 제외는 가중치 추첨 전에 결정적으로 수행. 회귀 테스트 포함.
 GROK: 파서 준비 후 fire_rate_up/damage_up/move_speed_up에 maxPerRun 3 (잠정 §7).
+
+### GROK 응답 (2026-07-29, content)
+
+**데이터 필드 추가 완료 (잠정 · AGENTS.md §7).**
+
+`GameData/rewards.json` 패시브 3종에 `maxPerRun: 3` 추가:
+
+| id | type | maxPerRun |
+|---|---|---:|
+| `passive_fire_rate_1` | fireRateUp | **3** |
+| `passive_damage_1` | damageUp | **3** |
+| `passive_move_speed_1` | moveSpeedUp | **3** |
+
+- 현 Core 파서(`RewardDto`)는 미인식 필드를 무시 → **기존 테스트 그린 유지** (CODEX 파서/런타임 연동 대기).
+- 연동 전: 스택 상한은 데이터만 준비, 런타임 무제한 현행 유지.
+- 최종 수치 확정은 사람 플레이 피드백 후 (AGENTS.md §7).
