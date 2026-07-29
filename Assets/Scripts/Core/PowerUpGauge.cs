@@ -76,5 +76,31 @@ namespace Shmup.Core
             for (int i = 0; i < SlotCount; i++)
                 _levels[i] = Math.Max(0, Math.Min(levels[i], _maxLevels[i]));
         }
+
+        /// <summary>
+        /// Exact restore used after RunManager has validated serializer-facing
+        /// suspend data. Unlike ImportLevels, invalid values are rejected rather
+        /// than clamped so corrupted checkpoints cannot silently change a run.
+        /// </summary>
+        internal void RestoreState(int[] levels, int cursor)
+        {
+            if (levels == null) throw new ArgumentNullException(nameof(levels));
+            if (levels.Length != SlotCount)
+                throw new ArgumentException(
+                    $"levels must have exactly {SlotCount} entries",
+                    nameof(levels));
+            if (cursor < NoSelection || cursor >= SlotCount)
+                throw new ArgumentOutOfRangeException(nameof(cursor));
+
+            for (int i = 0; i < SlotCount; i++)
+            {
+                if (levels[i] < 0 || levels[i] > _maxLevels[i])
+                    throw new ArgumentException(
+                        $"level {i} is outside [0, {_maxLevels[i]}]",
+                        nameof(levels));
+                _levels[i] = levels[i];
+            }
+            Cursor = cursor;
+        }
     }
 }

@@ -293,6 +293,7 @@ namespace Shmup.Core.Simulation
         readonly int[] _rewardOptionCatalogIndices;
         readonly IReadOnlyList<RewardOption> _rewardOptionView;
         readonly int[] _rewardAcquisitionCounts;
+        readonly int[] _stageStartRewardAcquisitionCounts;
         readonly Rng _rewardRng;
 
         ulong _runSeed;
@@ -304,6 +305,22 @@ namespace Shmup.Core.Simulation
         long _completedCapsulesCollected;
         long _completedGrazeCount;
         int _stagesCleared;
+        int[] _stageStartPowerUpLevels;
+        int _stageStartPowerUpCursor;
+        long _stageStartScore;
+        long _stageStartShotsFired;
+        long _stageStartShotsHit;
+        long _stageStartKills;
+        long _stageStartCapsulesCollected;
+        long _stageStartGrazeCount;
+        int _stageStartStagesCleared;
+        int _stageStartPlayerHp;
+        int _stageStartShieldRemaining;
+        BattleModifier _stageStartActiveModifiers;
+        int _stageStartFireIntervalTicks;
+        int _stageStartMainShotBaseDamage;
+        int _stageStartPlayerSpeedNumerator;
+        int _stageStartPlayerSpeedDenominator;
 
         public RunManager(
             ulong runSeed,
@@ -418,6 +435,31 @@ namespace Shmup.Core.Simulation
             StageDifficultyCurve difficultyCurve,
             RewardCatalog rewards,
             ShipDefinition ship)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                metaProgression,
+                difficultyCurve,
+                rewards,
+                ship,
+                true)
+        {
+        }
+
+        RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            MetaProgression metaProgression,
+            StageDifficultyCurve difficultyCurve,
+            RewardCatalog rewards,
+            ShipDefinition ship,
+            bool buildInitialStage)
         {
             _stageGenerator = stageGenerator
                 ?? throw new ArgumentNullException(nameof(stageGenerator));
@@ -444,6 +486,10 @@ namespace Shmup.Core.Simulation
             _rewardOptionCatalogIndices = new int[RewardOptionCount];
             _rewardOptionView = Array.AsReadOnly(_rewardOptionBuffer);
             _rewardAcquisitionCounts = new int[_rewards.All.Count];
+            _stageStartRewardAcquisitionCounts =
+                new int[_rewards.All.Count];
+            _stageStartPowerUpLevels =
+                new int[PowerUpGauge.SlotCount];
             _rewardRng = new Rng(0UL);
             _battleConfig.MainShotBaseDamage =
                 _battleContent.PlayerWeapon.BaseDamage;
@@ -466,7 +512,8 @@ namespace Shmup.Core.Simulation
             RunNumber = 1;
             StageIndex = 1;
             State = RunState.Playing;
-            BuildCurrentStage();
+            if (buildInitialStage)
+                BuildCurrentStage();
         }
 
         public int RunNumber { get; private set; }
@@ -505,6 +552,210 @@ namespace Shmup.Core.Simulation
         /// <summary>AwaitingReward 상태에서만 유효. 항상 RewardOptionCount개.</summary>
         public IReadOnlyList<RewardOption> RewardOptions => _rewardOptions;
         IReadOnlyList<RewardOption> _rewardOptions = Array.Empty<RewardOption>();
+
+        /// <summary>
+        /// Exports the checkpoint captured immediately before the current stage's
+        /// tick zero. Calling this during a stage therefore resumes at that
+        /// stage's beginning, not at the current tick. Reward and run-over states
+        /// are rejected because neither represents a resumable playing stage.
+        /// </summary>
+        public RunSuspendData ExportSuspendData()
+        {
+            if (State != RunState.Playing)
+                throw new InvalidOperationException(
+                    "Suspend data can only be exported while a stage is playing.");
+
+            int acquisitionCount = 0;
+            for (int i = 0;
+                i < _stageStartRewardAcquisitionCounts.Length;
+                i++)
+            {
+                if (_stageStartRewardAcquisitionCounts[i] > 0)
+                    acquisitionCount++;
+            }
+
+            var acquisitions =
+                new RewardAcquisitionData[acquisitionCount];
+            int destination = 0;
+            for (int i = 0;
+                i < _stageStartRewardAcquisitionCounts.Length;
+                i++)
+            {
+                int count = _stageStartRewardAcquisitionCounts[i];
+                if (count == 0)
+                    continue;
+                acquisitions[destination++] = new RewardAcquisitionData
+                {
+                    rewardId = _rewards.All[i].Id,
+                    count = count
+                };
+            }
+
+            return new RunSuspendData
+            {
+                schemaVersion = RunSuspendData.CurrentSchemaVersion,
+                runSeed = _runSeed,
+                runNumber = RunNumber,
+                stageIndex = StageIndex,
+                score = _stageStartScore,
+                shotsFired = _stageStartShotsFired,
+                shotsHit = _stageStartShotsHit,
+                kills = _stageStartKills,
+                capsulesCollected = _stageStartCapsulesCollected,
+                grazeCount = _stageStartGrazeCount,
+                stagesCleared = _stageStartStagesCleared,
+                powerUpLevels =
+                    (int[])_stageStartPowerUpLevels.Clone(),
+                powerUpCursor = _stageStartPowerUpCursor,
+                playerHp = _stageStartPlayerHp,
+                shieldRemaining = _stageStartShieldRemaining,
+                rewardAcquisitions = acquisitions,
+                activeModifiers = (int)_stageStartActiveModifiers,
+                shipId = _ship.Id,
+                fireIntervalTicks = _stageStartFireIntervalTicks,
+                mainShotBaseDamage = _stageStartMainShotBaseDamage,
+                playerSpeedNumerator =
+                    _stageStartPlayerSpeedNumerator,
+                playerSpeedDenominator =
+                    _stageStartPlayerSpeedDenominator
+            };
+        }
+
+        public static RunManager ResumeFromSuspendData(
+            RunSuspendData data,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge)
+        {
+            return ResumeFromSuspendData(
+                data,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                new MetaProgression(1.0),
+                StageDifficultyCurve.CreateDefault(),
+                null,
+                null);
+        }
+
+        public static RunManager ResumeFromSuspendData(
+            RunSuspendData data,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            RewardCatalog rewards,
+            ShipDefinition ship)
+        {
+            return ResumeFromSuspendData(
+                data,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                new MetaProgression(1.0),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                ship);
+        }
+
+        /// <summary>
+        /// Validates serializer-facing data before generating a stage, then
+        /// reconstructs the exact persistent state present at that stage boundary.
+        /// The supplied ship must match data.shipId.
+        /// </summary>
+        public static RunManager ResumeFromSuspendData(
+            RunSuspendData data,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            MetaProgression metaProgression,
+            StageDifficultyCurve difficultyCurve,
+            RewardCatalog rewards,
+            ShipDefinition ship)
+        {
+            if (stageGenerator == null)
+                throw new ArgumentNullException(nameof(stageGenerator));
+            if (battleConfig == null)
+                throw new ArgumentNullException(nameof(battleConfig));
+            if (battleContent == null)
+                throw new ArgumentNullException(nameof(battleContent));
+            if (powerUpGauge == null)
+                throw new ArgumentNullException(nameof(powerUpGauge));
+            if (metaProgression == null)
+                throw new ArgumentNullException(nameof(metaProgression));
+            if (difficultyCurve == null)
+                throw new ArgumentNullException(nameof(difficultyCurve));
+
+            RewardCatalog resolvedRewards = rewards ?? BuiltInRewards;
+            ShipDefinition resolvedShip =
+                ship ?? ShipDefinition.CreateDefault();
+            ValidateSuspendData(
+                data,
+                powerUpGauge,
+                resolvedRewards,
+                resolvedShip);
+
+            var manager = new RunManager(
+                data.runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                metaProgression,
+                difficultyCurve,
+                resolvedRewards,
+                resolvedShip,
+                false);
+
+            manager._runSeed = data.runSeed;
+            manager.RunNumber = data.runNumber;
+            manager.StageIndex = data.stageIndex;
+            manager.State = RunState.Playing;
+            manager._rewardOptions = Array.Empty<RewardOption>();
+            manager._completedStageScore = data.score;
+            manager._completedShotsFired = data.shotsFired;
+            manager._completedShotsHit = data.shotsHit;
+            manager._completedKills = data.kills;
+            manager._completedCapsulesCollected =
+                data.capsulesCollected;
+            manager._completedGrazeCount = data.grazeCount;
+            manager._stagesCleared = data.stagesCleared;
+            manager.ActiveModifiers =
+                (BattleModifier)data.activeModifiers;
+            manager._battleConfig.PlayerMaxHp = data.playerHp;
+            manager._battleConfig.FireIntervalTicks =
+                data.fireIntervalTicks;
+            manager._battleConfig.MainShotBaseDamage =
+                data.mainShotBaseDamage;
+            manager._battleConfig.PlayerSpeedNumerator =
+                data.playerSpeedNumerator;
+            manager._battleConfig.PlayerSpeedDenominator =
+                data.playerSpeedDenominator;
+
+            RestoreRewardAcquisitions(
+                data.rewardAcquisitions,
+                resolvedRewards,
+                manager._rewardAcquisitionCounts);
+            manager.PowerUpGauge.RestoreState(
+                data.powerUpLevels,
+                data.powerUpCursor);
+            manager.BuildCurrentStage();
+
+            if (manager.Battle.PlayerHp != data.playerHp
+                || manager.Battle.ShieldRemaining
+                    != data.shieldRemaining)
+            {
+                throw new ArgumentException(
+                    "Suspend player HP or shield does not match "
+                    + "the reconstructed stage boundary.",
+                    nameof(data));
+            }
+            return manager;
+        }
 
         public void Step(in InputCommand input)
         {
@@ -800,6 +1051,195 @@ namespace Shmup.Core.Simulation
             return true;
         }
 
+        static void ValidateSuspendData(
+            RunSuspendData data,
+            PowerUpGauge gauge,
+            RewardCatalog rewards,
+            ShipDefinition ship)
+        {
+            if (data == null)
+                throw new ArgumentNullException(nameof(data));
+            if (data.schemaVersion
+                != RunSuspendData.CurrentSchemaVersion)
+            {
+                throw new ArgumentException(
+                    $"Unsupported suspend schema version "
+                    + $"{data.schemaVersion}.",
+                    nameof(data));
+            }
+            if (data.runNumber < 1)
+                throw new ArgumentException(
+                    "Suspend runNumber must be positive.",
+                    nameof(data));
+            if (data.stageIndex < 1)
+                throw new ArgumentException(
+                    "Suspend stageIndex must be positive.",
+                    nameof(data));
+            if (data.stagesCleared != data.stageIndex - 1)
+                throw new ArgumentException(
+                    "Suspend stagesCleared must match the stage boundary.",
+                    nameof(data));
+            if (data.score < 0
+                || data.shotsFired < 0
+                || data.shotsHit < 0
+                || data.kills < 0
+                || data.capsulesCollected < 0
+                || data.grazeCount < 0)
+            {
+                throw new ArgumentException(
+                    "Suspend score and statistics cannot be negative.",
+                    nameof(data));
+            }
+            if (!string.Equals(
+                data.shipId,
+                ship.Id,
+                StringComparison.Ordinal))
+            {
+                throw new ArgumentException(
+                    "Suspend shipId does not match the supplied ship.",
+                    nameof(data));
+            }
+            if (data.powerUpLevels == null
+                || data.powerUpLevels.Length
+                    != PowerUpGauge.SlotCount)
+            {
+                throw new ArgumentException(
+                    $"Suspend powerUpLevels must have exactly "
+                    + $"{PowerUpGauge.SlotCount} entries.",
+                    nameof(data));
+            }
+            if (data.powerUpCursor < PowerUpGauge.NoSelection
+                || data.powerUpCursor >= PowerUpGauge.SlotCount)
+            {
+                throw new ArgumentException(
+                    "Suspend powerUpCursor is outside its valid range.",
+                    nameof(data));
+            }
+
+            int[] shipStartingLevels =
+                ship.ExportStartingPowerUpLevels();
+            for (int i = 0; i < PowerUpGauge.SlotCount; i++)
+            {
+                int level = data.powerUpLevels[i];
+                int maximum =
+                    gauge.GetMaxLevel((PowerUpSlot)i);
+                if (level < shipStartingLevels[i]
+                    || level > maximum)
+                {
+                    throw new ArgumentException(
+                        $"Suspend power-up level {i} is outside "
+                        + $"[{shipStartingLevels[i]}, {maximum}].",
+                        nameof(data));
+                }
+            }
+            if (data.playerHp < 1)
+                throw new ArgumentException(
+                    "Suspend playerHp must be positive.",
+                    nameof(data));
+            int expectedShield =
+                data.powerUpLevels[(int)PowerUpSlot.Shield];
+            if (data.shieldRemaining != expectedShield)
+                throw new ArgumentException(
+                    "Suspend shield does not match the stage-start "
+                    + "shield level.",
+                    nameof(data));
+            if (data.fireIntervalTicks < 0
+                || data.mainShotBaseDamage < 0
+                || data.playerSpeedNumerator < 0
+                || data.playerSpeedDenominator < 1)
+            {
+                throw new ArgumentException(
+                    "Suspend passive battle tuning is invalid.",
+                    nameof(data));
+            }
+            BattleModifier modifiers =
+                (BattleModifier)data.activeModifiers;
+            if ((modifiers & ~BattleModifierRules.All) != 0)
+                throw new ArgumentException(
+                    "Suspend activeModifiers contains unknown flags.",
+                    nameof(data));
+            if (data.rewardAcquisitions == null)
+                throw new ArgumentException(
+                    "Suspend rewardAcquisitions cannot be null.",
+                    nameof(data));
+
+            int previousCatalogIndex = -1;
+            long totalAcquisitions = 0;
+            for (int i = 0; i < data.rewardAcquisitions.Length; i++)
+            {
+                RewardAcquisitionData acquisition =
+                    data.rewardAcquisitions[i];
+                if (acquisition == null
+                    || string.IsNullOrEmpty(acquisition.rewardId)
+                    || acquisition.count < 1)
+                {
+                    throw new ArgumentException(
+                        "Suspend reward acquisition entries are invalid.",
+                        nameof(data));
+                }
+
+                int catalogIndex =
+                    FindRewardIndex(rewards, acquisition.rewardId);
+                if (catalogIndex < 0)
+                    throw new ArgumentException(
+                        $"Suspend references unknown reward "
+                        + $"'{acquisition.rewardId}'.",
+                        nameof(data));
+                if (catalogIndex <= previousCatalogIndex)
+                    throw new ArgumentException(
+                        "Suspend reward acquisitions must be unique "
+                        + "and in catalog order.",
+                        nameof(data));
+
+                RewardDefinition reward = rewards.All[catalogIndex];
+                if (reward.MaxPerRun.HasValue
+                    && acquisition.count > reward.MaxPerRun.Value)
+                {
+                    throw new ArgumentException(
+                        $"Suspend reward '{acquisition.rewardId}' "
+                        + "exceeds maxPerRun.",
+                        nameof(data));
+                }
+                previousCatalogIndex = catalogIndex;
+                totalAcquisitions += acquisition.count;
+                if (totalAcquisitions > data.stagesCleared)
+                    throw new ArgumentException(
+                        "Suspend reward acquisitions exceed cleared "
+                        + "stage count.",
+                        nameof(data));
+            }
+        }
+
+        static void RestoreRewardAcquisitions(
+            RewardAcquisitionData[] acquisitions,
+            RewardCatalog rewards,
+            int[] destination)
+        {
+            Array.Clear(destination, 0, destination.Length);
+            for (int i = 0; i < acquisitions.Length; i++)
+            {
+                RewardAcquisitionData acquisition = acquisitions[i];
+                int catalogIndex =
+                    FindRewardIndex(rewards, acquisition.rewardId);
+                destination[catalogIndex] = acquisition.count;
+            }
+        }
+
+        static int FindRewardIndex(
+            RewardCatalog rewards,
+            string rewardId)
+        {
+            for (int i = 0; i < rewards.All.Count; i++)
+            {
+                if (string.Equals(
+                    rewards.All[i].Id,
+                    rewardId,
+                    StringComparison.Ordinal))
+                    return i;
+            }
+            return -1;
+        }
+
         void BuildCurrentStage()
         {
             Difficulty = _difficultyCurve.GetDifficulty(StageIndex);
@@ -821,6 +1261,41 @@ namespace Shmup.Core.Simulation
                 _battleContent,
                 PowerUpGauge,
                 ActiveModifiers);
+            CaptureStageStart();
+        }
+
+        void CaptureStageStart()
+        {
+            for (int i = 0; i < PowerUpGauge.SlotCount; i++)
+            {
+                _stageStartPowerUpLevels[i] =
+                    PowerUpGauge.GetLevel((PowerUpSlot)i);
+            }
+            _stageStartPowerUpCursor = PowerUpGauge.Cursor;
+            _stageStartScore = _completedStageScore;
+            _stageStartShotsFired = _completedShotsFired;
+            _stageStartShotsHit = _completedShotsHit;
+            _stageStartKills = _completedKills;
+            _stageStartCapsulesCollected =
+                _completedCapsulesCollected;
+            _stageStartGrazeCount = _completedGrazeCount;
+            _stageStartStagesCleared = _stagesCleared;
+            _stageStartPlayerHp = Battle.PlayerHp;
+            _stageStartShieldRemaining =
+                Battle.ShieldRemaining;
+            _stageStartActiveModifiers = ActiveModifiers;
+            _stageStartFireIntervalTicks =
+                _battleConfig.FireIntervalTicks;
+            _stageStartMainShotBaseDamage =
+                _battleConfig.MainShotBaseDamage;
+            _stageStartPlayerSpeedNumerator =
+                _battleConfig.PlayerSpeedNumerator;
+            _stageStartPlayerSpeedDenominator =
+                _battleConfig.PlayerSpeedDenominator;
+            Array.Copy(
+                _rewardAcquisitionCounts,
+                _stageStartRewardAcquisitionCounts,
+                _rewardAcquisitionCounts.Length);
         }
 
         void ApplyShipStartingLevels(PowerUpGauge gauge)

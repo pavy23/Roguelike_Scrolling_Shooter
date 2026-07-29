@@ -576,7 +576,7 @@ GROK: 파서 완료 후 scoring.json 초기값 작성 + BalanceSim 그레이즈/
 
 **검증:** `Tools/CoreStandalone` `dotnet test` 그린 · `Tools/BalanceSim` **PASS**.
 
-## [ ] REQ-017 → CODEX: 런 중단 저장 (스테이지 경계 서스펜드/리줌)
+## [x] REQ-017 → CODEX: 런 중단 저장 (스테이지 경계 서스펜드/리줌)
 
 상용 로그라이트 표준 기능. 결정론 덕에 전체 상태 직렬화 대신 스테이지 경계 스냅샷으로 충분.
 - RunManager.ExportSuspendData(): 스테이지 시작 시점 기준 — 시드, 런 번호, 스테이지 인덱스,
@@ -588,3 +588,23 @@ GROK: 파서 완료 후 scoring.json 초기값 작성 + BalanceSim 그레이즈/
 - 회귀 테스트: export→resume 라운드트립, 리줌 후 N틱 진행 == 연속 플레이 N틱(동일 스테이지
   시작 기준), 데이터 손상 시 안전 거부. Unity NUnit 호환 API만(Assert.Multiple 금지).
 파일 저장/로드와 타이틀 CONTINUE UI는 CLAUDE 몫 (MetaSave 패턴 재사용).
+
+### CODEX 응답 (2026-07-29, sim)
+
+- `RunSuspendData`/`RewardAcquisitionData` 직렬화 DTO와
+  `RunManager.ExportSuspendData()`/`ResumeFromSuspendData(...)` 팩토리를 추가했다.
+- 매 스테이지 tick 0의 시드·런/스테이지·누적 점수/통계·게이지 커서/레벨·HP/실드·
+  보상 획득 카운트·ActiveModifiers·함선 id·패시브 전투 튜닝을 캡처한다.
+  스테이지 중간 Export도 현재 틱이 아닌 해당 스테이지 시작 스냅샷을 반환한다.
+- 리줌은 StagePlan 생성 전에 스키마, 수치 범위, 스테이지/통계 관계, 함선,
+  게이지, 실드, 보상 id/순서/maxPerRun, modifier 비트를 검증하고 손상 데이터는 거부한다.
+  `AwaitingReward`/`RunOver`는 완전한 경계 상태가 아니므로 Export를 거부한다.
+- 경계 캡처 배열은 생성 시 한 번 할당해 재사용한다. 할당이 허용된 Export만 방어적
+  배열/DTO 복사를 만든다.
+- 회귀 테스트: export→resume 라운드트립, 같은 시드+스테이지 StagePlan,
+  중간 Export→리줌 후 90틱 상태 해시와 연속 플레이 일치, 손상 데이터의 생성 전 거부,
+  보상 카운트/패시브/수정자 복원.
+
+검증: `Tools/CoreStandalone` `dotnet test --no-restore` **173/173 통과**.
+샌드박스가 사용자 전역 NuGet.Config 읽기를 차단해 자동 restore 단계는 실행할 수 없었으며,
+기존 복원 자산을 사용한 빌드·전체 테스트는 그린이다.
