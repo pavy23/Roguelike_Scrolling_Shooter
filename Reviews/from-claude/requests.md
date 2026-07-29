@@ -675,3 +675,18 @@ Silent drop at cap = 위협 누락 (크래시 아님). CLAUDE 풀은 Presentatio
 검증: `Tools/CoreStandalone` `dotnet test --no-restore` **173/173 통과**.
 샌드박스가 사용자 전역 NuGet.Config 읽기를 차단해 자동 restore 단계는 실행할 수 없었으며,
 기존 복원 자산을 사용한 빌드·전체 테스트는 그린이다.
+
+## [ ] REQ-018 → CODEX: 데일리 시드 규칙 + 입력 녹화/재생 (결정론 리플레이)
+
+결정론 자산의 기능화. 두 부분:
+1. DailySeed: 날짜(UTC 기준 yyyy-MM-dd 정수화)를 시드로 바꾸는 순수 함수
+   (예: FNV-1a 해시, 정수 연산만). 같은 날짜 → 전 세계 같은 시드. 날짜는 호출자가
+   int(yyyymmdd)로 주입 — Core는 시계를 읽지 않는다(§4 환경 의존 금지).
+2. InputRecorder/InputPlayback: RunManager.Step에 들어가는 InputCommand 시퀀스를
+   압축 기록(변화 시점만 기록하는 런렝스 방식 권장 - 8방향+발사라 엔트로피 낮음)하고,
+   직렬화 가능한 DTO(RunSuspendData 패턴)로 내보내기/재생. 재생은 기록된 틱 수만큼
+   Step에 명령을 공급하는 열거자. 시드+입력 → 동일 런 재현이 목적.
+   회귀 테스트: 기록→재생 전체 상태 해시 일치(DeterminismAuditHasher 활용),
+   런렝스 왕복, 빈 기록/손상 거부. 무할당: 기록 버퍼는 증폭 재할당 허용(게임 루프 밖
+   Export 시점만 할당), 틱당 기록은 무할당. Unity NUnit 호환 API만.
+파일 저장·재생 UI·데일리 메뉴는 CLAUDE 몫.
