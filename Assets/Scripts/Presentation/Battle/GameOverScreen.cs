@@ -16,8 +16,10 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Font _fontBold;
 
         GameObject _root;
-        Text _scoreText, _statsText, _extraText, _modifierText;
+        Text _titleText, _scoreText, _statsText, _extraText, _modifierText, _hintsText;
+        Image _dim;
         int _shownRun = int.MinValue;
+        bool _shownCleared;
 
         void Start()
         {
@@ -25,10 +27,9 @@ namespace Shmup.Presentation.Battle
             canvas.transform.SetParent(transform, false);
             _root = canvas.gameObject;
 
-            UiKit.CreateDim(canvas.transform, new Color(0.35f, 0.02f, 0.05f, 0.45f));
             var panel = UiKit.CreatePanel(canvas.transform, new Vector2(400f, 180f));
 
-            UiKit.CreateCornerText(panel, _fontBold, "GAME OVER", 22, UiKit.TextDanger,
+            _titleText = UiKit.CreateCornerText(panel, _fontBold, UiText.GameOverTitle, 22, UiKit.TextDanger,
                 new Vector2(0.5f, 1f), new Vector2(0f, -14f), TextAnchor.UpperCenter, "Title");
             _scoreText = UiKit.CreateCornerText(panel, _fontBold, "", 11, UiKit.TextAccent,
                 new Vector2(0.5f, 1f), new Vector2(0f, -52f), TextAnchor.UpperCenter, "Score");
@@ -38,9 +39,11 @@ namespace Shmup.Presentation.Battle
                 new Vector2(0.5f, 1f), new Vector2(0f, -96f), TextAnchor.UpperCenter, "Extra");
             _modifierText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextAccent,
                 new Vector2(0.5f, 1f), new Vector2(0f, -118f), TextAnchor.UpperCenter, "Modifiers");
-            UiKit.CreateCornerText(panel, _font,
-                "[ENTER]/(A) 재출격 - 파워업 승계      [R]/(B) 타이틀", 11, UiKit.TextDim,
+            _hintsText = UiKit.CreateCornerText(panel, _font,
+                UiText.GameOverHints, 11, UiKit.TextDim,
                 new Vector2(0.5f, 0f), new Vector2(0f, 16f), TextAnchor.LowerCenter, "Hints");
+            _dim = UiKit.CreateDim(canvas.transform, Color.clear, "Tint");
+            _dim.transform.SetAsFirstSibling();
 
             _root.SetActive(false);
         }
@@ -48,14 +51,24 @@ namespace Shmup.Presentation.Battle
         void Update()
         {
             if (_director == null || _root == null) return;
-            bool over = _director.IsRunOver;
-            if (_root.activeSelf != over)
-                _root.SetActive(over);
-            if (!over) return;
+            // 사망(RunOver)과 완주(RunCleared)를 같은 패널로 처리하되 문면을 바꾼다 (REQ-031)
+            bool finished = _director.IsRunFinished;
+            if (_root.activeSelf != finished)
+                _root.SetActive(finished);
+            if (!finished) return;
 
-            if (_shownRun != _director.RunNumber)
+            if (_shownRun != _director.RunNumber || _shownCleared != _director.IsRunCleared)
             {
                 _shownRun = _director.RunNumber;
+                _shownCleared = _director.IsRunCleared;
+                bool cleared = _shownCleared;
+                _titleText.text = cleared ? UiText.RunClearedTitle : UiText.GameOverTitle;
+                _titleText.color = cleared ? UiKit.TextAccent : UiKit.TextDanger;
+                _hintsText.text = cleared ? UiText.RunClearedHints : UiText.GameOverHints;
+                if (_dim != null)
+                    _dim.color = cleared
+                        ? new Color(0.06f, 0.22f, 0.12f, 0.45f)   // 승리: 청록 틴트
+                        : new Color(0.35f, 0.02f, 0.05f, 0.45f);  // 패배: 적색 틴트
                 var stats = _director.RunStats;
                 float accuracy = stats.ShotsFired > 0
                     ? (float)stats.ShotsHit / stats.ShotsFired * 100f : 0f;

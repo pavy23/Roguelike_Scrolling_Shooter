@@ -53,7 +53,7 @@ namespace Shmup.Presentation.Battle
             UiKit.AddShadow(title1, 3f);
             UiKit.AddShadow(title2, 3f);
             _promptText = UiKit.CreateCornerText(canvas.transform, _font,
-                "PRESS SPACE / (A) TO LAUNCH", 14, UiKit.TextAccent,
+                UiText.LaunchPrompt, 14, UiKit.TextAccent,
                 new Vector2(0.5f, 1f), new Vector2(0f, -160f), TextAnchor.UpperCenter, "Prompt");
             UiKit.AddShadow(_promptText);
             _seedValueText = UiKit.CreateCornerText(canvas.transform, _font, "", 11,
@@ -134,8 +134,9 @@ namespace Shmup.Presentation.Battle
                 ((keyboard != null && keyboard.cKey.wasPressedThisFrame)
                  || (gamepad != null && gamepad.buttonWest.wasPressedThisFrame)))
             {
+                // 저장 파일은 삭제하지 않는다 — 복원이 성공한 뒤 BattleDirector가 지운다
+                // (심사 지적: 복원 실패 시 진행이 그대로 소실됐다)
                 BattleDirector.PendingResume = _suspended;
-                RunSave.Delete();   // 소비형 — 재저장은 다음 중단 시점에
                 DevArgs.RuntimeSeed = (long)_suspended.runSeed;   // HUD 시드 표시 일치
                 SceneManager.LoadScene("Battle");
                 return;
@@ -177,7 +178,7 @@ namespace Shmup.Presentation.Battle
             if (_seedValueText != null && !ReferenceEquals(_shownSeed, _seedText))
             {
                 _shownSeed = _seedText;
-                _seedValueText.text = $"SEED  {_seedText}_   (숫자 입력/백스페이스로 수정)";
+                _seedValueText.text = string.Format(UiText.SeedFormat, _seedText);
             }
         }
 

@@ -40,7 +40,7 @@ namespace Shmup.Presentation.Battle
         {
             if (_director == null || _vignette == null) return;
 
-            bool danger = !_director.IsRunOver && _director.PlayerHp == 1 && Time.timeScale > 0f;
+            bool danger = !_director.IsRunFinished && _director.PlayerHp == 1 && Time.timeScale > 0f;
             if (_vignette.gameObject.activeSelf != danger)
             {
                 _vignette.gameObject.SetActive(danger);

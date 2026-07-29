@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "Shmup.DeterminismAudit/1.0.0": {
+        "runtime": {
+          "Shmup.DeterminismAudit.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Shmup.DeterminismAudit/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

@@ -27,9 +27,11 @@ namespace Shmup.Presentation.Battle
         {
             try
             {
-                if (File.Exists(SavePath))
+                // 본 파일 손상 시 .bak 폴백 (SafeFile) — 해금 진행 소실 방지
+                string text = SafeFile.Read(SavePath, IsUsable);
+                if (text != null)
                 {
-                    var dto = JsonUtility.FromJson<MetaSaveDto>(File.ReadAllText(SavePath));
+                    var dto = JsonUtility.FromJson<MetaSaveDto>(text);
                     var state = MetaState.FromData(new MetaStateData
                     {
                         totalCurrency = dto.totalCurrency,
@@ -53,6 +55,19 @@ namespace Shmup.Presentation.Battle
             return CreateFresh(data, 0);
         }
 
+        static bool IsUsable(string text)
+        {
+            try
+            {
+                var dto = JsonUtility.FromJson<MetaSaveDto>(text);
+                return dto != null && !string.IsNullOrEmpty(dto.selectedShipId);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         static MetaState CreateFresh(GameDataSet data, long carryCurrency)
         {
             var defaultShip = data.DefaultShip;
@@ -64,7 +79,7 @@ namespace Shmup.Presentation.Battle
             });
         }
 
-        /// <summary>임시 파일 → 교체로 원자적 저장.</summary>
+        /// <summary>tmp 기록 → 기존 파일을 bak으로 승격 → 교체 (SafeFile).</summary>
         public static void Save(MetaState state)
         {
             var exported = state.ExportData();
@@ -74,10 +89,7 @@ namespace Shmup.Presentation.Battle
                 unlockedShipIds = exported.unlockedShipIds,
                 selectedShipId = exported.selectedShipId
             };
-            string temp = SavePath + ".tmp";
-            File.WriteAllText(temp, JsonUtility.ToJson(dto, prettyPrint: true));
-            if (File.Exists(SavePath)) File.Delete(SavePath);
-            File.Move(temp, SavePath);
+            SafeFile.Write(SavePath, JsonUtility.ToJson(dto, prettyPrint: true));
         }
     }
 }

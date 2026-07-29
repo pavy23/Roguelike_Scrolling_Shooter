@@ -38,7 +38,7 @@ namespace Shmup.Presentation.Battle
             rect.anchorMax = new Vector2(1f, 0.5f);
             rect.sizeDelta = new Vector2(0f, 56f);
 
-            UiKit.CreateTextStretch(rect, _fontBold, "!! WARNING !!", 26,
+            UiKit.CreateTextStretch(rect, _fontBold, UiText.BossWarning, 26,
                 UiKit.TextDanger, TextAnchor.MiddleCenter, 0f, "Warning");
 
             _banner = band;
