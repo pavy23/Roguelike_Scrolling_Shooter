@@ -181,7 +181,8 @@ namespace Shmup.Presentation.Battle
                 LoadGameDataText("weapons"),
                 LoadGameDataText("waves"),
                 TryLoadGameDataText("rewards"),    // 없으면 Core 내장 풀 폴백 (REQ-G001)
-                TryLoadGameDataText("ships"));     // 없으면 기본 함선 1척
+                TryLoadGameDataText("ships"),      // 없으면 기본 함선 1척
+                TryLoadGameDataText("scoring"));   // 없으면 Core 기본 그레이즈/콤보 수치 (REQ-016)
 
             // 격납고 선택 함선 (저장이 채널 — Title 씬 HangarScreen이 기록)
             _meta = MetaSave.Load(data);

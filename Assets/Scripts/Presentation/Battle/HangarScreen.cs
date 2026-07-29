@@ -29,7 +29,7 @@ namespace Shmup.Presentation.Battle
         {
             _data = GameDataParser.Parse(
                 LoadText("enemies"), LoadText("weapons"), LoadText("waves"),
-                TryLoadText("rewards"), TryLoadText("ships"));
+                TryLoadText("rewards"), TryLoadText("ships"), TryLoadText("scoring"));
             _meta = MetaSave.Load(_data);
             for (int i = 0; i < _data.Ships.Count; i++)
                 if (_data.Ships[i].Id == _meta.SelectedShipId)
