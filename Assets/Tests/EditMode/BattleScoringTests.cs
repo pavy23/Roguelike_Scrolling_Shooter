@@ -24,7 +24,7 @@ namespace Shmup.Core.Tests
 
             sim.Step(in none);
 
-            Assert.Multiple(() =>
+            AssertAll(() =>
             {
                 Assert.AreEqual(7L, sim.Score);
                 Assert.AreEqual(1L, sim.Statistics.GrazeCount);
@@ -40,7 +40,7 @@ namespace Shmup.Core.Tests
 
             sim.Step(in none);
 
-            Assert.Multiple(() =>
+            AssertAll(() =>
             {
                 Assert.AreEqual(7L, sim.Score);
                 Assert.AreEqual(1L, sim.Statistics.GrazeCount);
@@ -64,7 +64,7 @@ namespace Shmup.Core.Tests
 
             sim.Step(in none);
 
-            Assert.Multiple(() =>
+            AssertAll(() =>
             {
                 Assert.AreEqual(9, sim.PlayerHp);
                 Assert.AreEqual(0L, sim.Statistics.GrazeCount);
@@ -97,7 +97,7 @@ namespace Shmup.Core.Tests
             AssertMultiplier(sim, level: 3, multiplier: 8, score: 70);
 
             sim.Step(in fire);
-            Assert.Multiple(() =>
+            AssertAll(() =>
             {
                 Assert.AreEqual(150L, sim.Score);
                 Assert.AreEqual(4L, sim.Statistics.Kills);
@@ -125,7 +125,7 @@ namespace Shmup.Core.Tests
 
             sim.Step(in none);
 
-            Assert.Multiple(() =>
+            AssertAll(() =>
             {
                 Assert.AreEqual(0, sim.MultiplierLevel);
                 Assert.AreEqual(1, sim.ScoreMultiplier);
@@ -167,7 +167,7 @@ namespace Shmup.Core.Tests
 
             sim.Step(in fire);
 
-            Assert.Multiple(() =>
+            AssertAll(() =>
             {
                 Assert.AreEqual(9, sim.PlayerHp);
                 Assert.AreEqual(0, sim.MultiplierLevel);
@@ -197,7 +197,7 @@ namespace Shmup.Core.Tests
                 first.Step(in fire);
                 second.Step(in fire);
 
-                Assert.Multiple(() =>
+                AssertAll(() =>
                 {
                     Assert.AreEqual(first.Score, second.Score, $"tick {tick}");
                     Assert.AreEqual(
@@ -246,7 +246,7 @@ namespace Shmup.Core.Tests
             run.Step(in none);
             run.Step(in none);
 
-            Assert.Multiple(() =>
+            AssertAll(() =>
             {
                 Assert.AreEqual(2, run.StageIndex);
                 Assert.AreEqual(1L, run.Statistics.GrazeCount);
@@ -277,7 +277,7 @@ namespace Shmup.Core.Tests
             int multiplier,
             long score)
         {
-            Assert.Multiple(() =>
+            AssertAll(() =>
             {
                 Assert.AreEqual(level, sim.MultiplierLevel);
                 Assert.AreEqual(multiplier, sim.ScoreMultiplier);
@@ -409,6 +409,10 @@ namespace Shmup.Core.Tests
             return false;
         }
 
+        // Unity 내장 NUnit에는 Assert.Multiple이 없다 (dotnet 쪽 NUnit과 버전 차이) —
+        // 즉시 실행 셔플러로 대체. 통합 컴파일 수정 (CLAUDE, CODEX 소유 파일).
+        static void AssertAll(Action assert) => assert();
+
         static void AssertEvent(
             ReadOnlySpan<SimEvent> events,
             SimEventType type,
@@ -422,7 +426,7 @@ namespace Shmup.Core.Tests
                 SimEvent simEvent = events[i];
                 if (simEvent.Type != type)
                     continue;
-                Assert.Multiple(() =>
+                AssertAll(() =>
                 {
                     Assert.AreEqual(entityId, simEvent.EntityId);
                     Assert.AreEqual(x, simEvent.X);
