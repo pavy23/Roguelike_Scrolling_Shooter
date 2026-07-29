@@ -269,6 +269,8 @@ namespace Shmup.Core.Content
                 throw Error(
                     path + ".stageIndexMax",
                     "cannot be less than stageIndexMin.");
+            if (source.maxPerRun.HasValue && source.maxPerRun.Value < 1)
+                throw Error(path + ".maxPerRun", "must be positive when present.");
 
             return new RewardDefinition(
                 RequireText(source.id, path + ".id"),
@@ -277,7 +279,8 @@ namespace Shmup.Core.Content
                 amount,
                 weight,
                 stageIndexMin,
-                stageIndexMax);
+                stageIndexMax,
+                source.maxPerRun);
         }
 
         static RewardType ParseRewardType(string value, string path)

@@ -214,6 +214,8 @@ namespace Shmup.Core.Content
         public int? stageIndexMin;
         [DataMember]
         public int? stageIndexMax;
+        [DataMember]
+        public int? maxPerRun;
     }
 
     [DataContract]

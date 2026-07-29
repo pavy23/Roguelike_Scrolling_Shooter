@@ -131,6 +131,95 @@ namespace Shmup.Core.Tests
             AssertPassiveExpires(RewardType.MoveSpeedUp);
         }
 
+        [Test]
+        public void MaxPerRunExcludesAcquiredRewardBeforeDeterministicDraw()
+        {
+            RewardCatalog rewards = CappedCatalog();
+            IStageGenerator generator = new BossEveryStageGenerator(_ => 1);
+            ulong seed = FindSeedOfferingCappedReward(rewards, generator);
+            RunManager first = CreateRun(seed, rewards, generator);
+            RunManager second = CreateRun(seed, rewards, generator);
+
+            CompleteBoss(first);
+            CompleteBoss(second);
+            int firstCappedIndex = FindRewardOption(first, "capped");
+            int secondCappedIndex = FindRewardOption(second, "capped");
+            Assert.AreEqual(firstCappedIndex, secondCappedIndex);
+
+            first.ChooseReward(firstCappedIndex);
+            second.ChooseReward(secondCappedIndex);
+            CompleteBoss(first);
+            CompleteBoss(second);
+
+            for (int i = 0; i < first.RewardOptions.Count; i++)
+            {
+                Assert.AreNotEqual("capped", first.RewardOptions[i].Id);
+                Assert.AreEqual(
+                    first.RewardOptions[i].Id,
+                    second.RewardOptions[i].Id,
+                    "The same seed and acquisition history must produce the same filtered draw.");
+            }
+        }
+
+        [Test]
+        public void MissingMaxPerRunRemainsUnlimited()
+        {
+            var rewards = new RewardCatalog(
+                RunManager.RewardOptionCount,
+                new[]
+                {
+                    Reward("unlimited", RewardType.Capsules, 1),
+                    Reward("fallback_a", RewardType.Capsules, 1),
+                    Reward("fallback_b", RewardType.Capsules, 1)
+                });
+            RunManager run = CreateRun(
+                123UL,
+                rewards,
+                new BossEveryStageGenerator(_ => 1));
+
+            CompleteBoss(run);
+            run.ChooseReward(FindRewardOption(run, "unlimited"));
+            CompleteBoss(run);
+
+            Assert.GreaterOrEqual(FindRewardOption(run, "unlimited"), 0);
+        }
+
+        [Test]
+        public void RestartClearsMaxPerRunAcquisitionCounts()
+        {
+            RewardCatalog rewards = CappedCatalog();
+            var generator = new RewardThenLethalGenerator("lethal");
+            ulong seed = FindSeedOfferingCappedReward(rewards, generator);
+            BattleSimConfig config = Config();
+            var lethal = new EnemyDefinition(
+                "lethal", 1, 100, EnemyMovePattern.Static,
+                0, 1, 0, 0, 0, 0, 1);
+            BattleContent content = Content(
+                new WeaponDefinition("shot", 1, 1, 100, 1, 0, 0),
+                lethal);
+            RunManager run = new RunManager(
+                seed,
+                generator,
+                config,
+                content,
+                PowerUpGauge.CreateDefault(),
+                rewards);
+
+            CompleteBoss(run);
+            run.ChooseReward(FindRewardOption(run, "capped"));
+            InputCommand none = InputCommand.None;
+            Step(run, 12, in none);
+            Assert.AreEqual(RunState.RunOver, run.State);
+
+            run.Restart(seed);
+            CompleteBoss(run);
+
+            Assert.GreaterOrEqual(
+                FindRewardOption(run, "capped"),
+                0,
+                "Restart must restore the initial per-run reward eligibility.");
+        }
+
         static void AssertPassiveExpires(RewardType type)
         {
             BattleSimConfig config = Config();
@@ -210,19 +299,81 @@ namespace Shmup.Core.Tests
                 rewards);
         }
 
+        static RunManager CreateRun(
+            ulong seed,
+            RewardCatalog rewards,
+            IStageGenerator generator)
+        {
+            return new RunManager(
+                seed,
+                generator,
+                Config(),
+                Content(new WeaponDefinition("shot", 1, 1, 100, 1, 0, 0)),
+                PowerUpGauge.CreateDefault(),
+                rewards);
+        }
+
+        static RewardCatalog CappedCatalog()
+        {
+            return new RewardCatalog(
+                RunManager.RewardOptionCount,
+                new[]
+                {
+                    Reward(
+                        "capped",
+                        RewardType.Capsules,
+                        1,
+                        maxPerRun: 1,
+                        weight: 100),
+                    Reward("fallback_a", RewardType.Capsules, 1),
+                    Reward("fallback_b", RewardType.Capsules, 1),
+                    Reward("fallback_c", RewardType.Capsules, 1)
+                });
+        }
+
+        static ulong FindSeedOfferingCappedReward(
+            RewardCatalog rewards,
+            IStageGenerator generator)
+        {
+            for (ulong seed = 0; seed < 1024; seed++)
+            {
+                RunManager run = CreateRun(seed, rewards, generator);
+                CompleteBoss(run);
+                if (FindRewardOption(run, "capped") >= 0)
+                    return seed;
+            }
+
+            Assert.Fail("No deterministic test seed offered the capped reward.");
+            return 0;
+        }
+
+        static int FindRewardOption(RunManager run, string id)
+        {
+            for (int i = 0; i < run.RewardOptions.Count; i++)
+            {
+                if (run.RewardOptions[i].Id == id)
+                    return i;
+            }
+
+            return -1;
+        }
+
         static RewardDefinition Reward(
             string id,
             RewardType type,
-            int amount)
+            int amount,
+            int? maxPerRun = null,
+            int weight = 1)
         {
             return new RewardDefinition(
                 id,
                 type,
                 PowerUpSlot.MainShot,
                 amount,
+                weight,
                 1,
-                1,
-                int.MaxValue);
+                int.MaxValue,
+                maxPerRun);
         }
 
         static BattleContent Content(

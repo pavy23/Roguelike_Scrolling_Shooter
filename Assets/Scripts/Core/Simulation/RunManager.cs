@@ -57,7 +57,8 @@ namespace Shmup.Core.Simulation
             int amount,
             int weight,
             int stageIndexMin,
-            int stageIndexMax)
+            int stageIndexMax,
+            int? maxPerRun = null)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Reward id cannot be empty.", nameof(id));
@@ -69,6 +70,8 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(stageIndexMin));
             if (stageIndexMax < stageIndexMin)
                 throw new ArgumentOutOfRangeException(nameof(stageIndexMax));
+            if (maxPerRun.HasValue && maxPerRun.Value < 1)
+                throw new ArgumentOutOfRangeException(nameof(maxPerRun));
 
             Id = id;
             Type = type;
@@ -77,6 +80,7 @@ namespace Shmup.Core.Simulation
             Weight = weight;
             StageIndexMin = stageIndexMin;
             StageIndexMax = stageIndexMax;
+            MaxPerRun = maxPerRun;
         }
 
         public string Id { get; }
@@ -86,6 +90,8 @@ namespace Shmup.Core.Simulation
         public int Weight { get; }
         public int StageIndexMin { get; }
         public int StageIndexMax { get; }
+        /// <summary>Maximum acquisitions in one run; null means unlimited.</summary>
+        public int? MaxPerRun { get; }
     }
 
     /// <summary>Immutable reward pool parsed from rewards.json.</summary>
@@ -251,9 +257,12 @@ namespace Shmup.Core.Simulation
         readonly int _initialPlayerSpeedNumerator;
         readonly int _initialPlayerSpeedDenominator;
         readonly RewardDefinition[] _rewardPool;
+        readonly int[] _rewardPoolCatalogIndices;
         readonly int[] _rewardWeights;
         readonly RewardOption[] _rewardOptionBuffer;
+        readonly int[] _rewardOptionCatalogIndices;
         readonly IReadOnlyList<RewardOption> _rewardOptionView;
+        readonly int[] _rewardAcquisitionCounts;
         readonly Rng _rewardRng;
 
         ulong _runSeed;
@@ -398,9 +407,12 @@ namespace Shmup.Core.Simulation
                     $"RunManager requires exactly {RewardOptionCount} reward options.",
                     nameof(rewards));
             _rewardPool = new RewardDefinition[_rewards.All.Count];
+            _rewardPoolCatalogIndices = new int[_rewards.All.Count];
             _rewardWeights = new int[_rewards.All.Count];
             _rewardOptionBuffer = new RewardOption[RewardOptionCount];
+            _rewardOptionCatalogIndices = new int[RewardOptionCount];
             _rewardOptionView = Array.AsReadOnly(_rewardOptionBuffer);
+            _rewardAcquisitionCounts = new int[_rewards.All.Count];
             _rewardRng = new Rng(0UL);
             _battleConfig.MainShotBaseDamage =
                 _battleContent.PlayerWeapon.BaseDamage;
@@ -500,7 +512,10 @@ namespace Shmup.Core.Simulation
             if (optionIndex < 0 || optionIndex >= _rewardOptions.Count)
                 throw new ArgumentOutOfRangeException(nameof(optionIndex));
 
+            int catalogIndex = _rewardOptionCatalogIndices[optionIndex];
             ApplyReward(_rewardOptions[optionIndex]);
+            if (_rewardAcquisitionCounts[catalogIndex] < int.MaxValue)
+                _rewardAcquisitionCounts[catalogIndex]++;
             _rewardOptions = Array.Empty<RewardOption>();
             State = RunState.Playing;
             AdvanceStage();
@@ -557,8 +572,12 @@ namespace Shmup.Core.Simulation
                 if (StageIndex < reward.StageIndexMin
                     || StageIndex > reward.StageIndexMax)
                     continue;
+                if (reward.MaxPerRun.HasValue
+                    && _rewardAcquisitionCounts[i] >= reward.MaxPerRun.Value)
+                    continue;
 
                 _rewardPool[eligibleCount] = reward;
+                _rewardPoolCatalogIndices[eligibleCount] = i;
                 _rewardWeights[eligibleCount] = reward.Weight;
                 eligibleCount++;
             }
@@ -577,6 +596,8 @@ namespace Shmup.Core.Simulation
             {
                 int pick = _rewardRng.PickWeighted(_rewardWeights, poolCount);
                 RewardDefinition selected = _rewardPool[pick];
+                _rewardOptionCatalogIndices[i] =
+                    _rewardPoolCatalogIndices[pick];
                 _rewardOptionBuffer[i] = new RewardOption(
                     selected.Id,
                     selected.Type,
@@ -585,6 +606,8 @@ namespace Shmup.Core.Simulation
 
                 int last = --poolCount;
                 _rewardPool[pick] = _rewardPool[last];
+                _rewardPoolCatalogIndices[pick] =
+                    _rewardPoolCatalogIndices[last];
                 _rewardWeights[pick] = _rewardWeights[last];
             }
             return _rewardOptionView;
@@ -621,6 +644,10 @@ namespace Shmup.Core.Simulation
             _completedKills = 0;
             _completedCapsulesCollected = 0;
             _stagesCleared = 0;
+            Array.Clear(
+                _rewardAcquisitionCounts,
+                0,
+                _rewardAcquisitionCounts.Length);
             _battleConfig.PlayerMaxHp = _initialPlayerMaxHp;
             _battleConfig.FireIntervalTicks = _initialFireIntervalTicks;
             _battleConfig.MainShotBaseDamage = _initialMainShotBaseDamage;

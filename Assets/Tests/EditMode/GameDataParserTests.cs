@@ -65,7 +65,7 @@ namespace Shmup.Core.Tests
   ""optionCount"": 3,
   ""rewards"": [
     { ""id"": ""capsules_3"", ""type"": ""capsules"", ""amount"": 3,
-      ""weight"": 2, ""stageIndexMin"": 1, ""stageIndexMax"": 9 },
+      ""weight"": 2, ""stageIndexMin"": 1, ""stageIndexMax"": 9, ""maxPerRun"": 2 },
     { ""id"": ""main_1"", ""type"": ""slotLevel"", ""slot"": ""MainShot"",
       ""amount"": 1, ""weight"": 4, ""stageIndexMin"": 1, ""stageIndexMax"": 9 },
     { ""id"": ""missile_1"", ""type"": ""slotLevel"", ""slot"": ""Missile"",
@@ -310,6 +310,8 @@ namespace Shmup.Core.Tests
             Assert.AreEqual("capsules_3", data.Rewards.All[0].Id);
             Assert.AreEqual(RewardType.Capsules, data.Rewards.All[0].Type);
             Assert.AreEqual(2, data.Rewards.All[0].Weight);
+            Assert.AreEqual(2, data.Rewards.All[0].MaxPerRun);
+            Assert.IsNull(data.Rewards.All[1].MaxPerRun);
             Assert.AreEqual(PowerUpSlot.Missile, data.Rewards.All[2].Slot);
             Assert.AreEqual(2, data.Rewards.All[2].StageIndexMin);
             Assert.AreEqual(8, data.Rewards.All[2].StageIndexMax);
@@ -525,6 +527,20 @@ namespace Shmup.Core.Tests
                 () => GameDataParser.Parse(
                     EnemiesJson, WeaponsJson, WavesJson, reversedRange));
             StringAssert.Contains("rewards[3].stageIndexMax", rangeError.Message);
+
+            string zeroMaxPerRun = RewardsJson.Replace(
+                @"""maxPerRun"": 2",
+                @"""maxPerRun"": 0");
+            GameDataParseException maxPerRunError =
+                Assert.Throws<GameDataParseException>(
+                    () => GameDataParser.Parse(
+                        EnemiesJson,
+                        WeaponsJson,
+                        WavesJson,
+                        zeroMaxPerRun));
+            StringAssert.Contains(
+                "rewards[0].maxPerRun",
+                maxPerRunError.Message);
         }
 
         [Test]
