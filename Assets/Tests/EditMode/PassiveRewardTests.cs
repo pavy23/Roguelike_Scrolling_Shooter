@@ -466,7 +466,7 @@ namespace Shmup.Core.Tests
                 int difficulty)
             {
                 return new StagePlan(
-                    new[] { Segment("intro", 1) },
+                    new[] { Segment("intro", 100) },
                     "boss",
                     1,
                     1,
@@ -496,7 +496,7 @@ namespace Shmup.Core.Tests
                 if (stageIndex == 1)
                 {
                     return new StagePlan(
-                        new[] { Segment("intro", 1) },
+                        new[] { Segment("intro", 100) },
                         "boss",
                         1,
                         1,

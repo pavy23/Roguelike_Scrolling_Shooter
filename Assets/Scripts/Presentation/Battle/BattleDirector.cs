@@ -192,6 +192,12 @@ namespace Shmup.Presentation.Battle
         /// <summary>보스전 진행 중 여부 (BgmPlayer 보스 트랙 전환용).</summary>
         public bool BossActive => _sim != null && _sim.BossActive;
 
+        /// <summary>런 완주(최종 보스 격파) 여부 — 결과 화면이 승리/패배를 가른다 (REQ-031).</summary>
+        public bool IsRunCleared => _run != null && _run.State == RunState.RunCleared;
+
+        /// <summary>런이 끝났는가 (사망 또는 완주).</summary>
+        public bool IsRunFinished => _run != null && _run.IsFinished;
+
         /// <summary>타이틀 CONTINUE가 채우는 이어하기 데이터 — Awake에서 1회 소비.</summary>
         public static Shmup.Core.Simulation.RunSuspendData PendingResume;
 
@@ -267,7 +273,8 @@ namespace Shmup.Presentation.Battle
 
         public void RestartRun()
         {
-            if (_run == null || _run.State != RunState.RunOver) return;
+            // 완주(RunCleared) 후에도 새 런을 시작할 수 있어야 한다 (REQ-031)
+            if (_run == null || !_run.IsFinished) return;
             ulong newSeed = (uint)System.Environment.TickCount ^ ((ulong)(uint)_run.RunNumber << 32);
             _run.Restart(newSeed);
             Seed = (long)newSeed;
@@ -347,9 +354,12 @@ namespace Shmup.Presentation.Battle
                 }
                 catch (System.Exception e)
                 {
+                    // 저장 파일은 남겨 둔다 — 다음 실행에서 다시 시도할 수 있게
                     Debug.LogWarning($"[BattleDirector] 이어하기 실패({e.GetType().Name}) — 새 런으로 시작. {e.Message}");
                     _run = null;
                 }
+                if (_run != null)
+                    RunSave.Delete();   // 복원 성공 후에만 소비 (심사 지적 반영)
             }
             if (_run == null)
             {
@@ -476,8 +486,8 @@ namespace Shmup.Presentation.Battle
                 _recorder.Record(in command);
             _run.Step(command);
 
-            // 런 종료 시 점수를 메타 재화로 1회 적립 (함선 해금 재원). 리플레이는 비적립.
-            if (_run.State == RunState.RunOver
+            // 런 종료(사망 또는 완주) 시 점수를 메타 재화로 1회 적립. 리플레이는 비적립.
+            if (_run.IsFinished
                 && !_replayMode
                 && _meta != null
                 && _run.RunNumber != _lastCreditedRunNumber)

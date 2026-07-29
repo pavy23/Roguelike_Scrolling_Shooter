@@ -14,6 +14,9 @@ namespace Shmup.DeterminismAudit
         const int InvalidArguments = 2;
         const int AuditFailure = 3;
         const string CappedRewardId = "audit_capped";
+        const int ExpectedRunMinutes = 22;
+        const int TickBudgetMarginPercent = 25;
+        const int AuditBossHitRatePercent = 50;
 
         static int Main(string[] args)
         {
@@ -50,7 +53,7 @@ namespace Shmup.DeterminismAudit
             catch (Exception ex)
             {
                 Console.Error.WriteLine(
-                    $"Determinism audit failed: {ex.GetType().Name}: {ex.Message}");
+                    $"Determinism audit failed: {ex}");
                 return AuditFailure;
             }
         }
@@ -58,28 +61,33 @@ namespace Shmup.DeterminismAudit
         static int RunSuite()
         {
             GameDataSet data = LoadGameData();
+            int tickBudget = ComputeSuiteTickBudget(data);
             var scenarios = new[]
             {
                 new AuditScenario(
-                    "seed-0-first", 0UL, 4, 50_000,
+                    "seed-0-first", 0UL, 5, tickBudget,
                     RewardChoiceStrategy.First),
                 new AuditScenario(
-                    "seed-1-last", 1UL, 6, 75_000,
+                    "seed-1-last", 1UL, 5, tickBudget,
                     RewardChoiceStrategy.Last),
                 new AuditScenario(
-                    "seed-12345-rotating", 12_345UL, 8, 110_000,
+                    "seed-12345-rotating", 12_345UL, 5, tickBudget,
                     RewardChoiceStrategy.Rotating),
                 new AuditScenario(
-                    "seed-deadbeef-rotating", 0xDEADBEEFUL, 10, 145_000,
+                    "seed-deadbeef-rotating", 0xDEADBEEFUL, 5, tickBudget,
                     RewardChoiceStrategy.Rotating),
                 new AuditScenario(
-                    "seed-max-prefer-capped", ulong.MaxValue, 14, 210_000,
+                    "seed-max-prefer-capped", ulong.MaxValue, 5, tickBudget,
                     RewardChoiceStrategy.PreferCapped)
             };
 
             Console.WriteLine(
-                "suite=determinism-audit-02 "
-                + $"scenarios={scenarios.Length} state=full-observable");
+                "suite=determinism-audit-04 "
+                + $"scenarios={scenarios.Length} state=full-observable "
+                + $"tickBudget={tickBudget} "
+                + $"expectedRunTicks={ExpectedRunTicks()} "
+                + $"marginPercent={TickBudgetMarginPercent} "
+                + $"bossHitRatePercent={AuditBossHitRatePercent}");
             for (int i = 0; i < scenarios.Length; i++)
             {
                 ScenarioResult first = RunScenario(data, scenarios[i]);
@@ -91,7 +99,20 @@ namespace Shmup.DeterminismAudit
                 if (first.CompletedStages < scenarios[i].StageCount)
                     throw new InvalidOperationException(
                         $"Scenario '{scenarios[i].Name}' completed only "
-                        + $"{first.CompletedStages}/{scenarios[i].StageCount} stages.");
+                        + $"{first.CompletedStages}/{scenarios[i].StageCount} stages. "
+                        + "The data-derived tick budget was exhausted or progression "
+                        + $"stalled. {first.Format()}");
+                if (first.FinalState != RunState.RunCleared)
+                    throw new InvalidOperationException(
+                        $"Scenario '{scenarios[i].Name}' did not reach "
+                        + $"RunCleared (state={first.FinalState}).");
+                int expectedRooms =
+                    scenarios[i].StageCount
+                    * RunProgressionConfig.DefaultRoomsPerBiome;
+                if (first.CompletedRooms != expectedRooms)
+                    throw new InvalidOperationException(
+                        $"Scenario '{scenarios[i].Name}' completed only "
+                        + $"{first.CompletedRooms}/{expectedRooms} rooms.");
 
                 Console.WriteLine("PASS " + first.Format());
             }
@@ -125,17 +146,19 @@ namespace Shmup.DeterminismAudit
                 data.BattleContent,
                 data.CreatePowerUpGauge(),
                 data.Rewards,
-                data.DefaultShip);
+                CreateAuditShip(data.DefaultShip));
             var hasher = new DeterminismAuditHasher();
             int[] rewardCounts = new int[data.Rewards.All.Count];
             int executedTicks = 0;
             int rewardChoices = 0;
+            int routeChoices = 0;
             int cappedChoices = 0;
 
             hasher.FoldRunState(run);
             while (executedTicks < scenario.TickCount
                 && run.StageIndex <= scenario.StageCount
-                && run.State != RunState.RunOver)
+                && run.State != RunState.RunOver
+                && run.State != RunState.RunCleared)
             {
                 if (run.State == RunState.AwaitingReward)
                 {
@@ -167,10 +190,32 @@ namespace Shmup.DeterminismAudit
                     continue;
                 }
 
+                if (run.State == RunState.AwaitingRoute)
+                {
+                    int optionIndex = SelectRoute(
+                        scenario.Strategy,
+                        run,
+                        executedTicks);
+                    RouteOption option = run.RouteOptions[optionIndex];
+                    bool nextBiome =
+                        run.RoomIndex >= run.RoomsPerBiome;
+                    hasher.FoldRouteChoice(
+                        nextBiome
+                            ? run.BiomeIndex + 1
+                            : run.BiomeIndex,
+                        nextBiome ? 1 : run.RoomIndex + 1,
+                        optionIndex,
+                        in option);
+                    run.ChooseRoute(optionIndex);
+                    routeChoices++;
+                    hasher.FoldRunState(run);
+                    continue;
+                }
+
                 InputCommand input = CreateInput(
                     scenario.Seed,
                     executedTicks,
-                    run.Battle.PlayerX);
+                    run.Battle);
                 run.Step(in input);
                 hasher.FoldRunState(run);
                 executedTicks++;
@@ -181,10 +226,69 @@ namespace Shmup.DeterminismAudit
                 hasher.Hash,
                 executedTicks,
                 run.Statistics.StagesCleared,
+                run.Statistics.RoomsCleared,
                 rewardChoices,
+                routeChoices,
                 cappedChoices,
                 run.StageIndex,
-                run.State);
+                run.State,
+                run.BiomeIndex,
+                run.RoomIndex,
+                run.Battle.Tick,
+                run.Battle.Boss.Hp,
+                run.Battle.Boss.MaxHp);
+        }
+
+        static int ComputeSuiteTickBudget(GameDataSet data)
+        {
+            WeaponDefinition main = data.BattleContent.PlayerWeapon;
+            if (main.BaseDamage < 1 || main.FireIntervalTicks < 1)
+                throw new InvalidOperationException(
+                    "Cannot derive audit tick budget: the default main weapon "
+                    + $"'{main.Id}' has baseDamage={main.BaseDamage} and "
+                    + $"fireIntervalTicks={main.FireIntervalTicks}.");
+
+            int maximumBossHp = 0;
+            for (int i = 0; i < data.StageGeneration.Bosses.Count; i++)
+                if (data.StageGeneration.Bosses[i].MaxHp > maximumBossHp)
+                    maximumBossHp = data.StageGeneration.Bosses[i].MaxHp;
+
+            long expectedWithMargin =
+                (long)ExpectedRunTicks()
+                * (100 + TickBudgetMarginPercent)
+                / 100;
+            long bossDamageTicks =
+                (long)maximumBossHp
+                * RunProgressionConfig.DefaultBiomeCount
+                * main.FireIntervalTicks
+                * 100
+                / (main.BaseDamage * AuditBossHitRatePercent);
+            long derived = expectedWithMargin + bossDamageTicks;
+            if (derived > int.MaxValue)
+                throw new InvalidOperationException(
+                    "Cannot derive audit tick budget: GameData boss HP and weapon "
+                    + $"throughput require {derived} ticks, above Int32 capacity.");
+            return (int)derived;
+        }
+
+        static int ExpectedRunTicks()
+        {
+            return ExpectedRunMinutes
+                * 60
+                * SimSpace.TicksPerSecond;
+        }
+
+        static int SelectRoute(
+            RewardChoiceStrategy strategy,
+            RunManager run,
+            int executedTicks)
+        {
+            if (strategy == RewardChoiceStrategy.First)
+                return 0;
+            if (strategy == RewardChoiceStrategy.Last)
+                return run.RouteOptions.Count - 1;
+            return (run.StageIndex + executedTicks)
+                % run.RouteOptions.Count;
         }
 
         static int SelectReward(
@@ -452,13 +556,28 @@ namespace Shmup.DeterminismAudit
         static InputCommand CreateInput(
             ulong seed,
             int tick,
-            int playerX)
+            IBattleSim battle)
         {
             int phaseOffset = (int)(seed % 360UL);
             int verticalPhase = (tick + phaseOffset * 3) % 360;
             int leftAuditLane = -18 * SimSpace.SubUnitsPerWorldUnit;
-            int moveX = playerX > leftAuditLane ? -1 : 0;
-            int moveY = verticalPhase < 180 ? 1 : -1;
+            int moveX = battle.PlayerX > leftAuditLane ? -1 : 0;
+            int moveY;
+            BossState boss = battle.Boss;
+            if (battle.BossActive)
+            {
+                int aimTolerance = SimSpace.SubUnitsPerWorldUnit / 8;
+                if (battle.PlayerY < boss.Y - aimTolerance)
+                    moveY = 1;
+                else if (battle.PlayerY > boss.Y + aimTolerance)
+                    moveY = -1;
+                else
+                    moveY = 0;
+            }
+            else
+            {
+                moveY = verticalPhase < 180 ? 1 : -1;
+            }
             bool fire = (tick + phaseOffset) % 5 != 4;
             return new InputCommand(moveX, moveY, fire);
         }
@@ -479,6 +598,21 @@ namespace Shmup.DeterminismAudit
                 File.Exists(shipsPath)
                     ? File.ReadAllText(shipsPath)
                     : null);
+        }
+
+        static ShipDefinition CreateAuditShip(ShipDefinition source)
+        {
+            if (source == null)
+                return ShipDefinition.CreateDefault();
+            return new ShipDefinition(
+                source.Id,
+                source.DisplayName,
+                source.MoveSpeedMultiplierNumerator,
+                source.MoveSpeedMultiplierDenominator,
+                source.ExportStartingPowerUpLevels(),
+                source.UnlockCost,
+                source.WeaponType,
+                null);
         }
 
         static bool TryParseSeed(string value, out ulong seed)
@@ -588,29 +722,50 @@ namespace Shmup.DeterminismAudit
                 ulong hash,
                 int executedTicks,
                 int completedStages,
+                int completedRooms,
                 int rewardChoices,
+                int routeChoices,
                 int cappedChoices,
                 int finalStage,
-                RunState finalState)
+                RunState finalState,
+                int biomeIndex,
+                int roomIndex,
+                int battleTick,
+                int bossHp,
+                int bossMaxHp)
             {
                 Scenario = scenario;
                 Hash = hash;
                 ExecutedTicks = executedTicks;
                 CompletedStages = completedStages;
+                CompletedRooms = completedRooms;
                 RewardChoices = rewardChoices;
+                RouteChoices = routeChoices;
                 CappedChoices = cappedChoices;
                 FinalStage = finalStage;
                 FinalState = finalState;
+                BiomeIndex = biomeIndex;
+                RoomIndex = roomIndex;
+                BattleTick = battleTick;
+                BossHp = bossHp;
+                BossMaxHp = bossMaxHp;
             }
 
             public AuditScenario Scenario { get; }
             public ulong Hash { get; }
             public int ExecutedTicks { get; }
             public int CompletedStages { get; }
+            public int CompletedRooms { get; }
             public int RewardChoices { get; }
+            public int RouteChoices { get; }
             public int CappedChoices { get; }
             public int FinalStage { get; }
             public RunState FinalState { get; }
+            public int BiomeIndex { get; }
+            public int RoomIndex { get; }
+            public int BattleTick { get; }
+            public int BossHp { get; }
+            public int BossMaxHp { get; }
 
             public bool Matches(ScenarioResult other)
             {
@@ -618,10 +773,17 @@ namespace Shmup.DeterminismAudit
                     && Hash == other.Hash
                     && ExecutedTicks == other.ExecutedTicks
                     && CompletedStages == other.CompletedStages
+                    && CompletedRooms == other.CompletedRooms
                     && RewardChoices == other.RewardChoices
+                    && RouteChoices == other.RouteChoices
                     && CappedChoices == other.CappedChoices
                     && FinalStage == other.FinalStage
-                    && FinalState == other.FinalState;
+                    && FinalState == other.FinalState
+                    && BiomeIndex == other.BiomeIndex
+                    && RoomIndex == other.RoomIndex
+                    && BattleTick == other.BattleTick
+                    && BossHp == other.BossHp
+                    && BossMaxHp == other.BossMaxHp;
             }
 
             public string Format()
@@ -629,9 +791,15 @@ namespace Shmup.DeterminismAudit
                 return $"name={Scenario.Name} hash={Hash:X16} "
                     + $"seed={Scenario.Seed} strategy={Scenario.Strategy} "
                     + $"completedStages={CompletedStages}/{Scenario.StageCount} "
+                    + $"completedRooms={CompletedRooms}/"
+                    + $"{Scenario.StageCount * RunProgressionConfig.DefaultRoomsPerBiome} "
                     + $"ticks={ExecutedTicks} rewardChoices={RewardChoices} "
+                    + $"routeChoices={RouteChoices} "
                     + $"cappedChoices={CappedChoices} "
-                    + $"finalStage={FinalStage} state={FinalState}";
+                    + $"finalStage={FinalStage} state={FinalState} "
+                    + $"biome={BiomeIndex} room={RoomIndex} "
+                    + $"battleTick={BattleTick} "
+                    + $"bossHp={BossHp}/{BossMaxHp}";
             }
         }
 

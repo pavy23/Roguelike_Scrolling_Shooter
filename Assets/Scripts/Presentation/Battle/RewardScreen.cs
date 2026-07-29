@@ -33,7 +33,7 @@ namespace Shmup.Presentation.Battle
             _root = canvas.gameObject;
 
             UiKit.CreateDim(canvas.transform, new Color(0f, 0.01f, 0.05f, 0.55f));
-            UiKit.CreateCornerText(canvas.transform, _fontBold, "STAGE CLEAR — CHOOSE REWARD", 16,
+            UiKit.CreateCornerText(canvas.transform, _fontBold, UiText.RewardTitle, 16,
                 UiKit.TextAccent, new Vector2(0.5f, 1f), new Vector2(0f, -86f),
                 TextAnchor.UpperCenter, "Title");
 
@@ -49,7 +49,7 @@ namespace Shmup.Presentation.Battle
                     UiKit.TextMain, TextAnchor.MiddleCenter, 4f, "Label");
             }
             UiKit.CreateCornerText(canvas.transform, _font,
-                "[1]~[3] 즉시 선택      ◄/► 이동  (A)/[ENTER] 확정", 10, UiKit.TextDim,
+                UiText.ChoiceHints, 10, UiKit.TextDim,
                 new Vector2(0.5f, 0.5f), new Vector2(0f, -66f), TextAnchor.MiddleCenter, "Hints");
 
             _root.SetActive(false);

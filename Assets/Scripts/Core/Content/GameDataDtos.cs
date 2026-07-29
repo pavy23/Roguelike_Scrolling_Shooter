@@ -83,6 +83,14 @@ namespace Shmup.Core.Content
         public int? schemaVersion;
         [DataMember]
         public WeaponDto[] weapons;
+        [DataMember]
+        public MissileFamilyDto[] missileFamilies;
+        [DataMember]
+        public string defaultMissileFamily;
+        [DataMember]
+        public OptionFormationDto[] optionFormations;
+        [DataMember]
+        public string defaultOptionFormation;
     }
 
     [DataContract]
@@ -165,6 +173,59 @@ namespace Shmup.Core.Content
         public int? tick;
         [DataMember]
         public string enemyId;
+        [DataMember]
+        public decimal? y;
+    }
+
+    [DataContract]
+    internal sealed class MissileFamilyDto
+    {
+        [DataMember]
+        public string id;
+        [DataMember]
+        public int? baseDamage;
+        [DataMember]
+        public int? fireIntervalTicks;
+        [DataMember]
+        public int? minimumFireIntervalTicks;
+        [DataMember]
+        public int? fireIntervalReductionPerLevel;
+        [DataMember]
+        public decimal? projectileSpeed;
+        [DataMember]
+        public decimal? fallSpeedY;
+        [DataMember]
+        public int? pierceEnemyCount;
+        [DataMember]
+        public int? explosionDamage;
+        [DataMember]
+        public decimal? explosionRadius;
+        [DataMember]
+        public int? explosionMaxTargets;
+    }
+
+    [DataContract]
+    internal sealed class OptionFormationDto
+    {
+        [DataMember]
+        public string id;
+        [DataMember]
+        public int? followDelayTicks;
+        [DataMember]
+        public OptionOffsetDto[] offsets;
+        [DataMember]
+        public decimal? radius;
+        [DataMember]
+        public int? angularLutSlotsNumerator;
+        [DataMember]
+        public int? angularLutSlotsDenominator;
+    }
+
+    [DataContract]
+    internal sealed class OptionOffsetDto
+    {
+        [DataMember]
+        public decimal? x;
         [DataMember]
         public decimal? y;
     }
@@ -256,6 +317,10 @@ namespace Shmup.Core.Content
         public int? maxPerRun;
         [DataMember]
         public string modifierId;
+        [DataMember]
+        public string familyId;
+        [DataMember]
+        public string formationId;
     }
 
     [DataContract]

@@ -29,31 +29,34 @@ namespace Shmup.Presentation.Battle
         public static void Save(ReplayFileData data)
         {
             if (data == null || data.recording == null) return;
-            try
-            {
-                string temp = FilePath + ".tmp";
-                File.WriteAllText(temp, JsonUtility.ToJson(data));
-                if (File.Exists(FilePath)) File.Delete(FilePath);
-                File.Move(temp, FilePath);
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"[ReplaySave] 저장 실패({e.GetType().Name}). {e.Message}");
-            }
+            SafeFile.Write(FilePath, JsonUtility.ToJson(data));
         }
 
         public static ReplayFileData TryLoad()
         {
+            string text = SafeFile.Read(FilePath, IsUsable);
+            if (text == null) return null;
             try
             {
-                if (!File.Exists(FilePath)) return null;
-                var data = JsonUtility.FromJson<ReplayFileData>(File.ReadAllText(FilePath));
-                return data != null && data.recording != null ? data : null;
+                return JsonUtility.FromJson<ReplayFileData>(text);
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[ReplaySave] 로드 실패({e.GetType().Name}) — 리플레이 무시. {e.Message}");
+                Debug.LogWarning($"[ReplaySave] 파싱 실패({e.GetType().Name}) — 리플레이 무시. {e.Message}");
                 return null;
+            }
+        }
+
+        static bool IsUsable(string text)
+        {
+            try
+            {
+                var data = JsonUtility.FromJson<ReplayFileData>(text);
+                return data != null && data.recording != null;
+            }
+            catch
+            {
+                return false;
             }
         }
     }

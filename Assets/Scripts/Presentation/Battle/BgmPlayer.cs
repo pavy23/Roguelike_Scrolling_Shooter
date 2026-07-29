@@ -40,15 +40,16 @@ namespace Shmup.Presentation.Battle
         {
             if (_director == null || _source == null) return;
 
-            // 게임오버: 루프 멈추고 스팅어 1회 (런당 1번)
-            if (_director.IsRunOver)
+            // 런 종료: 루프 멈추고 스팅어 1회 (런당 1번). 완주는 승리 징글로 구분한다.
+            if (_director.IsRunFinished)
             {
                 if (_jingledRunNumber != _director.RunNumber)
                 {
                     _jingledRunNumber = _director.RunNumber;
                     _source.Stop();
-                    if (_gameOverJingle != null)
-                        _source.PlayOneShot(_gameOverJingle, 0.9f);
+                    var sting = _director.IsRunCleared ? _clearJingle : _gameOverJingle;
+                    if (sting != null)
+                        _source.PlayOneShot(sting, 0.95f);
                 }
                 return;
             }

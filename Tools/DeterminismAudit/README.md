@@ -19,6 +19,14 @@ keeps it eligible, then verifies equal battle traces and equal next-stage reward
 options after both paths converge. This proves that different eligible pool
 sizes cannot shift battle RNG or a later stage's reward RNG stream.
 
+The suite tick budget is derived at startup instead of being a fixed constant.
+It starts from the expected 22-minute run length (79,200 ticks), adds a 25%
+run-length margin, then adds boss-combat time from the largest parsed GameData
+boss HP and the default main weapon's damage/fire interval. A conservative 50%
+scripted-input hit rate covers boss movement. If this budget is exhausted, the
+failure reports biome, room, battle tick, and remaining boss HP so a content
+change cannot look like an unexplained determinism failure.
+
 A single rotating-choice scenario remains available:
 
 ```powershell

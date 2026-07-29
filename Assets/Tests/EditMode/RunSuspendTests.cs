@@ -18,7 +18,8 @@ namespace Shmup.Core.Tests
             Step(run, 17, in fire);
             RunSuspendData duringStage = run.ExportSuspendData();
 
-            Assert.AreEqual(2, duringStage.stageIndex);
+            Assert.AreEqual(1, duringStage.biomeIndex);
+            Assert.AreEqual(1, duringStage.roomIndex);
             Assert.AreEqual(atStageStart.score, duringStage.score);
             Assert.AreEqual(
                 atStageStart.shotsFired,
@@ -105,6 +106,8 @@ namespace Shmup.Core.Tests
             InputCommand none = InputCommand.None;
             Step(source, 3, in none);
             RunSuspendData data = source.ExportSuspendData();
+            data.roomIndex = 2;
+            data.roomsCleared = 1;
             data.playerHp = 7;
             data.rewardAcquisitions = new[]
             {
@@ -115,6 +118,7 @@ namespace Shmup.Core.Tests
                 }
             };
             data.activeModifiers = (int)BattleModifier.PierceShot;
+            SaveDataIntegrity.Seal(data);
 
             RewardCatalog rewards = CreateRewardCatalog();
             ShipDefinition ship = ShipDefinition.CreateDefault();
@@ -154,10 +158,12 @@ namespace Shmup.Core.Tests
 
             RunSuspendData badShip = source.ExportSuspendData();
             badShip.shipId = "unknown_ship";
+            SaveDataIntegrity.Seal(badShip);
             AssertRejectedBeforeGeneration(badShip);
 
             RunSuspendData badShield = source.ExportSuspendData();
             badShield.shieldRemaining++;
+            SaveDataIntegrity.Seal(badShield);
             AssertRejectedBeforeGeneration(badShield);
 
             RunSuspendData badReward = source.ExportSuspendData();
@@ -169,14 +175,17 @@ namespace Shmup.Core.Tests
                     count = 1
                 }
             };
+            SaveDataIntegrity.Seal(badReward);
             AssertRejectedBeforeGeneration(badReward);
 
             RunSuspendData badModifiers = source.ExportSuspendData();
             badModifiers.activeModifiers = 1 << 20;
+            SaveDataIntegrity.Seal(badModifiers);
             AssertRejectedBeforeGeneration(badModifiers);
 
             RunSuspendData badDifficulty = source.ExportSuspendData();
             badDifficulty.difficultyMultiplierNumerator = 0;
+            SaveDataIntegrity.Seal(badDifficulty);
             AssertRejectedBeforeGeneration(badDifficulty);
         }
 
@@ -186,6 +195,7 @@ namespace Shmup.Core.Tests
             RunManager source = CreateRun(new BoundaryStageGenerator());
             RunSuspendData legacy = source.ExportSuspendData();
             legacy.schemaVersion = 1;
+            legacy.checksum = null;
             legacy.difficultyMultiplierNumerator = 0;
             legacy.difficultyMultiplierDenominator = 0;
 
@@ -195,6 +205,54 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(1, resumed.DifficultyMultiplierNumerator);
             Assert.AreEqual(1, resumed.DifficultyMultiplierDenominator);
+        }
+
+        [Test]
+        public void LegacySuspendSchemas_MigrateToChecksummedCurrentPayload()
+        {
+            RunManager source = CreateRun(new BoundaryStageGenerator());
+            for (int version = 1; version <= 3; version++)
+            {
+                RunSuspendData legacy = source.ExportSuspendData();
+                legacy.schemaVersion = version;
+                legacy.checksum = null;
+                if (version == 1)
+                {
+                    legacy.difficultyMultiplierNumerator = 0;
+                    legacy.difficultyMultiplierDenominator = 0;
+                }
+                if (version < 3)
+                    legacy.routeChoices = null;
+
+                RunSuspendData migrated =
+                    SaveDataIntegrity.MigrateAndValidate(legacy);
+
+                Assert.AreEqual(
+                    RunSuspendData.CurrentSchemaVersion,
+                    migrated.schemaVersion);
+                Assert.AreEqual(
+                    RunProgressionConfig.DefaultFinalStageIndex,
+                    migrated.finalStageIndex);
+                Assert.IsNotNull(migrated.routeChoices);
+                Assert.IsTrue(
+                    SaveDataIntegrity.HasValidChecksum(migrated));
+                Assert.AreEqual(version, legacy.schemaVersion);
+            }
+        }
+
+        [Test]
+        public void CurrentSuspendChecksumMismatch_IsClearlyRejected()
+        {
+            RunSuspendData corrupted =
+                CreateRun(new BoundaryStageGenerator())
+                    .ExportSuspendData();
+            corrupted.score++;
+
+            ArgumentException error =
+                Assert.Throws<ArgumentException>(
+                    () => SaveDataIntegrity.MigrateAndValidate(corrupted));
+
+            StringAssert.Contains("checksum", error.Message);
         }
 
         [Test]
@@ -417,6 +475,10 @@ namespace Shmup.Core.Tests
                 expected.difficultyMultiplierDenominator,
                 actual.difficultyMultiplierDenominator);
             Assert.AreEqual(
+                expected.finalStageIndex,
+                actual.finalStageIndex);
+            Assert.AreEqual(expected.checksum, actual.checksum);
+            Assert.AreEqual(
                 expected.rewardAcquisitions.Length,
                 actual.rewardAcquisitions.Length);
             for (int i = 0;
@@ -498,7 +560,7 @@ namespace Shmup.Core.Tests
                 Rng rng = new Rng(seed)
                     .Fork(stageIndex)
                     .Fork(difficulty);
-                int length = stageIndex == 1 ? 3 : 200;
+                int length = 200;
                 SpawnEvent[] spawns = stageIndex == 1
                     ? Array.Empty<SpawnEvent>()
                     : new[]

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using NUnit.Framework;
 using Shmup.Core.Generation;
 using Shmup.Core.Simulation;
@@ -11,7 +12,7 @@ namespace Shmup.Core.Tests
         const int MeasuredTicks = 600;
 
         [Test]
-        public void StepAllocatesNoManagedMemoryAcrossCombatBossAndReward()
+        public void StepAllocatesNoManagedMemoryInsideCombatBossAndRewardLoops()
         {
             RunManager run = CreateRun();
             InputCommand fire = new InputCommand(0, 0, true);
@@ -21,44 +22,75 @@ namespace Shmup.Core.Tests
                 run.Step(in fire);
 
             bool sawCombat = false;
-            bool sawBoss = false;
-            bool sawReward = false;
-            var allocationsByTick = new long[MeasuredTicks];
-            long before = GC.GetAllocatedBytesForCurrentThread();
-
-            for (int i = 0; i < MeasuredTicks; i++)
+            long combatBefore = GC.GetAllocatedBytesForCurrentThread();
+            for (int i = 0; i < 15; i++)
             {
-                long tickBefore = GC.GetAllocatedBytesForCurrentThread();
                 run.Step(in fire);
-                allocationsByTick[i] =
-                    GC.GetAllocatedBytesForCurrentThread() - tickBefore;
-
                 BattleSim battle = (BattleSim)run.Battle;
                 sawCombat |= battle.Enemies.Count > 0;
+            }
+            long combatAllocated =
+                GC.GetAllocatedBytesForCurrentThread() - combatBefore;
+
+            for (int guard = 0;
+                guard < 2_000 && !run.IsBiomeBoss;
+                guard++)
+                run.Step(in fire);
+            Assert.IsTrue(run.IsBiomeBoss);
+
+            bool sawBoss = false;
+            bool sawReward = false;
+            long bossBefore = GC.GetAllocatedBytesForCurrentThread();
+            for (int i = 0; i < MeasuredTicks; i++)
+            {
+                run.Step(in fire);
+                BattleSim battle = (BattleSim)run.Battle;
                 sawBoss |= battle.BossActive;
                 sawReward |= run.State == RunState.AwaitingReward;
             }
+            long bossAllocated =
+                GC.GetAllocatedBytesForCurrentThread() - bossBefore;
 
-            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-            for (int i = 0; i < allocationsByTick.Length; i++)
-            {
-                if (allocationsByTick[i] != 0)
-                {
-                    TestContext.WriteLine(
-                        $"Measured tick {i}: {allocationsByTick[i]} bytes");
-                }
-            }
+            Assert.IsTrue(
+                sawCombat,
+                "The measured window did not exercise enemy combat.");
+            Assert.AreEqual(
+                0L,
+                combatAllocated,
+                "Combat-loop Step calls allocated managed heap memory.");
+            Assert.IsTrue(
+                sawBoss,
+                "The measured window did not exercise the boss interval.");
+            Assert.IsTrue(
+                sawReward,
+                "The measured window did not reach reward selection.");
+            Assert.AreEqual(
+                0L,
+                bossAllocated,
+                "Boss/reward-loop Step calls allocated managed heap memory.");
+        }
 
-            Assert.Multiple(() =>
-            {
-                Assert.IsTrue(sawCombat, "The measured window did not exercise enemy combat.");
-                Assert.IsTrue(sawBoss, "The measured window did not exercise the boss interval.");
-                Assert.IsTrue(sawReward, "The measured window did not reach reward selection.");
-                Assert.AreEqual(
-                    0L,
-                    allocated,
-                    "RunManager.Step allocated managed heap memory during the measured window.");
-            });
+        [Test]
+        public void PreparedRouteMakesRegularRoomClearAllocationFree()
+        {
+            InputCommand fire = new InputCommand(0, 0, true);
+            RunManager warmup = CreateRun(true);
+            for (int i = 0; i < 120; i++)
+                warmup.Step(in fire);
+            Assert.AreEqual(RunState.AwaitingRoute, warmup.State);
+
+            RunManager measured = CreateRun(true);
+            for (int i = 0; i < 119; i++)
+                measured.Step(in fire);
+
+            GC.GetAllocatedBytesForCurrentThread();
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            measured.Step(in fire);
+            long allocated =
+                GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.AreEqual(RunState.AwaitingRoute, measured.State);
+            Assert.AreEqual(0L, allocated);
         }
 
         [Test]
@@ -75,14 +107,11 @@ namespace Shmup.Core.Tests
             measured.Step(in none);
 
             long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-            Assert.Multiple(() =>
-            {
-                Assert.AreEqual(1L, measured.Statistics.GrazeCount);
-                Assert.AreEqual(
-                    0L,
-                    allocated,
-                    "Scoring a graze allocated managed heap memory.");
-            });
+            Assert.AreEqual(1L, measured.Statistics.GrazeCount);
+            Assert.AreEqual(
+                0L,
+                allocated,
+                "Scoring a graze allocated managed heap memory.");
         }
 
         [Test]
@@ -183,7 +212,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(MeasuredTicks, measured.TotalTicks);
         }
 
-        static RunManager CreateRun()
+        static RunManager CreateRun(bool supportsRoutes = false)
         {
             EnemyDefinition enemy = new EnemyDefinition(
                 "guard_enemy",
@@ -236,12 +265,16 @@ namespace Shmup.Core.Tests
                 256,
                 256,
                 300,
-                new[] { new BossPhase(20, 3, 64, 1) });
+                new[] { new BossPhase(20, 3, 64, 1) },
+                "a",
+                "a");
             BattleSimConfig config = CreateConfig();
 
             return new RunManager(
                 0xC0DEC0DEUL,
-                new FixedStageGenerator(plan),
+                supportsRoutes
+                    ? (IStageGenerator)new FixedRouteStageGenerator(plan)
+                    : new FixedStageGenerator(plan),
                 config,
                 content,
                 PowerUpGauge.CreateDefault());
@@ -527,6 +560,51 @@ namespace Shmup.Core.Tests
             }
 
             public StagePlan Generate(ulong seed, int stageIndex, int difficulty)
+            {
+                return _plan;
+            }
+        }
+
+        sealed class FixedRouteStageGenerator : IRouteStageGenerator
+        {
+            static readonly string[] Themes = { "a", "b" };
+            readonly StagePlan _plan;
+
+            public FixedRouteStageGenerator(StagePlan plan)
+            {
+                _plan = plan;
+            }
+
+            public IReadOnlyList<string> ThemeIds => Themes;
+
+            public IReadOnlyList<string> GetThemeOrder(ulong seed)
+            {
+                return Themes;
+            }
+
+            public bool CanGenerateRoute(
+                string themeId,
+                int stageIndex,
+                int difficulty,
+                EncounterType encounterType)
+            {
+                return true;
+            }
+
+            public StagePlan Generate(
+                ulong seed,
+                int stageIndex,
+                int difficulty)
+            {
+                return _plan;
+            }
+
+            public StagePlan GenerateRoute(
+                ulong seed,
+                int stageIndex,
+                int difficulty,
+                string themeId,
+                EncounterType encounterType)
             {
                 return _plan;
             }

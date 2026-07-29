@@ -414,7 +414,8 @@ namespace Shmup.Core.Tests
             InputCommand none = InputCommand.None;
 
             for (int i = 0; i < 5; i++) run.Step(in none);
-            Assert.AreEqual(2, run.StageIndex);   // 틱 소진으로 전환 (보상 없음)
+            Assert.AreEqual(1, run.BiomeIndex);
+            Assert.AreEqual(2, run.RoomIndex);
             Assert.AreEqual(RunState.Playing, run.State);
         }
 

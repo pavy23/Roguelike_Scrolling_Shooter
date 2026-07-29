@@ -34,7 +34,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class InputRecordingData
     {
-        public const int CurrentSchemaVersion = 4;
+        public const int CurrentSchemaVersion = 7;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -53,6 +53,24 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 5)]
         public RouteChoiceData[] routeChoices;
+
+        [DataMember(Order = 6)]
+        public int finalStageIndex;
+
+        [DataMember(Order = 7)]
+        public string checksum;
+
+        [DataMember(Order = 8)]
+        public int biomeCount;
+
+        [DataMember(Order = 9)]
+        public int roomsPerBiome;
+
+        [DataMember(Order = 10)]
+        public int missileFamily;
+
+        [DataMember(Order = 11)]
+        public int optionFormation;
     }
 
     /// <summary>
@@ -68,18 +86,32 @@ namespace Shmup.Core.Simulation
         readonly InputRun[] _runs;
         readonly int _difficultyMultiplierNumerator;
         readonly int _difficultyMultiplierDenominator;
+        readonly int _finalStageIndex;
+        readonly int _roomsPerBiome;
+        readonly MissileFamily _missileFamily;
+        readonly OptionFormation _optionFormation;
         readonly List<RouteChoice> _recordedRouteChoices;
         readonly RunManager _routeSource;
         int _runCount;
         int _totalTicks;
 
         public InputRecorder()
-            : this(DefaultRunCapacity, 1, 1)
+            : this(
+                DefaultRunCapacity,
+                1,
+                1,
+                RunProgressionConfig.DefaultBiomeCount,
+                RunProgressionConfig.DefaultRoomsPerBiome)
         {
         }
 
         public InputRecorder(int runCapacity)
-            : this(runCapacity, 1, 1)
+            : this(
+                runCapacity,
+                1,
+                1,
+                RunProgressionConfig.DefaultBiomeCount,
+                RunProgressionConfig.DefaultRoomsPerBiome)
         {
         }
 
@@ -87,15 +119,48 @@ namespace Shmup.Core.Simulation
             : this(
                 DefaultRunCapacity,
                 GetDifficultyNumerator(run),
-                GetDifficultyDenominator(run))
+                GetDifficultyDenominator(run),
+                GetFinalStageIndex(run),
+                GetRoomsPerBiome(run))
         {
             _routeSource = run;
+            _missileFamily = run.CurrentMissileFamily;
+            _optionFormation = run.CurrentOptionFormation;
         }
 
         public InputRecorder(
             int runCapacity,
             int difficultyMultiplierNumerator,
             int difficultyMultiplierDenominator)
+            : this(
+                runCapacity,
+                difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator,
+                RunProgressionConfig.DefaultBiomeCount,
+                RunProgressionConfig.DefaultRoomsPerBiome)
+        {
+        }
+
+        public InputRecorder(
+            int runCapacity,
+            int difficultyMultiplierNumerator,
+            int difficultyMultiplierDenominator,
+            int finalStageIndex)
+            : this(
+                runCapacity,
+                difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator,
+                finalStageIndex,
+                1)
+        {
+        }
+
+        public InputRecorder(
+            int runCapacity,
+            int difficultyMultiplierNumerator,
+            int difficultyMultiplierDenominator,
+            int biomeCount,
+            int roomsPerBiome)
         {
             if (runCapacity < 1)
                 throw new ArgumentOutOfRangeException(
@@ -106,6 +171,12 @@ namespace Shmup.Core.Simulation
             if (difficultyMultiplierDenominator < 1)
                 throw new ArgumentOutOfRangeException(
                     nameof(difficultyMultiplierDenominator));
+            if (biomeCount < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(biomeCount));
+            if (roomsPerBiome < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(roomsPerBiome));
 
             int divisor = GreatestCommonDivisor(
                 difficultyMultiplierNumerator,
@@ -114,6 +185,10 @@ namespace Shmup.Core.Simulation
                 difficultyMultiplierNumerator / divisor;
             _difficultyMultiplierDenominator =
                 difficultyMultiplierDenominator / divisor;
+            _finalStageIndex = biomeCount;
+            _roomsPerBiome = roomsPerBiome;
+            _missileFamily = MissileFamily.Straight;
+            _optionFormation = OptionFormation.Trail;
             _runs = new InputRun[runCapacity];
             _recordedRouteChoices = new List<RouteChoice>();
         }
@@ -125,6 +200,9 @@ namespace Shmup.Core.Simulation
             _difficultyMultiplierNumerator;
         public int DifficultyMultiplierDenominator =>
             _difficultyMultiplierDenominator;
+        public int FinalStageIndex => _finalStageIndex;
+        public int BiomeCount => _finalStageIndex;
+        public int RoomsPerBiome => _roomsPerBiome;
 
         public void Record(in InputCommand input)
         {
@@ -161,20 +239,32 @@ namespace Shmup.Core.Simulation
             int optionIndex,
             in RouteOption option)
         {
+            RecordRouteChoice(stageIndex, 1, optionIndex, in option);
+        }
+
+        public void RecordRouteChoice(
+            int biomeIndex,
+            int roomIndex,
+            int optionIndex,
+            in RouteOption option)
+        {
             if (_routeSource != null)
                 throw new InvalidOperationException(
                     "A run-bound recorder reads route choices from its run.");
             if (_recordedRouteChoices.Count > 0
-                && stageIndex
-                    <= _recordedRouteChoices[
-                        _recordedRouteChoices.Count - 1].StageIndex)
+                && !IsAfter(
+                    biomeIndex,
+                    roomIndex,
+                    _recordedRouteChoices[
+                        _recordedRouteChoices.Count - 1]))
             {
                 throw new ArgumentException(
                     "Route choices must be recorded in increasing stage order.",
-                    nameof(stageIndex));
+                    nameof(biomeIndex));
             }
             _recordedRouteChoices.Add(new RouteChoice(
-                stageIndex,
+                biomeIndex,
+                roomIndex,
                 optionIndex,
                 option.ThemeId,
                 option.EncounterType));
@@ -216,13 +306,15 @@ namespace Shmup.Core.Simulation
                 exportedRouteChoices[i] = new RouteChoiceData
                 {
                     stageIndex = choice.StageIndex,
+                    biomeIndex = choice.BiomeIndex,
+                    roomIndex = choice.RoomIndex,
                     optionIndex = choice.OptionIndex,
                     themeId = choice.ThemeId,
                     encounterType = (int)choice.EncounterType
                 };
             }
 
-            return new InputRecordingData
+            var data = new InputRecordingData
             {
                 schemaVersion = InputRecordingData.CurrentSchemaVersion,
                 totalTicks = _totalTicks,
@@ -231,8 +323,15 @@ namespace Shmup.Core.Simulation
                     _difficultyMultiplierNumerator,
                 difficultyMultiplierDenominator =
                     _difficultyMultiplierDenominator,
-                routeChoices = exportedRouteChoices
+                routeChoices = exportedRouteChoices,
+                finalStageIndex = _finalStageIndex,
+                biomeCount = _finalStageIndex,
+                roomsPerBiome = _roomsPerBiome,
+                missileFamily = (int)_missileFamily,
+                optionFormation = (int)_optionFormation
             };
+            SaveDataIntegrity.Seal(data);
+            return data;
         }
 
         static int GetDifficultyNumerator(RunManager run)
@@ -247,6 +346,30 @@ namespace Shmup.Core.Simulation
             if (run == null)
                 throw new ArgumentNullException(nameof(run));
             return run.DifficultyMultiplierDenominator;
+        }
+
+        static int GetFinalStageIndex(RunManager run)
+        {
+            if (run == null)
+                throw new ArgumentNullException(nameof(run));
+            return run.FinalStageIndex;
+        }
+
+        static int GetRoomsPerBiome(RunManager run)
+        {
+            if (run == null)
+                throw new ArgumentNullException(nameof(run));
+            return run.RoomsPerBiome;
+        }
+
+        static bool IsAfter(
+            int biomeIndex,
+            int roomIndex,
+            in RouteChoice previous)
+        {
+            return biomeIndex > previous.BiomeIndex
+                || (biomeIndex == previous.BiomeIndex
+                    && roomIndex > previous.RoomIndex);
         }
 
         static int GreatestCommonDivisor(int left, int right)
@@ -301,26 +424,23 @@ namespace Shmup.Core.Simulation
 
         public InputPlayback(InputRecordingData data)
         {
-            if (data == null)
-                throw new ArgumentNullException(nameof(data));
+            data = SaveDataIntegrity.MigrateAndValidate(data);
             Validate(data);
 
             TotalTicks = data.totalTicks;
-            if (data.schemaVersion == 2)
-            {
-                DifficultyMultiplierNumerator = 1;
-                DifficultyMultiplierDenominator = 1;
-            }
-            else
-            {
-                int divisor = GreatestCommonDivisor(
-                    data.difficultyMultiplierNumerator,
-                    data.difficultyMultiplierDenominator);
-                DifficultyMultiplierNumerator =
-                    data.difficultyMultiplierNumerator / divisor;
-                DifficultyMultiplierDenominator =
-                    data.difficultyMultiplierDenominator / divisor;
-            }
+            int divisor = GreatestCommonDivisor(
+                data.difficultyMultiplierNumerator,
+                data.difficultyMultiplierDenominator);
+            DifficultyMultiplierNumerator =
+                data.difficultyMultiplierNumerator / divisor;
+            DifficultyMultiplierDenominator =
+                data.difficultyMultiplierDenominator / divisor;
+            BiomeCount = data.biomeCount;
+            RoomsPerBiome = data.roomsPerBiome;
+            MissileFamily =
+                (MissileFamily)data.missileFamily;
+            OptionFormation =
+                (OptionFormation)data.optionFormation;
             _runs = new PlaybackRun[data.runs.Length];
             for (int i = 0; i < data.runs.Length; i++)
             {
@@ -340,7 +460,8 @@ namespace Shmup.Core.Simulation
             {
                 RouteChoiceData choice = serializedChoices[i];
                 _routeChoices[i] = new RouteChoice(
-                    choice.stageIndex,
+                    choice.biomeIndex,
+                    choice.roomIndex,
                     choice.optionIndex,
                     choice.themeId,
                     (EncounterType)choice.encounterType);
@@ -352,6 +473,11 @@ namespace Shmup.Core.Simulation
         public int RunCount => _runs.Length;
         public int DifficultyMultiplierNumerator { get; }
         public int DifficultyMultiplierDenominator { get; }
+        public int FinalStageIndex => BiomeCount;
+        public int BiomeCount { get; }
+        public int RoomsPerBiome { get; }
+        public MissileFamily MissileFamily { get; }
+        public OptionFormation OptionFormation { get; }
         public IReadOnlyList<RouteChoice> RouteChoices =>
             _routeChoiceView;
 
@@ -373,22 +499,34 @@ namespace Shmup.Core.Simulation
 
         static void Validate(InputRecordingData data)
         {
-            if (data.schemaVersion != 2
-                && data.schemaVersion != 3
-                && data.schemaVersion
-                    != InputRecordingData.CurrentSchemaVersion)
+            if (data.schemaVersion
+                != InputRecordingData.CurrentSchemaVersion)
             {
                 throw Corrupted(
                     "The input recording schema version is unsupported.");
             }
-            if (data.schemaVersion >= 3
-                && (data.difficultyMultiplierNumerator < 1
-                    || data.difficultyMultiplierDenominator < 1))
+            if (data.difficultyMultiplierNumerator < 1
+                || data.difficultyMultiplierDenominator < 1)
             {
                 throw Corrupted(
                     "The input recording difficulty multiplier "
                     + "must be positive.");
             }
+            if (data.biomeCount < 1
+                || data.finalStageIndex != data.biomeCount)
+                throw Corrupted(
+                    "The input recording biome count is invalid.");
+            if (data.roomsPerBiome < 1)
+                throw Corrupted(
+                    "The input recording roomsPerBiome must be positive.");
+            if (!Enum.IsDefined(
+                    typeof(MissileFamily),
+                    data.missileFamily)
+                || !Enum.IsDefined(
+                    typeof(OptionFormation),
+                    data.optionFormation))
+                throw Corrupted(
+                    "The input recording weapon loadout is invalid.");
             if (data.totalTicks < 1)
                 throw Corrupted(
                     "The input recording must contain at least one tick.");
@@ -437,21 +575,27 @@ namespace Shmup.Core.Simulation
                 throw Corrupted(
                     "Input recording run lengths do not match totalTicks.");
 
-            if (data.schemaVersion
-                    == InputRecordingData.CurrentSchemaVersion
-                && data.routeChoices == null)
+            if (data.routeChoices == null)
             {
                 throw Corrupted(
                     "Input recording routeChoices cannot be null.");
             }
             RouteChoiceData[] choices =
                 data.routeChoices ?? Array.Empty<RouteChoiceData>();
-            int previousStageIndex = 1;
+            int previousBiomeIndex = 0;
+            int previousRoomIndex = 0;
             for (int i = 0; i < choices.Length; i++)
             {
                 RouteChoiceData choice = choices[i];
                 if (choice == null
-                    || choice.stageIndex <= previousStageIndex
+                    || choice.biomeIndex < 1
+                    || choice.biomeIndex > data.biomeCount
+                    || choice.roomIndex < 1
+                    || choice.roomIndex > data.roomsPerBiome
+                    || (choice.biomeIndex < previousBiomeIndex)
+                    || (choice.biomeIndex == previousBiomeIndex
+                        && choice.roomIndex <= previousRoomIndex)
+                    || choice.stageIndex != choice.biomeIndex
                     || choice.optionIndex < 0
                     || choice.optionIndex
                         >= RunManager.MaximumRouteOptionCount
@@ -463,7 +607,8 @@ namespace Shmup.Core.Simulation
                     throw Corrupted(
                         "Input recording route choice history is invalid.");
                 }
-                previousStageIndex = choice.stageIndex;
+                previousBiomeIndex = choice.biomeIndex;
+                previousRoomIndex = choice.roomIndex;
             }
         }
 

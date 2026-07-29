@@ -201,7 +201,8 @@ namespace Shmup.Core.Tests
 
             InputRecordingData badSchema = ValidData();
             badSchema.schemaVersion++;
-            AssertRejected(badSchema);
+            Assert.Throws<ArgumentException>(
+                () => new InputPlayback(badSchema));
 
             InputRecordingData missingRuns = ValidData();
             missingRuns.runs = null;
@@ -287,6 +288,7 @@ namespace Shmup.Core.Tests
         {
             InputRecordingData legacy = ValidData();
             legacy.schemaVersion = 2;
+            legacy.checksum = null;
             legacy.difficultyMultiplierNumerator = 0;
             legacy.difficultyMultiplierDenominator = 0;
 
@@ -294,6 +296,49 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(1, playback.DifficultyMultiplierNumerator);
             Assert.AreEqual(1, playback.DifficultyMultiplierDenominator);
+        }
+
+        [Test]
+        public void SchemaOneRecording_MigratesAllLaterFields()
+        {
+            var recorder = new InputRecorder();
+            recorder.Record(new InputCommand(1, 0, true, true));
+            InputRecordingData legacy = recorder.Export();
+            legacy.schemaVersion = 1;
+            legacy.checksum = null;
+            legacy.difficultyMultiplierNumerator = 0;
+            legacy.difficultyMultiplierDenominator = 0;
+            legacy.routeChoices = null;
+
+            InputRecordingData migrated =
+                SaveDataIntegrity.MigrateAndValidate(legacy);
+            var playback = new InputPlayback(migrated);
+
+            Assert.AreEqual(
+                InputRecordingData.CurrentSchemaVersion,
+                migrated.schemaVersion);
+            Assert.AreEqual(1, playback.DifficultyMultiplierNumerator);
+            Assert.AreEqual(1, playback.DifficultyMultiplierDenominator);
+            Assert.AreEqual(0, playback.RouteChoices.Count);
+            foreach (InputCommand input in playback)
+                Assert.IsFalse(input.Activate);
+            Assert.IsTrue(
+                SaveDataIntegrity.HasValidChecksum(migrated));
+        }
+
+        [Test]
+        public void CurrentRecordingChecksumMismatch_IsClearlyRejected()
+        {
+            var recorder = new InputRecorder();
+            recorder.Record(InputCommand.None);
+            InputRecordingData corrupted = recorder.Export();
+            corrupted.totalTicks++;
+
+            ArgumentException error =
+                Assert.Throws<ArgumentException>(
+                    () => new InputPlayback(corrupted));
+
+            StringAssert.Contains("checksum", error.Message);
         }
 
         [Test]
@@ -365,12 +410,23 @@ namespace Shmup.Core.Tests
                         activate = false,
                         tickCount = 1
                     }
-                }
+                },
+                routeChoices = Array.Empty<RouteChoiceData>(),
+                finalStageIndex =
+                    RunProgressionConfig.DefaultFinalStageIndex
             };
         }
 
         static void AssertRejected(InputRecordingData data)
         {
+            if (data.routeChoices == null)
+                data.routeChoices = Array.Empty<RouteChoiceData>();
+            if (data.finalStageIndex < 1)
+            {
+                data.finalStageIndex =
+                    RunProgressionConfig.DefaultFinalStageIndex;
+            }
+            SaveDataIntegrity.Seal(data);
             Assert.Throws<ArgumentException>(
                 () => new InputPlayback(data));
         }

@@ -51,7 +51,9 @@ namespace Shmup.Core.Simulation
         /// EntityId = obstacle id, X/Y = destruction point,
         /// Arg = multiplier-applied score actually awarded, saturated to int.MaxValue.
         /// </summary>
-        ObstacleDestroyed = 15
+        ObstacleDestroyed = 15,
+        /// <summary>EntityId = missile id, X/Y = impact point, Arg = explosion damage.</summary>
+        MissileExploded = 16
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -411,11 +413,27 @@ namespace Shmup.Core.Simulation
         public int MissileFallSpeedYDenominator { get; set; } = SimSpace.TicksPerSecond;
         public int MissileHalfWidth { get; set; } = 3 * SimSpace.SubUnitsPerWorldUnit / 8;
         public int MissileHalfHeight { get; set; } = 3 * SimSpace.SubUnitsPerWorldUnit / 16;
+        public MissileFamily MissileFamily { get; set; } =
+            MissileFamily.Straight;
+        public int MissilePierceEnemyCount { get; set; }
+        public int MissileExplosionDamage { get; set; }
+        public int MissileExplosionRadiusSubUnits { get; set; }
+        public int MissileExplosionMaxTargets { get; set; }
         /// <summary>
         /// Player-position history distance between consecutive options.
         /// Option N follows the position from N * OptionFollowDelayTicks ago.
         /// </summary>
         public int OptionFollowDelayTicks { get; set; } = 12;
+        public OptionFormation OptionFormation { get; set; } =
+            OptionFormation.Trail;
+        public int[] OptionFixedOffsetXs { get; set; } =
+            Array.Empty<int>();
+        public int[] OptionFixedOffsetYs { get; set; } =
+            Array.Empty<int>();
+        public int OptionOrbitRadiusSubUnits { get; set; } =
+            7 * SimSpace.SubUnitsPerWorldUnit / 4;
+        public int OptionOrbitAngularLutSlotsNumerator { get; set; } = 1;
+        public int OptionOrbitAngularLutSlotsDenominator { get; set; } = 2;
 
         // 적탄 잠정값 (REQ-007) — GameData 이관 전까지 여기서 조절.
         public int EnemyBulletSpeedNumerator { get; set; } = 8 * SimSpace.SubUnitsPerWorldUnit;
@@ -494,7 +512,14 @@ namespace Shmup.Core.Simulation
 
         internal BattleSimConfig Copy()
         {
-            return (BattleSimConfig)MemberwiseClone();
+            var copy = (BattleSimConfig)MemberwiseClone();
+            copy.OptionFixedOffsetXs = OptionFixedOffsetXs == null
+                ? null
+                : (int[])OptionFixedOffsetXs.Clone();
+            copy.OptionFixedOffsetYs = OptionFixedOffsetYs == null
+                ? null
+                : (int[])OptionFixedOffsetYs.Clone();
+            return copy;
         }
     }
 
@@ -567,7 +592,17 @@ namespace Shmup.Core.Simulation
         readonly int _missileSpeedXNumerator, _missileSpeedXDenominator;
         readonly int _missileFallSpeedYNumerator, _missileFallSpeedYDenominator;
         readonly int _missileHalfWidth, _missileHalfHeight;
+        readonly MissileFamily _missileFamily;
+        readonly int _missilePierceEnemyCount;
+        readonly int _missileExplosionDamage;
+        readonly int _missileExplosionRadiusSubUnits;
+        readonly int _missileExplosionMaxTargets;
         readonly int _optionFollowDelayTicks;
+        readonly OptionFormation _optionFormation;
+        readonly int[] _optionFixedOffsetXs, _optionFixedOffsetYs;
+        readonly int _optionOrbitRadiusSubUnits;
+        readonly int _optionOrbitAngularLutSlotsNumerator;
+        readonly int _optionOrbitAngularLutSlotsDenominator;
         readonly int _playerMinX, _playerMaxX, _playerMinY, _playerMaxY;
         readonly int _bulletDespawnX, _enemyDespawnX;
         readonly int _playerHalfWidth, _playerHalfHeight;
@@ -782,7 +817,30 @@ namespace Shmup.Core.Simulation
             _missileFallSpeedYDenominator = config.MissileFallSpeedYDenominator;
             _missileHalfWidth = config.MissileHalfWidth;
             _missileHalfHeight = config.MissileHalfHeight;
+            _missileFamily = config.MissileFamily;
+            _missilePierceEnemyCount =
+                config.MissilePierceEnemyCount;
+            _missileExplosionDamage =
+                config.MissileExplosionDamage;
+            _missileExplosionRadiusSubUnits =
+                config.MissileExplosionRadiusSubUnits;
+            _missileExplosionMaxTargets =
+                config.MissileExplosionMaxTargets;
             _optionFollowDelayTicks = config.OptionFollowDelayTicks;
+            _optionFormation = config.OptionFormation;
+            _optionFixedOffsetXs = config.OptionFixedOffsetXs == null
+                ? Array.Empty<int>()
+                : (int[])config.OptionFixedOffsetXs.Clone();
+            _optionFixedOffsetYs = config.OptionFixedOffsetYs == null
+                ? Array.Empty<int>()
+                : (int[])config.OptionFixedOffsetYs.Clone();
+            _optionOrbitRadiusSubUnits =
+                config.OptionOrbitRadiusSubUnits;
+            _optionOrbitAngularLutSlotsNumerator =
+                config.OptionOrbitAngularLutSlotsNumerator;
+            _optionOrbitAngularLutSlotsDenominator =
+                config.OptionOrbitAngularLutSlotsDenominator;
+            ValidateLoadoutConfig();
             _playerMinX = config.PlayerMinX;
             _playerMaxX = config.PlayerMaxX;
             _playerMinY = config.PlayerMinY;
@@ -981,6 +1039,7 @@ namespace Shmup.Core.Simulation
                 (long)_maxBullets
                 * (_mainShotBasePierceEnemyCount
                     + _pierceShotEnemyCount
+                    + _missilePierceEnemyCount
                     + 2L);
             if (hitRecordCapacity > int.MaxValue)
                 throw new ArgumentOutOfRangeException(
@@ -992,6 +1051,11 @@ namespace Shmup.Core.Simulation
             int maxOptionLevel = powerUpGauge == null
                 ? 0
                 : powerUpGauge.GetMaxLevel(PowerUpSlot.Option);
+            if (_optionFormation == OptionFormation.Fixed
+                && _optionFixedOffsetXs.Length < maxOptionLevel)
+                throw new ArgumentException(
+                    "Fixed formation requires one X/Y offset per option.",
+                    nameof(config));
             _options = new List<OptionState>(maxOptionLevel);
             _readOnlyOptions = _options.AsReadOnly();
             long historyCapacity = (long)maxOptionLevel * _optionFollowDelayTicks + 1;
@@ -1212,12 +1276,78 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < _options.Count; i++)
             {
                 int index = i + 1;
-                GetPlayerPositionAgo(
-                    checked(index * _optionFollowDelayTicks),
-                    out int x,
-                    out int y);
+                int x;
+                int y;
+                if (_optionFormation == OptionFormation.Fixed)
+                {
+                    x = SaturateToInt(
+                        (long)PlayerX + _optionFixedOffsetXs[i]);
+                    y = Math.Max(
+                        _playerMinY,
+                        Math.Min(
+                            _playerMaxY,
+                            SaturateToInt(
+                                (long)PlayerY
+                                + _optionFixedOffsetYs[i])));
+                }
+                else if (_optionFormation == OptionFormation.Orbit)
+                {
+                    int baseSlot = (int)(
+                        (long)Tick
+                        * _optionOrbitAngularLutSlotsNumerator
+                        / _optionOrbitAngularLutSlotsDenominator);
+                    int slot = (
+                        baseSlot
+                        + i * SineLut.Length / _options.Count)
+                        % SineLut.Length;
+                    int sin = SineLut[slot];
+                    int cos = SineLut[
+                        (slot + SineLut.Length / 4)
+                        % SineLut.Length];
+                    x = SaturateToInt(
+                        (long)PlayerX
+                        + (long)_optionOrbitRadiusSubUnits
+                            * cos / SineScale);
+                    y = SaturateToInt(
+                        (long)PlayerY
+                        + (long)_optionOrbitRadiusSubUnits
+                            * sin / SineScale);
+                }
+                else
+                {
+                    GetPlayerPositionAgo(
+                        checked(index * _optionFollowDelayTicks),
+                        out x,
+                        out y);
+                }
                 _options[i] = new OptionState(index, x, y);
             }
+        }
+
+        void ValidateLoadoutConfig()
+        {
+            if (!Enum.IsDefined(typeof(MissileFamily), _missileFamily))
+                throw new ArgumentOutOfRangeException(
+                    nameof(BattleSimConfig.MissileFamily));
+            if (!Enum.IsDefined(typeof(OptionFormation), _optionFormation))
+                throw new ArgumentOutOfRangeException(
+                    nameof(BattleSimConfig.OptionFormation));
+            if (_missilePierceEnemyCount < 0
+                || _missileExplosionDamage < 0
+                || _missileExplosionRadiusSubUnits < 0
+                || _missileExplosionMaxTargets < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(BattleSimConfig.MissilePierceEnemyCount));
+            if (_optionOrbitRadiusSubUnits < 0
+                || _optionOrbitAngularLutSlotsNumerator < 0
+                || _optionOrbitAngularLutSlotsDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(BattleSimConfig.OptionOrbitRadiusSubUnits));
+            if (_optionFormation == OptionFormation.Fixed
+                && _optionFixedOffsetXs.Length
+                    != _optionFixedOffsetYs.Length)
+                throw new ArgumentException(
+                    "Fixed formation requires one X/Y offset per option.");
         }
 
         void RecordPlayerPosition()
@@ -1288,6 +1418,18 @@ namespace Shmup.Core.Simulation
                 int nextYRemainder = (int)(accumulatedY % yDenominator);
                 long nextX = bullet.X + (long)deltaX;
                 long nextYLong = bullet.Y + (long)deltaY;
+                if (bullet.Kind == BulletKind.Missile
+                    && _missileFamily == MissileFamily.SpreadBomb
+                    && nextYLong
+                        <= -SimSpace.PlayfieldHalfHeightSubUnits)
+                {
+                    ApplyMissileExplosion(
+                        bullet.Id,
+                        SaturateToInt(nextX),
+                        -SimSpace.PlayfieldHalfHeightSubUnits);
+                    ClearBulletHitRecords(bullet.Id);
+                    continue;
+                }
                 if (nextX > _bulletDespawnX || nextX < -(long)_bulletDespawnX
                     || nextYLong > despawnY || nextYLong < -(long)despawnY)
                 {
@@ -1644,36 +1786,72 @@ namespace Shmup.Core.Simulation
                 int damage = bullet.Kind == BulletKind.Missile
                     ? Damage.Compute(_missileBaseDamage, Math.Max(1, _missileLevel))
                     : Damage.Compute(_playerBulletDamage, Math.Max(1, _mainShotLevel));
-                _bossHp = Damage.ApplyToHp(_bossHp, damage);
-
-                if (_bossHp > 0)
+                bool defeated = ApplyDamageToBoss(damage);
+                if (!defeated
+                    && bullet.Kind == BulletKind.Missile
+                    && _missileFamily == MissileFamily.SpreadBomb)
                 {
-                    EmitEvent(SimEventType.EnemyHit, _bossId, _bossX, _bossY, damage);
-                    int phaseCount = _bossPhases.Count;
-                    int nextPhase = Math.Min(
-                        phaseCount - 1,
-                        (int)((long)(_bossMaxHp - _bossHp) * phaseCount / _bossMaxHp));
-                    if (nextPhase != _bossPhase)
-                    {
-                        _bossPhase = nextPhase;
-                        _bossFireCooldown = _bossPhases[_bossPhase].FireIntervalTicks;
-                        EmitEvent(SimEventType.BossPhaseChanged, _bossId, _bossX, _bossY, nextPhase);
-                    }
-                    continue;
+                    ApplyMissileExplosion(
+                        bullet.Id,
+                        bullet.X,
+                        bullet.Y);
+                    defeated = _bossDefeated;
                 }
+                if (defeated)
+                    return;
+            }
+        }
 
-                _bossDefeated = true;
-                int awardedScore = RecordKillScore((long)_bossMaxHp * 2);
+        bool ApplyDamageToBoss(int damage)
+        {
+            if (!BossActive || damage <= 0)
+                return false;
+            _bossHp = Damage.ApplyToHp(_bossHp, damage);
+            if (_bossHp > 0)
+            {
                 EmitEvent(
-                    SimEventType.EnemyKilled,
+                    SimEventType.EnemyHit,
                     _bossId,
                     _bossX,
                     _bossY,
-                    awardedScore);
-                AdvanceKillCombo();
-                EmitEvent(SimEventType.StageCleared, _bossId, _bossX, _bossY, 0);
-                return;
+                    damage);
+                int phaseCount = _bossPhases.Count;
+                int nextPhase = Math.Min(
+                    phaseCount - 1,
+                    (int)((long)(_bossMaxHp - _bossHp)
+                        * phaseCount / _bossMaxHp));
+                if (nextPhase != _bossPhase)
+                {
+                    _bossPhase = nextPhase;
+                    _bossFireCooldown =
+                        _bossPhases[_bossPhase].FireIntervalTicks;
+                    EmitEvent(
+                        SimEventType.BossPhaseChanged,
+                        _bossId,
+                        _bossX,
+                        _bossY,
+                        nextPhase);
+                }
+                return false;
             }
+
+            _bossDefeated = true;
+            int awardedScore =
+                RecordKillScore((long)_bossMaxHp * 2);
+            EmitEvent(
+                SimEventType.EnemyKilled,
+                _bossId,
+                _bossX,
+                _bossY,
+                awardedScore);
+            AdvanceKillCombo();
+            EmitEvent(
+                SimEventType.StageCleared,
+                _bossId,
+                _bossX,
+                _bossY,
+                0);
+            return true;
         }
 
         void ResolveEnemyBulletPlayerCollisions()
@@ -1918,6 +2096,16 @@ namespace Shmup.Core.Simulation
                         : Damage.Compute(
                             _playerBulletDamage,
                             Math.Max(1, _mainShotLevel));
+                    if (bullet.Kind == BulletKind.Missile
+                        && _missileFamily
+                            == MissileFamily.SpreadBomb)
+                    {
+                        damage = SaturatingAddDamage(
+                            damage,
+                            Damage.Compute(
+                                _missileExplosionDamage,
+                                Math.Max(1, _missileLevel)));
+                    }
                     int hp = Damage.ApplyToHp(obstacle.Hp, damage);
                     if (hp > 0)
                     {
@@ -1942,6 +2130,14 @@ namespace Shmup.Core.Simulation
                 }
 
                 // Terrain blocks every player projectile, including laser pierce.
+                if (bullet.Kind == BulletKind.Missile
+                    && _missileFamily == MissileFamily.SpreadBomb)
+                {
+                    ApplyMissileExplosion(
+                        bullet.Id,
+                        obstacle.X,
+                        obstacle.Y);
+                }
                 RemoveBulletAt(bulletIndex);
             }
         }
@@ -2057,6 +2253,21 @@ namespace Shmup.Core.Simulation
                                 enemy.Y,
                                 targetId);
                         }
+                    }
+                }
+                else if (bullet.Kind == BulletKind.Missile)
+                {
+                    if (_missileFamily == MissileFamily.SpreadBomb)
+                    {
+                        ApplyMissileExplosion(
+                            bullet.Id,
+                            enemy.X,
+                            enemy.Y);
+                    }
+                    else if (_bulletPiercesRemaining[bulletIndex] > 0)
+                    {
+                        _bulletPiercesRemaining[bulletIndex]--;
+                        keepBullet = true;
                     }
                 }
 
@@ -2294,6 +2505,122 @@ namespace Shmup.Core.Simulation
                 IncrementSaturated(ref _kills);
                 AdvanceKillCombo();
                 TryDropCapsule(definition, enemy.X, enemy.Y);
+            }
+        }
+
+        void ApplyMissileExplosion(
+            int sourceBulletId,
+            int centerX,
+            int centerY)
+        {
+            int damage = Damage.Compute(
+                _missileExplosionDamage,
+                Math.Max(1, _missileLevel));
+            EmitEvent(
+                SimEventType.MissileExploded,
+                sourceBulletId,
+                centerX,
+                centerY,
+                damage);
+            if (damage == 0
+                || _missileExplosionRadiusSubUnits == 0
+                || _missileExplosionMaxTargets == 0)
+                return;
+
+            long radiusSquared = SquaredRadiusSaturated(
+                _missileExplosionRadiusSubUnits);
+            int scanCount = 0;
+            for (int i = 0; i < _enemies.Count; i++)
+            {
+                EnemyState enemy = _enemies[i];
+                long distanceSquared = SquaredDistanceSaturated(
+                    centerX,
+                    centerY,
+                    enemy.X,
+                    enemy.Y);
+                if (distanceSquared > radiusSquared)
+                    continue;
+                int insertIndex = scanCount;
+                while (insertIndex > 0
+                    && (distanceSquared
+                            < _enemyScanDistances[insertIndex - 1]
+                        || (distanceSquared
+                                == _enemyScanDistances[insertIndex - 1]
+                            && enemy.Id
+                                < _enemyScanIds[insertIndex - 1])))
+                {
+                    insertIndex--;
+                }
+                if (insertIndex >= _missileExplosionMaxTargets)
+                    continue;
+                int nextCount = Math.Min(
+                    scanCount + 1,
+                    _missileExplosionMaxTargets);
+                for (int shift = nextCount - 1;
+                    shift > insertIndex;
+                    shift--)
+                {
+                    _enemyScanIds[shift] =
+                        _enemyScanIds[shift - 1];
+                    _enemyScanDistances[shift] =
+                        _enemyScanDistances[shift - 1];
+                }
+                _enemyScanIds[insertIndex] = enemy.Id;
+                _enemyScanDistances[insertIndex] =
+                    distanceSquared;
+                scanCount = nextCount;
+            }
+
+            for (int scan = 0; scan < scanCount; scan++)
+            {
+                int enemyIndex =
+                    FindEnemyIndexById(_enemyScanIds[scan]);
+                if (enemyIndex < 0)
+                    continue;
+                EnemyState enemy = _enemies[enemyIndex];
+                int hp = Damage.ApplyToHp(enemy.Hp, damage);
+                if (hp > 0)
+                {
+                    _enemies[enemyIndex] = new EnemyState(
+                        enemy.Id,
+                        enemy.DefinitionId,
+                        enemy.X,
+                        enemy.Y,
+                        hp);
+                    EmitEvent(
+                        SimEventType.EnemyHit,
+                        enemy.Id,
+                        enemy.X,
+                        enemy.Y,
+                        damage);
+                    continue;
+                }
+
+                EnemyDefinition definition =
+                    _enemyDefinitions[enemyIndex];
+                RemoveEnemyAt(enemyIndex);
+                int awardedScore =
+                    RecordKillScore(definition.ScoreValue);
+                EmitEvent(
+                    SimEventType.EnemyKilled,
+                    enemy.Id,
+                    enemy.X,
+                    enemy.Y,
+                    awardedScore);
+                AdvanceKillCombo();
+                TryDropCapsule(definition, enemy.X, enemy.Y);
+                // Deliberately no ApplyKillExplosion here: AoE final hits
+                // cannot seed kill_explosion chains (REQ-034).
+            }
+
+            if (BossActive
+                && SquaredDistanceSaturated(
+                    centerX,
+                    centerY,
+                    _bossX,
+                    _bossY) <= radiusSquared)
+            {
+                ApplyDamageToBoss(damage);
             }
         }
 
@@ -2639,7 +2966,9 @@ namespace Shmup.Core.Simulation
             _bulletPiercesRemaining.Add(
                 kind == BulletKind.MainShot
                     ? GetMainShotPierceCount()
-                    : 0);
+                    : kind == BulletKind.Missile
+                        ? _missilePierceEnemyCount
+                        : 0);
             _bulletRicochetUsed.Add(0);
             _bulletHomingTargetIds.Add(0);
             _bulletGrazeScored.Add(0);
@@ -2937,6 +3266,14 @@ namespace Shmup.Core.Simulation
             return result;
         }
 
+        static int SaturatingAddDamage(int left, int right)
+        {
+            long sum = (long)left + right;
+            return sum >= int.MaxValue
+                ? int.MaxValue
+                : (int)sum;
+        }
+
         static ScheduledObstacle[] BuildObstacleSchedule(StagePlan stagePlan)
         {
             var schedule = new List<ScheduledObstacle>();
@@ -3065,7 +3402,9 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(config.MissileFallSpeedYDenominator));
             if (config.MissileHalfWidth < 0 || config.MissileHalfHeight < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.MissileHalfWidth));
-            if (config.OptionFollowDelayTicks < 1)
+            if (config.OptionFollowDelayTicks < 0
+                || (config.OptionFormation == OptionFormation.Trail
+                    && config.OptionFollowDelayTicks < 1))
                 throw new ArgumentOutOfRangeException(nameof(config.OptionFollowDelayTicks));
             if (config.PlayerMaxHp < 1)
                 throw new ArgumentOutOfRangeException(nameof(config.PlayerMaxHp));

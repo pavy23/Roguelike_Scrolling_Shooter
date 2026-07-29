@@ -57,8 +57,8 @@ namespace Shmup.Presentation.Battle
             }
             _decisionTimer = 0f;
 
-            // 사망하면 즉시 재출격해 영상이 끊기지 않게
-            if (director.IsRunOver)
+            // 런이 끝나면(사망 또는 완주) 즉시 재출격해 영상이 끊기지 않게
+            if (director.IsRunFinished)
                 director.RestartRun();
         }
     }

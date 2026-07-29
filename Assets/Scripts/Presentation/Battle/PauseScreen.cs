@@ -33,12 +33,12 @@ namespace Shmup.Presentation.Battle
 
             UiKit.CreateDim(canvas.transform, new Color(0f, 0.01f, 0.05f, 0.62f));
             var panel = UiKit.CreatePanel(canvas.transform, new Vector2(300f, 110f));
-            UiKit.CreateCornerText(panel, _fontBold, "PAUSED", 20, UiKit.TextMain,
+            UiKit.CreateCornerText(panel, _fontBold, UiText.PauseTitle, 20, UiKit.TextMain,
                 new Vector2(0.5f, 1f), new Vector2(0f, -12f), TextAnchor.UpperCenter, "Title");
             _volumeText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextMain,
                 new Vector2(0.5f, 1f), new Vector2(0f, -46f), TextAnchor.UpperCenter, "Volume");
             UiKit.CreateCornerText(panel, _font,
-                "ESC/(Start) 계속    O/(Select) 옵션    Q 타이틀", 11, UiKit.TextDim,
+                UiText.PauseHints, 11, UiKit.TextDim,
                 new Vector2(0.5f, 0f), new Vector2(0f, 14f), TextAnchor.LowerCenter, "Hints");
 
             _root.SetActive(false);
@@ -82,7 +82,7 @@ namespace Shmup.Presentation.Battle
             if (volumePercent != _lastVolumePercent && _volumeText != null)
             {
                 _lastVolumePercent = volumePercent;
-                _volumeText.text = $"VOLUME  {volumePercent}%   (←/→)";
+                _volumeText.text = string.Format(UiText.VolumeFormat, volumePercent);
             }
         }
 

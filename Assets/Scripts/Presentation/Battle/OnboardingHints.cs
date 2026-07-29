@@ -19,9 +19,9 @@ namespace Shmup.Presentation.Battle
 
         static readonly string[] Hints =
         {
-            "이동 WASD/왼쪽 스틱   발사 SPACE/(A)   일시정지 ESC/(Start)",
-            "적을 잡으면 캡슐이 떨어진다 — 먹을수록 아래 게이지 커서가 전진!",
-            "게이지 활성화 X/(Y) — 커서 위치의 파워업을 획득한다. 어디서 쓸지가 빌드다!"
+            UiText.Onboarding1,
+            UiText.Onboarding2,
+            UiText.Onboarding3
         };
 
         Text _text;
@@ -49,7 +49,7 @@ namespace Shmup.Presentation.Battle
             if (_done || _root == null || _director == null) return;
 
             // 게임오버/보상 화면 중에는 숨긴다
-            bool visible = !_director.IsRunOver && !_director.AwaitingReward
+            bool visible = !_director.IsRunFinished && !_director.AwaitingReward
                            && Time.timeScale > 0f;
             if (_root.activeSelf != visible) _root.SetActive(visible);
             if (!visible) return;

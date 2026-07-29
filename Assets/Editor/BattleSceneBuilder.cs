@@ -842,8 +842,7 @@ namespace Shmup.EditorTools
             SetReference(routeScreen, "_director", director);
             SetReference(routeScreen, "_font", uiFont);
             SetReference(routeScreen, "_fontBold", uiFontBold);
-            SetStringArray(routeScreen, "_encounterNames",
-                new[] { "BATTLE", "ELITE  (모디파이어 확정)", "SUPPLY  (보급)", "HAZARD  (점수 1.5x)" });
+            SetStringArray(routeScreen, "_encounterNames", UiText.EncounterNames);
             SetReferenceArray(routeScreen, "_encounterIcons", new[]
             {
                 LoadExternalSprite("icon_node_battle.png", "icon_node_battle"),
@@ -853,8 +852,7 @@ namespace Shmup.EditorTools
             });
             SetStringArray(routeScreen, "_themeIds",
                 new[] { "scrapyard", "hive", "fortress", "nebula", "core" });
-            SetStringArray(routeScreen, "_themeNames",
-                new[] { "SCRAPYARD", "BIO HIVE", "FORTRESS", "NEBULA", "CORE" });
+            SetStringArray(routeScreen, "_themeNames", UiText.ThemeNames);
 
             var gameOver = battleRoot.AddComponent<GameOverScreen>();
             SetReference(gameOver, "_director", director);
