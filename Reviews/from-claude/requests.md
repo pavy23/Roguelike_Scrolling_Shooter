@@ -534,3 +534,13 @@ homing_missile / kill_explosion. 가중치·등장 스테이지는 GROK 판단(�
 4. RunStatistics에 GrazeCount 추가. TotalScore 오버플로 주의(기존 Damage.Compute 교훈).
 5. 결정론·무할당 가드 유지, config 필드 노출(잠정 표기), 회귀 테스트
    (그레이즈 1회 제한, 배율 상승/하락/리셋, 점수 적용, 결정론).
+
+## [ ] REQ-016 → CODEX+GROK: 스코어링 수치 데이터화 (GameData/scoring.json)
+
+REQ-015의 그레이즈/콤보 수치가 Core config 기본값에만 있어 GROK이 튜닝할 수 없다
+(미사일 최소 간격 REQ-010과 같은 구조 문제의 예방).
+CODEX: GameData/scoring.json 신설 파싱 — grazeRadiusSubUnits, grazeScore,
+grazeGaugeCharge, multiplierGaugeRequirements[], multiplierDecayTicks.
+GameDataParser에 선택 인자(부재 시 현행 기본값), GameDataSet.ApplyTo에서 config 복사.
+회귀 테스트 포함(부재 폴백/명시값/검증). Unity NUnit 호환 API만 사용(Assert.Multiple 금지).
+GROK: 파서 완료 후 scoring.json 초기값 작성 + BalanceSim 그레이즈/콤보 점수 곡선 검증(잠정 §7).
