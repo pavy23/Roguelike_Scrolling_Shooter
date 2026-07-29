@@ -752,6 +752,28 @@ namespace Shmup.EditorTools
             battleRoot.AddComponent<PauseScreen>();
             var options = battleRoot.AddComponent<OptionsScreen>();
             SetReference(options, "_input", inputReader);
+
+            // 주스 연출 허브 (M4+ 게임 필): 히트스톱·슬로모·화면 흔들림 + 접근성 토글
+            var juice = battleRoot.AddComponent<JuiceDirector>();
+            var mainCamera = GameObject.Find("Main Camera");
+            if (mainCamera != null)
+                SetReference(juice, "_cameraTransform", mainCamera.transform);
+            SetReference(director, "_juice", juice);
+            SetReference(options, "_juice", juice);
+
+            // 머즐 플래시: 기체 코 앞에 고정, PlayerFired 이벤트로 director가 깜빡인다
+            var muzzleSprite = LoadExternalSprite("fx_muzzle_00.png", "fx_muzzle_00");
+            if (muzzleSprite != null)
+            {
+                var muzzle = new GameObject("MuzzleFlash");
+                muzzle.transform.SetParent(player.transform, false);
+                muzzle.transform.localPosition = new Vector3(0.85f, 0f, 0f);
+                var muzzleRenderer = muzzle.AddComponent<SpriteRenderer>();
+                muzzleRenderer.sprite = muzzleSprite;
+                muzzleRenderer.sortingOrder = 21;
+                muzzleRenderer.enabled = false;
+                SetReference(director, "_muzzleFlash", muzzleRenderer);
+            }
             var bossIntro = battleRoot.AddComponent<BossIntro>();
             SetReference(director, "_bossIntro", bossIntro);
             var scoreHud = battleRoot.AddComponent<ScoreHud>();

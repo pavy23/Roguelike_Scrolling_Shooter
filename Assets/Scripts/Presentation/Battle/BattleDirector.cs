@@ -99,6 +99,26 @@ namespace Shmup.Presentation.Battle
         float _damageFlashAge = float.MaxValue;
         const float DamageFlashDuration = 0.3f;
 
+        // 주스 연출 (REQ 없음 — 순수 표현, 시뮬 비관여)
+        [SerializeField] JuiceDirector _juice;
+        [SerializeField] SpriteRenderer _muzzleFlash;
+        readonly List<Transform> _punchTargets = new List<Transform>(16);
+        readonly List<SpriteRenderer> _punchRenderers = new List<SpriteRenderer>(16);
+        readonly List<Vector3> _punchBaseScales = new List<Vector3>(16);
+        readonly List<Color> _punchBaseColors = new List<Color>(16);
+        readonly List<float> _punchAges = new List<float>(16);
+        const float PunchDuration = 0.09f;
+        static readonly Color PunchTint = new Color(1f, 0.45f, 0.45f);
+        readonly List<Vector3> _pendingBoomPositions = new List<Vector3>(8);
+        readonly List<float> _pendingBoomDelays = new List<float>(8);
+        float _muzzleAge = float.MaxValue;
+        const float MuzzleDuration = 0.06f;
+
+        // Step이 RunOver/AwaitingReward에서 no-op이면 EventsThisTick이 클리어되지 않는다 —
+        // 같은 이벤트를 매 FixedUpdate 재소비하지 않도록 (배틀 인스턴스, 틱)으로 신선도 판정.
+        IBattleSim _lastEventSim;
+        int _lastEventTick = -1;
+
         // 적 종류 구분용 틴트 (플레이스홀더 아트 한정 — 실제 스프라이트가 생기면 제거)
         static readonly Color32[] EnemyTints =
         {
@@ -205,6 +225,9 @@ namespace Shmup.Presentation.Battle
         {
             AnimateExplosions();
             AnimateDamageFlash();
+            AnimatePunches();
+            AnimateMuzzleFlash();
+            TickPendingBooms();
         }
 
         void FixedUpdate()
@@ -223,16 +246,58 @@ namespace Shmup.Presentation.Battle
             }
 
             // 이벤트는 스텝 직후 같은 호출 안에서 소비한다 — 다음 Step에서 클리어되기 때문.
-            var events = _run.Battle.EventsThisTick;
+            var battle = _run.Battle;
+            bool freshEvents = !ReferenceEquals(battle, _lastEventSim) || battle.Tick != _lastEventTick;
+            _lastEventSim = battle;
+            _lastEventTick = battle.Tick;
+            var events = freshEvents ? battle.EventsThisTick : System.ReadOnlySpan<SimEvent>.Empty;
             if (_sfx != null)
                 _sfx.PlayEvents(events);
             for (int i = 0; i < events.Length; i++)
             {
                 var e = events[i];
-                if (e.Type == SimEventType.EnemyKilled || e.Type == SimEventType.PlayerKilled)
-                    SpawnExplosion(SimView.ToWorld(e.X, e.Y));
-                else if (e.Type == SimEventType.BossSpawned && _bossIntro != null)
-                    _bossIntro.Trigger();
+                switch (e.Type)
+                {
+                    case SimEventType.EnemyHit:
+                        PunchEnemy(e.EntityId);
+                        break;
+                    case SimEventType.EnemyKilled:
+                        SpawnExplosion(SimView.ToWorld(e.X, e.Y));
+                        break;
+                    case SimEventType.PlayerKilled:
+                        SpawnExplosion(SimView.ToWorld(e.X, e.Y));
+                        if (_juice != null)
+                        {
+                            _juice.Shake(0.45f);
+                            _juice.Slowmo(0.35f, 0.6f);
+                        }
+                        break;
+                    case SimEventType.PlayerHit:
+                        // 런 종료 후에도 피격 이벤트가 이어질 수 있다 — 영구 히트스톱 방지
+                        if (_juice != null && !IsRunOver)
+                        {
+                            _juice.Shake(0.28f);
+                            _juice.Hitstop(0.06f);
+                        }
+                        break;
+                    case SimEventType.BossSpawned:
+                        if (_bossIntro != null) _bossIntro.Trigger();
+                        if (_juice != null) _juice.Shake(0.3f);
+                        break;
+                    case SimEventType.BossPhaseChanged:
+                        if (_juice != null)
+                        {
+                            _juice.Shake(0.22f);
+                            _juice.Hitstop(0.07f);
+                        }
+                        break;
+                    case SimEventType.StageCleared:
+                        TriggerBossDeathSequence();
+                        break;
+                    case SimEventType.PlayerFired:
+                        _muzzleAge = 0f;
+                        break;
+                }
             }
             RefreshBattle();
             SyncViews();
@@ -569,6 +634,113 @@ namespace Shmup.Presentation.Battle
             _activeFxAges.Add(0f);
         }
 
+        /// <summary>적 피격 펀치: 짧은 스케일 팝 + 붉은 틴트. 원 스케일은 시작 시점 값을 복원한다.</summary>
+        void PunchEnemy(int enemyId)
+        {
+            if (!_enemyViews.TryGetValue(enemyId, out var view) || view == null) return;
+
+            // 이미 펀치 중이면 age만 리셋 (베이스 스케일 중복 캡처 방지)
+            for (int i = 0; i < _punchTargets.Count; i++)
+                if (ReferenceEquals(_punchTargets[i], view))
+                {
+                    _punchAges[i] = 0f;
+                    return;
+                }
+
+            _enemyRenderers.TryGetValue(enemyId, out var renderer);
+            _punchTargets.Add(view);
+            _punchRenderers.Add(renderer);
+            _punchBaseScales.Add(view.localScale);
+            _punchBaseColors.Add(renderer != null ? renderer.color : Color.white);
+            _punchAges.Add(0f);
+        }
+
+        void AnimatePunches()
+        {
+            bool tint = _juice == null || !_juice.FlashReduced;
+            for (int i = _punchTargets.Count - 1; i >= 0; i--)
+            {
+                var view = _punchTargets[i];
+                float age = _punchAges[i] + Time.deltaTime;
+                bool alive = view != null && view.gameObject.activeSelf;
+                if (age >= PunchDuration || !alive)
+                {
+                    if (alive)
+                    {
+                        view.localScale = _punchBaseScales[i];
+                        if (_punchRenderers[i] != null) _punchRenderers[i].color = _punchBaseColors[i];
+                    }
+                    _punchTargets.RemoveAt(i);
+                    _punchRenderers.RemoveAt(i);
+                    _punchBaseScales.RemoveAt(i);
+                    _punchBaseColors.RemoveAt(i);
+                    _punchAges.RemoveAt(i);
+                    continue;
+                }
+                _punchAges[i] = age;
+                float t = age / PunchDuration;
+                float scale = 1f + 0.14f * Mathf.Sin(t * Mathf.PI);   // 팝 후 복원
+                view.localScale = _punchBaseScales[i] * scale;
+                if (tint && _punchRenderers[i] != null)
+                    _punchRenderers[i].color = Color.Lerp(PunchTint, _punchBaseColors[i], t);
+            }
+        }
+
+        void AnimateMuzzleFlash()
+        {
+            if (_muzzleFlash == null) return;
+            if (_muzzleAge >= MuzzleDuration)
+            {
+                if (_muzzleFlash.enabled) _muzzleFlash.enabled = false;
+                return;
+            }
+            _muzzleAge += Time.deltaTime;
+            _muzzleFlash.enabled = true;
+        }
+
+        /// <summary>
+        /// 보스 격파 시퀀스: 보스 위치 주변 다단 폭발 + 슬로모 + 흔들림.
+        /// StageCleared는 보스 격파 직후 발생 — 보스 뷰가 켜져 있을 때만 연출한다.
+        /// </summary>
+        void TriggerBossDeathSequence()
+        {
+            if (_bossRenderer == null || !_bossRenderer.enabled) return;
+            var center = _bossRenderer.transform.localPosition;
+            if (_juice != null)
+            {
+                _juice.Shake(0.5f);
+                _juice.Slowmo(0.35f, 0.7f);
+            }
+            SpawnExplosion(center);
+            for (int i = 0; i < 6; i++)
+            {
+                var offset = new Vector3(
+                    Mathf.Cos(i * 2.4f) * (0.6f + 0.25f * i),
+                    Mathf.Sin(i * 1.9f) * (0.5f + 0.2f * i),
+                    0f);
+                _pendingBoomPositions.Add(center + offset);
+                _pendingBoomDelays.Add(0.12f * (i + 1));
+            }
+        }
+
+        void TickPendingBooms()
+        {
+            for (int i = _pendingBoomPositions.Count - 1; i >= 0; i--)
+            {
+                float delay = _pendingBoomDelays[i] - Time.deltaTime;
+                if (delay <= 0f)
+                {
+                    SpawnExplosion(_pendingBoomPositions[i]);
+                    _pendingBoomPositions.RemoveAt(i);
+                    _pendingBoomDelays.RemoveAt(i);
+                }
+                else
+                {
+                    _pendingBoomDelays[i] = delay;
+                }
+            }
+        }
+
         void AnimateExplosions()
         {
             float lifetime = ExplosionLifetime;
@@ -618,7 +790,8 @@ namespace Shmup.Presentation.Battle
             if (_damageFlash == null || _damageFlashAge >= DamageFlashDuration) return;
 
             _damageFlashAge += Time.deltaTime;
-            float alpha = Mathf.Clamp01(1f - _damageFlashAge / DamageFlashDuration) * 0.35f;
+            float intensity = _juice != null && _juice.FlashReduced ? 0.15f : 0.35f;
+            float alpha = Mathf.Clamp01(1f - _damageFlashAge / DamageFlashDuration) * intensity;
             _damageFlash.color = new Color(1f, 0.2f, 0.2f, alpha);
         }
 

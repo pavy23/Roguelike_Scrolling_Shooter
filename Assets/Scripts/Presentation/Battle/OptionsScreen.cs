@@ -25,6 +25,7 @@ namespace Shmup.Presentation.Battle
         };
 
         [SerializeField] PlayerInputReader _input;
+        [SerializeField] JuiceDirector _juice;
 
         bool _open;
         int _resolutionIndex;
@@ -75,6 +76,10 @@ namespace Shmup.Presentation.Battle
             if (keyboard.digit4Key.wasPressedThisFrame) StartRebindMovePart("right");
             if (keyboard.xKey.wasPressedThisFrame)
                 ResetBindings();
+            if (keyboard.sKey.wasPressedThisFrame)
+                ToggleAccessibilityPref(JuiceDirector.ShakePrefKey, 1);
+            if (keyboard.gKey.wasPressedThisFrame)
+                ToggleAccessibilityPref(JuiceDirector.FlashReducePrefKey, 0);
         }
 
         void Apply(bool fullscreen)
@@ -148,6 +153,14 @@ namespace Shmup.Presentation.Battle
             _rebind?.Cancel();
         }
 
+        void ToggleAccessibilityPref(string key, int defaultValue)
+        {
+            int next = PlayerPrefs.GetInt(key, defaultValue) == 1 ? 0 : 1;
+            PlayerPrefs.SetInt(key, next);
+            if (_juice != null) _juice.ReloadPrefs();
+            _panelText = null;
+        }
+
         void ResetBindings()
         {
             if (_input == null || _input.Actions == null) return;
@@ -189,13 +202,17 @@ namespace Shmup.Presentation.Battle
                         fire.bindings[0].effectivePath,
                         InputControlPath.HumanReadableStringOptions.OmitDevice)
                     : "?";
+                bool shakeOn = PlayerPrefs.GetInt(JuiceDirector.ShakePrefKey, 1) == 1;
+                bool flashReduce = PlayerPrefs.GetInt(JuiceDirector.FlashReducePrefKey, 0) == 1;
                 _panelText =
                     $"OPTIONS\n\n" +
                     $"[R] RESOLUTION   {resolution.x} x {resolution.y}\n" +
                     $"[F] FULLSCREEN   {(Screen.fullScreen ? "ON" : "OFF")}\n" +
                     $"[B] REBIND FIRE  (now: {fireBinding})\n" +
                     "[1]~[4] REBIND MOVE  (up/down/left/right)\n" +
-                    $"[X] RESET BINDINGS\n\n" +
+                    $"[X] RESET BINDINGS\n" +
+                    $"[S] SCREEN SHAKE   {(shakeOn ? "ON" : "OFF")}\n" +
+                    $"[G] REDUCE FLASH   {(flashReduce ? "ON" : "OFF")}\n\n" +
                     "[O] CLOSE";
             }
             DrawPanel(_panelText);
