@@ -852,7 +852,7 @@ Arg 의미 변경은 주석/독스트링 갱신, 관련 테스트 조정. 소규
    발생), 스테이지1 고정, 폴백 동작, 결정론.
 잠정 §7, Unity NUnit 호환 API만.
 
-## [ ] REQ-026 → GROK: 테마 전용 세그먼트 증량 + 전 난이도 커버 (로그라이크化 1단계)
+## [x] REQ-026 → GROK: 테마 전용 세그먼트 증량 + 전 난이도 커버 (로그라이크化 1단계)
 
 진단 수치: 테마 전용 세그먼트가 테마당 2개뿐이고 나머지는 공용이라, 하이브에서도
 스크랩야드 세그먼트가 그대로 나온다. 스테이지 1은 후보가 3개(전부 공용)라 시드를
@@ -873,3 +873,55 @@ Arg 의미 변경은 주석/독스트링 갱신, 관련 테스트 조정. 소규
 4. 검증: BalanceSim에 "모든 테마 × difficulty 1~5 조합에서 스테이지 조립 가능"
    전수 검사를 추가하라. 난이도 단조 증가 곡선은 스테이지 인덱스 기준으로 유지.
 잠정 §7. dotnet test와 BalanceSim 그린. 완료 기준은 커밋까지다.
+
+### GROK 응답 (2026-07-29, content)
+
+**완료 — 전부 잠정(AGENTS.md §7). 사람 플레이 피드백 전 최종 확정 금지.**
+
+`GameData/waves.json` 세그먼트 **16 → 38**, 테마 전용 **2 → 6/테마** (목표 5–6).
+
+| 테마 | 전용 세그먼트 (신규 포함) | 개성 |
+|---|---|---|
+| scrapyard | debris_line / pipe_dash / skimmer_weave / junk_corridor / tumbler_pack / rust_gauntlet | 파편·파이프 대시·좁은 잔해 통로 |
+| hive | spore_cloud / lancer_rush + brood_wave / hornet_dive / organic_pulse / nest_choke | 포자 무리·호넷 급강하·유기 파상 |
+| fortress | sentry_grid / interceptor_assault + mortar_line / turret_cross / drone_lattice / armored_gate | 포탑 격자·박격 라인·장갑 게이트 |
+| nebula | wisp_storm / wisp_ribbon + echo_ribbon / void_moth_swarm / crystal_drift / prism_haze | 고속 위습·보이드 모스·크리스탈 |
+| core | guardian_wall / final_gauntlet + rift_blades / phase_discs / shard_battery / void_mix | 리프트 칼날·페이즈 디스크·혼합 정예 |
+
+**난이도 커버 (REQ-025 셔플 대비)**
+
+- 기존 테마 세그먼트 `difficultyMin` 하향: fortress/nebula **3→2**, core **4→2** (전 테마 diff 2–5).
+- 테마별 신규 세그먼트를 2–4 / 2–5 / 3–5 대역으로 분산.
+- **스테이지 1 후보 3 → 6**: 공용 3 + scrapyard d1 3종 (`debris_line`, `pipe_dash`, `skimmer_weave`, 장애물 없음).
+
+**보스 범위**
+
+| 보스 | before stage | after stage | diff |
+|---|---|---|---|
+| boss_stage1 | 1–99 | **1–99** | 1–5 |
+| boss_hive | 2–99 | **1–99** | 1–5 |
+| boss_fortress | 3–99 | **1–99** | 1–5 |
+| boss_storm | 4–99 | **1–99** | 1–5 |
+| boss_core | 5–99 | **1–99** | 1–5 |
+
+HP 미변경 (스테이지 난이도 스케일 전제 유지, 잠정).
+
+**스테이지 인덱스 avgHP 단조 (theme=ordinal, diff=stage)**
+
+| Stage | Theme | avgHP |
+|---:|---|---:|
+| 1 | scrapyard | **141** |
+| 2 | hive | **189** |
+| 3 | fortress | **381** |
+| 4 | nebula | **416** |
+| 5 | core | **613** |
+
+**BalanceSim**
+
+- `CheckThemeDifficultyCoverage` 추가: 테마 전용 ≥5, stage1 후보 ≥6, 보스 전 stage×diff,
+  **theme 강제 × diff 1–5 × 8 seeds = 200** 조립, 스테이지 avgHP 단조.
+- 기존 stage 1–10 × diff 1–5 (50) 조립 유지.
+
+**테스트 동기화:** `GameDataParserTests` Segments.Count **16 → 38**.
+
+**검증:** `Tools/CoreStandalone` `dotnet test` **234/234** · `Tools/BalanceSim` **PASS**.

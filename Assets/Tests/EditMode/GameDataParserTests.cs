@@ -819,7 +819,7 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(30, data.BattleContent.Enemies.Count);
             Assert.AreEqual(4, data.BattleContent.Weapons.Count);
-            Assert.AreEqual(16, data.StageGeneration.Segments.Count);
+            Assert.AreEqual(38, data.StageGeneration.Segments.Count);
             Assert.AreEqual(5, data.StageGeneration.Bosses.Count);
             Assert.AreEqual(3, data.Rewards.OptionCount);
             Assert.AreEqual(13, data.Rewards.All.Count);

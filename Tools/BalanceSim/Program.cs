@@ -1,12 +1,14 @@
 // Headless balance checks for GameData (GROK).
 // 1) Theme assembly: stages 1..10 × difficulty 1..5 must all assemble.
-// 2) Reward catalog: modifier rewards parse + weight / maxPerRun guide checks.
-// 3) Modifier combo: pierce + kill_explosion dense-pack clear-time (DPS runaway).
-// 4) Scoring: graze/combo curves from scoring.json (x8 maintain + graze vs kill).
-// 5) Bullet density stress: stage-5 core worst-case enemy pool + full-power player
+// 2) REQ-026: every theme × difficulty 1..5 assembles (theme-shuffle ready).
+// 3) REQ-026: theme segment counts, stage-1 pool size, stage-index HP monotonicity.
+// 4) Reward catalog: modifier rewards parse + weight / maxPerRun guide checks.
+// 5) Modifier combo: pierce + kill_explosion dense-pack clear-time (DPS runaway).
+// 6) Scoring: graze/combo curves from scoring.json (x8 maintain + graze vs kill).
+// 7) Bullet density stress: stage-5 core worst-case enemy pool + full-power player
 //    vs Core MaxEnemyBullets / MaxBullets (limits are CODEX-owned; report only).
-// 6) Obstacles: stage-1 empty + progressive density + solid corridor gaps (REQ-023).
-// 7) Ship primary DPS: vulcan/laser/spread single-target balance (REQ-022).
+// 8) Obstacles: stage-1 empty + progressive density + solid corridor gaps (REQ-023).
+// 9) Ship primary DPS: vulcan/laser/spread single-target balance (REQ-022).
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -52,6 +54,11 @@ static class Program
     const double MaxShipSingleTargetDpsRatio = 1.75;
     const int ShipDpsSimTicks = 180;
 
+    // REQ-026 theme coverage (provisional §7).
+    const int MinThemeTaggedSegments = 5;
+    const int MinStage1CandidateSegments = 6;
+    const int ThemeDiffAssemblySeedCount = 8;
+
     static int Main()
     {
         string root = FindRepoRoot();
@@ -87,6 +94,8 @@ static class Program
 
         int failures = 0;
         failures += CheckThemeAssemblies(generator);
+        Console.WriteLine();
+        failures += CheckThemeDifficultyCoverage(data);
         Console.WriteLine();
         failures += CheckModifierRewards(data.Rewards);
         Console.WriteLine();
@@ -153,6 +162,240 @@ static class Program
         else
             Console.WriteLine($"FAIL: {failures} assembly failures.");
         return failures;
+    }
+
+    /// <summary>
+    /// REQ-026: theme shuffle (REQ-025) can place any theme at stages 2–5, so every
+    /// theme × difficulty 1–5 must assemble. Stage 1 is always themes[0]; require a
+    /// larger stage-1 candidate pool and ≥5 themed segments per theme. Difficulty
+    /// monotonicity is measured on stage-index ordinal pools (theme=stage, diff=stage).
+    /// </summary>
+    static int CheckThemeDifficultyCoverage(GameDataSet data)
+    {
+        int failures = 0;
+        StageGenerationCatalog catalog = data.StageGeneration;
+        BattleContent content = data.BattleContent;
+
+        Console.WriteLine(
+            "REQ-026 theme×difficulty coverage (shuffle-ready, provisional §7):");
+
+        if (catalog.ThemeIds.Count == 0)
+        {
+            Console.WriteLine("FAIL coverage: catalog has no themes.");
+            return 1;
+        }
+
+        string stage1Theme = catalog.ThemeIds[0];
+        int stage1Candidates = 0;
+        var themeTagged = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < catalog.ThemeIds.Count; i++)
+            themeTagged[catalog.ThemeIds[i]] = 0;
+
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            if (seg.DifficultyMin <= 1
+                && (seg.ThemeId == null
+                    || string.Equals(seg.ThemeId, stage1Theme, StringComparison.Ordinal)))
+                stage1Candidates++;
+
+            if (seg.ThemeId != null && themeTagged.ContainsKey(seg.ThemeId))
+                themeTagged[seg.ThemeId]++;
+        }
+
+        Console.WriteLine(
+            $"  stage1 theme='{stage1Theme}' candidates={stage1Candidates} " +
+            $"(need ≥{MinStage1CandidateSegments})");
+        if (stage1Candidates < MinStage1CandidateSegments)
+        {
+            Console.WriteLine(
+                $"FAIL coverage: stage-1 candidates {stage1Candidates} " +
+                $"< {MinStage1CandidateSegments}.");
+            failures++;
+        }
+
+        foreach (string theme in catalog.ThemeIds)
+        {
+            int n = themeTagged[theme];
+            Console.WriteLine(
+                $"  themed segs theme={theme,-10} n={n} " +
+                $"(need ≥{MinThemeTaggedSegments})");
+            if (n < MinThemeTaggedSegments)
+            {
+                Console.WriteLine(
+                    $"FAIL coverage: theme '{theme}' has {n} tagged segments " +
+                    $"< {MinThemeTaggedSegments}.");
+                failures++;
+            }
+
+            // Difficulty band coverage for themed segments (null-theme fillers allowed,
+            // but theme-tagged pool must span 2–5; stage1 theme also needs d1).
+            for (int diff = 1; diff <= 5; diff++)
+            {
+                if (diff == 1
+                    && !string.Equals(theme, stage1Theme, StringComparison.Ordinal))
+                    continue;
+
+                int matching = 0;
+                foreach (StageSegmentTemplate seg in catalog.Segments)
+                {
+                    if (!seg.SupportsDifficulty(diff) || !seg.SupportsTheme(theme))
+                        continue;
+                    matching++;
+                }
+
+                if (matching < catalog.SegmentsPerStage)
+                {
+                    Console.WriteLine(
+                        $"FAIL coverage: theme={theme} diff={diff} has {matching} " +
+                        $"eligible segments < segmentsPerStage={catalog.SegmentsPerStage}.");
+                    failures++;
+                }
+            }
+        }
+
+        // Boss stage/diff ranges must accept any stage index 1..5 for every theme.
+        foreach (string theme in catalog.ThemeIds)
+        {
+            for (int stage = 1; stage <= 5; stage++)
+            {
+                for (int diff = 1; diff <= 5; diff++)
+                {
+                    if (FindBossForStage(catalog, stage, diff, theme) == null)
+                    {
+                        Console.WriteLine(
+                            $"FAIL coverage: no boss for theme={theme} " +
+                            $"stage={stage} diff={diff}.");
+                        failures++;
+                    }
+                }
+            }
+        }
+
+        // Full assembly: force theme as themes[0], stageIndex=1, each difficulty.
+        const ulong baseSeed = 0x7E4E26UL;
+        int assemblyFails = 0;
+        int assemblyOk = 0;
+        foreach (string theme in catalog.ThemeIds)
+        {
+            StageGenerationCatalog forced = CatalogWithPrimaryTheme(catalog, theme);
+            var gen = new SegmentStageGenerator(forced);
+            for (int difficulty = 1; difficulty <= 5; difficulty++)
+            {
+                for (int s = 0; s < ThemeDiffAssemblySeedCount; s++)
+                {
+                    ulong seed = baseSeed + (ulong)(s * 9973) + (ulong)difficulty * 131UL;
+                    try
+                    {
+                        StagePlan plan = gen.Generate(seed, stageIndex: 1, difficulty);
+                        if (!string.Equals(plan.ThemeId, theme, StringComparison.Ordinal))
+                        {
+                            Console.WriteLine(
+                                $"FAIL assembly: forced theme={theme} diff={difficulty} " +
+                                $"seed={seed:X} got theme={plan.ThemeId}.");
+                            assemblyFails++;
+                            continue;
+                        }
+                        if (!StagePlanClearability.IsClearable(plan))
+                        {
+                            Console.WriteLine(
+                                $"FAIL assembly: theme={theme} diff={difficulty} " +
+                                $"seed={seed:X} plan not clearable.");
+                            assemblyFails++;
+                            continue;
+                        }
+                        assemblyOk++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(
+                            $"FAIL assembly: theme={theme} diff={difficulty} " +
+                            $"seed={seed:X}: {ex.Message}");
+                        assemblyFails++;
+                    }
+                }
+            }
+        }
+
+        failures += assemblyFails;
+        Console.WriteLine(
+            $"  forced theme×diff assemblies: ok={assemblyOk} fail={assemblyFails} " +
+            $"(themes={catalog.ThemeIds.Count} × diff 1–5 × seeds {ThemeDiffAssemblySeedCount})");
+
+        // Stage-index HP monotonicity (ordinal theme, difficulty=stage).
+        double prevAvg = -1.0;
+        Console.WriteLine("  stage-index pool avgHP (theme=ordinal, diff=stage):");
+        for (int stage = 1; stage <= 5; stage++)
+        {
+            string theme = catalog.ThemeIds[(stage - 1) % catalog.ThemeIds.Count];
+            int difficulty = stage;
+            int poolHpSum = 0;
+            int poolCount = 0;
+            foreach (StageSegmentTemplate seg in catalog.Segments)
+            {
+                if (!seg.SupportsDifficulty(difficulty) || !seg.SupportsTheme(theme))
+                    continue;
+                poolHpSum += SegmentSpawnHp(seg, content);
+                poolCount++;
+            }
+
+            if (poolCount == 0)
+            {
+                Console.WriteLine(
+                    $"FAIL mono: stage={stage} theme={theme} empty segment pool.");
+                failures++;
+                continue;
+            }
+
+            double avg = poolHpSum / (double)poolCount;
+            Console.WriteLine(
+                $"    stage={stage} theme={theme,-10} n={poolCount} avgHP={avg:F1}");
+            if (prevAvg >= 0.0 && avg + 0.001 < prevAvg)
+            {
+                Console.WriteLine(
+                    $"FAIL mono: stage {stage} avgHP {avg:F1} < stage {stage - 1} {prevAvg:F1}.");
+                failures++;
+            }
+            prevAvg = avg;
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-026 theme×difficulty coverage + stage HP mono.");
+        else
+            Console.WriteLine($"FAIL: REQ-026 coverage checks ({failures} failure(s)).");
+        return failures;
+    }
+
+    static StageGenerationCatalog CatalogWithPrimaryTheme(
+        StageGenerationCatalog source,
+        string primary)
+    {
+        var themes = new List<string>(source.ThemeIds.Count) { primary };
+        for (int i = 0; i < source.ThemeIds.Count; i++)
+        {
+            string t = source.ThemeIds[i];
+            if (!string.Equals(t, primary, StringComparison.Ordinal))
+                themes.Add(t);
+        }
+
+        return new StageGenerationCatalog(
+            source.LaneCount,
+            source.SegmentsPerStage,
+            source.StartLaneMask,
+            source.Segments,
+            source.Bosses,
+            themes);
+    }
+
+    static int SegmentSpawnHp(StageSegmentTemplate seg, BattleContent content)
+    {
+        int sum = 0;
+        for (int i = 0; i < seg.Spawns.Count; i++)
+        {
+            EnemyDefinition enemy = content.FindEnemy(seg.Spawns[i].EnemyId);
+            if (enemy != null)
+                sum += enemy.MaxHp;
+        }
+        return sum;
     }
 
     static int CheckModifierRewards(RewardCatalog rewards)
