@@ -24,6 +24,10 @@ namespace Shmup.Core.Simulation
     public enum SimEventType
     {
         EnemyHit = 0,
+        /// <summary>
+        /// EntityId = killed enemy id, X/Y = death point,
+        /// Arg = multiplier-applied score actually awarded, saturated to int.MaxValue.
+        /// </summary>
         EnemyKilled = 1,
         PlayerHit = 2,
         PlayerKilled = 3,
@@ -43,7 +47,10 @@ namespace Shmup.Core.Simulation
         GrazeScored = 13,
         /// <summary>EntityId = zero-based multiplier level, Arg = score multiplier.</summary>
         MultiplierChanged = 14,
-        /// <summary>EntityId = obstacle id, X/Y = destruction point, Arg = score earned.</summary>
+        /// <summary>
+        /// EntityId = obstacle id, X/Y = destruction point,
+        /// Arg = multiplier-applied score actually awarded, saturated to int.MaxValue.
+        /// </summary>
         ObstacleDestroyed = 15
     }
 
@@ -63,7 +70,11 @@ namespace Shmup.Core.Simulation
         public int EntityId { get; }
         public int X { get; }
         public int Y { get; }
-        /// <summary>타입별 부가값 — EnemyHit/Killed·PlayerHit: 데미지, PowerUpLevelChanged: 새 레벨(EntityId=슬롯).</summary>
+        /// <summary>
+        /// Event-specific value. EnemyHit/PlayerHit use damage;
+        /// EnemyKilled/ObstacleDestroyed use the multiplier-applied score actually awarded
+        /// (saturated to int.MaxValue); other meanings are documented on SimEventType.
+        /// </summary>
         public int Arg { get; }
     }
 
@@ -1598,8 +1609,14 @@ namespace Shmup.Core.Simulation
                 }
 
                 _bossDefeated = true;
-                EmitEvent(SimEventType.EnemyKilled, _bossId, _bossX, _bossY, damage);
-                RecordKillAndScore((long)_bossMaxHp * 2);
+                int awardedScore = RecordKillScore((long)_bossMaxHp * 2);
+                EmitEvent(
+                    SimEventType.EnemyKilled,
+                    _bossId,
+                    _bossX,
+                    _bossY,
+                    awardedScore);
+                AdvanceKillCombo();
                 EmitEvent(SimEventType.StageCleared, _bossId, _bossX, _bossY, 0);
                 return;
             }
@@ -1789,13 +1806,13 @@ namespace Shmup.Core.Simulation
                     else
                     {
                         _obstacles.RemoveAt(obstacleIndex);
-                        AddScoreSaturated(_breakableObstacleScore);
+                        int awardedScore = AwardScore(_breakableObstacleScore);
                         EmitEvent(
                             SimEventType.ObstacleDestroyed,
                             obstacle.Id,
                             obstacle.X,
                             obstacle.Y,
-                            _breakableObstacleScore);
+                            awardedScore);
                     }
                 }
 
@@ -1863,8 +1880,14 @@ namespace Shmup.Core.Simulation
                 {
                     EnemyDefinition definition = _enemyDefinitions[enemyIndex];
                     RemoveEnemyAt(enemyIndex);
-                    EmitEvent(SimEventType.EnemyKilled, enemy.Id, enemy.X, enemy.Y, damage);
-                    RecordKillAndScore(definition.ScoreValue);
+                    int awardedScore = RecordKillScore(definition.ScoreValue);
+                    EmitEvent(
+                        SimEventType.EnemyKilled,
+                        enemy.Id,
+                        enemy.X,
+                        enemy.Y,
+                        awardedScore);
+                    AdvanceKillCombo();
                     TryDropCapsule(definition, enemy.X, enemy.Y);
                     if (HasModifier(BattleModifier.KillExplosion))
                         ApplyKillExplosion(enemy.Id, enemy.X, enemy.Y);
@@ -2136,14 +2159,15 @@ namespace Shmup.Core.Simulation
 
                 EnemyDefinition definition = _enemyDefinitions[enemyIndex];
                 RemoveEnemyAt(enemyIndex);
+                int awardedScore = RecordKillScore(definition.ScoreValue);
                 AppendEvent(
                     SimEventType.EnemyKilled,
                     enemy.Id,
                     enemy.X,
                     enemy.Y,
-                    _killExplosionDamage);
+                    awardedScore);
                 IncrementSaturated(ref _kills);
-                RecordKillAndScore(definition.ScoreValue);
+                AdvanceKillCombo();
                 TryDropCapsule(definition, enemy.X, enemy.Y);
             }
         }
@@ -2161,12 +2185,26 @@ namespace Shmup.Core.Simulation
                 bullet.Y) <= radiusSquared;
         }
 
-        void RecordKillAndScore(long baseScore)
+        int RecordKillScore(long baseScore)
         {
-            AddScoreSaturated(MultiplySaturated(baseScore, ScoreMultiplier));
+            int awardedScore = AwardScore(baseScore);
             _killScoredThisTick = true;
             _ticksSinceLastKill = 0;
+            return awardedScore;
+        }
+
+        void AdvanceKillCombo()
+        {
             AddComboGauge(_killComboGaugeGain);
+        }
+
+        int AwardScore(long baseScore)
+        {
+            long multipliedScore = MultiplySaturated(baseScore, ScoreMultiplier);
+            long awardedScore = AddScoreSaturated(multipliedScore);
+            return awardedScore >= int.MaxValue
+                ? int.MaxValue
+                : (int)awardedScore;
         }
 
         void AddComboGauge(int amount)
@@ -2233,11 +2271,13 @@ namespace Shmup.Core.Simulation
                 ScoreMultiplier);
         }
 
-        void AddScoreSaturated(long amount)
+        long AddScoreSaturated(long amount)
         {
+            long previousScore = Score;
             Score = Score > long.MaxValue - amount
                 ? long.MaxValue
                 : Score + amount;
+            return Score - previousScore;
         }
 
         static long MultiplySaturated(long value, int multiplier)

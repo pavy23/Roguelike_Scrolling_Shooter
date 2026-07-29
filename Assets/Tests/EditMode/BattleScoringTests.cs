@@ -79,7 +79,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void KillsAdvanceMultiplierAndApplyCurrentMultiplierToScore()
+        public void KillsAdvanceMultiplierAndEnemyKilledArgUsesAwardedScore()
         {
             BattleSimConfig config = CreateConfig();
             ConfigureOneKillPerLevel(config);
@@ -92,6 +92,13 @@ namespace Shmup.Core.Tests
 
             sim.Step(in fire);
             AssertMultiplier(sim, level: 2, multiplier: 4, score: 30);
+            AssertEvent(
+                sim.EventsThisTick,
+                SimEventType.EnemyKilled,
+                entityId: 2,
+                x: 1,
+                y: 0,
+                arg: 20);
 
             sim.Step(in fire);
             AssertMultiplier(sim, level: 3, multiplier: 8, score: 70);

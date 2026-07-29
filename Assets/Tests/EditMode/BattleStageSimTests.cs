@@ -443,7 +443,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void BreakableObstacle_TakesDamageAwardsScoreAndEmitsCoordinates()
+        public void BreakableObstacle_AwardsMultiplierAppliedScoreAndEmitsCoordinates()
         {
             StagePlan plan = Plan(ObstacleSegment(
                 "breakable",
@@ -459,6 +459,7 @@ namespace Shmup.Core.Tests
             config.ObstacleHalfWidth = 0;
             config.ObstacleHalfHeight = 0;
             config.BreakableObstacleScore = 7;
+            config.ComboMultiplierLevel1 = 2;
             var sim = CreateSim(
                 plan,
                 Content(weapon),
@@ -472,14 +473,14 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(0, sim.Obstacles.Count);
             Assert.AreEqual(0, sim.Bullets.Count);
-            Assert.AreEqual(7, sim.Score);
+            Assert.AreEqual(14, sim.Score);
             SimEvent destroyed = FindEvent(
                 sim.EventsThisTick,
                 SimEventType.ObstacleDestroyed);
             Assert.AreEqual(1, destroyed.EntityId);
             Assert.AreEqual(1, destroyed.X);
             Assert.AreEqual(0, destroyed.Y);
-            Assert.AreEqual(7, destroyed.Arg);
+            Assert.AreEqual(14, destroyed.Arg);
         }
 
         [Test]

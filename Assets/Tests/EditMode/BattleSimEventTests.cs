@@ -16,7 +16,22 @@ namespace Shmup.Core.Tests
         [Test]
         public void EnemyKillAndCapsuleFlow_EmitsOrderedEvents()
         {
-            EnemyDefinition enemy = Enemy("dropper", EnemyMovePattern.Static, hp: 10, dropWeight: 1);
+            var enemy = new EnemyDefinition(
+                "dropper",
+                "Dropper",
+                10,
+                0,
+                25,
+                EnemyMovePattern.Static,
+                0,
+                1,
+                0,
+                0,
+                0,
+                1,
+                0,
+                1,
+                64);
             BattleContent content = Content(new WeaponDefinition("shot", 10, 1, 2, 1, 0, 0), enemy);
             StagePlan plan = Plan(Segment("drop", 20, new SpawnEvent(0, enemy.Id, 4, 0)));
             BattleSimConfig config = CreateConfig();
@@ -40,12 +55,13 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(2, killTick.Length);
             Assert.AreEqual(SimEventType.EnemyKilled, killTick[0].Type);
             Assert.AreEqual(4, killTick[0].X);
-            Assert.AreEqual(10, killTick[0].Arg);
+            Assert.AreEqual(25, killTick[0].Arg);
             Assert.AreEqual(SimEventType.CapsuleDropped, killTick[1].Type);
             Assert.AreEqual(4, killTick[1].X);
             Assert.AreEqual(1L, sim.Statistics.ShotsHit);
             Assert.AreEqual(1L, sim.Statistics.Kills);
             Assert.AreEqual(0L, sim.Statistics.CapsulesCollected);
+            Assert.AreEqual(25L, sim.Score);
 
             var moveRight = new InputCommand(1, 0, false);
             sim.Step(in moveRight);
