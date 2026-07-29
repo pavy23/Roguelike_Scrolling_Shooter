@@ -8,7 +8,10 @@ namespace Shmup.Core.Simulation
     {
         Straight = 0,
         Sine = 1,
-        Static = 2
+        Static = 2,
+        Dive = 3,
+        Zigzag = 4,
+        Dash = 5
     }
 
     /// <summary>
@@ -33,7 +36,8 @@ namespace Shmup.Core.Simulation
                 id, id, maxHp, contactDamage, 0, movePattern,
                 moveSpeedNumerator, moveSpeedDenominator, 0,
                 halfWidth, halfHeight, dropWeight,
-                sineAmplitude, 1, sinePeriodTicks)
+                sineAmplitude, 1, sinePeriodTicks,
+                0, 1, 0)
         {
         }
 
@@ -53,6 +57,47 @@ namespace Shmup.Core.Simulation
             int sineAmplitudeNumerator,
             int sineAmplitudeDenominator,
             int sinePeriodTicks)
+            : this(
+                id,
+                displayName,
+                maxHp,
+                contactDamage,
+                scoreValue,
+                movePattern,
+                moveSpeedNumerator,
+                moveSpeedDenominator,
+                fireIntervalTicks,
+                halfWidth,
+                halfHeight,
+                dropWeight,
+                sineAmplitudeNumerator,
+                sineAmplitudeDenominator,
+                sinePeriodTicks,
+                0,
+                1,
+                0)
+        {
+        }
+
+        public EnemyDefinition(
+            string id,
+            string displayName,
+            int maxHp,
+            int contactDamage,
+            int scoreValue,
+            EnemyMovePattern movePattern,
+            int moveSpeedNumerator,
+            int moveSpeedDenominator,
+            int fireIntervalTicks,
+            int halfWidth,
+            int halfHeight,
+            int dropWeight,
+            int movementAmplitudeNumerator,
+            int movementAmplitudeDenominator,
+            int movementPeriodTicks,
+            int movementDelayTicks,
+            int movementDurationTicks,
+            int movementPauseTicks)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Enemy id cannot be null or empty.", nameof(id));
@@ -80,12 +125,22 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(halfHeight));
             if (dropWeight < 0)
                 throw new ArgumentOutOfRangeException(nameof(dropWeight));
-            if (sineAmplitudeNumerator < 0)
-                throw new ArgumentOutOfRangeException(nameof(sineAmplitudeNumerator));
-            if (sineAmplitudeDenominator < 1)
-                throw new ArgumentOutOfRangeException(nameof(sineAmplitudeDenominator));
-            if (sinePeriodTicks < 1)
-                throw new ArgumentOutOfRangeException(nameof(sinePeriodTicks));
+            if (movementAmplitudeNumerator < 0)
+                throw new ArgumentOutOfRangeException(nameof(movementAmplitudeNumerator));
+            if (movementAmplitudeDenominator < 1)
+                throw new ArgumentOutOfRangeException(nameof(movementAmplitudeDenominator));
+            if (movementPeriodTicks < 1)
+                throw new ArgumentOutOfRangeException(nameof(movementPeriodTicks));
+            if (movementDelayTicks < 0)
+                throw new ArgumentOutOfRangeException(nameof(movementDelayTicks));
+            if (movementDurationTicks < 1)
+                throw new ArgumentOutOfRangeException(nameof(movementDurationTicks));
+            if (movementPauseTicks < 0)
+                throw new ArgumentOutOfRangeException(nameof(movementPauseTicks));
+            if (movePattern == EnemyMovePattern.Dash && movementPauseTicks < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(movementPauseTicks),
+                    "Dash movement requires at least one pause tick.");
 
             Id = id;
             DisplayName = displayName;
@@ -99,9 +154,12 @@ namespace Shmup.Core.Simulation
             HalfWidth = halfWidth;
             HalfHeight = halfHeight;
             DropWeight = dropWeight;
-            SineAmplitudeNumerator = sineAmplitudeNumerator;
-            SineAmplitudeDenominator = sineAmplitudeDenominator;
-            SinePeriodTicks = sinePeriodTicks;
+            MovementAmplitudeNumerator = movementAmplitudeNumerator;
+            MovementAmplitudeDenominator = movementAmplitudeDenominator;
+            MovementPeriodTicks = movementPeriodTicks;
+            MovementDelayTicks = movementDelayTicks;
+            MovementDurationTicks = movementDurationTicks;
+            MovementPauseTicks = movementPauseTicks;
         }
 
         public string Id { get; }
@@ -116,11 +174,21 @@ namespace Shmup.Core.Simulation
         public int HalfWidth { get; }
         public int HalfHeight { get; }
         public int DropWeight { get; }
-        public int SineAmplitudeNumerator { get; }
-        public int SineAmplitudeDenominator { get; }
+        public int MovementAmplitudeNumerator { get; }
+        public int MovementAmplitudeDenominator { get; }
+        public int MovementAmplitude =>
+            MovementAmplitudeNumerator / MovementAmplitudeDenominator;
+        public int MovementPeriodTicks { get; }
+        public int MovementDelayTicks { get; }
+        public int MovementDurationTicks { get; }
+        public int MovementPauseTicks { get; }
+
+        // Legacy names remain source-compatible with Presentation and existing tests.
+        public int SineAmplitudeNumerator => MovementAmplitudeNumerator;
+        public int SineAmplitudeDenominator => MovementAmplitudeDenominator;
         public int SineAmplitude =>
-            SineAmplitudeNumerator / SineAmplitudeDenominator;
-        public int SinePeriodTicks { get; }
+            MovementAmplitudeNumerator / MovementAmplitudeDenominator;
+        public int SinePeriodTicks => MovementPeriodTicks;
     }
 
     /// <summary>

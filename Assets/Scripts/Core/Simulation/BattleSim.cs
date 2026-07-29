@@ -490,6 +490,8 @@ namespace Shmup.Core.Simulation
         readonly List<int> _enemyXRemainders;
         readonly List<int> _enemySpawnYs;
         readonly List<int> _enemyAges;
+        readonly List<int> _enemyDiveTargetYs;
+        readonly List<byte> _enemyMovementFlags;
         readonly ReadOnlyCollection<EnemyState> _readOnlyEnemies;
         readonly List<CapsuleState> _capsules;
         readonly ReadOnlyCollection<CapsuleState> _readOnlyCapsules;
@@ -765,6 +767,8 @@ namespace Shmup.Core.Simulation
             _enemyXRemainders = new List<int>(spawnCapacity);
             _enemySpawnYs = new List<int>(spawnCapacity);
             _enemyAges = new List<int>(spawnCapacity);
+            _enemyDiveTargetYs = new List<int>(spawnCapacity);
+            _enemyMovementFlags = new List<byte>(spawnCapacity);
             _readOnlyEnemies = _enemies.AsReadOnly();
             _capsules = new List<CapsuleState>(spawnCapacity);
             _readOnlyCapsules = _capsules.AsReadOnly();
@@ -849,6 +853,7 @@ namespace Shmup.Core.Simulation
             UpdateOptionPositions();
             AdvanceBullets();
             AdvanceEnemies();
+            AdvanceCapsules();
             SpawnScheduledThroughTick(Tick);
             UpdateBoss();
             ResolvePlayerBulletEnemyCollisions();
@@ -1206,7 +1211,7 @@ namespace Shmup.Core.Simulation
                 long nextX = state.X - scrollDelta;
                 int y = state.Y;
 
-                if (definition.MovePattern != EnemyMovePattern.Static)
+                if (ShouldAdvanceEnemyX(definition, age))
                 {
                     long accumulated = _enemyXRemainders[index] + (long)definition.MoveSpeedNumerator;
                     int delta = (int)(accumulated / definition.MoveSpeedDenominator);
@@ -1224,11 +1229,25 @@ namespace Shmup.Core.Simulation
                 if (definition.MovePattern == EnemyMovePattern.Sine)
                 {
                     int phase = (int)(((long)age * SineLut.Length
-                        / definition.SinePeriodTicks) % SineLut.Length);
-                    long offset = (long)definition.SineAmplitudeNumerator
+                        / definition.MovementPeriodTicks) % SineLut.Length);
+                    long offset = (long)definition.MovementAmplitudeNumerator
                         * SineLut[phase]
-                        / ((long)definition.SineAmplitudeDenominator * SineScale);
+                        / ((long)definition.MovementAmplitudeDenominator * SineScale);
                     y = SaturateToInt(_enemySpawnYs[index] + offset);
+                }
+                else if (definition.MovePattern == EnemyMovePattern.Zigzag)
+                {
+                    int triangle = ComputeTriangleLutValue(
+                        age,
+                        definition.MovementPeriodTicks);
+                    long offset = (long)definition.MovementAmplitudeNumerator
+                        * triangle
+                        / ((long)definition.MovementAmplitudeDenominator * SineScale);
+                    y = SaturateToInt(_enemySpawnYs[index] + offset);
+                }
+                else if (definition.MovePattern == EnemyMovePattern.Dive)
+                {
+                    y = AdvanceDiveY(index, definition, age);
                 }
 
                 _enemyAges[index] = age;
@@ -1262,6 +1281,8 @@ namespace Shmup.Core.Simulation
                 _enemyXRemainders.Add(0);
                 _enemySpawnYs.Add(spawn.Y);
                 _enemyAges.Add(0);
+                _enemyDiveTargetYs.Add(spawn.Y);
+                _enemyMovementFlags.Add(0);
             }
         }
 
@@ -1426,6 +1447,72 @@ namespace Shmup.Core.Simulation
                         _grazeScore);
                     AddComboGauge(_grazeComboGaugeGain);
                 }
+                index++;
+            }
+        }
+
+        static bool ShouldAdvanceEnemyX(EnemyDefinition definition, int age)
+        {
+            if (definition.MovePattern == EnemyMovePattern.Static)
+                return false;
+            if (definition.MovePattern != EnemyMovePattern.Dash)
+                return true;
+
+            long cycleTicks =
+                (long)definition.MovementPauseTicks + definition.MovementDurationTicks;
+            long phase = (age - 1L) % cycleTicks;
+            return phase >= definition.MovementPauseTicks;
+        }
+
+        static int ComputeTriangleLutValue(int age, int periodTicks)
+        {
+            const int cycleScale = 4 * SineScale;
+            int phase = (int)(((long)age * cycleScale / periodTicks) % cycleScale);
+            if (phase < SineScale)
+                return phase;
+            if (phase < 3 * SineScale)
+                return 2 * SineScale - phase;
+            return phase - cycleScale;
+        }
+
+        int AdvanceDiveY(int index, EnemyDefinition definition, int age)
+        {
+            int spawnY = _enemySpawnYs[index];
+            if (age <= definition.MovementDelayTicks)
+                return spawnY;
+
+            if (_enemyMovementFlags[index] == 0)
+            {
+                _enemyDiveTargetYs[index] = PlayerY;
+                _enemyMovementFlags[index] = 1;
+            }
+
+            int elapsed = age - definition.MovementDelayTicks;
+            if (elapsed > definition.MovementDurationTicks)
+                elapsed = definition.MovementDurationTicks;
+            long delta = (long)_enemyDiveTargetYs[index] - spawnY;
+            return SaturateToInt(
+                spawnY + delta * elapsed / definition.MovementDurationTicks);
+        }
+
+        void AdvanceCapsules()
+        {
+            long scrollDelta = GetScrollXAtTick(Tick) - GetScrollXAtTick(Tick - 1);
+            int index = 0;
+            while (index < _capsules.Count)
+            {
+                CapsuleState capsule = _capsules[index];
+                long nextX = capsule.X - scrollDelta;
+                if (nextX < _enemyDespawnX)
+                {
+                    _capsules.RemoveAt(index);
+                    continue;
+                }
+
+                _capsules[index] = new CapsuleState(
+                    capsule.Id,
+                    SaturateToInt(nextX),
+                    capsule.Y);
                 index++;
             }
         }
@@ -2145,6 +2232,8 @@ namespace Shmup.Core.Simulation
             _enemyXRemainders.RemoveAt(index);
             _enemySpawnYs.RemoveAt(index);
             _enemyAges.RemoveAt(index);
+            _enemyDiveTargetYs.RemoveAt(index);
+            _enemyMovementFlags.RemoveAt(index);
         }
 
         static bool Intersects(

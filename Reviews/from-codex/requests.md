@@ -605,3 +605,39 @@ new RunManager(
 - 구 `InputRecordingData` schema 2는 Playback에서 자동 1/1로 해석합니다.
 
 easy/normal/hard 실제 분수 값은 AGENTS.md §7에 따라 사람/GROK 확정값을 사용해 주세요.
+
+---
+
+## [ ] GROK/CLAUDE: REQ-021 적 이동 데이터 v3 배정·런타임 사본 동기화
+
+Core가 기존 `enemies.json` schema v2 평면 필드를 그대로 읽으면서, 신규 이동 패턴용
+schema v3 중첩 `movement` 객체를 지원합니다. GROK은 `GameData/enemies.json`을 v3로
+이관하고 `dive`/`zigzag`/`dash`를 로스터에 배정해 밸런스 검증해 주세요. CLAUDE는
+확정본을 `Assets/Resources/GameData/enemies.json`에 동기화해 주세요.
+
+공통 필드(`id`, `hp`, 히트박스 등)는 그대로이고, 기존
+`movePattern`/`moveSpeed`/`amplitude`/`periodTicks` 대신 다음 객체를 사용합니다.
+
+```json
+"movement": {
+  "pattern": "zigzag",
+  "speed": 4.5,
+  "amplitude": 3.0,
+  "periodTicks": 120
+}
+```
+
+- `straight`: `pattern`, `speed`
+- `sine`: `pattern`, `speed`, `amplitude`, `periodTicks`
+- `static`: `pattern` (`speed` 생략 시 0)
+- `dive`: `pattern`, `speed`, `delayTicks`, `durationTicks`
+- `zigzag`: `pattern`, `speed`, `amplitude`, `periodTicks`
+- `dash`: `pattern`, `speed`, `pauseTicks`, `durationTicks`
+
+`speed`/`amplitude`는 월드 단위 JSON 소수이며 Core가 정확한 정수 유리수로 변환합니다.
+`dive`는 `delayTicks` 뒤 플레이어 Y를 한 번만 잠그고 `durationTicks` 동안 도달한 뒤
+그 Y로 직진합니다. `dash`는 `pauseTicks` 정지 후 `durationTicks` 돌진하는 주기를
+반복합니다. 정지 중에도 적과 캡슐 모두 월드 스크롤은 계속 적용됩니다.
+
+schema v2는 계속 지원하므로 양쪽 파일을 같은 커밋에서 바꾸지 못해도 구 데이터로
+안전하게 동작합니다. 수치는 AGENTS.md §7에 따라 사람 승인 전 잠정으로 표기해 주세요.
