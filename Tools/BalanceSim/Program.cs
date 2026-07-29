@@ -9,6 +9,9 @@
 //    vs Core MaxEnemyBullets / MaxBullets (limits are CODEX-owned; report only).
 // 8) Obstacles: stage-1 empty + progressive density + solid corridor gaps (REQ-023).
 // 9) Ship primary DPS: vulcan/laser/spread single-target balance (REQ-022).
+// 10) Segment weights: catalog bias for common vs spectacle segments (REQ-029).
+// 11) Encounter types: Normal/Elite/Supply/Hazard/Rare risk-reward sketch (REQ-028/029).
+// 12) Capsule drops after magnet: expected recovery band (REQ-029).
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -59,6 +62,33 @@ static class Program
     const int MinStage1CandidateSegments = 6;
     const int ThemeDiffAssemblySeedCount = 8;
 
+    // Segment weights (REQ-029, provisional §7).
+    const int ExpectedSegmentCount = 38;
+    const int DefaultSegmentWeight = StageSegmentTemplate.DefaultWeight;
+    const int MinWeightedLowCount = 4;   // spectacle / maze / dense
+    const int MaxWeightedLow = 5;        // weight ≤ this counts as low
+    const int MinWeightedHighCount = 4;  // plain workhorse
+    const int MinWeightedHigh = 10;      // weight ≥ this counts as high
+
+    // Encounter sketch (REQ-028/029, provisional §7). WARN bands only.
+    const int EncounterSampleSeeds = 16;
+    // Elite total load includes same boss as Normal; boss-heavy stages push ratio ~0.9.
+    const double EliteHpRatioMin = 0.35; // elite load vs normal (short node)
+    const double EliteHpRatioMax = 0.95;
+    const double SupplyHpRatioMax = 0.40; // supply must stay clearly lighter
+    const double RareHpRatioMin = 1.5;    // rare ≈ 2× HP on full 3-seg
+    const double RareHpRatioMax = 2.5;
+    const double HazardScoreMult = 1.5;   // Core: 3/2
+    const double RareEncounterChance = 0.12; // Core default 12/100
+    // Nonlinear p=sw/(noDrop+sw): drop×4 yields ~1.3–1.6× EV at noDrop=12, not full 4×.
+    const double SupplyCapsuleRatioMin = 1.30; // supply drop boost vs normal 1-seg
+
+    // Capsule magnet recovery band (REQ-029, provisional §7).
+    // Magnet makes near-full pickup realistic; stage = 3 segments weight-biased mean.
+    const double MinStageCapsuleExpectation = 10.0;
+    const double MaxStageCapsuleExpectation = 16.0;
+    const double MaxSupplyNodeCapsuleExpectation = 18.0;
+
     static int Main()
     {
         string root = FindRepoRoot();
@@ -82,7 +112,7 @@ static class Program
         foreach (var seg in catalog.Segments)
             Console.WriteLine(
                 $"  {seg.SegmentId,-36} theme={NullLabel(seg.ThemeId),-10} " +
-                $"diff={seg.DifficultyMin}-{seg.DifficultyMax}");
+                $"diff={seg.DifficultyMin}-{seg.DifficultyMax} w={seg.Weight}");
 
         Console.WriteLine("Bosses:");
         foreach (var boss in catalog.Bosses)
@@ -110,6 +140,12 @@ static class Program
         failures += CheckObstacleLayouts(data, generator);
         Console.WriteLine();
         failures += CheckShipPrimaryDpsBalance(data);
+        Console.WriteLine();
+        failures += CheckSegmentWeights(data);
+        Console.WriteLine();
+        failures += CheckEncounterBalance(data);
+        Console.WriteLine();
+        failures += CheckCapsuleDropAfterMagnet(data);
 
         Console.WriteLine();
         if (failures == 0)
@@ -2816,6 +2852,597 @@ static class Program
         public int TicksToClear { get; }
         public long Kills { get; }
         public long ShotsHit { get; }
+    }
+
+    /// <summary>
+    /// REQ-029: segment selection weights bias plain workhorses vs spectacle.
+    /// Hard FAIL on catalog shape; distribution bands are soft WARN (§7).
+    /// </summary>
+    static int CheckSegmentWeights(GameDataSet data)
+    {
+        int failures = 0;
+        var catalog = data.StageGeneration;
+        Console.WriteLine(
+            "Segment weights (waves.json, REQ-029 provisional §7):");
+
+        if (catalog.Segments.Count != ExpectedSegmentCount)
+        {
+            Console.WriteLine(
+                $"FAIL weights: expected {ExpectedSegmentCount} segments, " +
+                $"got {catalog.Segments.Count}.");
+            failures++;
+        }
+
+        int minW = int.MaxValue;
+        int maxW = 0;
+        long sum = 0;
+        int lowCount = 0;
+        int highCount = 0;
+        int defaultCount = 0;
+        var dist = new SortedDictionary<int, int>();
+
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            int w = seg.Weight;
+            if (w < 1)
+            {
+                Console.WriteLine(
+                    $"FAIL weights: '{seg.SegmentId}' weight {w} < 1.");
+                failures++;
+            }
+
+            if (w < minW) minW = w;
+            if (w > maxW) maxW = w;
+            sum += w;
+            if (!dist.ContainsKey(w)) dist[w] = 0;
+            dist[w]++;
+            if (w <= MaxWeightedLow) lowCount++;
+            if (w >= MinWeightedHigh) highCount++;
+            if (w == DefaultSegmentWeight) defaultCount++;
+        }
+
+        double mean = catalog.Segments.Count == 0
+            ? 0
+            : sum / (double)catalog.Segments.Count;
+        Console.WriteLine(
+            $"  n={catalog.Segments.Count} min={minW} max={maxW} mean={mean:F2} " +
+            $"defaultW={DefaultSegmentWeight} atDefault={defaultCount}");
+        Console.WriteLine(
+            "  dist: " + string.Join(
+                ", ",
+                dist.Select(kv => $"{kv.Key}×{kv.Value}")));
+        Console.WriteLine(
+            $"  low(w≤{MaxWeightedLow})={lowCount} high(w≥{MinWeightedHigh})={highCount}");
+
+        if (minW == maxW && catalog.Segments.Count > 1)
+        {
+            Console.WriteLine(
+                "FAIL weights: all segments share one weight — no rarity bias.");
+            failures++;
+        }
+
+        if (lowCount < MinWeightedLowCount)
+        {
+            Console.WriteLine(
+                $"FAIL weights: only {lowCount} low-weight spectacle segments " +
+                $"(need ≥{MinWeightedLowCount} with w≤{MaxWeightedLow}).");
+            failures++;
+        }
+
+        if (highCount < MinWeightedHighCount)
+        {
+            Console.WriteLine(
+                $"FAIL weights: only {highCount} high-weight workhorse segments " +
+                $"(need ≥{MinWeightedHighCount} with w≥{MinWeightedHigh}).");
+            failures++;
+        }
+
+        // Soft: top spectacle should be rare relative to plain intro lines.
+        StageSegmentTemplate lightest = catalog.Segments
+            .OrderBy(s => s.Weight)
+            .ThenBy(s => s.SegmentId, StringComparer.Ordinal)
+            .First();
+        StageSegmentTemplate heaviest = catalog.Segments
+            .OrderByDescending(s => s.Weight)
+            .ThenBy(s => s.SegmentId, StringComparer.Ordinal)
+            .First();
+        Console.WriteLine(
+            $"  lightest={lightest.SegmentId} w={lightest.Weight}  " +
+            $"heaviest={heaviest.SegmentId} w={heaviest.Weight}");
+        if (heaviest.Weight < lightest.Weight * 3)
+        {
+            Console.WriteLine(
+                $"WARN weights: heaviest/lightest ratio " +
+                $"{heaviest.Weight / (double)lightest.Weight:F2} < 3 " +
+                "(spectacle may not feel rare enough, §7).");
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: segment weight catalog bias checks.");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-028/029: sample generated plans per encounter type and compare
+    /// combat HP / capsule EV / score mult. Core-locked knobs are report-only.
+    /// </summary>
+    static int CheckEncounterBalance(GameDataSet data)
+    {
+        int failures = 0;
+        var catalog = data.StageGeneration;
+        var generator = new SegmentStageGenerator(catalog);
+        BattleContent content = data.BattleContent;
+        BattleSimConfig defaults = BattleSimConfig.CreateDefault();
+
+        Console.WriteLine(
+            "Encounter types (Normal/Elite/Supply/Hazard/Rare, provisional §7):");
+        Console.WriteLine(
+            $"  Core Rare chance={defaults.RareEncounterChanceNumerator}/" +
+            $"{defaults.RareEncounterChanceDenominator} " +
+            $"(≈{RareEncounterChance:P0}) rewardPicks={defaults.RareRewardSelectionCount}");
+        Console.WriteLine(
+            "  multipliers: Elite HP 3/2 · Rare HP 2/1 · Supply drop 4/1 · " +
+            "Hazard score 3/2");
+
+        var types = new[]
+        {
+            EncounterType.Normal,
+            EncounterType.Elite,
+            EncounterType.Supply,
+            EncounterType.Hazard,
+            EncounterType.Rare
+        };
+
+        // Aggregate over theme × stage 1..5 × seeds.
+        var sums = new Dictionary<EncounterType, EncounterAgg>();
+        foreach (EncounterType t in types)
+            sums[t] = new EncounterAgg();
+
+        int assemblyFails = 0;
+        const ulong baseSeed = 0xE2C0UL;
+        for (int stage = 1; stage <= 5; stage++)
+        {
+            int difficulty = stage;
+            for (int ti = 0; ti < catalog.ThemeIds.Count; ti++)
+            {
+                string theme = catalog.ThemeIds[ti];
+                for (int s = 0; s < EncounterSampleSeeds; s++)
+                {
+                    ulong seed = baseSeed
+                        + (ulong)stage * 10007UL
+                        + (ulong)ti * 997UL
+                        + (ulong)s * 131UL;
+                    foreach (EncounterType encounter in types)
+                    {
+                        if (!generator.CanGenerateRoute(
+                                theme, stage, difficulty, encounter))
+                        {
+                            Console.WriteLine(
+                                $"FAIL encounter: cannot generate " +
+                                $"{encounter} theme={theme} stage={stage}.");
+                            assemblyFails++;
+                            continue;
+                        }
+
+                        StagePlan plan;
+                        try
+                        {
+                            plan = generator.GenerateRoute(
+                                seed, stage, difficulty, theme, encounter);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(
+                                $"FAIL encounter: {encounter} theme={theme} " +
+                                $"stage={stage} seed={seed:X}: {ex.Message}");
+                            assemblyFails++;
+                            continue;
+                        }
+
+                        if (!StagePlanClearability.IsClearable(plan))
+                        {
+                            Console.WriteLine(
+                                $"FAIL encounter: {encounter} theme={theme} " +
+                                $"stage={stage} seed={seed:X} not clearable.");
+                            assemblyFails++;
+                            continue;
+                        }
+
+                        int rawHp = PlanSpawnHp(plan, content);
+                        int scaledHp = ScaleInt(
+                            rawHp,
+                            plan.EncounterEnemyHpMultiplierNumerator,
+                            plan.EncounterEnemyHpMultiplierDenominator);
+                        double capsuleEv = PlanCapsuleExpectation(
+                            plan, content, data.CapsuleNoDropWeight);
+                        int scoreNum = plan.EncounterScoreMultiplierNumerator;
+                        int scoreDen = plan.EncounterScoreMultiplierDenominator;
+                        int obstacles = PlanObstacleCount(plan);
+                        int segs = plan.Segments.Count;
+                        bool hasBoss = plan.BossMaxHp > 0;
+
+                        EncounterAgg agg = sums[encounter];
+                        agg.Samples++;
+                        agg.HpSum += scaledHp;
+                        agg.BossHpSum += hasBoss ? plan.BossMaxHp : 0;
+                        agg.CapsuleSum += capsuleEv;
+                        agg.ObstacleSum += obstacles;
+                        agg.SegmentSum += segs;
+                        agg.BossPresent += hasBoss ? 1 : 0;
+                        agg.ScoreNum = scoreNum;
+                        agg.ScoreDen = scoreDen;
+                        agg.HpNum = plan.EncounterEnemyHpMultiplierNumerator;
+                        agg.HpDen = plan.EncounterEnemyHpMultiplierDenominator;
+                        agg.DropNum = plan.CapsuleDropMultiplierNumerator;
+                        agg.DropDen = plan.CapsuleDropMultiplierDenominator;
+                    }
+                }
+            }
+        }
+
+        failures += assemblyFails;
+
+        foreach (EncounterType encounter in types)
+        {
+            EncounterAgg a = sums[encounter];
+            if (a.Samples == 0)
+            {
+                Console.WriteLine($"FAIL encounter: no samples for {encounter}.");
+                failures++;
+                continue;
+            }
+
+            double avgHp = a.HpSum / a.Samples;
+            double avgBoss = a.BossHpSum / a.Samples;
+            double avgCap = a.CapsuleSum / a.Samples;
+            double avgObs = a.ObstacleSum / (double)a.Samples;
+            double avgSeg = a.SegmentSum / (double)a.Samples;
+            Console.WriteLine(
+                $"  {encounter,-7} n={a.Samples} segs={avgSeg:F2} " +
+                $"spawnHP={avgHp:F0} bossHP={avgBoss:F0} " +
+                $"E_caps={avgCap:F2} obs={avgObs:F1} " +
+                $"bossRate={a.BossPresent / (double)a.Samples:P0} " +
+                $"hp×{a.HpNum}/{a.HpDen} drop×{a.DropNum}/{a.DropDen} " +
+                $"score×{a.ScoreNum}/{a.ScoreDen}");
+        }
+
+        EncounterAgg normal = sums[EncounterType.Normal];
+        EncounterAgg elite = sums[EncounterType.Elite];
+        EncounterAgg supply = sums[EncounterType.Supply];
+        EncounterAgg hazard = sums[EncounterType.Hazard];
+        EncounterAgg rare = sums[EncounterType.Rare];
+
+        if (normal.Samples > 0 && elite.Samples > 0)
+        {
+            double nLoad = normal.HpSum / normal.Samples + normal.BossHpSum / normal.Samples;
+            double eLoad = elite.HpSum / elite.Samples + elite.BossHpSum / elite.Samples;
+            double ratio = eLoad / Math.Max(1.0, nLoad);
+            Console.WriteLine(
+                $"  elite/normal combat-load ratio={ratio:F2} " +
+                $"(band [{EliteHpRatioMin:F2},{EliteHpRatioMax:F2}])");
+            // Elite is 1 segment @1.5× HP + boss vs 3 segs + boss → shorter but denser.
+            // Reward: forced modifier bias (Core) + same 1 pick — risk premium is length-compressed.
+            if (ratio < EliteHpRatioMin || ratio > EliteHpRatioMax)
+            {
+                Console.WriteLine(
+                    $"WARN encounter: elite load ratio {ratio:F2} outside band " +
+                    $"[{EliteHpRatioMin:F2},{EliteHpRatioMax:F2}] (§7 / Core HP mult).");
+            }
+
+            // Soft EV sketch: elite modifier guarantee is Core-only recommendation.
+            Console.WriteLine(
+                "  elite reward note: 1 pick with modifier-weight bias (Core RunManager); " +
+                "HP denser but node shorter — reward adequacy is playtest §7.");
+        }
+
+        if (normal.Samples > 0 && supply.Samples > 0)
+        {
+            double nHp = normal.HpSum / normal.Samples + normal.BossHpSum / normal.Samples;
+            double sHp = supply.HpSum / supply.Samples + supply.BossHpSum / supply.Samples;
+            double sRatio = sHp / Math.Max(1.0, nHp);
+            double nCap1 = (normal.CapsuleSum / normal.Samples)
+                / Math.Max(1.0, normal.SegmentSum / (double)normal.Samples);
+            double sCap = supply.CapsuleSum / supply.Samples;
+            double capRatio = sCap / Math.Max(0.01, nCap1);
+            Console.WriteLine(
+                $"  supply/normal combat-load ratio={sRatio:F2} " +
+                $"(want ≤{SupplyHpRatioMax:F2}); " +
+                $"supply E_caps={sCap:F2} vs normal/seg={nCap1:F2} " +
+                $"(boost≈{capRatio:F2}×, want ≥{SupplyCapsuleRatioMin:F2})");
+
+            if (sRatio > SupplyHpRatioMax)
+            {
+                Console.WriteLine(
+                    $"WARN encounter: supply load ratio {sRatio:F2} too high " +
+                    $"(should stay light, §7).");
+            }
+
+            if (capRatio < SupplyCapsuleRatioMin)
+            {
+                Console.WriteLine(
+                    $"WARN encounter: supply capsule boost {capRatio:F2}× " +
+                    $"< {SupplyCapsuleRatioMin:F2}× (§7 / Core drop mult 4).");
+            }
+
+            // Optimal-path risk: supply is very safe + high capsules. Frequency is
+            // Core route RNG (equal among Normal/Elite/Supply/Hazard when Rare off).
+            Console.WriteLine(
+                "  supply safety note: no boss + lowest-spawn segment + drop×4. " +
+                "If players always pick Supply, Core should lower Supply route weight " +
+                "or move drop mult to GameData (recommendation only).");
+        }
+
+        if (normal.Samples > 0 && rare.Samples > 0)
+        {
+            double nHp = normal.HpSum / normal.Samples;
+            double rHp = rare.HpSum / rare.Samples;
+            double rRatio = rHp / Math.Max(1.0, nHp);
+            Console.WriteLine(
+                $"  rare/normal spawnHP ratio={rRatio:F2} " +
+                $"(band [{RareHpRatioMin:F2},{RareHpRatioMax:F2}]); " +
+                $"reward picks={defaults.RareRewardSelectionCount}; " +
+                $"appear chance={RareEncounterChance:P0}");
+            if (rRatio < RareHpRatioMin || rRatio > RareHpRatioMax)
+            {
+                Console.WriteLine(
+                    $"WARN encounter: rare HP ratio {rRatio:F2} outside band " +
+                    $"(Core Rare HP mult 2/1, §7).");
+            }
+
+            // 12% of routes include a Rare slot among 2–3 options → ~4–6% of picks
+            // if chosen whenever offered. Soft recommendation only.
+            double offerRate = RareEncounterChance;
+            double assumedPickIfOffered = 0.45;
+            Console.WriteLine(
+                $"  rare route sketch: offer≈{offerRate:P0} · " +
+                $"if pick-when-offered≈{assumedPickIfOffered:P0} → " +
+                $"play rate≈{offerRate * assumedPickIfOffered:P1} of stage transitions. " +
+                "12% offer feels sparse-special; raise only if Rare nodes feel invisible.");
+        }
+
+        if (hazard.Samples > 0)
+        {
+            double scoreMult = hazard.ScoreNum / (double)Math.Max(1, hazard.ScoreDen);
+            double nObs = normal.Samples == 0
+                ? 0
+                : normal.ObstacleSum / (double)normal.Samples;
+            double hObs = hazard.ObstacleSum / (double)hazard.Samples;
+            Console.WriteLine(
+                $"  hazard score×={scoreMult:F2} (Core {HazardScoreMult:F2}); " +
+                $"obs normal={nObs:F1} hazard={hObs:F1}");
+            if (Math.Abs(scoreMult - HazardScoreMult) > 0.01)
+            {
+                Console.WriteLine(
+                    $"FAIL encounter: hazard score mult {scoreMult:F2} " +
+                    $"!= expected {HazardScoreMult:F2}.");
+                failures++;
+            }
+
+            if (hObs + 0.01 < nObs)
+            {
+                Console.WriteLine(
+                    "WARN encounter: hazard obstacles not denser than normal (§7).");
+            }
+            else
+            {
+                // Score 1.5× for +~50% obstacles on same HP — soft judgment.
+                double obsGain = nObs <= 0.01 ? 1.0 : hObs / nObs;
+                Console.WriteLine(
+                    $"  hazard risk sketch: obstacle gain×{obsGain:F2} vs score×{scoreMult:F2}. " +
+                    "If mazes feel brutal, Core score mult 3/2 may be low; " +
+                    "if trivial, lower obstacle inject or score (recommendation only).");
+            }
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: encounter assembly + risk-reward sketch.");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-029: after capsule magnet, nearly all drops are recovered.
+    /// Expectation uses kill drop formula with full pickup assumption.
+    /// </summary>
+    static int CheckCapsuleDropAfterMagnet(GameDataSet data)
+    {
+        int failures = 0;
+        int noDrop = data.CapsuleNoDropWeight;
+        var catalog = data.StageGeneration;
+        BattleContent content = data.BattleContent;
+        BattleSimConfig defaults = BattleSimConfig.CreateDefault();
+
+        Console.WriteLine(
+            "Capsule drops after magnet (enemies.json dropTable, provisional §7):");
+        Console.WriteLine(
+            $"  noDropWeight={noDrop} magnetRadius={defaults.CapsuleMagnetRadiusSubUnits}su " +
+            $"magnetSpeed={defaults.CapsuleMagnetSpeedNumerator}/" +
+            $"{defaults.CapsuleMagnetSpeedDenominator} (Core config)");
+
+        long weightSum = 0;
+        double weightedCapsule = 0;
+        double weightedSupply = 0;
+        int zeroDropEnemies = 0;
+        foreach (EnemyDefinition enemy in content.Enemies)
+        {
+            if (enemy.DropWeight <= 0)
+                zeroDropEnemies++;
+        }
+
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            double eNormal = SegmentCapsuleExpectation(
+                seg, content, noDrop, dropNum: 1, dropDen: 1);
+            double eSupply = SegmentCapsuleExpectation(
+                seg, content, noDrop, dropNum: 4, dropDen: 1);
+            weightSum += seg.Weight;
+            weightedCapsule += eNormal * seg.Weight;
+            weightedSupply += eSupply * seg.Weight;
+        }
+
+        double eSeg = weightSum == 0 ? 0 : weightedCapsule / weightSum;
+        double eStage = eSeg * catalog.SegmentsPerStage;
+        double eSupplyNode = weightSum == 0 ? 0 : weightedSupply / weightSum;
+
+        Console.WriteLine(
+            $"  weight-biased E_caps/seg={eSeg:F2} · E_stage({catalog.SegmentsPerStage} segs)={eStage:F2}");
+        Console.WriteLine(
+            $"  weight-biased E_caps/supply-node(1 seg drop×4)={eSupplyNode:F2}");
+        Console.WriteLine(
+            $"  band stage [{MinStageCapsuleExpectation:F0},{MaxStageCapsuleExpectation:F0}] · " +
+            $"supply node max {MaxSupplyNodeCapsuleExpectation:F0} · " +
+            $"zero-drop enemies={zeroDropEnemies}");
+
+        if (noDrop < 1)
+        {
+            Console.WriteLine("FAIL drops: noDropWeight must be ≥ 1.");
+            failures++;
+        }
+
+        if (eStage < MinStageCapsuleExpectation || eStage > MaxStageCapsuleExpectation)
+        {
+            Console.WriteLine(
+                $"FAIL drops: stage capsule EV {eStage:F2} outside band " +
+                $"[{MinStageCapsuleExpectation:F0},{MaxStageCapsuleExpectation:F0}] " +
+                "(magnet ≈ full recovery — retune noDropWeight / dropWeight).");
+            failures++;
+        }
+
+        if (eSupplyNode > MaxSupplyNodeCapsuleExpectation)
+        {
+            Console.WriteLine(
+                $"FAIL drops: supply node EV {eSupplyNode:F2} > " +
+                $"{MaxSupplyNodeCapsuleExpectation:F0} (drop×4 + magnet).");
+            failures++;
+        }
+
+        // Soft: map per-enemy drop rates for report.
+        Console.WriteLine("  sample drop p (dropW/(noDrop+dropW)):");
+        foreach (EnemyDefinition enemy in content.Enemies.Take(6))
+        {
+            int dw = enemy.DropWeight;
+            double p = dw / (double)(noDrop + dw);
+            Console.WriteLine($"    {enemy.Id,-22} dropW={dw,2} p={p:P1}");
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: capsule drop EV band after magnet.");
+        return failures;
+    }
+
+    static int PlanSpawnHp(StagePlan plan, BattleContent content)
+    {
+        int sum = 0;
+        for (int i = 0; i < plan.Segments.Count; i++)
+            sum += SpawnListHp(plan.Segments[i].Spawns, content);
+        return sum;
+    }
+
+    static int SpawnListHp(IReadOnlyList<SpawnEvent> spawns, BattleContent content)
+    {
+        int sum = 0;
+        for (int i = 0; i < spawns.Count; i++)
+        {
+            EnemyDefinition enemy = content.FindEnemy(spawns[i].EnemyId);
+            if (enemy != null)
+                sum += enemy.MaxHp;
+        }
+        return sum;
+    }
+
+    static int PlanObstacleCount(StagePlan plan)
+    {
+        int sum = 0;
+        for (int i = 0; i < plan.Segments.Count; i++)
+            sum += plan.Segments[i].Obstacles.Count;
+        return sum;
+    }
+
+    static double PlanCapsuleExpectation(
+        StagePlan plan,
+        BattleContent content,
+        int noDropWeight)
+    {
+        double sum = 0;
+        for (int i = 0; i < plan.Segments.Count; i++)
+        {
+            sum += SpawnListCapsuleExpectation(
+                plan.Segments[i].Spawns,
+                content,
+                noDropWeight,
+                plan.CapsuleDropMultiplierNumerator,
+                plan.CapsuleDropMultiplierDenominator);
+        }
+        return sum;
+    }
+
+    static double SegmentCapsuleExpectation(
+        StageSegmentTemplate seg,
+        BattleContent content,
+        int noDropWeight,
+        int dropNum,
+        int dropDen)
+    {
+        return SpawnListCapsuleExpectation(
+            seg.Spawns, content, noDropWeight, dropNum, dropDen);
+    }
+
+    static double SpawnListCapsuleExpectation(
+        IReadOnlyList<SpawnEvent> spawns,
+        BattleContent content,
+        int noDropWeight,
+        int dropNum,
+        int dropDen)
+    {
+        double sum = 0;
+        for (int i = 0; i < spawns.Count; i++)
+        {
+            EnemyDefinition enemy = content.FindEnemy(spawns[i].EnemyId);
+            if (enemy == null || enemy.DropWeight <= 0)
+                continue;
+            // Match BattleSim.TryDropCapsule scaled weight: p = sw / (noDrop + sw)
+            long scaled = ScalePositiveRatio(
+                enemy.DropWeight, dropNum, dropDen);
+            sum += scaled / (double)(noDropWeight + scaled);
+        }
+        return sum;
+    }
+
+    static long ScalePositiveRatio(int value, int num, int den)
+    {
+        if (value <= 0 || num <= 0)
+            return 0;
+        if (den < 1)
+            den = 1;
+        return (long)value * num / den;
+    }
+
+    static int ScaleInt(int value, int num, int den)
+    {
+        if (value <= 0)
+            return 0;
+        if (den < 1)
+            den = 1;
+        long scaled = (long)value * num / den;
+        if (scaled > int.MaxValue)
+            return int.MaxValue;
+        return (int)scaled;
+    }
+
+    sealed class EncounterAgg
+    {
+        public int Samples;
+        public double HpSum;
+        public double BossHpSum;
+        public double CapsuleSum;
+        public int ObstacleSum;
+        public int SegmentSum;
+        public int BossPresent;
+        public int ScoreNum = 1;
+        public int ScoreDen = 1;
+        public int HpNum = 1;
+        public int HpDen = 1;
+        public int DropNum = 1;
+        public int DropDen = 1;
     }
 
     static string[] SegmentIds(StagePlan plan)

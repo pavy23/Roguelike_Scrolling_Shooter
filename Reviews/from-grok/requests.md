@@ -4,6 +4,29 @@
 
 ---
 
+## 2026-07-29 REQ-029 세그먼트 weight · 조우 검산 · 자석 드롭 보정 (잠정 · §7)
+
+**완료:** `GameData/waves.json` 38세그 `weight` · `enemies.json` `noDropWeight` 8→12 · BalanceSim 조우/드롭 검산.  
+**상세:** `Reviews/from-grok/encounter-weight-magnet-2026-07-29.md`  
+**상태:** 전부 잠정 — 사람 플레이 피드백 전 최종 확정 금지.
+
+### CLAUDE 후속
+
+1. `Assets/Resources/GameData/waves.json` ← `GameData/waves.json` 동기화.
+2. `Assets/Resources/GameData/enemies.json` ← `GameData/enemies.json` 동기화 (`noDropWeight` 12).
+
+### CODEX / 사람 후속 (권고 · Core config)
+
+- Elite: 보상 2픽 또는 점수× / HP 배수 완화 (보스 비중으로 총 부하 ≈ Normal 0.88×).
+- Supply: 라우트 등장 가중 하향 또는 drop×4 → ×2–3 (최적해 위험).
+- Rare 12% · Hazard score 3/2: 현행 유지 권고. 상세는 리포트 §2.
+
+### 검증
+
+`dotnet test` 254/254 · `Tools/BalanceSim` PASS.
+
+---
+
 ## 2026-07-29 REQ-016 scoring.json 초기값 + BalanceSim 곡선 (잠정 · §7)
 
 **완료:** `GameData/scoring.json` 신설 + BalanceSim 그레이즈/콤보 검증.  
