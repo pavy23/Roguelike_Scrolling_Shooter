@@ -83,6 +83,7 @@ namespace Shmup.Core.Generation
                 bossHalfHeight,
                 bossHoldX,
                 bossPhases,
+                null,
                 null)
         {
         }
@@ -99,6 +100,35 @@ namespace Shmup.Core.Generation
             int bossHoldX,
             IReadOnlyList<BossPhase> bossPhases,
             string themeId)
+            : this(
+                segments,
+                bossId,
+                laneCount,
+                startLaneMask,
+                bossEntryLaneMask,
+                bossMaxHp,
+                bossHalfWidth,
+                bossHalfHeight,
+                bossHoldX,
+                bossPhases,
+                themeId,
+                themeId)
+        {
+        }
+
+        public StagePlan(
+            IReadOnlyList<StageSegment> segments,
+            string bossId,
+            int laneCount,
+            int startLaneMask,
+            int bossEntryLaneMask,
+            int bossMaxHp,
+            int bossHalfWidth,
+            int bossHalfHeight,
+            int bossHoldX,
+            IReadOnlyList<BossPhase> bossPhases,
+            string themeId,
+            string requestedThemeId)
         {
             if (bossMaxHp < 0)
                 throw new ArgumentOutOfRangeException(nameof(bossMaxHp));
@@ -108,6 +138,10 @@ namespace Shmup.Core.Generation
                 throw new ArgumentOutOfRangeException(nameof(bossHalfHeight));
             if (themeId != null && themeId.Length == 0)
                 throw new ArgumentException("Theme id cannot be empty.", nameof(themeId));
+            if (requestedThemeId != null && requestedThemeId.Length == 0)
+                throw new ArgumentException(
+                    "Requested theme id cannot be empty.",
+                    nameof(requestedThemeId));
             Segments = Copy(segments, nameof(segments));
             BossId = bossId ?? throw new ArgumentNullException(nameof(bossId));
             LaneCount = laneCount;
@@ -119,6 +153,7 @@ namespace Shmup.Core.Generation
             BossHoldX = bossHoldX;
             BossPhases = CopyPhases(bossPhases);
             ThemeId = themeId;
+            RequestedThemeId = requestedThemeId;
         }
 
         public IReadOnlyList<StageSegment> Segments { get; }
@@ -140,6 +175,18 @@ namespace Shmup.Core.Generation
         /// Presentation uses this id to select the matching background.
         /// </summary>
         public string ThemeId { get; }
+        /// <summary>
+        /// Theme selected by the run-seed permutation before catalog fallback.
+        /// Equals ThemeId unless incomplete content required a deterministic
+        /// replacement. Null for an unthemed catalog.
+        /// </summary>
+        public string RequestedThemeId { get; }
+        /// <summary>True when ThemeId is a deterministic safety fallback.</summary>
+        public bool ThemeFallbackApplied =>
+            !string.Equals(
+                ThemeId,
+                RequestedThemeId,
+                StringComparison.Ordinal);
 
         static IReadOnlyList<BossPhase> CopyPhases(IReadOnlyList<BossPhase> source)
         {

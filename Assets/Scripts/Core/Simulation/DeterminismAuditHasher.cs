@@ -147,6 +147,7 @@ namespace Shmup.Core.Simulation
         {
             FoldString(plan.BossId);
             FoldString(plan.ThemeId);
+            FoldString(plan.RequestedThemeId);
             FoldInt32(plan.LaneCount);
             FoldInt32(plan.StartLaneMask);
             FoldInt32(plan.BossEntryLaneMask);

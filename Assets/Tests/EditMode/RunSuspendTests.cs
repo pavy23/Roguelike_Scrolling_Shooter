@@ -438,6 +438,12 @@ namespace Shmup.Core.Tests
         {
             Assert.AreEqual(expected.BossId, actual.BossId);
             Assert.AreEqual(expected.ThemeId, actual.ThemeId);
+            Assert.AreEqual(
+                expected.RequestedThemeId,
+                actual.RequestedThemeId);
+            Assert.AreEqual(
+                expected.ThemeFallbackApplied,
+                actual.ThemeFallbackApplied);
             Assert.AreEqual(expected.LaneCount, actual.LaneCount);
             Assert.AreEqual(
                 expected.StartLaneMask,
