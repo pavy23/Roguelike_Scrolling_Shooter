@@ -819,12 +819,22 @@ namespace Shmup.Core.Tests
 
         static string FindRepositoryRoot()
         {
-            string path = TestContext.CurrentContext.WorkDirectory;
-            while (path != null)
+            // Unity EditMode의 WorkDirectory는 프로젝트 밖을 가리킬 수 있어
+            // 실행 파일 위치와 현재 디렉토리까지 함께 훑는다 (dotnet에서는 첫 후보로 충분).
+            foreach (string start in new[]
             {
-                if (Directory.Exists(Path.Combine(path, "GameData")))
-                    return path;
-                path = Directory.GetParent(path)?.FullName;
+                TestContext.CurrentContext.WorkDirectory,
+                Directory.GetCurrentDirectory(),
+                AppDomain.CurrentDomain.BaseDirectory
+            })
+            {
+                string path = start;
+                while (!string.IsNullOrEmpty(path))
+                {
+                    if (Directory.Exists(Path.Combine(path, "GameData")))
+                        return path;
+                    path = Directory.GetParent(path)?.FullName;
+                }
             }
             throw new DirectoryNotFoundException(
                 "Could not find repository GameData.");

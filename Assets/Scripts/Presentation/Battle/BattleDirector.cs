@@ -34,6 +34,8 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Transform _fxRoot;
         [SerializeField] SpriteRenderer _damageFlash;
         [SerializeField] Sprite _missileSprite;
+        /// <summary>MissileFamily 순서(Straight/SpreadBomb/PiercingLance)와 정렬.</summary>
+        [SerializeField] Sprite[] _missileFamilySprites;
         [SerializeField] GameObject _optionPrefab;
         [SerializeField] Transform _optionRoot;
         [SerializeField] SpriteRenderer _shieldView;
@@ -194,6 +196,12 @@ namespace Shmup.Presentation.Battle
 
         /// <summary>런 완주(최종 보스 격파) 여부 — 결과 화면이 승리/패배를 가른다 (REQ-031).</summary>
         public bool IsRunCleared => _run != null && _run.State == RunState.RunCleared;
+
+        // 바이옴/룸 진행도 (REQ-032) — 22분 런에서 현재 위치를 알려 준다
+        public int BiomeIndex => _run?.BiomeIndex ?? 0;
+        public int RoomIndex => _run?.RoomIndex ?? 0;
+        public int BiomeCount => _run?.BiomeCount ?? 0;
+        public int RoomsPerBiome => _run?.RoomsPerBiome ?? 0;
 
         /// <summary>런이 끝났는가 (사망 또는 완주).</summary>
         public bool IsRunFinished => _run != null && _run.IsFinished;
@@ -752,9 +760,24 @@ namespace Shmup.Presentation.Battle
 
         Sprite SpriteForBulletKind(BulletKind kind)
         {
-            if (kind == BulletKind.Missile && _missileSprite != null) return _missileSprite;
+            // 미사일은 계열별 스프라이트 (REQ-034): 직진 추진체 / 투하 폭탄 / 관통 창
+            if (kind == BulletKind.Missile)
+            {
+                var family = _run != null ? _run.CurrentMissileFamily : MissileFamily.Straight;
+                var typed = SpriteForMissileFamily(family);
+                if (typed != null) return typed;
+                if (_missileSprite != null) return _missileSprite;
+            }
             if (kind == BulletKind.EnemyShot && _enemyShotSprite != null) return _enemyShotSprite;
             return _mainShotSprite;
+        }
+
+        Sprite SpriteForMissileFamily(MissileFamily family)
+        {
+            if (_missileFamilySprites == null) return null;
+            int index = (int)family;
+            return index >= 0 && index < _missileFamilySprites.Length
+                ? _missileFamilySprites[index] : null;
         }
 
         void SyncBoss()

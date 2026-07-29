@@ -651,6 +651,13 @@ namespace Shmup.EditorTools
             SetReference(director, "_fxRoot", fxRoot.transform);
             SetReference(director, "_damageFlash", damageFlashRenderer);
             SetReference(director, "_missileSprite", missileSprite);
+            // 미사일 계열별 스프라이트 (REQ-034) — MissileFamily 열거 순서와 정렬
+            SetReferenceArray(director, "_missileFamilySprites", new[]
+            {
+                LoadExternalSprite("missile_straight.png", "missile_straight"),
+                LoadExternalSprite("missile_bomb.png", "missile_bomb"),
+                LoadExternalSprite("missile_lance.png", "missile_lance")
+            });
             SetReference(director, "_optionPrefab", optionPrefab);
             SetReference(director, "_optionRoot", optionRoot.transform);
             SetReference(director, "_shieldView", shieldRenderer);
@@ -861,6 +868,15 @@ namespace Shmup.EditorTools
             var onboarding = battleRoot.AddComponent<OnboardingHints>();
             SetReference(onboarding, "_director", director);
             SetReference(onboarding, "_font", uiFont);
+
+            // 바이옴/룸 진행도 HUD + 바이옴 진입 배너 (REQ-032)
+            var progress = battleRoot.AddComponent<ProgressHud>();
+            SetReference(progress, "_director", director);
+            SetReference(progress, "_font", uiFont);
+            SetReference(progress, "_fontBold", uiFontBold);
+            SetStringArray(progress, "_themeIds",
+                new[] { "scrapyard", "hive", "fortress", "nebula", "core" });
+            SetStringArray(progress, "_themeNames", UiText.ThemeNames);
 
             // 점수 팝업 + 저체력 경고 (즉효 개선 묶음)
             var popups = battleRoot.AddComponent<ScorePopups>();

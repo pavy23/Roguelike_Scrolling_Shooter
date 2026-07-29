@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "weapons": [
     {
       "id": "main_shot",
@@ -42,5 +42,69 @@
       "projectileHalfHeight": 0.0,
       "maxLevel": 3
     }
-  ]
+  ],
+  "missileFamilies": [
+    {
+      "id": "straight",
+      "baseDamage": 20,
+      "fireIntervalTicks": 30,
+      "minimumFireIntervalTicks": 15,
+      "fireIntervalReductionPerLevel": 5,
+      "projectileSpeed": 10,
+      "fallSpeedY": 1.5,
+      "pierceEnemyCount": 0,
+      "explosionDamage": 0,
+      "explosionRadius": 0,
+      "explosionMaxTargets": 0
+    },
+    {
+      "id": "spread_bomb",
+      "baseDamage": 12,
+      "fireIntervalTicks": 42,
+      "minimumFireIntervalTicks": 28,
+      "fireIntervalReductionPerLevel": 5,
+      "projectileSpeed": 6,
+      "fallSpeedY": 9,
+      "pierceEnemyCount": 0,
+      "explosionDamage": 16,
+      "explosionRadius": 1.75,
+      "explosionMaxTargets": 5
+    },
+    {
+      "id": "piercing_lance",
+      "baseDamage": 40,
+      "fireIntervalTicks": 54,
+      "minimumFireIntervalTicks": 36,
+      "fireIntervalReductionPerLevel": 6,
+      "projectileSpeed": 16,
+      "fallSpeedY": 0,
+      "pierceEnemyCount": 2,
+      "explosionDamage": 0,
+      "explosionRadius": 0,
+      "explosionMaxTargets": 0
+    }
+  ],
+  "defaultMissileFamily": "straight",
+  "optionFormations": [
+    {
+      "id": "trail",
+      "followDelayTicks": 12
+    },
+    {
+      "id": "fixed",
+      "offsets": [
+        { "x": 0.75, "y": 1.5 },
+        { "x": 0.75, "y": -1.5 },
+        { "x": 0.75, "y": 2.75 },
+        { "x": 0.75, "y": -2.75 }
+      ]
+    },
+    {
+      "id": "orbit",
+      "radius": 1.75,
+      "angularLutSlotsNumerator": 1,
+      "angularLutSlotsDenominator": 2
+    }
+  ],
+  "defaultOptionFormation": "trail"
 }
