@@ -24,8 +24,9 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Font _fontBold;
 
         string _seedText;
-        Text _promptText, _seedValueText;
+        Text _promptText, _seedValueText, _continueText;
         string _shownSeed;
+        Shmup.Core.Simulation.RunSuspendData _suspended;
 
         void Start()
         {
@@ -46,6 +47,16 @@ namespace Shmup.Presentation.Battle
             _seedValueText = UiKit.CreateCornerText(canvas.transform, _font, "", 11,
                 UiKit.TextDim, new Vector2(0.5f, 0f), new Vector2(0f, 66f),
                 TextAnchor.LowerCenter, "Seed");
+
+            // 이어하기 (REQ-017): 저장된 런이 있으면 안내 표시
+            _suspended = RunSave.TryLoad();
+            if (_suspended != null)
+            {
+                _continueText = UiKit.CreateCornerText(canvas.transform, _font,
+                    $"[C]/(X) CONTINUE — stage {_suspended.stageIndex}, score {_suspended.score:N0}",
+                    12, UiKit.TextAccent, new Vector2(0.5f, 0.5f), new Vector2(0f, -74f),
+                    TextAnchor.MiddleCenter, "Continue");
+            }
         }
 
         void Update()
@@ -76,6 +87,18 @@ namespace Shmup.Presentation.Battle
             if (gamepad != null && gamepad.buttonSouth.wasPressedThisFrame)
             {
                 StartRun();
+                return;
+            }
+
+            // 이어하기
+            if (_suspended != null &&
+                ((keyboard != null && keyboard.cKey.wasPressedThisFrame)
+                 || (gamepad != null && gamepad.buttonWest.wasPressedThisFrame)))
+            {
+                BattleDirector.PendingResume = _suspended;
+                RunSave.Delete();   // 소비형 — 재저장은 다음 중단 시점에
+                DevArgs.RuntimeSeed = (long)_suspended.runSeed;   // HUD 시드 표시 일치
+                SceneManager.LoadScene("Battle");
                 return;
             }
 

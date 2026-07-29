@@ -7,6 +7,8 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.U2D;
+using UnityEditor.U2D;
 
 namespace Shmup.EditorTools
 {
@@ -331,6 +333,7 @@ namespace Shmup.EditorTools
             try
             {
                 CopyGameDataToResources();
+                EnsureSpriteAtlas();
 
                 var shipSprite = WriteExternalOrPixelSprite(ShipSpritePath, "player_ship.png", ShipPixels, ShipPalette);
                 var bulletSprite = WritePixelSprite(BulletSpritePath, BulletPixels, BulletPalette);
@@ -383,6 +386,40 @@ namespace Shmup.EditorTools
         /// 런타임은 이 사본을 읽고, 파싱은 Core(GameDataParser)가 한다. 원본 수정 후에는
         /// 씬 재생성을 다시 돌려야 사본이 갱신된다.
         /// </summary>
+        /// <summary>
+        /// Assets/Art/Sprites 전체를 하나의 SpriteAtlas로 묶는다 (드로우콜 절감).
+        /// 픽셀 아트 규격: 회전 금지, 풀렉트 패킹, 포인트 필터, 무압축.
+        /// 이미 있으면 재생성하지 않는다 — 폴더 참조라 새 스프라이트는 자동 포함된다.
+        /// </summary>
+        static void EnsureSpriteAtlas()
+        {
+            const string atlasPath = "Assets/Art/GameSprites.spriteatlas";
+            if (AssetDatabase.LoadAssetAtPath<SpriteAtlas>(atlasPath) != null) return;
+
+            var atlas = new SpriteAtlas();
+            var packing = atlas.GetPackingSettings();
+            packing.enableRotation = false;
+            packing.enableTightPacking = false;
+            packing.padding = 2;
+            atlas.SetPackingSettings(packing);
+
+            var texture = atlas.GetTextureSettings();
+            texture.filterMode = FilterMode.Point;
+            texture.generateMipMaps = false;
+            atlas.SetTextureSettings(texture);
+
+            var platform = atlas.GetPlatformSettings("DefaultTexturePlatform");
+            platform.textureCompression = TextureImporterCompression.Uncompressed;
+            platform.maxTextureSize = 2048;
+            atlas.SetPlatformSettings(platform);
+
+            var folder = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(SpriteDir);
+            if (folder != null)
+                atlas.Add(new[] { folder });
+            AssetDatabase.CreateAsset(atlas, atlasPath);
+            Debug.Log($"[BattleSceneBuilder] SpriteAtlas 생성: {atlasPath} (폴더 {SpriteDir} 참조)");
+        }
+
         static void CopyGameDataToResources()
         {
             const string targetDir = "Assets/Resources/GameData";
@@ -760,6 +797,7 @@ namespace Shmup.EditorTools
             var pause = battleRoot.AddComponent<PauseScreen>();
             SetReference(pause, "_font", uiFont);
             SetReference(pause, "_fontBold", uiFontBold);
+            SetReference(pause, "_director", director);
             var options = battleRoot.AddComponent<OptionsScreen>();
             SetReference(options, "_input", inputReader);
             SetReference(options, "_font", uiFont);

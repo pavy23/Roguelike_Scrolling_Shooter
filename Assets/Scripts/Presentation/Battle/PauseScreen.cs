@@ -16,6 +16,7 @@ namespace Shmup.Presentation.Battle
 
         [SerializeField] Font _font;
         [SerializeField] Font _fontBold;
+        [SerializeField] BattleDirector _director;
 
         bool _paused;
         GameObject _root;
@@ -62,6 +63,8 @@ namespace Shmup.Presentation.Battle
                     AdjustVolume(-0.1f);
                 if (keyboard.qKey.wasPressedThisFrame)
                 {
+                    if (_director != null)
+                        _director.SaveRunToDisk();   // 타이틀로 나가도 이어하기 가능 (REQ-017)
                     SetPaused(false);
                     SceneManager.LoadScene("Title");
                 }

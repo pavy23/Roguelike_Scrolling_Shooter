@@ -120,6 +120,22 @@ namespace Shmup.Presentation.Battle
         /// <summary>보스전 진행 중 여부 (BgmPlayer 보스 트랙 전환용).</summary>
         public bool BossActive => _sim != null && _sim.BossActive;
 
+        /// <summary>타이틀 CONTINUE가 채우는 이어하기 데이터 — Awake에서 1회 소비.</summary>
+        public static Shmup.Core.Simulation.RunSuspendData PendingResume;
+
+        /// <summary>현재 런을 스테이지 경계 스냅샷으로 저장 (Playing 상태에서만 유효).</summary>
+        public void SaveRunToDisk()
+        {
+            if (_run == null || _run.State != RunState.Playing) return;
+            RunSave.Save(_run.ExportSuspendData());
+        }
+
+        void OnApplicationQuit()
+        {
+            if (_run != null && !IsRunOver)
+                SaveRunToDisk();
+        }
+
         // Step이 RunOver/AwaitingReward에서 no-op이면 EventsThisTick이 클리어되지 않는다 —
         // 같은 이벤트를 매 FixedUpdate 재소비하지 않도록 (배틀 인스턴스, 틱)으로 신선도 판정.
         IBattleSim _lastEventSim;
@@ -198,18 +214,44 @@ namespace Shmup.Presentation.Battle
 
             // 런 수명은 Core(RunManager) 소관: 스테이지 전환, 난이도 곡선, 사망 감지,
             // 재시작 시 파워업 승계까지. Presentation은 Step을 돌리고 Battle을 그릴 뿐이다.
-            _run = new RunManager(
-                (ulong)Seed,
-                new SegmentStageGenerator(data.StageGeneration),
-                config,
-                data.BattleContent,
-                data.CreatePowerUpGauge(),
-                data.Rewards,
-                selectedShip);
+            // 이어하기(REQ-017): 타이틀이 PendingResume을 채우면 새 런 대신 리줌한다.
+            var pending = PendingResume;
+            PendingResume = null;
+            if (pending != null)
+            {
+                try
+                {
+                    var resumeShip = data.FindShip(pending.shipId) ?? selectedShip;
+                    _run = RunManager.ResumeFromSuspendData(
+                        pending,
+                        new SegmentStageGenerator(data.StageGeneration),
+                        config,
+                        data.BattleContent,
+                        data.CreatePowerUpGauge(),
+                        data.Rewards,
+                        resumeShip);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning($"[BattleDirector] 이어하기 실패({e.GetType().Name}) — 새 런으로 시작. {e.Message}");
+                    _run = null;
+                }
+            }
+            if (_run == null)
+                _run = new RunManager(
+                    (ulong)Seed,
+                    new SegmentStageGenerator(data.StageGeneration),
+                    config,
+                    data.BattleContent,
+                    data.CreatePowerUpGauge(),
+                    data.Rewards,
+                    selectedShip);
             _sim = _run.Battle;
 
             // 풀 용량은 Core가 허용하는 최대 개수와 맞춘다 — 런타임에 풀이 부족해질 수 없다.
-            _bulletPool = new SpritePool(_bulletPrefab, _bulletRoot, config.MaxBullets, "Bullet");
+            // 시뮬 Bullets는 플레이어탄+적탄 합산 리스트 — 풀도 합산 용량이어야 한다 (GROK 스트레스 검증 후속)
+            _bulletPool = new SpritePool(
+                _bulletPrefab, _bulletRoot, config.MaxBullets + config.MaxEnemyBullets, "Bullet");
             _enemyPool = new SpritePool(_enemyPrefab, _enemyRoot, 32, "Enemy");
             _capsulePool = new SpritePool(_capsulePrefab, _capsuleRoot, 16, "Capsule");
             _fxPool = new SpritePool(_explosionPrefab, _fxRoot, 16, "Explosion");
@@ -250,6 +292,7 @@ namespace Shmup.Presentation.Battle
                 _lastCreditedRunNumber = _run.RunNumber;
                 _meta.CreditScore(_run.TotalScore);
                 MetaSave.Save(_meta);
+                RunSave.Delete();   // 런 종료 — 이어하기 무효화
             }
 
             // 이벤트는 스텝 직후 같은 호출 안에서 소비한다 — 다음 Step에서 클리어되기 때문.
