@@ -781,3 +781,11 @@ weapons.json에 계열별 정의(GROK 후속), 파워업 레벨 스케일은 계
 BattleSim 발사 로직 분기, 이벤트/통계 호환, 리플레이·서스펜드에 자연 포함(함선 id 경유).
 회귀 테스트: 계열별 거동·결정론·데이터 폴백(weaponType 부재 시 vulcan).
 잠정 §7. Unity NUnit 호환 API만.
+
+### REQ-022 보강 (사람 지시 2026-07-29): 기체 3종 컨셉 확정 — 밸런스/스피드/탱커
+
+- starter = 밸런스: vulcan, 표준 속도, 시작 HP 3
+- interceptor = 스피드: laser, 빠른 이동(기존 배율), 시작 HP 2 (유리 대포)
+- bulwark = 탱커: spread, 느린 이동, 시작 HP 5
+ships.json에 weaponType과 maxHp 필드 추가 파싱(부재 시 vulcan/3 폴백).
+BattleSimConfig.PlayerMaxHp가 함선별로 덮이도록. 수치 잠정 §7, GROK 확정 후속.
