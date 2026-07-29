@@ -466,3 +466,12 @@ KillExplosionTriggered(중심 좌표 포함) 추가. 유도/관통은 기존 탄
 config 필드로 노출하고 기본값은 잠정 — GROK이 REQ-014로 데이터 확정 예정.
 파서는 modifier 타입 부재 시 기존과 동일하게 동작해야 한다.
 회귀 테스트: 모디파이어별 거동 + 결정론(동일 시드 2회) + 무할당 + 파서.
+
+## [ ] REQ-014 → GROK: 시너지 모디파이어 보상 데이터 (REQ-013 파서 완료됨)
+
+rewards.json에 type: modifier 항목 4종 추가 — modifierId: pierce_shot / ricochet /
+homing_missile / kill_explosion. 가중치·등장 스테이지는 GROK 판단(잠정 §7).
+설계 가이드: 모디파이어는 런당 1회만 의미 있으므로 maxPerRun: 1 권장,
+초반(stage 1~2)부터 등장해 빌드 방향을 일찍 정하게, 기존 9종 대비 등장 비중은
+"3택에 모디파이어가 평균 1개꼴" 수준. BalanceSim에 모디파이어 조합 시뮬 추가해
+관통+처치폭발 등 조합 DPS 폭주 여부 확인. dotnet test 그린. 완료 기준은 커밋까지다.
