@@ -4357,12 +4357,13 @@ static class Program
             }
         }
 
-        // Movement personality is not data-driven (Core: single sine hover).
+        // REQ-054: phases may declare movementPattern / partVulnerability in JSON.
+        // content-branch Core may still ignore unknown DTO fields until sim merge.
         Console.WriteLine(
-            "  movement: Core uses single sine hover for all phases — " +
-            "phase-specific movement NOT supported in data. " +
-            "Recommendation for CODEX: optional per-phase move profile " +
-            "(hover / vertical sweep / dash) keyed by phase index.");
+            "  movement/part axes (REQ-054 JSON): " +
+            "movementPattern, movementAmplitude, movementPeriodTicks, " +
+            "partVulnerability on bosses[].phases[] — " +
+            "consumed by sim-branch BossPhase parser when merged.");
 
         if (failures == 0)
             Console.WriteLine("PASS: boss redesign TTK / phases / threat mono.");

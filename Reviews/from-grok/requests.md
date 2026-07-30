@@ -4,6 +4,43 @@
 
 ---
 
+## 2026-07-30 REQ-054 후속 — 보스 페이즈 체감 · 중간보스 · 후반/보상 (잠정 §7)
+
+**완료 (content):** `GameData/waves.json` 5보스 phases에 `movementPattern` / `movementAmplitude` / `movementPeriodTicks` / `partVulnerability` 채움 + HP 소폭 인하 + 세그먼트 `mini_*` 스폰 제거(중형 앵커 교체). `enemies.json` noDropWeight 16→15. `rewards.json` capsules/repair weight 2→3.  
+**상세 표:** `Reviews/from-grok/req054-boss-phases-2026-07-30.md`
+
+### 핵심 수치
+
+| 보스 | HP | mid TTK | p1 이동 | p2 dens |
+|---|---:|---:|---|---:|
+| boss_stage1 | 9000 | 18.0s | sine amp1.75/150t | 0.150 |
+| boss_hive | 14500 | 24.2s | **amp3.25/96t** | 0.188 |
+| boss_fortress | 18000 | 25.0s | amp0.875/210t | 0.214 |
+| boss_storm | 22500 | 25.6s | amp2.75/84t | **0.250** |
+| boss_core | 28000 | 26.7s | amp2.25/100t | 0.250 |
+
+중간보스 HP 2400–4500 확정. TTK mid 3–13s (상한 30–40s·스테이지 보스보다 짧음). 4종/5스테이지: 전역 풀 균등 + 기대 중복 1회.
+
+### CLAUDE
+
+1. [ ] Resources GameData 동기화 (waves / enemies / rewards)
+2. [ ] BossPhaseChanged 이동·파츠 VFX (REQ-054)
+3. [ ] MidBoss 전용 HP UI
+
+### CODEX
+
+1. [ ] mini_* 테마 가중 선택 (홈 테마 soft prefer)
+2. [ ] reward `selectionKinds` (mid 2택 / main 3택 풀 분리)
+3. [ ] (선택) segment `sectionTags` opening/closing
+
+### 검증
+
+- `dotnet test` **297/297**
+- BalanceSim **PASS** (EV 10.32)
+- DeterminismAudit seed=12345 ×2 hash **`BEB6933375E2C17D`**
+
+---
+
 ## 2026-07-30 적 4티어 재배치 (크기=맷집 · 잠정 §7)
 
 **완료 (content):** `GameData/enemies.json` HP·히트박스·점수·드롭 재배치 + `GameData/waves.json` 38세그 티어 리듬·`intent` 한 줄.
