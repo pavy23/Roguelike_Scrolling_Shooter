@@ -849,3 +849,215 @@ Core 기본 진행은 5 바이옴 × 4룸 = **20룸**, 분기 **19회**로 변�
 반영해 suite 하한을 우선 **849,180틱**(`566,120 × 1.5`)으로 올리거나,
 실제 무업그레이드 DPS에서 예산을 직접 파생해 주세요. GameData 보상 상향으로 감사를
 억지 통과시키기보다는 감사 예산을 최악 성장 경로에 맞추는 것을 권장합니다.
+
+추가 진단(REQ-041/042 작업 시 재측정): 같은
+`seed-max-prefer-capped` 경로는 예산을 1,200,000틱으로 열면
+**834,153틱**에 `RunCleared`/`PerfectClear`에 도달합니다
+(`completedStages=6`, `completedRooms=22`, 숨은 보스 전투 539,468틱).
+따라서 위 849,180틱 하한이면 현재 데이터에서는 통과하며, 6→4룸 진행 게이트 자체가
+멈춘 것이 아니라 숨은 다중 파츠 보스의 실측 명중률이 감사 상수 50%보다 훨씬 낮은
+것이 직접 원인입니다.
+
+---
+
+## [ ] 사람 결정 / [ ] GROK / [ ] CLAUDE: REQ-041 전멸 폭탄 스톡 계약
+
+Core 계약:
+
+- `InputCommand(..., activateBomb)`은 상승 에지에서만 발동합니다.
+  `InputRecordingData`는 schema **v9**이고 `InputRunData.activateBomb`을 저장합니다.
+  v1~v8 리플레이의 해당 비트는 마이그레이션 시 강제로 `false`가 됩니다.
+- `IBattleSim.BombStock`, `BombPickups`가 읽기 전용 상태입니다. 룸 사이에 현재 스톡을
+  승계하고 `RunSuspendData` schema **v9**의 `bombStock`/`maxBombStock`으로 저장합니다.
+  v1~v8 세이브는 `0/ProvisionalMaxBombStock`으로 이행합니다.
+- 발동은 화면 경계 안의 일반 적에 1,000 대미지, 보스/각 파츠에 최대 250 대미지를
+  적용하고 화면 안의 적 탄을 소거합니다. 발동 무적 잠정값은 **45틱(0.75초)**이며 기존
+  피격 무적과 `max(남은 값, 45)`로 합쳐 절대 짧아지지 않습니다.
+- 이벤트:
+  `BombAcquired(EntityId=pickupId, Arg=현재 스톡)`,
+  `BombStockChanged(Arg=현재 스톡)`,
+  `BombActivated(X/Y=플레이어, Arg=연출 반경)`,
+  `BombActivationRejectedEmpty`.
+- 드롭 판정은 캡슐과 분리한 `Rng.Fork(2)`를 사용해 기존 캡슐 결과를 흔들지 않습니다.
+
+### 사람 결정 필요
+
+1. **폭탄 스톡 상한:** 잠정 **3**
+   (`BattleSimConfig.ProvisionalMaxBombStock`). 최종값을 승인/변경해 주세요.
+2. 함께 플레이 검증할 잠정치: 무적 45틱, 일반 적 대미지 1,000,
+   보스/파츠 대미지 상한 각 250, 연출 반경 48u, 동시 필드 픽업 16.
+   이들은 코드로 조절 가능하며 최종 밸런스 승인이 필요합니다.
+
+### GROK 계약
+
+`enemies.json` 현재 schema에서 다음 선택 필드를 지원합니다. 실제 JSON은 GROK
+소유라 이번 변경에서 수정하지 않았습니다.
+
+```json
+{
+  "dropTable": {
+    "noDropWeight": 8,
+    "bombNoDropWeight": 100
+  },
+  "enemies": [{
+    "dropWeight": 12,
+    "bombDropWeight": 0
+  }]
+}
+```
+
+- 잠정 기본은 `bombNoDropWeight: 100`, 적별 누락 `bombDropWeight: 0`입니다.
+- 합계는 Int32 범위여야 합니다. 폭탄 드롭은 캡슐 드롭과 독립 추첨입니다.
+- 실제 적별 가중치와 획득 빈도는 헤드리스 시뮬 결과와 함께 제안해 주세요.
+- 보상 선택 경로도 `rewards.json`의
+  `{ "type": "bombStock", "amount": 1, ... }`를 지원합니다. 실제 weight,
+  stageIndexMin/Max, maxPerRun은 GROK이 정하고 JSON에 추가해 주세요.
+
+### CLAUDE 계약
+
+- HUD는 `BombStock`과 상한을 표시하고 폰 발동 버튼을 새 입력 비트에 연결합니다.
+- 발동/획득/빈 스톡 피드백은 위 이벤트만 구독하며 Presentation에서 스톡을 직접
+  변경하지 않습니다.
+- 리플레이 저장기는 v9 `activateBomb`, 중단 저장기는 v9
+  `bombStock`/`maxBombStock`을 보존합니다. 구버전 DTO는 Core 마이그레이션에
+  그대로 전달합니다.
+
+---
+
+## [ ] 사람 결정 / [ ] GROK / [ ] CLAUDE: REQ-042 적·지형 지속 레이저 계약
+
+Core는 장애물의 세그먼트 배치/스크롤 수명을 재사용하는 것이 맞다고 판단했습니다.
+지형 발사기는 `ObstacleType.LaserEmitter`이며 `hp: 0`과 laser 프로필이 필수입니다.
+실제 빔은 장애물과 수명이 다르므로 `IBattleSim.Lasers`의 독립 상태로 노출됩니다.
+
+공통 laser 스키마:
+
+```json
+{
+  "laser": {
+    "cycleIntervalTicks": 180,
+    "telegraphTicks": 45,
+    "firingTicks": 6,
+    "sustainTicks": 60,
+    "dissipateTicks": 12,
+    "startOffsetX": 0,
+    "startOffsetY": 0,
+    "endOffsetX": -40,
+    "endOffsetY": 0,
+    "thinHalfWidth": 0.0625,
+    "fullHalfWidth": 0.5,
+    "damage": 1
+  }
+}
+```
+
+- 적 정의에 `laser`가 있으면 기존 점 탄 `fireIntervalTicks` 대신 레이저를 사용합니다.
+- 지형은 `waves.json.segments[].obstacles[]`에
+  `{ "type": "laserEmitter", "x": ..., "y": ..., "hp": 0, "laser": ... }`로
+  배치합니다.
+- `cycleIntervalTicks`는 네 단계 총 수명 이상이어야 하며, 예고/발사/소멸은 각 1틱
+  이상, 지속은 0 이상입니다. 좌표·폭은 world unit JSON을 정확한 정수 subunit으로
+  변환합니다.
+- `LaserState.Phase`는 Telegraph/Firing/Sustaining/Dissipating,
+  `ThicknessStage`는 Telegraph/Thin/Full입니다. Firing과 Sustaining만 판정합니다.
+- 판정은 정수·나눗셈 없는 선분 대 원 비교이며, 큰 좌표는 2의 거듭제곱으로 축소해
+  곱셈 오버플로를 막습니다.
+- 동시 상한 잠정값은 **8**입니다. 초과 시
+  `LaserCapacityExceeded(EntityId=sourceId, Arg=8)`를 반드시 발행합니다.
+  시작/발사/종료 이벤트는 `LaserTelegraphStarted`, `LaserFired`, `LaserEnded`입니다.
+
+GROK은 실제 적/세그먼트 ID와 위 네 단계·주기·폭·대미지 수치를 확정해 주세요.
+사람은 동시 상한 8 및 예시 타이밍을 플레이 검증 후 승인해 주세요.
+
+CLAUDE는 `Lasers`의 양 끝점, Phase, ThicknessStage, HalfWidth를 매 틱 렌더링하고
+세 이벤트로 예고음/발사음/소멸 연출을 연결해 주세요. `LaserCapacityExceeded`는
+개발 로그/텔레메트리에 남겨 풀 부족을 조용히 숨기지 않아야 합니다.
+
+REQ-041/042에서 `PowerUpSlot` 또는 이동속도 게이지 슬롯은 추가하지 않았습니다.
+
+---
+
+## [ ] CLAUDE: REQ-045 터치 아날로그 이동 Presentation 연결 계약
+
+### Core 호출 계약
+
+터치가 이동 입력을 소유하는 동안 매 시뮬레이션 틱 아래 팩터리를 호출해 주세요.
+
+```csharp
+InputCommand InputCommand.Analog(
+    int deltaXSubUnits,
+    int deltaYSubUnits,
+    bool fire,
+    bool activate = false,
+    bool activateBomb = false)
+```
+
+- `deltaXSubUnits` / `deltaYSubUnits`는 **목표 위치나 방향이 아니라, 직전 입력
+  샘플부터 누적된 손가락 이동량**입니다.
+- 단위는 `SimSpace` 정수 서브유닛이며
+  `SimSpace.SubUnitsPerWorldUnit == 256`입니다. 화면 델타를 카메라의 월드 델타로
+  바꿔 렌더 프레임 사이에는 그대로 누적하고, 시뮬 틱 경계에서 축별
+  `accumulatedWorldDelta * 256`을 가장 가까운 정수로 변환해 주세요.
+- 렌더 프레임과 시뮬 틱이 다를 수 있으므로 다음 시뮬 틱의
+  `InputCommand.Analog(...)` 한 번에 누적 델타를 넘겨야 합니다. 정수로 내보내고
+  남은 1서브유닛 미만의 분수 잔차는 다음 틱으로 보존해 느린 드래그를 잃지 마세요.
+  누적 정수 결과가 Int32 범위를 넘으면 포화 처리해야 합니다.
+- 터치가 유지되는 동안 손가락이 멈췄다면 반드시 `Analog(0, 0, ...)`을 계속
+  전달해 주세요. 아날로그 모드는 0/0이어도 디지털 축보다 우선하므로 기체가 즉시
+  정지합니다.
+- 터치가 이동을 소유하지 않을 때만 기존
+  `new InputCommand(moveX, moveY, fire, activate, activateBomb)` 디지털 경로를
+  사용해 주세요. 기존 목표점 추적, 8방향 양자화, 축 히스테리시스는 터치 경로에서
+  제거 대상입니다.
+- Presentation에서 속도 정규화나 데드존을 추가하지 마세요. Core가 현재 기체
+  이동속도에 맞춰 정수 벡터 길이 기준으로 클램프합니다.
+
+동시 입력을 직접 구성해야 하는 테스트/특수 경로의 전체 시그니처도 있습니다.
+이 경우 역시 아날로그가 우선합니다.
+
+```csharp
+new InputCommand(
+    int moveX,
+    int moveY,
+    bool fire,
+    bool activate,
+    bool activateBomb,
+    int analogDeltaXSubUnits,
+    int analogDeltaYSubUnits)
+```
+
+### 리플레이 v10 계약
+
+`InputRecordingData.CurrentSchemaVersion == 10`이며 각 `InputRunData`에 다음 필드가
+추가됐습니다.
+
+```csharp
+bool useAnalogMovement;
+int analogDeltaXSubUnits;
+int analogDeltaYSubUnits;
+```
+
+Core의 `InputRecorder`/`InputPlayback`을 그대로 사용하면 기록·재생·체크섬이 모두
+처리됩니다. v1~v9 리플레이는 마이그레이션 후
+`useAnalogMovement = false`, 델타 `0/0`이 됩니다. v9 폭탄 비트는 보존됩니다.
+
+### 기록 크기 검토
+
+기존 RLE는 그대로 유지되어 동일한 아날로그 명령이 이어지면 한 run으로 합쳐집니다.
+새 필드의 고정 논리량은 run당 `bool + int32 + int32`, 즉 약 **9바이트**입니다.
+하지만 실제 드래그 델타가 매 틱 바뀌면 최악의 경우 run이 틱 수와 같아져 60Hz에서
+약 **540바이트/초, 32.4KB/분**의 고정 논리량이 늘어납니다(JSON 필드명/객체
+오버헤드는 별도).
+
+REQ-045는 1/256 world unit의 원본 정수 델타와 정확한 재생을 요구하므로 Core에서
+양자화하지 않았습니다. 저장/전송 용량이 문제라면 Presentation 영속화 계층에서
+GZip/Brotli 같은 **무손실 압축**을 적용해 주세요. JSON 압축 효율이 높고 Core
+결정론/체크섬 입력을 바꾸지 않는 선택입니다. 16-subunit(화면 1픽셀 상당) 등의
+양자화는 조작 감각과 재생 궤적을 바꾸므로 사람 승인 없이는 적용하지 마세요.
+
+### 디지털 밸런스 영향
+
+기존 디지털 대각선은 축마다 최대 속도를 적용해 직선보다 `√2`배 빨랐습니다.
+REQ-045에서 `46340/65536` 고정소수점 성분으로 정규화했습니다. 이제 대각선 총속도는
+직선 상한의 약 99.998%이고, 기존 대비 약 **29.29% 느려집니다**. 직선 속도와
+`GameData` 기본 이동속도 값은 변경하지 않았습니다.

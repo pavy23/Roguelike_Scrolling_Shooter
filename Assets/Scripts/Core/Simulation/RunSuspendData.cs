@@ -50,7 +50,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class RunSuspendData
     {
-        public const int CurrentSchemaVersion = 8;
+        public const int CurrentSchemaVersion = 9;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -190,5 +190,11 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 43)]
         public int maxShieldStock;
+
+        [DataMember(Order = 44)]
+        public int bombStock;
+
+        [DataMember(Order = 45)]
+        public int maxBombStock;
     }
 }

@@ -128,6 +128,7 @@ namespace Shmup.Core.Content
                     content,
                     waves.Catalog,
                     enemies.NoDropWeight,
+                    enemies.BombNoDropWeight,
                     waves.ScrollSpeed.Numerator,
                     waves.ScrollSpeed.Denominator,
                     maxEnemyBullets,
@@ -219,6 +220,12 @@ namespace Shmup.Core.Content
                 "enemies.json.dropTable.noDropWeight");
             if (noDropWeight < 0)
                 throw Error("enemies.json.dropTable.noDropWeight", "cannot be negative.");
+            int bombNoDropWeight =
+                root.dropTable.bombNoDropWeight ?? 100;
+            if (bombNoDropWeight < 0)
+                throw Error(
+                    "enemies.json.dropTable.bombNoDropWeight",
+                    "cannot be negative.");
 
             EnemyDto[] source = RequireArray(root.enemies, "enemies.json.enemies");
             var definitions = new EnemyDefinition[source.Length];
@@ -229,8 +236,16 @@ namespace Shmup.Core.Content
                     throw Error(
                         $"enemies.json.enemies[{i}].dropWeight",
                         "makes the drop-table total exceed the integer range.");
+                if ((long)bombNoDropWeight
+                    + definitions[i].BombDropWeight > int.MaxValue)
+                    throw Error(
+                        $"enemies.json.enemies[{i}].bombDropWeight",
+                        "makes the bomb drop-table total exceed the integer range.");
             }
-            return new EnemiesParseResult(definitions, noDropWeight);
+            return new EnemiesParseResult(
+                definitions,
+                noDropWeight,
+                bombNoDropWeight);
         }
 
         static EnemyDefinition ParseEnemy(EnemyDto source, int index, int schemaVersion)
@@ -261,7 +276,54 @@ namespace Shmup.Core.Content
                 movement.PeriodTicks,
                 movement.DelayTicks,
                 movement.DurationTicks,
-                movement.PauseTicks);
+                movement.PauseTicks,
+                source.bombDropWeight ?? 0,
+                ParseLaser(
+                    source.laser,
+                    path + ".laser"));
+        }
+
+        static LaserAttackDefinition ParseLaser(
+            LaserAttackDto source,
+            string path)
+        {
+            if (source == null)
+                return null;
+            return new LaserAttackDefinition(
+                Require(
+                    source.cycleIntervalTicks,
+                    path + ".cycleIntervalTicks"),
+                Require(
+                    source.telegraphTicks,
+                    path + ".telegraphTicks"),
+                Require(
+                    source.firingTicks,
+                    path + ".firingTicks"),
+                Require(
+                    source.sustainTicks,
+                    path + ".sustainTicks"),
+                Require(
+                    source.dissipateTicks,
+                    path + ".dissipateTicks"),
+                ToSubUnits(
+                    Require(source.startOffsetX, path + ".startOffsetX"),
+                    path + ".startOffsetX"),
+                ToSubUnits(
+                    Require(source.startOffsetY, path + ".startOffsetY"),
+                    path + ".startOffsetY"),
+                ToSubUnits(
+                    Require(source.endOffsetX, path + ".endOffsetX"),
+                    path + ".endOffsetX"),
+                ToSubUnits(
+                    Require(source.endOffsetY, path + ".endOffsetY"),
+                    path + ".endOffsetY"),
+                ToSubUnits(
+                    Require(source.thinHalfWidth, path + ".thinHalfWidth"),
+                    path + ".thinHalfWidth"),
+                ToSubUnits(
+                    Require(source.fullHalfWidth, path + ".fullHalfWidth"),
+                    path + ".fullHalfWidth"),
+                Require(source.damage, path + ".damage"));
         }
 
         static EnemyMovementParseResult ParseLegacyMovement(EnemyDto source, string path)
@@ -608,6 +670,7 @@ namespace Shmup.Core.Content
                     return RewardType.MissileFamily;
                 case "optionFormation":
                     return RewardType.OptionFormation;
+                case "bombStock": return RewardType.BombStock;
                 default: throw Error(path, $"has unknown value '{value}'.");
             }
         }
@@ -655,14 +718,19 @@ namespace Shmup.Core.Content
 
         internal readonly struct EnemiesParseResult
         {
-            public EnemiesParseResult(EnemyDefinition[] definitions, int noDropWeight)
+            public EnemiesParseResult(
+                EnemyDefinition[] definitions,
+                int noDropWeight,
+                int bombNoDropWeight)
             {
                 Definitions = definitions;
                 NoDropWeight = noDropWeight;
+                BombNoDropWeight = bombNoDropWeight;
             }
 
             public EnemyDefinition[] Definitions { get; }
             public int NoDropWeight { get; }
+            public int BombNoDropWeight { get; }
         }
     }
 }

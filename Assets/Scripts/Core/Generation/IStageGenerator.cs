@@ -754,7 +754,8 @@ namespace Shmup.Core.Generation
     public enum ObstacleType
     {
         Solid = 0,
-        Breakable = 1
+        Breakable = 1,
+        LaserEmitter = 2
     }
 
     /// <summary>
@@ -764,6 +765,16 @@ namespace Shmup.Core.Generation
     public sealed class ObstacleSpawn
     {
         public ObstacleSpawn(ObstacleType type, int x, int y, int hp)
+            : this(type, x, y, hp, null)
+        {
+        }
+
+        public ObstacleSpawn(
+            ObstacleType type,
+            int x,
+            int y,
+            int hp,
+            Simulation.LaserAttackDefinition laserAttack)
         {
             if (!Enum.IsDefined(typeof(ObstacleType), type))
                 throw new ArgumentOutOfRangeException(nameof(type));
@@ -773,16 +784,26 @@ namespace Shmup.Core.Generation
             if (type == ObstacleType.Breakable && hp < 1)
                 throw new ArgumentOutOfRangeException(
                     nameof(hp), "Breakable obstacle HP must be positive.");
+            if (type == ObstacleType.LaserEmitter
+                && (hp != 0 || laserAttack == null))
+                throw new ArgumentException(
+                    "Laser emitters require zero HP and a laser profile.");
+            if (type != ObstacleType.LaserEmitter && laserAttack != null)
+                throw new ArgumentException(
+                    "Only laser emitters can carry a laser profile.",
+                    nameof(laserAttack));
 
             Type = type;
             X = x;
             Y = y;
             Hp = hp;
+            LaserAttack = laserAttack;
         }
 
         public ObstacleType Type { get; }
         public int X { get; }
         public int Y { get; }
         public int Hp { get; }
+        public Simulation.LaserAttackDefinition LaserAttack { get; }
     }
 }

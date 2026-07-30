@@ -111,6 +111,8 @@ namespace Shmup.Core.Tests
             data.playerHp = 1;
             data.shieldStock = 4;
             data.shieldRemaining = 4;
+            data.bombStock = 2;
+            data.maxBombStock = 3;
             data.rewardAcquisitions = new[]
             {
                 new RewardAcquisitionData
@@ -136,6 +138,7 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(1, resumed.Battle.PlayerHp);
             Assert.AreEqual(4, resumed.Battle.ShieldStock);
+            Assert.AreEqual(2, resumed.Battle.BombStock);
             Assert.AreEqual(
                 BattleModifier.PierceShot,
                 resumed.ActiveModifiers);
@@ -146,6 +149,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(1, restored.rewardAcquisitions[0].count);
             Assert.AreEqual(1, restored.playerHp);
             Assert.AreEqual(4, restored.shieldStock);
+            Assert.AreEqual(2, restored.bombStock);
         }
 
         [Test]
@@ -268,6 +272,28 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 BattleSimConfig.ProvisionalMaxShieldStock,
                 migrated.maxShieldStock);
+            Assert.IsTrue(
+                SaveDataIntegrity.HasValidChecksum(migrated));
+        }
+
+        [Test]
+        public void SchemaEightSuspend_MigratesToEmptyBombStock()
+        {
+            RunSuspendData legacy =
+                CreateRun(new BoundaryStageGenerator())
+                    .ExportSuspendData();
+            legacy.schemaVersion = 8;
+            legacy.checksum = null;
+            legacy.bombStock = 2;
+            legacy.maxBombStock = 9;
+
+            RunSuspendData migrated =
+                SaveDataIntegrity.MigrateAndValidate(legacy);
+
+            Assert.AreEqual(0, migrated.bombStock);
+            Assert.AreEqual(
+                BattleSimConfig.ProvisionalMaxBombStock,
+                migrated.maxBombStock);
             Assert.IsTrue(
                 SaveDataIntegrity.HasValidChecksum(migrated));
         }
@@ -497,6 +523,12 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 expected.maxShieldStock,
                 actual.maxShieldStock);
+            Assert.AreEqual(
+                expected.bombStock,
+                actual.bombStock);
+            Assert.AreEqual(
+                expected.maxBombStock,
+                actual.maxBombStock);
             Assert.AreEqual(
                 expected.activeModifiers,
                 actual.activeModifiers);

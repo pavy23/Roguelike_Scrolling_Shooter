@@ -174,10 +174,15 @@ namespace Shmup.Core.Content
                     "breakable",
                     StringComparison.Ordinal))
                     type = ObstacleType.Breakable;
+                else if (string.Equals(
+                    typeText,
+                    "laserEmitter",
+                    StringComparison.Ordinal))
+                    type = ObstacleType.LaserEmitter;
                 else
                     throw Error(
                         obstaclePath + ".type",
-                        "must be 'solid' or 'breakable'.");
+                        "must be 'solid', 'breakable', or 'laserEmitter'.");
 
                 int hp = Require(obstacle.hp, obstaclePath + ".hp");
                 if (type == ObstacleType.Solid && hp != 0)
@@ -188,6 +193,11 @@ namespace Shmup.Core.Content
                     throw Error(
                         obstaclePath + ".hp",
                         "must be positive for a breakable obstacle.");
+                if (type == ObstacleType.LaserEmitter
+                    && hp != 0)
+                    throw Error(
+                        obstaclePath + ".hp",
+                        "must be zero for a laser emitter.");
 
                 obstacles[i] = new ObstacleSpawn(
                     type,
@@ -197,7 +207,10 @@ namespace Shmup.Core.Content
                     ToSubUnits(
                         Require(obstacle.y, obstaclePath + ".y"),
                         obstaclePath + ".y"),
-                    hp);
+                    hp,
+                    ParseLaser(
+                        obstacle.laser,
+                        obstaclePath + ".laser"));
             }
 
             return new StageSegmentTemplate(
