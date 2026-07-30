@@ -165,6 +165,20 @@
       }
     },
     {
+      "id": "hive_tentacle",
+      "displayName": "Hive Tentacle",
+      "hp": 160,
+      "contactDamage": 1,
+      "scoreValue": 280,
+      "fireIntervalTicks": 100,
+      "dropWeight": 7,
+      "halfWidth": 0.625,
+      "halfHeight": 1.25,
+      "movement": {
+        "pattern": "static"
+      }
+    },
+    {
       "id": "sentry_drone",
       "displayName": "Sentry Drone",
       "hp": 110,

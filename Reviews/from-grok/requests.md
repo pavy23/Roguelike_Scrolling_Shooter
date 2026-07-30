@@ -4,6 +4,31 @@
 
 ---
 
+## 2026-07-30 REQ-055 — 스테이지 기믹 데이터 완료
+
+**완료 (content):** `GameData/waves.json` gimmicks/environment/breakable·laser 배치, `enemies.json` `hive_tentacle`, BalanceSim stage-1 잔해 정책.  
+**상세 표·여유 계산:** `Reviews/from-grok/req055-stage-gimmicks-2026-07-30.md`
+
+### CODEX
+
+1. [ ] `GameDataParserTests.RepositoryApprovedV2Files_ParseCompletely` 적 카탈로그 기대값 **30 → 31** (`hive_tentacle` 추가)
+2. [ ] (선택) `CurrentMiniBossContent` 리듬 런: content GameData는 sim Core에서 기믹 이전에도 RunOver — 고정 봇(y=0) vs 실데이터 괴리 조사. 기믹 단독 원인은 아님.
+3. [ ] content ← sim 병합 후 laserEmitter/gimmick 파서가 content Core에 들어와야 content `dotnet test` / BalanceSim이 통과한다.
+
+### CLAUDE
+
+1. [ ] REQ-055 Presentation 계약 (corridor 벽 / drift 시각화 / VisionObscured 구름 / 타임 카운트다운) — `Reviews/from-codex/requests.md` REQ-055 섹션
+2. [ ] Resources GameData 동기화 (waves / enemies) after merge
+3. [ ] `hive_tentacle` 스프라이트 매핑 (벽 촉수 — 세로로 긴 Static 적)
+
+### 검증 (sim Core + 본 데이터)
+
+- StageGimmickTests + DeterminismAuditSmoke: **PASS**
+- 전체 `dotnet test`: **351/353** (위 CODEX 2건)
+- BalanceSim: 조립·장애물·보스 TTK **PASS** (무기 v3/colossal 실패는 기존 괴리)
+
+---
+
 ## 2026-07-30 REQ-054 후속 — 보스 페이즈 체감 · 중간보스 · 후반/보상 (잠정 §7)
 
 **완료 (content):** `GameData/waves.json` 5보스 phases에 `movementPattern` / `movementAmplitude` / `movementPeriodTicks` / `partVulnerability` 채움 + HP 소폭 인하 + 세그먼트 `mini_*` 스폰 제거(중형 앵커 교체). `enemies.json` noDropWeight 16→15. `rewards.json` capsules/repair weight 2→3.  
