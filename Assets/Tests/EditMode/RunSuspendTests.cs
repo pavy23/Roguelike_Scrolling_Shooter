@@ -57,6 +57,47 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void LargeCapsAndPartialProgress_RoundTripThroughV11Checksum()
+        {
+            var curve = new PowerUpCostCurve(2, 0, 0);
+            var sourceGauge = new PowerUpGauge(
+                new[] { 64, 48, 32, 24 },
+                curve);
+            sourceGauge.ImportLevels(new[] { 63, 47, 31, 23 });
+            var source = new RunManager(
+                0x53UL,
+                new BoundaryStageGenerator(),
+                CreateConfig(),
+                CreateContent(),
+                sourceGauge);
+
+            RunSuspendData data = source.ExportSuspendData();
+            data.powerUpProgress[0] = 1;
+            SaveDataIntegrity.Seal(data);
+            var resumeGauge = new PowerUpGauge(
+                new[] { 64, 48, 32, 24 },
+                curve);
+            RunManager resumed = RunManager.ResumeFromSuspendData(
+                data,
+                new BoundaryStageGenerator(),
+                CreateConfig(),
+                CreateContent(),
+                resumeGauge);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(11, data.schemaVersion);
+                Assert.IsTrue(SaveDataIntegrity.HasValidChecksum(data));
+                CollectionAssert.AreEqual(
+                    new[] { 63, 47, 31, 23 },
+                    resumed.PowerUpGauge.ExportLevels());
+                CollectionAssert.AreEqual(
+                    new[] { 1, 0, 0, 0 },
+                    resumed.PowerUpGauge.ExportProgress());
+            });
+        }
+
+        [Test]
         public void ResumeThenNTicks_MatchesContinuousPlayFromStageStart()
         {
             RunManager source = CreateRun(new BoundaryStageGenerator());
@@ -624,6 +665,8 @@ namespace Shmup.Core.Tests
                 }
             }
         }
+
+        static void AssertAll(Action assert) => assert();
 
         sealed class BoundaryStageGenerator : IStageGenerator
         {

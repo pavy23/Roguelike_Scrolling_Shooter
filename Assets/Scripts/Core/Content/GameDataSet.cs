@@ -13,6 +13,7 @@ namespace Shmup.Core.Content
     public sealed class GameDataSet
     {
         readonly int[] _powerUpMaxLevels;
+        readonly PowerUpCostCurve _powerUpCostCurve;
         readonly WeaponDefinition _missile;
         readonly ReadOnlyCollection<ShipDefinition> _ships;
         readonly ScoringDefinition _scoring;
@@ -27,6 +28,7 @@ namespace Shmup.Core.Content
             int scrollSpeedDenominator,
             int maxEnemyBullets,
             int[] powerUpMaxLevels,
+            PowerUpCostCurve powerUpCostCurve,
             WeaponDefinition missile,
             RewardCatalog rewards,
             IReadOnlyList<ShipDefinition> ships,
@@ -55,6 +57,8 @@ namespace Shmup.Core.Content
             ScrollSpeedDenominator = scrollSpeedDenominator;
             _maxEnemyBullets = maxEnemyBullets;
             _powerUpMaxLevels = (int[])powerUpMaxLevels.Clone();
+            _powerUpCostCurve = powerUpCostCurve
+                ?? throw new ArgumentNullException(nameof(powerUpCostCurve));
             _missile = missile ?? throw new ArgumentNullException(nameof(missile));
             Rewards = rewards;
             _scoring = scoring;
@@ -124,7 +128,9 @@ namespace Shmup.Core.Content
 
         public PowerUpGauge CreatePowerUpGauge()
         {
-            return new PowerUpGauge((int[])_powerUpMaxLevels.Clone());
+            return new PowerUpGauge(
+                (int[])_powerUpMaxLevels.Clone(),
+                _powerUpCostCurve);
         }
 
         /// <summary>

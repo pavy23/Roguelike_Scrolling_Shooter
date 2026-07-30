@@ -167,6 +167,14 @@ namespace Shmup.Core.Simulation
             | BattleModifier.HomingMissile
             | BattleModifier.KillExplosion;
 
+        internal static readonly BattleModifier[] Ordered =
+        {
+            BattleModifier.PierceShot,
+            BattleModifier.Ricochet,
+            BattleModifier.HomingMissile,
+            BattleModifier.KillExplosion
+        };
+
         internal static bool IsSingleKnown(BattleModifier modifier)
         {
             int value = (int)modifier;
@@ -1000,6 +1008,10 @@ namespace Shmup.Core.Simulation
         readonly int _bulletSpeedNumerator, _bulletSpeedDenominator;
         readonly int _fireIntervalTicks, _maxBullets, _maxEnemies;
         readonly BattleContent _battleContent;
+        readonly int _mainShotEffectSoftCap;
+        readonly int _missileEffectSoftCap;
+        readonly int _optionEffectSoftCap;
+        readonly int _shieldEffectSoftCap;
         readonly WeaponType _playerWeaponType;
         readonly int _mainShotBasePierceEnemyCount;
         readonly int _spreadWays, _spreadStepLutSlots;
@@ -1103,6 +1115,7 @@ namespace Shmup.Core.Simulation
         readonly int _bombNoDropWeight, _maxBombPickups, _maxLasers;
         readonly BattleModifier _activeModifiers;
         readonly int _pierceShotEnemyCount, _ricochetRangeSubUnits;
+        readonly int _ricochetCount;
         readonly int _homingMissileTurnLutSlotsPerTick;
         readonly int _killExplosionRadiusSubUnits, _killExplosionDamage;
         readonly int _killExplosionMaxTargets;
@@ -1165,7 +1178,9 @@ namespace Shmup.Core.Simulation
                 null,
                 null,
                 null,
-                BattleModifier.None,
+                BattleModifierStackSet.FromFlags(
+                    BattleModifier.None,
+                    4),
                 false)
         {
         }
@@ -1183,7 +1198,9 @@ namespace Shmup.Core.Simulation
                 stagePlan,
                 content,
                 powerUpGauge,
-                BattleModifier.None,
+                BattleModifierStackSet.FromFlags(
+                    BattleModifier.None,
+                    4),
                 true)
         {
         }
@@ -1201,7 +1218,27 @@ namespace Shmup.Core.Simulation
                 stagePlan,
                 content,
                 powerUpGauge,
-                activeModifiers,
+                BattleModifierStackSet.FromFlags(
+                    activeModifiers,
+                    4),
+                true)
+        {
+        }
+
+        public BattleSim(
+            BattleSimConfig config,
+            Rng rng,
+            StagePlan stagePlan,
+            BattleContent content,
+            PowerUpGauge powerUpGauge,
+            BattleModifierStackSet modifierStacks)
+            : this(
+                config,
+                rng,
+                stagePlan,
+                content,
+                powerUpGauge,
+                modifierStacks,
                 true)
         {
         }
@@ -1212,7 +1249,7 @@ namespace Shmup.Core.Simulation
             StagePlan stagePlan,
             BattleContent content,
             PowerUpGauge powerUpGauge,
-            BattleModifier activeModifiers,
+            BattleModifierStackSet modifierStacks,
             bool stageEnabled)
         {
             if (config == null) throw new ArgumentNullException(nameof(config));
@@ -1220,7 +1257,11 @@ namespace Shmup.Core.Simulation
             if (stageEnabled && stagePlan == null) throw new ArgumentNullException(nameof(stagePlan));
             if (stageEnabled && content == null) throw new ArgumentNullException(nameof(content));
             if (stageEnabled && powerUpGauge == null) throw new ArgumentNullException(nameof(powerUpGauge));
+            if (modifierStacks == null)
+                throw new ArgumentNullException(nameof(modifierStacks));
             Validate(config);
+            BattleModifier activeModifiers =
+                modifierStacks.ActiveModifiers;
             if ((activeModifiers & ~BattleModifierRules.All) != 0)
                 throw new ArgumentOutOfRangeException(nameof(activeModifiers));
 
@@ -1229,6 +1270,14 @@ namespace Shmup.Core.Simulation
             _maxBullets = config.MaxBullets;
             _maxEnemies = config.MaxEnemies;
             _battleContent = content;
+            _mainShotEffectSoftCap = ResolveEffectSoftCap(
+                content, powerUpGauge, PowerUpSlot.MainShot);
+            _missileEffectSoftCap = ResolveEffectSoftCap(
+                content, powerUpGauge, PowerUpSlot.Missile);
+            _optionEffectSoftCap = ResolveEffectSoftCap(
+                content, powerUpGauge, PowerUpSlot.Option);
+            _shieldEffectSoftCap = ResolveEffectSoftCap(
+                content, powerUpGauge, PowerUpSlot.Shield);
             _playerWeaponType = config.PlayerWeaponType;
             _mainShotBasePierceEnemyCount =
                 _playerWeaponType == WeaponType.Laser
@@ -1362,13 +1411,26 @@ namespace Shmup.Core.Simulation
             _maxBombPickups = config.MaxBombPickups;
             _maxLasers = config.MaxLasers;
             _activeModifiers = activeModifiers;
-            _pierceShotEnemyCount = config.PierceShotEnemyCount;
+            _pierceShotEnemyCount = MultiplySaturated(
+                config.PierceShotEnemyCount,
+                modifierStacks.GetStrength(
+                    BattleModifier.PierceShot));
             _ricochetRangeSubUnits = config.RicochetRangeSubUnits;
+            _ricochetCount = modifierStacks.GetStrength(
+                BattleModifier.Ricochet);
             _homingMissileTurnLutSlotsPerTick =
-                config.HomingMissileTurnLutSlotsPerTick;
+                Math.Min(
+                    SineLut.Length / 2,
+                    MultiplySaturated(
+                        config.HomingMissileTurnLutSlotsPerTick,
+                        modifierStacks.GetStrength(
+                            BattleModifier.HomingMissile)));
             _killExplosionRadiusSubUnits = config.KillExplosionRadiusSubUnits;
             _killExplosionDamage = config.KillExplosionDamage;
-            _killExplosionMaxTargets = config.KillExplosionMaxTargets;
+            _killExplosionMaxTargets = MultiplySaturated(
+                config.KillExplosionMaxTargets,
+                modifierStacks.GetStrength(
+                    BattleModifier.KillExplosion));
             _grazeExtraRadiusSubUnits = config.GrazeExtraRadiusSubUnits;
             _grazeScore = config.GrazeScore;
             _grazeComboGaugeGain = config.GrazeComboGaugeGain;
@@ -1390,7 +1452,7 @@ namespace Shmup.Core.Simulation
             _powerUpGauge = powerUpGauge;
             _shieldGaugeLevel = powerUpGauge == null
                 ? 0
-                : powerUpGauge.GetLevel(PowerUpSlot.Shield);
+                : GetEffectivePowerLevel(PowerUpSlot.Shield);
             _dropRng = rng.Fork(DropRngStream);
             _bombDropRng = rng.Fork(BombDropRngStream);
 
@@ -1527,10 +1589,11 @@ namespace Shmup.Core.Simulation
             _bulletGrazeScored = new List<byte>(bulletCapacity);
             long hitRecordCapacity =
                 (long)_maxBullets
-                * (_mainShotBasePierceEnemyCount
-                    + _pierceShotEnemyCount
-                    + _missilePierceEnemyCount
-                    + 2L);
+                    * (_mainShotBasePierceEnemyCount
+                        + _pierceShotEnemyCount
+                        + _ricochetCount
+                        + _missilePierceEnemyCount
+                        + 2L);
             if (hitRecordCapacity > int.MaxValue)
                 throw new ArgumentOutOfRangeException(
                     nameof(config.PierceShotEnemyCount),
@@ -1853,17 +1916,61 @@ namespace Shmup.Core.Simulation
             int previousMainShot = _mainShotLevel;
             int previousMissile = _missileLevel;
             int previousOption = _optionLevel;
-            _mainShotLevel = _powerUpGauge.GetLevel(PowerUpSlot.MainShot);
-            _missileLevel = _powerUpGauge.GetLevel(PowerUpSlot.Missile);
-            _optionLevel = _powerUpGauge.GetLevel(PowerUpSlot.Option);
+            _mainShotLevel =
+                GetEffectivePowerLevel(PowerUpSlot.MainShot);
+            _missileLevel =
+                GetEffectivePowerLevel(PowerUpSlot.Missile);
+            _optionLevel =
+                GetEffectivePowerLevel(PowerUpSlot.Option);
             EmitLevelChange(PowerUpSlot.MainShot, previousMainShot, _mainShotLevel);
             EmitLevelChange(PowerUpSlot.Missile, previousMissile, _missileLevel);
             EmitLevelChange(PowerUpSlot.Option, previousOption, _optionLevel);
-            int nextShieldLevel = _powerUpGauge.GetLevel(PowerUpSlot.Shield);
+            int nextShieldLevel =
+                GetEffectivePowerLevel(PowerUpSlot.Shield);
             EmitLevelChange(PowerUpSlot.Shield, _shieldGaugeLevel, nextShieldLevel);
             if (nextShieldLevel > _shieldGaugeLevel)
                 RecoverShieldStock(nextShieldLevel - _shieldGaugeLevel);
             _shieldGaugeLevel = nextShieldLevel;
+        }
+
+        int GetEffectivePowerLevel(PowerUpSlot slot)
+        {
+            int rawLevel = _powerUpGauge.GetLevel(slot);
+            int softCap;
+            switch (slot)
+            {
+                case PowerUpSlot.MainShot:
+                    softCap = _mainShotEffectSoftCap;
+                    break;
+                case PowerUpSlot.Missile:
+                    softCap = _missileEffectSoftCap;
+                    break;
+                case PowerUpSlot.Option:
+                    softCap = _optionEffectSoftCap;
+                    break;
+                case PowerUpSlot.Shield:
+                    softCap = _shieldEffectSoftCap;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(slot));
+            }
+            return PowerLevelScaling.GetEffectiveLevel(
+                rawLevel,
+                softCap);
+        }
+
+        static int ResolveEffectSoftCap(
+            BattleContent content,
+            PowerUpGauge gauge,
+            PowerUpSlot slot)
+        {
+            if (content == null || gauge == null)
+                return int.MaxValue;
+            WeaponDefinition definition = content.FindWeapon(slot);
+            return definition != null
+                && definition.MaxLevel == gauge.GetMaxLevel(slot)
+                    ? definition.EffectSoftCapLevel
+                    : int.MaxValue;
         }
 
         /// <summary>
@@ -4007,7 +4114,8 @@ namespace Shmup.Core.Simulation
                     }
 
                     if (HasModifier(BattleModifier.Ricochet)
-                        && _bulletRicochetUsed[bulletIndex] == 0)
+                        && _bulletRicochetUsed[bulletIndex]
+                            < _ricochetCount)
                     {
                         int targetId = FindNearestTarget(
                             enemy.X,
@@ -4026,7 +4134,7 @@ namespace Shmup.Core.Simulation
                                 targetY,
                                 _bulletSpeedNumerator,
                                 _bulletSpeedDenominator);
-                            _bulletRicochetUsed[bulletIndex] = 1;
+                            _bulletRicochetUsed[bulletIndex]++;
                             keepBullet = true;
                             EmitEvent(
                                 SimEventType.BulletRicocheted,
@@ -4969,6 +5077,14 @@ namespace Shmup.Core.Simulation
             long reduced = baseInterval - (long)reductions * reductionPerLevel;
             int effectiveMinimum = Math.Min(baseInterval, minimumInterval);
             return (int)Math.Max(effectiveMinimum, reduced);
+        }
+
+        static int MultiplySaturated(int value, int multiplier)
+        {
+            long product = (long)value * multiplier;
+            return product >= int.MaxValue
+                ? int.MaxValue
+                : (int)product;
         }
 
         bool HasModifier(BattleModifier modifier)

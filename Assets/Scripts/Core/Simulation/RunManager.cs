@@ -88,13 +88,15 @@ namespace Shmup.Core.Simulation
             MissileFamily missileFamily,
             OptionFormation optionFormation,
             PrimaryWeaponFamily primaryWeaponFamily =
-                PrimaryWeaponFamily.Vulcan)
+                PrimaryWeaponFamily.Vulcan,
+            string modifierKey = null)
         {
             Id = id;
             Type = type;
             Slot = slot;
             Amount = amount;
             ModifierId = modifierId;
+            ModifierKey = modifierKey;
             MissileFamily = missileFamily;
             OptionFormation = optionFormation;
             PrimaryWeaponFamily = primaryWeaponFamily;
@@ -105,6 +107,7 @@ namespace Shmup.Core.Simulation
         public PowerUpSlot Slot { get; }
         public int Amount { get; }
         public BattleModifier ModifierId { get; }
+        public string ModifierKey { get; }
         public MissileFamily MissileFamily { get; }
         public OptionFormation OptionFormation { get; }
         public PrimaryWeaponFamily PrimaryWeaponFamily { get; }
@@ -197,7 +200,12 @@ namespace Shmup.Core.Simulation
             MissileFamily missileFamily = MissileFamily.Straight,
             OptionFormation optionFormation = OptionFormation.Trail,
             PrimaryWeaponFamily primaryWeaponFamily =
-                PrimaryWeaponFamily.Vulcan)
+                PrimaryWeaponFamily.Vulcan,
+            string modifierKey = null,
+            bool modifierStackable = false,
+            int modifierMaxStacks = 1,
+            int modifierStackStrength = 1,
+            int modifierInteractionCost = 1)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Reward id cannot be empty.", nameof(id));
@@ -215,6 +223,21 @@ namespace Shmup.Core.Simulation
             {
                 if (!BattleModifierRules.IsSingleKnown(modifierId))
                     throw new ArgumentOutOfRangeException(nameof(modifierId));
+                if (string.IsNullOrEmpty(modifierKey))
+                    modifierKey = modifierId.ToString();
+                if (modifierMaxStacks < 1)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(modifierMaxStacks));
+                if (!modifierStackable && modifierMaxStacks != 1)
+                    throw new ArgumentException(
+                        "One-time modifiers must have maxStacks 1.",
+                        nameof(modifierMaxStacks));
+                if (modifierStackStrength < 1)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(modifierStackStrength));
+                if (modifierInteractionCost < 1)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(modifierInteractionCost));
             }
             else if (modifierId != BattleModifier.None)
             {
@@ -250,6 +273,11 @@ namespace Shmup.Core.Simulation
             StageIndexMax = stageIndexMax;
             MaxPerRun = maxPerRun;
             ModifierId = modifierId;
+            ModifierKey = modifierKey;
+            ModifierStackable = modifierStackable;
+            ModifierMaxStacks = modifierMaxStacks;
+            ModifierStackStrength = modifierStackStrength;
+            ModifierInteractionCost = modifierInteractionCost;
             MissileFamily = missileFamily;
             OptionFormation = optionFormation;
             PrimaryWeaponFamily = primaryWeaponFamily;
@@ -265,6 +293,11 @@ namespace Shmup.Core.Simulation
         /// <summary>Maximum acquisitions in one run; null means unlimited.</summary>
         public int? MaxPerRun { get; }
         public BattleModifier ModifierId { get; }
+        public string ModifierKey { get; }
+        public bool ModifierStackable { get; }
+        public int ModifierMaxStacks { get; }
+        public int ModifierStackStrength { get; }
+        public int ModifierInteractionCost { get; }
         public MissileFamily MissileFamily { get; }
         public OptionFormation OptionFormation { get; }
         public PrimaryWeaponFamily PrimaryWeaponFamily { get; }
@@ -277,7 +310,8 @@ namespace Shmup.Core.Simulation
 
         public RewardCatalog(
             int optionCount,
-            IReadOnlyList<RewardDefinition> rewards)
+            IReadOnlyList<RewardDefinition> rewards,
+            int maxCombinedModifierCost = 4)
         {
             if (optionCount < 1)
                 throw new ArgumentOutOfRangeException(nameof(optionCount));
@@ -287,16 +321,21 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     "The reward pool cannot be smaller than the option count.",
                     nameof(rewards));
+            if (maxCombinedModifierCost < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maxCombinedModifierCost));
 
             var copy = new RewardDefinition[rewards.Count];
             for (int i = 0; i < copy.Length; i++)
                 copy[i] = rewards[i];
 
             OptionCount = optionCount;
+            MaxCombinedModifierCost = maxCombinedModifierCost;
             _all = Array.AsReadOnly(copy);
         }
 
         public int OptionCount { get; }
+        public int MaxCombinedModifierCost { get; }
         public IReadOnlyList<RewardDefinition> All => _all;
 
         public IReadOnlyList<RewardDefinition> EligibleForStage(int stageIndex)
@@ -527,6 +566,7 @@ namespace Shmup.Core.Simulation
         int _roomsCleared;
         bool _activateHeld;
         int[] _stageStartPowerUpLevels;
+        int[] _stageStartPowerUpProgress;
         int _stageStartPowerUpCursor;
         long _stageStartScore;
         long _stageStartShotsFired;
@@ -961,6 +1001,8 @@ namespace Shmup.Core.Simulation
             _progressionConfig =
                 progressionConfig ?? RunProgressionConfig.CreateDefault();
             _rewards = rewards ?? BuiltInRewards;
+            ModifierStacks = new BattleModifierStackSet(
+                _rewards.MaxCombinedModifierCost);
             _ship = ship ?? ShipDefinition.CreateDefault();
             NormalizeDifficultyMultiplier(
                 difficultyMultiplierNumerator,
@@ -1010,6 +1052,8 @@ namespace Shmup.Core.Simulation
             _stageStartRewardAcquisitionCounts =
                 new int[_rewards.All.Count];
             _stageStartPowerUpLevels =
+                new int[PowerUpGauge.SlotCount];
+            _stageStartPowerUpProgress =
                 new int[PowerUpGauge.SlotCount];
             _rewardRng = new Rng(0UL);
             _routeRng = new Rng(0UL);
@@ -1142,7 +1186,13 @@ namespace Shmup.Core.Simulation
         /// Rule-changing rewards active for this run. They carry through death
         /// restarts, matching power-up carry policy, and start empty on a new manager.
         /// </summary>
-        public BattleModifier ActiveModifiers { get; private set; }
+        public BattleModifier ActiveModifiers =>
+            ModifierStacks.ActiveModifiers;
+        public BattleModifierStackSet ModifierStacks
+        {
+            get;
+            private set;
+        }
         public PrimaryWeaponFamily CurrentPrimaryWeaponFamily
         {
             get;
@@ -1266,6 +1316,8 @@ namespace Shmup.Core.Simulation
                 roomsCleared = _stageStartRoomsCleared,
                 powerUpLevels =
                     (int[])_stageStartPowerUpLevels.Clone(),
+                powerUpProgress =
+                    (int[])_stageStartPowerUpProgress.Clone(),
                 powerUpCursor = _stageStartPowerUpCursor,
                 playerHp = _stageStartPlayerLife,
                 shieldRemaining = _stageStartShieldStock,
@@ -1446,8 +1498,6 @@ namespace Shmup.Core.Simulation
             manager._completedGrazeCount = data.grazeCount;
             manager._stagesCleared = data.stagesCleared;
             manager._roomsCleared = data.roomsCleared;
-            manager.ActiveModifiers =
-                (BattleModifier)data.activeModifiers;
             manager.CurrentPrimaryWeaponFamily =
                 data.primaryWeaponFamily < 0
                     ? PrimaryWeaponFamilyFor(
@@ -1486,12 +1536,15 @@ namespace Shmup.Core.Simulation
                 data.rewardAcquisitions,
                 resolvedRewards,
                 manager._rewardAcquisitionCounts);
+            manager.RebuildModifierStacksFromAcquisitions(
+                (BattleModifier)data.activeModifiers);
             manager.RestoreRouteChoices(
                 data.routeChoices,
                 true);
             manager.PowerUpGauge.RestoreState(
                 data.powerUpLevels,
-                data.powerUpCursor);
+                data.powerUpCursor,
+                data.powerUpProgress);
             manager.BuildCurrentStage();
 
             if (manager.Battle.PlayerHp != data.playerHp
@@ -1747,7 +1800,7 @@ namespace Shmup.Core.Simulation
             if (optionIndex < 0 || optionIndex >= _rewardOptions.Count)
                 throw new ArgumentOutOfRangeException(nameof(optionIndex));
             int catalogIndex = _rewardOptionCatalogIndices[optionIndex];
-            ApplyReward(_rewardOptions[optionIndex]);
+            ApplyReward(_rewardOptions[optionIndex], catalogIndex);
             if (_rewardAcquisitionCounts[catalogIndex] < int.MaxValue)
                 _rewardAcquisitionCounts[catalogIndex]++;
             _rewardSelectionsRemaining--;
@@ -1816,7 +1869,9 @@ namespace Shmup.Core.Simulation
                 AdvanceRoom();
         }
 
-        void ApplyReward(in RewardOption option)
+        void ApplyReward(
+            in RewardOption option,
+            int catalogIndex)
         {
             switch (option.Type)
             {
@@ -1825,14 +1880,10 @@ namespace Shmup.Core.Simulation
                         PowerUpGauge.Collect();
                     break;
                 case RewardType.SlotLevel:
-                {
-                    int[] levels = PowerUpGauge.ExportLevels();
-                    int slot = (int)option.Slot;
-                    levels[slot] = Math.Min(
-                        levels[slot] + option.Amount, _powerUpMaxLevels[slot]);
-                    PowerUpGauge.ImportLevels(levels);
+                    PowerUpGauge.GrantLevels(
+                        option.Slot,
+                        option.Amount);
                     break;
-                }
                 case RewardType.ShieldStock:
                     if (!(Battle is BattleSim battle))
                         throw new InvalidOperationException(
@@ -1861,8 +1912,21 @@ namespace Shmup.Core.Simulation
                     AddMoveSpeed(_battleConfig, option.Amount);
                     break;
                 case RewardType.Modifier:
-                    ActiveModifiers |= option.ModifierId;
+                {
+                    RewardDefinition definition =
+                        _rewards.All[catalogIndex];
+                    if (!ModifierStacks.TryAdd(
+                            definition.ModifierId,
+                            definition.ModifierStackStrength,
+                            definition.ModifierInteractionCost,
+                            definition.ModifierMaxStacks))
+                    {
+                        throw new InvalidOperationException(
+                            $"Modifier '{definition.ModifierKey}' "
+                            + "exceeds its stack or combination cap.");
+                    }
                     break;
+                }
                 case RewardType.MissileFamily:
                     CurrentMissileFamily = option.MissileFamily;
                     ApplyCurrentLoadoutProfiles();
@@ -1893,6 +1957,13 @@ namespace Shmup.Core.Simulation
                     continue;
                 if (reward.MaxPerRun.HasValue
                     && _rewardAcquisitionCounts[i] >= reward.MaxPerRun.Value)
+                    continue;
+                if (reward.Type == RewardType.Modifier
+                    && !ModifierStacks.CanAdd(
+                        reward.ModifierId,
+                        reward.ModifierStackStrength,
+                        reward.ModifierInteractionCost,
+                        reward.ModifierMaxStacks))
                     continue;
                 if (reward.Type == RewardType.MissileFamily
                     && reward.MissileFamily
@@ -1964,7 +2035,8 @@ namespace Shmup.Core.Simulation
                         modifier.ModifierId,
                         modifier.MissileFamily,
                         modifier.OptionFormation,
-                        modifier.PrimaryWeaponFamily);
+                        modifier.PrimaryWeaponFamily,
+                        modifier.ModifierKey);
                     int last = --poolCount;
                     _rewardPool[modifierPick] = _rewardPool[last];
                     _rewardPoolCatalogIndices[modifierPick] =
@@ -1991,7 +2063,8 @@ namespace Shmup.Core.Simulation
                     selected.ModifierId,
                     selected.MissileFamily,
                     selected.OptionFormation,
-                    selected.PrimaryWeaponFamily);
+                    selected.PrimaryWeaponFamily,
+                    selected.ModifierKey);
 
                 int last = --poolCount;
                 _rewardPool[pick] = _rewardPool[last];
@@ -2107,7 +2180,7 @@ namespace Shmup.Core.Simulation
                     carriedLevels[i],
                     shipStartingLevels[i]);
             }
-            var nextGauge = new PowerUpGauge(_powerUpMaxLevels);
+            var nextGauge = PowerUpGauge.CreateEmptyWithSameRules();
             nextGauge.ImportLevels(carriedLevels);
 
             _runSeed = newRunSeed;
@@ -2497,6 +2570,15 @@ namespace Shmup.Core.Simulation
                     "Suspend powerUpCursor is outside its valid range.",
                     nameof(data));
             }
+            if (data.powerUpProgress == null
+                || data.powerUpProgress.Length
+                    != PowerUpGauge.SlotCount)
+            {
+                throw new ArgumentException(
+                    $"Suspend powerUpProgress must have exactly "
+                    + $"{PowerUpGauge.SlotCount} entries.",
+                    nameof(data));
+            }
 
             int[] shipStartingLevels =
                 ship.ExportStartingPowerUpLevels();
@@ -2511,6 +2593,19 @@ namespace Shmup.Core.Simulation
                     throw new ArgumentException(
                         $"Suspend power-up level {i} is outside "
                         + $"[{shipStartingLevels[i]}, {maximum}].",
+                        nameof(data));
+                }
+                int progress = data.powerUpProgress[i];
+                int required = gauge.GetRequiredCapsulesForLevel(
+                    (PowerUpSlot)i,
+                    level);
+                if (progress < 0
+                    || (required == 0 && progress != 0)
+                    || (required > 0 && progress >= required))
+                {
+                    throw new ArgumentException(
+                        $"Suspend power-up progress {i} is outside "
+                        + "the current level cost.",
                         nameof(data));
                 }
             }
@@ -2616,6 +2711,51 @@ namespace Shmup.Core.Simulation
                     FindRewardIndex(rewards, acquisition.rewardId);
                 destination[catalogIndex] = acquisition.count;
             }
+        }
+
+        void RebuildModifierStacksFromAcquisitions(
+            BattleModifier expectedFlags)
+        {
+            var rebuilt = new BattleModifierStackSet(
+                _rewards.MaxCombinedModifierCost);
+            for (int i = 0; i < _rewards.All.Count; i++)
+            {
+                RewardDefinition reward = _rewards.All[i];
+                if (reward.Type != RewardType.Modifier)
+                    continue;
+                int count = _rewardAcquisitionCounts[i];
+                for (int stack = 0; stack < count; stack++)
+                {
+                    if (!rebuilt.TryAdd(
+                            reward.ModifierId,
+                            reward.ModifierStackStrength,
+                            reward.ModifierInteractionCost,
+                            reward.ModifierMaxStacks))
+                    {
+                        throw new ArgumentException(
+                            $"Suspend modifier '{reward.ModifierKey}' "
+                            + "exceeds its stack or combination cap.");
+                    }
+                }
+            }
+            BattleModifier missing =
+                expectedFlags & ~rebuilt.ActiveModifiers;
+            foreach (BattleModifier effect in BattleModifierRules.Ordered)
+            {
+                if ((missing & effect) == 0)
+                    continue;
+                if (!rebuilt.TryAdd(effect, 1, 1, 1))
+                    throw new ArgumentException(
+                        "Suspend legacy modifier flags exceed the "
+                        + "combination cap.");
+            }
+            if (rebuilt.ActiveModifiers != expectedFlags)
+            {
+                throw new ArgumentException(
+                    "Suspend activeModifiers does not match modifier "
+                    + "reward acquisitions.");
+            }
+            ModifierStacks = rebuilt;
         }
 
         void RestoreRouteChoices(
@@ -2992,7 +3132,7 @@ namespace Shmup.Core.Simulation
                 StagePlan,
                 _battleContent,
                 PowerUpGauge,
-                ActiveModifiers);
+                ModifierStacks);
             _preparedRouteOptions = GenerateExitRouteOptions();
             CaptureStageStart();
         }
@@ -3139,6 +3279,8 @@ namespace Shmup.Core.Simulation
             {
                 _stageStartPowerUpLevels[i] =
                     PowerUpGauge.GetLevel((PowerUpSlot)i);
+                _stageStartPowerUpProgress[i] =
+                    PowerUpGauge.GetProgress((PowerUpSlot)i);
             }
             _stageStartPowerUpCursor = PowerUpGauge.Cursor;
             _stageStartScore = _completedStageScore;

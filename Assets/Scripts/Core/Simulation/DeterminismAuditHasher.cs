@@ -60,6 +60,7 @@ namespace Shmup.Core.Simulation
             FoldShip(run.Ship);
             FoldPowerUpGauge(run.PowerUpGauge);
             FoldInt32((int)run.ActiveModifiers);
+            FoldModifierStacks(run.ModifierStacks);
             FoldInt32((int)run.CurrentPrimaryWeaponFamily);
             FoldInt32(run.MaxShieldStock);
             FoldInt32((int)run.CurrentMissileFamily);
@@ -69,6 +70,17 @@ namespace Shmup.Core.Simulation
             FoldRoutes(run.RouteOptions);
             FoldRouteHistory(run.RouteChoiceHistory);
             FoldBattle(run.Battle);
+        }
+
+        void FoldModifierStacks(BattleModifierStackSet stacks)
+        {
+            FoldInt32(stacks.CombinationLimit);
+            FoldInt32(stacks.CombinationUsed);
+            foreach (BattleModifier effect in BattleModifierRules.Ordered)
+            {
+                FoldInt32(stacks.GetStackCount(effect));
+                FoldInt32(stacks.GetStrength(effect));
+            }
         }
 
         public void FoldBattleState(IBattleSim battle)
@@ -170,6 +182,8 @@ namespace Shmup.Core.Simulation
                 var slot = (PowerUpSlot)i;
                 FoldInt32(gauge.GetLevel(slot));
                 FoldInt32(gauge.GetMaxLevel(slot));
+                FoldInt32(gauge.GetProgress(slot));
+                FoldInt32(gauge.GetRequiredCapsules(slot));
             }
         }
 
@@ -293,6 +307,7 @@ namespace Shmup.Core.Simulation
                 FoldInt32((int)reward.Slot);
                 FoldInt32(reward.Amount);
                 FoldInt32((int)reward.ModifierId);
+                FoldString(reward.ModifierKey);
                 FoldInt32((int)reward.PrimaryWeaponFamily);
                 FoldInt32((int)reward.MissileFamily);
                 FoldInt32((int)reward.OptionFormation);

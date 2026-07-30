@@ -380,6 +380,58 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void Parse_RewardsV3SupportsStackProfilesAndArbitraryIds()
+        {
+            const string rewardsV3 = @"{
+  ""schemaVersion"": 3,
+  ""optionCount"": 3,
+  ""maxCombinedModifierCost"": 7,
+  ""rewards"": [
+    {
+      ""id"": ""pierce_alpha"", ""type"": ""modifier"",
+      ""modifierId"": ""alpha"", ""modifierEffect"": ""pierce_shot"",
+      ""stackable"": true, ""maxStacks"": 3,
+      ""stackStrength"": 2, ""interactionCost"": 1,
+      ""weight"": 1, ""stageIndexMin"": 1, ""stageIndexMax"": 9
+    },
+    {
+      ""id"": ""ricochet_once"", ""type"": ""modifier"",
+      ""modifierId"": ""ricochet_once"", ""modifierEffect"": ""ricochet"",
+      ""stackable"": false, ""maxStacks"": 1,
+      ""stackStrength"": 1, ""interactionCost"": 2,
+      ""weight"": 1, ""stageIndexMin"": 1, ""stageIndexMax"": 9
+    },
+    {
+      ""id"": ""homing_beta"", ""type"": ""modifier"",
+      ""modifierId"": ""beta"", ""modifierEffect"": ""homing_missile"",
+      ""stackable"": true, ""maxStacks"": 2,
+      ""stackStrength"": 1, ""interactionCost"": 1,
+      ""weight"": 1, ""stageIndexMin"": 1, ""stageIndexMax"": 9
+    }
+  ]
+}";
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson,
+                rewardsV3,
+                ShipsJson);
+            RewardDefinition modifier = data.Rewards.All[0];
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(7, data.Rewards.MaxCombinedModifierCost);
+                Assert.AreEqual("alpha", modifier.ModifierKey);
+                Assert.AreEqual(BattleModifier.PierceShot, modifier.ModifierId);
+                Assert.IsTrue(modifier.ModifierStackable);
+                Assert.AreEqual(3, modifier.ModifierMaxStacks);
+                Assert.AreEqual(2, modifier.ModifierStackStrength);
+                Assert.AreEqual(1, modifier.ModifierInteractionCost);
+                Assert.IsFalse(data.Rewards.All[1].ModifierStackable);
+            });
+        }
+
+        [Test]
         public void Parse_OptionalScoringV1CopiesValuesToBattleConfig()
         {
             GameDataSet data = GameDataParser.Parse(
@@ -1287,5 +1339,6 @@ namespace Shmup.Core.Tests
         {
             return File.ReadAllText(path, new UTF8Encoding(false, true));
         }
+        static void AssertAll(Action assert) => assert();
     }
 }

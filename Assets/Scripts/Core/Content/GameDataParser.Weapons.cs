@@ -10,12 +10,14 @@ namespace Shmup.Core.Content
             int schemaVersion = Require(root.schemaVersion, "weapons.json.schemaVersion");
             if (schemaVersion != SupportedSchemaVersion
                 && schemaVersion != SupportedWeaponsSchemaVersion
-                && schemaVersion != SupportedPrimaryWeaponsSchemaVersion)
+                && schemaVersion != SupportedPrimaryWeaponsSchemaVersion
+                && schemaVersion != SupportedPowerUpCurveSchemaVersion)
                 throw Error(
                     "weapons.json.schemaVersion",
                     $"must be {SupportedSchemaVersion}, "
                     + $"{SupportedWeaponsSchemaVersion}, or "
-                    + $"{SupportedPrimaryWeaponsSchemaVersion}, "
+                    + $"{SupportedPrimaryWeaponsSchemaVersion}, or "
+                    + $"{SupportedPowerUpCurveSchemaVersion}, "
                     + $"but was {schemaVersion}.");
 
             WeaponDto[] source = RequireArray(root.weapons, "weapons.json.weapons");
@@ -62,7 +64,12 @@ namespace Shmup.Core.Content
                         Require(item.projectileHalfHeight, path + ".projectileHalfHeight"),
                         path + ".projectileHalfHeight"),
                     Require(item.maxLevel, path + ".maxLevel"),
-                    minimumFireIntervalTicks);
+                    minimumFireIntervalTicks,
+                    ParseEffectSoftCapLevel(
+                        item,
+                        slot,
+                        schemaVersion,
+                        path));
 
                 definitions[i] = definition;
                 seenSlots[(int)slot] = true;
@@ -94,7 +101,7 @@ namespace Shmup.Core.Content
                     "weapons.json.defaultOptionFormation");
                 primaryWeaponFamilies =
                     schemaVersion
-                        == SupportedPrimaryWeaponsSchemaVersion
+                >= SupportedPrimaryWeaponsSchemaVersion
                         ? CompletePrimaryWeaponFamilies(
                             ParsePrimaryWeaponFamilies(root),
                             CreateLegacyPrimaryWeaponFamilies(mainShot))
@@ -137,9 +144,15 @@ namespace Shmup.Core.Content
                     CreateLegacyPrimaryWeaponFamilies(mainShot);
             }
 
+            PowerUpCostCurve costCurve =
+                schemaVersion >= SupportedPowerUpCurveSchemaVersion
+                    ? ParsePowerUpCostCurve(root.powerUpCostCurve)
+                    : PowerUpCostCurve.CreateProvisional();
+
             return new WeaponParseResult(
                 definitions,
                 maxLevels,
+                costCurve,
                 mainShot,
                 missile,
                 primaryWeaponFamilies,
@@ -147,6 +160,64 @@ namespace Shmup.Core.Content
                 defaultMissileFamily,
                 optionFormations,
                 defaultOptionFormation);
+        }
+
+        static int ParseEffectSoftCapLevel(
+            WeaponDto item,
+            PowerUpSlot slot,
+            int schemaVersion,
+            string path)
+        {
+            int maxLevel =
+                Require(item.maxLevel, path + ".maxLevel");
+            if (schemaVersion >= SupportedPowerUpCurveSchemaVersion)
+            {
+                int value = Require(
+                    item.effectSoftCapLevel,
+                    path + ".effectSoftCapLevel");
+                if (value < 1 || value > maxLevel)
+                    throw Error(
+                        path + ".effectSoftCapLevel",
+                        "must be within 1..maxLevel.");
+                return value;
+            }
+
+            int legacySoftCap;
+            switch (slot)
+            {
+                case PowerUpSlot.MainShot: legacySoftCap = 5; break;
+                case PowerUpSlot.Missile: legacySoftCap = 3; break;
+                case PowerUpSlot.Option: legacySoftCap = 4; break;
+                case PowerUpSlot.Shield: legacySoftCap = 3; break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(slot));
+            }
+            return Math.Min(maxLevel, legacySoftCap);
+        }
+
+        static PowerUpCostCurve ParsePowerUpCostCurve(
+            PowerUpCostCurveDto source)
+        {
+            const string path = "weapons.json.powerUpCostCurve";
+            if (source == null)
+                throw Error(path, "is required.");
+            int baseCost = Require(source.baseCost, path + ".baseCost");
+            int linearGrowth = Require(
+                source.linearGrowth,
+                path + ".linearGrowth");
+            int quadraticGrowth = Require(
+                source.quadraticGrowth,
+                path + ".quadraticGrowth");
+            if (baseCost < 1)
+                throw Error(path + ".baseCost", "must be positive.");
+            if (linearGrowth < 0)
+                throw Error(path + ".linearGrowth", "cannot be negative.");
+            if (quadraticGrowth < 0)
+                throw Error(path + ".quadraticGrowth", "cannot be negative.");
+            return new PowerUpCostCurve(
+                baseCost,
+                linearGrowth,
+                quadraticGrowth);
         }
 
         static PrimaryWeaponFamilyDefinition[]
@@ -583,6 +654,7 @@ namespace Shmup.Core.Content
             public WeaponParseResult(
                 WeaponDefinition[] definitions,
                 int[] maxLevels,
+                PowerUpCostCurve costCurve,
                 WeaponDefinition mainShot,
                 WeaponDefinition missile,
                 PrimaryWeaponFamilyDefinition[] primaryWeaponFamilies,
@@ -593,6 +665,7 @@ namespace Shmup.Core.Content
             {
                 Definitions = definitions;
                 MaxLevels = maxLevels;
+                CostCurve = costCurve;
                 MainShot = mainShot;
                 Missile = missile;
                 PrimaryWeaponFamilies = primaryWeaponFamilies;
@@ -604,6 +677,7 @@ namespace Shmup.Core.Content
 
             public WeaponDefinition[] Definitions { get; }
             public int[] MaxLevels { get; }
+            public PowerUpCostCurve CostCurve { get; }
             public WeaponDefinition MainShot { get; }
             public WeaponDefinition Missile { get; }
             public PrimaryWeaponFamilyDefinition[]

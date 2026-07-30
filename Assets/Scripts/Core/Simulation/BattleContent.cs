@@ -670,7 +670,8 @@ namespace Shmup.Core.Simulation
             int projectileHalfWidth,
             int projectileHalfHeight,
             int maxLevel,
-            int minimumFireIntervalTicks)
+            int minimumFireIntervalTicks,
+            int effectSoftCapLevel = -1)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Weapon id cannot be null or empty.", nameof(id));
@@ -692,6 +693,12 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(projectileHalfHeight));
             if (maxLevel < 1)
                 throw new ArgumentOutOfRangeException(nameof(maxLevel));
+            if (effectSoftCapLevel == -1)
+                effectSoftCapLevel = maxLevel;
+            if (effectSoftCapLevel < 1
+                || effectSoftCapLevel > maxLevel)
+                throw new ArgumentOutOfRangeException(
+                    nameof(effectSoftCapLevel));
 
             Id = id;
             Slot = slot;
@@ -703,6 +710,7 @@ namespace Shmup.Core.Simulation
             ProjectileHalfWidth = projectileHalfWidth;
             ProjectileHalfHeight = projectileHalfHeight;
             MaxLevel = maxLevel;
+            EffectSoftCapLevel = effectSoftCapLevel;
         }
 
         public string Id { get; }
@@ -715,6 +723,7 @@ namespace Shmup.Core.Simulation
         public int ProjectileHalfWidth { get; }
         public int ProjectileHalfHeight { get; }
         public int MaxLevel { get; }
+        public int EffectSoftCapLevel { get; }
     }
 
     /// <summary>

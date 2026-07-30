@@ -21,6 +21,7 @@ namespace Shmup.Core.Content
         public const int SupportedEnemiesSchemaVersion = 3;
         public const int SupportedWeaponsSchemaVersion = 3;
         public const int SupportedPrimaryWeaponsSchemaVersion = 4;
+        public const int SupportedPowerUpCurveSchemaVersion = 5;
 
         public static GameDataSet Parse(
             string enemiesJson,
@@ -133,9 +134,10 @@ namespace Shmup.Core.Content
                     enemies.BombNoDropWeight,
                     waves.ScrollSpeed.Numerator,
                     waves.ScrollSpeed.Denominator,
-                    maxEnemyBullets,
-                    weapons.MaxLevels,
-                    weapons.Missile,
+                maxEnemyBullets,
+                weapons.MaxLevels,
+                weapons.CostCurve,
+                weapons.Missile,
                     rewards,
                     ships,
                     scoring);
@@ -436,15 +438,15 @@ namespace Shmup.Core.Content
             RewardsDto root,
             BattleContent content)
         {
-            const int supportedRewardsSchemaVersion = 2;
+            const int supportedRewardsSchemaVersion = 3;
             int schemaVersion = Require(
                 root.schemaVersion,
                 "rewards.json.schemaVersion");
-            if (schemaVersion != 1
-                && schemaVersion != supportedRewardsSchemaVersion)
+            if (schemaVersion < 1
+                || schemaVersion > supportedRewardsSchemaVersion)
                 throw Error(
                     "rewards.json.schemaVersion",
-                    $"must be 1 or {supportedRewardsSchemaVersion}, "
+                    $"must be 1..{supportedRewardsSchemaVersion}, "
                     + $"but was {schemaVersion}.");
 
             int optionCount = Require(root.optionCount, "rewards.json.optionCount");
@@ -462,7 +464,10 @@ namespace Shmup.Core.Content
             var definitions = new RewardDefinition[source.Length];
             for (int i = 0; i < source.Length; i++)
             {
-                definitions[i] = ParseReward(source[i], i);
+                definitions[i] = ParseReward(
+                    source[i],
+                    i,
+                    schemaVersion);
                 if (definitions[i].Type
                         == RewardType.MissileFamily
                     && content.FindMissileFamily(
@@ -498,7 +503,20 @@ namespace Shmup.Core.Content
                             $"duplicates id '{definitions[i].Id}'.");
                 }
             }
-            return new RewardCatalog(optionCount, definitions);
+            int maxCombinedModifierCost =
+                schemaVersion >= 3
+                    ? Require(
+                        root.maxCombinedModifierCost,
+                        "rewards.json.maxCombinedModifierCost")
+                    : 4;
+            if (maxCombinedModifierCost < 1)
+                throw Error(
+                    "rewards.json.maxCombinedModifierCost",
+                    "must be positive.");
+            return new RewardCatalog(
+                optionCount,
+                definitions,
+                maxCombinedModifierCost);
         }
 
         static ScoringDefinition ParseScoring(ScoringDto root)
@@ -565,7 +583,10 @@ namespace Shmup.Core.Content
                 multiplierDecayTicks);
         }
 
-        static RewardDefinition ParseReward(RewardDto source, int index)
+        static RewardDefinition ParseReward(
+            RewardDto source,
+            int index,
+            int schemaVersion)
         {
             string path = $"rewards.json.rewards[{index}]";
             if (source == null)
@@ -574,6 +595,11 @@ namespace Shmup.Core.Content
             RewardType type = ParseRewardType(source.type, path + ".type");
             PowerUpSlot slot = PowerUpSlot.MainShot;
             BattleModifier modifierId = BattleModifier.None;
+            string modifierKey = null;
+            bool modifierStackable = false;
+            int modifierMaxStacks = 1;
+            int modifierStackStrength = 1;
+            int modifierInteractionCost = 1;
             MissileFamily missileFamily =
                 MissileFamily.Straight;
             OptionFormation optionFormation =
@@ -591,9 +617,50 @@ namespace Shmup.Core.Content
 
             if (type == RewardType.Modifier)
             {
-                modifierId = ParseModifierId(
+                modifierKey = RequireText(
                     source.modifierId,
                     path + ".modifierId");
+                modifierId = schemaVersion >= 3
+                    && source.modifierEffect != null
+                        ? ParseModifierId(
+                            source.modifierEffect,
+                            path + ".modifierEffect")
+                        : ParseModifierId(
+                            modifierKey,
+                            path + ".modifierId");
+                if (schemaVersion >= 3)
+                {
+                    if (!source.stackable.HasValue)
+                        throw Error(
+                            path + ".stackable",
+                            "is required.");
+                    modifierStackable = source.stackable.Value;
+                    modifierMaxStacks = Require(
+                        source.maxStacks,
+                        path + ".maxStacks");
+                    modifierStackStrength = Require(
+                        source.stackStrength,
+                        path + ".stackStrength");
+                    modifierInteractionCost = Require(
+                        source.interactionCost,
+                        path + ".interactionCost");
+                    if (modifierMaxStacks < 1)
+                        throw Error(
+                            path + ".maxStacks",
+                            "must be positive.");
+                    if (!modifierStackable && modifierMaxStacks != 1)
+                        throw Error(
+                            path + ".maxStacks",
+                            "must be 1 when stackable is false.");
+                    if (modifierStackStrength < 1)
+                        throw Error(
+                            path + ".stackStrength",
+                            "must be positive.");
+                    if (modifierInteractionCost < 1)
+                        throw Error(
+                            path + ".interactionCost",
+                            "must be positive.");
+                }
             }
             else if (source.modifierId != null)
             {
@@ -679,7 +746,12 @@ namespace Shmup.Core.Content
                 modifierId,
                 missileFamily,
                 optionFormation,
-                primaryWeaponFamily);
+                primaryWeaponFamily,
+                modifierKey,
+                modifierStackable,
+                modifierMaxStacks,
+                modifierStackStrength,
+                modifierInteractionCost);
         }
 
         static RewardType ParseRewardType(string value, string path)
