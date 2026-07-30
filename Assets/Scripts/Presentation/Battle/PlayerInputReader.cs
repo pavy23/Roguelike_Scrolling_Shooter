@@ -38,6 +38,7 @@ namespace Shmup.Presentation.Battle
         bool _firePressedThisFrame;
         bool _activateHeld;
         bool _activatePressedThisFrame;
+        bool _bombPressedThisFrame;
 
         void Awake()
         {
@@ -120,6 +121,15 @@ namespace Shmup.Presentation.Battle
                     || (gamepad != null && gamepad.buttonNorth.wasPressedThisFrame))
                     _activatePressedThisFrame = true;
             }
+
+            // 전멸 폭탄 (REQ-046). X는 이미 게이지 활성화가 쓰므로 B(bomb) / 패드 East로
+            // 둔다. InputActions 에셋에 액션이 없어 저수준으로 읽는다 — 리바인딩이
+            // 필요해지면 액션으로 승격하는 편이 낫다.
+            var bombKeyboard = Keyboard.current;
+            var bombGamepad = Gamepad.current;
+            if ((bombKeyboard != null && bombKeyboard.bKey.wasPressedThisFrame)
+                || (bombGamepad != null && bombGamepad.buttonEast.wasPressedThisFrame))
+                _bombPressedThisFrame = true;
         }
 
         /// <summary>데모 영상 녹화용 오토파일럿 (dev 전용 — 사인 이동 + 연사 + 주기 활성화).</summary>
@@ -172,16 +182,23 @@ namespace Shmup.Presentation.Battle
             // 타면 키보드·패드 입력이 통째로 무시된다 — 데스크톱 WebGL에서도 터치 UI가
             // 켜져 있으니 이 구분이 필요하다.
             var touch = TouchControls.Instance;
+            // 전멸 폭탄: 터치 버튼 래치와 키보드/패드 래치를 OR. 여기서 직접
+            // wasPressedThisFrame을 읽으면 이 프레임에 FixedUpdate가 돌지 않을 때
+            // 눌림이 통째로 유실된다 — 발사·활성화가 래치를 쓰는 이유와 같다.
+            bool activateBomb = _bombPressedThisFrame;
+            if (BombButton.Instance != null && BombButton.Instance.ConsumePress())
+                activateBomb = true;
+
             InputCommand command;
             if (touch != null && touch.Active && touch.IsDragging)
             {
                 touch.ConsumeAnalogDelta(out int deltaX, out int deltaY);
-                command = InputCommand.Analog(deltaX, deltaY, fire, activateGauge);
+                command = InputCommand.Analog(deltaX, deltaY, fire, activateGauge, activateBomb);
             }
             else
             {
                 command = new InputCommand(
-                    Digital(_move.x), Digital(_move.y), fire, activateGauge);
+                    Digital(_move.x), Digital(_move.y), fire, activateGauge, activateBomb);
             }
 
             // 조작 회귀 추적용 진단 문자열 (원인 확정 후 제거). 실제로 시뮬에 넘어가는
@@ -194,6 +211,7 @@ namespace Shmup.Presentation.Battle
 
             _firePressedThisFrame = false;
             _activatePressedThisFrame = false;
+            _bombPressedThisFrame = false;
             return command;
         }
 

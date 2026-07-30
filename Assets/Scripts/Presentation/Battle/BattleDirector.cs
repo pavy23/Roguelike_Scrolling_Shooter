@@ -30,6 +30,8 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Transform _enemyRoot;
         [SerializeField] GameObject _capsulePrefab;
         [SerializeField] Transform _capsuleRoot;
+        [SerializeField] GameObject _bombPickupPrefab;
+        [SerializeField] Transform _bombPickupRoot;
         [SerializeField] GameObject _explosionPrefab;
         [SerializeField] Transform _fxRoot;
         [SerializeField] SpriteRenderer _damageFlash;
@@ -79,11 +81,13 @@ namespace Shmup.Presentation.Battle
         SpritePool _bulletPool;
         SpritePool _enemyPool;
         SpritePool _capsulePool;
+        SpritePool _bombPickupPool;
 
         // Id → 뷰 인스턴스. Core가 주는 Id는 스폰~소멸까지 불변이라 매칭 키로 쓸 수 있다.
         readonly Dictionary<int, Transform> _bulletViews = new Dictionary<int, Transform>(64);
         readonly Dictionary<int, Transform> _enemyViews = new Dictionary<int, Transform>(32);
         readonly Dictionary<int, Transform> _capsuleViews = new Dictionary<int, Transform>(16);
+        readonly Dictionary<int, Transform> _bombPickupViews = new Dictionary<int, Transform>(16);
         readonly Dictionary<int, Transform> _optionViews = new Dictionary<int, Transform>(4);
         readonly Dictionary<int, SpriteRenderer> _enemyRenderers = new Dictionary<int, SpriteRenderer>(32);
         readonly Dictionary<int, Color> _enemyDeathTints = new Dictionary<int, Color>(32);   // 테마별 폭발 틴트
@@ -170,6 +174,9 @@ namespace Shmup.Presentation.Battle
 
         [SerializeField] ScorePopups _scorePopups;
         [SerializeField] SpawnTelegraph _spawnTelegraph;
+
+        /// <summary>스테이지 기믹 시각화 (REQ-055) — 통로 벽 접촉 번쩍임에 필요하다.</summary>
+        [SerializeField] StageGimmickView _gimmickView;
         int _lastBossHp = -1;
         float _bossFlashAge = float.MaxValue;
 
@@ -177,6 +184,9 @@ namespace Shmup.Presentation.Battle
         // 33% 광폭화는 66%보다 강하게 번쩍여야 한다.
         float _bossPhaseFlash;
         float _bossPhaseFlashPeak;
+        float _bombFlashAge = float.MaxValue;
+        const float BombFlashDuration = 0.5f;
+        [SerializeField] BombButton _bombButton;
         const float BossFlashDuration = 0.09f;
 
         /// <summary>
@@ -429,6 +439,11 @@ namespace Shmup.Presentation.Battle
                 _bulletPrefab, _bulletRoot, config.MaxBullets + config.MaxEnemyBullets, "Bullet");
             _enemyPool = new SpritePool(_enemyPrefab, _enemyRoot, 32, "Enemy");
             _capsulePool = new SpritePool(_capsulePrefab, _capsuleRoot, 16, "Capsule");
+            if (_bombPickupPrefab != null && _bombPickupRoot != null)
+            {
+                _bombPickupPool = new SpritePool(
+                    _bombPickupPrefab, _bombPickupRoot, config.MaxBombPickups, "BombPickup");
+            }
             _fxPool = new SpritePool(_explosionPrefab, _fxRoot, 16, "Explosion");
             _optionPool = new SpritePool(_optionPrefab, _optionRoot, 4, "Option");
             if (_obstaclePrefab != null && _obstacleRoot != null)
@@ -590,6 +605,44 @@ namespace Shmup.Presentation.Battle
                         _bossPhaseFlashPeak = enraged ? 1f : 0.6f;
                         if (_bossIntro != null && enraged) _bossIntro.Trigger();
                         break;
+                    case SimEventType.CorridorContact:
+                        // 벽에 닿았다 — 어디가 벽인지 번쩍여 알린다 (실제 피해는 PlayerHit).
+                        if (_gimmickView != null) _gimmickView.FlashCorridorContact();
+                        if (_juice != null) _juice.Shake(0.12f);
+                        break;
+                    case SimEventType.TimeLimitExpired:
+                        // 제한 시간 초과는 방어막·무적을 무시하는 즉사다. 사망 연출과
+                        // 구분되게 크게 알린다.
+                        if (_juice != null)
+                        {
+                            _juice.Shake(0.7f);
+                            _juice.Hitstop(0.2f);
+                        }
+                        break;
+                    case SimEventType.BombActivated:
+                        // 화면을 지우는 사건이므로 가장 크게 알린다. 무적 시간이 함께
+                        // 붙으므로(45틱) 플레이어가 "지금 안전하다"를 읽을 수 있어야 한다.
+                        _bombFlashAge = 0f;
+                        if (_juice != null)
+                        {
+                            _juice.Shake(0.6f);
+                            _juice.Hitstop(0.12f);
+                        }
+                        break;
+                    case SimEventType.BombActivationRejectedEmpty:
+                        // 눌렀는데 아무 일도 없으면 버튼이 고장난 것처럼 느껴진다.
+                        // 재고가 없다는 것을 짧게 알린다.
+                        if (_bombButton != null) _bombButton.FlashEmpty();
+                        break;
+                    case SimEventType.LaserCapacityExceeded:
+                    case SimEventType.EnemyCapacityExceeded:
+                    case SimEventType.ObstacleCapacityExceeded:
+                        // 상한 초과를 조용히 넘기지 않는다 — 과거에 적 탄이 상한에 걸려
+                        // 조용히 발사되지 않던 버그를 놓친 전례가 있다.
+                        if (Debug.isDebugBuild || Application.isEditor)
+                            Debug.LogWarning(
+                                $"[capacity] {e.Type} cap={e.Arg} at ({e.X},{e.Y})");
+                        break;
                     case SimEventType.StageCleared:
                         TriggerBossDeathSequence();
                         break;
@@ -633,6 +686,7 @@ namespace Shmup.Presentation.Battle
             ReleaseAll(_bulletViews, _bulletPool);
             ReleaseAll(_enemyViews, _enemyPool);
             ReleaseAll(_capsuleViews, _capsulePool);
+            if (_bombPickupPool != null) ReleaseAll(_bombPickupViews, _bombPickupPool);
             ReleaseAll(_optionViews, _optionPool);
             if (_obstaclePool != null) ReleaseAll(_obstacleViews, _obstaclePool);
             _enemyRenderers.Clear();
@@ -715,6 +769,7 @@ namespace Shmup.Presentation.Battle
             SyncOptions();
             SyncEnemies();
             SyncCapsules();
+            SyncBombPickups();
             SyncObstacles();
             SyncShield();
             SyncBoss();
@@ -877,6 +932,19 @@ namespace Shmup.Presentation.Battle
         /// <summary>스테이지 내부 진행 구간 — 전반/중간보스/후반/보스 연출을 가른다.</summary>
         public RunStageSection StageSection =>
             _run != null ? _run.StageSection : RunStageSection.Opening;
+
+        /// <summary>지속 레이저 상태 (REQ-042) — LaserBeamView가 선분으로 그린다.</summary>
+        public IReadOnlyList<LaserState> Lasers => _sim?.Lasers;
+
+        // ── 스테이지 기믹 관측값 (REQ-055) — StageGimmickView가 그린다 ─────────
+        public StageEnvironmentState Environment =>
+            _sim != null ? _sim.Environment : default;
+
+        /// <summary>네뷸라 시야 제한. 표현 전용 플래그로, 판정에는 영향이 없다.</summary>
+        public bool VisionObscured => _sim != null && _sim.VisionObscured;
+
+        /// <summary>코어 스테이지 제한 시간. 0이면 제한이 없다. 초과는 즉사다.</summary>
+        public int RemainingTimeTicks => _sim != null ? _sim.RemainingTimeTicks : 0;
         public System.Collections.Generic.IReadOnlyList<RewardOption> RewardOptions
             => _run?.RewardOptions;
 
@@ -906,6 +974,9 @@ namespace Shmup.Presentation.Battle
 
         /// <summary>DevCheats 오버레이용.</summary>
         public int ShieldRemaining => _sim?.ShieldRemaining ?? 0;
+
+        /// <summary>보유한 전멸 폭탄 수 — HUD와 폭탄 버튼의 활성 여부를 정한다.</summary>
+        public int BombStock => _sim?.BombStock ?? 0;
 
         /// <summary>선택적 GameData — 없으면 null (Core가 폴백 처리).</summary>
         static string TryLoadGameDataText(string name)
@@ -1301,10 +1372,25 @@ namespace Shmup.Presentation.Battle
                 _damageFlashAge = 0f;
             _lastHp = hp;
 
-            if (_damageFlash == null || _damageFlashAge >= DamageFlashDuration) return;
+            if (_damageFlash == null) return;
+
+            bool flashReduced = _juice != null && _juice.FlashReduced;
+
+            // 폭탄이 피격보다 우선한다 — 화면을 지우는 사건이 더 크고, 폭탄 직후 피격이
+            // 겹칠 때(무적 만료 직전) 약한 쪽이 이기면 연출이 뒤바뀐다.
+            if (_bombFlashAge < BombFlashDuration)
+            {
+                _bombFlashAge += Time.deltaTime;
+                float t = Mathf.Clamp01(1f - _bombFlashAge / BombFlashDuration);
+                // 폭탄 아이콘과 같은 자홍 계열 — 무엇이 터졌는지 색으로 연결된다.
+                _damageFlash.color = new Color(1f, 0.55f, 1f, t * (flashReduced ? 0.3f : 0.7f));
+                return;
+            }
+
+            if (_damageFlashAge >= DamageFlashDuration) return;
 
             _damageFlashAge += Time.deltaTime;
-            float intensity = _juice != null && _juice.FlashReduced ? 0.15f : 0.35f;
+            float intensity = flashReduced ? 0.15f : 0.35f;
             float alpha = Mathf.Clamp01(1f - _damageFlashAge / DamageFlashDuration) * intensity;
             _damageFlash.color = new Color(1f, 0.2f, 0.2f, alpha);
         }
@@ -1342,6 +1428,38 @@ namespace Shmup.Presentation.Battle
             }
 
             ReleaseDeadViews(_capsuleViews, _capsulePool);
+        }
+
+        /// <summary>
+        /// 전멸 폭탄 픽업. 캡슐과 달리 회전으로 알린다 — 둘이 같이 떨어졌을 때
+        /// 맥동만으로는 구분이 안 되므로 움직임의 종류 자체를 다르게 둔다.
+        /// </summary>
+        void SyncBombPickups()
+        {
+            if (_bombPickupPool == null) return;
+
+            var pickups = _sim.BombPickups;
+            _aliveIds.Clear();
+
+            for (int i = 0; i < pickups.Count; i++)
+            {
+                var pickup = pickups[i];
+                _aliveIds.Add(pickup.Id);
+
+                if (!_bombPickupViews.TryGetValue(pickup.Id, out var view))
+                {
+                    view = _bombPickupPool.Acquire();
+                    if (view == null) continue;
+                    _bombPickupViews.Add(pickup.Id, view);
+                }
+
+                view.localPosition = SimView.ToWorld(pickup.X, pickup.Y);
+                // 표현 전용 회전 — 시뮬 판정은 축 정렬 박스라 영향이 없다.
+                view.localRotation = Quaternion.Euler(
+                    0f, 0f, (Time.time * 90f + pickup.Id * 37f) % 360f);
+            }
+
+            ReleaseDeadViews(_bombPickupViews, _bombPickupPool);
         }
 
         /// <summary>

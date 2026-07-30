@@ -151,8 +151,11 @@ namespace Shmup.Presentation.Battle
         /// 메뉴(일시정지·보상·경로·게임오버)가 떠 있는 동안은 조작 오버레이를 걷는다.
         /// 그러지 않으면 메뉴 버튼을 누르려는 터치가 기체 드래그로 해석되고,
         /// X/AUTO 버튼이 메뉴 위에 겹쳐 눌린다.
+        ///
+        /// BombButton도 이 기준을 따른다 — 조작 오버레이는 걷혔는데 폭탄 버튼만 남으면
+        /// 메뉴 위에 떠서 오폭한다.
         /// </summary>
-        bool GameplayActive =>
+        public bool GameplayActive =>
             Time.timeScale > 0f
             && !OptionsScreen.IsOpen
             && (_director == null

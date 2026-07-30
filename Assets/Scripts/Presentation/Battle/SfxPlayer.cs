@@ -33,7 +33,7 @@ namespace Shmup.Presentation.Battle
         [SerializeField] float _laserVolume = 0.35f;
 
         // 이번 스텝에서 이미 재생한 클립 (틱당 1회 제한)
-        readonly bool[] _playedThisStep = new bool[10];
+        readonly bool[] _playedThisStep = new bool[12];
 
         public void PlayEvents(ReadOnlySpan<SimEvent> events)
         {
@@ -43,6 +43,16 @@ namespace Shmup.Presentation.Battle
             // 반복 피로 완화: 틱 단위 ±4% 피치 랜덤 (표현 전용 — 시뮬 Rng와 무관)
             if (events.Length > 0)
                 _source.pitch = 1f + (UnityEngine.Random.value - 0.5f) * 0.08f;
+
+            // 전멸 폭탄은 같은 틱에 적 사망 폭발음을 대량으로 몰고 온다. 폭발 채널을
+            // 먼저 선점해 큰 볼륨으로 한 번만 울린다 — 그러지 않으면 사망음이 채널을
+            // 먹어 폭탄이 작게 들리거나, 별도 채널로 두면 두 폭발음이 겹쳐 클리핑한다.
+            for (int i = 0; i < events.Length; i++)
+            {
+                if (events[i].Type != SimEventType.BombActivated) continue;
+                PlayOnce(2, _explosion, 1f);
+                break;
+            }
 
             for (int i = 0; i < events.Length; i++)
             {
@@ -77,6 +87,14 @@ namespace Shmup.Presentation.Battle
                         break;
                     case SimEventType.StageCleared:
                         PlayOnce(9, _powerup, 1f);
+                        break;
+                    case SimEventType.BombAcquired:
+                        // 캡슐보다 귀한 획득이라 pickup이 아니라 powerup 계열로 알린다.
+                        PlayOnce(10, _powerup, 0.85f);
+                        break;
+                    case SimEventType.BombActivationRejectedEmpty:
+                        // 재고 없이 눌렀다 — 짧고 작게. 버튼이 죽지 않았음을 알리는 정도다.
+                        PlayOnce(11, _hit, 0.25f);
                         break;
                 }
             }
