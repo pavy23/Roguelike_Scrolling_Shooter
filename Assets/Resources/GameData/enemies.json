@@ -1,7 +1,7 @@
 {
   "schemaVersion": 3,
   "dropTable": {
-    "noDropWeight": 15
+    "noDropWeight": 13
   },
   "enemies": [
     {
@@ -11,7 +11,7 @@
       "contactDamage": 1,
       "scoreValue": 100,
       "fireIntervalTicks": 0,
-      "dropWeight": 3,
+      "dropWeight": 4,
       "halfWidth": 0.5625,
       "halfHeight": 0.4375,
       "movement": {
@@ -26,7 +26,7 @@
       "contactDamage": 1,
       "scoreValue": 120,
       "fireIntervalTicks": 0,
-      "dropWeight": 4,
+      "dropWeight": 5,
       "halfWidth": 0.5625,
       "halfHeight": 0.4375,
       "movement": {
@@ -57,7 +57,7 @@
       "contactDamage": 1,
       "scoreValue": 70,
       "fireIntervalTicks": 0,
-      "dropWeight": 2,
+      "dropWeight": 3,
       "halfWidth": 0.5,
       "halfHeight": 0.375,
       "movement": {
@@ -330,7 +330,7 @@
       "contactDamage": 1,
       "scoreValue": 110,
       "fireIntervalTicks": 0,
-      "dropWeight": 4,
+      "dropWeight": 5,
       "halfWidth": 0.625,
       "halfHeight": 0.5,
       "movement": {
@@ -440,9 +440,9 @@
     {
       "id": "mini_destroyer",
       "displayName": "Mini Destroyer",
-      "hp": 3000,
+      "hp": 1100,
       "contactDamage": 2,
-      "scoreValue": 3600,
+      "scoreValue": 2000,
       "fireIntervalTicks": 55,
       "dropWeight": 24,
       "halfWidth": 2.375,
@@ -455,9 +455,9 @@
     {
       "id": "mini_horror",
       "displayName": "Mini Horror",
-      "hp": 2400,
+      "hp": 800,
       "contactDamage": 2,
-      "scoreValue": 3000,
+      "scoreValue": 1600,
       "fireIntervalTicks": 70,
       "dropWeight": 22,
       "halfWidth": 2.25,
@@ -472,9 +472,9 @@
     {
       "id": "mini_walker",
       "displayName": "Mini Walker",
-      "hp": 4500,
+      "hp": 1600,
       "contactDamage": 2,
-      "scoreValue": 5000,
+      "scoreValue": 3000,
       "fireIntervalTicks": 48,
       "dropWeight": 26,
       "halfWidth": 2.5,
@@ -486,9 +486,9 @@
     {
       "id": "mini_crystal",
       "displayName": "Mini Crystal",
-      "hp": 3600,
+      "hp": 1400,
       "contactDamage": 2,
-      "scoreValue": 4200,
+      "scoreValue": 2500,
       "fireIntervalTicks": 40,
       "dropWeight": 24,
       "halfWidth": 2.375,
