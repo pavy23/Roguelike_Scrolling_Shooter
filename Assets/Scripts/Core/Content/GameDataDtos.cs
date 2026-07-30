@@ -434,6 +434,8 @@ namespace Shmup.Core.Content
     internal sealed class BossPhaseDto
     {
         [DataMember]
+        public string pattern;
+        [DataMember]
         public int? fireIntervalTicks;
         [DataMember]
         public int? ways;

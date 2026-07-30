@@ -74,6 +74,20 @@ namespace Shmup.Core.Generation
         VerticalSine = 2
     }
 
+    public enum BossFirePattern
+    {
+        /// <summary>Player-aimed N-way volley. Legacy default.</summary>
+        Aimed = 0,
+        /// <summary>Evenly spaced full-circle ring.</summary>
+        Radial = 1,
+        /// <summary>Rotating arms advanced once per volley.</summary>
+        Spiral = 2,
+        /// <summary>Vertical wall with one deterministically selected gap.</summary>
+        Wall = 3,
+        /// <summary>Telegraphed player-aimed N-way volley.</summary>
+        Burst = 4
+    }
+
     public enum BossPartVulnerability
     {
         /// <summary>Preserves core-gate behavior from older boss data.</summary>
@@ -113,7 +127,8 @@ namespace Shmup.Core.Generation
             int movementPeriodTicks,
             BossPartVulnerability partVulnerability,
             int durationTicks = 0,
-            int telegraphTicks = 0)
+            int telegraphTicks = 0,
+            BossFirePattern firePattern = BossFirePattern.Aimed)
         {
             if (fireIntervalTicks < 1)
                 throw new ArgumentOutOfRangeException(nameof(fireIntervalTicks));
@@ -155,6 +170,20 @@ namespace Shmup.Core.Generation
                     && telegraphTicks >= durationTicks))
                 throw new ArgumentOutOfRangeException(
                     nameof(telegraphTicks));
+            if (!Enum.IsDefined(
+                    typeof(BossFirePattern),
+                    firePattern))
+                throw new ArgumentOutOfRangeException(
+                    nameof(firePattern));
+            if (firePattern == BossFirePattern.Wall && ways < 2)
+                throw new ArgumentException(
+                    "Wall fire patterns require at least two ways.",
+                    nameof(ways));
+            if (firePattern == BossFirePattern.Burst
+                && telegraphTicks < 1)
+                throw new ArgumentException(
+                    "Burst fire patterns require positive telegraphTicks.",
+                    nameof(telegraphTicks));
             FireIntervalTicks = fireIntervalTicks;
             Ways = ways;
             BulletSpeedNumerator = bulletSpeedNumerator;
@@ -166,6 +195,7 @@ namespace Shmup.Core.Generation
             PartVulnerability = partVulnerability;
             DurationTicks = durationTicks;
             TelegraphTicks = telegraphTicks;
+            FirePattern = firePattern;
         }
 
         public int FireIntervalTicks { get; }
@@ -187,6 +217,7 @@ namespace Shmup.Core.Generation
         /// before the delay starts.
         /// </summary>
         public int TelegraphTicks { get; }
+        public BossFirePattern FirePattern { get; }
     }
 
     public enum BossPartAttackType

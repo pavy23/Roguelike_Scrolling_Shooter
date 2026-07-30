@@ -126,7 +126,9 @@ namespace Shmup.Core.Tests
 
             AssertAll(() =>
             {
-                Assert.AreEqual(10, data.schemaVersion);
+                Assert.AreEqual(
+                    InputRecordingData.CurrentSchemaVersion,
+                    data.schemaVersion);
                 Assert.AreEqual(1, data.runs.Length);
                 Assert.AreEqual(2, data.runs[0].tickCount);
                 Assert.IsTrue(data.runs[0].useAnalogMovement);
@@ -145,6 +147,29 @@ namespace Shmup.Core.Tests
                     -11,
                     commands[0].AnalogDeltaYSubUnits);
             });
+        }
+
+        [Test]
+        public void DefaultCapacityCoversSixMinuteWorstCaseAnalogStage()
+        {
+            const int stageTicks =
+                6 * 60 * SimSpace.TicksPerSecond;
+            var recorder = new InputRecorder();
+
+            for (int tick = 0; tick < stageTicks; tick++)
+            {
+                InputCommand input = InputCommand.Analog(
+                    tick,
+                    -tick,
+                    false);
+                recorder.Record(in input);
+            }
+
+            Assert.GreaterOrEqual(
+                InputRecorder.DefaultRunCapacity,
+                stageTicks);
+            Assert.AreEqual(stageTicks, recorder.RunCount);
+            Assert.AreEqual(stageTicks, recorder.TotalTicks);
         }
 
         [Test]
@@ -425,7 +450,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void SchemaTwoRecording_DefaultsToNormalDifficulty()
+        public void SchemaTwoRecordingIsRejectedByPlaybackVersionGate()
         {
             InputRecordingData legacy = ValidData();
             legacy.schemaVersion = 2;
@@ -433,10 +458,8 @@ namespace Shmup.Core.Tests
             legacy.difficultyMultiplierNumerator = 0;
             legacy.difficultyMultiplierDenominator = 0;
 
-            var playback = new InputPlayback(legacy);
-
-            Assert.AreEqual(1, playback.DifficultyMultiplierNumerator);
-            Assert.AreEqual(1, playback.DifficultyMultiplierDenominator);
+            Assert.Throws<ArgumentException>(
+                () => new InputPlayback(legacy));
         }
 
         [Test]

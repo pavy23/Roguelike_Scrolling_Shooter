@@ -88,7 +88,12 @@ namespace Shmup.Core.Simulation
         /// EntityId = boss id, Arg = zero-based action phase. The phase's first
         /// volley is delayed by its configured telegraphTicks.
         /// </summary>
-        BossAttackTelegraphed = 31
+        BossAttackTelegraphed = 31,
+        /// <summary>
+        /// EntityId = boss id, Arg = configured enemy-bullet capacity.
+        /// One event is emitted for a boss volley truncated by the hard cap.
+        /// </summary>
+        EnemyBulletCapacityExceeded = 32
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -1034,6 +1039,7 @@ namespace Shmup.Core.Simulation
         int MultiplierLevel { get; }
         int ScoreMultiplier { get; }
         int ComboGauge { get; }
+        int TicksSinceLastKill { get; }
         BattleStatistics Statistics { get; }
         long ScrollX { get; }
         int PlayerX { get; }
@@ -1076,11 +1082,48 @@ namespace Shmup.Core.Simulation
         void Step(in InputCommand input);
     }
 
+    /// <summary>
+    /// Deterministic state intentionally carried across combat-room boundaries
+    /// within one biome. Transient entities and attack cooldowns are excluded.
+    /// </summary>
+    public sealed class BattleContinuityState
+    {
+        public BattleContinuityState(
+            int playerX,
+            int playerY,
+            int multiplierLevel,
+            int comboGauge,
+            int ticksSinceLastKill)
+        {
+            if (multiplierLevel < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(multiplierLevel));
+            if (comboGauge < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(comboGauge));
+            if (ticksSinceLastKill < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(ticksSinceLastKill));
+            PlayerX = playerX;
+            PlayerY = playerY;
+            MultiplierLevel = multiplierLevel;
+            ComboGauge = comboGauge;
+            TicksSinceLastKill = ticksSinceLastKill;
+        }
+
+        public int PlayerX { get; }
+        public int PlayerY { get; }
+        public int MultiplierLevel { get; }
+        public int ComboGauge { get; }
+        public int TicksSinceLastKill { get; }
+    }
+
     /// <summary>Deterministic integer-only combat and generated-stage simulation.</summary>
     public sealed class BattleSim : IBattleSim
     {
         const int DropRngStream = 1;
         const int BombDropRngStream = 2;
+        const int BossPatternRngStream = 3;
         const int SineScale = 1024;
         const int CapsuleMagnetDirectionScale = 1024;
         const long MaxSquareRoot = 3037000499L;
@@ -1152,6 +1195,7 @@ namespace Shmup.Core.Simulation
         readonly PowerUpGauge _powerUpGauge;
         readonly Rng _dropRng;
         readonly Rng _bombDropRng;
+        readonly Rng _bossPatternRng;
         readonly List<BulletState> _bullets;
         readonly List<int> _bulletXRemainders;
         readonly List<int> _bulletYRemainders;
@@ -1240,6 +1284,8 @@ namespace Shmup.Core.Simulation
         int _bossId, _bossX, _bossY, _bossHp, _bossPhase, _bossAge, _bossFireCooldown;
         int _bossPhaseAge;
         bool _bossPhaseTelegraphPending;
+        bool _bossBurstAwaitingVolley;
+        int _bossPatternVolleyIndex;
         readonly bool _bossUsesTimedPattern;
         int _bossSuctionXRemainder, _bossSuctionYRemainder;
 
@@ -1247,6 +1293,7 @@ namespace Shmup.Core.Simulation
         const int BossHoverAmplitude = 3 * SimSpace.SubUnitsPerWorldUnit;
         const int BossHoverPeriodShift = 2;                            // age >> 2 → 약 4.3초 주기
         const int SpreadStepLutSlots = 2;                              // n-way 간격 = 11.25°
+        const int SpiralStepLutSlots = 2;
 
         readonly SimEvent[] _events;
         readonly int[] _enemyScanIds;
@@ -1287,7 +1334,8 @@ namespace Shmup.Core.Simulation
                 BattleModifierStackSet.FromFlags(
                     BattleModifier.None,
                     4),
-                false)
+                false,
+                null)
         {
         }
 
@@ -1307,7 +1355,8 @@ namespace Shmup.Core.Simulation
                 BattleModifierStackSet.FromFlags(
                     BattleModifier.None,
                     4),
-                true)
+                true,
+                null)
         {
         }
 
@@ -1327,7 +1376,8 @@ namespace Shmup.Core.Simulation
                 BattleModifierStackSet.FromFlags(
                     activeModifiers,
                     4),
-                true)
+                true,
+                null)
         {
         }
 
@@ -1345,7 +1395,28 @@ namespace Shmup.Core.Simulation
                 content,
                 powerUpGauge,
                 modifierStacks,
-                true)
+                true,
+                null)
+        {
+        }
+
+        public BattleSim(
+            BattleSimConfig config,
+            Rng rng,
+            StagePlan stagePlan,
+            BattleContent content,
+            PowerUpGauge powerUpGauge,
+            BattleModifierStackSet modifierStacks,
+            BattleContinuityState continuityState)
+            : this(
+                config,
+                rng,
+                stagePlan,
+                content,
+                powerUpGauge,
+                modifierStacks,
+                true,
+                continuityState)
         {
         }
 
@@ -1356,7 +1427,8 @@ namespace Shmup.Core.Simulation
             BattleContent content,
             PowerUpGauge powerUpGauge,
             BattleModifierStackSet modifierStacks,
-            bool stageEnabled)
+            bool stageEnabled,
+            BattleContinuityState continuityState)
         {
             if (config == null) throw new ArgumentNullException(nameof(config));
             if (rng == null) throw new ArgumentNullException(nameof(rng));
@@ -1561,6 +1633,7 @@ namespace Shmup.Core.Simulation
                 : GetEffectivePowerLevel(PowerUpSlot.Shield);
             _dropRng = rng.Fork(DropRngStream);
             _bombDropRng = rng.Fork(BombDropRngStream);
+            _bossPatternRng = rng.Fork(BossPatternRngStream);
 
             if (stageEnabled && stagePlan.BossMaxHp > 0)
             {
@@ -1784,8 +1857,50 @@ namespace Shmup.Core.Simulation
                     "The no-allocation event capacity exceeds the supported range.");
             _events = new SimEvent[(int)eventCapacity];
 
-            PlayerX = config.PlayerSpawnX;
-            PlayerY = config.PlayerSpawnY;
+            if (continuityState != null
+                && continuityState.MultiplierLevel
+                    >= _comboMultipliers.Length)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(continuityState),
+                    "The carried multiplier level is unsupported.");
+            }
+            if (continuityState != null
+                && ((continuityState.MultiplierLevel
+                        == _comboMultipliers.Length - 1
+                        && continuityState.ComboGauge != 0)
+                    || (continuityState.MultiplierLevel
+                        < _comboMultipliers.Length - 1
+                        && continuityState.ComboGauge
+                            >= _comboGaugeRequirements[
+                                continuityState.MultiplierLevel])))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(continuityState),
+                    "The carried combo gauge is not canonical.");
+            }
+            PlayerX = continuityState == null
+                ? config.PlayerSpawnX
+                : Math.Max(
+                    _playerMinX,
+                    Math.Min(
+                        _playerMaxX,
+                        continuityState.PlayerX));
+            PlayerY = continuityState == null
+                ? config.PlayerSpawnY
+                : Math.Max(
+                    _playerMinY,
+                    Math.Min(
+                        _playerMaxY,
+                        continuityState.PlayerY));
+            if (continuityState != null)
+            {
+                _multiplierLevel =
+                    continuityState.MultiplierLevel;
+                _comboGauge = continuityState.ComboGauge;
+                _ticksSinceLastKill =
+                    continuityState.TicksSinceLastKill;
+            }
             ShieldStock = Math.Min(
                 config.StartingShieldStock,
                 _maxShieldStock);
@@ -1805,6 +1920,17 @@ namespace Shmup.Core.Simulation
         public int MultiplierLevel => _multiplierLevel;
         public int ScoreMultiplier => _comboMultipliers[_multiplierLevel];
         public int ComboGauge => _comboGauge;
+        public int TicksSinceLastKill => _ticksSinceLastKill;
+
+        public BattleContinuityState CaptureContinuityState()
+        {
+            return new BattleContinuityState(
+                PlayerX,
+                PlayerY,
+                _multiplierLevel,
+                _comboGauge,
+                _ticksSinceLastKill);
+        }
         public BattleStatistics Statistics => new BattleStatistics(
             _shotsFired,
             _shotsHit,
@@ -3135,6 +3261,10 @@ namespace Shmup.Core.Simulation
                         : initialPhase.FireIntervalTicks;
                 _bossPhaseTelegraphPending =
                     initialPhase.TelegraphTicks > 0;
+                _bossBurstAwaitingVolley =
+                    initialPhase.FirePattern == BossFirePattern.Burst
+                    && initialPhase.TelegraphTicks > 0;
+                _bossPatternVolleyIndex = 0;
                 InitializeBossParts();
                 EmitEvent(SimEventType.BossSpawned, _bossId, _bossX, _bossY, 0);
                 return;
@@ -3208,6 +3338,10 @@ namespace Shmup.Core.Simulation
                     : phase.FireIntervalTicks;
             _bossPhaseTelegraphPending =
                 phase.TelegraphTicks > 0;
+            _bossBurstAwaitingVolley =
+                phase.FirePattern == BossFirePattern.Burst
+                && phase.TelegraphTicks > 0;
+            _bossPatternVolleyIndex = 0;
             RefreshBossPartPositions();
             if (emitChanged)
             {
@@ -3235,23 +3369,146 @@ namespace Shmup.Core.Simulation
 
         void UpdateBossPhaseFire(Generation.BossPhase phase)
         {
-            if (_bossFireCooldown > 0) _bossFireCooldown--;
-            if (_bossFireCooldown == 0)
+            if (_bossFireCooldown > 0)
+                _bossFireCooldown--;
+            if (_bossFireCooldown != 0)
+                return;
+
+            if (phase.FirePattern == BossFirePattern.Burst)
             {
-                int ways = phase.Ways;
-                int available = Math.Max(0, _maxEnemyBullets - CountEnemyBullets());
-                int shots = Math.Min(ways, available);
-                for (int i = 0; i < shots; i++)
+                if (_bossBurstAwaitingVolley)
                 {
-                    long centeredIndex = 2L * i - (ways - 1L);
-                    int rotation = (int)(
-                        (centeredIndex * SpreadStepLutSlots / 2) % SineLut.Length);
-                    SpawnEnemyAimedBullet(
-                        _bossX, _bossY, PlayerX, PlayerY,
-                        phase.BulletSpeedNumerator, phase.BulletSpeedDenominator, rotation);
+                    FireAimedBossVolley(phase);
+                    _bossPatternVolleyIndex++;
+                    _bossBurstAwaitingVolley = false;
+                    _bossFireCooldown = phase.FireIntervalTicks;
+                    return;
                 }
-                _bossFireCooldown = phase.FireIntervalTicks;
+
+                EmitEvent(
+                    SimEventType.BossAttackTelegraphed,
+                    _bossId,
+                    _bossX,
+                    _bossY,
+                    _bossPhase);
+                _bossBurstAwaitingVolley = true;
+                _bossFireCooldown = phase.TelegraphTicks;
+                return;
             }
+
+            switch (phase.FirePattern)
+            {
+                case BossFirePattern.Aimed:
+                    FireAimedBossVolley(phase);
+                    break;
+                case BossFirePattern.Radial:
+                    FireRadialBossVolley(phase, 0);
+                    break;
+                case BossFirePattern.Spiral:
+                    FireRadialBossVolley(
+                        phase,
+                        (_bossPatternVolleyIndex
+                            * SpiralStepLutSlots)
+                            % SineLut.Length);
+                    break;
+                case BossFirePattern.Wall:
+                    FireWallBossVolley(phase);
+                    break;
+                default:
+                    throw new InvalidOperationException(
+                        "Unknown boss fire pattern.");
+            }
+            _bossPatternVolleyIndex++;
+            _bossFireCooldown = phase.FireIntervalTicks;
+        }
+
+        void FireAimedBossVolley(Generation.BossPhase phase)
+        {
+            int shots = GetBossVolleyShotCount(phase.Ways);
+            for (int i = 0; i < shots; i++)
+            {
+                long centeredIndex =
+                    2L * i - (phase.Ways - 1L);
+                int rotation = (int)(
+                    (centeredIndex * SpreadStepLutSlots / 2)
+                    % SineLut.Length);
+                SpawnEnemyAimedBullet(
+                    _bossX,
+                    _bossY,
+                    PlayerX,
+                    PlayerY,
+                    phase.BulletSpeedNumerator,
+                    phase.BulletSpeedDenominator,
+                    rotation);
+            }
+        }
+
+        void FireRadialBossVolley(
+            Generation.BossPhase phase,
+            int baseRotation)
+        {
+            int shots = GetBossVolleyShotCount(phase.Ways);
+            for (int i = 0; i < shots; i++)
+            {
+                int rotation =
+                    (baseRotation
+                        + (int)((long)i
+                            * SineLut.Length
+                            / phase.Ways))
+                    % SineLut.Length;
+                SpawnEnemyAimedBullet(
+                    _bossX,
+                    _bossY,
+                    _bossX - SineScale,
+                    _bossY,
+                    phase.BulletSpeedNumerator,
+                    phase.BulletSpeedDenominator,
+                    rotation);
+            }
+        }
+
+        void FireWallBossVolley(Generation.BossPhase phase)
+        {
+            int gap = _bossPatternRng.NextInt(0, phase.Ways);
+            int requested = phase.Ways - 1;
+            int shots = GetBossVolleyShotCount(requested);
+            int fired = 0;
+            long height = (long)_playerMaxY - _playerMinY;
+            for (int lane = 0;
+                lane < phase.Ways && fired < shots;
+                lane++)
+            {
+                if (lane == gap)
+                    continue;
+                int y = (int)(_playerMinY
+                    + height * lane / (phase.Ways - 1));
+                SpawnEnemyAimedBullet(
+                    _bossX,
+                    y,
+                    _playerMinX,
+                    y,
+                    phase.BulletSpeedNumerator,
+                    phase.BulletSpeedDenominator,
+                    0);
+                fired++;
+            }
+        }
+
+        int GetBossVolleyShotCount(int requested)
+        {
+            int available = Math.Max(
+                0,
+                _maxEnemyBullets - CountEnemyBullets());
+            if (requested > available)
+            {
+                EmitEvent(
+                    SimEventType.EnemyBulletCapacityExceeded,
+                    _bossId,
+                    _bossX,
+                    _bossY,
+                    _maxEnemyBullets);
+            }
+            return Math.Min(requested, available);
         }
 
         void ApplyBossPhaseMovement(

@@ -50,7 +50,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class RunSuspendData
     {
-        public const int CurrentSchemaVersion = 11;
+        public const int CurrentSchemaVersion = 12;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -210,5 +210,23 @@ namespace Shmup.Core.Simulation
         /// </summary>
         [DataMember(Order = 47)]
         public int[] powerUpProgress;
+
+        [DataMember(Order = 48)]
+        public bool hasStageStartContinuity;
+
+        [DataMember(Order = 49)]
+        public int stageStartPlayerX;
+
+        [DataMember(Order = 50)]
+        public int stageStartPlayerY;
+
+        [DataMember(Order = 51)]
+        public int stageStartMultiplierLevel;
+
+        [DataMember(Order = 52)]
+        public int stageStartComboGauge;
+
+        [DataMember(Order = 53)]
+        public int stageStartTicksSinceLastKill;
     }
 }

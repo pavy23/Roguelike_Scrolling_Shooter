@@ -452,6 +452,10 @@ namespace Shmup.Core.Content
                 ParseBossMovementPattern(
                     phase.movementPattern,
                     phasePath + ".movementPattern");
+            BossFirePattern firePattern =
+                ParseBossFirePattern(
+                    phase.pattern,
+                    phasePath + ".pattern");
             ExactFraction movementAmplitude =
                 phase.movementAmplitude.HasValue
                     ? ToSubUnitFraction(
@@ -494,11 +498,26 @@ namespace Shmup.Core.Content
                 ParseBossPartVulnerability(
                     phase.partVulnerability,
                     phasePath + ".partVulnerability");
+            int fireIntervalTicks = Require(
+                phase.fireIntervalTicks,
+                phasePath + ".fireIntervalTicks");
+            int ways = Require(
+                phase.ways,
+                phasePath + ".ways");
+            if (firePattern == BossFirePattern.Wall && ways < 2)
+                throw Error(
+                    phasePath + ".ways",
+                    "must be at least two for wall.");
+            if (firePattern == BossFirePattern.Burst
+                && telegraphTicks < 1)
+            {
+                throw Error(
+                    phasePath + ".telegraphTicks",
+                    "must be positive for burst.");
+            }
             return new BossPhase(
-                Require(
-                    phase.fireIntervalTicks,
-                    phasePath + ".fireIntervalTicks"),
-                Require(phase.ways, phasePath + ".ways"),
+                fireIntervalTicks,
+                ways,
                 speed.Numerator,
                 speed.Denominator,
                 movementPattern,
@@ -507,7 +526,35 @@ namespace Shmup.Core.Content
                 movementPeriodTicks,
                 partVulnerability,
                 durationTicks,
-                telegraphTicks);
+                telegraphTicks,
+                firePattern);
+        }
+
+        static BossFirePattern ParseBossFirePattern(
+            string value,
+            string path)
+        {
+            if (value == null)
+                return BossFirePattern.Aimed;
+            switch (RequireText(value, path))
+            {
+                case "aimed":
+                case "spread":
+                case "rapid":
+                    return BossFirePattern.Aimed;
+                case "radial":
+                    return BossFirePattern.Radial;
+                case "spiral":
+                    return BossFirePattern.Spiral;
+                case "wall":
+                    return BossFirePattern.Wall;
+                case "burst":
+                    return BossFirePattern.Burst;
+                default:
+                    throw Error(
+                        path,
+                        $"has unknown boss fire pattern '{value}'.");
+            }
         }
 
         static BossPartDefinition ParseBossPart(

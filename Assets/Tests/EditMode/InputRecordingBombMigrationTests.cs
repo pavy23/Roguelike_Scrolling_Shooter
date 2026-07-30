@@ -32,7 +32,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void SchemaEightReplayMigratesBombBitToFalse()
+        public void SchemaEightReplayIsRejectedAfterSimulationChange()
         {
             var legacy = new InputRecordingData
             {
@@ -66,12 +66,8 @@ namespace Shmup.Core.Tests
                 checksum = null
             };
 
-            InputCommand[] playback =
-                new InputPlayback(legacy).ToArray();
-
-            Assert.AreEqual(2, playback.Length);
-            Assert.IsFalse(playback[0].ActivateBomb);
-            Assert.IsFalse(playback[1].ActivateBomb);
+            Assert.Throws<System.ArgumentException>(
+                () => new InputPlayback(legacy));
         }
     }
 }

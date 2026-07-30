@@ -296,8 +296,8 @@ namespace Shmup.Core.Tests
             oldRecording.schemaVersion = 3;
             oldRecording.checksum = null;
             oldRecording.routeChoices = null;
-            var playback = new InputPlayback(oldRecording);
-            Assert.AreEqual(0, playback.RouteChoices.Count);
+            Assert.Throws<ArgumentException>(
+                () => new InputPlayback(oldRecording));
         }
 
         [Test]
@@ -339,14 +339,8 @@ namespace Shmup.Core.Tests
             oldRecording.schemaVersion = 9;
             oldRecording.checksum = null;
             oldRecording.routeChoices = new[] { legacyChoice };
-            var playback = new InputPlayback(oldRecording);
-
-            Assert.AreEqual(1, playback.RouteChoices.Count);
-            Assert.AreEqual("beta", playback.RouteChoices[0].ThemeId);
-            Assert.AreEqual(
-                EncounterType.Rare,
-                playback.RouteChoices[0].EncounterType);
-            Assert.AreEqual(1, playback.TotalTicks);
+            Assert.Throws<ArgumentException>(
+                () => new InputPlayback(oldRecording));
         }
 
         static RunManager CreateRun(

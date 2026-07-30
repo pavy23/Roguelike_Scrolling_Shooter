@@ -28,7 +28,7 @@ def laser(
     start_x: float = 0.0,
     start_y: float = 0.0,
     thin: float = 0.0625,
-    full: float = 0.5,
+    full: float = 0.45,
     damage: int = 1,
 ) -> dict:
     return {
@@ -142,59 +142,62 @@ def strip_enemy_spawns(spawns: list, enemy_id: str) -> list:
 def apply_scrapyard(seg: dict) -> None:
     sid = seg["id"]
     # Stage-1 capable scrap segs: floating breakable debris only (no solids).
-    # Keep |y| ≥ 1.5 so a center-pinned rhythm bot (y=0) is not auto-killed by debris.
     if sid == "seg_scrap_debris_line":
         # d1-2: teach cover/clear — 5 mid-field breakables.
         seg["obstacles"] = [
             brk(11.0, 2.5, 25),
-            brk(13.5, -1.75, 30),
+            brk(13.5, -1.5, 30),
             brk(16.0, 3.5, 28),
             brk(18.5, -3.0, 32),
-            brk(14.0, 1.75, 35),
+            brk(14.0, 0.0, 35),
         ]
-
+        seg["gimmickNote"] = "파괴 가능 잔해 5 — 엄폐·치우기 입문"
     elif sid == "seg_scrap_pipe_dash":
         seg["obstacles"] = [
             brk(12.0, 4.0, 22),
             brk(14.5, -3.5, 26),
-            brk(17.0, 1.75, 30),
+            brk(17.0, 1.0, 30),
             brk(19.5, -2.0, 28),
             brk(15.5, 3.0, 24),
-            brk(13.0, -1.75, 34),
+            brk(13.0, -0.5, 34),
         ]
+        seg["gimmickNote"] = "잔해 6 — 대시 레인 사이에 엄폐 섬"
     elif sid == "seg_scrap_skimmer_weave":
         seg["obstacles"] = [
             brk(11.5, 3.25, 30),
             brk(14.0, -3.25, 30),
-            brk(16.5, 1.75, 40),
+            brk(16.5, 0.0, 40),
             brk(19.0, 4.0, 28),
-            brk(12.5, -1.75, 32),
+            brk(12.5, -1.5, 32),
             brk(17.5, -4.0, 26),
         ]
+        seg["gimmickNote"] = "잔해 6 — 스킴 위빙 경로 강제/엄폐"
     elif sid == "seg_scrap_junk_corridor":
         # d2-4: solids frame + denser breakables
         solids = [o for o in (seg.get("obstacles") or []) if o.get("type") == "solid"]
         if len(solids) < 2:
             solids = [solid(11.0, 5.5), solid(15.0, -5.5)]
         seg["obstacles"] = solids + [
-            brk(12.5, 1.75, 35),
+            brk(12.5, 1.5, 35),
             brk(14.0, -2.0, 40),
             brk(16.5, 3.0, 38),
-            brk(18.0, -1.75, 45),
+            brk(18.0, -0.5, 45),
             brk(19.5, 2.5, 42),
         ]
+        seg["gimmickNote"] = "잔해 5 + 프레임 — 좁은 고철 통로 엄폐 전투"
     elif sid == "seg_scrap_tumbler_pack":
         solids = [o for o in (seg.get("obstacles") or []) if o.get("type") == "solid"]
         if len(solids) < 2:
             solids = [solid(11.0, 5.5), solid(15.0, -5.5)]
         seg["obstacles"] = solids + [
-            brk(12.0, 1.75, 45),
+            brk(12.0, 0.0, 45),
             brk(14.5, 3.5, 40),
             brk(14.5, -3.5, 40),
-            brk(17.0, 2.0, 50),
+            brk(17.0, 1.5, 50),
             brk(19.0, -2.5, 48),
-            brk(16.0, -1.75, 55),
+            brk(16.0, -0.5, 55),
         ]
+        seg["gimmickNote"] = "잔해 6 — 텀블러 무리 앞에서 엄폐 파쇄"
     elif sid == "seg_scrap_rust_gauntlet":
         solids = [o for o in (seg.get("obstacles") or []) if o.get("type") == "solid"]
         if len(solids) < 3:
@@ -202,12 +205,13 @@ def apply_scrapyard(seg: dict) -> None:
         seg["obstacles"] = solids + [
             brk(11.5, 2.0, 50),
             brk(13.0, -2.5, 55),
-            brk(15.5, 1.75, 60),
+            brk(15.5, 0.5, 60),
             brk(17.0, 3.5, 48),
             brk(17.0, -3.5, 48),
-            brk(19.5, -1.75, 55),
+            brk(19.5, -0.5, 55),
             brk(12.5, -4.0, 42),
         ]
+        seg["gimmickNote"] = "잔해 7 — 후반 엄폐 밀도, 파쇄 보상"
 
 
 def apply_hive(seg: dict) -> None:
@@ -233,6 +237,7 @@ def apply_hive(seg: dict) -> None:
             solids = [o for o in obs if o.get("type") == "solid"][:2]
             breaks = [o for o in obs if o.get("type") == "breakable"][:2]
             seg["obstacles"] = solids + breaks
+        seg["gimmickNote"] = "벽 촉수 3 — 상하 고정 위협, 포자 사이로 위치 선정"
         if "environment" in seg:
             del seg["environment"]
 
@@ -249,6 +254,7 @@ def apply_hive(seg: dict) -> None:
         seg["spawns"] = spawns
         if "environment" in seg:
             del seg["environment"]
+        seg["gimmickNote"] = "벽 촉수 2 — 랜서 러시 레인 경계"
 
     elif sid == "seg_hive_brood_wave":
         spawns = strip_enemy_spawns(seg.get("spawns") or [], "hive_tentacle")
@@ -256,13 +262,14 @@ def apply_hive(seg: dict) -> None:
             [
                 spawn(100, "hive_tentacle", 5.25),
                 spawn(100, "hive_tentacle", -5.25),
-                spawn(400, "hive_tentacle", 3.5),
+                spawn(400, "hive_tentacle", 0.0),
             ]
         )
         spawns.sort(key=lambda s: (s["tick"], s["y"]))
         seg["spawns"] = spawns
         if "environment" in seg:
             del seg["environment"]
+        seg["gimmickNote"] = "벽 촉수 3 — 브루드 웨이브 사이 앵커"
 
     elif sid == "seg_hive_hornet_dive":
         # Dive enemies + open field; 2 tentacles as posts.
@@ -277,6 +284,7 @@ def apply_hive(seg: dict) -> None:
         seg["spawns"] = spawns
         if "environment" in seg:
             del seg["environment"]
+        seg["gimmickNote"] = "벽 촉수 2 — 호넷 다이브 회피 축"
 
     elif sid == "seg_hive_organic_pulse":
         # Mild narrowing: start ±9.0 → end ±5.0 (width 18→10u). Telegraph whole segment.
@@ -303,6 +311,7 @@ def apply_hive(seg: dict) -> None:
         solids = [o for o in obs if o.get("type") == "solid"][:2]
         breaks = [o for o in obs if o.get("type") == "breakable"][:2]
         seg["obstacles"] = solids + breaks
+        seg["gimmickNote"] = "촉수 3 + 통로 18→10u — 예고 후 완만 수축"
 
     elif sid == "seg_hive_nest_choke":
         # Stronger choke: start ±8.5 → end ±3.75 (width 17→7.5u).
@@ -329,6 +338,7 @@ def apply_hive(seg: dict) -> None:
         solids = [o for o in obs if o.get("type") == "solid"][:2]
         breaks = [o for o in obs if o.get("type") == "breakable"][:2]
         seg["obstacles"] = solids + breaks
+        seg["gimmickNote"] = "촉수 2 + 통로 17→7.5u — 네스트 초크, 위치 선정 강제"
 
 
 def apply_fortress(seg: dict) -> None:
@@ -370,59 +380,64 @@ def apply_fortress(seg: dict) -> None:
         ],
     }
 
-    # Lasers/debris keep |y| ≥ 2.0 so a center-pinned rhythm bot is not beam-killed.
     if sid == "seg_fortress_sentry_grid":
         # 2 gates: top & bottom rails, desynced cycles.
         seg["obstacles"] = base_solids[sid] + [
             emitter(16.0, 4.0, gate_hi),
             emitter(16.0, -4.0, gate_lo),
-            brk(12.5, 1.75, 30),
-            brk(18.5, -1.75, 35),
+            brk(12.5, 0.0, 30),
+            brk(18.5, 1.5, 35),
         ]
+        seg["gimmickNote"] = "레이저 게이트 2 (주기 150/180) — 상하 타이밍 회피"
 
     elif sid == "seg_fortress_interceptor_assault":
-        # Single off-center gate so dive enemies remain dodgeable; center lane stays open.
+        # Single mid gate so dive enemies remain dodgeable.
         seg["obstacles"] = base_solids[sid] + [
-            emitter(15.0, 2.75, gate_mid),
+            emitter(15.0, 0.0, gate_mid),
             brk(12.0, 3.0, 28),
             brk(12.0, -3.0, 28),
-            brk(18.0, -1.75, 40),
+            brk(18.0, 0.0, 40),
         ]
+        seg["gimmickNote"] = "중앙 레이저 1 (주기 120) — 인터셉터 사이로 통과 타이밍"
 
     elif sid == "seg_fortress_mortar_line":
         seg["obstacles"] = base_solids[sid] + [
             emitter(17.0, 3.25, gate_hi),
             emitter(17.0, -3.25, gate_lo),
-            brk(13.0, 1.75, 35),
-            brk(19.0, -2.0, 40),
+            brk(13.0, 0.0, 35),
+            brk(19.0, 2.0, 40),
         ]
+        seg["gimmickNote"] = "레이저 2 + 박격 라인 — 이중 타이밍"
 
     elif sid == "seg_fortress_turret_cross":
         seg["obstacles"] = base_solids[sid] + [
-            emitter(15.5, 2.75, gate_mid),
-            emitter(15.5, -2.75, gate_hi),
-            brk(12.0, 1.75, 35),
-            brk(19.0, -1.75, 40),
+            emitter(15.5, 2.5, gate_mid),
+            emitter(15.5, -2.5, gate_hi),
+            brk(12.0, 0.0, 35),
+            brk(19.0, -1.5, 40),
         ]
+        seg["gimmickNote"] = "포탑 벽 + 레이저 2 — 교차 사선 타이밍"
 
     elif sid == "seg_fortress_drone_lattice":
         # 3 gates max concurrent lasers well under MaxLasers=8.
         seg["obstacles"] = base_solids[sid] + [
             emitter(13.0, 4.5, gate_hi),
-            emitter(16.0, 2.5, gate_mid),
+            emitter(16.0, 0.0, gate_mid),
             emitter(19.0, -4.5, gate_lo),
             brk(14.5, 2.0, 40),
             brk(17.5, -2.0, 45),
         ]
+        seg["gimmickNote"] = "레이저 3 (120/150/180 비동기) — 격자 타이밍 퍼즐"
 
     elif sid == "seg_fortress_armored_gate":
         seg["obstacles"] = base_solids[sid] + [
             emitter(12.0, 3.5, gate_hi),
-            emitter(15.5, -2.5, gate_slant),
+            emitter(15.5, -1.0, gate_slant),
             emitter(19.0, -3.5, gate_lo),
-            brk(14.0, 1.75, 45),
-            brk(17.5, -1.75, 50),
+            brk(14.0, 1.5, 45),
+            brk(17.5, 0.0, 50),
         ]
+        seg["gimmickNote"] = "장갑 게이트 레이저 3 — 보스 전 최종 타이밍 시험"
 
 
 def apply_nebula(seg: dict) -> None:
@@ -443,6 +458,10 @@ def apply_nebula(seg: dict) -> None:
     if sid in profiles:
         x_ps, y_ps = profiles[sid]
         merge_env(seg, {**drift(x_ps, y_ps)})
+        mag = (x_ps * x_ps + y_ps * y_ps) ** 0.5
+        seg["gimmickNote"] = (
+            f"시야 제한 + 드리프트 ({x_ps:+.2f},{y_ps:+.2f}) u/s ≈{mag:.2f} — 보정 조준"
+        )
 
 
 def apply_core(seg: dict) -> None:
@@ -458,10 +477,11 @@ def apply_core(seg: dict) -> None:
         seg["obstacles"] = solids + [
             brk(12.0, 2.0, 45),
             brk(14.5, -2.5, 50),
-            brk(17.0, 1.75, 55),
+            brk(17.0, 0.5, 55),
             brk(19.0, 3.0, 48),
         ]
         merge_env(seg, {**drift(0.30, -0.20)})  # mild ~0.36
+        seg["gimmickNote"] = "잔해 4 + 약 드리프트 — 가디언 벽 엄폐"
 
     elif sid == "seg_core_final_gauntlet":
         # Lasers + breakables, open vertical (no corridor).
@@ -469,11 +489,12 @@ def apply_core(seg: dict) -> None:
         seg["obstacles"] = solids + [
             emitter(15.0, 3.5, gate_a),
             emitter(18.0, -3.5, gate_b),
-            brk(12.0, 1.75, 50),
-            brk(16.5, -1.75, 55),
+            brk(12.0, 0.0, 50),
+            brk(16.5, 1.5, 55),
         ]
         if "environment" in seg:
             del seg["environment"]
+        seg["gimmickNote"] = "레이저 2 + 잔해 2 — 최종 게릴라 타이밍"
 
     elif sid == "seg_core_rift_blades":
         # Fast blades need space — weak drift only, light debris.
@@ -481,12 +502,13 @@ def apply_core(seg: dict) -> None:
         seg["obstacles"] = solids + [
             brk(13.0, 2.5, 40),
             brk(16.0, -2.5, 40),
-            brk(19.0, 1.75, 45),
+            brk(19.0, 0.0, 45),
         ]
         merge_env(seg, {**drift(-0.35, 0.25)})  # ~0.43
+        seg["gimmickNote"] = "잔해 3 + 드리프트 — 리프트 블레이드 보정 회피"
 
     elif sid == "seg_core_phase_discs":
-        # Static discs + mild corridor (not tight) + one off-center laser.
+        # Static discs + mild corridor (not tight) + one laser.
         merge_env(
             seg,
             {
@@ -495,21 +517,23 @@ def apply_core(seg: dict) -> None:
         )
         solids = [o for o in (seg.get("obstacles") or []) if o.get("type") == "solid"][:2]
         seg["obstacles"] = solids + [
-            emitter(17.0, 2.75, gate_a),
+            emitter(17.0, 0.0, gate_a),
             brk(13.0, 2.0, 45),
             brk(13.0, -2.0, 45),
         ]
+        seg["gimmickNote"] = "통로 18→11u + 레이저 1 — 페이즈 디스크 위치 선정"
 
     elif sid == "seg_core_shard_battery":
         # Heavy solids already; add breakable cover + drift, no tight corridor.
         solids = [o for o in (seg.get("obstacles") or []) if o.get("type") == "solid"][:4]
         seg["obstacles"] = solids + [
-            brk(12.5, 1.75, 55),
+            brk(12.5, 1.0, 55),
             brk(15.0, -2.0, 55),
             brk(18.0, 2.5, 60),
             emitter(16.0, -4.0, gate_b),
         ]
         merge_env(seg, {**drift(0.50, 0.30)})  # ~0.58
+        seg["gimmickNote"] = "잔해 3 + 레이저 1 + 드리프트 — 샤드 배터리 종합"
 
     elif sid == "seg_core_void_mix":
         # Mild corridor + debris + light drift. No multi-laser (overload with void mix).
@@ -522,34 +546,12 @@ def apply_core(seg: dict) -> None:
         )
         solids = [o for o in (seg.get("obstacles") or []) if o.get("type") == "solid"][:3]
         seg["obstacles"] = solids + [
-            brk(12.0, 1.75, 50),
+            brk(12.0, 0.0, 50),
             brk(15.5, 2.5, 55),
             brk(18.5, -2.0, 55),
             brk(14.0, -3.0, 48),
         ]
-
-
-def clear_center_lane(seg: dict, min_abs_y: float = 1.5) -> None:
-    """Nudge breakables/lasers off y≈0 so a center-pinned rhythm bot survives.
-
-    Real play still forces cover/timing via offset debris and off-center beams;
-    the open center is a readable default lane (Gradius-style).
-    """
-    obs = seg.get("obstacles") or []
-    for o in obs:
-        y = float(o.get("y", 0))
-        if abs(y) >= min_abs_y:
-            continue
-        if o.get("type") in ("breakable", "laserEmitter"):
-            # Alternate up/down by x to avoid stacking.
-            sign = 1.0 if float(o.get("x", 0)) % 2 < 1 else -1.0
-            o["y"] = sign * min_abs_y
-    for s in seg.get("spawns") or []:
-        if s.get("enemyId") != "hive_tentacle":
-            continue
-        y = float(s.get("y", 0))
-        if abs(y) < min_abs_y:
-            s["y"] = min_abs_y if y >= 0 else -min_abs_y
+        seg["gimmickNote"] = "통로 17→9u + 잔해 4 + 드리프트 — 보이드 믹스 종합"
 
 
 def apply_waves(waves: dict) -> None:
@@ -582,9 +584,8 @@ def apply_waves(waves: dict) -> None:
             # Shared intro segments: no stage gimmick (tutorial clarity).
             if "environment" in seg:
                 del seg["environment"]
-        # Shared segs with pre-existing y=0 breakables also need a free center lane.
-        clear_center_lane(seg)
-        seg.pop("gimmickNote", None)
+            if "gimmickNote" in seg:
+                del seg["gimmickNote"]
 
 
 def validate_caps(waves: dict) -> None:

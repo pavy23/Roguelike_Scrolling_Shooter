@@ -704,6 +704,9 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual(
                     expected.BossPhases[i].TelegraphTicks,
                     actual.BossPhases[i].TelegraphTicks);
+                Assert.AreEqual(
+                    expected.BossPhases[i].FirePattern,
+                    actual.BossPhases[i].FirePattern);
             }
             Assert.AreEqual(expected.Segments.Count, actual.Segments.Count);
 

@@ -1571,3 +1571,46 @@ Core 파서는 `enemies.json`의 `halfWidth`/`halfHeight`를 정수 서브유닛
 문제는 히트박스가 아니라 `hp` 티어이므로 이번 Core 작업에는 넣지 않았습니다.
 GROK은 스프라이트 크기와 halfWidth/halfHeight 정합 및 크기별 hp 티어를 같은 데이터
 사이클에서 검산해 주세요.
+
+---
+
+## [ ] REQ-065 후속 → GROK: 바이옴 내 콤보 이월 점수 검산
+
+REQ-065 Core는 같은 바이옴의 일반 방→중간보스→후반 방→바이옴 보스 사이에서
+플레이어 위치와 함께 `MultiplierLevel`, `ComboGauge`, `TicksSinceLastKill`을 이월한다.
+바이옴 변경과 히든 지역 진입에서는 모두 0으로 리셋한다.
+
+연속감에는 맞지만 이전처럼 방마다 콤보가 0이 되는 기준보다 바이옴 총점과 보상 체감이
+상승할 수 있다. 기존/신규 규칙의 바이옴별 평균·P90 점수 배율, 최대 배율 유지 시간,
+최종 점수 분포를 같은 시드·입력 정책으로 비교하고 현재 combo 임계/감쇠 수치 조정이
+필요한지 제안해 주세요. 수치 변경은 사람 승인 전 하지 않습니다.
+
+## [ ] REQ-066 후속 → GROK: 보스별 발사 pattern 배치
+
+`BossPhase.pattern`은 이제 아래 규칙으로 실제 시뮬레이션에 적용된다.
+
+- `aimed`/기존 `spread`/기존 `rapid`: 플레이어 중심 N-way. `ways`는 탄 수.
+- `radial`: 360° 균등 링. `ways`는 링 탄 수.
+- `spiral`: 360° 균등 팔이 발사마다 11.25° 회전. `ways`는 동시 팔 수.
+- `wall`: 플레이어 Y 이동 범위에 `ways`개 지점을 만들고, 전용 결정론 RNG로 고른
+  한 지점을 틈으로 비워 `ways - 1`발을 수평 발사. `ways >= 2`.
+- `burst`: 매 일제사 전에 `telegraphTicks` 예고 후 플레이어 중심 N-way 발사.
+  발사 뒤 `fireIntervalTicks`를 기다리고 다시 예고한다. `telegraphTicks >= 1`.
+- 모든 타입의 `bulletSpeed`는 기존과 같은 정확한 서브유닛/틱 유리수 속도다.
+- 탄 예산이 부족하면 가능한 수만 생성하고 `EnemyBulletCapacityExceeded`를 1회 낸다.
+
+스테이지/난이도별 조합과 `ways`/interval/speed/telegraph 수치는 GameData 소유자가
+채워 주세요. radial/wall의 동시 탄 수가 `MaxEnemyBullets`에 자주 걸리지 않는지와
+각 보스 TTK 구간의 화면 탄 밀도를 헤드리스 시뮬로 함께 검산해 주세요.
+
+## [ ] REQ-064/065 후속 → CLAUDE: 리플레이 버전 안내
+
+- `InputRecordingData.CurrentSchemaVersion`은 11이며 `InputPlayback`은 방 연속성 변경 전
+  v1~v10 기록을 의도적으로 거부한다. 로드 UI에서 “호환되지 않는 이전 시뮬 버전”
+  안내로 처리하고 손상 파일 메시지와 구분해 주세요.
+- 기본 `InputRecorder`는 손실 없는 최악 아날로그 입력 60분(216,000 runs)을 예약한다.
+  기록 전에 입력을 양자화할 필요가 없고, 시뮬에 전달한 명령 그대로 기록하면 된다.
+- `RunSuspendData`는 v12이며 방 시작 위치·콤보를 포함한다. v11 이하는 기존 규칙대로
+  스폰 위치/콤보 0으로 이행된다.
+- `EnemyBulletCapacityExceeded`는 보스 일제사가 적탄 상한으로 잘렸음을 나타내는
+  진단 이벤트다. 개발 HUD/로그에서 관찰 가능하게 연결하면 패턴 데이터 검산에 유용하다.

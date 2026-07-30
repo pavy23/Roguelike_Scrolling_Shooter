@@ -243,6 +243,7 @@ namespace Shmup.Core.Simulation
                 FoldInt32((int)phase.PartVulnerability);
                 FoldInt32(phase.DurationTicks);
                 FoldInt32(phase.TelegraphTicks);
+                FoldInt32((int)phase.FirePattern);
             }
 
             FoldInt32(plan.BossParts.Count);
@@ -394,6 +395,7 @@ namespace Shmup.Core.Simulation
             FoldInt32(battle.MultiplierLevel);
             FoldInt32(battle.ScoreMultiplier);
             FoldInt32(battle.ComboGauge);
+            FoldInt32(battle.TicksSinceLastKill);
             FoldInt64(battle.ScrollX);
             FoldInt32(battle.PlayerX);
             FoldInt32(battle.PlayerY);
