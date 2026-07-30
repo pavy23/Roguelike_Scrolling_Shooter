@@ -9,7 +9,7 @@ using Shmup.Core.Simulation;
 namespace Shmup.Core.Content
 {
     /// <summary>
-    /// Unity-free parser for enemies.json schema v2/v3, weapons.json schema v2/v3,
+    /// Unity-free parser for enemies.json schema v2/v3, weapons.json schema v2-v4,
     /// waves.json schema v2,
     /// rewards.json schema v1, optional ships.json schema v1, optional
     /// scoring.json schema v1, and optional player.json schema v1 tuning.
@@ -20,6 +20,7 @@ namespace Shmup.Core.Content
         public const int SupportedSchemaVersion = 2;
         public const int SupportedEnemiesSchemaVersion = 3;
         public const int SupportedWeaponsSchemaVersion = 3;
+        public const int SupportedPrimaryWeaponsSchemaVersion = 4;
 
         public static GameDataSet Parse(
             string enemiesJson,
@@ -96,6 +97,7 @@ namespace Shmup.Core.Content
                     enemies.Definitions,
                     weapons.Definitions,
                     weapons.MainShot.Id,
+                    weapons.PrimaryWeaponFamilies,
                     weapons.MissileFamilies,
                     weapons.DefaultMissileFamily,
                     weapons.OptionFormations,
@@ -434,14 +436,16 @@ namespace Shmup.Core.Content
             RewardsDto root,
             BattleContent content)
         {
-            const int supportedRewardsSchemaVersion = 1;
+            const int supportedRewardsSchemaVersion = 2;
             int schemaVersion = Require(
                 root.schemaVersion,
                 "rewards.json.schemaVersion");
-            if (schemaVersion != supportedRewardsSchemaVersion)
+            if (schemaVersion != 1
+                && schemaVersion != supportedRewardsSchemaVersion)
                 throw Error(
                     "rewards.json.schemaVersion",
-                    $"must be {supportedRewardsSchemaVersion}, but was {schemaVersion}.");
+                    $"must be 1 or {supportedRewardsSchemaVersion}, "
+                    + $"but was {schemaVersion}.");
 
             int optionCount = Require(root.optionCount, "rewards.json.optionCount");
             if (optionCount != RunManager.RewardOptionCount)
@@ -476,6 +480,15 @@ namespace Shmup.Core.Content
                     throw Error(
                         $"rewards.json.rewards[{i}].formationId",
                         "references an option formation missing from weapons.json.");
+                }
+                if (definitions[i].Type
+                        == RewardType.PrimaryWeaponFamily
+                    && content.FindPrimaryWeaponFamily(
+                        definitions[i].PrimaryWeaponFamily) == null)
+                {
+                    throw Error(
+                        $"rewards.json.rewards[{i}].primaryFamilyId",
+                        "references a primary weapon family missing from weapons.json.");
                 }
                 for (int previous = 0; previous < i; previous++)
                 {
@@ -565,6 +578,8 @@ namespace Shmup.Core.Content
                 MissileFamily.Straight;
             OptionFormation optionFormation =
                 OptionFormation.Trail;
+            PrimaryWeaponFamily primaryWeaponFamily =
+                PrimaryWeaponFamily.Vulcan;
             if (type == RewardType.SlotLevel)
             {
                 slot = ParsePowerUpSlot(source.slot, path + ".slot");
@@ -611,11 +626,24 @@ namespace Shmup.Core.Content
                     path + ".formationId",
                     "is only valid for optionFormation rewards.");
             }
+            if (type == RewardType.PrimaryWeaponFamily)
+            {
+                primaryWeaponFamily = ParsePrimaryWeaponFamily(
+                    source.primaryFamilyId,
+                    path + ".primaryFamilyId");
+            }
+            else if (source.primaryFamilyId != null)
+            {
+                throw Error(
+                    path + ".primaryFamilyId",
+                    "is only valid for primaryWeaponFamily rewards.");
+            }
 
             bool amountOptional =
                 type == RewardType.Modifier
                 || type == RewardType.MissileFamily
-                || type == RewardType.OptionFormation;
+                || type == RewardType.OptionFormation
+                || type == RewardType.PrimaryWeaponFamily;
             int amount = amountOptional && !source.amount.HasValue
                 ? 1
                 : Require(source.amount, path + ".amount");
@@ -650,7 +678,8 @@ namespace Shmup.Core.Content
                 source.maxPerRun,
                 modifierId,
                 missileFamily,
-                optionFormation);
+                optionFormation,
+                primaryWeaponFamily);
         }
 
         static RewardType ParseRewardType(string value, string path)
@@ -671,6 +700,8 @@ namespace Shmup.Core.Content
                 case "optionFormation":
                     return RewardType.OptionFormation;
                 case "bombStock": return RewardType.BombStock;
+                case "primaryWeaponFamily":
+                    return RewardType.PrimaryWeaponFamily;
                 default: throw Error(path, $"has unknown value '{value}'.");
             }
         }

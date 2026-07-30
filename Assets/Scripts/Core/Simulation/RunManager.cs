@@ -44,7 +44,8 @@ namespace Shmup.Core.Simulation
         MissileFamily = 7,
         OptionFormation = 8,
         /// <summary>전멸 폭탄 스톡을 상한까지 즉시 획득.</summary>
-        BombStock = 9
+        BombStock = 9,
+        PrimaryWeaponFamily = 10
     }
 
     /// <summary>보상 후보 하나.</summary>
@@ -73,7 +74,8 @@ namespace Shmup.Core.Simulation
                 amount,
                 modifierId,
                 MissileFamily.Straight,
-                OptionFormation.Trail)
+                OptionFormation.Trail,
+                PrimaryWeaponFamily.Vulcan)
         {
         }
 
@@ -84,7 +86,9 @@ namespace Shmup.Core.Simulation
             int amount,
             BattleModifier modifierId,
             MissileFamily missileFamily,
-            OptionFormation optionFormation)
+            OptionFormation optionFormation,
+            PrimaryWeaponFamily primaryWeaponFamily =
+                PrimaryWeaponFamily.Vulcan)
         {
             Id = id;
             Type = type;
@@ -93,6 +97,7 @@ namespace Shmup.Core.Simulation
             ModifierId = modifierId;
             MissileFamily = missileFamily;
             OptionFormation = optionFormation;
+            PrimaryWeaponFamily = primaryWeaponFamily;
         }
 
         public string Id { get; }
@@ -102,6 +107,7 @@ namespace Shmup.Core.Simulation
         public BattleModifier ModifierId { get; }
         public MissileFamily MissileFamily { get; }
         public OptionFormation OptionFormation { get; }
+        public PrimaryWeaponFamily PrimaryWeaponFamily { get; }
     }
 
     public readonly struct RouteOption
@@ -189,7 +195,9 @@ namespace Shmup.Core.Simulation
             int? maxPerRun = null,
             BattleModifier modifierId = BattleModifier.None,
             MissileFamily missileFamily = MissileFamily.Straight,
-            OptionFormation optionFormation = OptionFormation.Trail)
+            OptionFormation optionFormation = OptionFormation.Trail,
+            PrimaryWeaponFamily primaryWeaponFamily =
+                PrimaryWeaponFamily.Vulcan)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Reward id cannot be empty.", nameof(id));
@@ -226,6 +234,12 @@ namespace Shmup.Core.Simulation
                     optionFormation))
                 throw new ArgumentOutOfRangeException(
                     nameof(optionFormation));
+            if (type == RewardType.PrimaryWeaponFamily
+                && !Enum.IsDefined(
+                    typeof(PrimaryWeaponFamily),
+                    primaryWeaponFamily))
+                throw new ArgumentOutOfRangeException(
+                    nameof(primaryWeaponFamily));
 
             Id = id;
             Type = type;
@@ -238,6 +252,7 @@ namespace Shmup.Core.Simulation
             ModifierId = modifierId;
             MissileFamily = missileFamily;
             OptionFormation = optionFormation;
+            PrimaryWeaponFamily = primaryWeaponFamily;
         }
 
         public string Id { get; }
@@ -252,6 +267,7 @@ namespace Shmup.Core.Simulation
         public BattleModifier ModifierId { get; }
         public MissileFamily MissileFamily { get; }
         public OptionFormation OptionFormation { get; }
+        public PrimaryWeaponFamily PrimaryWeaponFamily { get; }
     }
 
     /// <summary>Immutable reward pool parsed from rewards.json.</summary>
@@ -349,7 +365,7 @@ namespace Shmup.Core.Simulation
     public sealed class RunProgressionConfig
     {
         public const int DefaultBiomeCount = 5;
-        public const int DefaultRoomsPerBiome = 4;
+        public const int DefaultRoomsPerBiome = 3;
         public const int DefaultFinalStageIndex = DefaultBiomeCount;
         public const int HiddenRooms = 2;
 
@@ -524,6 +540,7 @@ namespace Shmup.Core.Simulation
         int _stageStartShieldStock;
         int _stageStartBombStock;
         BattleModifier _stageStartActiveModifiers;
+        PrimaryWeaponFamily _stageStartPrimaryWeaponFamily;
         MissileFamily _stageStartMissileFamily;
         OptionFormation _stageStartOptionFormation;
         int _stageStartEliteRoomsCleared;
@@ -975,6 +992,13 @@ namespace Shmup.Core.Simulation
                         $"Reward '{reward.Id}' references an unavailable "
                         + "option formation.",
                         nameof(rewards));
+                if (reward.Type == RewardType.PrimaryWeaponFamily
+                    && _battleContent.FindPrimaryWeaponFamily(
+                        reward.PrimaryWeaponFamily) == null)
+                    throw new ArgumentException(
+                        $"Reward '{reward.Id}' references an unavailable "
+                        + "primary weapon family.",
+                        nameof(rewards));
             }
             _rewardPool = new RewardDefinition[_rewards.All.Count];
             _rewardPoolCatalogIndices = new int[_rewards.All.Count];
@@ -1010,23 +1034,19 @@ namespace Shmup.Core.Simulation
                 _powerUpMaxLevels[i] = PowerUpGauge.GetMaxLevel((PowerUpSlot)i);
             ApplyShipSpeedMultiplier(_battleConfig, _ship);
             ApplyShipWeaponProfile(_battleConfig, _ship);
+            CurrentPrimaryWeaponFamily =
+                PrimaryWeaponFamilyFor(_ship.WeaponType);
             if (_ship.StartingShieldStock.HasValue)
             {
                 _battleConfig.StartingShieldStock =
-                    _ship.StartingShieldStock.Value;
-            }
-            else if (_battleConfig.StartingShieldStock
-                > _battleConfig.MaxShieldStock)
-            {
-                // Legacy ship-less callers used PlayerMaxHp as an explicit
-                // survivability override (including the determinism audit).
-                // Preserve that contract without bypassing the cap for real
-                // ships.json definitions, which always provide starting stock.
-                _battleConfig.MaxShieldStock =
-                    _battleConfig.StartingShieldStock;
+                    Math.Min(
+                        _ship.StartingShieldStock.Value,
+                        _battleConfig.MaxShieldStock);
             }
             _initialShieldStock =
-                _battleConfig.StartingShieldStock;
+                Math.Min(
+                    _battleConfig.StartingShieldStock,
+                    _battleConfig.MaxShieldStock);
             _initialBombStock =
                 _battleConfig.StartingBombStock;
             _initialFireIntervalTicks = _battleConfig.FireIntervalTicks;
@@ -1123,8 +1143,44 @@ namespace Shmup.Core.Simulation
         /// restarts, matching power-up carry policy, and start empty on a new manager.
         /// </summary>
         public BattleModifier ActiveModifiers { get; private set; }
+        public PrimaryWeaponFamily CurrentPrimaryWeaponFamily
+        {
+            get;
+            private set;
+        }
+        public PrimaryWeaponFamilyDefinition CurrentPrimaryWeaponDefinition =>
+            _battleContent.FindPrimaryWeaponFamily(
+                CurrentPrimaryWeaponFamily);
         public MissileFamily CurrentMissileFamily { get; private set; }
         public OptionFormation CurrentOptionFormation { get; private set; }
+        public int MaxShieldStock => _battleConfig.MaxShieldStock;
+
+        /// <summary>
+        /// Runtime integration point for future max-stock rewards/options.
+        /// Current stock is clamped immediately when the cap is lowered.
+        /// </summary>
+        public void SetMaxShieldStock(int maxShieldStock)
+        {
+            if (maxShieldStock < BattleSimConfig.DefaultMaxShieldStock
+                || maxShieldStock
+                    > BattleSimConfig.MaximumShieldStock)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maxShieldStock),
+                    $"Shield cap must be in "
+                    + $"{BattleSimConfig.DefaultMaxShieldStock}.."
+                    + $"{BattleSimConfig.MaximumShieldStock}.");
+            if (!(Battle is BattleSim battle))
+                throw new InvalidOperationException(
+                    "Runtime shield cap changes require BattleSim.");
+            battle.SetMaxShieldStock(maxShieldStock);
+            _battleConfig.MaxShieldStock = maxShieldStock;
+            _battleConfig.StartingShieldStock =
+                Math.Min(
+                    _battleConfig.StartingShieldStock,
+                    maxShieldStock);
+            _stageStartShieldStock =
+                Math.Min(_stageStartShieldStock, maxShieldStock);
+        }
 
         /// <summary>AwaitingReward 상태에서만 유효. 항상 RewardOptionCount개.</summary>
         public IReadOnlyList<RewardOption> RewardOptions => _rewardOptions;
@@ -1219,6 +1275,8 @@ namespace Shmup.Core.Simulation
                 maxBombStock = _battleConfig.MaxBombStock,
                 rewardAcquisitions = acquisitions,
                 activeModifiers = (int)_stageStartActiveModifiers,
+                primaryWeaponFamily =
+                    (int)_stageStartPrimaryWeaponFamily,
                 missileFamily = (int)_stageStartMissileFamily,
                 optionFormation = (int)_stageStartOptionFormation,
                 shipId = _ship.Id,
@@ -1388,10 +1446,22 @@ namespace Shmup.Core.Simulation
             manager._roomsCleared = data.roomsCleared;
             manager.ActiveModifiers =
                 (BattleModifier)data.activeModifiers;
+            manager.CurrentPrimaryWeaponFamily =
+                data.primaryWeaponFamily < 0
+                    ? PrimaryWeaponFamilyFor(
+                        resolvedShip.WeaponType)
+                    : (PrimaryWeaponFamily)
+                        data.primaryWeaponFamily;
             manager.CurrentMissileFamily =
                 (MissileFamily)data.missileFamily;
             manager.CurrentOptionFormation =
                 (OptionFormation)data.optionFormation;
+            manager.ApplyPrimaryWeaponFamilyProfile(
+                manager._battleContent.FindPrimaryWeaponFamily(
+                    manager.CurrentPrimaryWeaponFamily)
+                ?? throw new ArgumentException(
+                    "Suspend primary weapon family is unavailable.",
+                    nameof(data)));
             manager.ApplyCurrentLoadoutProfiles();
             manager._battleConfig.MaxShieldStock =
                 data.maxShieldStock;
@@ -1515,7 +1585,13 @@ namespace Shmup.Core.Simulation
             _rewardFromBiomeBoss = fromBiomeBoss;
             _rewardSelectionsRemaining = 1;
             _rewardSelectionRound = 0;
-            _rewardOptions = GenerateRewardOptions();
+            IReadOnlyList<RewardOption> options =
+                GenerateRewardOptions();
+            if (options.Count != RewardOptionCount)
+                throw new InvalidOperationException(
+                    "Reward selection cannot begin without "
+                    + $"{RewardOptionCount} choices.");
+            _rewardOptions = options;
             State = RunState.AwaitingReward;
         }
 
@@ -1717,14 +1793,17 @@ namespace Shmup.Core.Simulation
 
         void BeginRouteSelectionOrAdvance()
         {
-            _routeOptions = _preparedRouteOptions;
+            IReadOnlyList<RouteOption> prepared =
+                _preparedRouteOptions;
             _preparedRouteOptions = Array.Empty<RouteOption>();
-            if (_routeOptions.Count >= MinimumRouteOptionCount)
+            if (prepared.Count >= MinimumRouteOptionCount)
             {
+                _routeOptions = prepared;
                 State = RunState.AwaitingRoute;
                 return;
             }
 
+            _routeOptions = Array.Empty<RouteOption>();
             if (RoomIndex >= RoomsPerBiome)
                 AdvanceToBiomeBoss();
             else
@@ -1786,6 +1865,10 @@ namespace Shmup.Core.Simulation
                     CurrentOptionFormation = option.OptionFormation;
                     ApplyCurrentLoadoutProfiles();
                     break;
+                case RewardType.PrimaryWeaponFamily:
+                    SwitchPrimaryWeaponFamily(
+                        option.PrimaryWeaponFamily);
+                    break;
                 default:
                     throw new InvalidOperationException($"Unknown reward type {option.Type}.");
             }
@@ -1812,6 +1895,10 @@ namespace Shmup.Core.Simulation
                 if (reward.Type == RewardType.OptionFormation
                     && reward.OptionFormation
                         == CurrentOptionFormation)
+                    continue;
+                if (reward.Type == RewardType.PrimaryWeaponFamily
+                    && reward.PrimaryWeaponFamily
+                        == CurrentPrimaryWeaponFamily)
                     continue;
 
                 _rewardPool[eligibleCount] = reward;
@@ -1870,7 +1957,8 @@ namespace Shmup.Core.Simulation
                         modifier.Amount,
                         modifier.ModifierId,
                         modifier.MissileFamily,
-                        modifier.OptionFormation);
+                        modifier.OptionFormation,
+                        modifier.PrimaryWeaponFamily);
                     int last = --poolCount;
                     _rewardPool[modifierPick] = _rewardPool[last];
                     _rewardPoolCatalogIndices[modifierPick] =
@@ -1896,7 +1984,8 @@ namespace Shmup.Core.Simulation
                     selected.Amount,
                     selected.ModifierId,
                     selected.MissileFamily,
-                    selected.OptionFormation);
+                    selected.OptionFormation,
+                    selected.PrimaryWeaponFamily);
 
                 int last = --poolCount;
                 _rewardPool[pick] = _rewardPool[last];
@@ -2052,6 +2141,10 @@ namespace Shmup.Core.Simulation
             _battleConfig.StartingBombStock = _initialBombStock;
             _battleConfig.FireIntervalTicks = _initialFireIntervalTicks;
             _battleConfig.MainShotBaseDamage = _initialMainShotBaseDamage;
+            ApplyPrimaryWeaponFamilyProfile(
+                CurrentPrimaryWeaponDefinition
+                ?? throw new InvalidOperationException(
+                    "The current primary weapon family is unavailable."));
             _battleConfig.PlayerSpeedNumerator = _initialPlayerSpeedNumerator;
             _battleConfig.PlayerSpeedDenominator = _initialPlayerSpeedDenominator;
             PowerUpGauge = nextGauge;
@@ -2232,7 +2325,11 @@ namespace Shmup.Core.Simulation
                     data.missileFamily)
                 || !Enum.IsDefined(
                     typeof(OptionFormation),
-                    data.optionFormation))
+                    data.optionFormation)
+                || (data.primaryWeaponFamily != -1
+                    && !Enum.IsDefined(
+                        typeof(PrimaryWeaponFamily),
+                        data.primaryWeaponFamily)))
                 throw new ArgumentException(
                     "Suspend weapon loadout is invalid.",
                     nameof(data));
@@ -2410,7 +2507,10 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     "Suspend playerHp compatibility flag must be one.",
                     nameof(data));
-            if (data.maxShieldStock < 1
+            if (data.maxShieldStock
+                    < BattleSimConfig.DefaultMaxShieldStock
+                || data.maxShieldStock
+                    > BattleSimConfig.MaximumShieldStock
                 || data.shieldStock < 0
                 || data.shieldStock > data.maxShieldStock
                 || data.shieldRemaining != data.shieldStock)
@@ -2712,6 +2812,76 @@ namespace Shmup.Core.Simulation
                 option.AngularLutSlotsDenominator;
         }
 
+        void SwitchPrimaryWeaponFamily(
+            PrimaryWeaponFamily family)
+        {
+            PrimaryWeaponFamilyDefinition current =
+                _battleContent.FindPrimaryWeaponFamily(
+                    CurrentPrimaryWeaponFamily);
+            PrimaryWeaponFamilyDefinition next =
+                _battleContent.FindPrimaryWeaponFamily(family);
+            if (next == null)
+                throw new InvalidOperationException(
+                    $"Primary weapon family '{family}' "
+                    + "is not present in BattleContent.");
+
+            int damageBonus = current == null
+                ? 0
+                : Math.Max(
+                    0,
+                    _battleConfig.MainShotBaseDamage
+                        - current.BaseDamage);
+            int intervalReduction = current == null
+                ? 0
+                : Math.Max(
+                    0,
+                    current.FireIntervalTicks
+                        - _battleConfig.FireIntervalTicks);
+            CurrentPrimaryWeaponFamily = family;
+            ApplyPrimaryWeaponFamilyProfile(next);
+            _battleConfig.MainShotBaseDamage = SaturatingAdd(
+                _battleConfig.MainShotBaseDamage,
+                damageBonus);
+            _battleConfig.FireIntervalTicks = Math.Max(
+                _battleConfig.MainShotMinimumFireIntervalTicks,
+                _battleConfig.FireIntervalTicks
+                    - intervalReduction);
+        }
+
+        void ApplyPrimaryWeaponFamilyProfile(
+            PrimaryWeaponFamilyDefinition definition)
+        {
+            if (definition == null)
+                throw new ArgumentNullException(nameof(definition));
+            _battleConfig.PlayerWeaponType =
+                definition.WeaponType;
+            _battleConfig.MainShotBaseDamage =
+                definition.BaseDamage;
+            _battleConfig.FireIntervalTicks =
+                definition.FireIntervalTicks;
+            _battleConfig.MainShotMinimumFireIntervalTicks =
+                definition.MinimumFireIntervalTicks;
+            _battleConfig.MainShotRapidFireStartLevel =
+                definition.RapidFireStartLevel;
+            _battleConfig.MainShotFireIntervalReductionPerLevel =
+                definition.FireIntervalReductionPerLevel;
+            _battleConfig.PlayerBulletSpeedNumerator =
+                definition.SpeedNumerator;
+            _battleConfig.PlayerBulletSpeedDenominator =
+                definition.SpeedDenominator;
+            _battleConfig.MainShotHalfWidth =
+                definition.HalfWidth;
+            _battleConfig.MainShotHalfHeight =
+                definition.HalfHeight;
+            _battleConfig.LaserPierceEnemyCount =
+                definition.PierceEnemyCount;
+            _battleConfig.SpreadWays =
+                definition.SpreadWays;
+            _battleConfig.SpreadStepLutSlots =
+                definition.SpreadStepLutSlots;
+            _battleConfig.UseConfiguredMainShotStats = true;
+        }
+
         static int[] CopyIntegers(IReadOnlyList<int> source)
         {
             var copy = new int[source.Count];
@@ -2971,6 +3141,8 @@ namespace Shmup.Core.Simulation
             _stageStartShieldStock = Battle.ShieldStock;
             _stageStartBombStock = Battle.BombStock;
             _stageStartActiveModifiers = ActiveModifiers;
+            _stageStartPrimaryWeaponFamily =
+                CurrentPrimaryWeaponFamily;
             _stageStartMissileFamily = CurrentMissileFamily;
             _stageStartOptionFormation = CurrentOptionFormation;
             _stageStartEliteRoomsCleared =
@@ -3107,6 +3279,23 @@ namespace Shmup.Core.Simulation
                     throw new ArgumentOutOfRangeException(
                         nameof(ship),
                         $"Ship '{ship.Id}' has an unsupported weapon type.");
+            }
+        }
+
+        static PrimaryWeaponFamily PrimaryWeaponFamilyFor(
+            WeaponType weaponType)
+        {
+            switch (weaponType)
+            {
+                case WeaponType.Vulcan:
+                    return PrimaryWeaponFamily.Vulcan;
+                case WeaponType.Laser:
+                    return PrimaryWeaponFamily.Laser;
+                case WeaponType.Spread:
+                    return PrimaryWeaponFamily.Spread;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(weaponType));
             }
         }
 

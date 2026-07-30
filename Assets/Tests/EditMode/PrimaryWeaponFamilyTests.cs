@@ -69,7 +69,7 @@ namespace Shmup.Core.Tests
                 fallbackConfig,
                 Array.Empty<SpawnEvent>());
 
-            Assert.AreEqual(7, fallback.Battle.ShieldStock);
+            Assert.AreEqual(3, fallback.Battle.ShieldStock);
             Assert.AreEqual(
                 WeaponType.Vulcan,
                 fallback.Battle.PlayerWeaponType);
@@ -272,7 +272,7 @@ namespace Shmup.Core.Tests
                 ship);
 
             Assert.AreEqual(ship.Id, data.shipId);
-            Assert.AreEqual(5, resumed.Battle.ShieldStock);
+            Assert.AreEqual(3, resumed.Battle.ShieldStock);
             Assert.AreEqual(
                 WeaponType.Spread,
                 resumed.Battle.PlayerWeaponType);

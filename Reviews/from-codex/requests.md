@@ -1061,3 +1061,187 @@ GZip/Brotli 같은 **무손실 압축**을 적용해 주세요. JSON 압축 효�
 REQ-045에서 `46340/65536` 고정소수점 성분으로 정규화했습니다. 이제 대각선 총속도는
 직선 상한의 약 99.998%이고, 기존 대비 약 **29.29% 느려집니다**. 직선 속도와
 `GameData` 기본 이동속도 값은 변경하지 않았습니다.
+
+---
+
+## [ ] CLAUDE: REQ-048/049/051 Presentation 연결 및 재현 확인
+
+### REQ-048 고착 조사 결과
+
+현재 Core와 현재 `GameData` 조합을 5바이옴 × 3룸으로 끝까지 구동한 결과:
+
+- 일반 룸 선택 대기: `State == AwaitingRoute`이면 `RouteOptions.Count >= 2`
+- 보상 선택 대기: `State == AwaitingReward`이면 `RewardOptions.Count == 3`
+- 1바이옴 보스 보상 선택 직후:
+  `State == Playing`, `BiomeIndex == 2`, `RoomIndex == 1`,
+  `IsBiomeBoss == false`
+- 최종 결과: 15룸, 14회 분기, 5보스 완료 후 `RunCleared`
+
+따라서 현재 소스에서는 “두 번째 스테이지에서 빈 카드 상태로 Core가 고착”되는
+경로가 재현되지 않았습니다. `BeginRouteSelectionOrAdvance`도 준비 후보를 로컬로
+옮긴 뒤 2개 이상일 때만 공개하고, 부족하면 공개 목록을 비운 채 자동 전진하도록
+불변식을 강화했습니다.
+
+플레이 빌드에서 계속 멈추면 그 프레임에 아래 네 값을 함께 기록해 주세요.
+
+```text
+RunManager.State
+RunManager.BiomeIndex / RoomIndex / IsBiomeBoss
+RunManager.RewardOptions.Count
+RunManager.RouteOptions.Count
+```
+
+위의 정상값과 다르면 Core 재현 입력(시드·선택 이력)을 CODEX에 돌려주시고, 정상값인데
+화면/입력만 멈추면 `RewardScreen`/`RouteScreen`, `Time.timeScale`, 새 Battle 참조 갱신을
+Presentation에서 조사해 주세요. 현재 `Battle.unity`의 두 화면 `_director` 직렬화 연결은
+존재하므로, 재현 프레임의 런타임 상태 캡처가 필요합니다.
+
+### REQ-049 실드 상한
+
+Core 계약:
+
+```csharp
+int RunManager.MaxShieldStock
+void RunManager.SetMaxShieldStock(int maxShieldStock) // 3..5만 허용
+```
+
+- 기본 상한은 3입니다.
+- 2 이하와 6 이상은 `ArgumentOutOfRangeException`입니다.
+- 상한을 낮출 때 보유 스톡은 즉시 새 상한으로 잘립니다.
+- 이유: 상한 밖 스톡을 유지하면 HUD/회복/세이브 체크섬이 서로 다른 권위값을 갖게
+  됩니다. 즉시 절삭하면 모든 관찰자가 같은 단일 자원을 봅니다.
+- `RunSuspendData`의 `maxShieldStock`/`shieldStock` 및 체크섬에 반영됩니다.
+
+다음 사이클의 상한 증가 옵션/UI는 Core 메서드만 호출하고 Presentation에서 직접
+스톡을 변경하지 마세요.
+
+### REQ-051 주무기 표시·보상 계약
+
+```csharp
+RunManager.CurrentPrimaryWeaponFamily
+RunManager.CurrentPrimaryWeaponDefinition
+RewardOption.Type == RewardType.PrimaryWeaponFamily
+RewardOption.PrimaryWeaponFamily
+```
+
+`CurrentPrimaryWeaponDefinition`은 `Id`, `DisplayName`, `Description`, 대미지·간격·속도,
+관통 추가 타깃 수, 확산 발수 등을 제공합니다. 보상 카드와 HUD는 문자열을 하드코딩하지
+말고 이 정의를 읽어 주세요. `ChooseReward` 뒤 기존처럼 Battle 참조를 갱신해야 합니다.
+
+전환은 **1회 확정이 아니라 이후 보상에서 재전환 가능**입니다. 현재 장착 계열만 후보에서
+제외되므로 선택 비용은 유지하면서 런 후반 빌드 수정이 가능합니다. Double은 Core에서
+2-way `WeaponType.Spread`, Laser는 직선 `WeaponType.Laser`이며
+`pierceEnemyCount == 2`는 최초 타깃 포함 최대 3체 명중을 뜻합니다.
+
+---
+
+## [ ] GROK: REQ-049/050/051 GameData 후속 계약
+
+### 실드 데이터
+
+`ships.json`의 `maxHp`는 REQ-040 이후 “시작 실드 스톡” 호환 필드입니다.
+현재 bulwark 값 5는 새 기본 상한 3에서 Core가 3으로 절삭합니다. 모든 함선의 시작값을
+0..3으로 정리하거나, bulwark 5를 유지해야 할 별도 기획 근거를 사람에게 요청해 주세요.
+
+### 15룸 성장량 합산 검산
+
+3룸 × 5바이옴으로 일반 룸은 20→15, 분기는 19→14로 **25% 감소**했습니다.
+현재 밸런스 시뮬의 룸당 캡슐 기대 밴드 10~16을 그대로 대입하면 일반 룸 총 기대량은
+약 **150~240개**입니다. 의도적으로 슬롯을 찍을 때 필요한 캡슐은 현재 상한 기준:
+
+- MainShot 5레벨: 5개
+- Missile 3레벨: 6개
+- Option 4레벨: 12개
+- 주요 3슬롯 합계: 23개
+- Shield 3레벨까지 포함한 전 슬롯 합계: 35개
+
+현재 드롭률만 보면 부족하지 않지만, 같은 사이클의 캡슐 드롭 하향과 합치면 결론이
+달라질 수 있습니다. 변경 후 실제 경로 가중치·Supply 배율·회수율을 포함해 15룸
+P50/P10 총량을 다시 계산하고, P50이 주요 3슬롯 23개에도 못 미칠 때만 수치 조정안을
+제시해 주세요. CODEX는 `GameData` 수치를 변경하지 않았습니다.
+
+### weapons.json v4 / rewards.json v2
+
+Core가 받는 신규 스키마:
+
+```json
+{
+  "schemaVersion": 4,
+  "primaryWeaponFamilies": [
+    {
+      "id": "double",
+      "displayName": "Double",
+      "description": "short UI copy",
+      "weaponType": "spread",
+      "baseDamage": 6,
+      "fireIntervalTicks": 10,
+      "minimumFireIntervalTicks": 6,
+      "rapidFireStartLevel": 3,
+      "fireIntervalReductionPerLevel": 1,
+      "projectileSpeed": 20,
+      "projectileHalfWidth": 0.375,
+      "projectileHalfHeight": 0.140625,
+      "pierceEnemyCount": 0,
+      "spreadWays": 2,
+      "spreadStepLutSlots": 2
+    },
+    {
+      "id": "laser",
+      "displayName": "Laser",
+      "description": "short UI copy",
+      "weaponType": "laser",
+      "baseDamage": 15,
+      "fireIntervalTicks": 16,
+      "minimumFireIntervalTicks": 8,
+      "rapidFireStartLevel": 2,
+      "fireIntervalReductionPerLevel": 2,
+      "projectileSpeed": 28,
+      "projectileHalfWidth": 0.1875,
+      "projectileHalfHeight": 0.0703125,
+      "pierceEnemyCount": 2,
+      "spreadWays": 1,
+      "spreadStepLutSlots": 0
+    }
+  ]
+}
+```
+
+위 수치는 **Core 호환 폴백/예시일 뿐 최종 밸런스가 아닙니다**. 특히 다수 관통 레이저의
+단발 대미지·발사 간격·추가 관통 수(현재 예시 2, 총 3체)를 밸런스 시뮬로 확정해 주세요.
+`primaryWeaponFamilies`에는 최소 double/laser가 필요합니다. 기존 Vulcan/Spread 시작
+함선 호환을 위해 생략된 두 계열은 현재 무기 기본값에서 Core가 폴백 프로필을 만듭니다.
+
+보상 항목은 `rewards.json.schemaVersion = 2`에서 아래 형태입니다.
+
+```json
+{
+  "id": "primary_double",
+  "type": "primaryWeaponFamily",
+  "primaryFamilyId": "double",
+  "weight": 1,
+  "stageIndexMin": 1,
+  "stageIndexMax": 99
+}
+```
+
+laser 항목도 같은 형식으로 추가하고 실제 등장 가중치·구간은 GROK이 제안해 주세요.
+기존 weapons v2/v3, rewards v1은 Core 폴백으로 계속 읽힙니다.
+
+---
+
+## [ ] GEMINI/감사 도구 담당: REQ-048~051 이후 DeterminismAudit suite
+
+Core의 동일 시드 2회 감사 테스트는 15룸 완주 후 같은
+`68CCCBCF9E327A91` 해시로 통과했습니다. 반면 소유 범위 밖
+`Tools/DeterminismAudit --suite`는 현재 `seed-max-prefer-capped` 예산 경로까지
+도달하기 전에 첫 `seed-0-first`가 기본 실드 상한 3에서 보스전 중 `RunOver`되어
+중단됩니다:
+
+```text
+completedRooms=3/15, ticks=4516, state=RunOver
+biome=1, room=3, bossHp=23100/24000
+```
+
+이는 빈 선택지/진행 게이트 고착이 아니라 감사 자동 조작의 생존 실패입니다. 감사 러너의
+무피해 설정 또는 생존 입력을 갱신한 뒤, 기존 `seed-max-prefer-capped` 최악 성장 경로의
+틱 예산 문제를 별도로 재측정해 주세요. CODEX는 해당 도구를 수정하지 않았습니다.

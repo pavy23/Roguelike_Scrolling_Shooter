@@ -50,7 +50,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class RunSuspendData
     {
-        public const int CurrentSchemaVersion = 9;
+        public const int CurrentSchemaVersion = 10;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -196,5 +196,12 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 45)]
         public int maxBombStock;
+
+        /// <summary>
+        /// Selected runtime primary family. -1 is accepted only as the v1-v9
+        /// migration sentinel and resolves from shipId during resume.
+        /// </summary>
+        [DataMember(Order = 46)]
+        public int primaryWeaponFamily;
     }
 }

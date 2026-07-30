@@ -626,10 +626,11 @@ namespace Shmup.Core.Simulation
     {
         internal const int DefaultMaxEnemyBullets = 128;
         /// <summary>
-        /// Provisional REQ-040 stock cap. The final value is a human balance
-        /// decision; five preserves the largest current ships.json hull value.
+        /// Human-approved REQ-049 default and upgrade ceiling.
         /// </summary>
-        public const int ProvisionalMaxShieldStock = 5;
+        public const int DefaultMaxShieldStock = 3;
+        public const int MaximumShieldStock = 5;
+        public const int ProvisionalMaxShieldStock = DefaultMaxShieldStock;
         /// <summary>
         /// Provisional REQ-041 cap pending explicit human balance approval.
         /// </summary>
@@ -1093,7 +1094,7 @@ namespace Shmup.Core.Simulation
         readonly int _enemyBulletSpeedNumerator, _enemyBulletSpeedDenominator;
         readonly int _enemyBulletHalfWidth, _enemyBulletHalfHeight;
         readonly int _enemyBulletDamage, _maxEnemyBullets;
-        readonly int _maxShieldStock;
+        int _maxShieldStock;
         readonly int _playerHitInvulnerabilityTicks;
         readonly int _maxBombStock, _bombInvulnerabilityTicks;
         readonly int _bombEffectRadiusSubUnits;
@@ -1630,6 +1631,7 @@ namespace Shmup.Core.Simulation
         public int PlayerY { get; private set; }
         public bool IsPlayerAlive => _playerAlive;
         public int ShieldStock { get; private set; }
+        public int MaxShieldStock => _maxShieldStock;
         public int BombStock { get; private set; }
         public int PlayerInvulnerabilityTicksRemaining =>
             _playerInvulnerabilityTicksRemaining;
@@ -1876,6 +1878,28 @@ namespace Shmup.Core.Simulation
             int restored = Math.Min(amount, available);
             ShieldStock += restored;
             return restored;
+        }
+
+        /// <summary>
+        /// Applies the Core-owned runtime shield cap. Lowering the cap clamps
+        /// current stock immediately so no save or following stage can carry an
+        /// impossible stock value.
+        /// </summary>
+        public int SetMaxShieldStock(int maxShieldStock)
+        {
+            if (maxShieldStock
+                    < BattleSimConfig.DefaultMaxShieldStock
+                || maxShieldStock
+                    > BattleSimConfig.MaximumShieldStock)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maxShieldStock),
+                    $"Shield cap must be in "
+                    + $"{BattleSimConfig.DefaultMaxShieldStock}.."
+                    + $"{BattleSimConfig.MaximumShieldStock}.");
+            _maxShieldStock = maxShieldStock;
+            if (ShieldStock > _maxShieldStock)
+                ShieldStock = _maxShieldStock;
+            return ShieldStock;
         }
 
         /// <summary>

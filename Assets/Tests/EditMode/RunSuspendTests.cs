@@ -111,6 +111,7 @@ namespace Shmup.Core.Tests
             data.playerHp = 1;
             data.shieldStock = 4;
             data.shieldRemaining = 4;
+            data.maxShieldStock = 5;
             data.bombStock = 2;
             data.maxBombStock = 3;
             data.rewardAcquisitions = new[]
@@ -267,8 +268,8 @@ namespace Shmup.Core.Tests
                 RunSuspendData.CurrentSchemaVersion,
                 migrated.schemaVersion);
             Assert.AreEqual(1, migrated.playerHp);
-            Assert.AreEqual(4, migrated.shieldStock);
-            Assert.AreEqual(4, migrated.shieldRemaining);
+            Assert.AreEqual(3, migrated.shieldStock);
+            Assert.AreEqual(3, migrated.shieldRemaining);
             Assert.AreEqual(
                 BattleSimConfig.ProvisionalMaxShieldStock,
                 migrated.maxShieldStock);

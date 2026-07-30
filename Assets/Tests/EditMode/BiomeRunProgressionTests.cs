@@ -9,7 +9,7 @@ namespace Shmup.Core.Tests
     public sealed class BiomeRunProgressionTests
     {
         [Test]
-        public void DefaultProgressionUsesFourBosslessRoomsThenBiomeBoss()
+        public void DefaultProgressionUsesThreeBosslessRoomsThenBiomeBoss()
         {
             RunManager run = CreateRun(
                 11UL,
@@ -17,8 +17,8 @@ namespace Shmup.Core.Tests
                 false);
 
             Assert.AreEqual(5, run.BiomeCount);
-            Assert.AreEqual(4, run.RoomsPerBiome);
-            for (int room = 1; room <= 4; room++)
+            Assert.AreEqual(3, run.RoomsPerBiome);
+            for (int room = 1; room <= 3; room++)
             {
                 Assert.AreEqual(1, run.BiomeIndex);
                 Assert.AreEqual(room, run.RoomIndex);
@@ -29,7 +29,7 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual(0, run.RewardOptions.Count);
 
                 run.Step(InputCommand.None);
-                if (room < 4)
+                if (room < 3)
                 {
                     Assert.AreEqual(RunState.AwaitingRoute, run.State);
                     Assert.GreaterOrEqual(run.RouteOptions.Count, 2);
@@ -48,14 +48,14 @@ namespace Shmup.Core.Tests
             for (int i = 0; i < run.RouteOptions.Count; i++)
                 Assert.AreEqual("biome_2", run.RouteOptions[i].ThemeId);
             run.ChooseRoute(FindNonEliteRoute(run));
-            Assert.AreEqual(4, run.RouteChoiceHistory.Count);
+            Assert.AreEqual(3, run.RouteChoiceHistory.Count);
 
             Assert.AreEqual(RunState.Playing, run.State);
             Assert.IsTrue(run.IsBiomeBoss);
-            Assert.AreEqual(4, run.RoomIndex);
+            Assert.AreEqual(3, run.RoomIndex);
             Assert.AreEqual("biome_1_boss", run.StagePlan.BossId);
             Assert.AreEqual(1, run.StagePlan.BossMaxHp);
-            Assert.AreEqual(4, run.Statistics.RoomsCleared);
+            Assert.AreEqual(3, run.Statistics.RoomsCleared);
             Assert.AreEqual(0, run.Statistics.BiomesCleared);
         }
 

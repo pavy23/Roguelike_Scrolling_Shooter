@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using NUnit.Framework;
+using Shmup.Core.Content;
 using Shmup.Core.Generation;
 using Shmup.Core.Simulation;
 
@@ -99,8 +101,8 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(RunState.RunCleared, first.FinalState);
             Assert.AreEqual(5, first.StagesCleared);
             Assert.AreEqual(4, first.RewardChoices);
-            Assert.AreEqual(19, first.RouteChoices);
-            Assert.AreEqual(20, first.RoomsCleared);
+            Assert.AreEqual(14, first.RouteChoices);
+            Assert.AreEqual(15, first.RoomsCleared);
             Assert.AreEqual(first.Hash, second.Hash);
             Assert.AreEqual(first.Ticks, second.Ticks);
             Assert.AreEqual(
@@ -108,6 +110,56 @@ namespace Shmup.Core.Tests
                 second.RewardChoices);
             Assert.AreEqual(first.RouteChoices, second.RouteChoices);
             Assert.AreEqual(first.RoomsCleared, second.RoomsCleared);
+            TestContext.WriteLine(
+                $"determinism hash={first.Hash:X16}, ticks={first.Ticks}");
+        }
+
+        [Test]
+        public void FullFifteenRoomRun_NeverStallsInAnEmptyChoiceState()
+        {
+            AuditTrace trace = RunAuditTrace(0x48A15UL);
+
+            Assert.AreEqual(RunState.RunCleared, trace.FinalState);
+            Assert.AreEqual(15, trace.RoomsCleared);
+            Assert.AreEqual(14, trace.RouteChoices);
+            Assert.Less(trace.MaximumChoiceStateIterations, 8);
+        }
+
+        [Test]
+        public void CurrentGameDataRoutes_CompleteAllFifteenRooms()
+        {
+            string root = FindRepositoryRoot();
+            string gameData = Path.Combine(root, "GameData");
+            GameDataSet data = GameDataParser.Parse(
+                File.ReadAllText(
+                    Path.Combine(gameData, "enemies.json")),
+                File.ReadAllText(
+                    Path.Combine(gameData, "weapons.json")),
+                File.ReadAllText(
+                    Path.Combine(gameData, "waves.json")),
+                File.ReadAllText(
+                    Path.Combine(gameData, "rewards.json")));
+            var routeGenerator = new FastRouteGenerator(
+                new SegmentStageGenerator(data.StageGeneration));
+            RunManager run = new RunManager(
+                0x48DA7AUL,
+                routeGenerator,
+                CreateConfig(),
+                data.BattleContent,
+                data.CreatePowerUpGauge(),
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                data.Rewards,
+                null,
+                1,
+                1,
+                RunProgressionConfig.CreateDefault());
+
+            DriveWholeRun(run, 20_000);
+
+            Assert.AreEqual(RunState.RunCleared, run.State);
+            Assert.AreEqual(15, run.Statistics.RoomsCleared);
+            Assert.AreEqual(14, run.RouteChoiceHistory.Count);
         }
 
         [Test]
@@ -144,12 +196,24 @@ namespace Shmup.Core.Tests
             int ticks = 0;
             int rewards = 0;
             int routes = 0;
+            RunState previousChoiceState = RunState.Playing;
+            int choiceStateIterations = 0;
+            int maximumChoiceStateIterations = 0;
             hasher.FoldRunState(run);
 
             for (int guard = 0; guard < 5_000 && !run.IsFinished; guard++)
             {
                 if (run.State == RunState.AwaitingReward)
                 {
+                    Assert.AreEqual(
+                        RunManager.RewardOptionCount,
+                        run.RewardOptions.Count,
+                        "AwaitingReward cannot expose an empty card list.");
+                    TrackChoiceState(
+                        run.State,
+                        ref previousChoiceState,
+                        ref choiceStateIterations,
+                        ref maximumChoiceStateIterations);
                     int optionIndex =
                         (run.StageIndex + rewards)
                         % run.RewardOptions.Count;
@@ -163,6 +227,15 @@ namespace Shmup.Core.Tests
                 }
                 else if (run.State == RunState.AwaitingRoute)
                 {
+                    Assert.GreaterOrEqual(
+                        run.RouteOptions.Count,
+                        RunManager.MinimumRouteOptionCount,
+                        "AwaitingRoute cannot expose an empty node list.");
+                    TrackChoiceState(
+                        run.State,
+                        ref previousChoiceState,
+                        ref choiceStateIterations,
+                        ref maximumChoiceStateIterations);
                     int optionIndex =
                         (run.StageIndex + routes)
                         % run.RouteOptions.Count;
@@ -181,6 +254,8 @@ namespace Shmup.Core.Tests
                 }
                 else
                 {
+                    previousChoiceState = RunState.Playing;
+                    choiceStateIterations = 0;
                     var input = new InputCommand(0, 0, true);
                     run.Step(in input);
                     ticks++;
@@ -195,7 +270,25 @@ namespace Shmup.Core.Tests
                 routes,
                 run.Statistics.StagesCleared,
                 run.Statistics.RoomsCleared,
+                maximumChoiceStateIterations,
                 run.State);
+        }
+
+        static void TrackChoiceState(
+            RunState state,
+            ref RunState previous,
+            ref int iterations,
+            ref int maximum)
+        {
+            iterations = state == previous
+                ? iterations + 1
+                : 1;
+            previous = state;
+            maximum = Math.Max(maximum, iterations);
+            Assert.Less(
+                iterations,
+                8,
+                $"Run remained in {state} without returning to Playing.");
         }
 
         static void DrivePlayingTicks(RunManager run, int maximum)
@@ -207,6 +300,62 @@ namespace Shmup.Core.Tests
             {
                 run.Step(in fire);
             }
+        }
+
+        static void DriveWholeRun(RunManager run, int maximum)
+        {
+            var fire = new InputCommand(0, 0, true);
+            for (int guard = 0;
+                guard < maximum && !run.IsFinished;
+                guard++)
+            {
+                if (run.State == RunState.AwaitingReward)
+                {
+                    Assert.AreEqual(
+                        RunManager.RewardOptionCount,
+                        run.RewardOptions.Count);
+                    run.ChooseReward(0);
+                }
+                else if (run.State == RunState.AwaitingRoute)
+                {
+                    Assert.GreaterOrEqual(
+                        run.RouteOptions.Count,
+                        RunManager.MinimumRouteOptionCount);
+                    int optionIndex = 0;
+                    for (int i = 0; i < run.RouteOptions.Count; i++)
+                    {
+                        EncounterType encounter =
+                            run.RouteOptions[i].EncounterType;
+                        if (encounter != EncounterType.Elite
+                            && encounter != EncounterType.Rare)
+                        {
+                            optionIndex = i;
+                            break;
+                        }
+                    }
+                    run.ChooseRoute(optionIndex);
+                }
+                else
+                {
+                    Assert.AreEqual(RunState.Playing, run.State);
+                    run.Step(in fire);
+                }
+            }
+        }
+
+        static string FindRepositoryRoot()
+        {
+            DirectoryInfo directory = new DirectoryInfo(
+                TestContext.CurrentContext.TestDirectory);
+            while (directory != null)
+            {
+                if (Directory.Exists(
+                    Path.Combine(directory.FullName, "GameData")))
+                    return directory.FullName;
+                directory = directory.Parent;
+            }
+            throw new DirectoryNotFoundException(
+                "Could not locate the repository GameData directory.");
         }
 
         static RunManager CreateRun(ulong seed, int? finalStageIndex)
@@ -283,6 +432,7 @@ namespace Shmup.Core.Tests
                 int routeChoices,
                 int stagesCleared,
                 int roomsCleared,
+                int maximumChoiceStateIterations,
                 RunState finalState)
             {
                 Hash = hash;
@@ -291,6 +441,8 @@ namespace Shmup.Core.Tests
                 RouteChoices = routeChoices;
                 StagesCleared = stagesCleared;
                 RoomsCleared = roomsCleared;
+                MaximumChoiceStateIterations =
+                    maximumChoiceStateIterations;
                 FinalState = finalState;
             }
 
@@ -300,6 +452,7 @@ namespace Shmup.Core.Tests
             public int RouteChoices { get; }
             public int StagesCleared { get; }
             public int RoomsCleared { get; }
+            public int MaximumChoiceStateIterations { get; }
             public RunState FinalState { get; }
         }
 
@@ -368,6 +521,93 @@ namespace Shmup.Core.Tests
                     Phases,
                     themeId,
                     themeId);
+            }
+        }
+
+        sealed class FastRouteGenerator : IRouteStageGenerator
+        {
+            readonly SegmentStageGenerator _source;
+
+            public FastRouteGenerator(SegmentStageGenerator source)
+            {
+                _source = source;
+            }
+
+            public IReadOnlyList<string> ThemeIds =>
+                _source.ThemeIds;
+
+            public StagePlan Generate(
+                ulong seed,
+                int stageIndex,
+                int difficulty)
+            {
+                return Fast(_source.Generate(
+                    seed,
+                    stageIndex,
+                    difficulty));
+            }
+
+            public IReadOnlyList<string> GetThemeOrder(ulong seed)
+            {
+                return _source.GetThemeOrder(seed);
+            }
+
+            public bool CanGenerateRoute(
+                string themeId,
+                int stageIndex,
+                int difficulty,
+                EncounterType encounterType)
+            {
+                if (encounterType == EncounterType.Elite
+                    || encounterType == EncounterType.Rare)
+                    return false;
+                return _source.CanGenerateRoute(
+                    themeId,
+                    stageIndex,
+                    difficulty,
+                    encounterType);
+            }
+
+            public StagePlan GenerateRoute(
+                ulong seed,
+                int stageIndex,
+                int difficulty,
+                string themeId,
+                EncounterType encounterType)
+            {
+                return Fast(_source.GenerateRoute(
+                    seed,
+                    stageIndex,
+                    difficulty,
+                    themeId,
+                    encounterType));
+            }
+
+            static StagePlan Fast(StagePlan source)
+            {
+                return new StagePlan(
+                    new[]
+                    {
+                        new StageSegment(
+                            "fast_" + source.ThemeId,
+                            1,
+                            Array.Empty<SpawnEvent>(),
+                            1,
+                            1,
+                            new[] { 1 })
+                    },
+                    source.BossId,
+                    1,
+                    1,
+                    1,
+                    string.IsNullOrEmpty(source.BossId) ? 0 : 1,
+                    0,
+                    0,
+                    512,
+                    new[] { new BossPhase(999, 1, 1, 1) },
+                    source.ThemeId,
+                    source.RequestedThemeId,
+                    source.EncounterType);
             }
         }
     }

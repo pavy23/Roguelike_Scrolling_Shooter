@@ -9,11 +9,14 @@ namespace Shmup.Core.Content
         {
             int schemaVersion = Require(root.schemaVersion, "weapons.json.schemaVersion");
             if (schemaVersion != SupportedSchemaVersion
-                && schemaVersion != SupportedWeaponsSchemaVersion)
+                && schemaVersion != SupportedWeaponsSchemaVersion
+                && schemaVersion != SupportedPrimaryWeaponsSchemaVersion)
                 throw Error(
                     "weapons.json.schemaVersion",
-                    $"must be {SupportedSchemaVersion} or "
-                    + $"{SupportedWeaponsSchemaVersion}, but was {schemaVersion}.");
+                    $"must be {SupportedSchemaVersion}, "
+                    + $"{SupportedWeaponsSchemaVersion}, or "
+                    + $"{SupportedPrimaryWeaponsSchemaVersion}, "
+                    + $"but was {schemaVersion}.");
 
             WeaponDto[] source = RequireArray(root.weapons, "weapons.json.weapons");
             var definitions = new WeaponDefinition[source.Length];
@@ -75,10 +78,11 @@ namespace Shmup.Core.Content
                         $"is missing slot '{(PowerUpSlot)i}'.");
 
             MissileFamilyDefinition[] missileFamilies;
+            PrimaryWeaponFamilyDefinition[] primaryWeaponFamilies;
             OptionFormationDefinition[] optionFormations;
             MissileFamily defaultMissileFamily;
             OptionFormation defaultOptionFormation;
-            if (schemaVersion == SupportedWeaponsSchemaVersion)
+            if (schemaVersion >= SupportedWeaponsSchemaVersion)
             {
                 missileFamilies = ParseMissileFamilies(root);
                 optionFormations = ParseOptionFormations(root);
@@ -88,6 +92,13 @@ namespace Shmup.Core.Content
                 defaultOptionFormation = ParseOptionFormation(
                     root.defaultOptionFormation,
                     "weapons.json.defaultOptionFormation");
+                primaryWeaponFamilies =
+                    schemaVersion
+                        == SupportedPrimaryWeaponsSchemaVersion
+                        ? CompletePrimaryWeaponFamilies(
+                            ParsePrimaryWeaponFamilies(root),
+                            CreateLegacyPrimaryWeaponFamilies(mainShot))
+                        : CreateLegacyPrimaryWeaponFamilies(mainShot);
             }
             else
             {
@@ -122,6 +133,8 @@ namespace Shmup.Core.Content
                 };
                 defaultMissileFamily = MissileFamily.Straight;
                 defaultOptionFormation = OptionFormation.Trail;
+                primaryWeaponFamilies =
+                    CreateLegacyPrimaryWeaponFamilies(mainShot);
             }
 
             return new WeaponParseResult(
@@ -129,10 +142,220 @@ namespace Shmup.Core.Content
                 maxLevels,
                 mainShot,
                 missile,
+                primaryWeaponFamilies,
                 missileFamilies,
                 defaultMissileFamily,
                 optionFormations,
                 defaultOptionFormation);
+        }
+
+        static PrimaryWeaponFamilyDefinition[]
+            ParsePrimaryWeaponFamilies(WeaponsDto root)
+        {
+            PrimaryWeaponFamilyDto[] source = RequireArray(
+                root.primaryWeaponFamilies,
+                "weapons.json.primaryWeaponFamilies");
+            if (source.Length < 2 || source.Length > 4)
+                throw Error(
+                    "weapons.json.primaryWeaponFamilies",
+                    "must contain 2 to 4 unique families including double and laser.");
+            var definitions =
+                new PrimaryWeaponFamilyDefinition[source.Length];
+            var seen = new bool[4];
+            for (int i = 0; i < source.Length; i++)
+            {
+                string path =
+                    $"weapons.json.primaryWeaponFamilies[{i}]";
+                PrimaryWeaponFamilyDto item = source[i];
+                if (item == null)
+                    throw Error(path, "cannot be null.");
+                PrimaryWeaponFamily family =
+                    ParsePrimaryWeaponFamily(
+                        item.id,
+                        path + ".id");
+                if (seen[(int)family])
+                    throw Error(path + ".id", $"duplicates '{item.id}'.");
+                seen[(int)family] = true;
+                ExactFraction speed = ToPerTickSpeed(
+                    Require(
+                        item.projectileSpeed,
+                        path + ".projectileSpeed"),
+                    path + ".projectileSpeed");
+                definitions[i] =
+                    new PrimaryWeaponFamilyDefinition(
+                        family,
+                        RequireText(
+                            item.displayName,
+                            path + ".displayName"),
+                        RequireText(
+                            item.description,
+                            path + ".description"),
+                        ParseWeaponType(
+                            RequireText(
+                                item.weaponType,
+                                path + ".weaponType"),
+                            path + ".weaponType"),
+                        Require(
+                            item.baseDamage,
+                            path + ".baseDamage"),
+                        Require(
+                            item.fireIntervalTicks,
+                            path + ".fireIntervalTicks"),
+                        Require(
+                            item.minimumFireIntervalTicks,
+                            path + ".minimumFireIntervalTicks"),
+                        Require(
+                            item.rapidFireStartLevel,
+                            path + ".rapidFireStartLevel"),
+                        Require(
+                            item.fireIntervalReductionPerLevel,
+                            path + ".fireIntervalReductionPerLevel"),
+                        speed.Numerator,
+                        speed.Denominator,
+                        ToSubUnits(
+                            Require(
+                                item.projectileHalfWidth,
+                                path + ".projectileHalfWidth"),
+                            path + ".projectileHalfWidth"),
+                        ToSubUnits(
+                            Require(
+                                item.projectileHalfHeight,
+                                path + ".projectileHalfHeight"),
+                            path + ".projectileHalfHeight"),
+                        Require(
+                            item.pierceEnemyCount,
+                            path + ".pierceEnemyCount"),
+                        Require(
+                            item.spreadWays,
+                            path + ".spreadWays"),
+                        Require(
+                            item.spreadStepLutSlots,
+                            path + ".spreadStepLutSlots"));
+            }
+            if (!seen[(int)PrimaryWeaponFamily.Double]
+                || !seen[(int)PrimaryWeaponFamily.Laser])
+                throw Error(
+                    "weapons.json.primaryWeaponFamilies",
+                    "must include double and laser.");
+            return definitions;
+        }
+
+        static PrimaryWeaponFamilyDefinition[]
+            CompletePrimaryWeaponFamilies(
+                PrimaryWeaponFamilyDefinition[] configured,
+                PrimaryWeaponFamilyDefinition[] fallbacks)
+        {
+            var present = new bool[4];
+            for (int i = 0; i < configured.Length; i++)
+                present[(int)configured[i].Family] = true;
+
+            int missingCount = 0;
+            for (int i = 0; i < fallbacks.Length; i++)
+                if (!present[(int)fallbacks[i].Family])
+                    missingCount++;
+            if (missingCount == 0)
+                return configured;
+
+            var complete =
+                new PrimaryWeaponFamilyDefinition[
+                    configured.Length + missingCount];
+            Array.Copy(configured, complete, configured.Length);
+            int writeIndex = configured.Length;
+            for (int i = 0; i < fallbacks.Length; i++)
+            {
+                PrimaryWeaponFamilyDefinition fallback = fallbacks[i];
+                if (present[(int)fallback.Family])
+                    continue;
+                complete[writeIndex++] = fallback;
+            }
+            return complete;
+        }
+
+        static PrimaryWeaponFamilyDefinition[]
+            CreateLegacyPrimaryWeaponFamilies(WeaponDefinition main)
+        {
+            int u = SimSpace.SubUnitsPerWorldUnit;
+            int baseDamage = main.BaseDamage;
+            int fireInterval = Math.Max(
+                1,
+                main.FireIntervalTicks);
+            int minimumInterval =
+                Math.Min(
+                    fireInterval,
+                    Math.Max(
+                        1,
+                        main.MinimumFireIntervalTicks));
+            return new[]
+            {
+                new PrimaryWeaponFamilyDefinition(
+                    PrimaryWeaponFamily.Vulcan,
+                    "Vulcan",
+                    "Rapid straight fire.",
+                    WeaponType.Vulcan,
+                    baseDamage,
+                    fireInterval,
+                    minimumInterval,
+                    2,
+                    1,
+                    main.ProjectileSpeedNumerator,
+                    main.ProjectileSpeedDenominator,
+                    main.ProjectileHalfWidth,
+                    main.ProjectileHalfHeight,
+                    0,
+                    1,
+                    0),
+                new PrimaryWeaponFamilyDefinition(
+                    PrimaryWeaponFamily.Double,
+                    "Double",
+                    "Two-way spread fire for wider coverage.",
+                    WeaponType.Spread,
+                    Math.Max(1, baseDamage * 3 / 5),
+                    fireInterval + 2,
+                    minimumInterval,
+                    3,
+                    1,
+                    main.ProjectileSpeedNumerator,
+                    main.ProjectileSpeedDenominator,
+                    main.ProjectileHalfWidth,
+                    main.ProjectileHalfHeight,
+                    0,
+                    2,
+                    2),
+                new PrimaryWeaponFamilyDefinition(
+                    PrimaryWeaponFamily.Laser,
+                    "Laser",
+                    "Slower straight fire that pierces up to three enemies.",
+                    WeaponType.Laser,
+                    Math.Max(1, baseDamage * 3 / 2),
+                    Math.Max(fireInterval + 3, fireInterval * 2),
+                    Math.Max(fireInterval, minimumInterval),
+                    2,
+                    2,
+                    28 * u,
+                    SimSpace.TicksPerSecond,
+                    Math.Max(0, main.ProjectileHalfWidth / 2),
+                    Math.Max(0, main.ProjectileHalfHeight / 2),
+                    2,
+                    1,
+                    0),
+                new PrimaryWeaponFamilyDefinition(
+                    PrimaryWeaponFamily.Spread,
+                    "Spread",
+                    "Three-way coverage fire.",
+                    WeaponType.Spread,
+                    Math.Max(1, baseDamage * 3 / 5),
+                    fireInterval + 2,
+                    minimumInterval,
+                    3,
+                    1,
+                    main.ProjectileSpeedNumerator,
+                    main.ProjectileSpeedDenominator,
+                    main.ProjectileHalfWidth,
+                    main.ProjectileHalfHeight,
+                    0,
+                    3,
+                    2)
+            };
         }
 
         static MissileFamilyDefinition[] ParseMissileFamilies(
@@ -314,6 +537,21 @@ namespace Shmup.Core.Content
             }
         }
 
+        internal static PrimaryWeaponFamily ParsePrimaryWeaponFamily(
+            string value,
+            string path)
+        {
+            switch (RequireText(value, path))
+            {
+                case "vulcan": return PrimaryWeaponFamily.Vulcan;
+                case "double": return PrimaryWeaponFamily.Double;
+                case "laser": return PrimaryWeaponFamily.Laser;
+                case "spread": return PrimaryWeaponFamily.Spread;
+                default:
+                    throw Error(path, $"has unknown value '{value}'.");
+            }
+        }
+
         internal static OptionFormation ParseOptionFormation(
             string value,
             string path)
@@ -347,6 +585,7 @@ namespace Shmup.Core.Content
                 int[] maxLevels,
                 WeaponDefinition mainShot,
                 WeaponDefinition missile,
+                PrimaryWeaponFamilyDefinition[] primaryWeaponFamilies,
                 MissileFamilyDefinition[] missileFamilies,
                 MissileFamily defaultMissileFamily,
                 OptionFormationDefinition[] optionFormations,
@@ -356,6 +595,7 @@ namespace Shmup.Core.Content
                 MaxLevels = maxLevels;
                 MainShot = mainShot;
                 Missile = missile;
+                PrimaryWeaponFamilies = primaryWeaponFamilies;
                 MissileFamilies = missileFamilies;
                 DefaultMissileFamily = defaultMissileFamily;
                 OptionFormations = optionFormations;
@@ -366,6 +606,8 @@ namespace Shmup.Core.Content
             public int[] MaxLevels { get; }
             public WeaponDefinition MainShot { get; }
             public WeaponDefinition Missile { get; }
+            public PrimaryWeaponFamilyDefinition[]
+                PrimaryWeaponFamilies { get; }
             public MissileFamilyDefinition[] MissileFamilies { get; }
             public MissileFamily DefaultMissileFamily { get; }
             public OptionFormationDefinition[] OptionFormations { get; }
