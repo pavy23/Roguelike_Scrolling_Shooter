@@ -31,6 +31,9 @@ namespace Shmup.Presentation.Battle
 
         // 보상 / 경로
         public const string RewardTitle = "STAGE CLEAR - CHOOSE REWARD";
+
+        /// <summary>중간보스 직후의 짧은 2택 (REQ-054). 주 보상과 무게가 달라야 한다.</summary>
+        public const string MidRewardTitle = "MID-BOSS DOWN - QUICK PICK";
         public const string RouteTitle = "CHOOSE YOUR ROUTE";
         public const string ChoiceHints =
             "[1]-[3] QUICK PICK      LEFT / RIGHT MOVE   (A) / [ENTER] CONFIRM";

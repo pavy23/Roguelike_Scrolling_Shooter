@@ -1,11 +1,12 @@
+using Shmup.Core.Simulation;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Shmup.Presentation.Battle
 {
     /// <summary>
-    /// 바이옴/룸 진행도 HUD + 바이옴 진입 배너 (REQ-032).
-    /// 22분 런에서 "지금 어디쯤인가"를 알려 주지 않으면 여정 감각이 생기지 않는다.
+    /// 스테이지 진행도 HUD + 스테이지 진입 배너 (REQ-032, REQ-054에서 구간 표시로 전환).
+    /// 런에서 "지금 어디쯤인가"를 알려 주지 않으면 여정 감각이 생기지 않는다.
     /// 좌상단에 BIOME n/5 · ROOM m/6 을 점 표시로, 바이옴이 바뀌면 중앙에 테마 배너를 띄운다.
     /// 순수 표현 — director 상태를 읽기만 한다.
     /// </summary>
@@ -24,6 +25,7 @@ namespace Shmup.Presentation.Battle
         Text _bannerText;
         GameObject _bannerRoot;
         int _shownBiome = -1, _shownRoom = -1;
+        RunStageSection _shownSection = (RunStageSection)(-1);
         int _bannerBiome = -1;
         float _bannerAge = float.MaxValue;
 
@@ -59,11 +61,13 @@ namespace Shmup.Presentation.Battle
 
             int biome = _director.BiomeIndex;
             int room = _director.RoomIndex;
-            if (biome != _shownBiome || room != _shownRoom)
+            var section = _director.StageSection;
+            if (biome != _shownBiome || room != _shownRoom || section != _shownSection)
             {
                 _shownBiome = biome;
                 _shownRoom = room;
-                _progressText.text = BuildProgress(biome, room);
+                _shownSection = section;
+                _progressText.text = BuildProgress(biome, section);
             }
 
             // 바이옴이 바뀐 순간 배너
@@ -90,18 +94,32 @@ namespace Shmup.Presentation.Battle
             }
         }
 
-        string BuildProgress(int biome, int room)
+        /// <summary>
+        /// 룸 카운터 대신 **지금 어느 구간인지**를 보여 준다. 분기가 사라지고 스테이지
+        /// 안이 전반 → 중간보스 → 후반 → 보스로 흐르게 됐으므로(REQ-054), 남은 룸 수보다
+        /// "다음에 무엇이 오는지"가 플레이어에게 쓸모 있는 정보다.
+        /// </summary>
+        string BuildProgress(int biome, RunStageSection section)
         {
             int biomeCount = Mathf.Max(1, _director.BiomeCount);
-            int roomsPerBiome = Mathf.Max(1, _director.RoomsPerBiome);
             var sb = new System.Text.StringBuilder(48);
-            sb.Append("BIOME ").Append(biome).Append('/').Append(biomeCount);
-            sb.Append("   ROOM ");
-            // 점 표시로 룸 진행을 한눈에: ●●●○○○
-            for (int i = 1; i <= roomsPerBiome; i++)
-                sb.Append(i <= room ? '#' : '.');
-            sb.Append(' ').Append(Mathf.Min(room, roomsPerBiome)).Append('/').Append(roomsPerBiome);
+            sb.Append("STAGE ").Append(biome).Append('/').Append(biomeCount);
+            sb.Append("   ").Append(SectionLabel(section));
             return sb.ToString();
+        }
+
+        static string SectionLabel(RunStageSection section)
+        {
+            switch (section)
+            {
+                case RunStageSection.Opening: return "ADVANCE  >  mid-boss";
+                case RunStageSection.MidBoss: return "MID-BOSS";
+                case RunStageSection.Closing: return "ADVANCE  >  boss";
+                case RunStageSection.StageBoss: return "BOSS";
+                case RunStageSection.HiddenOpening: return "!! UNCHARTED !!";
+                case RunStageSection.HiddenBoss: return "!! COLOSSUS !!";
+                default: return "";
+            }
         }
 
         string ThemeName(string themeId)

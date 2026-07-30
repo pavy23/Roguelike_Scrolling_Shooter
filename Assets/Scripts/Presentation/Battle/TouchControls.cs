@@ -6,27 +6,36 @@ using UnityEngine.UI;
 namespace Shmup.Presentation.Battle
 {
     /// <summary>
-    /// 모바일 터치 조작 (원격 플레이). 가상 스틱이 아니라 **기체를 손가락으로 직접 끌고 다니는**
-    /// 방식 — 모바일 슈팅의 표준이고 스틱보다 정확하다.
+    /// 모바일 터치 조작 (원격 플레이). 가상 스틱이 아니라 **손가락 이동량이 그대로 기체
+    /// 이동량이 되는** 방식 — 도돈파치 iOS 계열이 부드럽게 느껴지는 이유가 이것이다.
     ///
-    /// - 손가락을 짚은 지점으로 기체가 온다. 오프셋을 두지 않아서 "지금 어디를 잡고 있는지"가
-    ///   손가락 위치와 일치한다 (오프셋을 유지하면 기체가 손에서 떨어져 있어 지연처럼 느껴진다).
+    /// 이전에는 "짚은 지점"을 목표로 두고 8방향 디지털로 추적했다. 시뮬이 항상 최대 속도로만
+    /// 움직였기 때문에 느린 드래그에서는 기체가 먼저 도착해 멈췄다가 다시 출발하는
+    /// stop-go 왕복이 생겼고, 그게 떨림으로 보였다. 이제는 프레임 간 손가락 이동량을 모아
+    /// 정수 서브유닛 델타로 넘긴다 (REQ-045). 손가락이 멈추면 델타가 0이라 기체도 정확히
+    /// 멈추고, 부호가 뒤집힐 여지가 없다. 이동 속도는 Core에서 **델타 클램프 상한**으로
+    /// 쓰이므로 스피드업은 "손가락을 얼마나 빨리 따라오는가"로 체감된다.
+    ///
     /// - 발사는 오토파이어(모바일 기본 ON)가 처리한다. 끄면 드래그 중 자동 발사.
     /// - 우상단 버튼: 게이지 활성화. 그 아래 작은 버튼: 오토파이어 토글.
-    ///
-    /// 시뮬은 8방향 디지털 InputCommand만 받으므로, 목표 지점 방향을 매 프레임 디지털로
-    /// 변환해 넘긴다 — Core 변경이 없고 결정론에도 영향이 없다. 따라오는 속도는 시뮬의
-    /// 이동 속도가 상한이라, 체감 지연을 더 줄이려면 그쪽 수치를 올려야 한다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class TouchControls : MonoBehaviour
     {
-        // 정지 판정 반경. 넓으면 손가락을 따라오다 멈춰서 지연처럼 느껴지므로 좁게 잡는다.
-        const float StopRadiusWorld = 0.05f;
+        /// <summary>Core의 아날로그 델타 단위 (1 서브유닛 = 1/256 world unit).</summary>
+        const float SubUnitsPerWorldUnit = 256f;
+
+        /// <summary>Pointer 폴백이 쓰는 가상 손가락 번호 (실제 손가락 인덱스와 겹치지 않게).</summary>
+        const int PointerFingerId = -100;
 
         [SerializeField] BattleDirector _director;
         [SerializeField] Font _font;
         [SerializeField] bool _forceShow;
+
+        [Tooltip("입력 경로 진단 오버레이. 조작 문제를 다시 추적할 때만 켠다.")]
+        [SerializeField] bool _showInputDebug;
+
+        Text _debugText;
 
         GameObject _root;
         Text _autoFireLabel;
@@ -34,7 +43,8 @@ namespace Shmup.Presentation.Battle
         Camera _camera;
 
         int _dragFinger = -1;
-        Vector2 _targetWorld;
+        Vector2 _lastFingerWorld;
+        Vector2 _pendingDeltaWorld;   // 아직 시뮬에 넘기지 않은 손가락 이동량
         bool _dragging;
         bool _activatePressed;
         bool _enabledForDevice;
@@ -45,11 +55,33 @@ namespace Shmup.Presentation.Battle
 
         public bool Active => _root != null && _root.activeSelf;
 
-        /// <summary>목표 지점 방향의 8방향 디지털 이동 (-1/0/1).</summary>
-        public Vector2 Move { get; private set; }
+        /// <summary>손가락이 화면에 닿아 끌고 있는 중인지. 이때만 아날로그 경로를 쓴다.</summary>
+        public bool IsDragging => _dragging;
 
         /// <summary>드래그 중이면 발사 (오토파이어가 꺼져 있을 때의 보조 발사).</summary>
         public bool Fire => _dragging;
+
+        /// <summary>
+        /// 모아 둔 손가락 이동량을 정수 서브유닛 델타로 꺼낸다 (소비형).
+        ///
+        /// 잔차를 남기는 것이 중요하다 — 느린 드래그는 한 틱 이동량이 1 서브유닛에 못 미치는데,
+        /// 그때마다 버리면 조금씩 끄는 조작이 아예 먹지 않는다.
+        /// </summary>
+        /// <summary>진단용 누적 델타 (한 번이라도 0이 아닌 값이 나갔는지 확인).</summary>
+        int _debugSumDx, _debugSumDy;
+
+        public void ConsumeAnalogDelta(out int deltaX, out int deltaY)
+        {
+            float x = _pendingDeltaWorld.x * SubUnitsPerWorldUnit;
+            float y = _pendingDeltaWorld.y * SubUnitsPerWorldUnit;
+            deltaX = (int)x;   // 0 방향으로 절단
+            deltaY = (int)y;
+            _debugSumDx += deltaX;
+            _debugSumDy += deltaY;
+            _pendingDeltaWorld = new Vector2(
+                (x - deltaX) / SubUnitsPerWorldUnit,
+                (y - deltaY) / SubUnitsPerWorldUnit);
+        }
 
         public bool ConsumeActivate()
         {
@@ -98,6 +130,16 @@ namespace Shmup.Presentation.Battle
                 new Vector2(1f, 1f), new Vector2(-52f, -126f), 56f);
             _autoFireLabel = _autoFireButton.GetComponentInChildren<Text>();
 
+            // 진단 오버레이 (REQ-045 조작 회귀 추적용 — 원인 확정 후 제거한다).
+            // 폰에서 무엇이 들어오는지 눈으로 확인할 방법이 없어서 화면에 직접 찍는다.
+            if (touchDevice && _showInputDebug)
+            {
+                _debugText = UiKit.CreateCornerText(canvas.transform, _font, "", 9,
+                    new Color(0.6f, 1f, 0.7f, 0.95f), new Vector2(0f, 0f),
+                    new Vector2(6f, 6f), TextAnchor.LowerLeft, "InputDebug");
+                _debugText.rectTransform.sizeDelta = new Vector2(620f, 60f);
+            }
+
             // 조작 안내는 OnboardingHints가 기기에 맞는 문면으로 띄운다 — 여기서 또 적지 않는다.
             _enabledForDevice = touchDevice;
             _root.SetActive(touchDevice);
@@ -128,9 +170,9 @@ namespace Shmup.Presentation.Battle
                 if (!shouldShow)
                 {
                     // 메뉴로 넘어가는 순간의 입력이 남아 기체가 계속 움직이지 않도록 정리한다.
-                    Move = Vector2.zero;
                     _dragging = false;
                     _dragFinger = -1;
+                    _pendingDeltaWorld = Vector2.zero;
                     _activatePressed = false;
                 }
             }
@@ -139,6 +181,7 @@ namespace Shmup.Presentation.Battle
 
             var touches = UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches;
             bool dragActive = false;
+            bool sawAnyTouch = touches.Count > 0;
 
             for (int i = 0; i < touches.Count; i++)
             {
@@ -164,34 +207,108 @@ namespace Shmup.Presentation.Battle
                 // 다른 캔버스의 버튼(일시정지 등)은 UGUI가 처리한다 — 드래그로 겹쳐 읽지 않는다.
                 if (HitReserved(screen)) continue;
 
-                // 드래그 이동 — 짚은 지점이 그대로 목표다 (오프셋 없음)
-                if (_dragFinger == -1 || _dragFinger == touch.finger.index)
+                if (AccumulateDrag(screen, touch.finger.index)) dragActive = true;
+            }
+
+            // EnhancedTouch가 비었을 때의 폴백.
+            //
+            // EnhancedTouch는 WebGL에서 Touchscreen 디바이스가 늦게 붙으면 조용히 빈다.
+            // 그리고 `Pointer.current`는 "가장 최근에 쓰인" 포인터를 가리키므로, 터치
+            // 디바이스가 존재하기만 해도 마우스 대신 그쪽을 가리켜 position이 갱신되지
+            // 않는다 (실제로 이 어긋남 때문에 델타가 계속 0이었다). 그래서 어느 디바이스가
+            // 눌려 있는지 저수준 API로 직접 확인한다.
+            if (!sawAnyTouch)
+            {
+                Vector2 screen = Vector2.zero;
+                bool pressed = false;
+                bool justPressed = false;
+
+                var screenDevice = Touchscreen.current;
+                if (screenDevice != null)
                 {
-                    if (_dragFinger == -1) _dragFinger = touch.finger.index;
-                    _targetWorld = ScreenToWorld(screen);
-                    dragActive = true;
+                    var primary = screenDevice.primaryTouch;
+                    if (primary.press.isPressed)
+                    {
+                        screen = primary.position.ReadValue();
+                        pressed = true;
+                        justPressed = primary.press.wasPressedThisFrame;
+                    }
                 }
+                if (!pressed)
+                {
+                    var mouse = Mouse.current;
+                    if (mouse != null && mouse.leftButton.isPressed)
+                    {
+                        screen = mouse.position.ReadValue();
+                        pressed = true;
+                        justPressed = mouse.leftButton.wasPressedThisFrame;
+                    }
+                }
+
+                if (pressed)
+                {
+                    bool onOwnButton =
+                        HitButton(_activateButton, screen) || HitButton(_autoFireButton, screen);
+                    if (justPressed)
+                    {
+                        if (HitButton(_activateButton, screen)) _activatePressed = true;
+                        else if (HitButton(_autoFireButton, screen))
+                        {
+                            PlayerInputReader.SetAutoFire(!PlayerInputReader.AutoFire);
+                            RefreshAutoFireLabel();
+                        }
+                    }
+                    if (!onOwnButton && !HitReserved(screen)
+                        && AccumulateDrag(screen, PointerFingerId))
+                        dragActive = true;
+                }
+            }
+
+            if (_debugText != null)
+            {
+                var ts = Touchscreen.current;
+                var ms = Mouse.current;
+                string ptrState =
+                    (ts != null && ts.primaryTouch.press.isPressed) ? "TOUCH"
+                    : (ms != null && ms.leftButton.isPressed) ? "MOUSE" : "up";
+                var ship = _director != null ? _director.PlayerWorldPosition : Vector2.zero;
+                Vector2 rawPos = ms != null ? ms.position.ReadValue() : new Vector2(-1f, -1f);
+                if (ts != null && ts.primaryTouch.press.isPressed)
+                    rawPos = ts.primaryTouch.position.ReadValue();
+                Vector2 rawWorld = ScreenToWorld(rawPos);
+                _debugText.text =
+                    $"ptr={ptrState} drag={dragActive} touches={touches.Count} "
+                    + $"raw=({rawPos.x:0},{rawPos.y:0}) w=({rawWorld.x:0.0},{rawWorld.y:0.0}) "
+                    + $"last=({_lastFingerWorld.x:0.0},{_lastFingerWorld.y:0.0}) "
+                    + $"scr={Screen.width}x{Screen.height}\n"
+                    + $"ship=({ship.x:0.0},{ship.y:0.0}) sum=({_debugSumDx},{_debugSumDy}) "
+                    + PlayerInputReader.DebugState;
             }
 
             _dragging = dragActive;
             if (!dragActive)
             {
                 _dragFinger = -1;
-                Move = Vector2.zero;
-                return;
+                // 손을 떼면 남은 잔차도 버린다 — 놓은 뒤에 기체가 조금 더 미끄러지면
+                // "놓았는데 움직인다"로 읽힌다.
+                _pendingDeltaWorld = Vector2.zero;
             }
-
-            // 목표 방향 → 8방향 디지털
-            Vector2 delta = _targetWorld - PlayerWorld();
-            Move = new Vector2(
-                Mathf.Abs(delta.x) < StopRadiusWorld ? 0f : Mathf.Sign(delta.x),
-                Mathf.Abs(delta.y) < StopRadiusWorld ? 0f : Mathf.Sign(delta.y));
         }
 
-        Vector2 PlayerWorld()
+        /// <summary>
+        /// 한 입력원의 화면 좌표를 받아 이동량을 누적한다. 짚은 위치가 아니라 **움직인 양**이
+        /// 시뮬에 전달되므로, 처음 닿은 프레임은 기준점만 잡고 0을 남긴다 (기체가 손가락
+        /// 쪽으로 순간이동하지 않게).
+        /// </summary>
+        bool AccumulateDrag(Vector2 screen, int fingerId)
         {
-            if (_director == null) return Vector2.zero;
-            return _director.PlayerWorldPosition;
+            if (_dragFinger != -1 && _dragFinger != fingerId) return false;
+
+            Vector2 world = ScreenToWorld(screen);
+            if (_dragFinger == -1) _dragFinger = fingerId;
+            else _pendingDeltaWorld += world - _lastFingerWorld;
+            _lastFingerWorld = world;
+            return true;
         }
 
         Vector2 ScreenToWorld(Vector2 screen)

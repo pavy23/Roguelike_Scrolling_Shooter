@@ -15,6 +15,11 @@ namespace Shmup.Presentation.Battle
         const float Lifetime = 0.55f;
         const float BlinkHz = 8f;
 
+        [Tooltip("적 등장 예고 마커. 사람 판단으로 기본 꺼둠 — "
+                 + "\"적이 어디서 오는지 알림은 없는게 나을거 같아\" (2026-07-30). "
+                 + "예고가 있으면 읽기 쉬워지지만 긴장이 사라진다.")]
+        [SerializeField] bool _showMarkers;
+
         [SerializeField] Sprite _markerSprite;
         [SerializeField] Transform _root;
         [SerializeField] float _edgeX = 9.4f;   // 화면 우측 안쪽 (월드 유닛)
@@ -25,7 +30,8 @@ namespace Shmup.Presentation.Battle
 
         void Start()
         {
-            if (_markerSprite == null) return;
+            // 꺼져 있으면 풀도 만들지 않는다 (스프라이트 12개를 놀릴 이유가 없다).
+            if (!_showMarkers || _markerSprite == null) return;
             var parent = _root != null ? _root : transform;
             for (int i = 0; i < Capacity; i++)
             {

@@ -125,23 +125,28 @@ namespace Shmup.EditorTools
         const string CapsuleSpritePath = SpriteDir + "/capsule.png";
         const string CapsulePrefabPath = PrefabDir + "/Capsule.prefab";
 
+        // 파워업 캡슐 10×8. 옵션 드론과 **형태도 색도 겹치지 않아야** 한다 —
+        // 예전에는 둘 다 주황 둥근 사각이라 화면에서 구분이 되지 않았다
+        // ("옵션 파츠외 파워업 아이템 아이콘이 너무 비슷한거 같아", 2026-07-30).
+        // 캡슐은 먹어야 하는 것이므로 다이아몬드 실루엣 + 기체/옵션의 보색인
+        // 청록 계열로 두고, 중앙을 밝게 비워 "빛나는 획득물"로 읽히게 한다.
         static readonly string[] CapsulePixels =
         {
-            "..OOOOOO..",
-            ".OWWWWWWO.",
-            "OWWCCCCWWO",
-            "OWCCWWCCWO",
-            "OWCCWWCCWO",
-            "OWWCCCCWWO",
-            ".OWWWWWWO.",
-            "..OOOOOO.."
+            "....CC....",
+            "..CCWWCC..",
+            ".CWWPPWWC.",
+            "CWWPCCPWWC",
+            "CWWPCCPWWC",
+            ".CWWPPWWC.",
+            "..CCWWCC..",
+            "....CC...."
         };
 
         static readonly Dictionary<char, Color32> CapsulePalette = new Dictionary<char, Color32>
         {
-            ['O'] = new Color32(0x8C, 0x3A, 0x0A, 0xFF),
-            ['W'] = new Color32(0xFF, 0x9C, 0x28, 0xFF),
-            ['C'] = new Color32(0xFF, 0xE8, 0xB0, 0xFF)
+            ['C'] = new Color32(0xB4, 0xF4, 0xFF, 0xFF),   // 밝은 시안 (외곽·중심)
+            ['W'] = new Color32(0x3C, 0xC8, 0xE8, 0xFF),   // 청록 본체
+            ['P'] = new Color32(0x14, 0x5C, 0x9C, 0xFF)    // 진청 음영
         };
 
         // 폭발 12×12 스타버스트 (런타임에 확대+페이드)
@@ -844,22 +849,9 @@ namespace Shmup.EditorTools
             SetReference(options, "_input", inputReader);
             SetReference(options, "_font", uiFont);
             SetReference(options, "_fontBold", uiFontBold);
-            // 경로 선택 화면 (REQ-028)
-            var routeScreen = battleRoot.AddComponent<RouteScreen>();
-            SetReference(routeScreen, "_director", director);
-            SetReference(routeScreen, "_font", uiFont);
-            SetReference(routeScreen, "_fontBold", uiFontBold);
-            SetStringArray(routeScreen, "_encounterNames", UiText.EncounterNames);
-            SetReferenceArray(routeScreen, "_encounterIcons", new[]
-            {
-                LoadExternalSprite("icon_node_battle.png", "icon_node_battle"),
-                LoadExternalSprite("icon_node_elite.png", "icon_node_elite"),
-                LoadExternalSprite("icon_node_supply.png", "icon_node_supply"),
-                LoadExternalSprite("icon_node_hazard.png", "icon_node_hazard")
-            });
-            SetStringArray(routeScreen, "_themeIds",
-                new[] { "scrapyard", "hive", "fortress", "nebula", "core" });
-            SetStringArray(routeScreen, "_themeNames", UiText.ThemeNames);
+            // 경로 선택 화면(REQ-028)은 제거했다 — 분기 대신 스테이지 안에서
+            // 중간보스 → 중간 보상으로 리듬을 만든다 (REQ-054). 조우 아이콘과 테마
+            // 이름은 구간 표시에 재활용하므로 UiText에 남겨 둔다.
 
             var gameOver = battleRoot.AddComponent<GameOverScreen>();
             SetReference(gameOver, "_director", director);

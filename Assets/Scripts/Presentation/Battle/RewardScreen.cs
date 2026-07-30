@@ -21,10 +21,32 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Font _fontBold;
 
         GameObject _root;
+        Text _titleText;
         readonly Image[] _boxBorders = new Image[MaxOptions];
         readonly Text[] _boxTexts = new Text[MaxOptions];
+        readonly RectTransform[] _boxRects = new RectTransform[MaxOptions];
         bool _labelsBuilt;
+        int _shownOptionCount;
         int _cursor;
+
+        const float BoxWidth = 150f, BoxHeight = 84f, BoxGap = 14f;
+
+        /// <summary>
+        /// 후보 수에 맞춰 카드를 가운데 정렬한다. 중간보스 뒤에는 2택, 스테이지 보스
+        /// 뒤에는 3택이 오므로(REQ-054) "항상 3개"를 가정하면 2택이 한쪽으로 치우친다.
+        /// </summary>
+        void LayoutBoxes(int count)
+        {
+            if (_shownOptionCount == count) return;
+            _shownOptionCount = count;
+            float total = count * BoxWidth + (count - 1) * BoxGap;
+            for (int i = 0; i < MaxOptions; i++)
+            {
+                if (_boxRects[i] == null) continue;
+                _boxRects[i].anchoredPosition = new Vector2(
+                    -total / 2f + BoxWidth / 2f + i * (BoxWidth + BoxGap), -10f);
+            }
+        }
 
         void Start()
         {
@@ -33,17 +55,16 @@ namespace Shmup.Presentation.Battle
             _root = canvas.gameObject;
 
             UiKit.CreateDim(canvas.transform, new Color(0f, 0.01f, 0.05f, 0.55f));
-            UiKit.CreateCornerText(canvas.transform, _fontBold, UiText.RewardTitle, 16,
+            _titleText = UiKit.CreateCornerText(canvas.transform, _fontBold, UiText.RewardTitle, 16,
                 UiKit.TextAccent, new Vector2(0.5f, 1f), new Vector2(0f, -86f),
                 TextAnchor.UpperCenter, "Title");
 
-            const float boxWidth = 150f, boxHeight = 64f, gap = 14f;
-            float totalWidth = MaxOptions * boxWidth + (MaxOptions - 1) * gap;
+            // 효과 설명이 한 줄 늘어나 카드를 높였다 (150×3 + 간격 = 478 < 640이라 폭은 그대로).
+            // 실제 배치는 후보 수를 아는 시점에 LayoutBoxes가 다시 잡는다.
             for (int i = 0; i < MaxOptions; i++)
             {
-                var panel = UiKit.CreatePanel(canvas.transform, new Vector2(boxWidth, boxHeight), $"Option{i}");
-                panel.anchoredPosition = new Vector2(
-                    -totalWidth / 2f + boxWidth / 2f + i * (boxWidth + gap), -10f);
+                var panel = UiKit.CreatePanel(canvas.transform, new Vector2(BoxWidth, BoxHeight), $"Option{i}");
+                _boxRects[i] = panel;
                 _boxBorders[i] = panel.GetComponent<Image>();
                 _boxTexts[i] = UiKit.CreateTextStretch(panel, _font, "", 10,
                     UiKit.TextMain, TextAnchor.MiddleCenter, 4f, "Label");
@@ -86,12 +107,24 @@ namespace Shmup.Presentation.Battle
             {
                 _labelsBuilt = true;
                 _cursor = 0;
+
+                // 중간보스 뒤의 2택과 스테이지 보스 뒤의 3택을 문면과 배치로 구분한다.
+                bool midStage = _director.RewardKind == RewardSelectionKind.MidStage;
+                if (_titleText != null)
+                    _titleText.text = midStage
+                        ? UiText.MidRewardTitle : UiText.RewardTitle;
+                LayoutBoxes(Mathf.Clamp(options.Count, 1, MaxOptions));
+
                 for (int i = 0; i < MaxOptions; i++)
                 {
                     bool used = i < options.Count;
                     _boxBorders[i].gameObject.SetActive(used);
-                    if (used)
-                        _boxTexts[i].text = $"[{i + 1}]\n{Describe(options[i])}";
+                    if (!used) continue;
+                    // 번호는 키를 눌러 고를 때만 쓸모가 있다 — 탭으로 고르는 폰에서는
+                    // 카드 공간을 설명에 쓰는 게 낫다.
+                    _boxTexts[i].text = UiPlatform.TouchMode
+                        ? Describe(options[i])
+                        : $"[{i + 1}]\n{Describe(options[i])}";
                 }
             }
 
@@ -134,26 +167,45 @@ namespace Shmup.Presentation.Battle
                     _boxBorders[i].color = i == _cursor ? UiKit.TextAccent : UiKit.PanelBorder;
         }
 
+        /// <summary>
+        /// 보상 카드 문면. 이름만으로는 무엇을 고르는지 알 수 없다는 지적이 있어
+        /// ("중간 빌드 선택시 옵션이 어떤건지 잘 모르겠어", 2026-07-30)
+        /// 모든 항목에 **효과를 평이한 말로 한 줄** 붙인다. 숫자만 보여 주고 해석을
+        /// 플레이어에게 떠넘기지 않는 것이 목적이다.
+        /// </summary>
         static string Describe(in RewardOption option)
         {
             switch (option.Type)
             {
                 case RewardType.Capsules:
-                    return $"CAPSULE x{option.Amount}";
+                    return $"CAPSULE x{option.Amount}\nfills the gauge below";
                 case RewardType.SlotLevel:
-                    return $"{SlotName(option.Slot)} +{option.Amount}";
+                    return $"{SlotName(option.Slot)} +{option.Amount}\n{SlotEffect(option.Slot)}";
                 case RewardType.RepairHp:
-                    return $"HULL +{option.Amount}";
+                    // HP가 사라지고 실드 스톡이 유일한 내구도가 됐다 (REQ-040).
+                    return $"SHIELD +{option.Amount}\nrestores a shield stock";
                 case RewardType.FireRateUp:
-                    return $"FIRE RATE +{option.Amount}";
+                    return $"RAPID FIRE +{option.Amount}\nshoot more often";
                 case RewardType.DamageUp:
-                    return $"DAMAGE +{option.Amount}";
+                    return $"FIREPOWER +{option.Amount}\nmore damage per shot";
                 case RewardType.MoveSpeedUp:
-                    return $"ENGINE +{option.Amount}";
+                    return $"ENGINE +{option.Amount}\nmove faster, dodge easier";
                 case RewardType.Modifier:
                     return ModifierName(option.ModifierId);
                 default:
                     return option.Type.ToString();
+            }
+        }
+
+        static string SlotEffect(PowerUpSlot slot)
+        {
+            switch (slot)
+            {
+                case PowerUpSlot.MainShot: return "stronger front gun";
+                case PowerUpSlot.Missile: return "more missiles";
+                case PowerUpSlot.Option: return "another drone follows you";
+                case PowerUpSlot.Shield: return "raises shield capacity";
+                default: return "";
             }
         }
 
