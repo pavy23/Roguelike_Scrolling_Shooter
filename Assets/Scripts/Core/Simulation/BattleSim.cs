@@ -188,6 +188,27 @@ namespace Shmup.Core.Simulation
     public readonly struct BossState
     {
         public BossState(int id, int x, int y, int hp, int maxHp, int phase)
+            : this(
+                id,
+                x,
+                y,
+                hp,
+                maxHp,
+                phase,
+                BossMovementPattern.LegacyHover,
+                BossPartVulnerability.Legacy)
+        {
+        }
+
+        public BossState(
+            int id,
+            int x,
+            int y,
+            int hp,
+            int maxHp,
+            int phase,
+            BossMovementPattern movementPattern,
+            BossPartVulnerability partVulnerability)
         {
             Id = id;
             X = x;
@@ -195,6 +216,8 @@ namespace Shmup.Core.Simulation
             Hp = hp;
             MaxHp = maxHp;
             Phase = phase;
+            MovementPattern = movementPattern;
+            PartVulnerability = partVulnerability;
         }
 
         public int Id { get; }
@@ -203,6 +226,8 @@ namespace Shmup.Core.Simulation
         public int Hp { get; }
         public int MaxHp { get; }
         public int Phase { get; }
+        public BossMovementPattern MovementPattern { get; }
+        public BossPartVulnerability PartVulnerability { get; }
     }
 
     /// <summary>
@@ -361,7 +386,7 @@ namespace Shmup.Core.Simulation
             MaxHp = maxHp;
             Destroyed = destroyed;
             IsCore = isCore;
-            CoreGated = coreGated;
+            Invulnerable = coreGated;
         }
 
         public string PartId { get; }
@@ -371,7 +396,15 @@ namespace Shmup.Core.Simulation
         public int MaxHp { get; }
         public bool Destroyed { get; }
         public bool IsCore { get; }
-        public bool CoreGated { get; }
+        /// <summary>
+        /// True while the current boss phase prevents damage to this part.
+        /// </summary>
+        public bool Invulnerable { get; }
+        /// <summary>
+        /// Legacy compatibility alias. Phase rules may now cause invulnerability
+        /// even when no predecessor core gate exists.
+        /// </summary>
+        public bool CoreGated => Invulnerable;
     }
 
     /// <summary>Observable bullet state in integer simulation subunits.</summary>
@@ -1717,7 +1750,13 @@ namespace Shmup.Core.Simulation
             _bossY,
             _bossHp,
             _bossRuntimeMaxHp,
-            _bossPhase);
+            _bossPhase,
+            _bossPhases.Count == 0
+                ? BossMovementPattern.LegacyHover
+                : _bossPhases[_bossPhase].MovementPattern,
+            _bossPhases.Count == 0
+                ? BossPartVulnerability.Legacy
+                : _bossPhases[_bossPhase].PartVulnerability);
         public IReadOnlyList<BossPartState> BossParts =>
             _readOnlyBossParts;
         /// <summary>보스전이 예정된 스테이지인지 (RunManager가 종료 조건 분기에 쓴다).</summary>
@@ -2814,15 +2853,20 @@ namespace Shmup.Core.Simulation
                 return;   // 진입 중에는 사격하지 않는다 (등장 연출 여유)
             }
 
+            Generation.BossPhase phase = _bossPhases[_bossPhase];
             if (_bossPartDefinitions.Count > 0)
             {
-                UpdateMultipartBoss();
+                UpdateMultipartBoss(phase);
+                UpdateBossPhaseFire(phase);
                 return;
             }
 
-            int lutIndex = (_bossAge >> BossHoverPeriodShift) % SineLut.Length;
-            _bossY = (int)((long)BossHoverAmplitude * SineLut[lutIndex] / SineScale);
-            Generation.BossPhase phase = _bossPhases[_bossPhase];
+            ApplyBossPhaseMovement(phase, false);
+            UpdateBossPhaseFire(phase);
+        }
+
+        void UpdateBossPhaseFire(Generation.BossPhase phase)
+        {
             if (_bossFireCooldown > 0) _bossFireCooldown--;
             if (_bossFireCooldown == 0)
             {
@@ -2839,6 +2883,56 @@ namespace Shmup.Core.Simulation
                         phase.BulletSpeedNumerator, phase.BulletSpeedDenominator, rotation);
                 }
                 _bossFireCooldown = phase.FireIntervalTicks;
+            }
+        }
+
+        void ApplyBossPhaseMovement(
+            Generation.BossPhase phase,
+            bool legacyVerticalMovementActive)
+        {
+            switch (phase.MovementPattern)
+            {
+                case BossMovementPattern.LegacyHover:
+                {
+                    if (_bossPartDefinitions.Count > 0
+                        && !legacyVerticalMovementActive)
+                    {
+                        _bossY = 0;
+                        return;
+                    }
+                    int legacyIndex =
+                        (_bossAge >> BossHoverPeriodShift)
+                        % SineLut.Length;
+                    _bossY = (int)(
+                        (long)BossHoverAmplitude
+                        * SineLut[legacyIndex]
+                        / SineScale);
+                    return;
+                }
+                case BossMovementPattern.Stationary:
+                    _bossY = 0;
+                    return;
+                case BossMovementPattern.VerticalSine:
+                {
+                    int phaseTick =
+                        _bossAge % phase.MovementPeriodTicks;
+                    int lutIndex = (int)(
+                        (long)phaseTick * SineLut.Length
+                        / phase.MovementPeriodTicks);
+                    long numerator =
+                        (long)phase.MovementAmplitudeNumerator
+                        * SineLut[lutIndex];
+                    long denominator =
+                        (long)phase.MovementAmplitudeDenominator
+                        * SineScale;
+                    _bossY = SaturateToInt(
+                        numerator / denominator);
+                    return;
+                }
+                default:
+                    throw new InvalidOperationException(
+                        $"Unknown boss movement pattern "
+                        + $"{phase.MovementPattern}.");
             }
         }
 
@@ -2872,7 +2966,7 @@ namespace Shmup.Core.Simulation
             }
         }
 
-        void UpdateMultipartBoss()
+        void UpdateMultipartBoss(Generation.BossPhase phase)
         {
             RegenerateBossParts();
 
@@ -2906,20 +3000,9 @@ namespace Shmup.Core.Simulation
 
             _bossX = SaturateToInt(
                 (long)_bossHoldX - chargeOffset);
-            if (verticalMovementActive)
-            {
-                int lutIndex =
-                    (_bossAge >> BossHoverPeriodShift)
-                    % SineLut.Length;
-                _bossY = (int)(
-                    (long)BossHoverAmplitude
-                    * SineLut[lutIndex]
-                    / SineScale);
-            }
-            else
-            {
-                _bossY = 0;
-            }
+            ApplyBossPhaseMovement(
+                phase,
+                verticalMovementActive);
             RefreshBossPartPositions();
 
             for (int i = 0; i < _bossPartDefinitions.Count; i++)
@@ -3013,7 +3096,27 @@ namespace Shmup.Core.Simulation
                     state.MaxHp,
                     state.Destroyed,
                     state.IsCore,
-                    IsBossCoreGated(i));
+                    IsBossPartInvulnerable(i));
+            }
+        }
+
+        bool IsBossPartInvulnerable(int partIndex)
+        {
+            BossPartVulnerability vulnerability =
+                _bossPhases[_bossPhase].PartVulnerability;
+            switch (vulnerability)
+            {
+                case BossPartVulnerability.Legacy:
+                    return IsBossCoreGated(partIndex);
+                case BossPartVulnerability.CoreOnly:
+                    return !_bossPartDefinitions[partIndex].IsCore
+                        || IsBossCoreGated(partIndex);
+                case BossPartVulnerability.All:
+                    return false;
+                default:
+                    throw new InvalidOperationException(
+                        $"Unknown boss part vulnerability "
+                        + $"{vulnerability}.");
             }
         }
 
@@ -3288,7 +3391,7 @@ namespace Shmup.Core.Simulation
                 || partIndex >= _bossPartStates.Length)
                 return false;
             BossPartState part = _bossPartStates[partIndex];
-            if (part.Destroyed || IsBossCoreGated(partIndex))
+            if (part.Destroyed || IsBossPartInvulnerable(partIndex))
                 return false;
 
             int hp = Damage.ApplyToHp(part.Hp, damage);
@@ -3305,6 +3408,8 @@ namespace Shmup.Core.Simulation
                 hp == 0,
                 part.IsCore,
                 false);
+            if (_bossHp > 0)
+                UpdateBossPhaseFromHp();
             if (hp > 0)
             {
                 EmitEvent(
@@ -3353,27 +3458,32 @@ namespace Shmup.Core.Simulation
                     _bossX,
                     _bossY,
                     damage);
-                int phaseCount = _bossPhases.Count;
-                int nextPhase = Math.Min(
-                    phaseCount - 1,
-                    (int)((long)(_bossMaxHp - _bossHp)
-                        * phaseCount / _bossMaxHp));
-                if (nextPhase != _bossPhase)
-                {
-                    _bossPhase = nextPhase;
-                    _bossFireCooldown =
-                        _bossPhases[_bossPhase].FireIntervalTicks;
-                    EmitEvent(
-                        SimEventType.BossPhaseChanged,
-                        _bossId,
-                        _bossX,
-                        _bossY,
-                        nextPhase);
-                }
+                UpdateBossPhaseFromHp();
                 return false;
             }
 
             return DefeatBoss(_bossX, _bossY);
+        }
+
+        void UpdateBossPhaseFromHp()
+        {
+            int phaseCount = _bossPhases.Count;
+            int nextPhase = Math.Min(
+                phaseCount - 1,
+                (int)((long)(_bossRuntimeMaxHp - _bossHp)
+                    * phaseCount / _bossRuntimeMaxHp));
+            if (nextPhase <= _bossPhase)
+                return;
+            _bossPhase = nextPhase;
+            _bossFireCooldown =
+                _bossPhases[_bossPhase].FireIntervalTicks;
+            RefreshBossPartPositions();
+            EmitEvent(
+                SimEventType.BossPhaseChanged,
+                _bossId,
+                _bossX,
+                _bossY,
+                nextPhase);
         }
 
         bool DefeatBoss(int x, int y)

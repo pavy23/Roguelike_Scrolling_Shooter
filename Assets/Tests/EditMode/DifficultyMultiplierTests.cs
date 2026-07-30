@@ -54,14 +54,19 @@ namespace Shmup.Core.Tests
                 6,
                 4,
                 true);
-            InputCommand none = InputCommand.None;
+            var none = new InputCommand(0, 0, true);
             for (int guard = 0;
-                guard < 100
-                    && !(run.IsBiomeBoss
-                        && run.Battle is BattleSim bossBattle
-                        && bossBattle.BossActive);
-                guard++)
-                run.Step(in none);
+                 guard < 100
+                     && !(run.IsBiomeBoss
+                         && run.Battle is BattleSim bossBattle
+                         && bossBattle.BossActive);
+                 guard++)
+            {
+                if (run.State == RunState.AwaitingReward)
+                    run.ChooseReward(0);
+                else
+                    run.Step(in none);
+            }
 
             Assert.AreEqual(3, run.DifficultyMultiplierNumerator);
             Assert.AreEqual(2, run.DifficultyMultiplierDenominator);
@@ -203,10 +208,15 @@ namespace Shmup.Core.Tests
                 CreateConfig(),
                 CreateContent(),
                 PowerUpGauge.CreateDefault(),
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
                 CreateRewards(),
                 ShipDefinition.CreateDefault(),
                 numerator,
-                denominator);
+                denominator,
+                new RunProgressionConfig(
+                    RunProgressionConfig.DefaultBiomeCount,
+                    1));
         }
 
         static BattleSimConfig CreateConfig()

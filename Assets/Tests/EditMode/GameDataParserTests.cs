@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using NUnit.Framework;
@@ -253,6 +254,51 @@ namespace Shmup.Core.Tests
                     .Generate(12UL, 1, 1);
             Assert.AreEqual(3, plan.BossParts.Count);
             Assert.IsTrue(plan.BossParts[2].IsCore);
+        }
+
+        [Test]
+        public void Parse_BossPhasesBuildShootingMovementAndPartStateAxes()
+        {
+            string waves = WavesJson.Replace(
+                @"""entryLaneMask"": 7, ""hp"": 500",
+                @"""entryLaneMask"": 7, ""hp"": 500,
+    ""phases"": [
+      {
+        ""fireIntervalTicks"": 90, ""ways"": 1, ""bulletSpeed"": 6.0,
+        ""movementPattern"": ""stationary"",
+        ""partVulnerability"": ""coreOnly""
+      },
+      {
+        ""fireIntervalTicks"": 45, ""ways"": 3, ""bulletSpeed"": 9.0,
+        ""movementPattern"": ""verticalSine"",
+        ""movementAmplitude"": 1.5, ""movementPeriodTicks"": 120,
+        ""partVulnerability"": ""all""
+      }
+    ]");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                waves);
+            IReadOnlyList<BossPhase> phases =
+                data.StageGeneration.Bosses[0].Phases;
+
+            Assert.AreEqual(2, phases.Count);
+            Assert.AreEqual(
+                BossMovementPattern.Stationary,
+                phases[0].MovementPattern);
+            Assert.AreEqual(
+                BossPartVulnerability.CoreOnly,
+                phases[0].PartVulnerability);
+            Assert.AreEqual(
+                BossMovementPattern.VerticalSine,
+                phases[1].MovementPattern);
+            Assert.AreEqual(384, phases[1].MovementAmplitudeNumerator);
+            Assert.AreEqual(1, phases[1].MovementAmplitudeDenominator);
+            Assert.AreEqual(120, phases[1].MovementPeriodTicks);
+            Assert.AreEqual(
+                BossPartVulnerability.All,
+                phases[1].PartVulnerability);
         }
 
         [Test]

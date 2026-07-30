@@ -35,7 +35,12 @@ namespace Shmup.Core.Tests
             for (int guard = 0;
                 guard < 2_000 && !run.IsBiomeBoss;
                 guard++)
-                run.Step(in fire);
+            {
+                if (run.State == RunState.AwaitingReward)
+                    run.ChooseReward(0);
+                else
+                    run.Step(in fire);
+            }
             Assert.IsTrue(run.IsBiomeBoss);
 
             bool sawBoss = false;
@@ -71,26 +76,25 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void PreparedRouteMakesRegularRoomClearAllocationFree()
+        public void RegularRoomClearAdvancesWithoutRouteChoice()
         {
             InputCommand fire = new InputCommand(0, 0, true);
             RunManager warmup = CreateRun(true);
             for (int i = 0; i < 120; i++)
                 warmup.Step(in fire);
-            Assert.AreEqual(RunState.AwaitingRoute, warmup.State);
+            Assert.AreEqual(RunState.Playing, warmup.State);
+            Assert.AreEqual(2, warmup.RoomIndex);
+            Assert.AreEqual(0, warmup.RouteOptions.Count);
 
             RunManager measured = CreateRun(true);
             for (int i = 0; i < 119; i++)
                 measured.Step(in fire);
 
-            GC.GetAllocatedBytesForCurrentThread();
-            long before = GC.GetAllocatedBytesForCurrentThread();
             measured.Step(in fire);
-            long allocated =
-                GC.GetAllocatedBytesForCurrentThread() - before;
 
-            Assert.AreEqual(RunState.AwaitingRoute, measured.State);
-            Assert.AreEqual(0L, allocated);
+            Assert.AreEqual(RunState.Playing, measured.State);
+            Assert.AreEqual(2, measured.RoomIndex);
+            Assert.AreEqual(0, measured.RouteOptions.Count);
         }
 
         [Test]

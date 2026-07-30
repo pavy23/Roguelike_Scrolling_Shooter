@@ -9,7 +9,7 @@ namespace Shmup.Core.Tests
     public sealed class BiomeRunProgressionTests
     {
         [Test]
-        public void DefaultProgressionUsesThreeBosslessRoomsThenBiomeBoss()
+        public void DefaultProgressionUsesOpeningMidBossClosingThenBoss()
         {
             RunManager run = CreateRun(
                 11UL,
@@ -18,37 +18,21 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(5, run.BiomeCount);
             Assert.AreEqual(3, run.RoomsPerBiome);
-            for (int room = 1; room <= 3; room++)
-            {
-                Assert.AreEqual(1, run.BiomeIndex);
-                Assert.AreEqual(room, run.RoomIndex);
-                Assert.IsFalse(run.IsBiomeBoss);
-                Assert.AreEqual(1, run.Difficulty);
-                Assert.AreEqual(string.Empty, run.StagePlan.BossId);
-                Assert.AreEqual(0, run.StagePlan.BossMaxHp);
-                Assert.AreEqual(0, run.RewardOptions.Count);
-
-                run.Step(InputCommand.None);
-                if (room < 3)
-                {
-                    Assert.AreEqual(RunState.AwaitingRoute, run.State);
-                    Assert.GreaterOrEqual(run.RouteOptions.Count, 2);
-                    for (int i = 0; i < run.RouteOptions.Count; i++)
-                    {
-                        Assert.AreEqual(
-                            "biome_1",
-                            run.RouteOptions[i].ThemeId);
-                    }
-                    run.ChooseRoute(FindNonEliteRoute(run));
-                }
-            }
-
-            Assert.AreEqual(RunState.AwaitingRoute, run.State);
-            Assert.GreaterOrEqual(run.RouteOptions.Count, 2);
-            for (int i = 0; i < run.RouteOptions.Count; i++)
-                Assert.AreEqual("biome_2", run.RouteOptions[i].ThemeId);
-            run.ChooseRoute(FindNonEliteRoute(run));
-            Assert.AreEqual(3, run.RouteChoiceHistory.Count);
+            Assert.AreEqual(RunStageSection.Opening, run.StageSection);
+            run.Step(InputCommand.None);
+            Assert.AreEqual(RunStageSection.MidBoss, run.StageSection);
+            Assert.AreEqual(2, run.RoomIndex);
+            Assert.Greater(run.StagePlan.BossMaxHp, 0);
+            DefeatBoss(run);
+            Assert.AreEqual(RunState.AwaitingReward, run.State);
+            Assert.AreEqual(2, run.RewardOptions.Count);
+            Assert.AreEqual(
+                RewardSelectionKind.MidStage,
+                run.RewardSelectionKind);
+            run.ChooseReward(0);
+            Assert.AreEqual(RunStageSection.Closing, run.StageSection);
+            Assert.AreEqual(3, run.RoomIndex);
+            run.Step(InputCommand.None);
 
             Assert.AreEqual(RunState.Playing, run.State);
             Assert.IsTrue(run.IsBiomeBoss);
@@ -57,10 +41,12 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(1, run.StagePlan.BossMaxHp);
             Assert.AreEqual(3, run.Statistics.RoomsCleared);
             Assert.AreEqual(0, run.Statistics.BiomesCleared);
+            Assert.AreEqual(0, run.RouteOptions.Count);
+            Assert.AreEqual(0, run.RouteChoiceHistory.Count);
         }
 
         [Test]
-        public void RewardsAppearOnlyAfterEliteRoomAndNonFinalBiomeBoss()
+        public void MidBossAndStageBossExposeTwoAndThreeChoices()
         {
             RunManager run = CreateRun(
                 22UL,
@@ -68,20 +54,16 @@ namespace Shmup.Core.Tests
                 true);
 
             run.Step(InputCommand.None);
-            run.ChooseRoute(FindRoute(run, EncounterType.Elite));
+            Assert.AreEqual(RunStageSection.MidBoss, run.StageSection);
             Assert.AreEqual(EncounterType.Elite, run.StagePlan.EncounterType);
 
-            run.Step(InputCommand.None);
+            DefeatBoss(run);
             Assert.AreEqual(RunState.AwaitingReward, run.State);
-            Assert.AreEqual(3, run.RewardOptions.Count);
+            Assert.AreEqual(2, run.RewardOptions.Count);
             run.ChooseReward(0);
-            Assert.AreEqual(RunState.AwaitingRoute, run.State);
 
             while (!run.IsBiomeBoss)
-            {
-                run.ChooseRoute(FindRoute(run, EncounterType.Normal));
                 run.Step(InputCommand.None);
-            }
 
             Assert.AreEqual(0, run.RewardOptions.Count);
             DefeatBoss(run);
@@ -107,8 +89,6 @@ namespace Shmup.Core.Tests
             {
                 if (run.State == RunState.AwaitingReward)
                     run.ChooseReward(0);
-                else if (run.State == RunState.AwaitingRoute)
-                    run.ChooseRoute(FindNonEliteRoute(run));
                 else
                 {
                     InputCommand input = run.IsBiomeBoss
@@ -128,7 +108,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void RoomBoundarySuspendAndRecordingPreserveHierarchyAndRoute()
+        public void RoomBoundarySuspendAndRecordingPreserveHierarchyWithoutRoutes()
         {
             const ulong seed = 44UL;
             RunManager source = CreateRun(
@@ -136,9 +116,6 @@ namespace Shmup.Core.Tests
                 new RunProgressionConfig(3, 3),
                 false);
             source.Step(InputCommand.None);
-            int selectedIndex = FindNonEliteRoute(source);
-            RouteOption selected = source.RouteOptions[selectedIndex];
-            source.ChooseRoute(selectedIndex);
 
             RunSuspendData suspend = source.ExportSuspendData();
             Assert.AreEqual(RunSuspendData.CurrentSchemaVersion, suspend.schemaVersion);
@@ -158,9 +135,8 @@ namespace Shmup.Core.Tests
                 PowerUpGauge.CreateDefault());
             Assert.AreEqual(source.BiomeIndex, resumed.BiomeIndex);
             Assert.AreEqual(source.RoomIndex, resumed.RoomIndex);
-            Assert.AreEqual(selected.ThemeId, resumed.StagePlan.ThemeId);
             Assert.AreEqual(
-                selected.EncounterType,
+                source.StagePlan.EncounterType,
                 resumed.StagePlan.EncounterType);
             AssertRunHashEqual(source, resumed);
 
@@ -173,43 +149,33 @@ namespace Shmup.Core.Tests
                 recording.schemaVersion);
             Assert.AreEqual(3, recording.biomeCount);
             Assert.AreEqual(3, recording.roomsPerBiome);
-            Assert.AreEqual(1, recording.routeChoices.Length);
-            Assert.AreEqual(1, recording.routeChoices[0].biomeIndex);
-            Assert.AreEqual(2, recording.routeChoices[0].roomIndex);
+            Assert.AreEqual(0, recording.routeChoices.Length);
             Assert.IsTrue(SaveDataIntegrity.HasValidChecksum(recording));
 
             var playback = new InputPlayback(recording);
             Assert.AreEqual(3, playback.BiomeCount);
             Assert.AreEqual(3, playback.RoomsPerBiome);
-            Assert.AreEqual(1, playback.RouteChoices[0].BiomeIndex);
-            Assert.AreEqual(2, playback.RouteChoices[0].RoomIndex);
+            Assert.AreEqual(0, playback.RouteChoices.Count);
 
-            suspend.routeChoices[0].roomIndex = 3;
-            recording.routeChoices[0].roomIndex = 3;
+            suspend.roomIndex = 3;
+            recording.roomsPerBiome = 4;
             Assert.IsFalse(SaveDataIntegrity.HasValidChecksum(suspend));
             Assert.IsFalse(SaveDataIntegrity.HasValidChecksum(recording));
         }
 
         [Test]
-        public void BossBoundarySuspendPreservesPendingNextBiomeRoute()
+        public void BossBoundarySuspendHasNoPendingNextBiomeRoute()
         {
             RunManager source = CreateRun(
                 66UL,
                 new RunProgressionConfig(2, 2),
                 false);
             source.Step(InputCommand.None);
-            source.ChooseRoute(FindNonEliteRoute(source));
             source.Step(InputCommand.None);
-            Assert.AreEqual(RunState.AwaitingRoute, source.State);
-            source.ChooseRoute(FindNonEliteRoute(source));
             Assert.IsTrue(source.IsBiomeBoss);
 
             RunSuspendData suspend = source.ExportSuspendData();
-            Assert.AreEqual(2, suspend.routeChoices.Length);
-            RouteChoiceData pending =
-                suspend.routeChoices[suspend.routeChoices.Length - 1];
-            Assert.AreEqual(2, pending.biomeIndex);
-            Assert.AreEqual(1, pending.roomIndex);
+            Assert.AreEqual(0, suspend.routeChoices.Length);
 
             RunManager resumed = RunManager.ResumeFromSuspendData(
                 suspend,
@@ -388,28 +354,6 @@ namespace Shmup.Core.Tests
                 Array.Empty<EnemyDefinition>(),
                 new[] { weapon },
                 weapon.Id);
-        }
-
-        static int FindRoute(RunManager run, EncounterType encounterType)
-        {
-            for (int i = 0; i < run.RouteOptions.Count; i++)
-            {
-                if (run.RouteOptions[i].EncounterType == encounterType)
-                    return i;
-            }
-            Assert.Fail($"No {encounterType} route was generated.");
-            return 0;
-        }
-
-        static int FindNonEliteRoute(RunManager run)
-        {
-            for (int i = 0; i < run.RouteOptions.Count; i++)
-            {
-                if (run.RouteOptions[i].EncounterType != EncounterType.Elite)
-                    return i;
-            }
-            Assert.Fail("No non-elite route was generated.");
-            return 0;
         }
 
         static void DefeatBoss(RunManager run)

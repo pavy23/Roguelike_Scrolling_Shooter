@@ -341,17 +341,33 @@ namespace Shmup.Core.Tests
                 config,
                 content,
                 Gauge(),
-                modifierRewards);
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                modifierRewards,
+                null,
+                1,
+                1,
+                new RunProgressionConfig(
+                    RunProgressionConfig.DefaultBiomeCount,
+                    1));
 
             var fire = new InputCommand(0, 0, true);
-            for (int i = 0; i < 2000 && run.State == RunState.Playing; i++)
+            for (int i = 0;
+                i < 2000 && run.State == RunState.Playing;
+                i++)
                 run.Step(in fire);
             Assert.AreEqual(RunState.AwaitingReward, run.State);
+            Assert.AreEqual(
+                RewardSelectionKind.Main,
+                run.RewardSelectionKind);
 
             run.ChooseReward(0);
             Assert.AreEqual(BattleModifier.PierceShot, run.ActiveModifiers);
             InputCommand none = InputCommand.None;
-            run.Step(in none);
+            for (int i = 0;
+                i < 100 && run.State != RunState.RunOver;
+                i++)
+                run.Step(in none);
             Assert.AreEqual(RunState.RunOver, run.State);
 
             run.Restart(78UL);
@@ -366,7 +382,15 @@ namespace Shmup.Core.Tests
                 config,
                 content,
                 Gauge(),
-                modifierRewards);
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                modifierRewards,
+                null,
+                1,
+                1,
+                new RunProgressionConfig(
+                    RunProgressionConfig.DefaultBiomeCount,
+                    1));
             Assert.AreEqual(BattleModifier.None, fresh.ActiveModifiers);
         }
 

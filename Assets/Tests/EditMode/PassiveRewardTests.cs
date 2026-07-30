@@ -204,7 +204,15 @@ namespace Shmup.Core.Tests
                 config,
                 content,
                 PowerUpGauge.CreateDefault(),
-                rewards);
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                null,
+                1,
+                1,
+                new RunProgressionConfig(
+                    RunProgressionConfig.DefaultBiomeCount,
+                    1));
 
             CompleteBoss(run);
             run.ChooseReward(FindRewardOption(run, "capped"));
@@ -298,7 +306,15 @@ namespace Shmup.Core.Tests
                 config,
                 content,
                 PowerUpGauge.CreateDefault(),
-                rewards);
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                null,
+                1,
+                1,
+                new RunProgressionConfig(
+                    RunProgressionConfig.DefaultBiomeCount,
+                    1));
         }
 
         static RunManager CreateRun(
@@ -312,7 +328,15 @@ namespace Shmup.Core.Tests
                 Config(),
                 Content(new WeaponDefinition("shot", 1, 1, 100, 1, 0, 0)),
                 PowerUpGauge.CreateDefault(),
-                rewards);
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                null,
+                1,
+                1,
+                new RunProgressionConfig(
+                    RunProgressionConfig.DefaultBiomeCount,
+                    1));
         }
 
         static RewardCatalog CappedCatalog()
@@ -425,9 +449,22 @@ namespace Shmup.Core.Tests
         static void CompleteBoss(RunManager run)
         {
             var fire = new InputCommand(0, 0, true);
-            for (int i = 0; i < 2000 && run.State == RunState.Playing; i++)
+            for (int i = 0; i < 4000; i++)
+            {
+                if (run.State == RunState.AwaitingReward)
+                {
+                    if (run.RewardSelectionKind
+                        == RewardSelectionKind.Main)
+                        break;
+                    run.ChooseReward(0);
+                    continue;
+                }
                 run.Step(in fire);
+            }
             Assert.AreEqual(RunState.AwaitingReward, run.State);
+            Assert.AreEqual(
+                RewardSelectionKind.Main,
+                run.RewardSelectionKind);
         }
 
         static void Step(

@@ -274,11 +274,48 @@ namespace Shmup.Core.Content
                     ExactFraction speed = ToPerTickSpeed(
                         Require(phase.bulletSpeed, phasePath + ".bulletSpeed"),
                         phasePath + ".bulletSpeed");
+                    BossMovementPattern movementPattern =
+                        ParseBossMovementPattern(
+                            phase.movementPattern,
+                            phasePath + ".movementPattern");
+                    ExactFraction movementAmplitude =
+                        phase.movementAmplitude.HasValue
+                            ? ToSubUnitFraction(
+                                phase.movementAmplitude.Value,
+                                phasePath + ".movementAmplitude")
+                            : new ExactFraction(0, 1);
+                    int movementPeriodTicks =
+                        phase.movementPeriodTicks ?? 1;
+                    if (movementAmplitude.Numerator < 0)
+                        throw Error(
+                            phasePath + ".movementAmplitude",
+                            "must be non-negative.");
+                    if (movementPeriodTicks < 1)
+                        throw Error(
+                            phasePath + ".movementPeriodTicks",
+                            "must be positive.");
+                    if (movementPattern
+                            == BossMovementPattern.VerticalSine
+                        && movementAmplitude.Numerator < 1)
+                    {
+                        throw Error(
+                            phasePath + ".movementAmplitude",
+                            "must be positive for verticalSine.");
+                    }
+                    BossPartVulnerability partVulnerability =
+                        ParseBossPartVulnerability(
+                            phase.partVulnerability,
+                            phasePath + ".partVulnerability");
                     phases[i] = new BossPhase(
                         Require(phase.fireIntervalTicks, phasePath + ".fireIntervalTicks"),
                         Require(phase.ways, phasePath + ".ways"),
                         speed.Numerator,
-                        speed.Denominator);
+                        speed.Denominator,
+                        movementPattern,
+                        movementAmplitude.Numerator,
+                        movementAmplitude.Denominator,
+                        movementPeriodTicks,
+                        partVulnerability);
                 }
             }
 
@@ -419,6 +456,48 @@ namespace Shmup.Core.Content
                 case "suction": return BossPartAttackType.Suction;
                 default:
                     throw Error(path, $"has unknown boss-part attack type '{value}'.");
+            }
+        }
+
+        static BossMovementPattern ParseBossMovementPattern(
+            string value,
+            string path)
+        {
+            if (value == null)
+                return BossMovementPattern.LegacyHover;
+            switch (RequireText(value, path))
+            {
+                case "legacyHover":
+                    return BossMovementPattern.LegacyHover;
+                case "stationary":
+                    return BossMovementPattern.Stationary;
+                case "verticalSine":
+                    return BossMovementPattern.VerticalSine;
+                default:
+                    throw Error(
+                        path,
+                        $"has unknown boss movement pattern '{value}'.");
+            }
+        }
+
+        static BossPartVulnerability ParseBossPartVulnerability(
+            string value,
+            string path)
+        {
+            if (value == null)
+                return BossPartVulnerability.Legacy;
+            switch (RequireText(value, path))
+            {
+                case "legacy":
+                    return BossPartVulnerability.Legacy;
+                case "coreOnly":
+                    return BossPartVulnerability.CoreOnly;
+                case "all":
+                    return BossPartVulnerability.All;
+                default:
+                    throw Error(
+                        path,
+                        $"has unknown boss part vulnerability '{value}'.");
             }
         }
 

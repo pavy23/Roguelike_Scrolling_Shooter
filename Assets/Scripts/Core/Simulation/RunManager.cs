@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Shmup.Core.Generation;
@@ -11,10 +12,32 @@ namespace Shmup.Core.Simulation
         RunOver = 1,
         /// <summary>보스 격파 후 보상 선택 대기 (REQ-007 요청 3). ChooseReward로 재개.</summary>
         AwaitingReward = 2,
-        /// <summary>Reward chosen; waiting for the next map node selection.</summary>
+        /// <summary>
+        /// Legacy serialized value only. REQ-054 runtime never enters this state.
+        /// </summary>
+        [Obsolete(
+            "REQ-054 removed runtime route choices. Numeric value is retained "
+            + "only for legacy persistence compatibility.")]
         AwaitingRoute = 3,
         /// <summary>The configured final stage was cleared successfully.</summary>
         RunCleared = 4
+    }
+
+    public enum RunStageSection
+    {
+        Opening = 0,
+        MidBoss = 1,
+        Closing = 2,
+        StageBoss = 3,
+        HiddenOpening = 4,
+        HiddenBoss = 5
+    }
+
+    public enum RewardSelectionKind
+    {
+        None = 0,
+        MidStage = 1,
+        Main = 2
     }
 
     public enum RunCompletionGrade
@@ -489,12 +512,87 @@ namespace Shmup.Core.Simulation
     /// </summary>
     public sealed class RunManager
     {
+        sealed class PrefixReadOnlyList<T> :
+            IReadOnlyList<T>,
+            IList<T>
+        {
+            readonly T[] _items;
+
+            public PrefixReadOnlyList(T[] items)
+            {
+                _items = items ?? throw new ArgumentNullException(
+                    nameof(items));
+            }
+
+            public int Count { get; private set; }
+
+            public T this[int index]
+            {
+                get
+                {
+                    if (index < 0 || index >= Count)
+                        throw new ArgumentOutOfRangeException(nameof(index));
+                    return _items[index];
+                }
+                set => throw new NotSupportedException(
+                    "The reward option view is read-only.");
+            }
+
+            public bool IsReadOnly => true;
+
+            public void SetCount(int count)
+            {
+                if (count < 0 || count > _items.Length)
+                    throw new ArgumentOutOfRangeException(nameof(count));
+                Count = count;
+            }
+
+            public IEnumerator<T> GetEnumerator()
+            {
+                for (int i = 0; i < Count; i++)
+                    yield return _items[i];
+            }
+
+            public int IndexOf(T item)
+            {
+                return Array.IndexOf(_items, item, 0, Count);
+            }
+
+            public bool Contains(T item) => IndexOf(item) >= 0;
+
+            public void CopyTo(T[] array, int arrayIndex)
+            {
+                Array.Copy(_items, 0, array, arrayIndex, Count);
+            }
+
+            public void Add(T item) => throw new NotSupportedException(
+                "The reward option view is read-only.");
+            public void Clear() => throw new NotSupportedException(
+                "The reward option view is read-only.");
+            public void Insert(int index, T item) =>
+                throw new NotSupportedException(
+                    "The reward option view is read-only.");
+            public bool Remove(T item) => throw new NotSupportedException(
+                "The reward option view is read-only.");
+            public void RemoveAt(int index) =>
+                throw new NotSupportedException(
+                    "The reward option view is read-only.");
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
         const int BattleSimulationStream = 1;
         const int RewardSelectionStream = 2;
+        // Stream id 3 is retained so section traits and legacy route migration
+        // preserve the pre-REQ-054 deterministic sequence.
         const int RouteSelectionStream = 3;
         const int RoomGenerationStream = 4;
         const int ColossalBossSelectionStream = 5;
-        public const int RewardOptionCount = 3;
+        const int MidBossSelectionStream = 6;
+        public const int MidStageRewardOptionCount = 2;
+        public const int MainRewardOptionCount = 3;
+        /// <summary>Legacy alias for the main reward card count.</summary>
+        public const int RewardOptionCount = MainRewardOptionCount;
         public const int MinimumRouteOptionCount = 2;
         public const int MaximumRouteOptionCount = 3;
 
@@ -544,7 +642,7 @@ namespace Shmup.Core.Simulation
         readonly int[] _rewardWeights;
         readonly RewardOption[] _rewardOptionBuffer;
         readonly int[] _rewardOptionCatalogIndices;
-        readonly IReadOnlyList<RewardOption> _rewardOptionView;
+        readonly PrefixReadOnlyList<RewardOption> _rewardOptionView;
         readonly int[] _rewardAcquisitionCounts;
         readonly int[] _stageStartRewardAcquisitionCounts;
         readonly Rng _rewardRng;
@@ -593,7 +691,7 @@ namespace Shmup.Core.Simulation
         int _stageStartPlayerSpeedDenominator;
         int _rewardSelectionsRemaining;
         int _rewardSelectionRound;
-        bool _rewardFromBiomeBoss;
+        RewardSelectionKind _rewardSelectionKind;
         bool _currentBiomeHit;
 
         public RunManager(
@@ -1047,7 +1145,9 @@ namespace Shmup.Core.Simulation
             _rewardWeights = new int[_rewards.All.Count];
             _rewardOptionBuffer = new RewardOption[RewardOptionCount];
             _rewardOptionCatalogIndices = new int[RewardOptionCount];
-            _rewardOptionView = Array.AsReadOnly(_rewardOptionBuffer);
+            _rewardOptionView =
+                new PrefixReadOnlyList<RewardOption>(
+                    _rewardOptionBuffer);
             _rewardAcquisitionCounts = new int[_rewards.All.Count];
             _stageStartRewardAcquisitionCounts =
                 new int[_rewards.All.Count];
@@ -1133,6 +1233,29 @@ namespace Shmup.Core.Simulation
         /// <summary>True after the final regular room while fighting the biome boss.</summary>
         public bool IsBiomeBoss { get; private set; }
         public bool IsHiddenBiome { get; private set; }
+        public RunStageSection StageSection
+        {
+            get
+            {
+                if (IsHiddenBiome)
+                    return IsBiomeBoss
+                        ? RunStageSection.HiddenBoss
+                        : RunStageSection.HiddenOpening;
+                if (IsBiomeBoss)
+                    return RunStageSection.StageBoss;
+                if (IsMidBossSection)
+                    return RunStageSection.MidBoss;
+                return RoomIndex <= 1
+                    ? RunStageSection.Opening
+                    : RunStageSection.Closing;
+            }
+        }
+        public bool IsMidBossSection =>
+            !IsHiddenBiome
+            && !IsBiomeBoss
+            && RoomsPerBiome >=
+                RunProgressionConfig.DefaultRoomsPerBiome
+            && RoomIndex == 2;
         public RunState State { get; private set; }
         public RunCompletionGrade CompletionGrade { get; private set; }
         public ColossalBossKind SelectedColossalBoss { get; private set; }
@@ -1232,9 +1355,15 @@ namespace Shmup.Core.Simulation
                 Math.Min(_stageStartShieldStock, maxShieldStock);
         }
 
-        /// <summary>AwaitingReward 상태에서만 유효. 항상 RewardOptionCount개.</summary>
+        /// <summary>
+        /// AwaitingReward only: two cards for MidStage, three for Main.
+        /// </summary>
         public IReadOnlyList<RewardOption> RewardOptions => _rewardOptions;
         IReadOnlyList<RewardOption> _rewardOptions = Array.Empty<RewardOption>();
+        public RewardSelectionKind RewardSelectionKind =>
+            State == RunState.AwaitingReward
+                ? _rewardSelectionKind
+                : RewardSelectionKind.None;
         /// <summary>Two or three deterministic map nodes while AwaitingRoute.</summary>
         public IReadOnlyList<RouteOption> RouteOptions => _routeOptions;
         IReadOnlyList<RouteOption> _routeOptions = Array.Empty<RouteOption>();
@@ -1540,7 +1669,7 @@ namespace Shmup.Core.Simulation
                 (BattleModifier)data.activeModifiers);
             manager.RestoreRouteChoices(
                 data.routeChoices,
-                true);
+                false);
             manager.PowerUpGauge.RestoreState(
                 data.powerUpLevels,
                 data.powerUpCursor,
@@ -1594,25 +1723,23 @@ namespace Shmup.Core.Simulation
                     if (IsHiddenBiome)
                         CompleteRun(
                             RunCompletionGrade.PerfectClear);
-                    else if (_progressionConfig.IsFinalBiome(BiomeIndex))
-                    {
-                        RecordNoHitBiomeClear();
-                        if (HiddenConditionCount >= 2)
-                            BeginHiddenBiome();
-                        else
-                            CompleteRun(
-                                RunCompletionGrade.StandardClear);
-                    }
                     else
                     {
                         RecordNoHitBiomeClear();
-                        BeginRewardSelection(true);
+                        BeginRewardSelection(
+                            RewardSelectionKind.Main);
                     }
                 }
                 return;
             }
 
-            if (Battle.Tick >= _stageLengthTicks)
+            bool sectionCleared =
+                IsMidBossSection
+                && Battle is BattleSim midBossBattle
+                && midBossBattle.HasBossBattle
+                    ? midBossBattle.BossDefeated
+                    : Battle.Tick >= _stageLengthTicks;
+            if (sectionCleared)
             {
                 IncrementRoomsCleared();
                 if (IsHiddenBiome)
@@ -1624,30 +1751,39 @@ namespace Shmup.Core.Simulation
                         AdvanceHiddenRoom();
                     return;
                 }
-                if (StagePlan.EncounterType == EncounterType.Elite
+                if (!IsMidBossSection
+                    && StagePlan.EncounterType == EncounterType.Elite
                     && EliteRoomsCleared < int.MaxValue)
                     EliteRoomsCleared++;
                 if (StagePlan.EncounterType == EncounterType.Rare
                     && RareEncountersCleared < int.MaxValue)
                     RareEncountersCleared++;
-                if (StagePlan.EncounterType == EncounterType.Elite)
-                    BeginRewardSelection(false);
+                if (IsMidBossSection)
+                    BeginRewardSelection(
+                        RewardSelectionKind.MidStage);
                 else
-                    BeginRouteSelectionOrAdvance();
+                    AdvanceAfterRegularSection();
             }
         }
 
-        void BeginRewardSelection(bool fromBiomeBoss)
+        void BeginRewardSelection(RewardSelectionKind kind)
         {
-            _rewardFromBiomeBoss = fromBiomeBoss;
+            if (kind != RewardSelectionKind.MidStage
+                && kind != RewardSelectionKind.Main)
+                throw new ArgumentOutOfRangeException(nameof(kind));
+            _rewardSelectionKind = kind;
             _rewardSelectionsRemaining = 1;
             _rewardSelectionRound = 0;
+            int optionCount =
+                kind == RewardSelectionKind.MidStage
+                    ? MidStageRewardOptionCount
+                    : MainRewardOptionCount;
             IReadOnlyList<RewardOption> options =
-                GenerateRewardOptions();
-            if (options.Count != RewardOptionCount)
+                GenerateRewardOptions(optionCount);
+            if (options.Count != optionCount)
                 throw new InvalidOperationException(
                     "Reward selection cannot begin without "
-                    + $"{RewardOptionCount} choices.");
+                    + $"{optionCount} choices.");
             _rewardOptions = options;
             State = RunState.AwaitingReward;
         }
@@ -1659,7 +1795,8 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(grade));
             _rewardSelectionsRemaining = 0;
             _rewardSelectionRound = 0;
-            _rewardFromBiomeBoss = false;
+            _rewardSelectionKind = RewardSelectionKind.None;
+            _rewardOptionView.SetCount(0);
             _rewardOptions = Array.Empty<RewardOption>();
             _routeOptions = Array.Empty<RouteOption>();
             _preparedRouteOptions = Array.Empty<RouteOption>();
@@ -1807,61 +1944,50 @@ namespace Shmup.Core.Simulation
             if (_rewardSelectionsRemaining > 0)
             {
                 _rewardSelectionRound++;
-                _rewardOptions = GenerateRewardOptions();
+                _rewardOptions = GenerateRewardOptions(
+                    _rewardSelectionKind
+                        == RewardSelectionKind.MidStage
+                            ? MidStageRewardOptionCount
+                            : MainRewardOptionCount);
                 return;
             }
             _rewardOptions = Array.Empty<RewardOption>();
-            if (_rewardFromBiomeBoss)
+            RewardSelectionKind completedKind =
+                _rewardSelectionKind;
+            _rewardSelectionKind = RewardSelectionKind.None;
+            _rewardOptionView.SetCount(0);
+            if (completedKind == RewardSelectionKind.MidStage)
             {
-                _rewardFromBiomeBoss = false;
-                AdvanceBiome();
+                AdvanceAfterRegularSection();
                 return;
             }
-
-            BeginRouteSelectionOrAdvance();
+            if (completedKind != RewardSelectionKind.Main)
+                throw new InvalidOperationException(
+                    "Reward selection kind was lost.");
+            if (_progressionConfig.IsFinalBiome(BiomeIndex))
+            {
+                if (HiddenConditionCount >= 2)
+                    BeginHiddenBiome();
+                else
+                    CompleteRun(
+                        RunCompletionGrade.StandardClear);
+                return;
+            }
+            AdvanceBiome();
         }
 
+        [Obsolete(
+            "REQ-054 removed route selection. Legacy route payloads remain "
+            + "readable but are not actionable.")]
         public void ChooseRoute(int optionIndex)
         {
-            if (State != RunState.AwaitingRoute)
-                throw new InvalidOperationException(
-                    "No route is awaiting selection.");
-            if (optionIndex < 0 || optionIndex >= _routeOptions.Count)
-                throw new ArgumentOutOfRangeException(nameof(optionIndex));
-            RouteOption option = _routeOptions[optionIndex];
-            bool routesToNextBiome = RoomIndex >= RoomsPerBiome;
-            int targetBiomeIndex = routesToNextBiome
-                ? BiomeIndex + 1
-                : BiomeIndex;
-            int targetRoomIndex = routesToNextBiome
-                ? 1
-                : RoomIndex + 1;
-            _routeChoiceHistory.Add(new RouteChoice(
-                targetBiomeIndex,
-                targetRoomIndex,
-                optionIndex,
-                option.ThemeId,
-                option.EncounterType));
-            _routeOptions = Array.Empty<RouteOption>();
-            State = RunState.Playing;
-            if (routesToNextBiome)
-                AdvanceToBiomeBoss();
-            else
-                AdvanceRoom();
+            throw new NotSupportedException(
+                "Route choices were removed by REQ-054.");
         }
 
-        void BeginRouteSelectionOrAdvance()
+        void AdvanceAfterRegularSection()
         {
-            IReadOnlyList<RouteOption> prepared =
-                _preparedRouteOptions;
             _preparedRouteOptions = Array.Empty<RouteOption>();
-            if (prepared.Count >= MinimumRouteOptionCount)
-            {
-                _routeOptions = prepared;
-                State = RunState.AwaitingRoute;
-                return;
-            }
-
             _routeOptions = Array.Empty<RouteOption>();
             if (RoomIndex >= RoomsPerBiome)
                 AdvanceToBiomeBoss();
@@ -1945,8 +2071,13 @@ namespace Shmup.Core.Simulation
         }
 
         /// <summary>시드·스테이지·주입 카탈로그의 결정론적 가중 비복원 선택.</summary>
-        IReadOnlyList<RewardOption> GenerateRewardOptions()
+        IReadOnlyList<RewardOption> GenerateRewardOptions(
+            int optionCount)
         {
+            if (optionCount < 1
+                || optionCount > _rewardOptionBuffer.Length)
+                throw new ArgumentOutOfRangeException(
+                    nameof(optionCount));
             IReadOnlyList<RewardDefinition> rewards = _rewards.All;
             int eligibleCount = 0;
             for (int i = 0; i < rewards.Count; i++)
@@ -1984,10 +2115,10 @@ namespace Shmup.Core.Simulation
                 eligibleCount++;
             }
 
-            if (eligibleCount < RewardOptionCount)
+            if (eligibleCount < optionCount)
                 throw new InvalidOperationException(
                     $"Biome {BiomeIndex} has {eligibleCount} eligible rewards; "
-                    + $"{RewardOptionCount} are required.");
+                    + $"{optionCount} are required.");
 
             _rewardRng.ResetForked(
                 _runSeed,
@@ -2048,7 +2179,7 @@ namespace Shmup.Core.Simulation
             }
 
             for (int i = optionStart;
-                i < _rewardOptionBuffer.Length;
+                i < optionCount;
                 i++)
             {
                 int pick = _rewardRng.PickWeighted(_rewardWeights, poolCount);
@@ -2072,6 +2203,7 @@ namespace Shmup.Core.Simulation
                     _rewardPoolCatalogIndices[last];
                 _rewardWeights[pick] = _rewardWeights[last];
             }
+            _rewardOptionView.SetCount(optionCount);
             return _rewardOptionView;
         }
 
@@ -2161,6 +2293,26 @@ namespace Shmup.Core.Simulation
             var trimmed = new RouteOption[optionCount];
             Array.Copy(options, trimmed, optionCount);
             return Array.AsReadOnly(trimmed);
+        }
+
+        EncounterType SelectSectionEncounterType(
+            int biomeIndex,
+            int roomIndex)
+        {
+            _routeRng.ResetForked(
+                _runSeed,
+                RouteSelectionStream,
+                GetRoomSequence(biomeIndex, roomIndex));
+            if (_battleConfig.RareEncounterChanceNumerator > 0
+                && _routeRng.NextInt(
+                    0,
+                    _battleConfig.RareEncounterChanceDenominator)
+                    < _battleConfig.RareEncounterChanceNumerator)
+                return EncounterType.Rare;
+            const int commonEncounterCount = 4;
+            return (EncounterType)_routeRng.NextInt(
+                0,
+                commonEncounterCount);
         }
 
         public void Restart(ulong newRunSeed)
@@ -3076,35 +3228,44 @@ namespace Shmup.Core.Simulation
                 if (basePlan == null)
                     throw new InvalidOperationException(
                         "The stage generator returned no biome base plan.");
-                if (!IsBiomeBoss
-                    && RoomIndex == 1
-                    && !TryGetRouteChoice(
+                if (TryGetRouteChoice(
                         battleSequenceBiomeIndex,
                         RoomIndex,
-                        out _))
+                        out RouteChoice routeChoice))
                 {
-                    generated = basePlan;
-                }
-                else
-                {
-                    string themeId = basePlan.ThemeId;
-                    EncounterType encounterType = EncounterType.Normal;
-                    if (TryGetRouteChoice(
-                            battleSequenceBiomeIndex,
-                            RoomIndex,
-                            out RouteChoice routeChoice))
-                    {
-                        themeId = routeChoice.ThemeId;
-                        if (!IsBiomeBoss)
-                            encounterType = routeChoice.EncounterType;
-                    }
                     generated = routeGenerator.GenerateRoute(
                         generationSeed,
                         generationBiomeIndex,
                         Difficulty,
-                        themeId,
+                        routeChoice.ThemeId,
+                        IsBiomeBoss
+                            ? EncounterType.Normal
+                            : routeChoice.EncounterType);
+                }
+                else if (!IsBiomeBoss
+                    && RoomIndex > 1)
+                {
+                    EncounterType encounterType =
+                        IsMidBossSection
+                            ? EncounterType.Elite
+                            : SelectSectionEncounterType(
+                                battleSequenceBiomeIndex,
+                                RoomIndex);
+                    if (!routeGenerator.CanGenerateRoute(
+                            basePlan.ThemeId,
+                            generationBiomeIndex,
+                            Difficulty,
+                            encounterType))
+                        encounterType = EncounterType.Normal;
+                    generated = routeGenerator.GenerateRoute(
+                        generationSeed,
+                        generationBiomeIndex,
+                        Difficulty,
+                        basePlan.ThemeId,
                         encounterType);
                 }
+                else
+                    generated = basePlan;
             }
             else
             {
@@ -3118,7 +3279,9 @@ namespace Shmup.Core.Simulation
                     "The stage generator returned no plan.");
             StagePlan = IsBiomeBoss
                 ? CreateBiomeBossPlan(generated)
-                : CreateRegularRoomPlan(generated);
+                : IsMidBossSection
+                    ? CreateMidBossPlan(generated)
+                    : CreateRegularRoomPlan(generated);
             _stageLengthTicks = GetStageLengthTicks(StagePlan);
 
             Rng battleRng = new Rng(_runSeed)
@@ -3133,7 +3296,7 @@ namespace Shmup.Core.Simulation
                 _battleContent,
                 PowerUpGauge,
                 ModifierStacks);
-            _preparedRouteOptions = GenerateExitRouteOptions();
+            _preparedRouteOptions = Array.Empty<RouteOption>();
             CaptureStageStart();
         }
 
@@ -3225,6 +3388,100 @@ namespace Shmup.Core.Simulation
             return (int)bossSequence;
         }
 
+        StagePlan CreateMidBossPlan(StagePlan source)
+        {
+            var candidates = new List<EnemyDefinition>();
+            for (int i = 0; i < _battleContent.Enemies.Count; i++)
+            {
+                EnemyDefinition enemy = _battleContent.Enemies[i];
+                if (enemy.Id.StartsWith(
+                        "mini_",
+                        StringComparison.Ordinal))
+                    candidates.Add(enemy);
+            }
+            candidates.Sort(
+                (left, right) => string.CompareOrdinal(
+                    left.Id,
+                    right.Id));
+            if (candidates.Count == 0)
+            {
+                return source.BossMaxHp > 0
+                    ? CreateBossOnlyPlan(
+                        source,
+                        EncounterType.Elite)
+                    : CreateRegularRoomPlan(source);
+            }
+
+            var selection = new Rng(_runSeed)
+                .Fork(MidBossSelectionStream)
+                .Fork(BiomeIndex);
+            EnemyDefinition midBoss =
+                candidates[selection.NextInt(0, candidates.Count)];
+            BossMovementPattern movementPattern;
+            int movementAmplitudeNumerator = 0;
+            int movementAmplitudeDenominator = 1;
+            int movementPeriodTicks = 1;
+            switch (midBoss.MovePattern)
+            {
+                case EnemyMovePattern.Static:
+                    movementPattern =
+                        BossMovementPattern.Stationary;
+                    break;
+                case EnemyMovePattern.Sine:
+                    movementPattern =
+                        BossMovementPattern.VerticalSine;
+                    movementAmplitudeNumerator =
+                        midBoss.MovementAmplitudeNumerator;
+                    movementAmplitudeDenominator =
+                        midBoss.MovementAmplitudeDenominator;
+                    movementPeriodTicks =
+                        midBoss.MovementPeriodTicks;
+                    break;
+                default:
+                    movementPattern =
+                        BossMovementPattern.LegacyHover;
+                    break;
+            }
+
+            var phase = new BossPhase(
+                Math.Max(1, midBoss.FireIntervalTicks),
+                1,
+                _battleConfig.EnemyBulletSpeedNumerator,
+                _battleConfig.EnemyBulletSpeedDenominator,
+                movementPattern,
+                movementAmplitudeNumerator,
+                movementAmplitudeDenominator,
+                movementPeriodTicks,
+                BossPartVulnerability.Legacy);
+            int laneMask = source.BossEntryLaneMask != 0
+                ? source.BossEntryLaneMask
+                : source.StartLaneMask != 0
+                    ? source.StartLaneMask
+                    : 1;
+            var entry = new StageSegment(
+                "__mid_boss_entry__",
+                1,
+                Array.Empty<SpawnEvent>(),
+                laneMask,
+                laneMask,
+                new[] { laneMask });
+            return new StagePlan(
+                new[] { entry },
+                midBoss.Id,
+                source.LaneCount,
+                laneMask,
+                laneMask,
+                midBoss.MaxHp,
+                midBoss.HalfWidth,
+                midBoss.HalfHeight,
+                source.BossHoldX,
+                new[] { phase },
+                source.ThemeId,
+                source.RequestedThemeId,
+                EncounterType.Elite,
+                Array.Empty<BossPartDefinition>());
+        }
+
         static StagePlan CreateRegularRoomPlan(StagePlan source)
         {
             return new StagePlan(
@@ -3245,6 +3502,15 @@ namespace Shmup.Core.Simulation
         }
 
         static StagePlan CreateBiomeBossPlan(StagePlan source)
+        {
+            return CreateBossOnlyPlan(
+                source,
+                EncounterType.Normal);
+        }
+
+        static StagePlan CreateBossOnlyPlan(
+            StagePlan source,
+            EncounterType encounterType)
         {
             int laneMask = source.BossEntryLaneMask != 0
                 ? source.BossEntryLaneMask
@@ -3269,7 +3535,7 @@ namespace Shmup.Core.Simulation
                 source.BossPhases,
                 source.ThemeId,
                 source.RequestedThemeId,
-                EncounterType.Normal,
+                encounterType,
                 source.BossParts);
         }
 
