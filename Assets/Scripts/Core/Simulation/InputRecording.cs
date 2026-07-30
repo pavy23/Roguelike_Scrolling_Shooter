@@ -50,7 +50,7 @@ namespace Shmup.Core.Simulation
         /// REQ-065 changes room-boundary initial state, so older recordings are
         /// intentionally rejected instead of replaying under different semantics.
         /// </summary>
-        public const int CurrentSchemaVersion = 11;
+        public const int CurrentSchemaVersion = 12;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -90,6 +90,9 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 12)]
         public int lastColossalBossAtRunStart;
+
+        [DataMember(Order = 13)]
+        public ContractChoiceData[] contractChoices;
     }
 
     /// <summary>
@@ -352,6 +355,24 @@ namespace Shmup.Core.Simulation
                     encounterType = (int)choice.EncounterType
                 };
             }
+            IReadOnlyList<ContractChoice> contractChoices =
+                _routeSource != null
+                    ? _routeSource.ContractChoiceHistory
+                    : Array.Empty<ContractChoice>();
+            var exportedContractChoices =
+                new ContractChoiceData[contractChoices.Count];
+            for (int i = 0; i < contractChoices.Count; i++)
+            {
+                ContractChoice choice = contractChoices[i];
+                exportedContractChoices[i] =
+                    new ContractChoiceData
+                    {
+                        targetBiomeIndex =
+                            choice.TargetBiomeIndex,
+                        optionIndex = choice.OptionIndex,
+                        contractId = choice.ContractId
+                    };
+            }
 
             var data = new InputRecordingData
             {
@@ -369,7 +390,8 @@ namespace Shmup.Core.Simulation
                 missileFamily = (int)_missileFamily,
                 optionFormation = (int)_optionFormation,
                 lastColossalBossAtRunStart =
-                    (int)_lastColossalBossAtRunStart
+                    (int)_lastColossalBossAtRunStart,
+                contractChoices = exportedContractChoices
             };
             SaveDataIntegrity.Seal(data);
             return data;
@@ -479,6 +501,9 @@ namespace Shmup.Core.Simulation
         readonly PlaybackRun[] _runs;
         readonly RouteChoice[] _routeChoices;
         readonly IReadOnlyList<RouteChoice> _routeChoiceView;
+        readonly ContractChoice[] _contractChoices;
+        readonly IReadOnlyList<ContractChoice>
+            _contractChoiceView;
 
         public InputPlayback(InputRecordingData data)
         {
@@ -548,6 +573,22 @@ namespace Shmup.Core.Simulation
                     (EncounterType)choice.encounterType);
             }
             _routeChoiceView = Array.AsReadOnly(_routeChoices);
+            ContractChoiceData[] serializedContracts =
+                data.contractChoices
+                ?? Array.Empty<ContractChoiceData>();
+            _contractChoices =
+                new ContractChoice[serializedContracts.Length];
+            for (int i = 0; i < _contractChoices.Length; i++)
+            {
+                ContractChoiceData choice =
+                    serializedContracts[i];
+                _contractChoices[i] = new ContractChoice(
+                    choice.targetBiomeIndex,
+                    choice.optionIndex,
+                    choice.contractId);
+            }
+            _contractChoiceView =
+                Array.AsReadOnly(_contractChoices);
         }
 
         public int TotalTicks { get; }
@@ -562,6 +603,8 @@ namespace Shmup.Core.Simulation
         public ColossalBossKind LastColossalBossAtRunStart { get; }
         public IReadOnlyList<RouteChoice> RouteChoices =>
             _routeChoiceView;
+        public IReadOnlyList<ContractChoice> ContractChoices =>
+            _contractChoiceView;
 
         public Enumerator GetEnumerator()
         {
@@ -708,6 +751,32 @@ namespace Shmup.Core.Simulation
                 }
                 previousBiomeIndex = choice.biomeIndex;
                 previousRoomIndex = choice.roomIndex;
+            }
+            if (data.contractChoices == null)
+                throw Corrupted(
+                    "Input recording contractChoices cannot be null.");
+            int previousContractBiome = 1;
+            for (int i = 0;
+                i < data.contractChoices.Length;
+                i++)
+            {
+                ContractChoiceData choice =
+                    data.contractChoices[i];
+                if (choice == null
+                    || choice.targetBiomeIndex
+                        <= previousContractBiome
+                    || choice.targetBiomeIndex
+                        > data.biomeCount
+                    || choice.optionIndex < 0
+                    || choice.optionIndex
+                        >= RunManager.MaximumContractOptionCount
+                    || string.IsNullOrEmpty(choice.contractId))
+                {
+                    throw Corrupted(
+                        "Input recording contract choice history is invalid.");
+                }
+                previousContractBiome =
+                    choice.targetBiomeIndex;
             }
         }
 

@@ -41,6 +41,20 @@ namespace Shmup.Core.Simulation
         public int roomIndex;
     }
 
+    [Serializable]
+    [DataContract]
+    public sealed class ContractChoiceData
+    {
+        [DataMember(Order = 0)]
+        public int targetBiomeIndex;
+
+        [DataMember(Order = 1)]
+        public int optionIndex;
+
+        [DataMember(Order = 2)]
+        public string contractId;
+    }
+
     /// <summary>
     /// Serializer-facing checkpoint for the beginning of a room or biome boss.
     /// Presentation owns file persistence. Exporting during a stage deliberately
@@ -50,7 +64,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class RunSuspendData
     {
-        public const int CurrentSchemaVersion = 12;
+        public const int CurrentSchemaVersion = 13;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -228,5 +242,14 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 53)]
         public int stageStartTicksSinceLastKill;
+
+        [DataMember(Order = 54)]
+        public string activeContractId;
+
+        [DataMember(Order = 55)]
+        public ContractChoiceData[] contractChoices;
+
+        [DataMember(Order = 56)]
+        public int capsuleDropWeightReduction;
     }
 }

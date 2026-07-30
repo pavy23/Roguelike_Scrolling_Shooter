@@ -25,8 +25,10 @@ namespace Shmup.Core.Tests
             battle.SetMaxShieldStock(5);
             Assert.AreEqual(2, battle.RecoverShieldStock(5));
             Assert.AreEqual(5, battle.ShieldStock);
+            Assert.AreEqual(2, battle.SetMaxShieldStock(2));
+            Assert.AreEqual(2, battle.ShieldStock);
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => battle.SetMaxShieldStock(2));
+                () => battle.SetMaxShieldStock(0));
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => battle.SetMaxShieldStock(6));
         }
@@ -142,6 +144,9 @@ namespace Shmup.Core.Tests
                     && option.PrimaryWeaponFamily == family)
                 {
                     run.ChooseReward(i);
+                    if (run.State
+                        == RunState.AwaitingContract)
+                        Assert.IsTrue(run.ChooseContract(0));
                     return;
                 }
             }

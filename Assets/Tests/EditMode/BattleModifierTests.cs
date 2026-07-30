@@ -363,6 +363,7 @@ namespace Shmup.Core.Tests
 
             run.ChooseReward(0);
             Assert.AreEqual(BattleModifier.PierceShot, run.ActiveModifiers);
+            Assert.IsTrue(run.ChooseContract(0));
             InputCommand none = InputCommand.None;
             for (int i = 0;
                 i < 100 && run.State != RunState.RunOver;

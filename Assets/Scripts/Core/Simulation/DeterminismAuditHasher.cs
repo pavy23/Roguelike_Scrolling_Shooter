@@ -69,6 +69,9 @@ namespace Shmup.Core.Simulation
             FoldInt32((int)run.CurrentOptionFormation);
             FoldStagePlan(run.StagePlan);
             FoldRewards(run.RewardOptions);
+            FoldContracts(run.ContractOptions);
+            FoldContract(run.ActiveContract);
+            FoldContractHistory(run.ContractChoiceHistory);
             FoldRoutes(run.RouteOptions);
             FoldRouteHistory(run.RouteChoiceHistory);
             FoldBattle(run.Battle);
@@ -354,6 +357,58 @@ namespace Shmup.Core.Simulation
                 FoldInt32((int)reward.PrimaryWeaponFamily);
                 FoldInt32((int)reward.MissileFamily);
                 FoldInt32((int)reward.OptionFormation);
+                FoldInt32(reward.Gains.Count);
+                for (int effect = 0;
+                    effect < reward.Gains.Count;
+                    effect++)
+                {
+                    FoldInt32((int)reward.Gains[effect].Type);
+                    FoldInt32(reward.Gains[effect].Amount);
+                }
+                FoldInt32(reward.Costs.Count);
+                for (int effect = 0;
+                    effect < reward.Costs.Count;
+                    effect++)
+                {
+                    FoldInt32((int)reward.Costs[effect].Type);
+                    FoldInt32(reward.Costs[effect].Amount);
+                }
+            }
+        }
+
+        void FoldContracts(
+            IReadOnlyList<ContractDefinition> contracts)
+        {
+            FoldInt32(contracts.Count);
+            for (int i = 0; i < contracts.Count; i++)
+                FoldContract(contracts[i]);
+        }
+
+        void FoldContract(ContractDefinition contract)
+        {
+            FoldBool(contract != null);
+            if (contract == null)
+                return;
+            FoldString(contract.Id);
+            FoldInt32((int)contract.RiskTier);
+            FoldInt32(contract.Effects.Count);
+            for (int i = 0; i < contract.Effects.Count; i++)
+            {
+                FoldInt32((int)contract.Effects[i].Type);
+                FoldInt32(contract.Effects[i].Numerator);
+                FoldInt32(contract.Effects[i].Denominator);
+            }
+        }
+
+        void FoldContractHistory(
+            IReadOnlyList<ContractChoice> history)
+        {
+            FoldInt32(history.Count);
+            for (int i = 0; i < history.Count; i++)
+            {
+                FoldInt32(history[i].TargetBiomeIndex);
+                FoldInt32(history[i].OptionIndex);
+                FoldString(history[i].ContractId);
             }
         }
 

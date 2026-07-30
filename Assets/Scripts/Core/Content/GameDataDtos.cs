@@ -205,6 +205,8 @@ namespace Shmup.Core.Content
         [DataMember]
         public StageGimmickDto[] gimmicks;
         [DataMember]
+        public ContractCatalogDto contracts;
+        [DataMember]
         public SegmentDto[] segments;
         [DataMember]
         public BossDto[] bosses;
@@ -237,6 +239,44 @@ namespace Shmup.Core.Content
         public ObstacleDto[] obstacles;
         [DataMember]
         public SegmentEnvironmentDto environment;
+    }
+
+    [DataContract]
+    internal sealed class ContractCatalogDto
+    {
+        [DataMember]
+        public string standardContractId;
+        [DataMember]
+        public int? minimumOptionCount;
+        [DataMember]
+        public int? maximumOptionCount;
+        [DataMember]
+        public ContractDto[] entries;
+    }
+
+    [DataContract]
+    internal sealed class ContractDto
+    {
+        [DataMember]
+        public string id;
+        [DataMember]
+        public int? weight;
+        [DataMember]
+        public string riskTier;
+        [DataMember]
+        public decimal? enemyDensityMultiplier;
+        [DataMember]
+        public decimal? capsuleDropMultiplier;
+        [DataMember]
+        public decimal? bombDropMultiplier;
+        [DataMember]
+        public bool? guaranteedBombDrop;
+        [DataMember]
+        public decimal? gimmickIntensityMultiplier;
+        [DataMember]
+        public int? rewardOptionCountDelta;
+        [DataMember]
+        public decimal? scoreMultiplier;
     }
 
     [DataContract]
@@ -549,6 +589,19 @@ namespace Shmup.Core.Content
         public string formationId;
         [DataMember]
         public string primaryFamilyId;
+        [DataMember]
+        public string pool;
+        [DataMember]
+        public RewardCostDto[] costs;
+    }
+
+    [DataContract]
+    internal sealed class RewardCostDto
+    {
+        [DataMember]
+        public string type;
+        [DataMember]
+        public int? amount;
     }
 
     [DataContract]

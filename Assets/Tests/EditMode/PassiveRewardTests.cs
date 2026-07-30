@@ -22,17 +22,17 @@ namespace Shmup.Core.Tests
             var fire = new InputCommand(0, 0, true);
 
             CompleteBoss(run);
-            run.ChooseReward(0);
+            ChooseReward(run, 0);
             Step(run, 11, in fire);
             Assert.AreEqual(3L, run.Battle.Statistics.ShotsFired);
 
             CompleteBoss(run);
-            run.ChooseReward(0);
+            ChooseReward(run, 0);
             Step(run, 9, in fire);
             Assert.AreEqual(3L, run.Battle.Statistics.ShotsFired);
 
             CompleteBoss(run);
-            run.ChooseReward(0);
+            ChooseReward(run, 0);
             Step(run, 9, in fire);
             Assert.AreEqual(
                 3L,
@@ -52,10 +52,10 @@ namespace Shmup.Core.Tests
                     stageIndex == 1 ? 1 : stageIndex == 2 ? 4 : 5));
 
             CompleteBoss(stacked);
-            stacked.ChooseReward(0);
+            ChooseReward(stacked, 0);
             CompleteBoss(stacked);
             Assert.AreEqual(2L, stacked.Battle.Statistics.ShotsHit);
-            stacked.ChooseReward(0);
+            ChooseReward(stacked, 0);
             CompleteBoss(stacked);
             Assert.AreEqual(
                 1L,
@@ -71,7 +71,7 @@ namespace Shmup.Core.Tests
                 new BossEveryStageGenerator(stageIndex =>
                     stageIndex == 1 ? 1 : int.MaxValue));
             CompleteBoss(saturated);
-            saturated.ChooseReward(0);
+            ChooseReward(saturated, 0);
             CompleteBoss(saturated);
             Assert.AreEqual(
                 1L,
@@ -94,12 +94,12 @@ namespace Shmup.Core.Tests
             var moveRight = new InputCommand(1, 0, false);
 
             CompleteBoss(stacked);
-            stacked.ChooseReward(0);
+            ChooseReward(stacked, 0);
             Step(stacked, SimSpace.TicksPerSecond, in moveRight);
             Assert.AreEqual(SimSpace.SubUnitsPerWorldUnit, stacked.Battle.PlayerX);
 
             CompleteBoss(stacked);
-            stacked.ChooseReward(0);
+            ChooseReward(stacked, 0);
             Step(stacked, SimSpace.TicksPerSecond, in moveRight);
             Assert.AreEqual(
                 2 * SimSpace.SubUnitsPerWorldUnit,
@@ -115,7 +115,7 @@ namespace Shmup.Core.Tests
                 new WeaponDefinition("shot", 1, 1, 100, 1, 0, 0),
                 new BossEveryStageGenerator(_ => 1));
             CompleteBoss(saturated);
-            saturated.ChooseReward(0);
+            ChooseReward(saturated, 0);
             saturated.Step(in moveRight);
             Assert.AreEqual(
                 int.MaxValue / SimSpace.TicksPerSecond,
@@ -146,8 +146,8 @@ namespace Shmup.Core.Tests
             int secondCappedIndex = FindRewardOption(second, "capped");
             Assert.AreEqual(firstCappedIndex, secondCappedIndex);
 
-            first.ChooseReward(firstCappedIndex);
-            second.ChooseReward(secondCappedIndex);
+            ChooseReward(first, firstCappedIndex);
+            ChooseReward(second, secondCappedIndex);
             CompleteBoss(first);
             CompleteBoss(second);
 
@@ -178,7 +178,9 @@ namespace Shmup.Core.Tests
                 new BossEveryStageGenerator(_ => 1));
 
             CompleteBoss(run);
-            run.ChooseReward(FindRewardOption(run, "unlimited"));
+            ChooseReward(
+                run,
+                FindRewardOption(run, "unlimited"));
             CompleteBoss(run);
 
             Assert.GreaterOrEqual(FindRewardOption(run, "unlimited"), 0);
@@ -215,7 +217,9 @@ namespace Shmup.Core.Tests
                     1));
 
             CompleteBoss(run);
-            run.ChooseReward(FindRewardOption(run, "capped"));
+            ChooseReward(
+                run,
+                FindRewardOption(run, "capped"));
             InputCommand none = InputCommand.None;
             Step(run, 12, in none);
             Assert.AreEqual(RunState.RunOver, run.State);
@@ -249,7 +253,7 @@ namespace Shmup.Core.Tests
                 new RewardThenLethalGenerator(lethal.Id));
 
             CompleteBoss(run);
-            run.ChooseReward(0);
+            ChooseReward(run, 0);
             InputCommand none = InputCommand.None;
             Step(run, 12, in none);
             Assert.AreEqual(RunState.RunOver, run.State);
@@ -444,6 +448,15 @@ namespace Shmup.Core.Tests
                 EnemyBulletDamage = 0,
                 MaxEnemyBullets = 0
             };
+        }
+
+        static void ChooseReward(
+            RunManager run,
+            int optionIndex)
+        {
+            Assert.IsTrue(run.ChooseReward(optionIndex));
+            if (run.State == RunState.AwaitingContract)
+                Assert.IsTrue(run.ChooseContract(0));
         }
 
         static void CompleteBoss(RunManager run)

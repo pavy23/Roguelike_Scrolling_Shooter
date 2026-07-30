@@ -335,6 +335,10 @@ namespace Shmup.Core.Tests
             Assert.GreaterOrEqual(run.Statistics.Kills, 2L);
 
             run.ChooseReward(0);
+            Assert.AreEqual(
+                RunState.AwaitingContract,
+                run.State);
+            Assert.IsTrue(run.ChooseContract(0));
             Assert.AreEqual(RunState.Playing, run.State);
             Assert.AreEqual(2, run.StageIndex);
             Assert.AreEqual(0, run.RewardOptions.Count);
@@ -478,6 +482,7 @@ namespace Shmup.Core.Tests
             Assert.IsNotNull(run, "테스트 시드 범위에서 RepairHp 보상을 찾지 못했다");
             run.ChooseReward(repairIndex);
             Assert.AreEqual(1, run.Battle.ShieldStock);
+            Assert.IsTrue(run.ChooseContract(0));
 
             InputCommand none = InputCommand.None;
             for (int i = 0;

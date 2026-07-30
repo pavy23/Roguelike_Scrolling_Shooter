@@ -138,8 +138,9 @@ namespace Shmup.Core.Content
                 maxEnemyBullets,
                 weapons.MaxLevels,
                 weapons.CostCurve,
-                weapons.Missile,
+                    weapons.Missile,
                     rewards,
+                    waves.Contracts,
                     ships,
                     scoring);
             }
@@ -483,7 +484,7 @@ namespace Shmup.Core.Content
             RewardsDto root,
             BattleContent content)
         {
-            const int supportedRewardsSchemaVersion = 3;
+            const int supportedRewardsSchemaVersion = 4;
             int schemaVersion = Require(
                 root.schemaVersion,
                 "rewards.json.schemaVersion");
@@ -651,6 +652,12 @@ namespace Shmup.Core.Content
                 OptionFormation.Trail;
             PrimaryWeaponFamily primaryWeaponFamily =
                 PrimaryWeaponFamily.Vulcan;
+            RewardPool pool = schemaVersion >= 4
+                ? ParseRewardPool(source.pool, path + ".pool")
+                : RewardPool.Both;
+            RewardCostDefinition[] costs = schemaVersion >= 4
+                ? ParseRewardCosts(source.costs, path + ".costs")
+                : Array.Empty<RewardCostDefinition>();
             if (type == RewardType.SlotLevel)
             {
                 slot = ParsePowerUpSlot(source.slot, path + ".slot");
@@ -796,7 +803,67 @@ namespace Shmup.Core.Content
                 modifierStackable,
                 modifierMaxStacks,
                 modifierStackStrength,
-                modifierInteractionCost);
+                modifierInteractionCost,
+                pool,
+                costs);
+        }
+
+        static RewardPool ParseRewardPool(string value, string path)
+        {
+            if (value == null || value == "both")
+                return RewardPool.Both;
+            switch (RequireText(value, path))
+            {
+                case "mid": return RewardPool.Mid;
+                case "main": return RewardPool.Main;
+                default:
+                    throw Error(
+                        path,
+                        "must be 'mid', 'main', or 'both'.");
+            }
+        }
+
+        static RewardCostDefinition[] ParseRewardCosts(
+            RewardCostDto[] source,
+            string path)
+        {
+            if (source == null || source.Length == 0)
+                return Array.Empty<RewardCostDefinition>();
+            var result = new RewardCostDefinition[source.Length];
+            for (int i = 0; i < result.Length; i++)
+            {
+                string itemPath = $"{path}[{i}]";
+                RewardCostDto item = source[i];
+                if (item == null)
+                    throw Error(itemPath, "cannot be null.");
+                RewardEffectType type;
+                switch (RequireText(item.type, itemPath + ".type"))
+                {
+                    case "shieldMaxDown":
+                        type = RewardEffectType.ShieldMaxDown;
+                        break;
+                    case "moveSpeedDown":
+                        type = RewardEffectType.MoveSpeedDown;
+                        break;
+                    case "capsuleDropWeightDown":
+                        type = RewardEffectType.CapsuleDropWeightDown;
+                        break;
+                    case "bombMaxDown":
+                        type = RewardEffectType.BombMaxDown;
+                        break;
+                    default:
+                        throw Error(
+                            itemPath + ".type",
+                            "has an unknown reward cost type.");
+                }
+                int amount = Require(item.amount, itemPath + ".amount");
+                if (amount < 1)
+                    throw Error(
+                        itemPath + ".amount",
+                        "must be positive.");
+                result[i] = new RewardCostDefinition(type, amount);
+            }
+            return result;
         }
 
         static RewardType ParseRewardType(string value, string path)
