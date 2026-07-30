@@ -1357,6 +1357,7 @@ namespace Shmup.EditorTools
             SetReference(player, "_powerup", LoadClip("sfx_powerup"));
             SetReference(player, "_laserBeam", LoadClip("sfx_laser_beam"));
             SetReference(player, "_spreadShot", LoadClip("sfx_laser_spread"));
+            SetReference(player, "_warning", LoadClip("sfx_warning"));
             SetReference(director, "_sfx", player);
         }
 

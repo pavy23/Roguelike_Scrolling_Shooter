@@ -619,6 +619,13 @@ namespace Shmup.Presentation.Battle
                             _juice.Hitstop(0.2f);
                         }
                         break;
+                    case SimEventType.BossAttackTelegraphed:
+                        // 위험 패턴 예고 (REQ-059). 이벤트만 있고 그리지 않으면 예고가
+                        // 없는 것과 같다 — 회피가 실력이 되려면 눈에 보여야 한다.
+                        // 보스 본체를 잠깐 밝히는 기존 페이즈 플래시를 약하게 재사용한다.
+                        _bossPhaseFlash = Mathf.Max(_bossPhaseFlash, 0.3f);
+                        _bossPhaseFlashPeak = Mathf.Max(_bossPhaseFlashPeak, 0.5f);
+                        break;
                     case SimEventType.BombActivated:
                         // 화면을 지우는 사건이므로 가장 크게 알린다. 무적 시간이 함께
                         // 붙으므로(45틱) 플레이어가 "지금 안전하다"를 읽을 수 있어야 한다.

@@ -20,6 +20,7 @@ namespace Shmup.Presentation.Battle
         [SerializeField] AudioClip _powerup;
         [SerializeField] AudioClip _laserBeam;     // laser 계열 발사음
         [SerializeField] AudioClip _spreadShot;    // spread 계열 발사음
+        [SerializeField] AudioClip _warning;       // 보스 위험 패턴 예고 (REQ-059)
 
         /// <summary>선택 함선의 주무기 계열 — 발사음을 계열별로 바꾼다 (REQ-022 후속).</summary>
         public Shmup.Core.WeaponType WeaponFamily { get; set; } = Shmup.Core.WeaponType.Vulcan;
@@ -33,7 +34,7 @@ namespace Shmup.Presentation.Battle
         [SerializeField] float _laserVolume = 0.35f;
 
         // 이번 스텝에서 이미 재생한 클립 (틱당 1회 제한)
-        readonly bool[] _playedThisStep = new bool[12];
+        readonly bool[] _playedThisStep = new bool[13];
 
         public void PlayEvents(ReadOnlySpan<SimEvent> events)
         {
@@ -101,6 +102,11 @@ namespace Shmup.Presentation.Battle
                     case SimEventType.BombActivationRejectedEmpty:
                         // 재고 없이 눌렀다 — 짧고 작게. 버튼이 죽지 않았음을 알리는 정도다.
                         PlayOnce(11, _hit, 0.25f);
+                        break;
+                    case SimEventType.BossAttackTelegraphed:
+                        // 위험 패턴 예고 — 눈과 귀 양쪽으로. 탄막 속에서는 화면 번쩍임을
+                        // 놓치기 쉽다.
+                        PlayOnce(12, _warning, 0.7f);
                         break;
                 }
             }
