@@ -450,6 +450,43 @@
       "movement": {
         "pattern": "straight",
         "speed": 1.5
+      },
+      "midBoss": {
+        "themeId": "scrapyard",
+        "weight": 1,
+        "stageIndexMin": 1,
+        "phases": [
+          {
+            "fireIntervalTicks": 72,
+            "ways": 1,
+            "bulletSpeed": 7.5,
+            "movementPattern": "stationary",
+            "movementAmplitude": 0,
+            "movementPeriodTicks": 1,
+            "durationTicks": 210,
+            "telegraphTicks": 0
+          },
+          {
+            "fireIntervalTicks": 20,
+            "ways": 3,
+            "bulletSpeed": 13.5,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 1.25,
+            "movementPeriodTicks": 54,
+            "durationTicks": 240,
+            "telegraphTicks": 36
+          },
+          {
+            "fireIntervalTicks": 48,
+            "ways": 1,
+            "bulletSpeed": 8.5,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 1.75,
+            "movementPeriodTicks": 120,
+            "durationTicks": 180,
+            "telegraphTicks": 0
+          }
+        ]
       }
     },
     {
@@ -467,6 +504,43 @@
         "speed": 2.5,
         "amplitude": 4.5,
         "periodTicks": 120
+      },
+      "midBoss": {
+        "themeId": "hive",
+        "weight": 1,
+        "stageIndexMin": 1,
+        "phases": [
+          {
+            "fireIntervalTicks": 58,
+            "ways": 3,
+            "bulletSpeed": 8.0,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 3.5,
+            "movementPeriodTicks": 120,
+            "durationTicks": 240,
+            "telegraphTicks": 0
+          },
+          {
+            "fireIntervalTicks": 38,
+            "ways": 7,
+            "bulletSpeed": 7.5,
+            "movementPattern": "stationary",
+            "movementAmplitude": 0,
+            "movementPeriodTicks": 1,
+            "durationTicks": 210,
+            "telegraphTicks": 30
+          },
+          {
+            "fireIntervalTicks": 64,
+            "ways": 1,
+            "bulletSpeed": 8.0,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 4.0,
+            "movementPeriodTicks": 96,
+            "durationTicks": 180,
+            "telegraphTicks": 0
+          }
+        ]
       }
     },
     {
@@ -481,6 +555,43 @@
       "halfHeight": 1.875,
       "movement": {
         "pattern": "static"
+      },
+      "midBoss": {
+        "themeId": "fortress",
+        "weight": 1,
+        "stageIndexMin": 1,
+        "phases": [
+          {
+            "fireIntervalTicks": 52,
+            "ways": 1,
+            "bulletSpeed": 9.0,
+            "movementPattern": "stationary",
+            "movementAmplitude": 0,
+            "movementPeriodTicks": 1,
+            "durationTicks": 210,
+            "telegraphTicks": 0
+          },
+          {
+            "fireIntervalTicks": 16,
+            "ways": 3,
+            "bulletSpeed": 12.0,
+            "movementPattern": "stationary",
+            "movementAmplitude": 0,
+            "movementPeriodTicks": 1,
+            "durationTicks": 240,
+            "telegraphTicks": 42
+          },
+          {
+            "fireIntervalTicks": 70,
+            "ways": 1,
+            "bulletSpeed": 8.0,
+            "movementPattern": "stationary",
+            "movementAmplitude": 0,
+            "movementPeriodTicks": 1,
+            "durationTicks": 180,
+            "telegraphTicks": 0
+          }
+        ]
       }
     },
     {
@@ -498,6 +609,43 @@
         "speed": 4.5,
         "amplitude": 3.25,
         "periodTicks": 90
+      },
+      "midBoss": {
+        "themeId": "nebula",
+        "weight": 1,
+        "stageIndexMin": 1,
+        "phases": [
+          {
+            "fireIntervalTicks": 60,
+            "ways": 1,
+            "bulletSpeed": 8.0,
+            "movementPattern": "stationary",
+            "movementAmplitude": 0,
+            "movementPeriodTicks": 1,
+            "durationTicks": 180,
+            "telegraphTicks": 0
+          },
+          {
+            "fireIntervalTicks": 40,
+            "ways": 3,
+            "bulletSpeed": 9.5,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 4.5,
+            "movementPeriodTicks": 48,
+            "durationTicks": 270,
+            "telegraphTicks": 30
+          },
+          {
+            "fireIntervalTicks": 28,
+            "ways": 5,
+            "bulletSpeed": 10.0,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 2.0,
+            "movementPeriodTicks": 72,
+            "durationTicks": 210,
+            "telegraphTicks": 36
+          }
+        ]
       }
     }
   ]
