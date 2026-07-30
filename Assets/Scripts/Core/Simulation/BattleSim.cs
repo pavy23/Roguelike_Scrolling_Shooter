@@ -197,7 +197,12 @@ namespace Shmup.Core.Simulation
         public int Phase { get; }
     }
 
-    /// <summary>One tick of digital input. Movement is clamped to -1, 0, or 1 per axis.</summary>
+    /// <summary>
+    /// One tick of player input. The legacy digital axes are clamped to
+    /// -1, 0, or 1. Commands created with the analog overload or
+    /// <see cref="Analog"/> use integer SimSpace subunit deltas instead;
+    /// analog movement wins over digital movement even when both deltas are zero.
+    /// </summary>
     public readonly struct InputCommand
     {
         public InputCommand(int moveX, int moveY, bool fire)
@@ -220,12 +225,61 @@ namespace Shmup.Core.Simulation
             bool fire,
             bool activate,
             bool activateBomb)
+            : this(
+                moveX,
+                moveY,
+                fire,
+                activate,
+                activateBomb,
+                0,
+                0,
+                false)
+        {
+        }
+
+        /// <summary>
+        /// Creates a command carrying both legacy digital axes and an analog
+        /// movement delta. The analog delta is expressed in SimSpace subunits
+        /// for this simulation tick and takes precedence over the digital axes.
+        /// </summary>
+        public InputCommand(
+            int moveX,
+            int moveY,
+            bool fire,
+            bool activate,
+            bool activateBomb,
+            int analogDeltaXSubUnits,
+            int analogDeltaYSubUnits)
+            : this(
+                moveX,
+                moveY,
+                fire,
+                activate,
+                activateBomb,
+                analogDeltaXSubUnits,
+                analogDeltaYSubUnits,
+                true)
+        {
+        }
+
+        InputCommand(
+            int moveX,
+            int moveY,
+            bool fire,
+            bool activate,
+            bool activateBomb,
+            int analogDeltaXSubUnits,
+            int analogDeltaYSubUnits,
+            bool useAnalogMovement)
         {
             MoveX = Clamp(moveX);
             MoveY = Clamp(moveY);
             Fire = fire;
             Activate = activate;
             ActivateBomb = activateBomb;
+            AnalogDeltaXSubUnits = analogDeltaXSubUnits;
+            AnalogDeltaYSubUnits = analogDeltaYSubUnits;
+            UseAnalogMovement = useAnalogMovement;
         }
 
         public int MoveX { get; }
@@ -233,7 +287,33 @@ namespace Shmup.Core.Simulation
         public bool Fire { get; }
         public bool Activate { get; }
         public bool ActivateBomb { get; }
+        public int AnalogDeltaXSubUnits { get; }
+        public int AnalogDeltaYSubUnits { get; }
+        public bool UseAnalogMovement { get; }
         public static InputCommand None => default;
+
+        /// <summary>
+        /// Creates an analog-only movement command. Deltas use
+        /// SimSpace.SubUnitsPerWorldUnit and represent movement during one tick.
+        /// </summary>
+        public static InputCommand Analog(
+            int deltaXSubUnits,
+            int deltaYSubUnits,
+            bool fire,
+            bool activate = false,
+            bool activateBomb = false)
+        {
+            return new InputCommand(
+                0,
+                0,
+                fire,
+                activate,
+                activateBomb,
+                deltaXSubUnits,
+                deltaYSubUnits,
+                true);
+        }
+
         static int Clamp(int value) => value < 0 ? -1 : value > 0 ? 1 : 0;
     }
 
@@ -1041,7 +1121,8 @@ namespace Shmup.Core.Simulation
         int _eventCount;
         long _shotsFired, _shotsHit, _kills, _capsulesCollected, _grazeCount;
 
-        int _playerXRemainder, _playerYRemainder, _cooldown, _missileCooldown;
+        long _playerXRemainder, _playerYRemainder;
+        int _cooldown, _missileCooldown;
         int _mainShotLevel, _missileLevel, _optionLevel, _shieldGaugeLevel;
         int _nextBulletId = 1;
         int _nextEnemyId = 1;
@@ -1629,8 +1710,7 @@ namespace Shmup.Core.Simulation
             if (_playerInvulnerabilityTicksRemaining > 0)
                 _playerInvulnerabilityTicksRemaining--;
 
-            PlayerX = AdvancePlayerAxis(PlayerX, input.MoveX, ref _playerXRemainder, _playerMinX, _playerMaxX);
-            PlayerY = AdvancePlayerAxis(PlayerY, input.MoveY, ref _playerYRemainder, _playerMinY, _playerMaxY);
+            AdvancePlayer(in input);
             RecordPlayerPosition();
             bool activatePressed = input.Activate && !_activateHeld;
             _activateHeld = input.Activate;
@@ -2029,16 +2109,163 @@ namespace Shmup.Core.Simulation
             y = _playerHistoryY[historyIndex];
         }
 
-        int AdvancePlayerAxis(int position, int direction, ref int remainder, int min, int max)
+        // 46340 / 65536 is the greatest 16-bit fixed-point diagonal
+        // component whose two-dimensional magnitude does not exceed one.
+        const int DigitalDirectionScale = 65536;
+        const int DigitalDiagonalComponent = 46340;
+
+        void AdvancePlayer(in InputCommand input)
+        {
+            if (input.UseAnalogMovement)
+            {
+                _playerXRemainder = 0;
+                _playerYRemainder = 0;
+                ClampAnalogDelta(
+                    input.AnalogDeltaXSubUnits,
+                    input.AnalogDeltaYSubUnits,
+                    out int deltaX,
+                    out int deltaY);
+                PlayerX = ClampPlayerPosition(
+                    PlayerX,
+                    deltaX,
+                    _playerMinX,
+                    _playerMaxX);
+                PlayerY = ClampPlayerPosition(
+                    PlayerY,
+                    deltaY,
+                    _playerMinY,
+                    _playerMaxY);
+                return;
+            }
+
+            int componentScale =
+                input.MoveX != 0 && input.MoveY != 0
+                    ? DigitalDiagonalComponent
+                    : DigitalDirectionScale;
+            PlayerX = AdvanceDigitalPlayerAxis(
+                PlayerX,
+                input.MoveX,
+                componentScale,
+                ref _playerXRemainder,
+                _playerMinX,
+                _playerMaxX);
+            PlayerY = AdvanceDigitalPlayerAxis(
+                PlayerY,
+                input.MoveY,
+                componentScale,
+                ref _playerYRemainder,
+                _playerMinY,
+                _playerMaxY);
+        }
+
+        void ClampAnalogDelta(
+            int requestedX,
+            int requestedY,
+            out int deltaX,
+            out int deltaY)
+        {
+            if ((requestedX == 0 && requestedY == 0)
+                || _playerSpeedNumerator == 0)
+            {
+                deltaX = 0;
+                deltaY = 0;
+                return;
+            }
+
+            ulong absoluteX = AbsoluteAsUnsigned(requestedX);
+            ulong absoluteY = AbsoluteAsUnsigned(requestedY);
+            ulong lengthSquared =
+                absoluteX * absoluteX + absoluteY * absoluteY;
+            ulong speedNumerator = (ulong)_playerSpeedNumerator;
+            ulong speedDenominator = (ulong)_playerSpeedDenominator;
+            ulong maximumLengthSquared =
+                speedNumerator * speedNumerator
+                / (speedDenominator * speedDenominator);
+
+            if (lengthSquared <= maximumLengthSquared)
+            {
+                deltaX = requestedX;
+                deltaY = requestedY;
+                return;
+            }
+
+            ulong lengthCeiling = IntegerSquareRoot(lengthSquared);
+            if (lengthCeiling * lengthCeiling < lengthSquared)
+                lengthCeiling++;
+            long divisor =
+                (long)speedDenominator * (long)lengthCeiling;
+            deltaX = (int)(
+                (long)requestedX * _playerSpeedNumerator / divisor);
+            deltaY = (int)(
+                (long)requestedY * _playerSpeedNumerator / divisor);
+        }
+
+        int AdvanceDigitalPlayerAxis(
+            int position,
+            int direction,
+            int componentScale,
+            ref long remainder,
+            int min,
+            int max)
         {
             if (direction == 0) return position;
-            long accumulated = remainder + (long)direction * _playerSpeedNumerator;
-            long candidate = position + accumulated / _playerSpeedDenominator;
-            int nextRemainder = (int)(accumulated % _playerSpeedDenominator);
+            long divisor =
+                (long)_playerSpeedDenominator
+                * DigitalDirectionScale;
+            long accumulated =
+                remainder
+                + (long)direction
+                * _playerSpeedNumerator
+                * componentScale;
+            long candidate = position + accumulated / divisor;
+            long nextRemainder = accumulated % divisor;
             if (direction < 0 && candidate <= min) { remainder = 0; return min; }
             if (direction > 0 && candidate >= max) { remainder = 0; return max; }
             remainder = nextRemainder;
             return (int)candidate;
+        }
+
+        static int ClampPlayerPosition(
+            int position,
+            int delta,
+            int min,
+            int max)
+        {
+            long candidate = (long)position + delta;
+            if (candidate <= min)
+                return min;
+            if (candidate >= max)
+                return max;
+            return (int)candidate;
+        }
+
+        static ulong AbsoluteAsUnsigned(int value)
+        {
+            return value < 0
+                ? (ulong)(-(long)value)
+                : (ulong)value;
+        }
+
+        static ulong IntegerSquareRoot(ulong value)
+        {
+            ulong result = 0;
+            ulong bit = 1UL << 62;
+            while (bit > value)
+                bit >>= 2;
+            while (bit != 0)
+            {
+                if (value >= result + bit)
+                {
+                    value -= result + bit;
+                    result = (result >> 1) + bit;
+                }
+                else
+                {
+                    result >>= 1;
+                }
+                bit >>= 2;
+            }
+            return result;
         }
 
         void AdvanceBullets()

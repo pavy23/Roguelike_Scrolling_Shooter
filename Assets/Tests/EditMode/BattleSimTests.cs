@@ -93,6 +93,98 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void AnalogMovement_ClampsByVectorLengthAtCurrentSpeed()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpeedPerTick = 5;
+            var sim = new BattleSim(config, new Rng(0x45UL));
+            InputCommand input =
+                InputCommand.Analog(30, 40, false);
+
+            sim.Step(in input);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(3, sim.PlayerX);
+                Assert.AreEqual(4, sim.PlayerY);
+                Assert.LessOrEqual(
+                    (long)sim.PlayerX * sim.PlayerX
+                    + (long)sim.PlayerY * sim.PlayerY,
+                    25L);
+            });
+        }
+
+        [Test]
+        public void AnalogZeroDelta_StopsAndAnalogWinsOverDigital()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpeedPerTick = 10;
+            var sim = new BattleSim(config, new Rng(0x450UL));
+            var analogOverridesRight = new InputCommand(
+                1,
+                0,
+                false,
+                false,
+                false,
+                0,
+                4);
+            InputCommand stopped =
+                InputCommand.Analog(0, 0, false);
+
+            sim.Step(in analogOverridesRight);
+            int xBeforeStop = sim.PlayerX;
+            int yBeforeStop = sim.PlayerY;
+            sim.Step(in stopped);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(0, xBeforeStop);
+                Assert.AreEqual(4, yBeforeStop);
+                Assert.AreEqual(xBeforeStop, sim.PlayerX);
+                Assert.AreEqual(yBeforeStop, sim.PlayerY);
+                Assert.IsTrue(stopped.UseAnalogMovement);
+            });
+        }
+
+        [Test]
+        public void DigitalDiagonal_IsNormalizedToConfiguredVectorSpeed()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpeedPerTick = 65536;
+            config.PlayerMinX = -1000000;
+            config.PlayerMaxX = 1000000;
+            config.PlayerMinY = -1000000;
+            config.PlayerMaxY = 1000000;
+            var diagonal =
+                new BattleSim(config, new Rng(0x451UL));
+            var cardinal =
+                new BattleSim(config, new Rng(0x452UL));
+            var upRight = new InputCommand(1, 1, false);
+            var right = new InputCommand(1, 0, false);
+
+            diagonal.Step(in upRight);
+            cardinal.Step(in right);
+
+            long diagonalLengthSquared =
+                (long)diagonal.PlayerX * diagonal.PlayerX
+                + (long)diagonal.PlayerY * diagonal.PlayerY;
+            long speedSquared =
+                (long)cardinal.PlayerX * cardinal.PlayerX;
+            AssertAll(() =>
+            {
+                Assert.AreEqual(46340, diagonal.PlayerX);
+                Assert.AreEqual(46340, diagonal.PlayerY);
+                Assert.AreEqual(65536, cardinal.PlayerX);
+                Assert.LessOrEqual(
+                    diagonalLengthSquared,
+                    speedSquared);
+                Assert.Greater(
+                    diagonalLengthSquared,
+                    speedSquared * 999 / 1000);
+            });
+        }
+
+        [Test]
         public void BulletMovement_PreservesExactWorldUnitsPerSecond()
         {
             BattleSimConfig config = CreateConfig();
@@ -263,5 +355,7 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual(left.Y, right.Y, $"input {tick}, bullet {i}");
             }
         }
+
+        static void AssertAll(Action assert) => assert();
     }
 }

@@ -964,3 +964,90 @@ CLAUDE는 `Lasers`의 양 끝점, Phase, ThicknessStage, HalfWidth를 매 틱 �
 개발 로그/텔레메트리에 남겨 풀 부족을 조용히 숨기지 않아야 합니다.
 
 REQ-041/042에서 `PowerUpSlot` 또는 이동속도 게이지 슬롯은 추가하지 않았습니다.
+
+---
+
+## [ ] CLAUDE: REQ-045 터치 아날로그 이동 Presentation 연결 계약
+
+### Core 호출 계약
+
+터치가 이동 입력을 소유하는 동안 매 시뮬레이션 틱 아래 팩터리를 호출해 주세요.
+
+```csharp
+InputCommand InputCommand.Analog(
+    int deltaXSubUnits,
+    int deltaYSubUnits,
+    bool fire,
+    bool activate = false,
+    bool activateBomb = false)
+```
+
+- `deltaXSubUnits` / `deltaYSubUnits`는 **목표 위치나 방향이 아니라, 직전 입력
+  샘플부터 누적된 손가락 이동량**입니다.
+- 단위는 `SimSpace` 정수 서브유닛이며
+  `SimSpace.SubUnitsPerWorldUnit == 256`입니다. 화면 델타를 카메라의 월드 델타로
+  바꿔 렌더 프레임 사이에는 그대로 누적하고, 시뮬 틱 경계에서 축별
+  `accumulatedWorldDelta * 256`을 가장 가까운 정수로 변환해 주세요.
+- 렌더 프레임과 시뮬 틱이 다를 수 있으므로 다음 시뮬 틱의
+  `InputCommand.Analog(...)` 한 번에 누적 델타를 넘겨야 합니다. 정수로 내보내고
+  남은 1서브유닛 미만의 분수 잔차는 다음 틱으로 보존해 느린 드래그를 잃지 마세요.
+  누적 정수 결과가 Int32 범위를 넘으면 포화 처리해야 합니다.
+- 터치가 유지되는 동안 손가락이 멈췄다면 반드시 `Analog(0, 0, ...)`을 계속
+  전달해 주세요. 아날로그 모드는 0/0이어도 디지털 축보다 우선하므로 기체가 즉시
+  정지합니다.
+- 터치가 이동을 소유하지 않을 때만 기존
+  `new InputCommand(moveX, moveY, fire, activate, activateBomb)` 디지털 경로를
+  사용해 주세요. 기존 목표점 추적, 8방향 양자화, 축 히스테리시스는 터치 경로에서
+  제거 대상입니다.
+- Presentation에서 속도 정규화나 데드존을 추가하지 마세요. Core가 현재 기체
+  이동속도에 맞춰 정수 벡터 길이 기준으로 클램프합니다.
+
+동시 입력을 직접 구성해야 하는 테스트/특수 경로의 전체 시그니처도 있습니다.
+이 경우 역시 아날로그가 우선합니다.
+
+```csharp
+new InputCommand(
+    int moveX,
+    int moveY,
+    bool fire,
+    bool activate,
+    bool activateBomb,
+    int analogDeltaXSubUnits,
+    int analogDeltaYSubUnits)
+```
+
+### 리플레이 v10 계약
+
+`InputRecordingData.CurrentSchemaVersion == 10`이며 각 `InputRunData`에 다음 필드가
+추가됐습니다.
+
+```csharp
+bool useAnalogMovement;
+int analogDeltaXSubUnits;
+int analogDeltaYSubUnits;
+```
+
+Core의 `InputRecorder`/`InputPlayback`을 그대로 사용하면 기록·재생·체크섬이 모두
+처리됩니다. v1~v9 리플레이는 마이그레이션 후
+`useAnalogMovement = false`, 델타 `0/0`이 됩니다. v9 폭탄 비트는 보존됩니다.
+
+### 기록 크기 검토
+
+기존 RLE는 그대로 유지되어 동일한 아날로그 명령이 이어지면 한 run으로 합쳐집니다.
+새 필드의 고정 논리량은 run당 `bool + int32 + int32`, 즉 약 **9바이트**입니다.
+하지만 실제 드래그 델타가 매 틱 바뀌면 최악의 경우 run이 틱 수와 같아져 60Hz에서
+약 **540바이트/초, 32.4KB/분**의 고정 논리량이 늘어납니다(JSON 필드명/객체
+오버헤드는 별도).
+
+REQ-045는 1/256 world unit의 원본 정수 델타와 정확한 재생을 요구하므로 Core에서
+양자화하지 않았습니다. 저장/전송 용량이 문제라면 Presentation 영속화 계층에서
+GZip/Brotli 같은 **무손실 압축**을 적용해 주세요. JSON 압축 효율이 높고 Core
+결정론/체크섬 입력을 바꾸지 않는 선택입니다. 16-subunit(화면 1픽셀 상당) 등의
+양자화는 조작 감각과 재생 궤적을 바꾸므로 사람 승인 없이는 적용하지 마세요.
+
+### 디지털 밸런스 영향
+
+기존 디지털 대각선은 축마다 최대 속도를 적용해 직선보다 `√2`배 빨랐습니다.
+REQ-045에서 `46340/65536` 고정소수점 성분으로 정규화했습니다. 이제 대각선 총속도는
+직선 상한의 약 99.998%이고, 기존 대비 약 **29.29% 느려집니다**. 직선 속도와
+`GameData` 기본 이동속도 값은 변경하지 않았습니다.

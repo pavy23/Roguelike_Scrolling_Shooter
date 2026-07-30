@@ -202,6 +202,8 @@ namespace Shmup.Core
                 && !string.IsNullOrEmpty(source.checksum)
                 && !(source.schemaVersion == 8
                     && HasValidInputRecordingV8Checksum(source))
+                && !(source.schemaVersion == 9
+                    && HasValidInputRecordingV9Checksum(source))
                 && !(source.schemaVersion == 7
                     && HasValidInputRecordingV7Checksum(source))
                 && !(source.schemaVersion == 6
@@ -220,7 +222,8 @@ namespace Shmup.Core
                 runs = Clone(
                     source.runs,
                     source.schemaVersion >= 2,
-                    source.schemaVersion >= 9),
+                    source.schemaVersion >= 9,
+                    source.schemaVersion >= 10),
                 difficultyMultiplierNumerator =
                     source.schemaVersion >= 3
                         ? source.difficultyMultiplierNumerator
@@ -444,6 +447,9 @@ namespace Shmup.Core
                     hash.Add(run.activate);
                     hash.Add(run.activateBomb);
                     hash.Add(run.tickCount);
+                    hash.Add(run.useAnalogMovement);
+                    hash.Add(run.analogDeltaXSubUnits);
+                    hash.Add(run.analogDeltaYSubUnits);
                 }
             }
             hash.Add(data.difficultyMultiplierNumerator);
@@ -490,6 +496,30 @@ namespace Shmup.Core
             hash.Add(data.schemaVersion);
             hash.Add(data.totalTicks);
             AddInputRuns(ref hash, data.runs);
+            hash.Add(data.difficultyMultiplierNumerator);
+            hash.Add(data.difficultyMultiplierDenominator);
+            Add(ref hash, data.routeChoices);
+            hash.Add(data.finalStageIndex);
+            hash.Add(data.biomeCount);
+            hash.Add(data.roomsPerBiome);
+            hash.Add(data.missileFamily);
+            hash.Add(data.optionFormation);
+            hash.Add(data.lastColossalBossAtRunStart);
+            return string.Equals(
+                data.checksum,
+                hash.ToString(),
+                StringComparison.Ordinal);
+        }
+
+        static bool HasValidInputRecordingV9Checksum(
+            InputRecordingData data)
+        {
+            if (!IsChecksum(data.checksum))
+                return false;
+            var hash = new CanonicalHash("InputRecordingData");
+            hash.Add(data.schemaVersion);
+            hash.Add(data.totalTicks);
+            AddInputRunsWithBomb(ref hash, data.runs);
             hash.Add(data.difficultyMultiplierNumerator);
             hash.Add(data.difficultyMultiplierDenominator);
             Add(ref hash, data.routeChoices);
@@ -871,6 +901,31 @@ namespace Shmup.Core
             }
         }
 
+        static void AddInputRunsWithBomb(
+            ref CanonicalHash hash,
+            InputRunData[] runs)
+        {
+            if (runs == null)
+            {
+                hash.Add(-1);
+                return;
+            }
+            hash.Add(runs.Length);
+            for (int i = 0; i < runs.Length; i++)
+            {
+                InputRunData run = runs[i];
+                hash.Add(run != null);
+                if (run == null)
+                    continue;
+                hash.Add(run.moveX);
+                hash.Add(run.moveY);
+                hash.Add(run.fire);
+                hash.Add(run.activate);
+                hash.Add(run.activateBomb);
+                hash.Add(run.tickCount);
+            }
+        }
+
         static int MigrateLegacyDurabilityToShieldStock(
             int playerHp,
             int shieldRemaining,
@@ -947,7 +1002,8 @@ namespace Shmup.Core
         static InputRunData[] Clone(
             InputRunData[] source,
             bool includeActivate,
-            bool includeBomb)
+            bool includeBomb,
+            bool includeAnalog)
         {
             if (source == null)
                 return null;
@@ -965,7 +1021,18 @@ namespace Shmup.Core
                         activate = includeActivate && item.activate,
                         activateBomb =
                             includeBomb && item.activateBomb,
-                        tickCount = item.tickCount
+                        tickCount = item.tickCount,
+                        useAnalogMovement =
+                            includeAnalog
+                            && item.useAnalogMovement,
+                        analogDeltaXSubUnits =
+                            includeAnalog
+                                ? item.analogDeltaXSubUnits
+                                : 0,
+                        analogDeltaYSubUnits =
+                            includeAnalog
+                                ? item.analogDeltaYSubUnits
+                                : 0
                     };
             }
             return copy;

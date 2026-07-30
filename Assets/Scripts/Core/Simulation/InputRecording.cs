@@ -28,6 +28,15 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 5)]
         public int tickCount;
+
+        [DataMember(Order = 6)]
+        public bool useAnalogMovement;
+
+        [DataMember(Order = 7)]
+        public int analogDeltaXSubUnits;
+
+        [DataMember(Order = 8)]
+        public int analogDeltaYSubUnits;
     }
 
     /// <summary>
@@ -37,7 +46,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class InputRecordingData
     {
-        public const int CurrentSchemaVersion = 9;
+        public const int CurrentSchemaVersion = 10;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -302,7 +311,12 @@ namespace Shmup.Core.Simulation
                     fire = run.Fire,
                     activate = run.Activate,
                     activateBomb = run.ActivateBomb,
-                    tickCount = run.TickCount
+                    tickCount = run.TickCount,
+                    useAnalogMovement = run.UseAnalogMovement,
+                    analogDeltaXSubUnits =
+                        run.AnalogDeltaXSubUnits,
+                    analogDeltaYSubUnits =
+                        run.AnalogDeltaYSubUnits
                 };
             }
 
@@ -405,7 +419,13 @@ namespace Shmup.Core.Simulation
                 && run.MoveY == command.MoveY
                 && run.Fire == command.Fire
                 && run.Activate == command.Activate
-                && run.ActivateBomb == command.ActivateBomb;
+                && run.ActivateBomb == command.ActivateBomb
+                && run.UseAnalogMovement
+                    == command.UseAnalogMovement
+                && run.AnalogDeltaXSubUnits
+                    == command.AnalogDeltaXSubUnits
+                && run.AnalogDeltaYSubUnits
+                    == command.AnalogDeltaYSubUnits;
         }
 
         struct InputRun
@@ -417,6 +437,11 @@ namespace Shmup.Core.Simulation
                 Fire = command.Fire;
                 Activate = command.Activate;
                 ActivateBomb = command.ActivateBomb;
+                UseAnalogMovement = command.UseAnalogMovement;
+                AnalogDeltaXSubUnits =
+                    command.AnalogDeltaXSubUnits;
+                AnalogDeltaYSubUnits =
+                    command.AnalogDeltaYSubUnits;
                 TickCount = tickCount;
             }
 
@@ -425,6 +450,9 @@ namespace Shmup.Core.Simulation
             public bool Fire;
             public bool Activate;
             public bool ActivateBomb;
+            public bool UseAnalogMovement;
+            public int AnalogDeltaXSubUnits;
+            public int AnalogDeltaYSubUnits;
             public int TickCount;
         }
     }
@@ -464,13 +492,23 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < data.runs.Length; i++)
             {
                 InputRunData run = data.runs[i];
-                _runs[i] = new PlaybackRun(
-                    new InputCommand(
+                InputCommand command = run.useAnalogMovement
+                    ? new InputCommand(
                         run.moveX,
                         run.moveY,
                         run.fire,
                         run.activate,
-                        run.activateBomb),
+                        run.activateBomb,
+                        run.analogDeltaXSubUnits,
+                        run.analogDeltaYSubUnits)
+                    : new InputCommand(
+                        run.moveX,
+                        run.moveY,
+                        run.fire,
+                        run.activate,
+                        run.activateBomb);
+                _runs[i] = new PlaybackRun(
+                    command,
                     run.tickCount);
             }
             RouteChoiceData[] serializedChoices =
@@ -575,6 +613,13 @@ namespace Shmup.Core.Simulation
                     throw Corrupted(
                         "Input recording movement must be digital.");
                 }
+                if (!run.useAnalogMovement
+                    && (run.analogDeltaXSubUnits != 0
+                        || run.analogDeltaYSubUnits != 0))
+                {
+                    throw Corrupted(
+                        "Input recording analog deltas require analog mode.");
+                }
                 if (run.tickCount < 1)
                     throw Corrupted(
                         "Input recording run lengths must be positive.");
@@ -583,7 +628,13 @@ namespace Shmup.Core.Simulation
                     && previous.moveY == run.moveY
                     && previous.fire == run.fire
                     && previous.activate == run.activate
-                    && previous.activateBomb == run.activateBomb)
+                    && previous.activateBomb == run.activateBomb
+                    && previous.useAnalogMovement
+                        == run.useAnalogMovement
+                    && previous.analogDeltaXSubUnits
+                        == run.analogDeltaXSubUnits
+                    && previous.analogDeltaYSubUnits
+                        == run.analogDeltaYSubUnits)
                 {
                     throw Corrupted(
                         "Adjacent identical input runs are not canonical.");
