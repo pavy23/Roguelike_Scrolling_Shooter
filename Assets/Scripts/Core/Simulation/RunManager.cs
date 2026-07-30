@@ -1442,12 +1442,8 @@ namespace Shmup.Core.Simulation
             bool activatePressed = input.Activate && !_activateHeld;
             _activateHeld = input.Activate;
 
-            var battleInput = new InputCommand(
-                input.MoveX,
-                input.MoveY,
-                input.Fire,
-                activatePressed,
-                input.ActivateBomb);
+            InputCommand battleInput =
+                input.WithActivate(activatePressed);
             Battle.Step(in battleInput);
             ObserveBattleEvents();
             if (Battle.PlayerHp <= 0)

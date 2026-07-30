@@ -314,6 +314,23 @@ namespace Shmup.Core.Simulation
                 true);
         }
 
+        /// <summary>
+        /// Returns this command with only the activate bit replaced.
+        /// All movement modes and payload fields are preserved.
+        /// </summary>
+        public InputCommand WithActivate(bool activate)
+        {
+            return new InputCommand(
+                MoveX,
+                MoveY,
+                Fire,
+                activate,
+                ActivateBomb,
+                AnalogDeltaXSubUnits,
+                AnalogDeltaYSubUnits,
+                UseAnalogMovement);
+        }
+
         static int Clamp(int value) => value < 0 ? -1 : value > 0 ? 1 : 0;
     }
 
