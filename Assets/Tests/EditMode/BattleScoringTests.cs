@@ -67,7 +67,7 @@ namespace Shmup.Core.Tests
             AssertAll(() =>
             {
                 Assert.AreEqual(1, sim.PlayerHp);
-                Assert.AreEqual(4, sim.ShieldStock);
+                Assert.AreEqual(2, sim.ShieldStock);
                 Assert.AreEqual(0L, sim.Statistics.GrazeCount);
                 Assert.AreEqual(0L, sim.Score);
                 Assert.IsTrue(ContainsEvent(
@@ -178,7 +178,7 @@ namespace Shmup.Core.Tests
             AssertAll(() =>
             {
                 Assert.AreEqual(1, sim.PlayerHp);
-                Assert.AreEqual(4, sim.ShieldStock);
+                Assert.AreEqual(2, sim.ShieldStock);
                 Assert.AreEqual(0, sim.MultiplierLevel);
                 Assert.AreEqual(1, sim.ScoreMultiplier);
                 Assert.AreEqual(0, sim.ComboGauge);

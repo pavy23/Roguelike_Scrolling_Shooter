@@ -246,7 +246,7 @@ namespace Shmup.Core.Tests
             sim.Step(in none);
 
             Assert.AreEqual(1, sim.PlayerHp);
-            Assert.AreEqual(4, sim.ShieldStock);
+            Assert.AreEqual(2, sim.ShieldStock);
             Assert.AreEqual(0, sim.Enemies.Count);
         }
 

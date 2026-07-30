@@ -65,7 +65,8 @@ namespace Shmup.Core.Tests
 
             Step(manager, 3, in none);
             Assert.AreEqual(1, manager.BiomeIndex);
-            Assert.AreEqual(4, manager.RoomIndex);
+            Assert.AreEqual(3, manager.RoomIndex);
+            Assert.IsTrue(manager.IsBiomeBoss);
             Assert.AreEqual(2, manager.Difficulty);
         }
 

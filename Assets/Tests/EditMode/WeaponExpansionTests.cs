@@ -371,6 +371,71 @@ namespace Shmup.Core.Tests
                 data.Rewards.All[2].OptionFormation);
         }
 
+        [Test]
+        public void WeaponsV4PrimaryMetadataAndRewardV2ParseEndToEnd()
+        {
+            string root = FindRepositoryRoot();
+            string gameData = Path.Combine(root, "GameData");
+            string weapons = WeaponsV3Json.Replace(
+                @"""schemaVersion"": 3",
+                @"""schemaVersion"": 4");
+            int closingBrace = weapons.LastIndexOf('}');
+            weapons = weapons.Insert(
+                closingBrace,
+                @",
+  ""primaryWeaponFamilies"": [
+    { ""id"": ""double"", ""displayName"": ""Double"",
+      ""description"": ""Two-way coverage shot."", ""weaponType"": ""spread"",
+      ""baseDamage"": 6, ""fireIntervalTicks"": 10,
+      ""minimumFireIntervalTicks"": 6, ""rapidFireStartLevel"": 3,
+      ""fireIntervalReductionPerLevel"": 1, ""projectileSpeed"": 20,
+      ""projectileHalfWidth"": 0.375, ""projectileHalfHeight"": 0.140625,
+      ""pierceEnemyCount"": 0, ""spreadWays"": 2,
+      ""spreadStepLutSlots"": 2 },
+    { ""id"": ""laser"", ""displayName"": ""Laser"",
+      ""description"": ""Pierces three aligned targets."", ""weaponType"": ""laser"",
+      ""baseDamage"": 15, ""fireIntervalTicks"": 16,
+      ""minimumFireIntervalTicks"": 8, ""rapidFireStartLevel"": 2,
+      ""fireIntervalReductionPerLevel"": 2, ""projectileSpeed"": 28,
+      ""projectileHalfWidth"": 0.1875, ""projectileHalfHeight"": 0.0703125,
+      ""pierceEnemyCount"": 2, ""spreadWays"": 1,
+      ""spreadStepLutSlots"": 0 }
+  ]
+");
+            GameDataSet data = GameDataParser.Parse(
+                File.ReadAllText(
+                    Path.Combine(gameData, "enemies.json")),
+                weapons,
+                File.ReadAllText(
+                    Path.Combine(gameData, "waves.json")),
+                PrimaryRewardsV2Json);
+
+            PrimaryWeaponFamilyDefinition laser =
+                data.BattleContent.FindPrimaryWeaponFamily(
+                    PrimaryWeaponFamily.Laser);
+            Assert.AreEqual("Laser", laser.DisplayName);
+            Assert.AreEqual(
+                "Pierces three aligned targets.",
+                laser.Description);
+            Assert.AreEqual(2, laser.PierceEnemyCount);
+            Assert.AreEqual(
+                RewardType.PrimaryWeaponFamily,
+                data.Rewards.All[0].Type);
+            Assert.AreEqual(
+                PrimaryWeaponFamily.Double,
+                data.Rewards.All[0].PrimaryWeaponFamily);
+            Assert.IsNotNull(
+                data.BattleContent.FindPrimaryWeaponFamily(
+                    PrimaryWeaponFamily.Vulcan),
+                "A minimal v4 Double/Laser table must retain the legacy "
+                + "Vulcan profile for existing starting ships.");
+            Assert.IsNotNull(
+                data.BattleContent.FindPrimaryWeaponFamily(
+                    PrimaryWeaponFamily.Spread),
+                "A minimal v4 Double/Laser table must retain the legacy "
+                + "Spread profile for existing starting ships.");
+        }
+
         static BulletState FireMissile(
             MissileFamily family,
             int speedX,
@@ -886,6 +951,21 @@ namespace Shmup.Core.Tests
     { ""id"": ""orbit"", ""type"": ""optionFormation"",
       ""formationId"": ""orbit"", ""weight"": 2,
       ""stageIndexMin"": 1, ""stageIndexMax"": 99 }
+  ]
+}";
+
+        const string PrimaryRewardsV2Json = @"{
+  ""schemaVersion"": 2,
+  ""optionCount"": 3,
+  ""rewards"": [
+    { ""id"": ""double"", ""type"": ""primaryWeaponFamily"",
+      ""primaryFamilyId"": ""double"", ""weight"": 1,
+      ""stageIndexMin"": 1, ""stageIndexMax"": 99 },
+    { ""id"": ""laser"", ""type"": ""primaryWeaponFamily"",
+      ""primaryFamilyId"": ""laser"", ""weight"": 1,
+      ""stageIndexMin"": 1, ""stageIndexMax"": 99 },
+    { ""id"": ""capsules"", ""type"": ""capsules"", ""amount"": 1,
+      ""weight"": 1, ""stageIndexMin"": 1, ""stageIndexMax"": 99 }
   ]
 }";
 

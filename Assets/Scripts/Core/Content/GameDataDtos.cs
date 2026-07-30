@@ -126,6 +126,8 @@ namespace Shmup.Core.Content
         public OptionFormationDto[] optionFormations;
         [DataMember]
         public string defaultOptionFormation;
+        [DataMember]
+        public PrimaryWeaponFamilyDto[] primaryWeaponFamilies;
     }
 
     [DataContract]
@@ -237,6 +239,41 @@ namespace Shmup.Core.Content
         public decimal? explosionRadius;
         [DataMember]
         public int? explosionMaxTargets;
+    }
+
+    [DataContract]
+    internal sealed class PrimaryWeaponFamilyDto
+    {
+        [DataMember]
+        public string id;
+        [DataMember]
+        public string displayName;
+        [DataMember]
+        public string description;
+        [DataMember]
+        public string weaponType;
+        [DataMember]
+        public int? baseDamage;
+        [DataMember]
+        public int? fireIntervalTicks;
+        [DataMember]
+        public int? minimumFireIntervalTicks;
+        [DataMember]
+        public int? rapidFireStartLevel;
+        [DataMember]
+        public int? fireIntervalReductionPerLevel;
+        [DataMember]
+        public decimal? projectileSpeed;
+        [DataMember]
+        public decimal? projectileHalfWidth;
+        [DataMember]
+        public decimal? projectileHalfHeight;
+        [DataMember]
+        public int? pierceEnemyCount;
+        [DataMember]
+        public int? spreadWays;
+        [DataMember]
+        public int? spreadStepLutSlots;
     }
 
     [DataContract]
@@ -404,6 +441,8 @@ namespace Shmup.Core.Content
         public string familyId;
         [DataMember]
         public string formationId;
+        [DataMember]
+        public string primaryFamilyId;
     }
 
     [DataContract]
