@@ -4,6 +4,59 @@
 
 ---
 
+## 2026-07-30 적 4티어 재배치 (크기=맷집 · 잠정 §7)
+
+**완료 (content):** `GameData/enemies.json` HP·히트박스·점수·드롭 재배치 + `GameData/waves.json` 38세그 티어 리듬·`intent` 한 줄.
+**상태:** 전부 잠정 — 사람 플레이 피드백 전 최종 확정 금지.
+**화력 전제:** CODEX 성장 곡선 너프 예정 → mid DPS 앵커를 기존 analyze 대비 ~15% 낮게 가정 (early~100 / mid~550 / full~1500, 현 god-run 1880 아님).
+
+### 티어 설계 (기존 30종 배치, 신규 적 없음)
+
+| 티어 | 수 | HP | halfW×H (대략) | score | dropW | 체감 TTK |
+|---|---:|---|---|---|---|---|
+| 잡몹 | 12 | 6–14 | 0.44–0.63 × 0.31–0.56 | 50–120 | 2–4 | early 0.06–0.14s · mid flash |
+| 강화형 | 10 | 80–140 | 0.88–0.94 × 0.69–0.88 | 220–380 | 4–6 | early 0.8–1.4s · mid 0.15–0.25s |
+| 중형 | 4 | 500–850 | 1.25–1.38 × 1.0–1.25 | 800–1300 | 13–15 | early 5–8.5s · mid 0.9–1.5s · full 0.3–0.6s |
+| 중간보스 | 4 | 2400–4500 | 2.25–2.5 × 1.75–1.88 | 3000–5000 | 22–26 | stage mid ~4–8s · full 1.6–3.0s |
+
+**중간보스 스테이지 앵커 (mid DPS 가정):**
+
+| id | HP | 목표 mid DPS | TTK mid | TTK full@1500 |
+|---|---:|---:|---:|---:|
+| mini_horror | 2400 | ~500 (hive) | 4.8s | 1.6s |
+| mini_destroyer | 3000 | ~600 (fortress) | 5.0s | 2.0s |
+| mini_crystal | 3600 | ~720 (nebula) | 5.0s | 2.4s |
+| mini_walker | 4500 | ~880 (core) | 5.1s | 3.0s |
+
+크기 필드는 이미 `halfWidth`/`halfHeight`로 데이터 조정 가능 (1/256 서브유닛 정합). 스키마 변경 없음. `noDropWeight=16` 유지. 스테이지 캡슐 EV **10.01** (밴드 10–16 하한 근처 — 잡몹 thrift + 대형 보상).
+
+### 웨이브
+
+- 38세그 전부 `intent` 한 줄 (파서가 무시하는 문서 필드).
+- 성격 분리: 잡몹-only 러시 / 강화형 조준 / 중형 앵커 / 중간보스 피날레.
+- stage avgHP mono: 299 → 880 → 2503 → 3688 → 5135.
+
+### CLAUDE 후속
+
+1. [ ] `Assets/Resources/GameData/enemies.json` · `waves.json` 동기화.
+2. [ ] **스프라이트·프리팹 스케일이 새 half extents와 맞는지 확인.** 히트박스는 티어별로 크게 갈라졌는데, Presentation이 고정 스프라이트를 쓰면 시각 크기≠맷집이 된다. `halfWidth`/`halfHeight`에 맞춰 뷰 스케일하거나 티어별 아트 크기를 맞출 것.
+3. [ ] `mini_*` 히트박스 상향 (2.0×1.5 → 2.25–2.5 × 1.75–1.88) — 뷰 실측 동기화.
+
+### CODEX 메모
+
+- 크기 데이터 경로 확인 완료: `enemies.json` half extents → Core 파서 → 충돌 AABB. 추가 스키마 불필요.
+- 성장 곡선(레벨업 비용) 너프가 들어오면 mid DPS 앵커를 재측정하고 중간보스 HP를 한 번 더 맞출 수 있음. 요청서에 예상 화력 표가 아직 없으면 완료 후 공유 바람.
+
+### 검증
+
+- `dotnet test` CoreStandalone **297/297**
+- `Tools/BalanceSim` **PASS** (캡슐 EV 10.01, stage HP mono, 조립 50/50)
+- DeterminismAudit `seed=12345 stages=3 ticks=30000` 2회 해시 일치 `535B2CBBCA27CEB7`
+
+재생성 스크립트: `Tools/BalanceSim/_apply_enemy_tiers.py`
+
+---
+
 ## 2026-07-30 플레이테스트 수치 3건 (스키마 변경 없음)
 
 **완료 (content):** 기존 필드 값만 조정.
