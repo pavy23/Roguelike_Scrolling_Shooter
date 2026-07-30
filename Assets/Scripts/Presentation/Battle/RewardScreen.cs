@@ -28,6 +28,8 @@ namespace Shmup.Presentation.Battle
         bool _labelsBuilt;
         int _shownOptionCount;
         int _cursor;
+        float _emptyOptionsAge;
+        const float EmptyOptionsGrace = 2.5f;
 
         const float BoxWidth = 150f, BoxHeight = 84f, BoxGap = 14f;
 
@@ -102,7 +104,33 @@ namespace Shmup.Presentation.Battle
             }
 
             var options = _director.RewardOptions;
-            if (options == null) return;
+
+            // 안전 장치: 보상 대기 상태인데 후보가 비어 있으면 탭할 카드가 없어
+            // **영구히 갇힌다** (화면은 떠 있으니 멈춘 것처럼 보인다). 사람이 폰에서
+            // "중간보스 직후 게임이 멈춘다"고 보고한 정지의 후보 경로다.
+            //
+            // 준비 중인 한 프레임 동안 비어 있을 수 있으므로 즉시 개입하지 않고,
+            // 이 상태가 계속되면 로그를 남기고 빠져나간다. 근본 원인은 Core에 있고
+            // CODEX가 REQ-058로 다루지만, 그때까지 사람이 런을 버리게 두지 않는다.
+            if (options == null || options.Count == 0)
+            {
+                _emptyOptionsAge += Time.unscaledDeltaTime;
+                if (_emptyOptionsAge > EmptyOptionsGrace)
+                {
+                    _emptyOptionsAge = 0f;
+                    // Core의 ChooseReward는 범위를 벗어나면 예외를 던지므로 빈 목록에서는
+                    // 빠져나갈 방법이 없다. 조용히 갇히는 것보다 무엇이 막혔는지 알리는
+                    // 편이 낫다 — 사람이 스크린샷으로 원인을 넘겨줄 수 있다.
+                    Debug.LogError(
+                        "[RewardScreen] 보상 후보가 비어 있어 진행이 막혔다 " +
+                        $"(kind={_director.RewardKind}). Core가 후보를 만들지 못했다.");
+                    if (_titleText != null)
+                        _titleText.text = "REWARD ERROR - EMPTY OPTIONS";
+                }
+                return;
+            }
+            _emptyOptionsAge = 0f;
+
             if (!_labelsBuilt)
             {
                 _labelsBuilt = true;
@@ -134,9 +162,11 @@ namespace Shmup.Presentation.Battle
             // 즉시 선택 (1/2/3)
             if (keyboard != null)
             {
-                if (keyboard.digit1Key.wasPressedThisFrame || keyboard.numpad1Key.wasPressedThisFrame) { _director.ChooseReward(0); return; }
-                if (keyboard.digit2Key.wasPressedThisFrame || keyboard.numpad2Key.wasPressedThisFrame) { _director.ChooseReward(1); return; }
-                if (keyboard.digit3Key.wasPressedThisFrame || keyboard.numpad3Key.wasPressedThisFrame) { _director.ChooseReward(2); return; }
+                // Choose를 거쳐야 한다 — 직접 ChooseReward를 부르면 2택에서 3을 눌렀을 때
+                // 범위를 벗어난 인덱스가 Core로 넘어간다 (중간 보상은 2택이다).
+                if (keyboard.digit1Key.wasPressedThisFrame || keyboard.numpad1Key.wasPressedThisFrame) { Choose(0); return; }
+                if (keyboard.digit2Key.wasPressedThisFrame || keyboard.numpad2Key.wasPressedThisFrame) { Choose(1); return; }
+                if (keyboard.digit3Key.wasPressedThisFrame || keyboard.numpad3Key.wasPressedThisFrame) { Choose(2); return; }
             }
 
             // 커서 이동 + 확정

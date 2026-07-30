@@ -59,7 +59,13 @@ namespace Shmup.Presentation.Battle
                 switch (events[i].Type)
                 {
                     case SimEventType.PlayerFired:
-                        PlayOnce(0, FireClip, _laserVolume);
+                        // 발사음은 내지 않는다 — 주무기와 미사일 모두
+                        // ("주무기랑 미사일 소리 둘다 꺼야 한다", 2026-07-30).
+                        //
+                        // 오토파이어가 기본 ON이라 발사가 쉬지 않고 일어난다. 거기에
+                        // 주무기와 미사일이 각각 이 이벤트를 내므로 발사음이 끊이지 않고
+                        // 울려 듣기 괴로웠다. 발사 자체는 탄이 화면에 보이고 명중하면
+                        // 타격음이 나므로, 발사음이 없어도 피드백은 충분히 남는다.
                         break;
                     case SimEventType.EnemyHit:
                         PlayOnce(1, _hit, 0.5f);

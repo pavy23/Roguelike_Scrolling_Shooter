@@ -1032,6 +1032,11 @@ namespace Shmup.EditorTools
             SetReference(touchControls, "_font", uiFont);
             SetReference(touchControls, "_director", director);
 
+            // 오류 오버레이: 원격 플레이(폰)에서는 콘솔을 볼 수 없다. C# 예외가 화면에
+            // 보이지 않으면 "게임이 멈춘다"는 보고만 남고 원인을 추측할 수밖에 없다.
+            var errorOverlay = battleRoot.AddComponent<ErrorOverlay>();
+            SetReference(errorOverlay, "_font", uiFont);
+
             // 전멸 폭탄 버튼 (REQ-046). Core는 폭탄을 완전히 지원했지만 이 버튼이 없어서
             // 발동할 방법이 아예 없었다. TouchControls보다 뒤에 추가해 Start 순서상
             // ReserveRect가 이미 만들어진 드래그 영역에 등록되게 한다.
