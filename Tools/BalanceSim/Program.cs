@@ -2321,7 +2321,7 @@ static class Program
     }
 
     /// <summary>
-    /// REQ-021/055: schema v3 roster must include dive/zigzag/dash on 8–12 of 31 enemies.
+    /// REQ-021/055/063: schema v3 roster must include dive/zigzag/dash on 8–12 of 32 enemies.
     /// </summary>
     static int CheckEnemyMovementRoster(GameDataSet data)
     {
@@ -2357,11 +2357,11 @@ static class Program
         Console.WriteLine(
             $"  new patterns (dive|zigzag|dash) = {newPatternCount} / {data.BattleContent.Enemies.Count}");
 
-        // REQ-055 adds hive_tentacle (static wall tentacle) → 31 catalog enemies.
-        if (data.BattleContent.Enemies.Count != 31)
+        // REQ-063 adds mini_core (core mid-boss) → 32 catalog enemies.
+        if (data.BattleContent.Enemies.Count != 32)
         {
             Console.WriteLine(
-                $"FAIL movement: expected 31 enemies, got {data.BattleContent.Enemies.Count}.");
+                $"FAIL movement: expected 32 enemies, got {data.BattleContent.Enemies.Count}.");
             failures++;
         }
 

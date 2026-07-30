@@ -4,6 +4,31 @@
 
 ---
 
+## 2026-07-30 REQ-063 — 코어 전용 중간보스 `mini_core` (완료 · content)
+
+**완료 (content):** `GameData/enemies.json`에 `mini_core` 추가 (카탈로그 31→**32**).  
+**표·TTK:** `Reviews/from-grok/req063-mini-core-2026-07-30.md`  
+**검증:** `dotnet test` 360/360 · BalanceSim all green · 시드 해시 2회 일치.
+
+| 항목 | 값 |
+|---|---|
+| HP | 1550 |
+| themeId / stageIndexMin | core / **3** |
+| phases | 산탄 → 집중(tel36) → 돌진(tel42) |
+| TTK @ core reach ~1050 DPS | **≈1.5s** (패턴 읽기형) |
+| mid avgHP / worst | 1290 / walker 1600 @17.8s (게이트 유지) |
+
+### CODEX
+
+1. [x] **`mini_core` 불변식 (REQ-062)** — main 병합으로 수신. content가 mini_core 등록 완료.
+
+### CLAUDE
+
+1. [ ] Resources `enemies.json` 동기화 (`mini_core` + REQ-061 midBoss 5종)
+2. [ ] `mini_core` 스프라이트 (미등록 시 폴백+틴트)
+
+---
+
 ## 2026-07-30 REQ-061 — 중간보스 행동 패턴 (완료 · content)
 
 **완료 (content):** `mini_*` 전 항목에 `midBoss.phases` (2~3 순환 + telegraph) 채움.  
@@ -12,13 +37,11 @@
 
 ### CODEX
 
-1. [ ] **`mini_core` 추가 시 enemy count 테스트 31→32** — `RepositoryApprovedV2Files_ParseCompletely`.  
-   제안: id `mini_core`, HP 1550, `themeId: core`, `stageIndexMin: 3`, phases=산탄→집중(tel36)→돌진(tel42).  
-   content는 카탈로그 수 고정 때문에 core 전용 미니를 보류함 (core 바이옴은 4종 균등).
+1. [x] **`mini_core` 추가 시 enemy count 테스트 31→32** — REQ-062 main 병합 + REQ-063 content 등록 완료.
 
 ### CLAUDE
 
-1. [ ] Resources `enemies.json` 동기화 (midBoss 프로필 4종)
+1. [ ] Resources `enemies.json` 동기화 (midBoss 프로필 — 현재 5종)
 2. [ ] 중간보스 `BossAttackTelegraphed` / `BossPhaseChanged` 시청각 (이미 main 병합분 있으면 확인만)
 
 ---

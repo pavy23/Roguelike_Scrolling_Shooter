@@ -647,6 +647,60 @@
           }
         ]
       }
+    },
+    {
+      "id": "mini_core",
+      "displayName": "Mini Core",
+      "hp": 1550,
+      "contactDamage": 2,
+      "scoreValue": 2800,
+      "fireIntervalTicks": 42,
+      "dropWeight": 25,
+      "halfWidth": 2.375,
+      "halfHeight": 1.8125,
+      "movement": {
+        "pattern": "sine",
+        "speed": 3.0,
+        "amplitude": 3.5,
+        "periodTicks": 100
+      },
+      "midBoss": {
+        "themeId": "core",
+        "weight": 1,
+        "stageIndexMin": 3,
+        "phases": [
+          {
+            "fireIntervalTicks": 52,
+            "ways": 5,
+            "bulletSpeed": 8.0,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 3.0,
+            "movementPeriodTicks": 108,
+            "durationTicks": 240,
+            "telegraphTicks": 0
+          },
+          {
+            "fireIntervalTicks": 18,
+            "ways": 3,
+            "bulletSpeed": 12.0,
+            "movementPattern": "stationary",
+            "movementAmplitude": 0,
+            "movementPeriodTicks": 1,
+            "durationTicks": 240,
+            "telegraphTicks": 36
+          },
+          {
+            "fireIntervalTicks": 20,
+            "ways": 3,
+            "bulletSpeed": 13.5,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 1.5,
+            "movementPeriodTicks": 48,
+            "durationTicks": 210,
+            "telegraphTicks": 42
+          }
+        ]
+      }
     }
   ]
 }
