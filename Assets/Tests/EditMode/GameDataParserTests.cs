@@ -892,7 +892,24 @@ namespace Shmup.Core.Tests
                 OptionFormation.Trail,
                 data.BattleContent.DefaultOptionFormation);
             Assert.AreEqual(38, data.StageGeneration.Segments.Count);
-            Assert.AreEqual(5, data.StageGeneration.Bosses.Count);
+            // 5 theme bosses + 2 hidden colossal (REQ-035).
+            Assert.AreEqual(7, data.StageGeneration.Bosses.Count);
+            StageBossTemplate leviathan = null;
+            StageBossTemplate broodmother = null;
+            for (int i = 0; i < data.StageGeneration.Bosses.Count; i++)
+            {
+                StageBossTemplate boss = data.StageGeneration.Bosses[i];
+                if (boss.BossId == SegmentStageGenerator.LeviathanBossId)
+                    leviathan = boss;
+                if (boss.BossId == SegmentStageGenerator.BroodmotherBossId)
+                    broodmother = boss;
+            }
+            Assert.IsNotNull(leviathan);
+            Assert.IsNotNull(broodmother);
+            Assert.AreEqual(62000, leviathan.MaxHp);
+            Assert.AreEqual(62000, broodmother.MaxHp);
+            Assert.AreEqual(6, leviathan.Parts.Count);
+            Assert.AreEqual(7, broodmother.Parts.Count);
             Assert.AreEqual(3, data.Rewards.OptionCount);
             // 13 base + 3 missileFamily + 3 optionFormation (REQ-034).
             Assert.AreEqual(19, data.Rewards.All.Count);

@@ -5707,6 +5707,212 @@
           "bulletSpeed": 16.0
         }
       ]
+    },
+    {
+      "id": "boss_leviathan",
+      "stageIndexMin": 5,
+      "stageIndexMax": 99,
+      "difficultyMin": 1,
+      "difficultyMax": 5,
+      "entryLaneMask": 7,
+      "hp": 62000,
+      "halfWidth": 7.0,
+      "halfHeight": 10.5,
+      "holdX": 12.0,
+      "parts": [
+        {
+          "id": "upper_turret",
+          "offsetX": -0.55859375,
+          "offsetY": 8.30859375,
+          "halfWidth": 2.30859375,
+          "halfHeight": 1.69140625,
+          "hp": 6000,
+          "attack": {
+            "type": "aimedSpread",
+            "intervalTicks": 72,
+            "ways": 3,
+            "bulletSpeed": 7.0
+          }
+        },
+        {
+          "id": "shield_emitter",
+          "offsetX": -0.5,
+          "offsetY": 5.05859375,
+          "halfWidth": 1.87890625,
+          "halfHeight": 1.55859375,
+          "hp": 10000
+        },
+        {
+          "id": "core",
+          "offsetX": 0.0,
+          "offsetY": 1.75,
+          "halfWidth": 1.75,
+          "halfHeight": 1.75,
+          "hp": 25000,
+          "isCore": true,
+          "coreGatePartIds": [
+            "shield_emitter"
+          ],
+          "attack": {
+            "type": "radialSpread",
+            "intervalTicks": 96,
+            "ways": 8,
+            "bulletSpeed": 6.0
+          }
+        },
+        {
+          "id": "front_claw",
+          "offsetX": -4.94140625,
+          "offsetY": -0.19140625,
+          "halfWidth": 1.94140625,
+          "halfHeight": 2.05859375,
+          "hp": 8000,
+          "attack": {
+            "type": "meleeCharge",
+            "intervalTicks": 240,
+            "effectSpeed": 10.0,
+            "contactDamage": 1
+          }
+        },
+        {
+          "id": "rear_engine",
+          "offsetX": 5.0,
+          "offsetY": -0.12109375,
+          "halfWidth": 1.87890625,
+          "halfHeight": 1.75,
+          "hp": 7000
+        },
+        {
+          "id": "lower_launcher",
+          "offsetX": -0.37890625,
+          "offsetY": -4.5,
+          "halfWidth": 2.5,
+          "halfHeight": 2.0,
+          "hp": 6000,
+          "attack": {
+            "type": "radialSpread",
+            "intervalTicks": 90,
+            "ways": 5,
+            "bulletSpeed": 6.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "boss_broodmother",
+      "stageIndexMin": 5,
+      "stageIndexMax": 99,
+      "difficultyMin": 1,
+      "difficultyMax": 5,
+      "entryLaneMask": 7,
+      "hp": 62000,
+      "halfWidth": 7.0,
+      "halfHeight": 10.5,
+      "holdX": 12.0,
+      "parts": [
+        {
+          "id": "maw",
+          "offsetX": -0.05859375,
+          "offsetY": 7.19140625,
+          "halfWidth": 2.55859375,
+          "halfHeight": 2.44140625,
+          "hp": 9000,
+          "attack": {
+            "type": "suction",
+            "intervalTicks": 1,
+            "effectSpeed": 3.0
+          }
+        },
+        {
+          "id": "heart_core",
+          "offsetX": 0.05859375,
+          "offsetY": 1.80859375,
+          "halfWidth": 2.19140625,
+          "halfHeight": 2.44140625,
+          "hp": 25000,
+          "isCore": true,
+          "coreGatePartIds": [
+            "sac_upper",
+            "sac_mid",
+            "sac_lower"
+          ],
+          "attack": {
+            "type": "radialSpread",
+            "intervalTicks": 90,
+            "ways": 8,
+            "bulletSpeed": 6.0
+          }
+        },
+        {
+          "id": "tentacle_left",
+          "offsetX": -4.87890625,
+          "offsetY": 0.30859375,
+          "halfWidth": 2.0,
+          "halfHeight": 2.69140625,
+          "hp": 5000,
+          "regenerationTicks": 1200,
+          "attack": {
+            "type": "meleeCharge",
+            "intervalTicks": 210,
+            "effectSpeed": 8.0,
+            "contactDamage": 1
+          }
+        },
+        {
+          "id": "tentacle_right",
+          "offsetX": 4.80859375,
+          "offsetY": 1.30859375,
+          "halfWidth": 2.05859375,
+          "halfHeight": 2.44140625,
+          "hp": 5000,
+          "regenerationTicks": 1200,
+          "attack": {
+            "type": "aimedSpread",
+            "intervalTicks": 84,
+            "ways": 5,
+            "bulletSpeed": 6.0
+          }
+        },
+        {
+          "id": "sac_upper",
+          "offsetX": -3.44140625,
+          "offsetY": 6.94140625,
+          "halfWidth": 1.69140625,
+          "halfHeight": 1.69140625,
+          "hp": 6000,
+          "attack": {
+            "type": "spawnEnemy",
+            "intervalTicks": 480,
+            "spawnEnemyId": "zako_straight"
+          }
+        },
+        {
+          "id": "sac_mid",
+          "offsetX": 4.25,
+          "offsetY": -3.0,
+          "halfWidth": 1.87890625,
+          "halfHeight": 1.87890625,
+          "hp": 6000,
+          "attack": {
+            "type": "spawnEnemy",
+            "intervalTicks": 480,
+            "spawnEnemyId": "zako_straight"
+          }
+        },
+        {
+          "id": "sac_lower",
+          "offsetX": -0.44140625,
+          "offsetY": -7.30859375,
+          "halfWidth": 2.19140625,
+          "halfHeight": 2.19140625,
+          "hp": 6000,
+          "attack": {
+            "type": "spawnEnemy",
+            "intervalTicks": 480,
+            "spawnEnemyId": "zako_straight"
+          }
+        }
+      ]
     }
   ]
 }

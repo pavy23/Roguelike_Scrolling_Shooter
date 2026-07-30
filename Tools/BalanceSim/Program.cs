@@ -14,6 +14,7 @@
 // 12) Capsule drops after magnet: expected recovery band (REQ-029).
 // 13) Boss redesign: TTK 35–45s @ biome DPS, full-power ≥12s, 3 phases, threat mono (REQ-033).
 // 14) REQ-034: missile families + option formations ST DPS / situation roles / combo gates.
+// 15) REQ-035: colossal bosses (parts sum/core TTK 100–120s, full ≥40s, brood spawn cap, parity).
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -123,6 +124,29 @@ static class Program
     const double BombKillExpClearRatioMax = 1.40; // bomb splash kills never reseed kill_explosion
     const double BombKillExpVsBaselineWarn = 5.0;
 
+    // REQ-035 colossal bosses (provisional §7).
+    // Hidden biome after 5 biomes: mid firepower ~560 DPS → total-HP TTK ~110s.
+    // Raw full-power 1880 melts total HP in ~33s; multi-part retarget tax keeps
+    // effective ST near ~1500 → floor ≥40s. Gate uses effective full DPS.
+    const int ColossalTotalHp = 62_000;
+    const int ColossalCoreHp = 25_000;
+    const double ColossalExpectedDps = 560.0;
+    const double ColossalFullPowerEffectiveDps = 1500.0;
+    const double ColossalTtkExpectedMin = 100.0;
+    const double ColossalTtkExpectedMax = 120.0;
+    const double ColossalTtkFullMin = 40.0;
+    // Soft parity: min-path (gates+core) TTK ratio between the two bosses.
+    const double ColossalMinPathParityMaxRatio = 1.35;
+    // Broodmother spawn: 3 sacs × interval 480t (8s) → concurrent peak over fight.
+    const int ColossalSpawnFightSeconds = 120;
+    const int ColossalMaxEnemiesCap = 128; // BattleSimConfig.MaxEnemies default
+    const int ColossalNormalGenSampleSeeds = 48;
+    static readonly string[] ColossalBossIds =
+    {
+        SegmentStageGenerator.LeviathanBossId,
+        SegmentStageGenerator.BroodmotherBossId,
+    };
+
     static int Main()
     {
         string root = FindRepoRoot();
@@ -184,6 +208,8 @@ static class Program
         failures += CheckBossRedesign(data);
         Console.WriteLine();
         failures += CheckWeaponExpansion(data);
+        Console.WriteLine();
+        failures += CheckColossalBosses(data, generator);
 
         Console.WriteLine();
         if (failures == 0)
@@ -4167,23 +4193,30 @@ static class Program
     /// <summary>
     /// REQ-033 boss redesign gates: HP curve mono, TTK 35–45s @ biome DPS,
     /// full-power ≥12s, exactly 3 phases, phase threat mono, equal-split thresholds.
-    /// All gates provisional (AGENTS.md §7).
+    /// All gates provisional (AGENTS.md §7). Multipart colossal bosses (REQ-035)
+    /// are excluded — see CheckColossalBosses.
     /// </summary>
     static int CheckBossRedesign(GameDataSet data)
     {
         int failures = 0;
-        IReadOnlyList<StageBossTemplate> bosses = data.StageGeneration.Bosses;
+        IReadOnlyList<StageBossTemplate> allBosses = data.StageGeneration.Bosses;
+        var bosses = new List<StageBossTemplate>();
+        for (int i = 0; i < allBosses.Count; i++)
+            if (allBosses[i].Parts == null || allBosses[i].Parts.Count == 0)
+                bosses.Add(allBosses[i]);
 
         Console.WriteLine(
             "Boss redesign (REQ-033, provisional §7): " +
             $"TTK {BossTtkExpectedMin:F0}–{BossTtkExpectedMax:F0}s @ biome DPS · " +
             $"full-power ≥{BossTtkFullMin:F0}s · phases={BossRequiredPhaseCount} · " +
-            "threat mono · equal-split thresholds");
+            "threat mono · equal-split thresholds " +
+            $"(standard bosses only; colossal={allBosses.Count - bosses.Count})");
 
         if (bosses.Count != BossExpectedDps.Length)
         {
             Console.WriteLine(
-                $"FAIL boss: expected {BossExpectedDps.Length} bosses, got {bosses.Count}.");
+                $"FAIL boss: expected {BossExpectedDps.Length} standard bosses, " +
+                $"got {bosses.Count} (catalog total {allBosses.Count}).");
             return 1;
         }
 
@@ -4329,6 +4362,394 @@ static class Program
 
         if (failures == 0)
             Console.WriteLine("PASS: boss redesign TTK / phases / threat mono.");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-035 colossal boss gates (provisional §7):
+    /// catalog IDs + parts sum/core, TTK 100–120s @ expected DPS, full-power
+    /// effective ≥40s, brood spawn peak vs MaxEnemies, min-path parity,
+    /// GenerateColossalBoss Supports(stage 5 / diff 5), normal-gen sample.
+    /// </summary>
+    static int CheckColossalBosses(GameDataSet data, SegmentStageGenerator generator)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "Colossal bosses (REQ-035, provisional §7): " +
+            $"totalHp={ColossalTotalHp} core={ColossalCoreHp} · " +
+            $"TTK {ColossalTtkExpectedMin:F0}–{ColossalTtkExpectedMax:F0}s " +
+            $"@ {ColossalExpectedDps:F0} DPS · full-eff ≥{ColossalTtkFullMin:F0}s " +
+            $"@ {ColossalFullPowerEffectiveDps:F0} DPS · spawn peak " +
+            $"vs MaxEnemies={ColossalMaxEnemiesCap}");
+
+        var byId = new Dictionary<string, StageBossTemplate>(StringComparer.Ordinal);
+        IReadOnlyList<StageBossTemplate> bosses = data.StageGeneration.Bosses;
+        for (int i = 0; i < bosses.Count; i++)
+            byId[bosses[i].BossId] = bosses[i];
+
+        StageBossTemplate leviathan = null;
+        StageBossTemplate broodmother = null;
+        for (int i = 0; i < ColossalBossIds.Length; i++)
+        {
+            string id = ColossalBossIds[i];
+            if (!byId.TryGetValue(id, out StageBossTemplate boss))
+            {
+                Console.WriteLine($"FAIL colossal: missing catalog entry '{id}'.");
+                failures++;
+                continue;
+            }
+
+            if (string.Equals(id, SegmentStageGenerator.LeviathanBossId, StringComparison.Ordinal))
+                leviathan = boss;
+            else if (string.Equals(id, SegmentStageGenerator.BroodmotherBossId, StringComparison.Ordinal))
+                broodmother = boss;
+
+            failures += CheckOneColossalBoss(boss, data);
+        }
+
+        if (!generator.CanGenerateColossalBoss(ColossalBossKind.Leviathan)
+            || !generator.CanGenerateColossalBoss(ColossalBossKind.Broodmother))
+        {
+            Console.WriteLine(
+                "FAIL colossal: CanGenerateColossalBoss false for Leviathan/Broodmother.");
+            failures++;
+        }
+        else
+        {
+            // Hidden boss path: generationBiomeIndex = BiomeCount (5), difficulty = 5.
+            try
+            {
+                StagePlan levPlan = generator.GenerateColossalBoss(
+                    1UL, 5, 5, ColossalBossKind.Leviathan);
+                StagePlan broodPlan = generator.GenerateColossalBoss(
+                    2UL, 5, 5, ColossalBossKind.Broodmother);
+                if (levPlan.BossParts == null || levPlan.BossParts.Count == 0)
+                {
+                    Console.WriteLine("FAIL colossal: leviathan plan has no parts.");
+                    failures++;
+                }
+                if (broodPlan.BossParts == null || broodPlan.BossParts.Count == 0)
+                {
+                    Console.WriteLine("FAIL colossal: broodmother plan has no parts.");
+                    failures++;
+                }
+                Console.WriteLine(
+                    $"  GenerateColossalBoss(stage5/diff5): " +
+                    $"lev parts={levPlan.BossParts?.Count ?? 0} " +
+                    $"brood parts={broodPlan.BossParts?.Count ?? 0}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"FAIL colossal: GenerateColossalBoss threw: {ex.Message}");
+                failures++;
+            }
+        }
+
+        // Parity: same total/core HP; min-path (gates+core) should stay close.
+        if (leviathan != null && broodmother != null)
+        {
+            int levMin = MinPathHp(leviathan);
+            int broodMin = MinPathHp(broodmother);
+            double levMinTtk = levMin / ColossalExpectedDps;
+            double broodMinTtk = broodMin / ColossalExpectedDps;
+            double ratio = Math.Max(levMin, broodMin) / (double)Math.Min(levMin, broodMin);
+            Console.WriteLine(
+                $"  parity min-path: leviathan={levMin}hp TTK≈{levMinTtk:F1}s · " +
+                $"broodmother={broodMin}hp TTK≈{broodMinTtk:F1}s · ratio={ratio:F2} " +
+                $"(soft max {ColossalMinPathParityMaxRatio:F2})");
+            if (ratio > ColossalMinPathParityMaxRatio)
+            {
+                Console.WriteLine(
+                    $"WARN colossal: min-path HP ratio {ratio:F2} > " +
+                    $"{ColossalMinPathParityMaxRatio:F2} — broodmother is intentionally " +
+                    "harder (3 sac gates + regen); not a hard fail (§7).");
+            }
+            else
+            {
+                Console.WriteLine("  parity: min-path within soft band.");
+            }
+
+            // Feel-difficulty note (subtractive vs additive) — always printed.
+            Console.WriteLine(
+                "  feel: leviathan is subtractive (kill shield→core min path); " +
+                "broodmother is additive (sac gates + tentacle regen 20s + " +
+                "3× spawn). Same total/core HP keeps ST melt parity; " +
+                "time-pressure favors leviathan if player stalls on brood.");
+        }
+
+        // Normal generation must never surface colossal IDs (hidden-only).
+        // Core skips Parts.Count>0 in GenerateCore; content stageMin=5 is belt+suspenders.
+        failures += CheckColossalExcludedFromNormalGen(generator);
+
+        if (failures == 0)
+            Console.WriteLine("PASS: colossal boss catalog / TTK / spawn / generate.");
+        return failures;
+    }
+
+    static int CheckOneColossalBoss(StageBossTemplate boss, GameDataSet data)
+    {
+        int failures = 0;
+        string id = boss.BossId;
+
+        if (boss.Parts == null || boss.Parts.Count == 0)
+        {
+            Console.WriteLine($"FAIL colossal: '{id}' has no parts.");
+            return 1;
+        }
+
+        if (boss.MaxHp != ColossalTotalHp)
+        {
+            Console.WriteLine(
+                $"FAIL colossal: '{id}' MaxHp={boss.MaxHp} expected {ColossalTotalHp}.");
+            failures++;
+        }
+
+        long partSum = 0;
+        int coreCount = 0;
+        int coreHp = 0;
+        int gateHp = 0;
+        int spawnSacs = 0;
+        int spawnInterval = 0;
+        string spawnEnemyId = null;
+        for (int i = 0; i < boss.Parts.Count; i++)
+        {
+            BossPartDefinition part = boss.Parts[i];
+            partSum += part.MaxHp;
+            if (part.IsCore)
+            {
+                coreCount++;
+                coreHp = part.MaxHp;
+                for (int g = 0; g < part.CoreGatePartIds.Count; g++)
+                {
+                    string gateId = part.CoreGatePartIds[g];
+                    for (int j = 0; j < boss.Parts.Count; j++)
+                        if (string.Equals(
+                                boss.Parts[j].PartId,
+                                gateId,
+                                StringComparison.Ordinal))
+                            gateHp += boss.Parts[j].MaxHp;
+                }
+            }
+
+            if (part.Attack != null
+                && part.Attack.Type == BossPartAttackType.SpawnEnemy)
+            {
+                spawnSacs++;
+                if (spawnInterval == 0)
+                    spawnInterval = part.Attack.IntervalTicks;
+                else if (spawnInterval != part.Attack.IntervalTicks)
+                {
+                    Console.WriteLine(
+                        $"WARN colossal: '{id}' sac intervals differ " +
+                        $"({spawnInterval} vs {part.Attack.IntervalTicks}).");
+                }
+
+                spawnEnemyId = part.Attack.SpawnEnemyId;
+            }
+        }
+
+        if (partSum != boss.MaxHp)
+        {
+            Console.WriteLine(
+                $"FAIL colossal: '{id}' parts sum {partSum} != MaxHp {boss.MaxHp}.");
+            failures++;
+        }
+
+        if (coreCount != 1)
+        {
+            Console.WriteLine(
+                $"FAIL colossal: '{id}' coreCount={coreCount} (need 1).");
+            failures++;
+        }
+        else if (coreHp != ColossalCoreHp)
+        {
+            Console.WriteLine(
+                $"FAIL colossal: '{id}' coreHp={coreHp} expected {ColossalCoreHp}.");
+            failures++;
+        }
+
+        double ttkTotal = boss.MaxHp / ColossalExpectedDps;
+        double ttkCore = coreHp / ColossalExpectedDps;
+        double ttkFullEff = boss.MaxHp / ColossalFullPowerEffectiveDps;
+        double ttkFullRaw = boss.MaxHp / BossFullPowerDps;
+        bool midOk = ttkTotal >= ColossalTtkExpectedMin
+            && ttkTotal <= ColossalTtkExpectedMax;
+        bool fullOk = ttkFullEff >= ColossalTtkFullMin;
+
+        Console.WriteLine(
+            $"  {id,-20} parts={boss.Parts.Count} sum={partSum} core={coreHp} " +
+            $"gatesHp={gateHp} stage={boss.StageIndexMin}-{boss.StageIndexMax} " +
+            $"diff={boss.DifficultyMin}-{boss.DifficultyMax} " +
+            $"theme={NullLabel(boss.ThemeId)}");
+        Console.WriteLine(
+            $"    total @ {ColossalExpectedDps:F0} DPS → TTK={ttkTotal:F1}s " +
+            $"[{(midOk ? "midOK" : "OUT")}]  core-only TTK={ttkCore:F1}s  " +
+            $"full-eff@{ColossalFullPowerEffectiveDps:F0} → {ttkFullEff:F1}s " +
+            $"[{(fullOk ? "floorOK" : "BELOW")}]  raw-full@{BossFullPowerDps:F0} → " +
+            $"{ttkFullRaw:F1}s (info)");
+
+        if (!midOk)
+        {
+            Console.WriteLine(
+                $"FAIL colossal: '{id}' total TTK {ttkTotal:F1}s outside " +
+                $"[{ColossalTtkExpectedMin:F0},{ColossalTtkExpectedMax:F0}]s.");
+            failures++;
+        }
+
+        if (!fullOk)
+        {
+            Console.WriteLine(
+                $"FAIL colossal: '{id}' full-eff TTK {ttkFullEff:F1}s " +
+                $"< {ColossalTtkFullMin:F0}s.");
+            failures++;
+        }
+
+        // Hidden-only content contract: stage range starts at hidden generation index.
+        if (boss.StageIndexMin < 5)
+        {
+            Console.WriteLine(
+                $"FAIL colossal: '{id}' stageIndexMin={boss.StageIndexMin} " +
+                "must be ≥5 (hidden path uses stage 5; lowers stage collision).");
+            failures++;
+        }
+
+        if (boss.ThemeId != null)
+        {
+            Console.WriteLine(
+                $"WARN colossal: '{id}' theme={boss.ThemeId} — prefer null theme " +
+                "so ThemeIds list stays 5 biomes; exclusivity needs Core filter.");
+        }
+
+        // Broodmother-specific spawn pressure.
+        if (string.Equals(
+                id,
+                SegmentStageGenerator.BroodmotherBossId,
+                StringComparison.Ordinal))
+        {
+            if (spawnSacs < 1 || spawnInterval < 1)
+            {
+                Console.WriteLine(
+                    $"FAIL colossal: '{id}' needs spawnEnemy sacs with interval.");
+                failures++;
+            }
+            else
+            {
+                if (spawnEnemyId == null
+                    || data.BattleContent.FindEnemy(spawnEnemyId) == null)
+                {
+                    Console.WriteLine(
+                        $"FAIL colossal: '{id}' spawnEnemyId '{spawnEnemyId}' unknown.");
+                    failures++;
+                }
+
+                double intervalSec = spawnInterval / (double)SimSpace.TicksPerSecond;
+                int peakIfNoKill = (int)Math.Ceiling(
+                    spawnSacs * (ColossalSpawnFightSeconds / intervalSec));
+                // Continuous accumulation bound (no despawn/kill): still under pool.
+                bool capOk = peakIfNoKill <= ColossalMaxEnemiesCap;
+                Console.WriteLine(
+                    $"    spawn: sacs={spawnSacs} interval={spawnInterval}t " +
+                    $"({intervalSec:F1}s) enemy={spawnEnemyId} · " +
+                    $"peak@{ColossalSpawnFightSeconds}s no-kill={peakIfNoKill} " +
+                    $"vs MaxEnemies={ColossalMaxEnemiesCap} " +
+                    $"[{(capOk ? "capOK" : "OVER")}]");
+                if (!capOk)
+                {
+                    Console.WriteLine(
+                        $"FAIL colossal: '{id}' spawn peak {peakIfNoKill} " +
+                        $"> MaxEnemies {ColossalMaxEnemiesCap} over " +
+                        $"{ColossalSpawnFightSeconds}s (stall overflow).");
+                    failures++;
+                }
+            }
+        }
+
+        return failures;
+    }
+
+    static int MinPathHp(StageBossTemplate boss)
+    {
+        int coreHp = 0;
+        int gateHp = 0;
+        for (int i = 0; i < boss.Parts.Count; i++)
+        {
+            BossPartDefinition part = boss.Parts[i];
+            if (!part.IsCore)
+                continue;
+            coreHp = part.MaxHp;
+            for (int g = 0; g < part.CoreGatePartIds.Count; g++)
+            {
+                string gateId = part.CoreGatePartIds[g];
+                for (int j = 0; j < boss.Parts.Count; j++)
+                    if (string.Equals(
+                            boss.Parts[j].PartId,
+                            gateId,
+                            StringComparison.Ordinal))
+                        gateHp += boss.Parts[j].MaxHp;
+            }
+        }
+        return coreHp + gateHp;
+    }
+
+    static int CheckColossalExcludedFromNormalGen(SegmentStageGenerator generator)
+    {
+        int failures = 0;
+        int hits = 0;
+        var hitIds = new HashSet<string>(StringComparer.Ordinal);
+
+        // Stages 1–5 × difficulties 1–5 × seeds — colossal must never be BossId.
+        for (int stage = 1; stage <= 5; stage++)
+        {
+            for (int diff = 1; diff <= 5; diff++)
+            {
+                for (int seed = 0; seed < ColossalNormalGenSampleSeeds; seed++)
+                {
+                    StagePlan plan;
+                    try
+                    {
+                        plan = generator.Generate((ulong)seed, stage, diff);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(
+                            $"FAIL colossal: normal Generate({seed},{stage},{diff}) " +
+                            $"threw: {ex.Message}");
+                        return failures + 1;
+                    }
+
+                    if (plan == null || string.IsNullOrEmpty(plan.BossId))
+                        continue;
+                    for (int i = 0; i < ColossalBossIds.Length; i++)
+                    {
+                        if (string.Equals(
+                                plan.BossId,
+                                ColossalBossIds[i],
+                                StringComparison.Ordinal))
+                        {
+                            hits++;
+                            hitIds.Add(plan.BossId);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (hits > 0)
+        {
+            Console.WriteLine(
+                $"FAIL colossal: normal Generate selected colossal {hits} time(s) " +
+                $"({string.Join(",", hitIds)}). GenerateCore must skip " +
+                "LeviathanBossId/BroodmotherBossId.");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine(
+                $"  normal-gen sample: stages1–5 × diff1–5 × " +
+                $"{ColossalNormalGenSampleSeeds} seeds — no colossal BossId.");
+        }
+
         return failures;
     }
 

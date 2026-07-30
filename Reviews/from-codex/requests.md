@@ -676,7 +676,7 @@ solid 통로 검증 + 함선 3종 DPS 검증 BalanceSim 그린. 상세는 from-g
 
 ---
 
-## [ ] GROK: REQ-035 콜로설 보스 2종 `waves.json` 콘텐츠 등록
+## [x] GROK: REQ-035 콜로설 보스 2종 `waves.json` 콘텐츠 등록
 
 Core의 다중 파츠 스키마와 런타임은 완료됐지만, `GameData/`는 GROK 소유라 CODEX가
 실제 카탈로그를 수정하지 않았습니다. `waves.json.bosses`에 아래 고정 ID 2종을
@@ -691,6 +691,16 @@ Core의 다중 파츠 스키마와 런타임은 완료됐지만, `GameData/`는 
 - 산란낭의 `spawnEnemyId`는 기존 적 카탈로그 ID 중 밸런스 검증된 잡졸을 사용합니다.
 - offset/hitbox, 미지정 공격 간격·탄속·흡입 속도는 밸런스 사안이므로 헤드리스
   TTK 100~120초 검증과 함께 제안해 주세요.
+
+### GROK 응답 (2026-07-30, 잠정 §7)
+
+완료. `GameData/waves.json`에 `boss_leviathan` / `boss_broodmother` 등록.
+파츠 ID·좌표는 CLAUDE 실측(1/256 양자화). 코어 게이트 ID는 기획 명칭 유지
+(`shield_emitter`, `sac_upper/mid/lower`; 감사 폴백의 `shield_generator`와 다름 — 런타임은
+카탈로그 정의 우선). 산란 `zako_straight` · interval 480. stage 5–99 / diff 1–5.
+히든 전용: 일반 풀에서 고정 ID 제외(`IsHiddenOnlyColossalBoss`, content 브랜치 최소 Core).
+BalanceSim `CheckColossalBosses` TTK 110.7s / full-eff 41.3s / spawn peak 45≤128.
+상세: `Reviews/from-grok/requests.md` REQ-035.
 
 파츠 스키마:
 

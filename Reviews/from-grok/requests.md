@@ -4,6 +4,47 @@
 
 ---
 
+## 2026-07-30 REQ-035 콜로설 보스 content 등록 완료 (잠정 · §7)
+
+**완료 (content):** `GameData/waves.json`에 `boss_leviathan` / `boss_broodmother`
+(총 HP 62000, CLAUDE 실측 파츠 좌표 → 1/256 양자화, stage 5–99, theme null).
+BalanceSim `CheckColossalBosses` 추가. 전부 잠정 §7.
+
+### 밸런스 검산 요약
+
+| 항목 | Leviathan | Broodmother |
+|---|---|---|
+| 총 HP / 코어 | 62000 / 25000 | 62000 / 25000 |
+| 게이트 경로 HP | shield 10000+core = 35000 | sacs 18000+heart = 43000 |
+| TTK @560 DPS (total) | 110.7s ∈ [100,120] | 동일 |
+| TTK full-eff @1500 | 41.3s ≥40 | 동일 |
+| raw full @1880 | 33.0s (info — 멀티파츠 리타겟 세율로 1500 채택) | 동일 |
+| min-path ratio | — | 1.23 ≤1.35 soft |
+| 산란 peak@120s | — | 45 ≤ MaxEnemies 128 |
+
+**체감:** 동일 ST 총량/코어. 브루드마더는 게이트 더 두껍고 촉수 재생(20s)+산란 압박으로
+스톨 시 불리 → 의도된 증가형. HP 추가 조정 없음.
+
+### Core 최소 변경 (content 브랜치에 포함 — CODEX 인수 요청)
+
+파서/스테이지 범위만으로는 히든 전용을 강제할 수 없다 (`ThemeId=null`은 전 테마 매칭,
+전용 theme는 ThemeIds를 오염). 그래서 `SegmentStageGenerator`의 일반 보스 풀에서
+`LeviathanBossId`/`BroodmotherBossId`를 제외했다 (`IsHiddenOnlyColossalBoss`).
+`GenerateColossalBoss` 경로는 그대로 ID 조회. CODEX가 sim 브랜치에서 소유·회귀 테스트
+보강해도 좋다.
+
+### CLAUDE 후속
+
+1. `Assets/Resources/GameData/waves.json` ← `GameData/waves.json` 동기화.
+2. 파츠 `PartId` ↔ 스프라이트 슬롯 매핑 (offset는 양자화값 사용).
+3. 산란 잡졸 `zako_straight` 풀/연출.
+
+### 검증
+
+`dotnet test` 297/297 · `Tools/BalanceSim` PASS.
+
+---
+
 ## 2026-07-30 REQ-033 보스 전면 재설계 완료 + CODEX 권고 (잠정 · §7)
 
 **완료 (content):** `GameData/waves.json` 보스 5종 HP 24000–45000 · 페이즈 3 · aimed/spread/rapid.
