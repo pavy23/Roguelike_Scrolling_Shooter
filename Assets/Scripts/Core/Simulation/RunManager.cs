@@ -669,6 +669,7 @@ namespace Shmup.Core.Simulation
         readonly ReadOnlyCollection<RouteChoice> _routeChoiceHistoryView;
         MetaState _metaState;
         ColossalBossKind _lastColossalBossAtRunStart;
+        BattleContinuityState _pendingBattleContinuity;
 
         ulong _runSeed;
         int _stageLengthTicks;
@@ -707,6 +708,7 @@ namespace Shmup.Core.Simulation
         int _stageStartMainShotBaseDamage;
         int _stageStartPlayerSpeedNumerator;
         int _stageStartPlayerSpeedDenominator;
+        BattleContinuityState _stageStartContinuity;
         int _rewardSelectionsRemaining;
         int _rewardSelectionRound;
         RewardSelectionKind _rewardSelectionKind;
@@ -1505,7 +1507,18 @@ namespace Shmup.Core.Simulation
                 selectedColossalBoss =
                     (int)SelectedColossalBoss,
                 lastColossalBossAtRunStart =
-                    (int)_lastColossalBossAtRunStart
+                    (int)_lastColossalBossAtRunStart,
+                hasStageStartContinuity = true,
+                stageStartPlayerX =
+                    _stageStartContinuity.PlayerX,
+                stageStartPlayerY =
+                    _stageStartContinuity.PlayerY,
+                stageStartMultiplierLevel =
+                    _stageStartContinuity.MultiplierLevel,
+                stageStartComboGauge =
+                    _stageStartContinuity.ComboGauge,
+                stageStartTicksSinceLastKill =
+                    _stageStartContinuity.TicksSinceLastKill
             };
             SaveDataIntegrity.Seal(data);
             return data;
@@ -1692,6 +1705,16 @@ namespace Shmup.Core.Simulation
                 data.powerUpLevels,
                 data.powerUpCursor,
                 data.powerUpProgress);
+            if (data.hasStageStartContinuity)
+            {
+                manager._pendingBattleContinuity =
+                    new BattleContinuityState(
+                        data.stageStartPlayerX,
+                        data.stageStartPlayerY,
+                        data.stageStartMultiplierLevel,
+                        data.stageStartComboGauge,
+                        data.stageStartTicksSinceLastKill);
+            }
             manager.BuildCurrentStage();
 
             if (manager.Battle.PlayerHp != data.playerHp
@@ -1855,6 +1878,7 @@ namespace Shmup.Core.Simulation
                     selected))
                 return false;
 
+            _pendingBattleContinuity = null;
             AccumulateCompletedBattle();
             SelectedColossalBoss = selected;
             IsHiddenBiome = true;
@@ -2392,6 +2416,7 @@ namespace Shmup.Core.Simulation
             _completedGrazeCount = 0;
             _stagesCleared = 0;
             _roomsCleared = 0;
+            _pendingBattleContinuity = null;
             Array.Clear(
                 _rewardAcquisitionCounts,
                 0,
@@ -2416,6 +2441,7 @@ namespace Shmup.Core.Simulation
             if (RoomIndex >= RoomsPerBiome)
                 throw new InvalidOperationException(
                     "The regular-room counter is already at the biome boundary.");
+            CaptureBattleContinuity();
             AccumulateCompletedBattle();
             RoomIndex++;
             IsBiomeBoss = false;
@@ -2430,6 +2456,7 @@ namespace Shmup.Core.Simulation
                     >= RunProgressionConfig.HiddenRooms)
                 throw new InvalidOperationException(
                     "The hidden-room counter is already at its boundary.");
+            CaptureBattleContinuity();
             AccumulateCompletedBattle();
             RoomIndex++;
             IsBiomeBoss = false;
@@ -2439,6 +2466,7 @@ namespace Shmup.Core.Simulation
 
         void AdvanceToBiomeBoss()
         {
+            CaptureBattleContinuity();
             AccumulateCompletedBattle();
             IsBiomeBoss = true;
             State = RunState.Playing;
@@ -2450,12 +2478,22 @@ namespace Shmup.Core.Simulation
             if (BiomeIndex >= BiomeCount)
                 throw new InvalidOperationException(
                     "The biome counter is already at the campaign boundary.");
+            _pendingBattleContinuity = null;
             AccumulateCompletedBattle();
             BiomeIndex++;
             RoomIndex = 1;
             IsBiomeBoss = false;
             State = RunState.Playing;
             BuildCurrentStage();
+        }
+
+        void CaptureBattleContinuity()
+        {
+            if (!(Battle is BattleSim battle))
+                throw new InvalidOperationException(
+                    "Room continuity requires BattleSim.");
+            _pendingBattleContinuity =
+                battle.CaptureContinuityState();
         }
 
         void AccumulateCompletedBattle()
@@ -2818,6 +2856,16 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     "Suspend bomb stock is outside its cap.",
                     nameof(data));
+            if (data.hasStageStartContinuity
+                && (data.stageStartMultiplierLevel < 0
+                    || data.stageStartMultiplierLevel > 3
+                    || data.stageStartComboGauge < 0
+                    || data.stageStartTicksSinceLastKill < 0))
+            {
+                throw new ArgumentException(
+                    "Suspend room-continuity state is invalid.",
+                    nameof(data));
+            }
             if (data.fireIntervalTicks < 0
                 || data.mainShotBaseDamage < 0
                 || data.playerSpeedNumerator < 0
@@ -3331,7 +3379,9 @@ namespace Shmup.Core.Simulation
                 StagePlan,
                 _battleContent,
                 PowerUpGauge,
-                ModifierStacks);
+                ModifierStacks,
+                _pendingBattleContinuity);
+            _pendingBattleContinuity = null;
             _preparedRouteOptions = Array.Empty<RouteOption>();
             CaptureStageStart();
         }
@@ -3710,6 +3760,8 @@ namespace Shmup.Core.Simulation
                 _battleConfig.PlayerSpeedNumerator;
             _stageStartPlayerSpeedDenominator =
                 _battleConfig.PlayerSpeedDenominator;
+            _stageStartContinuity =
+                ((BattleSim)Battle).CaptureContinuityState();
             Array.Copy(
                 _rewardAcquisitionCounts,
                 _stageStartRewardAcquisitionCounts,

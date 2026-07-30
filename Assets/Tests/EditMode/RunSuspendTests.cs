@@ -86,7 +86,9 @@ namespace Shmup.Core.Tests
 
             AssertAll(() =>
             {
-                Assert.AreEqual(11, data.schemaVersion);
+                Assert.AreEqual(
+                    RunSuspendData.CurrentSchemaVersion,
+                    data.schemaVersion);
                 Assert.IsTrue(SaveDataIntegrity.HasValidChecksum(data));
                 CollectionAssert.AreEqual(
                     new[] { 63, 47, 31, 23 },

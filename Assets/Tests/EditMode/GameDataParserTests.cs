@@ -281,15 +281,26 @@ namespace Shmup.Core.Tests
                 @"""entryLaneMask"": 7, ""hp"": 500,
     ""phases"": [
       {
-        ""fireIntervalTicks"": 90, ""ways"": 1, ""bulletSpeed"": 6.0,
+        ""pattern"": ""radial"",
+        ""fireIntervalTicks"": 90, ""ways"": 2, ""bulletSpeed"": 6.0,
         ""movementPattern"": ""stationary"",
         ""partVulnerability"": ""coreOnly""
       },
       {
+        ""pattern"": ""spiral"",
         ""fireIntervalTicks"": 45, ""ways"": 3, ""bulletSpeed"": 9.0,
         ""movementPattern"": ""verticalSine"",
         ""movementAmplitude"": 1.5, ""movementPeriodTicks"": 120,
         ""partVulnerability"": ""all""
+      },
+      {
+        ""pattern"": ""wall"",
+        ""fireIntervalTicks"": 50, ""ways"": 5, ""bulletSpeed"": 7.0
+      },
+      {
+        ""pattern"": ""burst"",
+        ""fireIntervalTicks"": 80, ""ways"": 4, ""bulletSpeed"": 8.0,
+        ""telegraphTicks"": 15
       }
     ]");
 
@@ -300,22 +311,84 @@ namespace Shmup.Core.Tests
             IReadOnlyList<BossPhase> phases =
                 data.StageGeneration.Bosses[0].Phases;
 
-            Assert.AreEqual(2, phases.Count);
+            Assert.AreEqual(4, phases.Count);
             Assert.AreEqual(
                 BossMovementPattern.Stationary,
                 phases[0].MovementPattern);
+            Assert.AreEqual(
+                BossFirePattern.Radial,
+                phases[0].FirePattern);
             Assert.AreEqual(
                 BossPartVulnerability.CoreOnly,
                 phases[0].PartVulnerability);
             Assert.AreEqual(
                 BossMovementPattern.VerticalSine,
                 phases[1].MovementPattern);
+            Assert.AreEqual(
+                BossFirePattern.Spiral,
+                phases[1].FirePattern);
             Assert.AreEqual(384, phases[1].MovementAmplitudeNumerator);
             Assert.AreEqual(1, phases[1].MovementAmplitudeDenominator);
             Assert.AreEqual(120, phases[1].MovementPeriodTicks);
             Assert.AreEqual(
                 BossPartVulnerability.All,
                 phases[1].PartVulnerability);
+            Assert.AreEqual(
+                BossFirePattern.Wall,
+                phases[2].FirePattern);
+            Assert.AreEqual(
+                BossFirePattern.Burst,
+                phases[3].FirePattern);
+        }
+
+        [Test]
+        public void Parse_LegacyBossPatternNamesMapToAimed()
+        {
+            string waves = WavesJson.Replace(
+                @"""entryLaneMask"": 7, ""hp"": 500",
+                @"""entryLaneMask"": 7, ""hp"": 500,
+    ""phases"": [
+      { ""pattern"": ""aimed"", ""fireIntervalTicks"": 60,
+        ""ways"": 1, ""bulletSpeed"": 6 },
+      { ""pattern"": ""spread"", ""fireIntervalTicks"": 45,
+        ""ways"": 3, ""bulletSpeed"": 7 },
+      { ""pattern"": ""rapid"", ""fireIntervalTicks"": 20,
+        ""ways"": 1, ""bulletSpeed"": 8 }
+    ]");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                waves);
+            IReadOnlyList<BossPhase> phases =
+                data.StageGeneration.Bosses[0].Phases;
+
+            Assert.AreEqual(BossFirePattern.Aimed, phases[0].FirePattern);
+            Assert.AreEqual(BossFirePattern.Aimed, phases[1].FirePattern);
+            Assert.AreEqual(BossFirePattern.Aimed, phases[2].FirePattern);
+        }
+
+        [Test]
+        public void Parse_RejectsUnknownBossFirePatternWithFieldPath()
+        {
+            string waves = WavesJson.Replace(
+                @"""entryLaneMask"": 7, ""hp"": 500",
+                @"""entryLaneMask"": 7, ""hp"": 500,
+    ""phases"": [
+      { ""pattern"": ""unknown"", ""fireIntervalTicks"": 60,
+        ""ways"": 1, ""bulletSpeed"": 6 }
+    ]");
+
+            GameDataParseException error =
+                Assert.Throws<GameDataParseException>(
+                    () => GameDataParser.Parse(
+                        EnemiesJson,
+                        WeaponsJson,
+                        waves));
+
+            StringAssert.Contains(
+                "waves.json.bosses[0].phases[0].pattern",
+                error.Message);
         }
 
         [Test]

@@ -46,7 +46,11 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class InputRecordingData
     {
-        public const int CurrentSchemaVersion = 10;
+        /// <summary>
+        /// REQ-065 changes room-boundary initial state, so older recordings are
+        /// intentionally rejected instead of replaying under different semantics.
+        /// </summary>
+        public const int CurrentSchemaVersion = 11;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -96,7 +100,16 @@ namespace Shmup.Core.Simulation
     /// </summary>
     public sealed class InputRecorder
     {
-        const int DefaultRunCapacity = 4096;
+        /// <summary>
+        /// Lossless worst case: touch analog deltas can differ every tick and
+        /// therefore produce one run per tick. Sixty minutes is the supported
+        /// default replay envelope at the fixed simulation rate.
+        /// </summary>
+        public const int DefaultMaximumRecordingMinutes = 60;
+        public const int DefaultRunCapacity =
+            SimSpace.TicksPerSecond
+            * 60
+            * DefaultMaximumRecordingMinutes;
 
         readonly InputRun[] _runs;
         readonly int _difficultyMultiplierNumerator;
@@ -469,6 +482,16 @@ namespace Shmup.Core.Simulation
 
         public InputPlayback(InputRecordingData data)
         {
+            if (data == null)
+                throw new ArgumentNullException(nameof(data));
+            if (data.schemaVersion
+                != InputRecordingData.CurrentSchemaVersion)
+            {
+                throw new ArgumentException(
+                    "The input recording was captured by an incompatible "
+                    + "simulation version.",
+                    nameof(data));
+            }
             data = SaveDataIntegrity.MigrateAndValidate(data);
             Validate(data);
 
