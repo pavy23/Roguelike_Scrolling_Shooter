@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using Shmup.Core.Generation;
 
 namespace Shmup.Core.Simulation
 {
@@ -24,6 +25,62 @@ namespace Shmup.Core.Simulation
         Trail = 0,
         Fixed = 1,
         Orbit = 2
+    }
+
+    public sealed class MidBossProfile
+    {
+        readonly IReadOnlyList<BossPhase> _phases;
+
+        public MidBossProfile(
+            string themeId,
+            int weight,
+            int stageIndexMin,
+            int stageIndexMax,
+            IReadOnlyList<BossPhase> phases)
+        {
+            if (string.IsNullOrWhiteSpace(themeId))
+                throw new ArgumentException(
+                    "Mid-boss theme cannot be null or blank.",
+                    nameof(themeId));
+            if (weight < 1)
+                throw new ArgumentOutOfRangeException(nameof(weight));
+            if (stageIndexMin < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(stageIndexMin));
+            if (stageIndexMax < stageIndexMin)
+                throw new ArgumentOutOfRangeException(
+                    nameof(stageIndexMax));
+            if (phases == null)
+                throw new ArgumentNullException(nameof(phases));
+            if (phases.Count < 2 || phases.Count > 3)
+                throw new ArgumentException(
+                    "Mid-boss patterns require two or three phases.",
+                    nameof(phases));
+            var copy = new BossPhase[phases.Count];
+            for (int i = 0; i < copy.Length; i++)
+            {
+                copy[i] = phases[i]
+                    ?? throw new ArgumentException(
+                        "Mid-boss phases cannot contain null.",
+                        nameof(phases));
+                if (copy[i].DurationTicks < 1)
+                    throw new ArgumentException(
+                        "Mid-boss phases must have positive durationTicks.",
+                        nameof(phases));
+            }
+
+            ThemeId = themeId;
+            Weight = weight;
+            StageIndexMin = stageIndexMin;
+            StageIndexMax = stageIndexMax;
+            _phases = Array.AsReadOnly(copy);
+        }
+
+        public string ThemeId { get; }
+        public int Weight { get; }
+        public int StageIndexMin { get; }
+        public int StageIndexMax { get; }
+        public IReadOnlyList<BossPhase> Phases => _phases;
     }
 
     /// <summary>
@@ -520,7 +577,8 @@ namespace Shmup.Core.Simulation
             int movementDurationTicks,
             int movementPauseTicks,
             int bombDropWeight,
-            LaserAttackDefinition laserAttack)
+            LaserAttackDefinition laserAttack,
+            MidBossProfile midBossProfile = null)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Enemy id cannot be null or empty.", nameof(id));
@@ -581,6 +639,7 @@ namespace Shmup.Core.Simulation
             DropWeight = dropWeight;
             BombDropWeight = bombDropWeight;
             LaserAttack = laserAttack;
+            MidBossProfile = midBossProfile;
             MovementAmplitudeNumerator = movementAmplitudeNumerator;
             MovementAmplitudeDenominator = movementAmplitudeDenominator;
             MovementPeriodTicks = movementPeriodTicks;
@@ -603,6 +662,7 @@ namespace Shmup.Core.Simulation
         public int DropWeight { get; }
         public int BombDropWeight { get; }
         public LaserAttackDefinition LaserAttack { get; }
+        public MidBossProfile MidBossProfile { get; }
         public int MovementAmplitudeNumerator { get; }
         public int MovementAmplitudeDenominator { get; }
         public int MovementAmplitude =>

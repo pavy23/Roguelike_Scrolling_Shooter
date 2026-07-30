@@ -131,9 +131,11 @@ namespace Shmup.Core.Tests
         {
             MetaState state = MetaState.CreateDefault(
                 ShipDefinition.CreateDefault());
+            string selectedBefore = state.SelectedShipId;
 
-            Assert.Throws<System.InvalidOperationException>(
-                () => state.SelectShip("locked"));
+            Assert.IsFalse(state.SelectShip("locked"));
+            Assert.IsFalse(state.SelectShip(null));
+            Assert.AreEqual(selectedBefore, state.SelectedShipId);
         }
     }
 }

@@ -61,6 +61,23 @@ namespace Shmup.Core.Content
         public EnemyMovementDto movement;
         [DataMember]
         public LaserAttackDto laser;
+        [DataMember]
+        public MidBossProfileDto midBoss;
+    }
+
+    [DataContract]
+    internal sealed class MidBossProfileDto
+    {
+        [DataMember]
+        public string themeId;
+        [DataMember]
+        public int? weight;
+        [DataMember]
+        public int? stageIndexMin;
+        [DataMember]
+        public int? stageIndexMax;
+        [DataMember]
+        public BossPhaseDto[] phases;
     }
 
     [DataContract]
@@ -430,6 +447,10 @@ namespace Shmup.Core.Content
         public int? movementPeriodTicks;
         [DataMember]
         public string partVulnerability;
+        [DataMember]
+        public int? durationTicks;
+        [DataMember]
+        public int? telegraphTicks;
     }
 
     [DataContract]

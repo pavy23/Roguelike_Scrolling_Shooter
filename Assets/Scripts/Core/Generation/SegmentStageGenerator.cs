@@ -964,8 +964,6 @@ namespace Shmup.Core.Generation
             for (int i = 0; i < _catalog.Bosses.Count; i++)
             {
                 StageBossTemplate boss = _catalog.Bosses[i];
-                // Fixed colossal IDs are hidden-biome only
-                // (IColossalBossStageGenerator.GenerateColossalBoss).
                 if (IsHiddenOnlyColossalBoss(boss.BossId))
                     continue;
                 if (boss.Supports(stageIndex, difficulty)
@@ -1438,8 +1436,14 @@ namespace Shmup.Core.Generation
 
         static bool IsHiddenOnlyColossalBoss(string bossId)
         {
-            return string.Equals(bossId, LeviathanBossId, StringComparison.Ordinal)
-                || string.Equals(bossId, BroodmotherBossId, StringComparison.Ordinal);
+            return string.Equals(
+                    bossId,
+                    LeviathanBossId,
+                    StringComparison.Ordinal)
+                || string.Equals(
+                    bossId,
+                    BroodmotherBossId,
+                    StringComparison.Ordinal);
         }
     }
 

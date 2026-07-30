@@ -304,13 +304,17 @@ namespace Shmup.Core
             return true;
         }
 
-        public void SelectShip(string shipId)
+        /// <summary>
+        /// Selects an unlocked ship. Invalid presentation input is ignored
+        /// without changing the current selection.
+        /// </summary>
+        public bool SelectShip(string shipId)
         {
-            if (shipId == null) throw new ArgumentNullException(nameof(shipId));
-            if (!IsUnlocked(shipId))
-                throw new InvalidOperationException(
-                    $"Ship '{shipId}' is not unlocked.");
+            if (string.IsNullOrEmpty(shipId)
+                || !IsUnlocked(shipId))
+                return false;
             SelectedShipId = shipId;
+            return true;
         }
 
         public void RecordColossalBossEncounter(

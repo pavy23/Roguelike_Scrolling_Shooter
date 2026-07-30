@@ -112,6 +112,35 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void MissingColossalContentFinishesQualifiedRunWithoutStalling()
+        {
+            MetaState meta = MetaState.CreateDefault(
+                ShipDefinition.CreateDefault());
+            var unsupported =
+                new HiddenGenerator(EncounterType.Elite, false);
+            RunManager run = CreateRun(
+                0x5803UL,
+                new RunProgressionConfig(2, 2),
+                meta,
+                EncounterType.Elite,
+                unsupported);
+
+            AdvanceUntilFinished(run);
+
+            Assert.AreEqual(RunState.RunCleared, run.State);
+            Assert.AreEqual(
+                RunCompletionGrade.StandardClear,
+                run.CompletionGrade);
+            Assert.IsFalse(run.IsHiddenBiome);
+            Assert.AreEqual(
+                ColossalBossKind.None,
+                run.SelectedColossalBoss);
+            Assert.AreEqual(
+                ColossalBossKind.None,
+                meta.LastColossalBoss);
+        }
+
+        [Test]
         public void HiddenBossBoundaryResumesAndRecordingPreservesMetaInput()
         {
             MetaState meta = MetaState.CreateDefault(
@@ -408,10 +437,14 @@ namespace Shmup.Core.Tests
             IColossalBossStageGenerator
         {
             readonly EncounterType _encounterType;
+            readonly bool _supportsColossalBoss;
 
-            public HiddenGenerator(EncounterType encounterType)
+            public HiddenGenerator(
+                EncounterType encounterType,
+                bool supportsColossalBoss = true)
             {
                 _encounterType = encounterType;
+                _supportsColossalBoss = supportsColossalBoss;
             }
 
             public StagePlan Generate(
@@ -445,8 +478,9 @@ namespace Shmup.Core.Tests
             public bool CanGenerateColossalBoss(
                 ColossalBossKind kind)
             {
-                return kind == ColossalBossKind.Leviathan
-                    || kind == ColossalBossKind.Broodmother;
+                return _supportsColossalBoss
+                    && (kind == ColossalBossKind.Leviathan
+                        || kind == ColossalBossKind.Broodmother);
             }
 
             public StagePlan GenerateColossalBoss(
