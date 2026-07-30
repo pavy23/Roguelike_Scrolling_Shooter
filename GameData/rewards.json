@@ -75,11 +75,11 @@
     {
       "id": "passive_move_speed_1",
       "type": "moveSpeedUp",
-      "amount": 1,
-      "weight": 1,
-      "stageIndexMin": 2,
+      "amount": 3,
+      "weight": 4,
+      "stageIndexMin": 1,
       "stageIndexMax": 99,
-      "maxPerRun": 3
+      "maxPerRun": 4
     },
     {
       "id": "mod_pierce_shot",

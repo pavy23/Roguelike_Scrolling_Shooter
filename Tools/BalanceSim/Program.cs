@@ -12,7 +12,7 @@
 // 10) Segment weights: catalog bias for common vs spectacle segments (REQ-029).
 // 11) Encounter types: Normal/Elite/Supply/Hazard/Rare risk-reward sketch (REQ-028/029).
 // 12) Capsule drops after magnet: expected recovery band (REQ-029).
-// 13) Boss redesign: TTK 35–45s @ biome DPS, full-power ≥12s, 3 phases, threat mono (REQ-033).
+// 13) Boss redesign: TTK 22–32s @ 4-room avg biome DPS, full-power ≥6s, 3 phases, threat mono.
 // 14) REQ-034: missile families + option formations ST DPS / situation roles / combo gates.
 // 15) REQ-035: colossal bosses (parts sum/core TTK 100–120s, full ≥40s, brood spawn cap, parity).
 using System;
@@ -92,23 +92,24 @@ static class Program
     const double MaxStageCapsuleExpectation = 16.0;
     const double MaxSupplyNodeCapsuleExpectation = 18.0;
 
-    // Boss redesign TTK / phase gates (REQ-033, provisional §7).
-    // Biome path: 6 rooms then boss event — expected DPS at reach, not theoretical max.
+    // Boss redesign TTK / phase gates (playtest 2026-07-30: first boss HP half + 4-room path).
+    // Biome path: 4 rooms then boss — average build DPS at reach, not full-power max.
+    // Target TTK shortened from 35–45s (felt too long) to ~22–32s.
     const double BossFullPowerDps = 1880.0;
-    const double BossTtkExpectedMin = 35.0;
-    const double BossTtkExpectedMax = 45.0;
-    const double BossTtkFullMin = 12.0;
+    const double BossTtkExpectedMin = 22.0;
+    const double BossTtkExpectedMax = 32.0;
+    const double BossTtkFullMin = 6.0;
     const int BossRequiredPhaseCount = 3;
     // Equal-split remaining-HP ratios for phase 1 / phase 2 (Core N-way equal split).
     const double BossPhaseThreshold0 = 2.0 / 3.0; // enter phase 1
     const double BossPhaseThreshold1 = 1.0 / 3.0; // enter phase 2
-    // Expected biome-reach DPS anchors (see analyze_stage_hp.py).
+    // Expected biome-reach DPS anchors (see analyze_stage_hp.py) — 4-room average.
     static readonly (string Id, double ExpectedDps)[] BossExpectedDps =
     {
-        ("boss_stage1", 550.0),
-        ("boss_hive", 650.0),
-        ("boss_fortress", 750.0),
-        ("boss_storm", 900.0),
+        ("boss_stage1", 500.0),
+        ("boss_hive", 600.0),
+        ("boss_fortress", 720.0),
+        ("boss_storm", 880.0),
         ("boss_core", 1050.0),
     };
 
