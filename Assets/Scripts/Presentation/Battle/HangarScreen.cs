@@ -24,6 +24,7 @@ namespace Shmup.Presentation.Battle
         int _cursor;
         Text _headerText, _bodyText;
         Image _preview;
+        Button _unlockButton;
         int _shownCursor = -1;
         long _shownCurrency = -1;
         string _shownSelected;
@@ -57,6 +58,36 @@ namespace Shmup.Presentation.Battle
             rect.pivot = new Vector2(0.5f, 0f);
             rect.anchoredPosition = new Vector2(0f, 74f);
             _preview.enabled = false;
+
+            if (UiPlatform.TouchMode)
+            {
+                UiKit.CreateTouchButton(canvas.transform, _fontBold, "◄", 16,
+                    new Vector2(0.5f, 0f), new Vector2(-146f, 36f), new Vector2(36f, 36f),
+                    () => MoveCursor(-1), "HangarPrev");
+                UiKit.CreateTouchButton(canvas.transform, _fontBold, "►", 16,
+                    new Vector2(0.5f, 0f), new Vector2(146f, 36f), new Vector2(36f, 36f),
+                    () => MoveCursor(1), "HangarNext");
+                _unlockButton = UiKit.CreateTouchButton(canvas.transform, _font, "UNLOCK", 10,
+                    new Vector2(1f, 0f), new Vector2(-10f, 14f), new Vector2(104f, 34f),
+                    TryUnlockCurrent, "HangarUnlock");
+            }
+        }
+
+        void MoveCursor(int delta)
+        {
+            if (_data == null || _data.Ships.Count == 0) return;
+            _cursor = (_cursor + delta + _data.Ships.Count) % _data.Ships.Count;
+        }
+
+        /// <summary>커서의 함선을 해금한다 (크레딧이 모자라면 Core가 거부한다).</summary>
+        void TryUnlockCurrent()
+        {
+            if (_data == null || _meta == null || _data.Ships.Count == 0) return;
+            var ship = _data.Ships[_cursor];
+            if (_meta.IsUnlocked(ship.Id)) return;
+            if (_meta.TryUnlock(ship))
+                MetaSave.Save(_meta);
+            _shownCursor = -1;   // 표시 갱신
         }
 
         Sprite SpriteForShip(string shipId)
@@ -91,12 +122,8 @@ namespace Shmup.Presentation.Battle
             var ship = _data.Ships[_cursor];
             bool unlockPressed = (keyboard != null && keyboard.uKey.wasPressedThisFrame)
                               || (gamepad != null && gamepad.buttonNorth.wasPressedThisFrame);
-            if (unlockPressed && !_meta.IsUnlocked(ship.Id))
-            {
-                if (_meta.TryUnlock(ship))
-                    MetaSave.Save(_meta);
-                _shownCursor = -1;   // 표시 갱신
-            }
+            if (unlockPressed)
+                TryUnlockCurrent();
             if (_meta.IsUnlocked(ship.Id) && _meta.SelectedShipId != ship.Id)
             {
                 _meta.SelectShip(ship.Id);
@@ -132,9 +159,21 @@ namespace Shmup.Presentation.Battle
                 }
             }
             bool unlocked = _meta.IsUnlocked(ship.Id);
+            // 해금 버튼은 잠긴 함선에서만 의미가 있다 — 값까지 라벨에 실어 준다.
+            if (_unlockButton != null)
+            {
+                _unlockButton.gameObject.SetActive(!unlocked);
+                if (!unlocked)
+                {
+                    var label = _unlockButton.GetComponentInChildren<Text>();
+                    if (label != null) label.text = $"UNLOCK\n{ship.UnlockCost:N0} cr";
+                }
+            }
             string status = unlocked
                 ? (_meta.SelectedShipId == ship.Id ? "[SELECTED]" : "[OWNED]")
-                : $"[LOCKED — {ship.UnlockCost:N0} cr, U/(Y) to unlock]";
+                : (UiPlatform.TouchMode
+                    ? $"[LOCKED — {ship.UnlockCost:N0} cr]"
+                    : $"[LOCKED — {ship.UnlockCost:N0} cr, U/(Y) to unlock]");
             var levels = ship.StartingPowerUpLevels;
             _bodyText.text =
                 $"{ship.DisplayName}  {status}\n" +

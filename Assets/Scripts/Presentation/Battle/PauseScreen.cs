@@ -31,17 +31,65 @@ namespace Shmup.Presentation.Battle
             canvas.transform.SetParent(transform, false);
             _root = canvas.gameObject;
 
+            bool touch = UiPlatform.TouchMode;
             UiKit.CreateDim(canvas.transform, new Color(0f, 0.01f, 0.05f, 0.62f));
-            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(300f, 110f));
+            // 터치 모드에서는 버튼 줄이 들어가므로 패널을 키운다.
+            var panel = UiKit.CreatePanel(canvas.transform,
+                touch ? new Vector2(300f, 150f) : new Vector2(300f, 110f));
             UiKit.CreateCornerText(panel, _fontBold, UiText.PauseTitle, 20, UiKit.TextMain,
                 new Vector2(0.5f, 1f), new Vector2(0f, -12f), TextAnchor.UpperCenter, "Title");
             _volumeText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextMain,
                 new Vector2(0.5f, 1f), new Vector2(0f, -46f), TextAnchor.UpperCenter, "Volume");
-            UiKit.CreateCornerText(panel, _font,
-                UiText.PauseHints, 11, UiKit.TextDim,
-                new Vector2(0.5f, 0f), new Vector2(0f, 14f), TextAnchor.LowerCenter, "Hints");
+
+            if (touch)
+            {
+                // 픽셀 폰트에 없는 글리프(− 등)는 빈칸으로 렌더되므로 ASCII만 쓴다.
+                UiKit.CreateTouchButton(panel, _fontBold, "-", 18,
+                    new Vector2(0.5f, 1f), new Vector2(-118f, -38f), new Vector2(34f, 32f),
+                    () => AdjustVolume(-0.1f), "VolDown");
+                UiKit.CreateTouchButton(panel, _fontBold, "+", 18,
+                    new Vector2(0.5f, 1f), new Vector2(118f, -38f), new Vector2(34f, 32f),
+                    () => AdjustVolume(0.1f), "VolUp");
+                UiKit.CreateTouchButton(panel, _font, "RESUME", 11,
+                    new Vector2(0.5f, 0f), new Vector2(-62f, 14f), new Vector2(104f, 36f),
+                    () => SetPaused(false), "ResumeButton", accent: true);
+                UiKit.CreateTouchButton(panel, _font, "QUIT", 11,
+                    new Vector2(0.5f, 0f), new Vector2(62f, 14f), new Vector2(104f, 36f),
+                    QuitToTitle, "QuitButton");
+
+                // 폰에는 ESC가 없다 — 일시정지를 열 수단이 UI에 없으면 런에서 나갈 방법이 없다.
+                var toggleCanvas = UiKit.CreateCanvas("PauseToggleCanvas", 79);
+                toggleCanvas.transform.SetParent(transform, false);
+                var toggleButton = UiKit.CreateTouchButton(toggleCanvas.transform, _font, "PAUSE", 10,
+                    new Vector2(0.5f, 1f), new Vector2(0f, -5f), new Vector2(62f, 30f),
+                    TogglePause, "PauseToggle");
+                // 이 영역을 기체 드래그에서 빼 둔다 — 안 그러면 서로를 오작동시킨다.
+                if (TouchControls.Instance != null)
+                    TouchControls.Instance.ReserveRect(toggleButton.GetComponent<RectTransform>());
+            }
+            else
+            {
+                UiKit.CreateCornerText(panel, _font,
+                    UiText.PauseHints, 11, UiKit.TextDim,
+                    new Vector2(0.5f, 0f), new Vector2(0f, 14f), TextAnchor.LowerCenter, "Hints");
+            }
 
             _root.SetActive(false);
+        }
+
+        /// <summary>화면 상단 ❙❙ 버튼용. 옵션이 열려 있으면 그쪽이 먼저 닫혀야 한다.</summary>
+        void TogglePause()
+        {
+            if (OptionsScreen.IsOpen) return;
+            SetPaused(!_paused);
+        }
+
+        void QuitToTitle()
+        {
+            if (_director != null)
+                _director.SaveRunToDisk();   // 타이틀로 나가도 이어하기 가능 (REQ-017)
+            SetPaused(false);
+            SceneManager.LoadScene("Title");
         }
 
         void Update()
@@ -63,12 +111,7 @@ namespace Shmup.Presentation.Battle
                 if (keyboard.downArrowKey.wasPressedThisFrame || keyboard.leftArrowKey.wasPressedThisFrame)
                     AdjustVolume(-0.1f);
                 if (keyboard.qKey.wasPressedThisFrame)
-                {
-                    if (_director != null)
-                        _director.SaveRunToDisk();   // 타이틀로 나가도 이어하기 가능 (REQ-017)
-                    SetPaused(false);
-                    SceneManager.LoadScene("Title");
-                }
+                    QuitToTitle();
             }
             if (gamepad != null)
             {
@@ -82,7 +125,9 @@ namespace Shmup.Presentation.Battle
             if (volumePercent != _lastVolumePercent && _volumeText != null)
             {
                 _lastVolumePercent = volumePercent;
-                _volumeText.text = string.Format(UiText.VolumeFormat, volumePercent);
+                _volumeText.text = string.Format(
+                    UiPlatform.TouchMode ? UiText.VolumeFormatTouch : UiText.VolumeFormat,
+                    volumePercent);
             }
         }
 

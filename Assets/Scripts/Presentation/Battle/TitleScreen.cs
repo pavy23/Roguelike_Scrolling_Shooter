@@ -30,11 +30,106 @@ namespace Shmup.Presentation.Battle
         ReplayFileData _replay;
         int _dailyDateInt;
         Text _difficultyText;
+        Text _difficultyButtonLabel;
 
         void RefreshDifficultyText()
         {
             if (_difficultyText != null)
                 _difficultyText.text = $"[T] DIFFICULTY ◄ {DifficultySelect.Label} ►";
+            if (_difficultyButtonLabel != null)
+                _difficultyButtonLabel.text = $"DIFFICULTY\n{DifficultySelect.Label}";
+        }
+
+        void CycleDifficulty()
+        {
+            DifficultySelect.Index = (DifficultySelect.Index + 1) % 3;
+            RefreshDifficultyText();
+        }
+
+        void StartDailyRun()
+        {
+            DevArgs.RuntimeSeed = (long)Shmup.Core.DailySeed.FromDate(_dailyDateInt);
+            SceneManager.LoadScene("Battle");
+        }
+
+        void ContinueRun()
+        {
+            if (_suspended == null) return;
+            // 저장 파일은 삭제하지 않는다 — 복원이 성공한 뒤 BattleDirector가 지운다
+            BattleDirector.PendingResume = _suspended;
+            DevArgs.RuntimeSeed = (long)_suspended.runSeed;
+            SceneManager.LoadScene("Battle");
+        }
+
+        void PlayReplay()
+        {
+            if (_replay == null) return;
+            BattleDirector.PendingReplay = _replay;
+            DevArgs.RuntimeSeed = _replay.seed;
+            SceneManager.LoadScene("Battle");
+        }
+
+        void RerollSeed()
+        {
+            _seedText = ((uint)System.Environment.TickCount).ToString();
+        }
+
+        /// <summary>
+        /// 터치 전용 버튼 열. 폰에서는 키보드 단축키 안내가 아무 의미가 없으므로, 안내 텍스트는
+        /// 감추고 같은 동작을 하는 버튼으로 바꿔 놓는다.
+        /// </summary>
+        void BuildTouchButtons(Transform parent)
+        {
+            const float w = 132f, h = 34f, step = 38f;
+            float y = -150f;
+
+            var difficulty = UiKit.CreateTouchButton(parent, _font, "", 10,
+                new Vector2(0f, 1f), new Vector2(10f, y), new Vector2(w, h),
+                CycleDifficulty, "DifficultyButton");
+            _difficultyButtonLabel = difficulty.GetComponentInChildren<Text>();
+            y -= step;
+
+            UiKit.CreateTouchButton(parent, _font, "DAILY RUN", 10,
+                new Vector2(0f, 1f), new Vector2(10f, y), new Vector2(w, h),
+                StartDailyRun, "DailyButton");
+            y -= step;
+
+            if (_suspended != null)
+            {
+                UiKit.CreateTouchButton(parent, _font,
+                    $"CONTINUE\nstage {_suspended.stageIndex}", 10,
+                    new Vector2(0f, 1f), new Vector2(10f, y), new Vector2(w, h),
+                    ContinueRun, "ContinueButton", accent: true);
+                y -= step;
+            }
+
+            if (_replay != null)
+            {
+                UiKit.CreateTouchButton(parent, _font, "REPLAY", 10,
+                    new Vector2(0f, 1f), new Vector2(10f, y), new Vector2(w, h),
+                    PlayReplay, "ReplayButton");
+            }
+
+            // 시드는 폰에서 숫자 입력이 번거로우므로 다시 뽑기만 제공한다.
+            UiKit.CreateTouchButton(parent, _font, "NEW SEED", 10,
+                new Vector2(1f, 1f), new Vector2(-10f, -150f), new Vector2(112f, h),
+                RerollSeed, "SeedButton");
+
+            // 시드 값은 그 버튼 바로 아래로 옮긴다 — 원래 자리(하단 중앙)는 LAUNCH와 격납고가 쓴다.
+            if (_seedValueText != null)
+            {
+                var rect = _seedValueText.rectTransform;
+                rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(1f, 1f);
+                rect.anchoredPosition = new Vector2(-10f, -150f - h - 4f);
+                rect.sizeDelta = new Vector2(112f, 20f);
+                _seedValueText.alignment = TextAnchor.UpperRight;
+                _seedValueText.fontSize = 9;
+            }
+
+            // 출격은 가장 크고 눈에 띄게 — 이 화면의 유일한 주 동작이다.
+            UiKit.CreateTouchButton(parent, _fontBold, "LAUNCH", 20,
+                new Vector2(0.5f, 0f), new Vector2(0f, 118f), new Vector2(200f, 50f),
+                StartRun, "LaunchButton", accent: true);
         }
 
         void Start()
@@ -89,13 +184,31 @@ namespace Shmup.Presentation.Battle
 
             // 마지막 런 리플레이 (REQ-018/019)
             _replay = ReplaySave.TryLoad();
+            Text replayText = null;
             if (_replay != null)
             {
-                var replayText = UiKit.CreateCornerText(canvas.transform, _font,
+                replayText = UiKit.CreateCornerText(canvas.transform, _font,
                     $"[V]/(LB) REPLAY — {_replay.finalScore:N0}", 11, UiKit.TextMain,
                     new Vector2(0f, 0.5f), new Vector2(14f, -10f), TextAnchor.MiddleLeft, "Replay");
                 UiKit.AddShadow(replayText);
             }
+
+            if (UiPlatform.TouchMode)
+            {
+                // 단축키 안내는 폰에서 읽을 이유가 없다 — 버튼이 같은 일을 한다.
+                Hide(_promptText);
+                Hide(_difficultyText);
+                Hide(daily);
+                Hide(_continueText);
+                Hide(replayText);
+                BuildTouchButtons(canvas.transform);
+            }
+            RefreshDifficultyText();
+        }
+
+        static void Hide(Text text)
+        {
+            if (text != null) text.gameObject.SetActive(false);
         }
 
         void Update()
@@ -134,28 +247,20 @@ namespace Shmup.Presentation.Battle
                 ((keyboard != null && keyboard.cKey.wasPressedThisFrame)
                  || (gamepad != null && gamepad.buttonWest.wasPressedThisFrame)))
             {
-                // 저장 파일은 삭제하지 않는다 — 복원이 성공한 뒤 BattleDirector가 지운다
-                // (심사 지적: 복원 실패 시 진행이 그대로 소실됐다)
-                BattleDirector.PendingResume = _suspended;
-                DevArgs.RuntimeSeed = (long)_suspended.runSeed;   // HUD 시드 표시 일치
-                SceneManager.LoadScene("Battle");
+                ContinueRun();
                 return;
             }
 
             // 난이도 순환
             if ((keyboard != null && keyboard.tKey.wasPressedThisFrame)
                 || (gamepad != null && gamepad.dpad.up.wasPressedThisFrame))
-            {
-                DifficultySelect.Index = (DifficultySelect.Index + 1) % 3;
-                RefreshDifficultyText();
-            }
+                CycleDifficulty();
 
             // 데일리 런: 같은 날짜 → 전 세계 같은 시드 (Core DailySeed)
             if ((keyboard != null && keyboard.dKey.wasPressedThisFrame)
                 || (gamepad != null && gamepad.rightShoulder.wasPressedThisFrame))
             {
-                DevArgs.RuntimeSeed = (long)Shmup.Core.DailySeed.FromDate(_dailyDateInt);
-                SceneManager.LoadScene("Battle");
+                StartDailyRun();
                 return;
             }
 
@@ -164,13 +269,11 @@ namespace Shmup.Presentation.Battle
                 ((keyboard != null && keyboard.vKey.wasPressedThisFrame)
                  || (gamepad != null && gamepad.leftShoulder.wasPressedThisFrame)))
             {
-                BattleDirector.PendingReplay = _replay;
-                DevArgs.RuntimeSeed = _replay.seed;
-                SceneManager.LoadScene("Battle");
+                PlayReplay();
                 return;
             }
 
-            // 깜빡이는 출격 안내
+            // 깜빡이는 출격 안내 (터치 모드에서는 LAUNCH 버튼이 대신하므로 꺼져 있다)
             bool promptVisible = Mathf.Repeat(Time.time, 1f) < 0.7f;
             if (_promptText != null && _promptText.enabled != promptVisible)
                 _promptText.enabled = promptVisible;
@@ -178,7 +281,8 @@ namespace Shmup.Presentation.Battle
             if (_seedValueText != null && !ReferenceEquals(_shownSeed, _seedText))
             {
                 _shownSeed = _seedText;
-                _seedValueText.text = string.Format(UiText.SeedFormat, _seedText);
+                _seedValueText.text = string.Format(
+                    UiPlatform.TouchMode ? UiText.SeedFormatTouch : UiText.SeedFormat, _seedText);
             }
         }
 

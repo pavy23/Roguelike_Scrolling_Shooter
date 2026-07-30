@@ -6,38 +6,50 @@ using UnityEngine.UI;
 namespace Shmup.Presentation.Battle
 {
     /// <summary>
-    /// 모바일 터치 조작 (원격 플레이용). 왼쪽 절반 = 가상 스틱(이동),
-    /// 오른쪽 = 발사(홀드) + 게이지 활성화 버튼. 상단 우측 = 일시정지.
+    /// 모바일 터치 조작 (원격 플레이). 가상 스틱이 아니라 **기체를 손가락으로 직접 끌고 다니는**
+    /// 방식 — 모바일 슈팅의 표준이고 스틱보다 정확하다.
     ///
-    /// 시뮬은 InputCommand만 받으므로 여기서 8방향 디지털로 변환해 PlayerInputReader에
-    /// 주입한다 — 결정론에는 영향이 없다(입력원만 다름).
-    /// 터치 지원 기기에서만 UI를 표시한다.
+    /// - 손가락을 짚은 지점으로 기체가 온다. 오프셋을 두지 않아서 "지금 어디를 잡고 있는지"가
+    ///   손가락 위치와 일치한다 (오프셋을 유지하면 기체가 손에서 떨어져 있어 지연처럼 느껴진다).
+    /// - 발사는 오토파이어(모바일 기본 ON)가 처리한다. 끄면 드래그 중 자동 발사.
+    /// - 우상단 버튼: 게이지 활성화. 그 아래 작은 버튼: 오토파이어 토글.
+    ///
+    /// 시뮬은 8방향 디지털 InputCommand만 받으므로, 목표 지점 방향을 매 프레임 디지털로
+    /// 변환해 넘긴다 — Core 변경이 없고 결정론에도 영향이 없다. 따라오는 속도는 시뮬의
+    /// 이동 속도가 상한이라, 체감 지연을 더 줄이려면 그쪽 수치를 올려야 한다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class TouchControls : MonoBehaviour
     {
-        const float StickRadiusPixels = 110f;
-        const float DeadZone = 0.28f;
+        // 정지 판정 반경. 넓으면 손가락을 따라오다 멈춰서 지연처럼 느껴지므로 좁게 잡는다.
+        const float StopRadiusWorld = 0.05f;
 
+        [SerializeField] BattleDirector _director;
         [SerializeField] Font _font;
-        [SerializeField] bool _forceShow;   // 에디터 확인용
+        [SerializeField] bool _forceShow;
 
         GameObject _root;
-        Image _stickBase, _stickKnob;
-        Vector2 _stickOrigin;
-        int _stickFingerId = -1;
-        bool _fireHeld;
+        Text _autoFireLabel;
+        RectTransform _activateButton, _autoFireButton;
+        Camera _camera;
+
+        int _dragFinger = -1;
+        Vector2 _targetWorld;
+        bool _dragging;
         bool _activatePressed;
-        RectTransform _canvasRect;
-        float _scale = 1f;
+        bool _enabledForDevice;
+        readonly System.Collections.Generic.List<RectTransform> _reserved =
+            new System.Collections.Generic.List<RectTransform>(4);
 
         public static TouchControls Instance { get; private set; }
 
-        /// <summary>터치 UI가 켜져 있는가 (PlayerInputReader가 입력원 결정에 쓴다).</summary>
         public bool Active => _root != null && _root.activeSelf;
 
+        /// <summary>목표 지점 방향의 8방향 디지털 이동 (-1/0/1).</summary>
         public Vector2 Move { get; private set; }
-        public bool Fire => _fireHeld;
+
+        /// <summary>드래그 중이면 발사 (오토파이어가 꺼져 있을 때의 보조 발사).</summary>
+        public bool Fire => _dragging;
 
         public bool ConsumeActivate()
         {
@@ -46,151 +58,190 @@ namespace Shmup.Presentation.Battle
             return value;
         }
 
-        void Awake()
+        /// <summary>
+        /// 다른 캔버스에 있는 UI 버튼 영역을 드래그 판정에서 빼 달라고 등록한다.
+        /// 이게 없으면 그 버튼을 누르려는 터치가 기체 드래그로도 해석되고, 반대로
+        /// 기체를 그 근처로 옮기려다 버튼을 눌러 버린다.
+        /// </summary>
+        public void ReserveRect(RectTransform rect)
         {
-            Instance = this;
+            if (rect != null && !_reserved.Contains(rect)) _reserved.Add(rect);
         }
 
-        void Start()
+        bool HitReserved(Vector2 screen)
         {
-            bool touchDevice = _forceShow
-                || Application.isMobilePlatform
-                || (Touchscreen.current != null && !Application.isEditor);
-
-            var canvas = UiKit.CreateCanvas("TouchCanvas", 95);
-            canvas.transform.SetParent(transform, false);
-            _root = canvas.gameObject;
-            _canvasRect = canvas.GetComponent<RectTransform>();
-            var scaler = canvas.GetComponent<CanvasScaler>();
-            if (scaler != null) _scale = Mathf.Max(1f, scaler.scaleFactor);
-
-            _stickBase = CreateCircle(canvas.transform, "StickBase", 128f,
-                new Color(0.5f, 0.7f, 1f, 0.16f));
-            _stickKnob = CreateCircle(canvas.transform, "StickKnob", 56f,
-                new Color(0.7f, 0.85f, 1f, 0.4f));
-            _stickBase.enabled = false;
-            _stickKnob.enabled = false;
-
-            CreateHint(canvas.transform, "MOVE", new Vector2(0f, 0f), new Vector2(96f, 60f));
-            CreateHint(canvas.transform, "FIRE", new Vector2(1f, 0f), new Vector2(-120f, 60f));
-            CreateHint(canvas.transform, "X", new Vector2(1f, 0f), new Vector2(-44f, 132f));
-
-            _root.SetActive(touchDevice);
-            if (touchDevice) EnhancedTouchSupport.Enable();
+            for (int i = 0; i < _reserved.Count; i++)
+                if (HitButton(_reserved[i], screen)) return true;
+            return false;
         }
+
+        void Awake() => Instance = this;
 
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
         }
 
+        void Start()
+        {
+            if (_forceShow) UiPlatform.ForceTouch = true;
+            bool touchDevice = UiPlatform.TouchMode;
+
+            var canvas = UiKit.CreateCanvas("TouchCanvas", 95);
+            canvas.transform.SetParent(transform, false);
+            _root = canvas.gameObject;
+            _camera = Camera.main;
+
+            _activateButton = CreateButton(canvas.transform, "ACTIVATE", "X",
+                new Vector2(1f, 1f), new Vector2(-52f, -52f), 64f);
+            _autoFireButton = CreateButton(canvas.transform, "AutoFire", "AUTO",
+                new Vector2(1f, 1f), new Vector2(-52f, -126f), 56f);
+            _autoFireLabel = _autoFireButton.GetComponentInChildren<Text>();
+
+            // 조작 안내는 OnboardingHints가 기기에 맞는 문면으로 띄운다 — 여기서 또 적지 않는다.
+            _enabledForDevice = touchDevice;
+            _root.SetActive(touchDevice);
+            if (touchDevice) EnhancedTouchSupport.Enable();
+            RefreshAutoFireLabel();
+        }
+
+        /// <summary>
+        /// 메뉴(일시정지·보상·경로·게임오버)가 떠 있는 동안은 조작 오버레이를 걷는다.
+        /// 그러지 않으면 메뉴 버튼을 누르려는 터치가 기체 드래그로 해석되고,
+        /// X/AUTO 버튼이 메뉴 위에 겹쳐 눌린다.
+        /// </summary>
+        bool GameplayActive =>
+            Time.timeScale > 0f
+            && !OptionsScreen.IsOpen
+            && (_director == null
+                || (!_director.AwaitingReward && !_director.AwaitingRoute
+                    && !_director.IsRunFinished));
+
         void Update()
         {
-            if (_root == null || !_root.activeSelf) return;
+            if (_root == null || !_enabledForDevice) return;
 
-            Move = Vector2.zero;
-            _fireHeld = false;
-            bool stickActive = false;
+            bool shouldShow = GameplayActive;
+            if (_root.activeSelf != shouldShow)
+            {
+                _root.SetActive(shouldShow);
+                if (!shouldShow)
+                {
+                    // 메뉴로 넘어가는 순간의 입력이 남아 기체가 계속 움직이지 않도록 정리한다.
+                    Move = Vector2.zero;
+                    _dragging = false;
+                    _dragFinger = -1;
+                    _activatePressed = false;
+                }
+            }
+            if (!shouldShow) return;
+            if (_camera == null) _camera = Camera.main;
 
             var touches = UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches;
+            bool dragActive = false;
+
             for (int i = 0; i < touches.Count; i++)
             {
                 var touch = touches[i];
-                Vector2 position = touch.screenPosition;
-                bool leftHalf = position.x < Screen.width * 0.5f;
+                Vector2 screen = touch.screenPosition;
 
-                if (leftHalf)
+                // 버튼 영역 처리 (탭)
+                if (touch.began)
                 {
-                    // 가상 스틱: 처음 닿은 지점이 중심
-                    if (_stickFingerId == -1 || _stickFingerId == touch.finger.index)
+                    if (HitButton(_activateButton, screen)) { _activatePressed = true; continue; }
+                    if (HitButton(_autoFireButton, screen))
                     {
-                        if (_stickFingerId == -1) _stickOrigin = position;
-                        _stickFingerId = touch.finger.index;
-                        stickActive = true;
-                        Vector2 delta = position - _stickOrigin;
-                        float radius = StickRadiusPixels * _scale;
-                        Move = Vector2.ClampMagnitude(delta / radius, 1f);
-                        UpdateStickVisual(_stickOrigin, position, radius);
+                        PlayerInputReader.SetAutoFire(!PlayerInputReader.AutoFire);
+                        RefreshAutoFireLabel();
+                        continue;
                     }
                 }
-                else
+                else if (HitButton(_activateButton, screen) || HitButton(_autoFireButton, screen))
                 {
-                    // 오른쪽: 상단 1/4은 활성화, 나머지는 발사 홀드
-                    if (position.y > Screen.height * 0.72f)
-                    {
-                        if (touch.began) _activatePressed = true;
-                    }
-                    else
-                    {
-                        _fireHeld = true;
-                    }
+                    continue;   // 버튼 위에서 끌어도 기체가 끌려가지 않게
+                }
+
+                // 다른 캔버스의 버튼(일시정지 등)은 UGUI가 처리한다 — 드래그로 겹쳐 읽지 않는다.
+                if (HitReserved(screen)) continue;
+
+                // 드래그 이동 — 짚은 지점이 그대로 목표다 (오프셋 없음)
+                if (_dragFinger == -1 || _dragFinger == touch.finger.index)
+                {
+                    if (_dragFinger == -1) _dragFinger = touch.finger.index;
+                    _targetWorld = ScreenToWorld(screen);
+                    dragActive = true;
                 }
             }
 
-            if (!stickActive)
+            _dragging = dragActive;
+            if (!dragActive)
             {
-                _stickFingerId = -1;
-                _stickBase.enabled = false;
-                _stickKnob.enabled = false;
+                _dragFinger = -1;
+                Move = Vector2.zero;
+                return;
             }
+
+            // 목표 방향 → 8방향 디지털
+            Vector2 delta = _targetWorld - PlayerWorld();
+            Move = new Vector2(
+                Mathf.Abs(delta.x) < StopRadiusWorld ? 0f : Mathf.Sign(delta.x),
+                Mathf.Abs(delta.y) < StopRadiusWorld ? 0f : Mathf.Sign(delta.y));
         }
 
-        void UpdateStickVisual(Vector2 origin, Vector2 current, float radius)
+        Vector2 PlayerWorld()
         {
-            _stickBase.enabled = true;
-            _stickKnob.enabled = true;
-            _stickBase.rectTransform.anchoredPosition = origin / _scale;
-            Vector2 knob = origin + Vector2.ClampMagnitude(current - origin, radius);
-            _stickKnob.rectTransform.anchoredPosition = knob / _scale;
+            if (_director == null) return Vector2.zero;
+            return _director.PlayerWorldPosition;
         }
 
-        Image CreateCircle(Transform parent, string name, float size, Color color)
+        Vector2 ScreenToWorld(Vector2 screen)
+        {
+            if (_camera == null) return Vector2.zero;
+            var world = _camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, 0f));
+            return new Vector2(world.x, world.y);
+        }
+
+        bool HitButton(RectTransform button, Vector2 screen)
+        {
+            if (button == null) return false;
+            // 캔버스가 ScreenSpaceOverlay + 정수 배율이므로 화면 좌표로 직접 판정
+            var corners = new Vector3[4];
+            button.GetWorldCorners(corners);
+            return screen.x >= corners[0].x && screen.x <= corners[2].x
+                && screen.y >= corners[0].y && screen.y <= corners[2].y;
+        }
+
+        void RefreshAutoFireLabel()
+        {
+            if (_autoFireLabel == null) return;
+            _autoFireLabel.text = PlayerInputReader.AutoFire ? "AUTO\nON" : "AUTO\nOFF";
+            _autoFireLabel.color = PlayerInputReader.AutoFire
+                ? UiKit.TextAccent : new Color(0.6f, 0.7f, 0.85f, 0.8f);
+        }
+
+        RectTransform CreateButton(
+            Transform parent, string name, string label,
+            Vector2 anchor, Vector2 offset, float size)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var image = go.AddComponent<Image>();
-            image.color = color;
+            image.color = new Color(0.35f, 0.55f, 0.95f, 0.22f);
             image.raycastTarget = false;
-            image.sprite = CircleSprite();
             var rect = image.rectTransform;
-            rect.anchorMin = rect.anchorMax = Vector2.zero;
+            rect.anchorMin = rect.anchorMax = anchor;
             rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = offset;
             rect.sizeDelta = new Vector2(size, size);
-            return image;
-        }
 
-        void CreateHint(Transform parent, string label, Vector2 anchor, Vector2 offset)
-        {
-            var text = UiKit.CreateCornerText(parent, _font, label, 11,
-                new Color(0.7f, 0.85f, 1f, 0.45f), anchor, offset,
-                TextAnchor.MiddleCenter, $"Hint_{label}");
-            text.rectTransform.sizeDelta = new Vector2(90f, 20f);
-        }
-
-        static Sprite _circle;
-
-        static Sprite CircleSprite()
-        {
-            if (_circle != null) return _circle;
-            const int size = 64;
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
-            {
-                filterMode = FilterMode.Bilinear
-            };
-            float r = size / 2f;
-            for (int y = 0; y < size; y++)
-            for (int x = 0; x < size; x++)
-            {
-                float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(r, r));
-                float a = Mathf.Clamp01((r - d) / 2f);
-                // 링 형태로: 가장자리만 진하게
-                float ring = Mathf.Clamp01(1f - Mathf.Abs(d - (r - 4f)) / 5f);
-                texture.SetPixel(x, y, new Color(1f, 1f, 1f, Mathf.Max(a * 0.25f, ring)));
-            }
-            texture.Apply();
-            _circle = Sprite.Create(
-                texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 16f);
-            return _circle;
+            var text = UiKit.CreateText(rect, _font, label, 11,
+                UiKit.TextMain, TextAnchor.MiddleCenter, "Label");
+            var textRect = text.rectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+            return rect;
         }
     }
 }

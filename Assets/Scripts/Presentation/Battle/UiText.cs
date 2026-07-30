@@ -72,5 +72,15 @@ namespace Shmup.Presentation.Battle
 
         // 보스 등장
         public const string BossWarning = "!! WARNING !!";
+
+        // 터치 기기 전용 문면. 폰에서는 키·패드 단축키 안내가 읽을 이유가 없어서,
+        // 같은 자리에 터치 조작을 설명하거나 버튼이 대신하도록 비워 둔다.
+        public const string Onboarding1Touch =
+            "TOUCH AND DRAG - YOUR SHIP FOLLOWS YOUR FINGER      AUTO FIRE IS ON";
+        public const string Onboarding3Touch =
+            "Tap the X button to spend the gauge. WHERE you spend it is your build.";
+        public const string SeedFormatTouch = "SEED  {0}";
+        public const string ChoiceHintsTouch = "TAP A CARD TO CHOOSE";
+        public const string VolumeFormatTouch = "VOLUME  {0}%";
     }
 }

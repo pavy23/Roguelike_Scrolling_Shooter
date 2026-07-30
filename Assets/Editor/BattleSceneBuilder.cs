@@ -872,6 +872,7 @@ namespace Shmup.EditorTools
             // 모바일 터치 조작 (원격 플레이) — 터치 기기에서만 표시된다
             var touchControls = battleRoot.AddComponent<TouchControls>();
             SetReference(touchControls, "_font", uiFont);
+            SetReference(touchControls, "_director", director);
 
             // 초대형 보스 파츠 오버레이 (REQ-035)
             var partsRoot = new GameObject("BossParts");

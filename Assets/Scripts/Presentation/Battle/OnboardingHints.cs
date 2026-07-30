@@ -17,12 +17,19 @@ namespace Shmup.Presentation.Battle
         [SerializeField] BattleDirector _director;
         [SerializeField] Font _font;
 
-        static readonly string[] Hints =
+        const int HintCount = 3;
+
+        /// <summary>조작 안내는 기기에 맞는 문면이어야 한다 — 폰에 WASD를 알려줘도 소용없다.</summary>
+        static string HintAt(int index)
         {
-            UiText.Onboarding1,
-            UiText.Onboarding2,
-            UiText.Onboarding3
-        };
+            bool touch = UiPlatform.TouchMode;
+            switch (index)
+            {
+                case 0: return touch ? UiText.Onboarding1Touch : UiText.Onboarding1;
+                case 1: return UiText.Onboarding2;
+                default: return touch ? UiText.Onboarding3Touch : UiText.Onboarding3;
+            }
+        }
 
         Text _text;
         GameObject _root;
@@ -48,20 +55,20 @@ namespace Shmup.Presentation.Battle
         {
             if (_done || _root == null || _director == null) return;
 
-            // 게임오버/보상 화면 중에는 숨긴다
+            // 게임오버/보상/경로 화면 중에는 숨긴다
             bool visible = !_director.IsRunFinished && !_director.AwaitingReward
-                           && Time.timeScale > 0f;
+                           && !_director.AwaitingRoute && Time.timeScale > 0f;
             if (_root.activeSelf != visible) _root.SetActive(visible);
             if (!visible) return;
 
             _age += Time.deltaTime;
-            int index = Mathf.Min((int)(_age / HintSeconds), Hints.Length - 1);
+            int index = Mathf.Min((int)(_age / HintSeconds), HintCount - 1);
             if (index != _hintIndex)
             {
                 _hintIndex = index;
-                _text.text = Hints[index];
+                _text.text = HintAt(index);
             }
-            if (_age >= HintSeconds * Hints.Length)
+            if (_age >= HintSeconds * HintCount)
             {
                 _done = true;
                 PlayerPrefs.SetInt(OnboardedPrefKey, 1);

@@ -17,6 +17,7 @@ namespace Shmup.Presentation.Battle
 
         GameObject _root;
         Text _titleText, _scoreText, _statsText, _extraText, _modifierText, _hintsText;
+        Button _retryButton;
         Image _dim;
         int _shownRun = int.MinValue;
         bool _shownCleared;
@@ -42,10 +43,32 @@ namespace Shmup.Presentation.Battle
             _hintsText = UiKit.CreateCornerText(panel, _font,
                 UiText.GameOverHints, 11, UiKit.TextDim,
                 new Vector2(0.5f, 0f), new Vector2(0f, 16f), TextAnchor.LowerCenter, "Hints");
+
+            if (UiPlatform.TouchMode)
+            {
+                _hintsText.gameObject.SetActive(false);
+                _retryButton = UiKit.CreateTouchButton(panel, _font, "REDEPLOY", 11,
+                    new Vector2(0.5f, 0f), new Vector2(-66f, 12f), new Vector2(124f, 36f),
+                    Retry, "RetryButton", accent: true);
+                UiKit.CreateTouchButton(panel, _font, "TITLE", 11,
+                    new Vector2(0.5f, 0f), new Vector2(66f, 12f), new Vector2(124f, 36f),
+                    ToTitle, "TitleButton");
+            }
+
             _dim = UiKit.CreateDim(canvas.transform, Color.clear, "Tint");
             _dim.transform.SetAsFirstSibling();
 
             _root.SetActive(false);
+        }
+
+        void Retry()
+        {
+            if (_director != null) _director.RestartRun();
+        }
+
+        static void ToTitle()
+        {
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Title");
         }
 
         void Update()
@@ -65,6 +88,12 @@ namespace Shmup.Presentation.Battle
                 _titleText.text = cleared ? UiText.RunClearedTitle : UiText.GameOverTitle;
                 _titleText.color = cleared ? UiKit.TextAccent : UiKit.TextDanger;
                 _hintsText.text = cleared ? UiText.RunClearedHints : UiText.GameOverHints;
+                // 완주 뒤에는 파워업을 승계하지 않으므로 "재출격"이 아니라 새 런이다.
+                if (_retryButton != null)
+                {
+                    var label = _retryButton.GetComponentInChildren<Text>();
+                    if (label != null) label.text = cleared ? "NEW RUN" : "REDEPLOY";
+                }
                 if (_dim != null)
                     _dim.color = cleared
                         ? new Color(0.06f, 0.22f, 0.12f, 0.45f)   // 승리: 청록 틴트
@@ -87,8 +116,8 @@ namespace Shmup.Presentation.Battle
                         || (gamepad != null && gamepad.buttonSouth.wasPressedThisFrame);
             bool toTitle = (keyboard != null && keyboard.rKey.wasPressedThisFrame)
                         || (gamepad != null && gamepad.buttonEast.wasPressedThisFrame);
-            if (restart) _director.RestartRun();
-            else if (toTitle) UnityEngine.SceneManagement.SceneManager.LoadScene("Title");
+            if (restart) Retry();
+            else if (toTitle) ToTitle();
         }
 
         static string DescribeModifiers(Shmup.Core.Simulation.BattleModifier modifiers)

@@ -47,12 +47,25 @@ namespace Shmup.Presentation.Battle
                 _boxBorders[i] = panel.GetComponent<Image>();
                 _boxTexts[i] = UiKit.CreateTextStretch(panel, _font, "", 10,
                     UiKit.TextMain, TextAnchor.MiddleCenter, 4f, "Label");
+                // 카드를 그대로 탭 대상으로 쓴다 — 별도 버튼을 얹는 것보다 손이 가는 곳이 명확하다.
+                int index = i;   // 클로저가 루프 변수를 잡지 않도록 복사
+                UiKit.MakeTappable(_boxBorders[i], () => Choose(index));
             }
             UiKit.CreateCornerText(canvas.transform, _font,
-                UiText.ChoiceHints, 10, UiKit.TextDim,
+                UiPlatform.TouchMode ? UiText.ChoiceHintsTouch : UiText.ChoiceHints,
+                10, UiKit.TextDim,
                 new Vector2(0.5f, 0.5f), new Vector2(0f, -66f), TextAnchor.MiddleCenter, "Hints");
 
             _root.SetActive(false);
+        }
+
+        /// <summary>탭/키 공용 선택. 열려 있지 않거나 범위를 벗어난 탭은 무시한다.</summary>
+        void Choose(int index)
+        {
+            if (_director == null || !_director.AwaitingReward) return;
+            var options = _director.RewardOptions;
+            if (options == null || index < 0 || index >= options.Count) return;
+            _director.ChooseReward(index);
         }
 
         void Update()

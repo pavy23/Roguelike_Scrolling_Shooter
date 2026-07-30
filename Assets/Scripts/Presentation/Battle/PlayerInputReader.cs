@@ -57,6 +57,7 @@ namespace Shmup.Presentation.Battle
                 return;
             }
 
+            LoadAutoFirePreference();
             _moveAction = map.FindAction(_moveActionName, throwIfNotFound: false);
             _fireAction = map.FindAction(_fireActionName, throwIfNotFound: false);
             // 게이지 활성화 (REQ-019). 액션이 없는 구 에셋이면 직접 키 샘플링으로 폴백.
@@ -125,6 +126,29 @@ namespace Shmup.Presentation.Battle
         /// <summary>데모 영상 녹화용 오토파일럿 (dev 전용 — 사인 이동 + 연사 + 주기 활성화).</summary>
         public static bool AutopilotEnabled;
 
+        public const string AutoFirePrefKey = "rss.autofire";
+
+        /// <summary>
+        /// 오토파이어: 발사 입력을 항상 켠 것으로 취급한다. 터치 조작에서 발사를 홀드하면
+        /// 게이지 활성화를 누를 손가락이 없어 폰에서는 기본 ON.
+        /// 입력 생성 방식일 뿐이라 시뮬·결정론·리플레이에는 영향이 없다.
+        /// </summary>
+        public static bool AutoFire { get; private set; }
+
+        public static void SetAutoFire(bool value)
+        {
+            AutoFire = value;
+            PlayerPrefs.SetInt(AutoFirePrefKey, value ? 1 : 0);
+        }
+
+        public static void LoadAutoFirePreference()
+        {
+            // 모바일과 WebGL(폰 사파리)에서는 기본 ON, 데스크톱은 기본 OFF
+            int fallback = Application.isMobilePlatform
+                           || Application.platform == RuntimePlatform.WebGLPlayer ? 1 : 0;
+            AutoFire = PlayerPrefs.GetInt(AutoFirePrefKey, fallback) == 1;
+        }
+
         /// <summary>한 틱 분량의 입력을 만들어 반환하고 눌림 래치를 소모한다.</summary>
         public InputCommand ConsumeCommand()
         {
@@ -139,7 +163,7 @@ namespace Shmup.Presentation.Battle
             if (!enabled) return InputCommand.None;
 
             var command = new InputCommand(Digital(_move.x), Digital(_move.y),
-                                           _fireHeld || _firePressedThisFrame,
+                                           AutoFire || _fireHeld || _firePressedThisFrame,
                                            _activateHeld || _activatePressedThisFrame);
             _firePressedThisFrame = false;
             _activatePressedThisFrame = false;

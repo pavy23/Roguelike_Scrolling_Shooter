@@ -66,12 +66,24 @@ namespace Shmup.Presentation.Battle
                     UiKit.TextMain, new Vector2(0.5f, 0f), new Vector2(0f, 8f),
                     TextAnchor.LowerCenter, "Label");
                 _labels[i].rectTransform.sizeDelta = new Vector2(boxWidth - 8f, 44f);
+                int index = i;   // 클로저가 루프 변수를 잡지 않도록 복사
+                UiKit.MakeTappable(_boxBorders[i], () => Choose(index));
             }
             UiKit.CreateCornerText(canvas.transform, _font,
-                UiText.ChoiceHints, 10, UiKit.TextDim,
+                UiPlatform.TouchMode ? UiText.ChoiceHintsTouch : UiText.ChoiceHints,
+                10, UiKit.TextDim,
                 new Vector2(0.5f, 0.5f), new Vector2(0f, -70f), TextAnchor.MiddleCenter, "Hints");
 
             _root.SetActive(false);
+        }
+
+        /// <summary>탭/키 공용 선택. 열려 있지 않거나 범위를 벗어난 탭은 무시한다.</summary>
+        void Choose(int index)
+        {
+            if (_director == null || !_director.AwaitingRoute) return;
+            var options = _director.RouteOptions;
+            if (options == null || index < 0 || index >= options.Count) return;
+            _director.ChooseRoute(index);
         }
 
         void Update()

@@ -201,6 +201,10 @@ namespace Shmup.Presentation.Battle
         public IReadOnlyList<BossPartState> BossParts =>
             _sim != null ? _sim.BossParts : null;
 
+        /// <summary>플레이어 기체의 월드 좌표 (터치 드래그 조작이 목표 방향을 계산할 때 쓴다).</summary>
+        public Vector2 PlayerWorldPosition =>
+            _sim != null ? (Vector2)SimView.ToWorld(_sim.PlayerX, _sim.PlayerY) : Vector2.zero;
+
         /// <summary>보스 본체의 월드 좌표 (파츠 오버레이 기준점).</summary>
         public Vector3 BossWorldPosition =>
             _sim != null ? SimView.ToWorld(_sim.Boss.X, _sim.Boss.Y) : Vector3.zero;
@@ -938,17 +942,44 @@ namespace Shmup.Presentation.Battle
             ReleaseDeadViews(_optionViews, _optionPool);
         }
 
+        /// <summary>
+        /// 스톡 단계별 실드 색. 쌓일수록 차가운 청색에서 뜨거운 쪽으로 옮겨가서,
+        /// 숫자를 읽지 않아도 남은 양이 보인다.
+        /// </summary>
+        static readonly Color[] ShieldTierColors =
+        {
+            new Color(0.35f, 0.70f, 1.00f, 0.55f),   // 1: 청색
+            new Color(0.35f, 1.00f, 0.85f, 0.65f),   // 2: 청록
+            new Color(1.00f, 0.90f, 0.45f, 0.75f),   // 3: 금색
+            new Color(1.00f, 0.55f, 0.95f, 0.85f)    // 4+: 자홍
+        };
+
         void SyncShield()
         {
             if (_shieldView == null) return;
             int remaining = _sim.ShieldRemaining;
             _shieldView.enabled = remaining > 0;
-            if (remaining > 0)
+            if (remaining <= 0) return;
+
+            // 실드는 기체 모양이어야 와닿는다 — 원형 링은 가로로 긴 함선과 겹치지 않아
+            // "내가 감싸여 있다"는 느낌을 주지 못했다. 기체 스프라이트를 그대로 빌려
+            // 기체 뒤에 조금 크게 깔면 외곽이 테두리처럼 보인다. 스프라이트를 매 프레임
+            // 따라가므로 함선 교체와 애니메이션 프레임에 자동으로 맞는다.
+            var ship = _playerTransform != null
+                ? _playerTransform.GetComponent<SpriteRenderer>() : null;
+            if (ship != null)
             {
-                var c = _shieldView.color;
-                c.a = 0.25f + 0.15f * Mathf.Min(remaining, 3);
-                _shieldView.color = c;
+                if (!ReferenceEquals(_shieldView.sprite, ship.sprite))
+                    _shieldView.sprite = ship.sprite;
+                _shieldView.sortingOrder = ship.sortingOrder - 1;
+                _shieldView.flipX = ship.flipX;
             }
+
+            int tier = Mathf.Clamp(remaining, 1, ShieldTierColors.Length);
+            // 스톡이 쌓이면 테두리가 두꺼워진다 (기체와의 크기 차이가 곧 두께다).
+            float thickness = 1f + 0.11f * tier;
+            _shieldView.transform.localScale = new Vector3(thickness, thickness, 1f);
+            _shieldView.color = ShieldTierColors[tier - 1];
         }
 
         void SyncEnemies()
