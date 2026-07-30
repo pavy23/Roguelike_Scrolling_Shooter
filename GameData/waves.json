@@ -5426,7 +5426,7 @@
           "partVulnerability": "coreOnly"
         },
         {
-          "pattern": "spread",
+          "pattern": "aimed",
           "hpEnterRatio": 0.667,
           "fireIntervalTicks": 56,
           "ways": 4,
@@ -5437,7 +5437,7 @@
           "partVulnerability": "all"
         },
         {
-          "pattern": "rapid",
+          "pattern": "aimed",
           "hpEnterRatio": 0.333,
           "fireIntervalTicks": 30,
           "ways": 2,
@@ -5467,7 +5467,7 @@
       ],
       "phases": [
         {
-          "pattern": "aimed",
+          "pattern": "radial",
           "hpEnterRatio": 1.0,
           "fireIntervalTicks": 50,
           "ways": 3,
@@ -5478,7 +5478,7 @@
           "partVulnerability": "coreOnly"
         },
         {
-          "pattern": "spread",
+          "pattern": "spiral",
           "hpEnterRatio": 0.667,
           "fireIntervalTicks": 42,
           "ways": 7,
@@ -5489,7 +5489,7 @@
           "partVulnerability": "all"
         },
         {
-          "pattern": "rapid",
+          "pattern": "radial",
           "hpEnterRatio": 0.333,
           "fireIntervalTicks": 16,
           "ways": 3,
@@ -5519,7 +5519,7 @@
       ],
       "phases": [
         {
-          "pattern": "aimed",
+          "pattern": "wall",
           "hpEnterRatio": 1.0,
           "fireIntervalTicks": 46,
           "ways": 4,
@@ -5530,21 +5530,22 @@
           "partVulnerability": "coreOnly"
         },
         {
-          "pattern": "spread",
+          "pattern": "burst",
           "hpEnterRatio": 0.667,
           "fireIntervalTicks": 40,
           "ways": 8,
           "bulletSpeed": 9.0,
+          "telegraphTicks": 24,
           "movementPattern": "verticalSine",
           "movementAmplitude": 0.875,
           "movementPeriodTicks": 210,
           "partVulnerability": "all"
         },
         {
-          "pattern": "rapid",
+          "pattern": "wall",
           "hpEnterRatio": 0.333,
           "fireIntervalTicks": 14,
-          "ways": 3,
+          "ways": 5,
           "bulletSpeed": 15.5,
           "movementPattern": "verticalSine",
           "movementAmplitude": 1.25,
@@ -5571,7 +5572,7 @@
       ],
       "phases": [
         {
-          "pattern": "aimed",
+          "pattern": "spiral",
           "hpEnterRatio": 1.0,
           "fireIntervalTicks": 42,
           "ways": 4,
@@ -5582,7 +5583,7 @@
           "partVulnerability": "coreOnly"
         },
         {
-          "pattern": "spread",
+          "pattern": "spiral",
           "hpEnterRatio": 0.667,
           "fireIntervalTicks": 36,
           "ways": 8,
@@ -5593,7 +5594,7 @@
           "partVulnerability": "all"
         },
         {
-          "pattern": "rapid",
+          "pattern": "aimed",
           "hpEnterRatio": 0.333,
           "fireIntervalTicks": 12,
           "ways": 3,
@@ -5623,7 +5624,7 @@
       ],
       "phases": [
         {
-          "pattern": "aimed",
+          "pattern": "radial",
           "hpEnterRatio": 1.0,
           "fireIntervalTicks": 40,
           "ways": 4,
@@ -5634,7 +5635,7 @@
           "partVulnerability": "coreOnly"
         },
         {
-          "pattern": "spread",
+          "pattern": "wall",
           "hpEnterRatio": 0.667,
           "fireIntervalTicks": 34,
           "ways": 7,
@@ -5645,11 +5646,12 @@
           "partVulnerability": "all"
         },
         {
-          "pattern": "rapid",
+          "pattern": "burst",
           "hpEnterRatio": 0.333,
           "fireIntervalTicks": 12,
           "ways": 3,
           "bulletSpeed": 17.0,
+          "telegraphTicks": 18,
           "movementPattern": "verticalSine",
           "movementAmplitude": 2.75,
           "movementPeriodTicks": 66,

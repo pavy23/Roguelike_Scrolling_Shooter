@@ -538,6 +538,7 @@
             "telegraphTicks": 0
           },
           {
+            "pattern": "radial",
             "fireIntervalTicks": 38,
             "ways": 7,
             "bulletSpeed": 7.5,
@@ -655,6 +656,7 @@
             "telegraphTicks": 30
           },
           {
+            "pattern": "spiral",
             "fireIntervalTicks": 28,
             "ways": 5,
             "bulletSpeed": 10.0,
@@ -690,6 +692,7 @@
         "stageIndexMin": 3,
         "phases": [
           {
+            "pattern": "radial",
             "fireIntervalTicks": 52,
             "ways": 5,
             "bulletSpeed": 8.0,
@@ -700,6 +703,7 @@
             "telegraphTicks": 0
           },
           {
+            "pattern": "burst",
             "fireIntervalTicks": 18,
             "ways": 3,
             "bulletSpeed": 12.0,

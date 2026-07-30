@@ -4360,17 +4360,24 @@ static class Program
                 double speedWu = phase.BulletSpeedNumerator / (double)phase.BulletSpeedDenominator
                     * SimSpace.TicksPerSecond / SimSpace.SubUnitsPerWorldUnit;
                 double threat = phase.Ways * speedWu / phase.FireIntervalTicks;
-                string personality = p == 0 ? "aimed" : p == 1 ? "spread" : "rapid";
+                // REQ-069: report real FirePattern (aimed|radial|spiral|wall|burst).
+                // Legacy index labels (aimed/spread/rapid) are obsolete for logging.
+                string fireLabel = phase.FirePattern.ToString().ToLowerInvariant();
+                double bps = phase.Ways * (double)SimSpace.TicksPerSecond / phase.FireIntervalTicks;
+                string telNote = phase.TelegraphTicks > 0
+                    ? $" tel={phase.TelegraphTicks}t"
+                    : "";
                 Console.WriteLine(
-                    $"    p{p} {personality,-6} int={phase.FireIntervalTicks,3}t " +
-                    $"ways={phase.Ways} spd≈{speedWu:F1}u/s threat={threat:F3}" +
+                    $"    p{p} {fireLabel,-6} int={phase.FireIntervalTicks,3}t " +
+                    $"ways={phase.Ways} spd≈{speedWu:F1}u/s bps≈{bps:F2}/s " +
+                    $"threat={threat:F3}{telNote}" +
                     (prevThreat < 0 ? "" : threat > prevThreat ? " monoOK" : " MONO FAIL"));
 
-                // Personality soft check: aimed low ways, spread high ways, rapid high speed.
+                // Structural ways/speed ladder (pattern-agnostic density curve).
                 if (p == 0 && phase.Ways > 4)
                 {
                     Console.WriteLine(
-                        $"WARN boss: '{id}' p0 ways={phase.Ways} high for aimed (expected ≤4).");
+                        $"WARN boss: '{id}' p0 ways={phase.Ways} high for opener (expected ≤4).");
                 }
 
                 if (p == 1)
@@ -4379,7 +4386,7 @@ static class Program
                     if (phase.Ways <= waysP0)
                     {
                         Console.WriteLine(
-                            $"FAIL boss: '{id}' spread ways {phase.Ways} must exceed aimed {waysP0}.");
+                            $"FAIL boss: '{id}' p1 ways {phase.Ways} must exceed p0 {waysP0}.");
                         failures++;
                     }
                 }
@@ -4392,16 +4399,16 @@ static class Program
                     if (speedWu <= speedP1)
                     {
                         Console.WriteLine(
-                            $"FAIL boss: '{id}' rapid speed {speedWu:F1} must exceed " +
-                            $"spread {speedP1:F1}.");
+                            $"FAIL boss: '{id}' p2 speed {speedWu:F1} must exceed " +
+                            $"p1 {speedP1:F1}.");
                         failures++;
                     }
 
                     if (phase.Ways >= boss.Phases[1].Ways)
                     {
                         Console.WriteLine(
-                            $"FAIL boss: '{id}' rapid ways {phase.Ways} must be fewer " +
-                            $"than spread {boss.Phases[1].Ways}.");
+                            $"FAIL boss: '{id}' p2 ways {phase.Ways} must be fewer " +
+                            $"than p1 {boss.Phases[1].Ways}.");
                         failures++;
                     }
                 }
