@@ -6,7 +6,7 @@
       "id": "capsules_5",
       "type": "capsules",
       "amount": 5,
-      "weight": 2,
+      "weight": 3,
       "stageIndexMin": 1,
       "stageIndexMax": 99
     },
@@ -50,7 +50,7 @@
       "id": "repair_hp_1",
       "type": "repairHp",
       "amount": 1,
-      "weight": 2,
+      "weight": 3,
       "stageIndexMin": 1,
       "stageIndexMax": 99
     },

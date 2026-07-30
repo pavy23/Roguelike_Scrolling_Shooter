@@ -853,7 +853,7 @@
         },
         {
           "tick": 640,
-          "enemyId": "mini_horror",
+          "enemyId": "brood_spitter",
           "y": 0
         }
       ],
@@ -883,7 +883,7 @@
           "hp": 25
         }
       ],
-      "intent": "잡몹 점유 후 중간보스 피날레"
+      "intent": "잡몹 점유 후 중형 앵커 피날레"
     },
     {
       "id": "seg_hive_lancer_rush",
@@ -1142,7 +1142,7 @@
         },
         {
           "tick": 820,
-          "enemyId": "mini_destroyer",
+          "enemyId": "zako_tank",
           "y": 0
         }
       ],
@@ -1178,7 +1178,7 @@
           "hp": 35
         }
       ],
-      "intent": "강화형 격자 사격 회피 + 중간보스"
+      "intent": "강화형 격자 사격 회피 + 중형"
     },
     {
       "id": "seg_fortress_interceptor_assault",
@@ -1453,7 +1453,7 @@
         },
         {
           "tick": 700,
-          "enemyId": "mini_crystal",
+          "enemyId": "elite_sine",
           "y": 0
         }
       ],
@@ -1495,7 +1495,7 @@
           "hp": 35
         }
       ],
-      "intent": "잡몹 폭풍 회피 후 중형·중간보스"
+      "intent": "잡몹 폭풍 회피 후 중형·중형"
     },
     {
       "id": "seg_nebula_wisp_ribbon",
@@ -1592,7 +1592,7 @@
         },
         {
           "tick": 640,
-          "enemyId": "mini_crystal",
+          "enemyId": "elite_sine",
           "y": 0
         }
       ],
@@ -1726,7 +1726,7 @@
         },
         {
           "tick": 820,
-          "enemyId": "mini_walker",
+          "enemyId": "guardian_sphere",
           "y": 0
         }
       ],
@@ -1774,7 +1774,7 @@
           "hp": 50
         }
       ],
-      "intent": "중형 벽 돌파 + 중간보스"
+      "intent": "중형 벽 돌파 + 중형"
     },
     {
       "id": "seg_core_final_gauntlet",
@@ -2932,7 +2932,7 @@
         },
         {
           "tick": 700,
-          "enemyId": "mini_horror",
+          "enemyId": "brood_spitter",
           "y": 0
         }
       ],
@@ -2968,7 +2968,7 @@
           "hp": 30
         }
       ],
-      "intent": "중형 위협 + 중간보스 화력 집중"
+      "intent": "중형 위협 + 중형 화력 집중"
     },
     {
       "id": "seg_hive_nest_choke",
@@ -3040,7 +3040,7 @@
         },
         {
           "tick": 700,
-          "enemyId": "mini_horror",
+          "enemyId": "brood_spitter",
           "y": 0
         }
       ],
@@ -3076,7 +3076,7 @@
           "hp": 30
         }
       ],
-      "intent": "좁은 구간 중간보스 격파 목표"
+      "intent": "좁은 구간 중형 격파 목표"
     },
     {
       "id": "seg_fortress_mortar_line",
@@ -3320,7 +3320,7 @@
         },
         {
           "tick": 760,
-          "enemyId": "mini_destroyer",
+          "enemyId": "zako_tank",
           "y": 0
         }
       ],
@@ -3356,7 +3356,7 @@
           "hp": 35
         }
       ],
-      "intent": "교차 포탑 위치 선정 + 중간보스"
+      "intent": "교차 포탑 위치 선정 + 중형"
     },
     {
       "id": "seg_fortress_drone_lattice",
@@ -3493,7 +3493,7 @@
         },
         {
           "tick": 760,
-          "enemyId": "mini_destroyer",
+          "enemyId": "zako_tank",
           "y": 0
         }
       ],
@@ -3657,7 +3657,7 @@
         },
         {
           "tick": 820,
-          "enemyId": "mini_destroyer",
+          "enemyId": "zako_tank",
           "y": 0
         }
       ],
@@ -3699,7 +3699,7 @@
           "hp": 40
         }
       ],
-      "intent": "중형·중간보스 화력 집중 관문"
+      "intent": "중형·중형 화력 집중 관문"
     },
     {
       "id": "seg_nebula_echo_ribbon",
@@ -3923,7 +3923,7 @@
         },
         {
           "tick": 640,
-          "enemyId": "mini_crystal",
+          "enemyId": "elite_sine",
           "y": 0
         }
       ],
@@ -3959,7 +3959,7 @@
           "hp": 30
         }
       ],
-      "intent": "잡몹·강화 혼합 + 중간보스"
+      "intent": "잡몹·강화 혼합 + 중형"
     },
     {
       "id": "seg_nebula_crystal_drift",
@@ -4031,7 +4031,7 @@
         },
         {
           "tick": 700,
-          "enemyId": "mini_crystal",
+          "enemyId": "elite_sine",
           "y": 0
         }
       ],
@@ -4145,7 +4145,7 @@
         },
         {
           "tick": 700,
-          "enemyId": "mini_crystal",
+          "enemyId": "elite_sine",
           "y": 0
         }
       ],
@@ -4187,7 +4187,7 @@
           "hp": 40
         }
       ],
-      "intent": "중형 프리즘 + 중간보스 목표"
+      "intent": "중형 프리즘 + 중형 목표"
     },
     {
       "id": "seg_core_rift_blades",
@@ -4426,7 +4426,7 @@
         },
         {
           "tick": 700,
-          "enemyId": "mini_walker",
+          "enemyId": "guardian_sphere",
           "y": 0
         }
       ],
@@ -4462,7 +4462,7 @@
           "hp": 45
         }
       ],
-      "intent": "강화형 원반 조준 + 중간보스"
+      "intent": "강화형 원반 조준 + 중형"
     },
     {
       "id": "seg_core_shard_battery",
@@ -4554,7 +4554,7 @@
         },
         {
           "tick": 760,
-          "enemyId": "mini_walker",
+          "enemyId": "guardian_sphere",
           "y": 0
         }
       ],
@@ -4689,7 +4689,7 @@
         },
         {
           "tick": 760,
-          "enemyId": "mini_walker",
+          "enemyId": "guardian_sphere",
           "y": 0
         }
       ],
@@ -4763,21 +4763,33 @@
           "hpEnterRatio": 1.0,
           "fireIntervalTicks": 55,
           "ways": 3,
-          "bulletSpeed": 9.0
+          "bulletSpeed": 9.0,
+          "movementPattern": "stationary",
+          "movementAmplitude": 0,
+          "movementPeriodTicks": 1,
+          "partVulnerability": "coreOnly"
         },
         {
           "pattern": "spread",
           "hpEnterRatio": 0.667,
           "fireIntervalTicks": 48,
           "ways": 6,
-          "bulletSpeed": 8.0
+          "bulletSpeed": 8.0,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 1.75,
+          "movementPeriodTicks": 150,
+          "partVulnerability": "all"
         },
         {
           "pattern": "rapid",
           "hpEnterRatio": 0.333,
-          "fireIntervalTicks": 28,
-          "ways": 2,
-          "bulletSpeed": 14.5
+          "fireIntervalTicks": 20,
+          "ways": 3,
+          "bulletSpeed": 14.5,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 2.0,
+          "movementPeriodTicks": 100,
+          "partVulnerability": "all"
         }
       ]
     },
@@ -4789,7 +4801,7 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 15000,
+      "hp": 14500,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
@@ -4803,21 +4815,33 @@
           "hpEnterRatio": 1.0,
           "fireIntervalTicks": 50,
           "ways": 3,
-          "bulletSpeed": 9.5
+          "bulletSpeed": 9.5,
+          "movementPattern": "stationary",
+          "movementAmplitude": 0,
+          "movementPeriodTicks": 1,
+          "partVulnerability": "coreOnly"
         },
         {
           "pattern": "spread",
           "hpEnterRatio": 0.667,
-          "fireIntervalTicks": 44,
+          "fireIntervalTicks": 42,
           "ways": 7,
-          "bulletSpeed": 8.5
+          "bulletSpeed": 8.5,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 3.25,
+          "movementPeriodTicks": 96,
+          "partVulnerability": "all"
         },
         {
           "pattern": "rapid",
           "hpEnterRatio": 0.333,
-          "fireIntervalTicks": 24,
+          "fireIntervalTicks": 16,
           "ways": 3,
-          "bulletSpeed": 14.0
+          "bulletSpeed": 14.5,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 3.5,
+          "movementPeriodTicks": 72,
+          "partVulnerability": "all"
         }
       ]
     },
@@ -4829,7 +4853,7 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 19000,
+      "hp": 18000,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
@@ -4843,21 +4867,33 @@
           "hpEnterRatio": 1.0,
           "fireIntervalTicks": 46,
           "ways": 4,
-          "bulletSpeed": 10.0
+          "bulletSpeed": 10.0,
+          "movementPattern": "stationary",
+          "movementAmplitude": 0,
+          "movementPeriodTicks": 1,
+          "partVulnerability": "coreOnly"
         },
         {
           "pattern": "spread",
           "hpEnterRatio": 0.667,
           "fireIntervalTicks": 40,
           "ways": 8,
-          "bulletSpeed": 9.0
+          "bulletSpeed": 9.0,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 0.875,
+          "movementPeriodTicks": 210,
+          "partVulnerability": "all"
         },
         {
           "pattern": "rapid",
           "hpEnterRatio": 0.333,
-          "fireIntervalTicks": 22,
+          "fireIntervalTicks": 14,
           "ways": 3,
-          "bulletSpeed": 15.0
+          "bulletSpeed": 15.5,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 1.25,
+          "movementPeriodTicks": 150,
+          "partVulnerability": "all"
         }
       ]
     },
@@ -4869,7 +4905,7 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 24000,
+      "hp": 22500,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
@@ -4883,21 +4919,33 @@
           "hpEnterRatio": 1.0,
           "fireIntervalTicks": 42,
           "ways": 4,
-          "bulletSpeed": 10.5
+          "bulletSpeed": 10.5,
+          "movementPattern": "stationary",
+          "movementAmplitude": 0,
+          "movementPeriodTicks": 1,
+          "partVulnerability": "coreOnly"
         },
         {
           "pattern": "spread",
           "hpEnterRatio": 0.667,
-          "fireIntervalTicks": 38,
+          "fireIntervalTicks": 36,
           "ways": 8,
-          "bulletSpeed": 9.5
+          "bulletSpeed": 9.5,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 2.75,
+          "movementPeriodTicks": 84,
+          "partVulnerability": "all"
         },
         {
           "pattern": "rapid",
           "hpEnterRatio": 0.333,
-          "fireIntervalTicks": 20,
+          "fireIntervalTicks": 12,
           "ways": 3,
-          "bulletSpeed": 15.5
+          "bulletSpeed": 16.5,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 3.25,
+          "movementPeriodTicks": 60,
+          "partVulnerability": "all"
         }
       ]
     },
@@ -4909,7 +4957,7 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 30000,
+      "hp": 28000,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
@@ -4923,21 +4971,33 @@
           "hpEnterRatio": 1.0,
           "fireIntervalTicks": 40,
           "ways": 4,
-          "bulletSpeed": 11.0
+          "bulletSpeed": 11.0,
+          "movementPattern": "stationary",
+          "movementAmplitude": 0,
+          "movementPeriodTicks": 1,
+          "partVulnerability": "coreOnly"
         },
         {
           "pattern": "spread",
           "hpEnterRatio": 0.667,
-          "fireIntervalTicks": 36,
+          "fireIntervalTicks": 34,
           "ways": 7,
-          "bulletSpeed": 10.0
+          "bulletSpeed": 10.5,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 2.25,
+          "movementPeriodTicks": 100,
+          "partVulnerability": "all"
         },
         {
           "pattern": "rapid",
           "hpEnterRatio": 0.333,
-          "fireIntervalTicks": 16,
+          "fireIntervalTicks": 12,
           "ways": 3,
-          "bulletSpeed": 16.0
+          "bulletSpeed": 17.0,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 2.75,
+          "movementPeriodTicks": 66,
+          "partVulnerability": "all"
         }
       ]
     },
