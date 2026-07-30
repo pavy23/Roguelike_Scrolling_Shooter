@@ -4,6 +4,31 @@
 
 ---
 
+## 2026-07-30 플레이테스트 수치 3건 (스키마 변경 없음)
+
+**완료 (content):** 기존 필드 값만 조정.
+
+| # | 파일 | 필드 | 전 → 후 |
+|---|---|---|---|
+| 1 | `waves.json` | `boss_stage1.hp` | 12000 → **9000** |
+| 2 | `enemies.json` | `dropTable.noDropWeight` | 12 → **16** |
+| 3 | `weapons.json` | missile / families `fireIntervalTicks` (+min) | straight 30/15→**42/20**, bomb 42/28→**54/36**, lance 54/36→**70/44** |
+
+BalanceSim 게이트도 튜토리얼 첫 보스 TTK·미사일 ST 밴드에 맞게 갱신. 뒤쪽 보스 HP는 유지(의도적 튜토리얼→실전 점프).
+
+### CLAUDE 후속 (Resources 동기화)
+
+- [ ] `Assets/Resources/GameData/waves.json` ← `GameData/waves.json`
+- [ ] `Assets/Resources/GameData/enemies.json` ← `GameData/enemies.json`
+- [ ] `Assets/Resources/GameData/weapons.json` ← `GameData/weapons.json`
+
+### 결정론 감사 메모
+
+같은 시드 2회 해시 일치 확인 (`seed=12345` stages=3, hash `0668DB7675A90266`).  
+`--suite` 전체는 히든 콜로설(broodmother 재생) 구간에서 예산 내 `RunCleared` 미도달 — 기존 `seed-max-prefer-capped` 예산 계열 이슈와 동일 계열(해시 불일치 아님). CODEX/DeterminismAudit 예산·타격 모델 쪽 후속.
+
+---
+
 ## 2026-07-30 REQ-035 콜로설 보스 content 등록 완료 (잠정 · §7)
 
 **완료 (content):** `GameData/waves.json`에 `boss_leviathan` / `boss_broodmother`
