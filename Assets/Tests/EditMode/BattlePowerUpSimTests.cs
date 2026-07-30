@@ -153,7 +153,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void ShieldLevel_AbsorbsContactDamageUntilSpentAndRefreshesOnUpgrade()
+        public void ShieldStock_ConsumesOnePerHitAndShieldUpgradeRestoresOne()
         {
             EnemyDefinition heavy = Enemy("heavy", contactDamage: 3);
             EnemyDefinition light = Enemy("light", contactDamage: 1);
@@ -163,10 +163,13 @@ namespace Shmup.Core.Tests
                 10,
                 new SpawnEvent(1, heavy.Id, 0, 0),
                 new SpawnEvent(2, light.Id, 0, 0),
-                new SpawnEvent(3, afterUpgrade.Id, 0, 0)));
+                new SpawnEvent(4, afterUpgrade.Id, 0, 0)));
             var gauge = Gauge(0, 0, 0, 2);
+            BattleSimConfig config = CreateConfig();
+            config.StartingShieldStock = 2;
+            config.PlayerHitInvulnerabilityTicks = 0;
             var sim = CreateSim(
-                CreateConfig(),
+                config,
                 gauge,
                 plan,
                 Content(Weapon(), heavy, light, afterUpgrade),
@@ -175,17 +178,77 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(2, sim.ShieldRemaining);
             sim.Step(in none);
-            Assert.AreEqual(4, sim.PlayerHp);
-            Assert.AreEqual(0, sim.ShieldRemaining);
+            Assert.AreEqual(1, sim.PlayerHp);
+            Assert.AreEqual(1, sim.ShieldRemaining);
 
             sim.Step(in none);
-            Assert.AreEqual(3, sim.PlayerHp);
+            Assert.AreEqual(1, sim.PlayerHp);
             Assert.AreEqual(0, sim.ShieldRemaining);
 
             gauge.ImportLevels(new[] { 0, 0, 0, 3 });
             sim.Step(in none);
-            Assert.AreEqual(3, sim.PlayerHp);
+            Assert.AreEqual(1, sim.PlayerHp);
             Assert.AreEqual(1, sim.ShieldRemaining);
+
+            sim.Step(in none);
+            Assert.AreEqual(1, sim.PlayerHp);
+            Assert.AreEqual(0, sim.ShieldRemaining);
+        }
+
+        [Test]
+        public void ShieldStockRecovery_ClampsAtConfiguredCap()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.StartingShieldStock = 4;
+            config.MaxShieldStock = 5;
+            var sim = CreateSim(
+                config,
+                Gauge(0, 0, 0, 0),
+                Plan(Segment("idle", 10)),
+                Content(Weapon()),
+                6UL);
+
+            Assert.AreEqual(1, sim.RecoverShieldStock(99));
+            Assert.AreEqual(5, sim.ShieldStock);
+            Assert.AreEqual(0, sim.RecoverShieldStock(1));
+            Assert.AreEqual(5, sim.ShieldStock);
+        }
+
+        [Test]
+        public void ShieldHitInvulnerability_BlocksHitsUntilConfiguredTick()
+        {
+            EnemyDefinition first = Enemy("first", contactDamage: 9);
+            EnemyDefinition blocked = Enemy("blocked", contactDamage: 9);
+            EnemyDefinition afterWindow = Enemy(
+                "after_window",
+                contactDamage: 9);
+            BattleSimConfig config = CreateConfig();
+            config.StartingShieldStock = 2;
+            config.PlayerHitInvulnerabilityTicks = 2;
+            var sim = CreateSim(
+                config,
+                Gauge(0, 0, 0, 0),
+                Plan(Segment(
+                    "contacts",
+                    10,
+                    new SpawnEvent(1, first.Id, 0, 0),
+                    new SpawnEvent(2, blocked.Id, 0, 0),
+                    new SpawnEvent(3, afterWindow.Id, 0, 0))),
+                Content(Weapon(), first, blocked, afterWindow),
+                7UL);
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in none);
+            Assert.AreEqual(1, sim.ShieldStock);
+            Assert.AreEqual(2, sim.PlayerInvulnerabilityTicksRemaining);
+
+            sim.Step(in none);
+            Assert.AreEqual(1, sim.ShieldStock);
+            Assert.AreEqual(1, sim.PlayerInvulnerabilityTicksRemaining);
+
+            sim.Step(in none);
+            Assert.AreEqual(0, sim.ShieldStock);
+            Assert.AreEqual(1, sim.PlayerHp);
         }
 
         [Test]
@@ -226,7 +289,7 @@ namespace Shmup.Core.Tests
 
             Assert.Greater(CountBullets(first.Bullets, BulletKind.Missile), 0);
             Assert.AreEqual(2, first.Options.Count);
-            Assert.Less(first.ShieldRemaining, 3);
+            Assert.Less(first.ShieldRemaining, 5);
         }
 
         static BattleSim CreateSim(

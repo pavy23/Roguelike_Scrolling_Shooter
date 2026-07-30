@@ -249,12 +249,13 @@ namespace Shmup.Core.Tests
                 });
             BattleSimConfig config = Config();
             config.BulletDespawnX = 100;
+            config.StartingShieldStock = 0;
             var weapon = new WeaponDefinition("shot", 1, 1, 100, 1, 0, 0);
             EnemyDefinition lethal = new EnemyDefinition(
                 "lethal",
                 "lethal",
                 1,
-                config.PlayerMaxHp,
+                1,
                 0,
                 EnemyMovePattern.Static,
                 0,

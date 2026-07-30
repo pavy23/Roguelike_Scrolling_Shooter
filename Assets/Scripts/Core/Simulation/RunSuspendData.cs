@@ -50,7 +50,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class RunSuspendData
     {
-        public const int CurrentSchemaVersion = 7;
+        public const int CurrentSchemaVersion = 8;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -180,5 +180,15 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 41)]
         public int lastColossalBossAtRunStart;
+
+        /// <summary>
+        /// Authoritative REQ-040 durability. playerHp and shieldRemaining remain
+        /// serialized compatibility mirrors for older Presentation builds.
+        /// </summary>
+        [DataMember(Order = 42)]
+        public int shieldStock;
+
+        [DataMember(Order = 43)]
+        public int maxShieldStock;
     }
 }

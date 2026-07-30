@@ -61,7 +61,9 @@ namespace Shmup.Core.Content
                     levelCopy,
                     unlockCost,
                     ParseWeaponType(item.weaponType, path + ".weaponType"),
-                    ParseShipMaxHp(item.maxHp, path + ".maxHp"));
+                    ParseStartingShieldStock(
+                        item.maxHp,
+                        path + ".maxHp"));
                 for (int previous = 0; previous < i; previous++)
                 {
                     if (string.Equals(
@@ -98,7 +100,7 @@ namespace Shmup.Core.Content
             }
         }
 
-        static int? ParseShipMaxHp(int? value, string path)
+        static int? ParseStartingShieldStock(int? value, string path)
         {
             if (!value.HasValue)
                 return null;

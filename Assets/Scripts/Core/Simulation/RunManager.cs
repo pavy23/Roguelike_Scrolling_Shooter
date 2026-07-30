@@ -30,8 +30,13 @@ namespace Shmup.Core.Simulation
         Capsules = 0,
         /// <summary>지정 슬롯 레벨 +1 (최대치 클램프).</summary>
         SlotLevel = 1,
-        /// <summary>런 최대 HP +1 — 다음 스테이지부터 적용.</summary>
-        RepairHp = 2,
+        /// <summary>실드 스톡 회복 — 상한까지 즉시 적용.</summary>
+        ShieldStock = 2,
+        /// <summary>
+        /// Legacy API/JSON compatibility alias. "repairHp" now restores shield
+        /// stock and retains numeric value 2.
+        /// </summary>
+        RepairHp = ShieldStock,
         FireRateUp = 3,
         DamageUp = 4,
         MoveSpeedUp = 5,
@@ -342,7 +347,7 @@ namespace Shmup.Core.Simulation
     public sealed class RunProgressionConfig
     {
         public const int DefaultBiomeCount = 5;
-        public const int DefaultRoomsPerBiome = 6;
+        public const int DefaultRoomsPerBiome = 4;
         public const int DefaultFinalStageIndex = DefaultBiomeCount;
         public const int HiddenRooms = 2;
 
@@ -456,7 +461,7 @@ namespace Shmup.Core.Simulation
                     "slot_shield_1", RewardType.SlotLevel, PowerUpSlot.Shield,
                     1, 1, 1, int.MaxValue),
                 new RewardDefinition(
-                    "repair_hp_1", RewardType.RepairHp, PowerUpSlot.MainShot,
+                    "repair_hp_1", RewardType.ShieldStock, PowerUpSlot.MainShot,
                     1, 1, 1, int.MaxValue)
             });
 
@@ -471,7 +476,7 @@ namespace Shmup.Core.Simulation
         readonly int _difficultyMultiplierNumerator;
         readonly int _difficultyMultiplierDenominator;
         readonly int[] _powerUpMaxLevels;
-        readonly int _initialPlayerMaxHp;
+        readonly int _initialShieldStock;
         readonly int _initialFireIntervalTicks;
         readonly int _initialMainShotBaseDamage;
         readonly int _initialPlayerSpeedNumerator;
@@ -512,8 +517,8 @@ namespace Shmup.Core.Simulation
         long _stageStartGrazeCount;
         int _stageStartStagesCleared;
         int _stageStartRoomsCleared;
-        int _stageStartPlayerHp;
-        int _stageStartShieldRemaining;
+        int _stageStartPlayerLife;
+        int _stageStartShieldStock;
         BattleModifier _stageStartActiveModifiers;
         MissileFamily _stageStartMissileFamily;
         OptionFormation _stageStartOptionFormation;
@@ -1001,14 +1006,29 @@ namespace Shmup.Core.Simulation
                 _powerUpMaxLevels[i] = PowerUpGauge.GetMaxLevel((PowerUpSlot)i);
             ApplyShipSpeedMultiplier(_battleConfig, _ship);
             ApplyShipWeaponProfile(_battleConfig, _ship);
-            if (_ship.MaxHp.HasValue)
-                _battleConfig.PlayerMaxHp = _ship.MaxHp.Value;
-            _initialPlayerMaxHp = _battleConfig.PlayerMaxHp;
+            if (_ship.StartingShieldStock.HasValue)
+            {
+                _battleConfig.StartingShieldStock =
+                    _ship.StartingShieldStock.Value;
+            }
+            else if (_battleConfig.StartingShieldStock
+                > _battleConfig.MaxShieldStock)
+            {
+                // Legacy ship-less callers used PlayerMaxHp as an explicit
+                // survivability override (including the determinism audit).
+                // Preserve that contract without bypassing the cap for real
+                // ships.json definitions, which always provide starting stock.
+                _battleConfig.MaxShieldStock =
+                    _battleConfig.StartingShieldStock;
+            }
+            _initialShieldStock =
+                _battleConfig.StartingShieldStock;
             _initialFireIntervalTicks = _battleConfig.FireIntervalTicks;
             _initialMainShotBaseDamage = _battleConfig.MainShotBaseDamage;
             _initialPlayerSpeedNumerator = _battleConfig.PlayerSpeedNumerator;
             _initialPlayerSpeedDenominator = _battleConfig.PlayerSpeedDenominator;
             ApplyShipStartingLevels(PowerUpGauge);
+            ResetShieldStockForNewRun();
             CurrentMissileFamily =
                 _battleContent.DefaultMissileFamily;
             CurrentOptionFormation =
@@ -1185,8 +1205,10 @@ namespace Shmup.Core.Simulation
                 powerUpLevels =
                     (int[])_stageStartPowerUpLevels.Clone(),
                 powerUpCursor = _stageStartPowerUpCursor,
-                playerHp = _stageStartPlayerHp,
-                shieldRemaining = _stageStartShieldRemaining,
+                playerHp = _stageStartPlayerLife,
+                shieldRemaining = _stageStartShieldStock,
+                shieldStock = _stageStartShieldStock,
+                maxShieldStock = _battleConfig.MaxShieldStock,
                 rewardAcquisitions = acquisitions,
                 activeModifiers = (int)_stageStartActiveModifiers,
                 missileFamily = (int)_stageStartMissileFamily,
@@ -1363,7 +1385,10 @@ namespace Shmup.Core.Simulation
             manager.CurrentOptionFormation =
                 (OptionFormation)data.optionFormation;
             manager.ApplyCurrentLoadoutProfiles();
-            manager._battleConfig.PlayerMaxHp = data.playerHp;
+            manager._battleConfig.MaxShieldStock =
+                data.maxShieldStock;
+            manager._battleConfig.StartingShieldStock =
+                data.shieldStock;
             manager._battleConfig.FireIntervalTicks =
                 data.fireIntervalTicks;
             manager._battleConfig.MainShotBaseDamage =
@@ -1386,11 +1411,10 @@ namespace Shmup.Core.Simulation
             manager.BuildCurrentStage();
 
             if (manager.Battle.PlayerHp != data.playerHp
-                || manager.Battle.ShieldRemaining
-                    != data.shieldRemaining)
+                || manager.Battle.ShieldStock != data.shieldStock)
             {
                 throw new ArgumentException(
-                    "Suspend player HP or shield does not match "
+                    "Suspend player life or shield stock does not match "
                     + "the reconstructed stage boundary.",
                     nameof(data));
             }
@@ -1714,8 +1738,11 @@ namespace Shmup.Core.Simulation
                     PowerUpGauge.ImportLevels(levels);
                     break;
                 }
-                case RewardType.RepairHp:
-                    _battleConfig.PlayerMaxHp += option.Amount;
+                case RewardType.ShieldStock:
+                    if (!(Battle is BattleSim battle))
+                        throw new InvalidOperationException(
+                            "Shield stock recovery requires BattleSim.");
+                    battle.RecoverShieldStock(option.Amount);
                     break;
                 case RewardType.FireRateUp:
                     _battleConfig.FireIntervalTicks = Math.Max(
@@ -2005,12 +2032,13 @@ namespace Shmup.Core.Simulation
                 _rewardAcquisitionCounts,
                 0,
                 _rewardAcquisitionCounts.Length);
-            _battleConfig.PlayerMaxHp = _initialPlayerMaxHp;
+            _battleConfig.StartingShieldStock = _initialShieldStock;
             _battleConfig.FireIntervalTicks = _initialFireIntervalTicks;
             _battleConfig.MainShotBaseDamage = _initialMainShotBaseDamage;
             _battleConfig.PlayerSpeedNumerator = _initialPlayerSpeedNumerator;
             _battleConfig.PlayerSpeedDenominator = _initialPlayerSpeedDenominator;
             PowerUpGauge = nextGauge;
+            ResetShieldStockForNewRun();
             BuildCurrentStage();
         }
 
@@ -2063,6 +2091,7 @@ namespace Shmup.Core.Simulation
 
         void AccumulateCompletedBattle()
         {
+            _battleConfig.StartingShieldStock = Battle.ShieldStock;
             BattleStatistics battle = Battle.Statistics;
             _completedStageScore = TotalScore;
             _completedShotsFired = AddSaturated(
@@ -2359,16 +2388,17 @@ namespace Shmup.Core.Simulation
                         nameof(data));
                 }
             }
-            if (data.playerHp < 1)
+            if (data.playerHp != 1)
                 throw new ArgumentException(
-                    "Suspend playerHp must be positive.",
+                    "Suspend playerHp compatibility flag must be one.",
                     nameof(data));
-            int expectedShield =
-                data.powerUpLevels[(int)PowerUpSlot.Shield];
-            if (data.shieldRemaining != expectedShield)
+            if (data.maxShieldStock < 1
+                || data.shieldStock < 0
+                || data.shieldStock > data.maxShieldStock
+                || data.shieldRemaining != data.shieldStock)
                 throw new ArgumentException(
-                    "Suspend shield does not match the stage-start "
-                    + "shield level.",
+                    "Suspend shield stock is outside its cap or its "
+                    + "compatibility mirror does not match.",
                     nameof(data));
             if (data.fireIntervalTicks < 0
                 || data.mainShotBaseDamage < 0
@@ -2913,9 +2943,8 @@ namespace Shmup.Core.Simulation
             _stageStartGrazeCount = _completedGrazeCount;
             _stageStartStagesCleared = _stagesCleared;
             _stageStartRoomsCleared = _roomsCleared;
-            _stageStartPlayerHp = Battle.PlayerHp;
-            _stageStartShieldRemaining =
-                Battle.ShieldRemaining;
+            _stageStartPlayerLife = Battle.PlayerHp;
+            _stageStartShieldStock = Battle.ShieldStock;
             _stageStartActiveModifiers = ActiveModifiers;
             _stageStartMissileFamily = CurrentMissileFamily;
             _stageStartOptionFormation = CurrentOptionFormation;
@@ -2955,6 +2984,15 @@ namespace Shmup.Core.Simulation
                 levels[i] = Math.Max(levels[i], startingLevels[i]);
             }
             gauge.ImportLevels(levels);
+        }
+
+        void ResetShieldStockForNewRun()
+        {
+            long stock = (long)_initialShieldStock
+                + PowerUpGauge.GetLevel(PowerUpSlot.Shield);
+            _battleConfig.StartingShieldStock = (int)Math.Min(
+                stock,
+                _battleConfig.MaxShieldStock);
         }
 
         static void ApplyShipSpeedMultiplier(
