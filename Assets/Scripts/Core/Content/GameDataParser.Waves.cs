@@ -404,54 +404,9 @@ namespace Shmup.Core.Content
                 for (int i = 0; i < source.phases.Length; i++)
                 {
                     string phasePath = $"{path}.phases[{i}]";
-                    BossPhaseDto phase = source.phases[i];
-                    if (phase == null)
-                        throw Error(phasePath, "cannot be null.");
-                    ExactFraction speed = ToPerTickSpeed(
-                        Require(phase.bulletSpeed, phasePath + ".bulletSpeed"),
-                        phasePath + ".bulletSpeed");
-                    BossMovementPattern movementPattern =
-                        ParseBossMovementPattern(
-                            phase.movementPattern,
-                            phasePath + ".movementPattern");
-                    ExactFraction movementAmplitude =
-                        phase.movementAmplitude.HasValue
-                            ? ToSubUnitFraction(
-                                phase.movementAmplitude.Value,
-                                phasePath + ".movementAmplitude")
-                            : new ExactFraction(0, 1);
-                    int movementPeriodTicks =
-                        phase.movementPeriodTicks ?? 1;
-                    if (movementAmplitude.Numerator < 0)
-                        throw Error(
-                            phasePath + ".movementAmplitude",
-                            "must be non-negative.");
-                    if (movementPeriodTicks < 1)
-                        throw Error(
-                            phasePath + ".movementPeriodTicks",
-                            "must be positive.");
-                    if (movementPattern
-                            == BossMovementPattern.VerticalSine
-                        && movementAmplitude.Numerator < 1)
-                    {
-                        throw Error(
-                            phasePath + ".movementAmplitude",
-                            "must be positive for verticalSine.");
-                    }
-                    BossPartVulnerability partVulnerability =
-                        ParseBossPartVulnerability(
-                            phase.partVulnerability,
-                            phasePath + ".partVulnerability");
-                    phases[i] = new BossPhase(
-                        Require(phase.fireIntervalTicks, phasePath + ".fireIntervalTicks"),
-                        Require(phase.ways, phasePath + ".ways"),
-                        speed.Numerator,
-                        speed.Denominator,
-                        movementPattern,
-                        movementAmplitude.Numerator,
-                        movementAmplitude.Denominator,
-                        movementPeriodTicks,
-                        partVulnerability);
+                    phases[i] = ParseBossPhase(
+                        source.phases[i],
+                        phasePath);
                 }
             }
 
@@ -480,6 +435,79 @@ namespace Shmup.Core.Content
                 phases,
                 OptionalText(source.theme, path + ".theme"),
                 parts);
+        }
+
+        static BossPhase ParseBossPhase(
+            BossPhaseDto phase,
+            string phasePath)
+        {
+            if (phase == null)
+                throw Error(phasePath, "cannot be null.");
+            ExactFraction speed = ToPerTickSpeed(
+                Require(
+                    phase.bulletSpeed,
+                    phasePath + ".bulletSpeed"),
+                phasePath + ".bulletSpeed");
+            BossMovementPattern movementPattern =
+                ParseBossMovementPattern(
+                    phase.movementPattern,
+                    phasePath + ".movementPattern");
+            ExactFraction movementAmplitude =
+                phase.movementAmplitude.HasValue
+                    ? ToSubUnitFraction(
+                        phase.movementAmplitude.Value,
+                        phasePath + ".movementAmplitude")
+                    : new ExactFraction(0, 1);
+            int movementPeriodTicks =
+                phase.movementPeriodTicks ?? 1;
+            if (movementAmplitude.Numerator < 0)
+                throw Error(
+                    phasePath + ".movementAmplitude",
+                    "must be non-negative.");
+            if (movementPeriodTicks < 1)
+                throw Error(
+                    phasePath + ".movementPeriodTicks",
+                    "must be positive.");
+            if (movementPattern
+                    == BossMovementPattern.VerticalSine
+                && movementAmplitude.Numerator < 1)
+            {
+                throw Error(
+                    phasePath + ".movementAmplitude",
+                    "must be positive for verticalSine.");
+            }
+            int durationTicks = phase.durationTicks ?? 0;
+            int telegraphTicks = phase.telegraphTicks ?? 0;
+            if (durationTicks < 0)
+                throw Error(
+                    phasePath + ".durationTicks",
+                    "must be non-negative.");
+            if (telegraphTicks < 0
+                || (durationTicks > 0
+                    && telegraphTicks >= durationTicks))
+            {
+                throw Error(
+                    phasePath + ".telegraphTicks",
+                    "must be non-negative and shorter than durationTicks.");
+            }
+            BossPartVulnerability partVulnerability =
+                ParseBossPartVulnerability(
+                    phase.partVulnerability,
+                    phasePath + ".partVulnerability");
+            return new BossPhase(
+                Require(
+                    phase.fireIntervalTicks,
+                    phasePath + ".fireIntervalTicks"),
+                Require(phase.ways, phasePath + ".ways"),
+                speed.Numerator,
+                speed.Denominator,
+                movementPattern,
+                movementAmplitude.Numerator,
+                movementAmplitude.Denominator,
+                movementPeriodTicks,
+                partVulnerability,
+                durationTicks,
+                telegraphTicks);
         }
 
         static BossPartDefinition ParseBossPart(

@@ -83,7 +83,12 @@ namespace Shmup.Core.Simulation
         /// <summary>EntityId = segment index, X/Y = clamped player point, Arg = damage.</summary>
         CorridorContact = 29,
         /// <summary>Arg = configured hard deadline tick.</summary>
-        TimeLimitExpired = 30
+        TimeLimitExpired = 30,
+        /// <summary>
+        /// EntityId = boss id, Arg = zero-based action phase. The phase's first
+        /// volley is delayed by its configured telegraphTicks.
+        /// </summary>
+        BossAttackTelegraphed = 31
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -764,7 +769,7 @@ namespace Shmup.Core.Simulation
         public int FireIntervalTicks { get; set; }
         public int MainShotHalfWidth { get; set; }
         public int MainShotHalfHeight { get; set; }
-        internal bool UseConfiguredMainShotStats { get; set; }
+        public bool UseConfiguredMainShotStats { get; set; }
         public int MaxBullets { get; set; }
         /// <summary>
         /// Shared regular-enemy population cap. Scheduled and boss-spawned enemies
@@ -1233,6 +1238,9 @@ namespace Shmup.Core.Simulation
         readonly int _stageTotalTicks;
         bool _bossSpawned, _bossDefeated;
         int _bossId, _bossX, _bossY, _bossHp, _bossPhase, _bossAge, _bossFireCooldown;
+        int _bossPhaseAge;
+        bool _bossPhaseTelegraphPending;
+        readonly bool _bossUsesTimedPattern;
         int _bossSuctionXRemainder, _bossSuctionYRemainder;
 
         const int BossEntrySpeedPerTick = 16;                          // 서브유닛/틱
@@ -1575,6 +1583,8 @@ namespace Shmup.Core.Simulation
                 _bossPhases = Array.Empty<Generation.BossPhase>();
                 _bossPartDefinitions = Array.Empty<BossPartDefinition>();
             }
+            _bossUsesTimedPattern =
+                ResolveTimedBossPattern(_bossPhases);
 
             _bossPartStates =
                 new BossPartState[_bossPartDefinitions.Count];
@@ -3116,7 +3126,15 @@ namespace Shmup.Core.Simulation
                 _bossHp = _bossMaxHp;
                 _bossPhase = 0;
                 _bossAge = 0;
-                _bossFireCooldown = _bossPhases[0].FireIntervalTicks;
+                _bossPhaseAge = 0;
+                Generation.BossPhase initialPhase =
+                    _bossPhases[0];
+                _bossFireCooldown =
+                    initialPhase.TelegraphTicks > 0
+                        ? initialPhase.TelegraphTicks
+                        : initialPhase.FireIntervalTicks;
+                _bossPhaseTelegraphPending =
+                    initialPhase.TelegraphTicks > 0;
                 InitializeBossParts();
                 EmitEvent(SimEventType.BossSpawned, _bossId, _bossX, _bossY, 0);
                 return;
@@ -3130,16 +3148,89 @@ namespace Shmup.Core.Simulation
                 return;   // 진입 중에는 사격하지 않는다 (등장 연출 여유)
             }
 
+            AdvanceTimedBossPhase();
+            EmitPendingBossTelegraph();
             Generation.BossPhase phase = _bossPhases[_bossPhase];
             if (_bossPartDefinitions.Count > 0)
             {
                 UpdateMultipartBoss(phase);
                 UpdateBossPhaseFire(phase);
+                if (_bossUsesTimedPattern)
+                    _bossPhaseAge++;
                 return;
             }
 
             ApplyBossPhaseMovement(phase, false);
             UpdateBossPhaseFire(phase);
+            if (_bossUsesTimedPattern)
+                _bossPhaseAge++;
+        }
+
+        static bool ResolveTimedBossPattern(
+            IReadOnlyList<Generation.BossPhase> phases)
+        {
+            if (phases.Count == 0)
+                return false;
+            bool timed = phases[0].DurationTicks > 0;
+            for (int i = 1; i < phases.Count; i++)
+            {
+                if ((phases[i].DurationTicks > 0) != timed)
+                    throw new ArgumentException(
+                        "Boss phases cannot mix timed and HP-based progression.",
+                        nameof(phases));
+            }
+            return timed;
+        }
+
+        void AdvanceTimedBossPhase()
+        {
+            if (!_bossUsesTimedPattern)
+                return;
+            Generation.BossPhase phase =
+                _bossPhases[_bossPhase];
+            if (_bossPhaseAge < phase.DurationTicks)
+                return;
+            int nextPhase = (_bossPhase + 1) % _bossPhases.Count;
+            EnterBossPhase(nextPhase, true);
+        }
+
+        void EnterBossPhase(
+            int phaseIndex,
+            bool emitChanged)
+        {
+            _bossPhase = phaseIndex;
+            _bossPhaseAge = 0;
+            Generation.BossPhase phase =
+                _bossPhases[phaseIndex];
+            _bossFireCooldown =
+                phase.TelegraphTicks > 0
+                    ? phase.TelegraphTicks
+                    : phase.FireIntervalTicks;
+            _bossPhaseTelegraphPending =
+                phase.TelegraphTicks > 0;
+            RefreshBossPartPositions();
+            if (emitChanged)
+            {
+                EmitEvent(
+                    SimEventType.BossPhaseChanged,
+                    _bossId,
+                    _bossX,
+                    _bossY,
+                    phaseIndex);
+            }
+        }
+
+        void EmitPendingBossTelegraph()
+        {
+            if (!_bossPhaseTelegraphPending)
+                return;
+            _bossPhaseTelegraphPending = false;
+            EmitEvent(
+                SimEventType.BossAttackTelegraphed,
+                _bossId,
+                _bossX,
+                _bossY,
+                _bossPhase);
         }
 
         void UpdateBossPhaseFire(Generation.BossPhase phase)
@@ -3744,6 +3835,8 @@ namespace Shmup.Core.Simulation
 
         void UpdateBossPhaseFromHp()
         {
+            if (_bossUsesTimedPattern)
+                return;
             int phaseCount = _bossPhases.Count;
             int nextPhase = Math.Min(
                 phaseCount - 1,
@@ -3751,16 +3844,7 @@ namespace Shmup.Core.Simulation
                     * phaseCount / _bossRuntimeMaxHp));
             if (nextPhase <= _bossPhase)
                 return;
-            _bossPhase = nextPhase;
-            _bossFireCooldown =
-                _bossPhases[_bossPhase].FireIntervalTicks;
-            RefreshBossPartPositions();
-            EmitEvent(
-                SimEventType.BossPhaseChanged,
-                _bossId,
-                _bossX,
-                _bossY,
-                nextPhase);
+            EnterBossPhase(nextPhase, true);
         }
 
         bool DefeatBoss(int x, int y)

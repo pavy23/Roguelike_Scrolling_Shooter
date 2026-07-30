@@ -619,6 +619,24 @@ namespace Shmup.Core.Simulation
                     "repair_hp_1", RewardType.ShieldStock, PowerUpSlot.MainShot,
                     1, 1, 1, int.MaxValue)
             });
+        static readonly RewardOption[] FallbackRewardOptions =
+        {
+            new RewardOption(
+                "fallback_capsules_1",
+                RewardType.Capsules,
+                PowerUpSlot.MainShot,
+                1),
+            new RewardOption(
+                "fallback_shield_1",
+                RewardType.ShieldStock,
+                PowerUpSlot.Shield,
+                1),
+            new RewardOption(
+                "fallback_capsules_3",
+                RewardType.Capsules,
+                PowerUpSlot.MainShot,
+                3)
+        };
 
         readonly IStageGenerator _stageGenerator;
         readonly BattleSimConfig _battleConfig;
@@ -1826,22 +1844,19 @@ namespace Shmup.Core.Simulation
             _currentBiomeHit = false;
         }
 
-        void BeginHiddenBiome()
+        bool TryBeginHiddenBiome()
         {
-            SelectedColossalBoss = SelectColossalBoss(
+            ColossalBossKind selected = SelectColossalBoss(
                 _runSeed,
                 _lastColossalBossAtRunStart);
             if (!(_stageGenerator
                     is IColossalBossStageGenerator colossal)
                 || !colossal.CanGenerateColossalBoss(
-                    SelectedColossalBoss))
-            {
-                throw new InvalidOperationException(
-                    $"Hidden biome selected {SelectedColossalBoss}, "
-                    + "but the stage catalog cannot generate it.");
-            }
+                    selected))
+                return false;
 
             AccumulateCompletedBattle();
+            SelectedColossalBoss = selected;
             IsHiddenBiome = true;
             // Hidden content extends the final biome; it is not a sixth public
             // campaign biome. Keep the HUD/save-facing progression bounded.
@@ -1855,6 +1870,7 @@ namespace Shmup.Core.Simulation
             _metaState?.RecordColossalBossEncounter(
                 SelectedColossalBoss);
             BuildCurrentStage();
+            return true;
         }
 
         public static int CountHiddenBiomeConditions(
@@ -1930,15 +1946,16 @@ namespace Shmup.Core.Simulation
         /// 보상을 확정하고 다음 스테이지를 시작한다. 선택은 플레이어 입력이므로
         /// 리플레이 기록 대상이다 (같은 시드 + 같은 선택 = 같은 런).
         /// </summary>
-        public void ChooseReward(int optionIndex)
+        public bool ChooseReward(int optionIndex)
         {
             if (State != RunState.AwaitingReward)
-                throw new InvalidOperationException("No reward is awaiting selection.");
+                return false;
             if (optionIndex < 0 || optionIndex >= _rewardOptions.Count)
-                throw new ArgumentOutOfRangeException(nameof(optionIndex));
+                return false;
             int catalogIndex = _rewardOptionCatalogIndices[optionIndex];
             ApplyReward(_rewardOptions[optionIndex], catalogIndex);
-            if (_rewardAcquisitionCounts[catalogIndex] < int.MaxValue)
+            if (catalogIndex >= 0
+                && _rewardAcquisitionCounts[catalogIndex] < int.MaxValue)
                 _rewardAcquisitionCounts[catalogIndex]++;
             _rewardSelectionsRemaining--;
             if (_rewardSelectionsRemaining > 0)
@@ -1949,7 +1966,7 @@ namespace Shmup.Core.Simulation
                         == RewardSelectionKind.MidStage
                             ? MidStageRewardOptionCount
                             : MainRewardOptionCount);
-                return;
+                return true;
             }
             _rewardOptions = Array.Empty<RewardOption>();
             RewardSelectionKind completedKind =
@@ -1959,7 +1976,7 @@ namespace Shmup.Core.Simulation
             if (completedKind == RewardSelectionKind.MidStage)
             {
                 AdvanceAfterRegularSection();
-                return;
+                return true;
             }
             if (completedKind != RewardSelectionKind.Main)
                 throw new InvalidOperationException(
@@ -1967,13 +1984,18 @@ namespace Shmup.Core.Simulation
             if (_progressionConfig.IsFinalBiome(BiomeIndex))
             {
                 if (HiddenConditionCount >= 2)
-                    BeginHiddenBiome();
+                {
+                    if (!TryBeginHiddenBiome())
+                        CompleteRun(
+                            RunCompletionGrade.StandardClear);
+                }
                 else
                     CompleteRun(
                         RunCompletionGrade.StandardClear);
-                return;
+                return true;
             }
             AdvanceBiome();
+            return true;
         }
 
         [Obsolete(
@@ -2115,11 +2137,6 @@ namespace Shmup.Core.Simulation
                 eligibleCount++;
             }
 
-            if (eligibleCount < optionCount)
-                throw new InvalidOperationException(
-                    $"Biome {BiomeIndex} has {eligibleCount} eligible rewards; "
-                    + $"{optionCount} are required.");
-
             _rewardRng.ResetForked(
                 _runSeed,
                 RewardSelectionStream,
@@ -2127,9 +2144,13 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < _rewardSelectionRound; i++)
                 _rewardRng.NextULong();
             int poolCount = eligibleCount;
+            int catalogOptionCount = Math.Min(
+                eligibleCount,
+                optionCount);
             int optionStart = 0;
-            if (StagePlan.EncounterType == EncounterType.Elite
-                || StagePlan.EncounterType == EncounterType.Rare)
+            if (catalogOptionCount > 0
+                && (StagePlan.EncounterType == EncounterType.Elite
+                    || StagePlan.EncounterType == EncounterType.Rare))
             {
                 int modifierWeight = 0;
                 for (int i = 0; i < poolCount; i++)
@@ -2179,7 +2200,7 @@ namespace Shmup.Core.Simulation
             }
 
             for (int i = optionStart;
-                i < optionCount;
+                i < catalogOptionCount;
                 i++)
             {
                 int pick = _rewardRng.PickWeighted(_rewardWeights, poolCount);
@@ -2202,6 +2223,13 @@ namespace Shmup.Core.Simulation
                 _rewardPoolCatalogIndices[pick] =
                     _rewardPoolCatalogIndices[last];
                 _rewardWeights[pick] = _rewardWeights[last];
+            }
+            for (int i = catalogOptionCount; i < optionCount; i++)
+            {
+                int fallbackIndex = i - catalogOptionCount;
+                _rewardOptionCatalogIndices[i] = -1;
+                _rewardOptionBuffer[i] =
+                    FallbackRewardOptions[fallbackIndex];
             }
             _rewardOptionView.SetCount(optionCount);
             return _rewardOptionView;
@@ -2476,6 +2504,14 @@ namespace Shmup.Core.Simulation
         {
             long result = value + amount;
             return result >= int.MaxValue ? int.MaxValue : (int)result;
+        }
+
+        static int SaturatingMultiply(int value, int multiplier)
+        {
+            long result = (long)value * multiplier;
+            return result >= int.MaxValue
+                ? int.MaxValue
+                : (int)result;
         }
 
         static void AddMoveSpeed(BattleSimConfig config, int amount)
@@ -3394,10 +3430,16 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < _battleContent.Enemies.Count; i++)
             {
                 EnemyDefinition enemy = _battleContent.Enemies[i];
-                if (enemy.Id.StartsWith(
+                if (!enemy.Id.StartsWith(
                         "mini_",
                         StringComparison.Ordinal))
-                    candidates.Add(enemy);
+                    continue;
+                MidBossProfile profile = enemy.MidBossProfile;
+                if (profile != null
+                    && (BiomeIndex < profile.StageIndexMin
+                        || BiomeIndex > profile.StageIndexMax))
+                    continue;
+                candidates.Add(enemy);
             }
             candidates.Sort(
                 (left, right) => string.CompareOrdinal(
@@ -3415,8 +3457,64 @@ namespace Shmup.Core.Simulation
             var selection = new Rng(_runSeed)
                 .Fork(MidBossSelectionStream)
                 .Fork(BiomeIndex);
+            var candidateWeights = new int[candidates.Count];
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                MidBossProfile profile =
+                    candidates[i].MidBossProfile;
+                int weight = profile?.Weight ?? 1;
+                if (profile != null
+                    && string.Equals(
+                        profile.ThemeId,
+                        source.ThemeId,
+                        StringComparison.Ordinal))
+                    weight = SaturatingMultiply(weight, 3);
+                candidateWeights[i] = weight;
+            }
+            int selectedIndex = selection.PickWeighted(
+                candidateWeights,
+                candidateWeights.Length);
             EnemyDefinition midBoss =
-                candidates[selection.NextInt(0, candidates.Count)];
+                candidates[selectedIndex];
+            IReadOnlyList<BossPhase> phases =
+                midBoss.MidBossProfile?.Phases
+                ?? CreateDefaultMidBossPattern(
+                    midBoss,
+                    selectedIndex);
+            int laneMask = source.BossEntryLaneMask != 0
+                ? source.BossEntryLaneMask
+                : source.StartLaneMask != 0
+                    ? source.StartLaneMask
+                    : 1;
+            var entry = new StageSegment(
+                "__mid_boss_entry__",
+                1,
+                Array.Empty<SpawnEvent>(),
+                laneMask,
+                laneMask,
+                new[] { laneMask });
+            return new StagePlan(
+                new[] { entry },
+                midBoss.Id,
+                source.LaneCount,
+                laneMask,
+                laneMask,
+                midBoss.MaxHp,
+                midBoss.HalfWidth,
+                midBoss.HalfHeight,
+                source.BossHoldX,
+                phases,
+                source.ThemeId,
+                source.RequestedThemeId,
+                EncounterType.Elite,
+                Array.Empty<BossPartDefinition>(),
+                source.Gimmick);
+        }
+
+        IReadOnlyList<BossPhase> CreateDefaultMidBossPattern(
+            EnemyDefinition midBoss,
+            int patternVariant)
+        {
             BossMovementPattern movementPattern;
             int movementAmplitudeNumerator = 0;
             int movementAmplitudeDenominator = 1;
@@ -3443,8 +3541,27 @@ namespace Shmup.Core.Simulation
                     break;
             }
 
-            var phase = new BossPhase(
-                Math.Max(1, midBoss.FireIntervalTicks),
+            int baseInterval = Math.Max(
+                24,
+                midBoss.FireIntervalTicks);
+            int fastInterval = Math.Max(
+                12,
+                baseInterval * 2 / 3);
+            int dangerousWays = 3 + 2 * (patternVariant & 1);
+            BossMovementPattern alternateMovement =
+                movementPattern == BossMovementPattern.Stationary
+                    ? BossMovementPattern.VerticalSine
+                    : BossMovementPattern.Stationary;
+            int alternateAmplitude =
+                alternateMovement == BossMovementPattern.VerticalSine
+                    ? 2 * SimSpace.SubUnitsPerWorldUnit
+                    : 0;
+            int alternatePeriod =
+                alternateMovement == BossMovementPattern.VerticalSine
+                    ? 90 + 15 * (patternVariant % 4)
+                    : 1;
+            var opening = new BossPhase(
+                baseInterval,
                 1,
                 _battleConfig.EnemyBulletSpeedNumerator,
                 _battleConfig.EnemyBulletSpeedDenominator,
@@ -3452,35 +3569,43 @@ namespace Shmup.Core.Simulation
                 movementAmplitudeNumerator,
                 movementAmplitudeDenominator,
                 movementPeriodTicks,
-                BossPartVulnerability.Legacy);
-            int laneMask = source.BossEntryLaneMask != 0
-                ? source.BossEntryLaneMask
-                : source.StartLaneMask != 0
-                    ? source.StartLaneMask
-                    : 1;
-            var entry = new StageSegment(
-                "__mid_boss_entry__",
+                BossPartVulnerability.Legacy,
+                120 + 15 * (patternVariant % 3),
+                0);
+            var pressure = new BossPhase(
+                fastInterval,
+                dangerousWays,
+                _battleConfig.EnemyBulletSpeedNumerator,
+                _battleConfig.EnemyBulletSpeedDenominator,
+                alternateMovement,
+                alternateAmplitude,
                 1,
-                Array.Empty<SpawnEvent>(),
-                laneMask,
-                laneMask,
-                new[] { laneMask });
-            return new StagePlan(
-                new[] { entry },
-                midBoss.Id,
-                source.LaneCount,
-                laneMask,
-                laneMask,
-                midBoss.MaxHp,
-                midBoss.HalfWidth,
-                midBoss.HalfHeight,
-                source.BossHoldX,
-                new[] { phase },
-                source.ThemeId,
-                source.RequestedThemeId,
-                EncounterType.Elite,
-                Array.Empty<BossPartDefinition>(),
-                source.Gimmick);
+                alternatePeriod,
+                BossPartVulnerability.Legacy,
+                105 + 15 * ((patternVariant + 1) % 3),
+                18 + 3 * (patternVariant % 3));
+            if ((patternVariant & 1) == 0)
+                return Array.AsReadOnly(
+                    new[] { opening, pressure });
+
+            var burst = new BossPhase(
+                Math.Max(10, fastInterval - 4),
+                3,
+                SaturatingMultiply(
+                    _battleConfig.EnemyBulletSpeedNumerator,
+                    5),
+                SaturatingMultiply(
+                    _battleConfig.EnemyBulletSpeedDenominator,
+                    4),
+                movementPattern,
+                movementAmplitudeNumerator,
+                movementAmplitudeDenominator,
+                movementPeriodTicks,
+                BossPartVulnerability.Legacy,
+                90 + 15 * (patternVariant % 3),
+                24);
+            return Array.AsReadOnly(
+                new[] { opening, pressure, burst });
         }
 
         static StagePlan CreateRegularRoomPlan(StagePlan source)

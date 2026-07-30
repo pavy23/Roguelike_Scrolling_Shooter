@@ -964,6 +964,8 @@ namespace Shmup.Core.Generation
             for (int i = 0; i < _catalog.Bosses.Count; i++)
             {
                 StageBossTemplate boss = _catalog.Bosses[i];
+                if (IsHiddenOnlyColossalBoss(boss.BossId))
+                    continue;
                 if (boss.Supports(stageIndex, difficulty)
                     && boss.SupportsTheme(themeId)
                     && (reachable & boss.EntryLaneMask) != 0)
@@ -1422,12 +1424,26 @@ namespace Shmup.Core.Generation
             for (int i = 0; i < _catalog.Bosses.Count; i++)
             {
                 StageBossTemplate boss = _catalog.Bosses[i];
+                if (IsHiddenOnlyColossalBoss(boss.BossId))
+                    continue;
                 if (boss.Supports(stageIndex, difficulty)
                     && boss.SupportsTheme(themeId)
                     && (reachable & boss.EntryLaneMask) != 0)
                     return true;
             }
             return false;
+        }
+
+        static bool IsHiddenOnlyColossalBoss(string bossId)
+        {
+            return string.Equals(
+                    bossId,
+                    LeviathanBossId,
+                    StringComparison.Ordinal)
+                || string.Equals(
+                    bossId,
+                    BroodmotherBossId,
+                    StringComparison.Ordinal);
         }
     }
 

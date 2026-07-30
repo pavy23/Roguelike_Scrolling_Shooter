@@ -111,7 +111,9 @@ namespace Shmup.Core.Generation
             int movementAmplitudeNumerator,
             int movementAmplitudeDenominator,
             int movementPeriodTicks,
-            BossPartVulnerability partVulnerability)
+            BossPartVulnerability partVulnerability,
+            int durationTicks = 0,
+            int telegraphTicks = 0)
         {
             if (fireIntervalTicks < 1)
                 throw new ArgumentOutOfRangeException(nameof(fireIntervalTicks));
@@ -145,6 +147,14 @@ namespace Shmup.Core.Generation
                     partVulnerability))
                 throw new ArgumentOutOfRangeException(
                     nameof(partVulnerability));
+            if (durationTicks < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(durationTicks));
+            if (telegraphTicks < 0
+                || (durationTicks > 0
+                    && telegraphTicks >= durationTicks))
+                throw new ArgumentOutOfRangeException(
+                    nameof(telegraphTicks));
             FireIntervalTicks = fireIntervalTicks;
             Ways = ways;
             BulletSpeedNumerator = bulletSpeedNumerator;
@@ -154,6 +164,8 @@ namespace Shmup.Core.Generation
             MovementAmplitudeDenominator = movementAmplitudeDenominator;
             MovementPeriodTicks = movementPeriodTicks;
             PartVulnerability = partVulnerability;
+            DurationTicks = durationTicks;
+            TelegraphTicks = telegraphTicks;
         }
 
         public int FireIntervalTicks { get; }
@@ -165,6 +177,16 @@ namespace Shmup.Core.Generation
         public int MovementAmplitudeDenominator { get; }
         public int MovementPeriodTicks { get; }
         public BossPartVulnerability PartVulnerability { get; }
+        /// <summary>
+        /// Positive values opt the whole phase list into deterministic time
+        /// cycling. Zero preserves legacy HP-threshold phase progression.
+        /// </summary>
+        public int DurationTicks { get; }
+        /// <summary>
+        /// Delay before this phase's first volley. A telegraph event is emitted
+        /// before the delay starts.
+        /// </summary>
+        public int TelegraphTicks { get; }
     }
 
     public enum BossPartAttackType

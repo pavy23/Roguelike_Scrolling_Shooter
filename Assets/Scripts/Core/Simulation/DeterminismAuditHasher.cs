@@ -241,6 +241,8 @@ namespace Shmup.Core.Simulation
                 FoldInt32(phase.MovementAmplitudeDenominator);
                 FoldInt32(phase.MovementPeriodTicks);
                 FoldInt32((int)phase.PartVulnerability);
+                FoldInt32(phase.DurationTicks);
+                FoldInt32(phase.TelegraphTicks);
             }
 
             FoldInt32(plan.BossParts.Count);

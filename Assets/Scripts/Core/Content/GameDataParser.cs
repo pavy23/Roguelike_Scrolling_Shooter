@@ -4,6 +4,7 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Xml;
+using Shmup.Core.Generation;
 using Shmup.Core.Simulation;
 
 namespace Shmup.Core.Content
@@ -284,7 +285,51 @@ namespace Shmup.Core.Content
                 source.bombDropWeight ?? 0,
                 ParseLaser(
                     source.laser,
-                    path + ".laser"));
+                    path + ".laser"),
+                ParseMidBossProfile(
+                    source.midBoss,
+                    path + ".midBoss"));
+        }
+
+        static MidBossProfile ParseMidBossProfile(
+            MidBossProfileDto source,
+            string path)
+        {
+            if (source == null)
+                return null;
+            if (source.phases == null
+                || source.phases.Length < 2
+                || source.phases.Length > 3)
+            {
+                throw Error(
+                    path + ".phases",
+                    "must contain two or three phases.");
+            }
+            var phases = new BossPhase[source.phases.Length];
+            for (int i = 0; i < phases.Length; i++)
+            {
+                string phasePath = $"{path}.phases[{i}]";
+                phases[i] = ParseBossPhase(
+                    source.phases[i],
+                    phasePath);
+                if (phases[i].DurationTicks < 1)
+                    throw Error(
+                        phasePath + ".durationTicks",
+                        "must be positive for a mid-boss pattern.");
+            }
+            try
+            {
+                return new MidBossProfile(
+                    RequireText(source.themeId, path + ".themeId"),
+                    source.weight ?? 1,
+                    source.stageIndexMin ?? 1,
+                    source.stageIndexMax ?? int.MaxValue,
+                    phases);
+            }
+            catch (ArgumentException error)
+            {
+                throw Error(path, error.Message);
+            }
         }
 
         static LaserAttackDefinition ParseLaser(

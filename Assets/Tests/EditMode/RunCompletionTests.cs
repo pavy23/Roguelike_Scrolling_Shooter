@@ -153,6 +153,10 @@ namespace Shmup.Core.Tests
                     Path.Combine(gameData, "rewards.json")));
             RhythmTrace first = RunRhythmTrace(data, 0x48DA7AUL);
             RhythmTrace second = RunRhythmTrace(data, 0x48DA7AUL);
+            TestContext.WriteLine(
+                $"state={first.FinalState}, rooms={first.RoomsCleared}, "
+                + $"damage={first.DamageEvents}, p1={first.PhaseOneEvents}, "
+                + $"p2={first.PhaseTwoEvents}, ticks={first.Ticks}");
 
             AssertAll(() =>
             {
@@ -326,6 +330,7 @@ namespace Shmup.Core.Tests
             int phaseOneEvents = 0;
             int phaseTwoEvents = 0;
             int previousMidBossBiome = 0;
+            int dodgeDirection = 1;
             hasher.FoldRunState(run);
 
             for (int guard = 0;
@@ -366,7 +371,13 @@ namespace Shmup.Core.Tests
                     }
 
                     int shieldBefore = run.Battle.ShieldStock;
-                    var fire = new InputCommand(0, 0, true);
+                    dodgeDirection = GetRhythmDodgeDirection(
+                        run.Battle,
+                        dodgeDirection);
+                    var fire = new InputCommand(
+                        0,
+                        dodgeDirection,
+                        true);
                     run.Step(in fire);
                     ticks++;
                     if (run.Battle.ShieldStock < shieldBefore)
@@ -399,6 +410,35 @@ namespace Shmup.Core.Tests
                 run.RouteChoiceHistory.Count,
                 run.Statistics.RoomsCleared,
                 run.State);
+        }
+
+        static int GetRhythmDodgeDirection(
+            IBattleSim battle,
+            int currentDirection)
+        {
+            int nearestThreatDistance = int.MaxValue;
+            int direction = currentDirection;
+            for (int i = 0; i < battle.Bullets.Count; i++)
+            {
+                BulletState bullet = battle.Bullets[i];
+                if (bullet.Faction != BulletFaction.Enemy)
+                    continue;
+                int distanceX = bullet.X - battle.PlayerX;
+                int distanceY = Math.Abs(bullet.Y - battle.PlayerY);
+                if (distanceX < 0
+                    || distanceX > 1024
+                    || distanceY > 256
+                    || distanceX >= nearestThreatDistance)
+                    continue;
+                nearestThreatDistance = distanceX;
+                direction = bullet.Y >= battle.PlayerY ? -1 : 1;
+            }
+
+            if (battle.PlayerY >= 640 && direction > 0)
+                return -1;
+            if (battle.PlayerY <= -640 && direction < 0)
+                return 1;
+            return direction;
         }
 
         static void TrackChoiceState(
@@ -540,7 +580,7 @@ namespace Shmup.Core.Tests
             var damageProbe = new EnemyDefinition(
                 "damage_probe",
                 "Damage Probe",
-                1000,
+                1,
                 1,
                 0,
                 EnemyMovePattern.Static,
@@ -577,16 +617,21 @@ namespace Shmup.Core.Tests
                 BattleSimConfig.CreateDefault();
             config.PlayerMinX = 0;
             config.PlayerMaxX = 0;
-            config.PlayerMinY = 0;
-            config.PlayerMaxY = 0;
+            config.PlayerMinY = -768;
+            config.PlayerMaxY = 768;
             config.PlayerSpawnX = 0;
             config.PlayerSpawnY = 0;
+            config.UseConfiguredMainShotStats = true;
+            config.MainShotBaseDamage = 1;
+            config.FireIntervalTicks = 1;
+            config.PlayerBulletSpeedPerTick = 100;
+            config.MainShotHalfWidth = 20;
+            config.MainShotHalfHeight = 768;
             config.StartingShieldStock = 20;
             config.MaxShieldStock = 20;
-            config.PlayerHitInvulnerabilityTicks = 0;
             config.BulletDespawnX = 2000;
             config.EnemyDespawnX = -2000;
-            config.EnemyBulletDamage = 1;
+            config.EnemyBulletDamage = 0;
             config.MaxEnemyBullets = 128;
             return config;
         }
@@ -1010,7 +1055,7 @@ namespace Shmup.Core.Tests
                     1,
                     1,
                     1,
-                    36,
+                    120,
                     128,
                     128,
                     300,

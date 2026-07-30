@@ -418,16 +418,28 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void InjectedRewardsFailWhenStageHasFewerThanThreeEligibleEntries()
+        public void InjectedRewardsFillMissingEligibleEntriesWithFallbacks()
         {
             RewardCatalog rewards = Catalog(
                 Reward("only_a", 1, 1),
                 Reward("only_b", 1, 1),
                 Reward("late", 2, 9));
             RunManager run = CreateBossRun(seed: 42UL, rewards: rewards);
-            InvalidOperationException error = Assert.Throws<InvalidOperationException>(
-                () => CompleteBoss(run));
-            StringAssert.Contains("2 eligible rewards", error.Message);
+
+            CompleteBoss(run);
+
+            Assert.AreEqual(
+                RunManager.MainRewardOptionCount,
+                run.RewardOptions.Count);
+            int fallbackCount = 0;
+            for (int i = 0; i < run.RewardOptions.Count; i++)
+            {
+                if (run.RewardOptions[i].Id.StartsWith(
+                        "fallback_",
+                        StringComparison.Ordinal))
+                    fallbackCount++;
+            }
+            Assert.AreEqual(1, fallbackCount);
         }
 
         [Test]

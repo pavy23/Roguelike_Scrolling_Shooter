@@ -34,6 +34,23 @@ namespace Shmup.Core.Tests
       ""movement"": {
         ""pattern"": ""dive"", ""speed"": 6,
         ""delayTicks"": 20, ""durationTicks"": 30
+      },
+      ""midBoss"": {
+        ""themeId"": ""hive"", ""weight"": 4,
+        ""stageIndexMin"": 2, ""stageIndexMax"": 4,
+        ""phases"": [
+          {
+            ""fireIntervalTicks"": 48, ""ways"": 1,
+            ""bulletSpeed"": 8, ""movementPattern"": ""stationary"",
+            ""durationTicks"": 120
+          },
+          {
+            ""fireIntervalTicks"": 28, ""ways"": 3,
+            ""bulletSpeed"": 10, ""movementPattern"": ""verticalSine"",
+            ""movementAmplitude"": 2.5, ""movementPeriodTicks"": 90,
+            ""durationTicks"": 105, ""telegraphTicks"": 18
+          }
+        ]
       }
     },
     {
@@ -374,6 +391,18 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(60, dive.MoveSpeedDenominator);
             Assert.AreEqual(20, dive.MovementDelayTicks);
             Assert.AreEqual(30, dive.MovementDurationTicks);
+            Assert.IsNotNull(dive.MidBossProfile);
+            Assert.AreEqual("hive", dive.MidBossProfile.ThemeId);
+            Assert.AreEqual(4, dive.MidBossProfile.Weight);
+            Assert.AreEqual(2, dive.MidBossProfile.StageIndexMin);
+            Assert.AreEqual(4, dive.MidBossProfile.StageIndexMax);
+            Assert.AreEqual(2, dive.MidBossProfile.Phases.Count);
+            Assert.AreEqual(
+                120,
+                dive.MidBossProfile.Phases[0].DurationTicks);
+            Assert.AreEqual(
+                18,
+                dive.MidBossProfile.Phases[1].TelegraphTicks);
 
             EnemyDefinition zigzag = data.BattleContent.FindEnemy("zigzag_enemy");
             Assert.AreEqual(EnemyMovePattern.Zigzag, zigzag.MovePattern);
@@ -982,7 +1011,12 @@ namespace Shmup.Core.Tests
                 ReadUtf8(Path.Combine(root, "GameData", "scoring.json")),
                 ReadUtf8(Path.Combine(root, "GameData", "player.json")));
 
-            Assert.AreEqual(30, data.BattleContent.Enemies.Count);
+            bool hasHiveTentacle =
+                data.BattleContent.FindEnemy("hive_tentacle")
+                != null;
+            Assert.AreEqual(
+                hasHiveTentacle ? 31 : 30,
+                data.BattleContent.Enemies.Count);
             Assert.AreEqual(4, data.BattleContent.Weapons.Count);
             Assert.AreEqual(3, data.BattleContent.MissileFamilies.Count);
             Assert.AreEqual(3, data.BattleContent.OptionFormations.Count);
@@ -993,7 +1027,25 @@ namespace Shmup.Core.Tests
                 OptionFormation.Trail,
                 data.BattleContent.DefaultOptionFormation);
             Assert.AreEqual(38, data.StageGeneration.Segments.Count);
-            Assert.AreEqual(5, data.StageGeneration.Bosses.Count);
+            bool hasLeviathan = false;
+            bool hasBroodmother = false;
+            for (int i = 0;
+                i < data.StageGeneration.Bosses.Count;
+                i++)
+            {
+                string bossId =
+                    data.StageGeneration.Bosses[i].BossId;
+                if (bossId
+                    == SegmentStageGenerator.LeviathanBossId)
+                    hasLeviathan = true;
+                else if (bossId
+                    == SegmentStageGenerator.BroodmotherBossId)
+                    hasBroodmother = true;
+            }
+            Assert.AreEqual(hasLeviathan, hasBroodmother);
+            Assert.AreEqual(
+                hasLeviathan ? 7 : 5,
+                data.StageGeneration.Bosses.Count);
             Assert.AreEqual(3, data.Rewards.OptionCount);
             // 13 base + 3 missileFamily + 3 optionFormation (REQ-034).
             Assert.AreEqual(19, data.Rewards.All.Count);
