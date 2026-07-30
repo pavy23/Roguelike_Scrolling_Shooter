@@ -24,6 +24,9 @@ namespace Shmup.Core.Simulation
         public bool activate;
 
         [DataMember(Order = 4)]
+        public bool activateBomb;
+
+        [DataMember(Order = 5)]
         public int tickCount;
     }
 
@@ -34,7 +37,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class InputRecordingData
     {
-        public const int CurrentSchemaVersion = 8;
+        public const int CurrentSchemaVersion = 9;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -298,6 +301,7 @@ namespace Shmup.Core.Simulation
                     moveY = run.MoveY,
                     fire = run.Fire,
                     activate = run.Activate,
+                    activateBomb = run.ActivateBomb,
                     tickCount = run.TickCount
                 };
             }
@@ -400,7 +404,8 @@ namespace Shmup.Core.Simulation
             return run.MoveX == command.MoveX
                 && run.MoveY == command.MoveY
                 && run.Fire == command.Fire
-                && run.Activate == command.Activate;
+                && run.Activate == command.Activate
+                && run.ActivateBomb == command.ActivateBomb;
         }
 
         struct InputRun
@@ -411,6 +416,7 @@ namespace Shmup.Core.Simulation
                 MoveY = command.MoveY;
                 Fire = command.Fire;
                 Activate = command.Activate;
+                ActivateBomb = command.ActivateBomb;
                 TickCount = tickCount;
             }
 
@@ -418,6 +424,7 @@ namespace Shmup.Core.Simulation
             public int MoveY;
             public bool Fire;
             public bool Activate;
+            public bool ActivateBomb;
             public int TickCount;
         }
     }
@@ -462,7 +469,8 @@ namespace Shmup.Core.Simulation
                         run.moveX,
                         run.moveY,
                         run.fire,
-                        run.activate),
+                        run.activate,
+                        run.activateBomb),
                     run.tickCount);
             }
             RouteChoiceData[] serializedChoices =
@@ -574,7 +582,8 @@ namespace Shmup.Core.Simulation
                     && previous.moveX == run.moveX
                     && previous.moveY == run.moveY
                     && previous.fire == run.fire
-                    && previous.activate == run.activate)
+                    && previous.activate == run.activate
+                    && previous.activateBomb == run.activateBomb)
                 {
                     throw Corrupted(
                         "Adjacent identical input runs are not canonical.");

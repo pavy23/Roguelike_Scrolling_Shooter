@@ -22,6 +22,8 @@ namespace Shmup.Core.Content
     {
         [DataMember]
         public int? noDropWeight;
+        [DataMember]
+        public int? bombNoDropWeight;
     }
 
     [DataContract]
@@ -46,6 +48,8 @@ namespace Shmup.Core.Content
         [DataMember]
         public int? dropWeight;
         [DataMember]
+        public int? bombDropWeight;
+        [DataMember]
         public decimal? halfWidth;
         [DataMember]
         public decimal? halfHeight;
@@ -55,6 +59,8 @@ namespace Shmup.Core.Content
         public int? periodTicks;
         [DataMember]
         public EnemyMovementDto movement;
+        [DataMember]
+        public LaserAttackDto laser;
     }
 
     [DataContract]
@@ -74,6 +80,35 @@ namespace Shmup.Core.Content
         public int? durationTicks;
         [DataMember]
         public int? pauseTicks;
+    }
+
+    [DataContract]
+    internal sealed class LaserAttackDto
+    {
+        [DataMember]
+        public int? cycleIntervalTicks;
+        [DataMember]
+        public int? telegraphTicks;
+        [DataMember]
+        public int? firingTicks;
+        [DataMember]
+        public int? sustainTicks;
+        [DataMember]
+        public int? dissipateTicks;
+        [DataMember]
+        public decimal? startOffsetX;
+        [DataMember]
+        public decimal? startOffsetY;
+        [DataMember]
+        public decimal? endOffsetX;
+        [DataMember]
+        public decimal? endOffsetY;
+        [DataMember]
+        public decimal? thinHalfWidth;
+        [DataMember]
+        public decimal? fullHalfWidth;
+        [DataMember]
+        public int? damage;
     }
 
     [DataContract]
@@ -241,6 +276,8 @@ namespace Shmup.Core.Content
         public decimal? y;
         [DataMember]
         public int? hp;
+        [DataMember]
+        public LaserAttackDto laser;
     }
 
     [DataContract]

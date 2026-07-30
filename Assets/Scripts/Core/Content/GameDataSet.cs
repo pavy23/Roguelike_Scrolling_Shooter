@@ -22,6 +22,7 @@ namespace Shmup.Core.Content
             BattleContent battleContent,
             StageGenerationCatalog stageGeneration,
             int capsuleNoDropWeight,
+            int bombNoDropWeight,
             int scrollSpeedNumerator,
             int scrollSpeedDenominator,
             int maxEnemyBullets,
@@ -35,6 +36,8 @@ namespace Shmup.Core.Content
             StageGeneration = stageGeneration ?? throw new ArgumentNullException(nameof(stageGeneration));
             if (capsuleNoDropWeight < 0)
                 throw new ArgumentOutOfRangeException(nameof(capsuleNoDropWeight));
+            if (bombNoDropWeight < 0)
+                throw new ArgumentOutOfRangeException(nameof(bombNoDropWeight));
             if (scrollSpeedNumerator < 0)
                 throw new ArgumentOutOfRangeException(nameof(scrollSpeedNumerator));
             if (scrollSpeedDenominator < 1)
@@ -47,6 +50,7 @@ namespace Shmup.Core.Content
                 throw new ArgumentException("Every power-up slot needs a max level.", nameof(powerUpMaxLevels));
 
             CapsuleNoDropWeight = capsuleNoDropWeight;
+            BombNoDropWeight = bombNoDropWeight;
             ScrollSpeedNumerator = scrollSpeedNumerator;
             ScrollSpeedDenominator = scrollSpeedDenominator;
             _maxEnemyBullets = maxEnemyBullets;
@@ -91,6 +95,7 @@ namespace Shmup.Core.Content
         public BattleContent BattleContent { get; }
         public StageGenerationCatalog StageGeneration { get; }
         public int CapsuleNoDropWeight { get; }
+        public int BombNoDropWeight { get; }
         public int ScrollSpeedNumerator { get; }
         public int ScrollSpeedDenominator { get; }
         /// <summary>
@@ -138,6 +143,7 @@ namespace Shmup.Core.Content
             config.MainShotHalfWidth = main.ProjectileHalfWidth;
             config.MainShotHalfHeight = main.ProjectileHalfHeight;
             config.CapsuleNoDropWeight = CapsuleNoDropWeight;
+            config.BombNoDropWeight = BombNoDropWeight;
             config.ScrollSpeedNumerator = ScrollSpeedNumerator;
             config.ScrollSpeedDenominator = ScrollSpeedDenominator;
             config.MaxEnemyBullets = _maxEnemyBullets;

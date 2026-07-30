@@ -338,6 +338,7 @@ namespace Shmup.Core.Simulation
             FoldInt32(battle.PlayerY);
             FoldInt32(battle.PlayerHp);
             FoldInt32(battle.ShieldStock);
+            FoldInt32(battle.BombStock);
             FoldInt32(
                 battle.PlayerInvulnerabilityTicksRemaining);
             FoldInt32((int)battle.PlayerWeaponType);
@@ -391,6 +392,33 @@ namespace Shmup.Core.Simulation
                 FoldInt32(capsule.Id);
                 FoldInt32(capsule.X);
                 FoldInt32(capsule.Y);
+            }
+
+            FoldInt32(battle.BombPickups.Count);
+            for (int i = 0; i < battle.BombPickups.Count; i++)
+            {
+                BombPickupState pickup = battle.BombPickups[i];
+                FoldInt32(pickup.Id);
+                FoldInt32(pickup.X);
+                FoldInt32(pickup.Y);
+            }
+
+            FoldInt32(battle.Lasers.Count);
+            for (int i = 0; i < battle.Lasers.Count; i++)
+            {
+                LaserState laser = battle.Lasers[i];
+                FoldInt32(laser.Id);
+                FoldInt32((int)laser.SourceKind);
+                FoldInt32(laser.SourceEntityId);
+                FoldInt32(laser.StartX);
+                FoldInt32(laser.StartY);
+                FoldInt32(laser.EndX);
+                FoldInt32(laser.EndY);
+                FoldInt32((int)laser.Phase);
+                FoldInt32((int)laser.ThicknessStage);
+                FoldInt32(laser.HalfWidth);
+                FoldInt32(laser.PhaseTicksRemaining);
+                FoldInt32(laser.Damage);
             }
 
             ReadOnlySpan<SimEvent> events = battle.EventsThisTick;

@@ -181,6 +181,93 @@ namespace Shmup.Core.Simulation
     }
 
     /// <summary>
+    /// Immutable four-phase hostile laser profile. Segment offsets are relative
+    /// to the source entity and remain in integer simulation subunits.
+    /// </summary>
+    public sealed class LaserAttackDefinition
+    {
+        public LaserAttackDefinition(
+            int cycleIntervalTicks,
+            int telegraphTicks,
+            int firingTicks,
+            int sustainTicks,
+            int dissipateTicks,
+            int startOffsetX,
+            int startOffsetY,
+            int endOffsetX,
+            int endOffsetY,
+            int thinHalfWidth,
+            int fullHalfWidth,
+            int damage)
+        {
+            if (cycleIntervalTicks < 1)
+                throw new ArgumentOutOfRangeException(nameof(cycleIntervalTicks));
+            if (telegraphTicks < 1)
+                throw new ArgumentOutOfRangeException(nameof(telegraphTicks));
+            if (firingTicks < 1)
+                throw new ArgumentOutOfRangeException(nameof(firingTicks));
+            if (sustainTicks < 0)
+                throw new ArgumentOutOfRangeException(nameof(sustainTicks));
+            if (dissipateTicks < 1)
+                throw new ArgumentOutOfRangeException(nameof(dissipateTicks));
+            if (startOffsetX == endOffsetX && startOffsetY == endOffsetY)
+                throw new ArgumentException(
+                    "A laser segment must have distinct endpoints.");
+            if (thinHalfWidth < 0)
+                throw new ArgumentOutOfRangeException(nameof(thinHalfWidth));
+            if (fullHalfWidth < thinHalfWidth)
+                throw new ArgumentOutOfRangeException(
+                    nameof(fullHalfWidth),
+                    "Full laser width cannot be smaller than its thin width.");
+            if (damage < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(damage),
+                    "A hostile laser must deal positive damage.");
+
+            long lifetime = (long)telegraphTicks
+                + firingTicks
+                + sustainTicks
+                + dissipateTicks;
+            if (lifetime > int.MaxValue)
+                throw new ArgumentOutOfRangeException(
+                    nameof(dissipateTicks),
+                    "Laser lifetime exceeds the supported tick range.");
+            if (cycleIntervalTicks < lifetime)
+                throw new ArgumentOutOfRangeException(
+                    nameof(cycleIntervalTicks),
+                    "Laser cycles cannot overlap on the same source.");
+
+            CycleIntervalTicks = cycleIntervalTicks;
+            TelegraphTicks = telegraphTicks;
+            FiringTicks = firingTicks;
+            SustainTicks = sustainTicks;
+            DissipateTicks = dissipateTicks;
+            StartOffsetX = startOffsetX;
+            StartOffsetY = startOffsetY;
+            EndOffsetX = endOffsetX;
+            EndOffsetY = endOffsetY;
+            ThinHalfWidth = thinHalfWidth;
+            FullHalfWidth = fullHalfWidth;
+            Damage = damage;
+        }
+
+        public int CycleIntervalTicks { get; }
+        public int TelegraphTicks { get; }
+        public int FiringTicks { get; }
+        public int SustainTicks { get; }
+        public int DissipateTicks { get; }
+        public int StartOffsetX { get; }
+        public int StartOffsetY { get; }
+        public int EndOffsetX { get; }
+        public int EndOffsetY { get; }
+        public int ThinHalfWidth { get; }
+        public int FullHalfWidth { get; }
+        public int Damage { get; }
+        public int LifetimeTicks =>
+            TelegraphTicks + FiringTicks + SustainTicks + DissipateTicks;
+    }
+
+    /// <summary>
     /// Immutable, Unity-free enemy data. Speeds are simulation subunits per tick
     /// represented as an exact fraction.
     /// </summary>
@@ -264,6 +351,51 @@ namespace Shmup.Core.Simulation
             int movementDelayTicks,
             int movementDurationTicks,
             int movementPauseTicks)
+            : this(
+                id,
+                displayName,
+                maxHp,
+                contactDamage,
+                scoreValue,
+                movePattern,
+                moveSpeedNumerator,
+                moveSpeedDenominator,
+                fireIntervalTicks,
+                halfWidth,
+                halfHeight,
+                dropWeight,
+                movementAmplitudeNumerator,
+                movementAmplitudeDenominator,
+                movementPeriodTicks,
+                movementDelayTicks,
+                movementDurationTicks,
+                movementPauseTicks,
+                0,
+                null)
+        {
+        }
+
+        public EnemyDefinition(
+            string id,
+            string displayName,
+            int maxHp,
+            int contactDamage,
+            int scoreValue,
+            EnemyMovePattern movePattern,
+            int moveSpeedNumerator,
+            int moveSpeedDenominator,
+            int fireIntervalTicks,
+            int halfWidth,
+            int halfHeight,
+            int dropWeight,
+            int movementAmplitudeNumerator,
+            int movementAmplitudeDenominator,
+            int movementPeriodTicks,
+            int movementDelayTicks,
+            int movementDurationTicks,
+            int movementPauseTicks,
+            int bombDropWeight,
+            LaserAttackDefinition laserAttack)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Enemy id cannot be null or empty.", nameof(id));
@@ -291,6 +423,8 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(halfHeight));
             if (dropWeight < 0)
                 throw new ArgumentOutOfRangeException(nameof(dropWeight));
+            if (bombDropWeight < 0)
+                throw new ArgumentOutOfRangeException(nameof(bombDropWeight));
             if (movementAmplitudeNumerator < 0)
                 throw new ArgumentOutOfRangeException(nameof(movementAmplitudeNumerator));
             if (movementAmplitudeDenominator < 1)
@@ -320,6 +454,8 @@ namespace Shmup.Core.Simulation
             HalfWidth = halfWidth;
             HalfHeight = halfHeight;
             DropWeight = dropWeight;
+            BombDropWeight = bombDropWeight;
+            LaserAttack = laserAttack;
             MovementAmplitudeNumerator = movementAmplitudeNumerator;
             MovementAmplitudeDenominator = movementAmplitudeDenominator;
             MovementPeriodTicks = movementPeriodTicks;
@@ -340,6 +476,8 @@ namespace Shmup.Core.Simulation
         public int HalfWidth { get; }
         public int HalfHeight { get; }
         public int DropWeight { get; }
+        public int BombDropWeight { get; }
+        public LaserAttackDefinition LaserAttack { get; }
         public int MovementAmplitudeNumerator { get; }
         public int MovementAmplitudeDenominator { get; }
         public int MovementAmplitude =>

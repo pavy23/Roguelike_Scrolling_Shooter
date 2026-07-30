@@ -42,7 +42,9 @@ namespace Shmup.Core.Simulation
         MoveSpeedUp = 5,
         Modifier = 6,
         MissileFamily = 7,
-        OptionFormation = 8
+        OptionFormation = 8,
+        /// <summary>전멸 폭탄 스톡을 상한까지 즉시 획득.</summary>
+        BombStock = 9
     }
 
     /// <summary>보상 후보 하나.</summary>
@@ -477,6 +479,7 @@ namespace Shmup.Core.Simulation
         readonly int _difficultyMultiplierDenominator;
         readonly int[] _powerUpMaxLevels;
         readonly int _initialShieldStock;
+        readonly int _initialBombStock;
         readonly int _initialFireIntervalTicks;
         readonly int _initialMainShotBaseDamage;
         readonly int _initialPlayerSpeedNumerator;
@@ -519,6 +522,7 @@ namespace Shmup.Core.Simulation
         int _stageStartRoomsCleared;
         int _stageStartPlayerLife;
         int _stageStartShieldStock;
+        int _stageStartBombStock;
         BattleModifier _stageStartActiveModifiers;
         MissileFamily _stageStartMissileFamily;
         OptionFormation _stageStartOptionFormation;
@@ -1023,6 +1027,8 @@ namespace Shmup.Core.Simulation
             }
             _initialShieldStock =
                 _battleConfig.StartingShieldStock;
+            _initialBombStock =
+                _battleConfig.StartingBombStock;
             _initialFireIntervalTicks = _battleConfig.FireIntervalTicks;
             _initialMainShotBaseDamage = _battleConfig.MainShotBaseDamage;
             _initialPlayerSpeedNumerator = _battleConfig.PlayerSpeedNumerator;
@@ -1209,6 +1215,8 @@ namespace Shmup.Core.Simulation
                 shieldRemaining = _stageStartShieldStock,
                 shieldStock = _stageStartShieldStock,
                 maxShieldStock = _battleConfig.MaxShieldStock,
+                bombStock = _stageStartBombStock,
+                maxBombStock = _battleConfig.MaxBombStock,
                 rewardAcquisitions = acquisitions,
                 activeModifiers = (int)_stageStartActiveModifiers,
                 missileFamily = (int)_stageStartMissileFamily,
@@ -1389,6 +1397,10 @@ namespace Shmup.Core.Simulation
                 data.maxShieldStock;
             manager._battleConfig.StartingShieldStock =
                 data.shieldStock;
+            manager._battleConfig.MaxBombStock =
+                data.maxBombStock;
+            manager._battleConfig.StartingBombStock =
+                data.bombStock;
             manager._battleConfig.FireIntervalTicks =
                 data.fireIntervalTicks;
             manager._battleConfig.MainShotBaseDamage =
@@ -1411,10 +1423,11 @@ namespace Shmup.Core.Simulation
             manager.BuildCurrentStage();
 
             if (manager.Battle.PlayerHp != data.playerHp
-                || manager.Battle.ShieldStock != data.shieldStock)
+                || manager.Battle.ShieldStock != data.shieldStock
+                || manager.Battle.BombStock != data.bombStock)
             {
                 throw new ArgumentException(
-                    "Suspend player life or shield stock does not match "
+                    "Suspend player life, shield stock, or bomb stock does not match "
                     + "the reconstructed stage boundary.",
                     nameof(data));
             }
@@ -1433,7 +1446,8 @@ namespace Shmup.Core.Simulation
                 input.MoveX,
                 input.MoveY,
                 input.Fire,
-                activatePressed);
+                activatePressed,
+                input.ActivateBomb);
             Battle.Step(in battleInput);
             ObserveBattleEvents();
             if (Battle.PlayerHp <= 0)
@@ -1744,6 +1758,12 @@ namespace Shmup.Core.Simulation
                             "Shield stock recovery requires BattleSim.");
                     battle.RecoverShieldStock(option.Amount);
                     break;
+                case RewardType.BombStock:
+                    if (!(Battle is BattleSim bombBattle))
+                        throw new InvalidOperationException(
+                            "Bomb stock acquisition requires BattleSim.");
+                    bombBattle.AcquireBombStock(option.Amount);
+                    break;
                 case RewardType.FireRateUp:
                     _battleConfig.FireIntervalTicks = Math.Max(
                         Math.Min(
@@ -2033,6 +2053,7 @@ namespace Shmup.Core.Simulation
                 0,
                 _rewardAcquisitionCounts.Length);
             _battleConfig.StartingShieldStock = _initialShieldStock;
+            _battleConfig.StartingBombStock = _initialBombStock;
             _battleConfig.FireIntervalTicks = _initialFireIntervalTicks;
             _battleConfig.MainShotBaseDamage = _initialMainShotBaseDamage;
             _battleConfig.PlayerSpeedNumerator = _initialPlayerSpeedNumerator;
@@ -2092,6 +2113,7 @@ namespace Shmup.Core.Simulation
         void AccumulateCompletedBattle()
         {
             _battleConfig.StartingShieldStock = Battle.ShieldStock;
+            _battleConfig.StartingBombStock = Battle.BombStock;
             BattleStatistics battle = Battle.Statistics;
             _completedStageScore = TotalScore;
             _completedShotsFired = AddSaturated(
@@ -2399,6 +2421,12 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     "Suspend shield stock is outside its cap or its "
                     + "compatibility mirror does not match.",
+                    nameof(data));
+            if (data.maxBombStock < 1
+                || data.bombStock < 0
+                || data.bombStock > data.maxBombStock)
+                throw new ArgumentException(
+                    "Suspend bomb stock is outside its cap.",
                     nameof(data));
             if (data.fireIntervalTicks < 0
                 || data.mainShotBaseDamage < 0
@@ -2945,6 +2973,7 @@ namespace Shmup.Core.Simulation
             _stageStartRoomsCleared = _roomsCleared;
             _stageStartPlayerLife = Battle.PlayerHp;
             _stageStartShieldStock = Battle.ShieldStock;
+            _stageStartBombStock = Battle.BombStock;
             _stageStartActiveModifiers = ActiveModifiers;
             _stageStartMissileFamily = CurrentMissileFamily;
             _stageStartOptionFormation = CurrentOptionFormation;
