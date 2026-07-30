@@ -55,6 +55,15 @@
       "stageIndexMax": 99
     },
     {
+      "id": "bomb_stock_1",
+      "type": "bombStock",
+      "amount": 1,
+      "weight": 2,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99,
+      "maxPerRun": 3
+    },
+    {
       "id": "passive_fire_rate_1",
       "type": "fireRateUp",
       "amount": 1,
