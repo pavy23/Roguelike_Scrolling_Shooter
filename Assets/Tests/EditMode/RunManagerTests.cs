@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Shmup.Core.Generation;
@@ -296,6 +297,116 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void AnalogInputMovesPlayerThroughRunManager()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpeedPerTick = 10;
+            var manager = new RunManager(
+                0x4601UL,
+                new TestStageGenerator(false, 5),
+                config,
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
+            InputCommand input =
+                InputCommand.Analog(3, -4, false);
+
+            manager.Step(in input);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(3, manager.Battle.PlayerX);
+                Assert.AreEqual(-4, manager.Battle.PlayerY);
+            });
+        }
+
+        [Test]
+        public void AnalogInputClampsAtPlayerSpeedThroughRunManager()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpeedPerTick = 5;
+            var manager = new RunManager(
+                0x4602UL,
+                new TestStageGenerator(false, 5),
+                config,
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
+            InputCommand input =
+                InputCommand.Analog(30, 40, false);
+
+            manager.Step(in input);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(3, manager.Battle.PlayerX);
+                Assert.AreEqual(4, manager.Battle.PlayerY);
+                Assert.LessOrEqual(
+                    (long)manager.Battle.PlayerX
+                        * manager.Battle.PlayerX
+                    + (long)manager.Battle.PlayerY
+                        * manager.Battle.PlayerY,
+                    25L);
+            });
+        }
+
+        [Test]
+        public void AnalogZeroDeltaStopsAndOverridesDigitalThroughRunManager()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpeedPerTick = 10;
+            var manager = new RunManager(
+                0x4603UL,
+                new TestStageGenerator(false, 5),
+                config,
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
+            var input = new InputCommand(
+                1,
+                -1,
+                false,
+                false,
+                false,
+                0,
+                0);
+
+            manager.Step(in input);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(0, manager.Battle.PlayerX);
+                Assert.AreEqual(0, manager.Battle.PlayerY);
+            });
+        }
+
+        [Test]
+        public void AnalogInputPreservesBombActivationThroughRunManager()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpeedPerTick = 10;
+            config.StartingBombStock = 1;
+            var manager = new RunManager(
+                0x4604UL,
+                new TestStageGenerator(false, 5),
+                config,
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
+            InputCommand input =
+                InputCommand.Analog(
+                    2,
+                    1,
+                    false,
+                    activateBomb: true);
+
+            manager.Step(in input);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(0, manager.Battle.BombStock);
+                Assert.AreEqual(2, manager.Battle.PlayerX);
+                Assert.AreEqual(1, manager.Battle.PlayerY);
+            });
+        }
+
+        [Test]
         public void RestartNeverDropsBelowShipStartingLevels()
         {
             var ship = new ShipDefinition(
@@ -427,6 +538,8 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(stageIndex, call.StageIndex);
             Assert.AreEqual(difficulty, call.Difficulty);
         }
+
+        static void AssertAll(Action assert) => assert();
 
         static void AssertManagersEqual(
             RunManager expected,

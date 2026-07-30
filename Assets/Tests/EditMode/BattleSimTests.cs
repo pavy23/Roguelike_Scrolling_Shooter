@@ -26,6 +26,41 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void InputCommand_WithActivatePreservesEveryOtherField()
+        {
+            var input = new InputCommand(
+                -12,
+                5,
+                true,
+                false,
+                true,
+                7,
+                -11);
+
+            InputCommand activated = input.WithActivate(true);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(input.MoveX, activated.MoveX);
+                Assert.AreEqual(input.MoveY, activated.MoveY);
+                Assert.AreEqual(input.Fire, activated.Fire);
+                Assert.IsTrue(activated.Activate);
+                Assert.AreEqual(
+                    input.ActivateBomb,
+                    activated.ActivateBomb);
+                Assert.AreEqual(
+                    input.AnalogDeltaXSubUnits,
+                    activated.AnalogDeltaXSubUnits);
+                Assert.AreEqual(
+                    input.AnalogDeltaYSubUnits,
+                    activated.AnalogDeltaYSubUnits);
+                Assert.AreEqual(
+                    input.UseAnalogMovement,
+                    activated.UseAnalogMovement);
+            });
+        }
+
+        [Test]
         public void DefaultConfig_PreservesGameDataSpeedsAsExactFractions()
         {
             BattleSimConfig config = BattleSimConfig.CreateDefault();
