@@ -1,7 +1,7 @@
 {
   "schemaVersion": 3,
   "dropTable": {
-    "noDropWeight": 16
+    "noDropWeight": 15
   },
   "enemies": [
     {
@@ -162,6 +162,20 @@
         "speed": 9.5,
         "durationTicks": 10,
         "pauseTicks": 28
+      }
+    },
+    {
+      "id": "hive_tentacle",
+      "displayName": "Hive Tentacle",
+      "hp": 160,
+      "contactDamage": 1,
+      "scoreValue": 280,
+      "fireIntervalTicks": 100,
+      "dropWeight": 7,
+      "halfWidth": 0.625,
+      "halfHeight": 1.25,
+      "movement": {
+        "pattern": "static"
       }
     },
     {

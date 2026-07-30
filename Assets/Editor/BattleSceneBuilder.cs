@@ -218,6 +218,65 @@ namespace Shmup.EditorTools
             ['C'] = new Color32(0xFF, 0xD0, 0x80, 0xFF)
         };
 
+        // 스크랩야드 고철 잔해 32×32 (REQ-055). 스크랩야드의 기믹은 "떠다니는 잔해를
+        // 엄폐물로 쓰거나 부순다"인데 크리스탈 스프라이트를 쓰고 있어서 고철 폐기장에
+        // 청록 결정이 떠 있었다 — 기믹 의도가 전달되지 않는다.
+        //
+        // 크리스탈의 규칙적 기하와 대비되는 **불규칙한 파편**이어야 "부술 것"으로 읽힌다.
+        const string ScrapDebrisSpritePath = SpriteDir + "/obstacle_scrap_debris.png";
+
+        static string[] BuildScrapDebrisPixels()
+        {
+            const int size = 32;
+            const int spokes = 16;
+
+            // 각도별 반지름을 고정 시드 의사난수로 흔들어 울퉁불퉁한 실루엣을 만든다.
+            // 시드를 박아 두어 빌드마다 같은 모양이 나온다.
+            var radii = new float[spokes];
+            uint h = 0x9E3779B9u;
+            for (int i = 0; i < spokes; i++)
+            {
+                h = h * 1664525u + 1013904223u;
+                radii[i] = 9.5f + (h >> 24) / 255f * 5f;
+            }
+
+            var rows = new string[size];
+            float centre = size / 2f - 0.5f;
+            for (int y = 0; y < size; y++)
+            {
+                var row = new char[size];
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = x - centre, dy = y - centre;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+
+                    float ang = Mathf.Atan2(dy, dx) / (Mathf.PI * 2f);
+                    if (ang < 0f) ang += 1f;
+                    float s = ang * spokes;
+                    int i0 = (int)s % spokes;
+                    float r = Mathf.Lerp(radii[i0], radii[(i0 + 1) % spokes], s - (int)s);
+
+                    if (dist > r) { row[x] = '.'; continue; }
+                    if (dist > r - 1.6f) { row[x] = 'O'; continue; }
+
+                    // 내부를 대각 띠로 갈라 찌그러진 판이 겹친 것처럼 보이게 한다.
+                    float band = Mathf.Repeat(x + y * 0.6f, 7f);
+                    row[x] = band < 2f ? 'H' : band < 4.5f ? 'M' : 'D';
+                }
+                rows[y] = new string(row);
+            }
+            return rows;
+        }
+
+        // 녹슨 고철 — 크리스탈(청록)·포자(자주)와 색으로도 갈린다.
+        static readonly Dictionary<char, Color32> ScrapDebrisPalette = new Dictionary<char, Color32>
+        {
+            ['O'] = new Color32(0x2C, 0x22, 0x1C, 0xFF),   // 외곽
+            ['D'] = new Color32(0x4E, 0x3C, 0x2E, 0xFF),   // 그늘진 면
+            ['M'] = new Color32(0x78, 0x60, 0x48, 0xFF),   // 중간 면
+            ['H'] = new Color32(0xAC, 0x92, 0x70, 0xFF)    // 빛 받는 면
+        };
+
         // 전멸 폭탄 픽업 10×10 방사 별. 캡슐(시안 다이아몬드)·옵션(주황 구체)과 한눈에
         // 구분되어야 해서 시안의 보색인 자홍으로 두고, 방사형 실루엣으로 "터지는 것"임을
         // 알린다. 대각선 점은 반짝임이다.
@@ -924,8 +983,19 @@ namespace Shmup.EditorTools
             SetReference(director, "_obstaclePrefab", obstaclePrefab);
             SetReferenceArray(director, "_obstacleSolidSprites", new[]
                 { armorSprite, armorSprite, armorSprite, armorSprite, coreBlockSprite });
+            // 파괴 가능 장애물은 스테이지 테마를 따라야 한다 (REQ-055). 예전에는 스크랩야드와
+            // 포트리스까지 크리스탈이라 고철 폐기장·금속 요새에 청록 결정이 떠 있었다.
+            var scrapDebrisSprite = WriteExternalOrPixelSprite(
+                ScrapDebrisSpritePath, "obstacle_scrap_debris.png",
+                BuildScrapDebrisPixels(), ScrapDebrisPalette);
             SetReferenceArray(director, "_obstacleBreakableSprites", new[]
-                { crystalSprite, sporeSprite, crystalSprite, crystalSprite, crystalSprite });
+            {
+                scrapDebrisSprite,   // 1 스크랩야드 — 고철
+                sporeSprite,         // 2 바이오 하이브 — 포자
+                scrapDebrisSprite,   // 3 포트리스 — 금속 파편
+                crystalSprite,       // 4 네뷸라 — 결정
+                crystalSprite        // 5 코어 — 결정
+            });
 
             // UI 픽셀 폰트 (Galmuri, OFL — Assets/Fonts/Galmuri-LICENSE-OFL.txt)
             var uiFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Galmuri9.ttf");
