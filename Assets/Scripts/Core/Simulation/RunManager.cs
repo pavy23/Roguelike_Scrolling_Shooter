@@ -1414,7 +1414,9 @@ namespace Shmup.Core.Simulation
 
             manager._runSeed = data.runSeed;
             manager.RunNumber = data.runNumber;
-            manager.BiomeIndex = data.biomeIndex;
+            manager.BiomeIndex = data.isHiddenBiome
+                ? data.biomeCount
+                : data.biomeIndex;
             manager.RoomIndex = data.roomIndex;
             manager.IsBiomeBoss = data.isBiomeBoss;
             manager.IsHiddenBiome = data.isHiddenBiome;
@@ -1516,7 +1518,9 @@ namespace Shmup.Core.Simulation
                 input.WithActivate(activatePressed);
             Battle.Step(in battleInput);
             ObserveBattleEvents();
-            if (Battle.PlayerHp <= 0)
+            // Death is authoritative and wins over every room/boss-clear
+            // transition produced by the same battle tick.
+            if (!Battle.IsPlayerAlive)
             {
                 State = RunState.RunOver;
                 return;
@@ -1649,7 +1653,9 @@ namespace Shmup.Core.Simulation
 
             AccumulateCompletedBattle();
             IsHiddenBiome = true;
-            BiomeIndex = BiomeCount + 1;
+            // Hidden content extends the final biome; it is not a sixth public
+            // campaign biome. Keep the HUD/save-facing progression bounded.
+            BiomeIndex = BiomeCount;
             RoomIndex = 1;
             IsBiomeBoss = false;
             State = RunState.Playing;
@@ -2347,7 +2353,9 @@ namespace Shmup.Core.Simulation
                     nameof(data));
             bool hiddenBiomePosition =
                 data.isHiddenBiome
-                && data.biomeIndex == data.biomeCount + 1;
+                && (data.biomeIndex == data.biomeCount
+                    // Accept REQ-035 payloads written before REQ-052.
+                    || data.biomeIndex == data.biomeCount + 1);
             if (data.biomeCount < 1
                 || data.finalStageIndex != data.biomeCount
                 || data.biomeIndex < 1
@@ -2368,7 +2376,10 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     "Suspend room progression is invalid.",
                     nameof(data));
-            if (data.stagesCleared != data.biomeIndex - 1)
+            int expectedBiomesCleared = hiddenBiomePosition
+                ? data.biomeCount
+                : data.biomeIndex - 1;
+            if (data.stagesCleared != expectedBiomesCleared)
                 throw new ArgumentException(
                     "Suspend biomesCleared must match the biome boundary.",
                     nameof(data));
@@ -2895,10 +2906,12 @@ namespace Shmup.Core.Simulation
             ApplyCurrentLoadoutProfiles();
             int generationBiomeIndex =
                 IsHiddenBiome ? BiomeCount : BiomeIndex;
+            int battleSequenceBiomeIndex =
+                IsHiddenBiome ? BiomeCount + 1 : BiomeIndex;
             Difficulty = _difficultyCurve.GetDifficulty(
-                IsHiddenBiome ? BiomeCount + 1 : BiomeIndex);
+                battleSequenceBiomeIndex);
             ulong generationSeed = GetRoomGenerationSeed(
-                BiomeIndex,
+                battleSequenceBiomeIndex,
                 RoomIndex,
                 IsBiomeBoss);
             StagePlan generated;
@@ -2926,7 +2939,7 @@ namespace Shmup.Core.Simulation
                 if (!IsBiomeBoss
                     && RoomIndex == 1
                     && !TryGetRouteChoice(
-                        BiomeIndex,
+                        battleSequenceBiomeIndex,
                         RoomIndex,
                         out _))
                 {
@@ -2937,7 +2950,7 @@ namespace Shmup.Core.Simulation
                     string themeId = basePlan.ThemeId;
                     EncounterType encounterType = EncounterType.Normal;
                     if (TryGetRouteChoice(
-                            BiomeIndex,
+                            battleSequenceBiomeIndex,
                             RoomIndex,
                             out RouteChoice routeChoice))
                     {
@@ -2970,7 +2983,7 @@ namespace Shmup.Core.Simulation
 
             Rng battleRng = new Rng(_runSeed)
                 .Fork(BattleSimulationStream)
-                .Fork(BiomeIndex)
+                .Fork(battleSequenceBiomeIndex)
                 .Fork(RoomIndex)
                 .Fork(IsBiomeBoss ? 1 : 0);
             Battle = new BattleSim(

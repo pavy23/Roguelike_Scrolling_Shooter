@@ -33,6 +33,95 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void ShieldOneToZeroSurvivesThenNextEffectiveHitEndsRun()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.StartingShieldStock = 1;
+            config.PlayerHitInvulnerabilityTicks =
+                BattleSimConfig.DefaultPlayerHitInvulnerabilityTicks;
+            var manager = new RunManager(
+                12UL,
+                new ShieldHitStageGenerator(),
+                config,
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
+            InputCommand none = InputCommand.None;
+
+            manager.Step(in none);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(0, manager.Battle.ShieldStock);
+                Assert.IsTrue(manager.Battle.IsPlayerAlive);
+                Assert.AreEqual(1, manager.Battle.PlayerHp);
+                Assert.AreEqual(
+                    BattleSimConfig.DefaultPlayerHitInvulnerabilityTicks,
+                    manager.Battle.PlayerInvulnerabilityTicksRemaining);
+                Assert.AreEqual(RunState.Playing, manager.State);
+            });
+
+            manager.Step(in none);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(0, manager.Battle.ShieldStock);
+                Assert.IsTrue(manager.Battle.IsPlayerAlive);
+                Assert.AreEqual(
+                    BattleSimConfig.DefaultPlayerHitInvulnerabilityTicks - 1,
+                    manager.Battle.PlayerInvulnerabilityTicksRemaining);
+                Assert.AreEqual(RunState.Playing, manager.State);
+            });
+
+            Step(
+                manager,
+                BattleSimConfig.DefaultPlayerHitInvulnerabilityTicks - 2,
+                in none);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(0, manager.Battle.ShieldStock);
+                Assert.IsTrue(manager.Battle.IsPlayerAlive);
+                Assert.AreEqual(
+                    1,
+                    manager.Battle.PlayerInvulnerabilityTicksRemaining);
+                Assert.AreEqual(RunState.Playing, manager.State);
+            });
+
+            manager.Step(in none);
+
+            AssertAll(() =>
+            {
+                Assert.IsFalse(manager.Battle.IsPlayerAlive);
+                Assert.AreEqual(0, manager.Battle.PlayerHp);
+                Assert.AreEqual(RunState.RunOver, manager.State);
+            });
+        }
+
+        [Test]
+        public void PlayerDeathWinsWhenRoomClearOccursOnSameTick()
+        {
+            var manager = CreateManager(
+                13UL,
+                new LethalBoundaryStageGenerator(),
+                PowerUpGauge.CreateDefault());
+            InputCommand none = InputCommand.None;
+
+            manager.Step(in none);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(1, manager.Battle.Tick);
+                Assert.IsFalse(manager.Battle.IsPlayerAlive);
+                Assert.AreEqual(RunState.RunOver, manager.State);
+                Assert.AreEqual(1, manager.BiomeIndex);
+                Assert.AreEqual(1, manager.RoomIndex);
+                Assert.IsFalse(manager.IsBiomeBoss);
+                Assert.AreEqual(0, manager.Statistics.RoomsCleared);
+                Assert.AreEqual(0, manager.Statistics.StagesCleared);
+            });
+        }
+
+        [Test]
         public void CompletedRoomsKeepDifficultyAtCurrentBiome()
         {
             var generator = new TestStageGenerator(false, 1, 2);
@@ -616,6 +705,62 @@ namespace Shmup.Core.Tests
                     1,
                     new[] { 1 });
                 return new StagePlan(new[] { segment }, "boss", 1, 1, 1);
+            }
+        }
+
+        sealed class ShieldHitStageGenerator : IStageGenerator
+        {
+            public StagePlan Generate(
+                ulong seed,
+                int stageIndex,
+                int difficulty)
+            {
+                var spawns =
+                    new SpawnEvent[
+                        BattleSimConfig
+                            .DefaultPlayerHitInvulnerabilityTicks + 1];
+                for (int tick = 1; tick <= spawns.Length; tick++)
+                    spawns[tick - 1] =
+                        new SpawnEvent(tick, "rammer", 0, 0);
+                var segment = new StageSegment(
+                    "shield_hit_regression",
+                    spawns.Length + 1,
+                    spawns,
+                    1,
+                    1,
+                    new[] { 1 });
+                return new StagePlan(
+                    new[] { segment },
+                    "boss",
+                    1,
+                    1,
+                    1);
+            }
+        }
+
+        sealed class LethalBoundaryStageGenerator : IStageGenerator
+        {
+            public StagePlan Generate(
+                ulong seed,
+                int stageIndex,
+                int difficulty)
+            {
+                var segment = new StageSegment(
+                    "lethal_boundary",
+                    1,
+                    new[]
+                    {
+                        new SpawnEvent(0, "rammer", 0, 0)
+                    },
+                    1,
+                    1,
+                    new[] { 1 });
+                return new StagePlan(
+                    new[] { segment },
+                    "boss",
+                    1,
+                    1,
+                    1);
             }
         }
 

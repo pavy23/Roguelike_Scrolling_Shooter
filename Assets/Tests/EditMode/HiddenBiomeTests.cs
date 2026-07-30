@@ -75,7 +75,7 @@ namespace Shmup.Core.Tests
 
             Assert.IsTrue(run.IsHiddenBiome);
             Assert.IsTrue(run.IsBiomeBoss);
-            Assert.AreEqual(3, run.BiomeIndex);
+            Assert.AreEqual(run.BiomeCount, run.BiomeIndex);
             Assert.AreEqual(2, run.RoomIndex);
             Assert.AreEqual(4, run.EliteRoomsCleared);
             Assert.AreEqual(2, run.NoHitBiomesCleared);
@@ -333,6 +333,10 @@ namespace Shmup.Core.Tests
                     run.ChooseRoute(0);
                 else
                     run.Step(in fire);
+                Assert.LessOrEqual(
+                    run.BiomeIndex,
+                    run.BiomeCount,
+                    "Public biome progression must never expose BIOME 6/5.");
             }
             Assert.IsTrue(run.IsHiddenBiome);
             Assert.IsTrue(run.IsBiomeBoss);
