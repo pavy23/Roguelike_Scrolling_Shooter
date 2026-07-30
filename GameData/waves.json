@@ -752,11 +752,11 @@
         },
         {
           "tick": 580,
-          "enemyId": "elite_sine",
+          "enemyId": "zako_sine_slow",
           "y": 0
         }
       ],
-      "intent": "사인 잡몹 러시 후 강화형·중형 조준"
+      "intent": "사인 잡몹 러시 — 초반 친화(중형 앵커 제거, 리듬 학습)"
     },
     {
       "id": "seg_hive_spore_cloud",
@@ -5405,7 +5405,7 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 9000,
+      "hp": 8500,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,

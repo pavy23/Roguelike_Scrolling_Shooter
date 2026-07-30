@@ -6,7 +6,7 @@
       "displayName": "Starter",
       "moveSpeedMultiplierNumerator": 1,
       "moveSpeedMultiplierDenominator": 1,
-      "startingPowerUpLevels": [0, 0, 0, 0],
+      "startingPowerUpLevels": [2, 0, 0, 0],
       "unlockCost": 0,
       "weaponType": "vulcan",
       "maxHp": 3

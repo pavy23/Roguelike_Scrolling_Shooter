@@ -4,6 +4,41 @@
 
 ---
 
+## 2026-07-30 REQ-060 — 첫 스테이지 난이도 (완료 · 잠정 §7)
+
+**완료 (content):** 스테이지1 클리어 가능하도록 초반 화력·중간보스 HP·세그/드롭/첫 보스 조정. 후반 보스·세그 HP 유지.  
+**상세 표:** `Reviews/from-grok/req060-stage1-difficulty-2026-07-30.md`
+
+### 핵심 수치
+
+| 항목 | 전 → 후 |
+|---|---|
+| starter Main | L0 (75 DPS) → **L2 (128.6 DPS)** |
+| mini_* HP | 2400–4500 → **800–1600** |
+| boss_stage1 | 9000 → **8500** |
+| noDropWeight | 15 → **13** |
+| seg_sine_rush | elite 앵커 제거 (HP 1052→532) |
+
+### CODEX
+
+1. [ ] **중간보스 스테이지/테마 가중 선택** — `CreateMidBossPlan`이 전역 `mini_*` 균등. stage1에 walker(최강) 가능. 홈 테마 soft prefer + stage 스케일 HP/후보 풀.
+2. [ ] **sim `GenerateCore`에 `IsHiddenOnlyColossalBoss` 복원** — content Core에 이미 있음. 없으면 stage5 normal gen이 leviathan/broodmother를 뽑고 BalanceSim colossal 제외 게이트 실패.
+3. [ ] content ← sim 병합 후 laser/gimmick 파서 → content 워크트리 `dotnet test` / `BalanceSim` 자체 통과.
+4. [ ] (기존) `RepositoryApprovedV2Files` 적 수 30→31 · 리듬 런 2건 (REQ-057)
+
+### CLAUDE
+
+1. [ ] Resources GameData 동기화: `ships.json` · `enemies.json` · `waves.json`
+2. [ ] 스타터 Main2 시작이 HUD 게이지/툴팁과 맞는지 확인
+
+### 검증
+
+- BalanceSim (sim Core + content data): REQ-060 **CLEAR**, 조립 50/50, 드롭/보스 TTK **PASS**
+- colossal normal-gen: sim 스킵 부재로 1 FAIL (위 CODEX #2)
+- 성장 곡선·실드 상한 3: **변경 없음** (제안만 문서)
+
+---
+
 ## 2026-07-30 REQ-055 — 스테이지 기믹 데이터 완료
 
 **완료 (content):** `GameData/waves.json` gimmicks/environment/breakable·laser 배치, `enemies.json` `hive_tentacle`, BalanceSim stage-1 잔해 정책.  

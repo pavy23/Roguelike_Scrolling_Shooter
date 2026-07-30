@@ -88,9 +88,10 @@ static class Program
 
     // Capsule magnet recovery band (REQ-029, provisional §7).
     // Magnet makes near-full pickup realistic; stage = 3 segments weight-biased mean.
+    // REQ-060: 1+L+L² growth needs more early capsules; magnet ≈ full recovery.
     const double MinStageCapsuleExpectation = 10.0;
-    const double MaxStageCapsuleExpectation = 16.0;
-    const double MaxSupplyNodeCapsuleExpectation = 18.0;
+    const double MaxStageCapsuleExpectation = 20.0;
+    const double MaxSupplyNodeCapsuleExpectation = 22.0;
 
     // Boss redesign TTK / phase gates (playtest 2026-07-30: first boss tutorial-short).
     // Biome path: 4 rooms then boss — average build DPS at reach, not full-power max.
@@ -107,12 +108,26 @@ static class Program
     // Expected biome-reach DPS anchors (see analyze_stage_hp.py) — 4-room average.
     static readonly (string Id, double ExpectedDps)[] BossExpectedDps =
     {
-        ("boss_stage1", 500.0),
+        // REQ-060: first boss tutorial-short; mid anchor assumes Main2 start + light growth.
+        ("boss_stage1", 450.0),
         ("boss_hive", 600.0),
         ("boss_fortress", 720.0),
         ("boss_storm", 880.0),
         ("boss_core", 1050.0),
     };
+
+    // REQ-060 stage-1 / curve clearability (provisional §7).
+    // Mid-skill hit uptime on large hitboxes; not god-run, not death spiral.
+    const double MidSkillHitUptime = 0.70;
+    // Midboss must melt within this wall-clock at starter effective DPS.
+    const double MaxMidBossTtkStarterSeconds = 18.0;
+    // Full stage (open+mid+close+boss) budget at expected reach DPS.
+    const double MaxStage1FullTtkSeconds = 140.0;
+    // Soft hit budget vs starter shield stocks (maxHp→stock=3).
+    // Mid skill may spend ~all stocks; repair reward is available as safety.
+    const double MaxStage1ExpectedHits = 3.25;
+    // Tutorial→real jump is intentional (stage1 gentle); stage2 must not 4×+ spike.
+    const double MaxStage1To2HpJump = 4.0;
 
     // REQ-034 missile family / option formation gates (provisional §7).
     // Playtest 2026-07-30: missile fire rate lowered (support weapon, less screen fill).
@@ -214,6 +229,8 @@ static class Program
         failures += CheckWeaponExpansion(data);
         Console.WriteLine();
         failures += CheckColossalBosses(data, generator);
+        Console.WriteLine();
+        failures += CheckStageClearability(data);
 
         Console.WriteLine();
         if (failures == 0)
@@ -4927,6 +4944,291 @@ static class Program
     }
 
     static string NullLabel(string value) => value ?? "<null>";
+
+    /// <summary>
+    /// REQ-060: stage-1 must be learnable with starter ship + mid dodge skill.
+    /// Models Opening(3seg)+MidBoss+Closing(3seg)+StageBoss under Main2-start
+    /// firepower and 1+L+L² growth (capsule EV from rooms only). Late stages
+    /// are reported for the difficulty table; only stage-1 has hard gates.
+    /// </summary>
+    static int CheckStageClearability(GameDataSet data)
+    {
+        int failures = 0;
+        StageGenerationCatalog catalog = data.StageGeneration;
+        BattleContent content = data.BattleContent;
+
+        Console.WriteLine(
+            "REQ-060 stage clearability (starter / mid-skill, provisional §7):");
+
+        ShipDefinition starter = data.FindShip("starter");
+        if (starter == null)
+        {
+            Console.WriteLine("FAIL clear: missing ships.json starter.");
+            return 1;
+        }
+
+        int[] startLevels = starter.ExportStartingPowerUpLevels();
+        int mainStart = startLevels[(int)PowerUpSlot.MainShot];
+        int shieldStocks = starter.MaxHp ?? 1;
+        WeaponDefinition mainWeapon = content.FindWeapon(PowerUpSlot.MainShot);
+        if (mainWeapon == null)
+        {
+            Console.WriteLine("FAIL clear: missing MainShot weapon definition.");
+            return 1;
+        }
+
+        double starterDps = TheoreticalMainShotDps(mainWeapon, mainStart);
+        double starterEff = starterDps * MidSkillHitUptime;
+
+        Console.WriteLine(
+            $"  starter Main L{mainStart} DPS={starterDps:F1} " +
+            $"eff@{MidSkillHitUptime:P0}={starterEff:F1} · " +
+            $"shieldStocks={shieldStocks}");
+
+        // Midboss pool (sim CreateMidBossPlan: all mini_* equal weight).
+        var midBosses = new List<EnemyDefinition>();
+        for (int i = 0; i < content.Enemies.Count; i++)
+        {
+            EnemyDefinition e = content.Enemies[i];
+            if (e.Id.StartsWith("mini_", StringComparison.Ordinal))
+                midBosses.Add(e);
+        }
+
+        if (midBosses.Count == 0)
+        {
+            Console.WriteLine("FAIL clear: no mini_* midboss candidates.");
+            return 1;
+        }
+
+        midBosses.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
+        int midSum = 0;
+        int midWorst = 0;
+        EnemyDefinition worstMid = midBosses[0];
+        Console.WriteLine("  midboss pool (stage-agnostic):");
+        for (int i = 0; i < midBosses.Count; i++)
+        {
+            EnemyDefinition m = midBosses[i];
+            midSum += m.MaxHp;
+            if (m.MaxHp > midWorst)
+            {
+                midWorst = m.MaxHp;
+                worstMid = m;
+            }
+
+            double ttk = m.MaxHp / starterEff;
+            Console.WriteLine(
+                $"    {m.Id,-18} hp={m.MaxHp,5} " +
+                $"TTK@starterEff={ttk:F1}s fire={m.FireIntervalTicks}t");
+        }
+
+        double midAvg = midSum / (double)midBosses.Count;
+        double midWorstTtk = midWorst / starterEff;
+        Console.WriteLine(
+            $"  mid avgHP={midAvg:F0} worst={worstMid.Id} hp={midWorst} " +
+            $"TTK={midWorstTtk:F1}s (max {MaxMidBossTtkStarterSeconds:F0}s)");
+        if (midWorstTtk > MaxMidBossTtkStarterSeconds)
+        {
+            Console.WriteLine(
+                $"FAIL clear: worst midboss TTK {midWorstTtk:F1}s > " +
+                $"{MaxMidBossTtkStarterSeconds:F0}s at starter effective DPS. " +
+                "Stage 1 can roll any mini_* — lower HP or stage-weight selection.");
+            failures++;
+        }
+
+        // Per-stage table: open+close (2 × SegmentsPerStage weight-mean) + mid + boss.
+        string[] bossIds =
+        {
+            "boss_stage1", "boss_hive", "boss_fortress", "boss_storm", "boss_core"
+        };
+        // Reach DPS: stage1 uses starter+light growth; later use BossExpectedDps anchors.
+        double[] reachDps =
+        {
+            Math.Max(starterDps * 1.15, BossExpectedDps[0].ExpectedDps * 0.85),
+            BossExpectedDps[1].ExpectedDps,
+            BossExpectedDps[2].ExpectedDps,
+            BossExpectedDps[3].ExpectedDps,
+            BossExpectedDps[4].ExpectedDps,
+        };
+
+        double prevAvgPoolHp = -1.0;
+        Console.WriteLine(
+            "  stage table: enemies≈ · poolHP · open+close · midAvg · boss · " +
+            "total · needDPS@120s · reachDPS · fullTTK · hits≈ · clear?");
+        for (int stage = 1; stage <= 5; stage++)
+        {
+            string theme = catalog.ThemeIds[(stage - 1) % catalog.ThemeIds.Count];
+            int difficulty = stage;
+            long poolHpWeighted = 0;
+            long poolNWeighted = 0;
+            int poolWeight = 0;
+            int poolCount = 0;
+            foreach (StageSegmentTemplate seg in catalog.Segments)
+            {
+                if (!seg.SupportsDifficulty(difficulty) || !seg.SupportsTheme(theme))
+                    continue;
+                int hp = SegmentSpawnHp(seg, content);
+                int n = seg.Spawns.Count;
+                int w = Math.Max(1, seg.Weight);
+                poolHpWeighted += (long)hp * w;
+                poolNWeighted += (long)n * w;
+                poolWeight += w;
+                poolCount++;
+            }
+
+            if (poolCount == 0 || poolWeight == 0)
+            {
+                Console.WriteLine($"FAIL clear: stage {stage} empty pool.");
+                failures++;
+                continue;
+            }
+
+            double avgSegHp = poolHpWeighted / (double)poolWeight;
+            double avgSegN = poolNWeighted / (double)poolWeight;
+            int segsPerRoom = catalog.SegmentsPerStage;
+            double openCloseHp = avgSegHp * segsPerRoom * 2.0;
+            double openCloseN = avgSegN * segsPerRoom * 2.0;
+            StageBossTemplate boss = null;
+            for (int b = 0; b < catalog.Bosses.Count; b++)
+            {
+                if (string.Equals(
+                        catalog.Bosses[b].BossId,
+                        bossIds[stage - 1],
+                        StringComparison.Ordinal))
+                {
+                    boss = catalog.Bosses[b];
+                    break;
+                }
+            }
+
+            if (boss == null)
+            {
+                Console.WriteLine(
+                    $"FAIL clear: missing boss id {bossIds[stage - 1]}.");
+                failures++;
+                continue;
+            }
+
+            double totalAvg = openCloseHp + midAvg + boss.MaxHp;
+            double totalWorst = openCloseHp + midWorst + boss.MaxHp;
+            double dps = reachDps[stage - 1];
+            double effDps = dps * MidSkillHitUptime;
+            double fullTtk = totalAvg / effDps;
+            double needDps120 = totalAvg / 120.0;
+            // Hit proxy: room scrapes + midboss pressure + boss phases.
+            // Hit proxy (mid skill): sparse scrapes + pressure time on large targets.
+            // Large mid/boss hitboxes raise player DPS uptime; dodge window is wider
+            // than dense zako packs (invuln frames after each stock consume help).
+            double midTtk = midAvg / Math.Max(1.0, starterEff);
+            double bossTtk = boss.MaxHp / Math.Max(1.0, effDps);
+            double expectedHits =
+                0.30 * 2.0 // open+close scrapes
+                + midTtk / 14.0
+                + bossTtk / 20.0;
+
+            bool stage1Clear = stage != 1
+                || (fullTtk <= MaxStage1FullTtkSeconds
+                    && expectedHits <= MaxStage1ExpectedHits
+                    && midWorstTtk <= MaxMidBossTtkStarterSeconds);
+
+            string clearLabel = stage == 1
+                ? (stage1Clear ? "CLEAR" : "WALL")
+                : "report";
+
+            Console.WriteLine(
+                $"  S{stage} {theme,-10} nSeg={poolCount,2} " +
+                $"avgSegHP={avgSegHp,6:F0} E≈{openCloseN,5:F0} " +
+                $"OC={openCloseHp,6:F0} mid={midAvg,5:F0} boss={boss.MaxHp,5} " +
+                $"tot={totalAvg,6:F0} needDPS={needDps120,5:F0} " +
+                $"reach={dps,5:F0} TTK={fullTtk,5:F0}s hits≈{expectedHits:F2} " +
+                $"[{clearLabel}]");
+            Console.WriteLine(
+                $"       worst-path tot={totalWorst:F0} " +
+                $"(mid={midWorst}) midBossTTK@starter={midWorstTtk:F1}s " +
+                $"bossTTK@reachEff={bossTtk:F1}s");
+
+            if (stage == 1 && !stage1Clear)
+            {
+                Console.WriteLine(
+                    $"FAIL clear: stage1 not clearable under starter/mid-skill " +
+                    $"(TTK {fullTtk:F0}s / hits {expectedHits:F2} / " +
+                    $"midWorst {midWorstTtk:F1}s).");
+                failures++;
+            }
+
+            if (prevAvgPoolHp > 0.0)
+            {
+                double jump = avgSegHp / prevAvgPoolHp;
+                if (stage == 2 && jump > MaxStage1To2HpJump)
+                {
+                    Console.WriteLine(
+                        $"FAIL clear: stage1→2 pool HP jump {jump:F2}× > " +
+                        $"{MaxStage1To2HpJump:F1}× (wall moved to stage2).");
+                    failures++;
+                }
+            }
+
+            prevAvgPoolHp = avgSegHp;
+        }
+
+        // Capsule growth note: cost 1+L+L² Main2→Main3 = 7 pure.
+        double eStage = EstimateStageCapsuleEv(data, stage: 1);
+        Console.WriteLine(
+            $"  stage1 capsule EV (3-seg room)≈{eStage:F2} · " +
+            "Main2→3 pure cost=7 (1+L+L²) · open+close≈2 rooms → " +
+            $"{eStage * 2:F1} caps before mid reward/boss");
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-060 stage-1 clearability + curve report.");
+        else
+            Console.WriteLine($"FAIL: REQ-060 clearability ({failures} failure(s)).");
+        return failures;
+    }
+
+    static double TheoreticalMainShotDps(WeaponDefinition main, int gaugeLevel)
+    {
+        int weaponLevel = Math.Max(1, gaugeLevel);
+        int damage = Damage.Compute(main.BaseDamage, weaponLevel);
+        // Mirror BattleSim ResolveFireInterval: rapidStart default 2, reduction 1.
+        int rapidStart = 2;
+        int reductionPerLevel = 1;
+        int minimumInterval = Math.Max(1, main.MinimumFireIntervalTicks);
+        if (minimumInterval < 1) minimumInterval = 4;
+        int reductions = Math.Max(0, gaugeLevel - rapidStart + 1);
+        int interval = Math.Max(
+            Math.Min(main.FireIntervalTicks, minimumInterval),
+            main.FireIntervalTicks - reductions * reductionPerLevel);
+        if (interval < 1) interval = 1;
+        return damage * (double)SimSpace.TicksPerSecond / interval;
+    }
+
+    static double EstimateStageCapsuleEv(GameDataSet data, int stage)
+    {
+        StageGenerationCatalog catalog = data.StageGeneration;
+        BattleContent content = data.BattleContent;
+        string theme = catalog.ThemeIds[(stage - 1) % catalog.ThemeIds.Count];
+        int noDrop = data.CapsuleNoDropWeight;
+        double sum = 0.0;
+        int weight = 0;
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            if (!seg.SupportsDifficulty(stage) || !seg.SupportsTheme(theme))
+                continue;
+            int w = Math.Max(1, seg.Weight);
+            double segEv = 0.0;
+            for (int i = 0; i < seg.Spawns.Count; i++)
+            {
+                EnemyDefinition e = content.FindEnemy(seg.Spawns[i].EnemyId);
+                if (e == null) continue;
+                segEv += e.DropWeight / (double)(noDrop + e.DropWeight);
+            }
+
+            sum += segEv * w;
+            weight += w;
+        }
+
+        if (weight == 0) return 0.0;
+        return sum / weight * catalog.SegmentsPerStage;
+    }
 
     static string FindRepoRoot()
     {
