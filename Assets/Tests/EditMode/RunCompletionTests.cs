@@ -16,6 +16,9 @@ namespace Shmup.Core.Tests
             RunManager run = CreateRun(7UL, 1);
 
             DrivePlayingTicks(run, 500);
+            Assert.AreEqual(RunState.AwaitingReward, run.State);
+            Assert.AreEqual(3, run.RewardOptions.Count);
+            run.ChooseReward(0);
 
             Assert.AreEqual(RunState.RunCleared, run.State);
             Assert.IsTrue(run.IsFinished);
@@ -84,6 +87,9 @@ namespace Shmup.Core.Tests
                 resumed.Step(in input);
                 replay.Step(in input);
             }
+            source.ChooseReward(0);
+            resumed.ChooseReward(0);
+            replay.ChooseReward(0);
 
             Assert.AreEqual(RunState.RunCleared, source.State);
             Assert.AreEqual(RunState.RunCleared, resumed.State);
@@ -102,8 +108,8 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(RunState.RunCleared, first.FinalState);
             Assert.AreEqual(5, first.StagesCleared);
-            Assert.AreEqual(4, first.RewardChoices);
-            Assert.AreEqual(14, first.RouteChoices);
+            Assert.AreEqual(10, first.RewardChoices);
+            Assert.AreEqual(0, first.RouteChoices);
             Assert.AreEqual(15, first.RoomsCleared);
             Assert.AreEqual(first.Hash, second.Hash);
             Assert.AreEqual(first.Ticks, second.Ticks);
@@ -123,12 +129,12 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(RunState.RunCleared, trace.FinalState);
             Assert.AreEqual(15, trace.RoomsCleared);
-            Assert.AreEqual(14, trace.RouteChoices);
+            Assert.AreEqual(0, trace.RouteChoices);
             Assert.Less(trace.MaximumChoiceStateIterations, 8);
         }
 
         [Test]
-        public void CurrentGameDataRoutes_CompleteAllFifteenRooms()
+        public void CurrentMiniBossContent_FullRhythmRunTakesDamageAndCrossesBossPhasesDeterministically()
         {
             string root = FindRepositoryRoot();
             string gameData = Path.Combine(root, "GameData");
@@ -141,29 +147,32 @@ namespace Shmup.Core.Tests
                     Path.Combine(gameData, "waves.json")),
                 File.ReadAllText(
                     Path.Combine(gameData, "rewards.json")));
-            var routeGenerator = new FastRouteGenerator(
-                new SegmentStageGenerator(data.StageGeneration));
-            RunManager run = new RunManager(
-                0x48DA7AUL,
-                routeGenerator,
-                CreateConfig(),
-                data.BattleContent,
-                data.CreatePowerUpGauge(),
-                new MetaProgression(1, 1),
-                StageDifficultyCurve.CreateDefault(),
-                data.Rewards,
-                null,
-                1,
-                1,
-                RunProgressionConfig.CreateDefault());
+            RhythmTrace first = RunRhythmTrace(data, 0x48DA7AUL);
+            RhythmTrace second = RunRhythmTrace(data, 0x48DA7AUL);
 
-            DriveWholeRun(run, 20_000);
-
-            Assert.AreEqual(RunState.RunCleared, run.State);
-            Assert.AreEqual(run.BiomeCount, run.BiomeIndex);
-            Assert.LessOrEqual(run.BiomeIndex, run.BiomeCount);
-            Assert.AreEqual(15, run.Statistics.RoomsCleared);
-            Assert.AreEqual(14, run.RouteChoiceHistory.Count);
+            AssertAll(() =>
+            {
+                Assert.AreEqual(RunState.RunCleared, first.FinalState);
+                Assert.AreEqual(15, first.RoomsCleared);
+                Assert.AreEqual(5, first.MidRewards);
+                Assert.AreEqual(5, first.MainRewards);
+                Assert.AreEqual(5, first.MidBossEncounters);
+                Assert.Greater(first.DamageEvents, 0);
+                Assert.GreaterOrEqual(first.PhaseOneEvents, 5);
+                Assert.GreaterOrEqual(first.PhaseTwoEvents, 5);
+                Assert.AreEqual(0, first.RouteChoices);
+                Assert.AreEqual(first.Hash, second.Hash);
+                Assert.AreEqual(first.Ticks, second.Ticks);
+                Assert.AreEqual(
+                    first.DamageEvents,
+                    second.DamageEvents);
+                Assert.AreEqual(
+                    first.PhaseOneEvents,
+                    second.PhaseOneEvents);
+                Assert.AreEqual(
+                    first.PhaseTwoEvents,
+                    second.PhaseTwoEvents);
+            });
         }
 
         [Test]
@@ -179,15 +188,15 @@ namespace Shmup.Core.Tests
 
             DrivePlayingTicks(twoStageRun, 500);
             Assert.AreEqual(
-                RunState.AwaitingRoute,
+                RunState.AwaitingReward,
                 twoStageRun.State);
-            twoStageRun.ChooseRoute(0);
+            Assert.AreEqual(3, twoStageRun.RewardOptions.Count);
+            twoStageRun.ChooseReward(0);
             DrivePlayingTicks(twoStageRun, 500);
             Assert.AreEqual(
                 RunState.AwaitingReward,
                 twoStageRun.State);
             twoStageRun.ChooseReward(0);
-            DrivePlayingTicks(twoStageRun, 500);
 
             Assert.AreEqual(RunState.RunCleared, twoStageRun.State);
             Assert.AreEqual(2, twoStageRun.Statistics.StagesCleared);
@@ -209,8 +218,13 @@ namespace Shmup.Core.Tests
             {
                 if (run.State == RunState.AwaitingReward)
                 {
+                    int expectedCount =
+                        run.RewardSelectionKind
+                            == RewardSelectionKind.MidStage
+                                ? RunManager.MidStageRewardOptionCount
+                                : RunManager.MainRewardOptionCount;
                     Assert.AreEqual(
-                        RunManager.RewardOptionCount,
+                        expectedCount,
                         run.RewardOptions.Count,
                         "AwaitingReward cannot expose an empty card list.");
                     TrackChoiceState(
@@ -228,33 +242,6 @@ namespace Shmup.Core.Tests
                         in option);
                     run.ChooseReward(optionIndex);
                     rewards++;
-                }
-                else if (run.State == RunState.AwaitingRoute)
-                {
-                    Assert.GreaterOrEqual(
-                        run.RouteOptions.Count,
-                        RunManager.MinimumRouteOptionCount,
-                        "AwaitingRoute cannot expose an empty node list.");
-                    TrackChoiceState(
-                        run.State,
-                        ref previousChoiceState,
-                        ref choiceStateIterations,
-                        ref maximumChoiceStateIterations);
-                    int optionIndex =
-                        (run.StageIndex + routes)
-                        % run.RouteOptions.Count;
-                    RouteOption option = run.RouteOptions[optionIndex];
-                    bool nextBiome =
-                        run.RoomIndex >= run.RoomsPerBiome;
-                    hasher.FoldRouteChoice(
-                        nextBiome
-                            ? run.BiomeIndex + 1
-                            : run.BiomeIndex,
-                        nextBiome ? 1 : run.RoomIndex + 1,
-                        optionIndex,
-                        in option);
-                    run.ChooseRoute(optionIndex);
-                    routes++;
                 }
                 else
                 {
@@ -275,6 +262,109 @@ namespace Shmup.Core.Tests
                 run.Statistics.StagesCleared,
                 run.Statistics.RoomsCleared,
                 maximumChoiceStateIterations,
+                run.State);
+        }
+
+        static RhythmTrace RunRhythmTrace(
+            GameDataSet data,
+            ulong seed)
+        {
+            BattleContent content = CreateRhythmContent(data);
+            BattleSimConfig config = CreateRhythmConfig();
+            var run = new RunManager(
+                seed,
+                new RhythmRunGenerator("damage_probe"),
+                config,
+                content,
+                data.CreatePowerUpGauge(),
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                data.Rewards,
+                null,
+                1,
+                1,
+                RunProgressionConfig.CreateDefault());
+            var hasher = new DeterminismAuditHasher();
+            int ticks = 0;
+            int midRewards = 0;
+            int mainRewards = 0;
+            int midBossEncounters = 0;
+            int damageEvents = 0;
+            int phaseOneEvents = 0;
+            int phaseTwoEvents = 0;
+            int previousMidBossBiome = 0;
+            hasher.FoldRunState(run);
+
+            for (int guard = 0;
+                guard < 50_000 && !run.IsFinished;
+                guard++)
+            {
+                if (run.State == RunState.AwaitingReward)
+                {
+                    int expectedCount =
+                        run.RewardSelectionKind
+                            == RewardSelectionKind.MidStage
+                                ? RunManager.MidStageRewardOptionCount
+                                : RunManager.MainRewardOptionCount;
+                    Assert.AreEqual(expectedCount, run.RewardOptions.Count);
+                    if (run.RewardSelectionKind
+                        == RewardSelectionKind.MidStage)
+                        midRewards++;
+                    else
+                        mainRewards++;
+                    RewardOption option = run.RewardOptions[0];
+                    hasher.FoldRewardChoice(
+                        run.StageIndex,
+                        0,
+                        in option);
+                    run.ChooseReward(0);
+                }
+                else
+                {
+                    Assert.AreEqual(RunState.Playing, run.State);
+                    if (run.StageSection == RunStageSection.MidBoss
+                        && run.BiomeIndex != previousMidBossBiome)
+                    {
+                        StringAssert.StartsWith(
+                            "mini_",
+                            run.StagePlan.BossId);
+                        previousMidBossBiome = run.BiomeIndex;
+                        midBossEncounters++;
+                    }
+
+                    int shieldBefore = run.Battle.ShieldStock;
+                    var fire = new InputCommand(0, 0, true);
+                    run.Step(in fire);
+                    ticks++;
+                    if (run.Battle.ShieldStock < shieldBefore)
+                        damageEvents++;
+                    ReadOnlySpan<SimEvent> events =
+                        run.Battle.EventsThisTick;
+                    for (int i = 0; i < events.Length; i++)
+                    {
+                        if (events[i].Type
+                            != SimEventType.BossPhaseChanged)
+                            continue;
+                        if (events[i].Arg == 1)
+                            phaseOneEvents++;
+                        else if (events[i].Arg == 2)
+                            phaseTwoEvents++;
+                    }
+                }
+                hasher.FoldRunState(run);
+            }
+
+            return new RhythmTrace(
+                hasher.Hash,
+                ticks,
+                midRewards,
+                mainRewards,
+                midBossEncounters,
+                damageEvents,
+                phaseOneEvents,
+                phaseTwoEvents,
+                run.RouteChoiceHistory.Count,
+                run.Statistics.RoomsCleared,
                 run.State);
         }
 
@@ -315,29 +405,13 @@ namespace Shmup.Core.Tests
             {
                 if (run.State == RunState.AwaitingReward)
                 {
-                    Assert.AreEqual(
-                        RunManager.RewardOptionCount,
-                        run.RewardOptions.Count);
+                    int expectedCount =
+                        run.RewardSelectionKind
+                            == RewardSelectionKind.MidStage
+                                ? RunManager.MidStageRewardOptionCount
+                                : RunManager.MainRewardOptionCount;
+                    Assert.AreEqual(expectedCount, run.RewardOptions.Count);
                     run.ChooseReward(0);
-                }
-                else if (run.State == RunState.AwaitingRoute)
-                {
-                    Assert.GreaterOrEqual(
-                        run.RouteOptions.Count,
-                        RunManager.MinimumRouteOptionCount);
-                    int optionIndex = 0;
-                    for (int i = 0; i < run.RouteOptions.Count; i++)
-                    {
-                        EncounterType encounter =
-                            run.RouteOptions[i].EncounterType;
-                        if (encounter != EncounterType.Elite
-                            && encounter != EncounterType.Rare)
-                        {
-                            optionIndex = i;
-                            break;
-                        }
-                    }
-                    run.ChooseRoute(optionIndex);
                 }
                 else
                 {
@@ -416,6 +490,64 @@ namespace Shmup.Core.Tests
                 weapon.Id);
         }
 
+        static BattleContent CreateRhythmContent(GameDataSet data)
+        {
+            var damageProbe = new EnemyDefinition(
+                "damage_probe",
+                "Damage Probe",
+                1000,
+                1,
+                0,
+                EnemyMovePattern.Static,
+                0,
+                1,
+                0,
+                0,
+                128,
+                128,
+                0,
+                1,
+                64);
+            var enemies =
+                new EnemyDefinition[data.BattleContent.Enemies.Count + 1];
+            for (int i = 0;
+                i < data.BattleContent.Enemies.Count;
+                i++)
+                enemies[i] = data.BattleContent.Enemies[i];
+            enemies[enemies.Length - 1] = damageProbe;
+            return new BattleContent(
+                enemies,
+                data.BattleContent.Weapons,
+                data.BattleContent.PlayerWeapon.Id,
+                data.BattleContent.PrimaryWeaponFamilies,
+                data.BattleContent.MissileFamilies,
+                data.BattleContent.DefaultMissileFamily,
+                data.BattleContent.OptionFormations,
+                data.BattleContent.DefaultOptionFormation);
+        }
+
+        static BattleSimConfig CreateRhythmConfig()
+        {
+            BattleSimConfig config =
+                BattleSimConfig.CreateDefault();
+            config.PlayerMinX = 0;
+            config.PlayerMaxX = 0;
+            config.PlayerMinY = 0;
+            config.PlayerMaxY = 0;
+            config.PlayerSpawnX = 0;
+            config.PlayerSpawnY = 0;
+            config.StartingShieldStock = 20;
+            config.MaxShieldStock = 20;
+            config.PlayerHitInvulnerabilityTicks = 0;
+            config.BulletDespawnX = 2000;
+            config.EnemyDespawnX = -2000;
+            config.EnemyBulletDamage = 1;
+            config.MaxEnemyBullets = 128;
+            return config;
+        }
+
+        static void AssertAll(Action assert) => assert();
+
         static void AssertRunHashEqual(
             RunManager expected,
             RunManager actual)
@@ -457,6 +589,47 @@ namespace Shmup.Core.Tests
             public int StagesCleared { get; }
             public int RoomsCleared { get; }
             public int MaximumChoiceStateIterations { get; }
+            public RunState FinalState { get; }
+        }
+
+        readonly struct RhythmTrace
+        {
+            public RhythmTrace(
+                ulong hash,
+                int ticks,
+                int midRewards,
+                int mainRewards,
+                int midBossEncounters,
+                int damageEvents,
+                int phaseOneEvents,
+                int phaseTwoEvents,
+                int routeChoices,
+                int roomsCleared,
+                RunState finalState)
+            {
+                Hash = hash;
+                Ticks = ticks;
+                MidRewards = midRewards;
+                MainRewards = mainRewards;
+                MidBossEncounters = midBossEncounters;
+                DamageEvents = damageEvents;
+                PhaseOneEvents = phaseOneEvents;
+                PhaseTwoEvents = phaseTwoEvents;
+                RouteChoices = routeChoices;
+                RoomsCleared = roomsCleared;
+                FinalState = finalState;
+            }
+
+            public ulong Hash { get; }
+            public int Ticks { get; }
+            public int MidRewards { get; }
+            public int MainRewards { get; }
+            public int MidBossEncounters { get; }
+            public int DamageEvents { get; }
+            public int PhaseOneEvents { get; }
+            public int PhaseTwoEvents { get; }
+            public int RouteChoices { get; }
+            public int RoomsCleared { get; }
             public RunState FinalState { get; }
         }
 
@@ -528,32 +701,62 @@ namespace Shmup.Core.Tests
             }
         }
 
-        sealed class FastRouteGenerator : IRouteStageGenerator
+        sealed class RhythmRunGenerator : IRouteStageGenerator
         {
-            readonly SegmentStageGenerator _source;
-
-            public FastRouteGenerator(SegmentStageGenerator source)
+            static readonly string[] Themes = { "rhythm" };
+            static readonly BossPhase[] BossPhases =
             {
-                _source = source;
+                new BossPhase(
+                    60,
+                    1,
+                    32,
+                    1,
+                    BossMovementPattern.Stationary,
+                    0,
+                    1,
+                    1,
+                    BossPartVulnerability.CoreOnly),
+                new BossPhase(
+                    30,
+                    3,
+                    64,
+                    1,
+                    BossMovementPattern.VerticalSine,
+                    128,
+                    1,
+                    16,
+                    BossPartVulnerability.All),
+                new BossPhase(
+                    15,
+                    5,
+                    128,
+                    1,
+                    BossMovementPattern.VerticalSine,
+                    256,
+                    1,
+                    8,
+                    BossPartVulnerability.All)
+            };
+            readonly string _damageEnemyId;
+
+            public RhythmRunGenerator(string damageEnemyId)
+            {
+                _damageEnemyId = damageEnemyId;
             }
 
-            public IReadOnlyList<string> ThemeIds =>
-                _source.ThemeIds;
+            public IReadOnlyList<string> ThemeIds => Themes;
 
             public StagePlan Generate(
                 ulong seed,
                 int stageIndex,
                 int difficulty)
             {
-                return Fast(_source.Generate(
-                    seed,
-                    stageIndex,
-                    difficulty));
+                return Plan(stageIndex, EncounterType.Normal);
             }
 
             public IReadOnlyList<string> GetThemeOrder(ulong seed)
             {
-                return _source.GetThemeOrder(seed);
+                return Array.AsReadOnly((string[])Themes.Clone());
             }
 
             public bool CanGenerateRoute(
@@ -562,14 +765,10 @@ namespace Shmup.Core.Tests
                 int difficulty,
                 EncounterType encounterType)
             {
-                if (encounterType == EncounterType.Elite
-                    || encounterType == EncounterType.Rare)
-                    return false;
-                return _source.CanGenerateRoute(
+                return string.Equals(
                     themeId,
-                    stageIndex,
-                    difficulty,
-                    encounterType);
+                    Themes[0],
+                    StringComparison.Ordinal);
             }
 
             public StagePlan GenerateRoute(
@@ -579,39 +778,43 @@ namespace Shmup.Core.Tests
                 string themeId,
                 EncounterType encounterType)
             {
-                return Fast(_source.GenerateRoute(
-                    seed,
-                    stageIndex,
-                    difficulty,
-                    themeId,
-                    encounterType));
+                return Plan(stageIndex, encounterType);
             }
 
-            static StagePlan Fast(StagePlan source)
+            StagePlan Plan(
+                int stageIndex,
+                EncounterType encounterType)
             {
                 return new StagePlan(
                     new[]
                     {
                         new StageSegment(
-                            "fast_" + source.ThemeId,
+                            "rhythm_section",
                             1,
-                            Array.Empty<SpawnEvent>(),
+                            new[]
+                            {
+                                new SpawnEvent(
+                                    0,
+                                    _damageEnemyId,
+                                    0,
+                                    0)
+                            },
                             1,
                             1,
                             new[] { 1 })
                     },
-                    source.BossId,
+                    "rhythm_boss_" + stageIndex,
                     1,
                     1,
                     1,
-                    string.IsNullOrEmpty(source.BossId) ? 0 : 1,
-                    0,
-                    0,
-                    512,
-                    new[] { new BossPhase(999, 1, 1, 1) },
-                    source.ThemeId,
-                    source.RequestedThemeId,
-                    source.EncounterType);
+                    36,
+                    128,
+                    128,
+                    300,
+                    BossPhases,
+                    Themes[0],
+                    Themes[0],
+                    encounterType);
             }
         }
     }

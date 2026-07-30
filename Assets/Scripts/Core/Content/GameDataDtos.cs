@@ -374,6 +374,14 @@ namespace Shmup.Core.Content
         public int? ways;
         [DataMember]
         public decimal? bulletSpeed;
+        [DataMember]
+        public string movementPattern;
+        [DataMember]
+        public decimal? movementAmplitude;
+        [DataMember]
+        public int? movementPeriodTicks;
+        [DataMember]
+        public string partVulnerability;
     }
 
     [DataContract]

@@ -66,6 +66,22 @@ namespace Shmup.Core.Generation
         Rare = 4
     }
 
+    public enum BossMovementPattern
+    {
+        /// <summary>Preserves the pre-REQ-054 fixed hover behavior.</summary>
+        LegacyHover = 0,
+        Stationary = 1,
+        VerticalSine = 2
+    }
+
+    public enum BossPartVulnerability
+    {
+        /// <summary>Preserves core-gate behavior from older boss data.</summary>
+        Legacy = 0,
+        CoreOnly = 1,
+        All = 2
+    }
+
     /// <summary>
     /// 보스 페이즈 하나의 발사 파라미터 (REQ-007). 속도는 서브유닛/틱 유리수.
     /// Ways는 홀짝 모두 조준축을 중심으로 대칭 배치된다.
@@ -73,6 +89,29 @@ namespace Shmup.Core.Generation
     public sealed class BossPhase
     {
         public BossPhase(int fireIntervalTicks, int ways, int bulletSpeedNumerator, int bulletSpeedDenominator)
+            : this(
+                fireIntervalTicks,
+                ways,
+                bulletSpeedNumerator,
+                bulletSpeedDenominator,
+                BossMovementPattern.LegacyHover,
+                0,
+                1,
+                1,
+                BossPartVulnerability.Legacy)
+        {
+        }
+
+        public BossPhase(
+            int fireIntervalTicks,
+            int ways,
+            int bulletSpeedNumerator,
+            int bulletSpeedDenominator,
+            BossMovementPattern movementPattern,
+            int movementAmplitudeNumerator,
+            int movementAmplitudeDenominator,
+            int movementPeriodTicks,
+            BossPartVulnerability partVulnerability)
         {
             if (fireIntervalTicks < 1)
                 throw new ArgumentOutOfRangeException(nameof(fireIntervalTicks));
@@ -82,16 +121,50 @@ namespace Shmup.Core.Generation
                 throw new ArgumentOutOfRangeException(nameof(bulletSpeedNumerator));
             if (bulletSpeedDenominator < 1)
                 throw new ArgumentOutOfRangeException(nameof(bulletSpeedDenominator));
+            if (!Enum.IsDefined(
+                    typeof(BossMovementPattern),
+                    movementPattern))
+                throw new ArgumentOutOfRangeException(
+                    nameof(movementPattern));
+            if (movementAmplitudeNumerator < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(movementAmplitudeNumerator));
+            if (movementAmplitudeDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(movementAmplitudeDenominator));
+            if (movementPeriodTicks < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(movementPeriodTicks));
+            if (movementPattern == BossMovementPattern.VerticalSine
+                && movementAmplitudeNumerator < 1)
+                throw new ArgumentException(
+                    "Vertical sine movement requires positive amplitude.",
+                    nameof(movementAmplitudeNumerator));
+            if (!Enum.IsDefined(
+                    typeof(BossPartVulnerability),
+                    partVulnerability))
+                throw new ArgumentOutOfRangeException(
+                    nameof(partVulnerability));
             FireIntervalTicks = fireIntervalTicks;
             Ways = ways;
             BulletSpeedNumerator = bulletSpeedNumerator;
             BulletSpeedDenominator = bulletSpeedDenominator;
+            MovementPattern = movementPattern;
+            MovementAmplitudeNumerator = movementAmplitudeNumerator;
+            MovementAmplitudeDenominator = movementAmplitudeDenominator;
+            MovementPeriodTicks = movementPeriodTicks;
+            PartVulnerability = partVulnerability;
         }
 
         public int FireIntervalTicks { get; }
         public int Ways { get; }
         public int BulletSpeedNumerator { get; }
         public int BulletSpeedDenominator { get; }
+        public BossMovementPattern MovementPattern { get; }
+        public int MovementAmplitudeNumerator { get; }
+        public int MovementAmplitudeDenominator { get; }
+        public int MovementPeriodTicks { get; }
+        public BossPartVulnerability PartVulnerability { get; }
     }
 
     public enum BossPartAttackType

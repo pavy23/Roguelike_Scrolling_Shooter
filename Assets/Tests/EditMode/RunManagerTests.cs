@@ -146,6 +146,9 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(2, generator.Calls[1].Difficulty);
 
             Step(manager, 3, in none);
+            Assert.AreEqual(RunState.AwaitingReward, manager.State);
+            Assert.AreEqual(2, manager.RewardOptions.Count);
+            manager.ChooseReward(0);
             Assert.AreEqual(1, manager.BiomeIndex);
             Assert.AreEqual(3, manager.RoomIndex);
             Assert.AreEqual(2, manager.Difficulty);
@@ -184,6 +187,8 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(1, manager.Statistics.RoomsCleared);
 
             Step(manager, 2, in fire);
+            Assert.AreEqual(RunState.AwaitingReward, manager.State);
+            manager.ChooseReward(0);
 
             Assert.AreEqual(1, manager.BiomeIndex);
             Assert.AreEqual(3, manager.RoomIndex);

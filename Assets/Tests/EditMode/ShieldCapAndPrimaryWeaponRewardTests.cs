@@ -110,17 +110,14 @@ namespace Shmup.Core.Tests
         static void AdvanceToReward(RunManager run)
         {
             var fire = new InputCommand(0, 0, true);
-            for (int guard = 0;
-                guard < 1000
-                    && run.State != RunState.AwaitingReward;
-                guard++)
+            for (int guard = 0; guard < 1000; guard++)
             {
-                if (run.State == RunState.AwaitingRoute)
+                if (run.State == RunState.AwaitingReward)
                 {
-                    Assert.GreaterOrEqual(
-                        run.RouteOptions.Count,
-                        RunManager.MinimumRouteOptionCount);
-                    run.ChooseRoute(0);
+                    if (run.RewardSelectionKind
+                        == RewardSelectionKind.Main)
+                        break;
+                    run.ChooseReward(0);
                 }
                 else
                 {

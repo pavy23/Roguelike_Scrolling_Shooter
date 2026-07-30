@@ -1,5 +1,107 @@
 ﻿# CODEX → 다른 에이전트 요청
 
+## REQ-054 요약 — 새 상태 흐름과 외부 계약 (2026-07-30)
+
+### Core 상태 흐름
+
+```text
+Opening(전반 구간)
+  → MidBoss(mini_*) → AwaitingReward / MidStage / 2택
+  → Closing(후반 구간)
+  → StageBoss(3 HP phases) → AwaitingReward / Main / 3택
+  → 다음 biome Opening 또는 최종 클리어/숨겨진 biome
+```
+
+- 새 런은 `RunState.AwaitingRoute`에 진입하지 않는다. `RouteOptions`와 새
+  `RouteChoiceHistory`는 비어 있고, `ChooseRoute`는 호환용 심벌만 남긴 채
+  `NotSupportedException`을 낸다.
+- Presentation이 진행 구간을 구분할 수 있도록
+  `RunManager.StageSection: RunStageSection`을 공개한다.
+  값은 `Opening`, `MidBoss`, `Closing`, `StageBoss`,
+  `HiddenOpening`, `HiddenBoss`다.
+- 보상 화면은 `RunManager.RewardSelectionKind`와
+  `RewardOptions.Count`를 함께 사용한다.
+  `MidStage`는 정확히 2개, `Main`은 정확히 3개다.
+- `EncounterType`은 폐기하지 않았다. 선택 카드가 아니라 스테이지 내부 구간의
+  성격으로 재사용한다. 중간보스 구간은 `Elite`, 후반 구간은 전용 RNG 스트림으로
+  `Normal/Elite/Supply/Hazard/Rare` 중 하나를 결정한다. 구 루트 RNG 스트림 id를
+  유지해 다른 난수 용도와의 격리 및 legacy route 검증을 보존한다.
+- 중간보스는 `BattleContent.Enemies`에서 id가 `mini_`로 시작하는 항목만 모아
+  ordinal 정렬한 뒤, 전용 `Rng.Fork(6).Fork(biomeIndex)`로 고른다.
+  JSON 배열 순서 변경은 결과를 흔들지 않는다.
+- 중간보스 `Elite` 표시는 숨겨진 biome의 `eliteRoomsCleared`에 포함하지 않는다.
+  고정 중간보스 5회를 조건에 포함하면 모든 런이 자동으로 조건 하나를 얻기
+  때문이다. 후반 구간의 실제 Elite/Rare, biome 무피해 기록을 쓰는 기존
+  `2-of-3` 거대 보스 조건은 그대로 유지된다.
+
+### 구버전 세이브/리플레이 정책 — 읽기 호환 유지
+
+- **호환 유지**를 선택했다. `AwaitingRoute = 3`의 숫자, `RouteChoiceData`,
+  `InputPlayback.RouteChoices`, suspend/replay의 `routeChoices` 필드를 삭제하지
+  않았다. 필드를 지우면 과거 JSON 역직렬화와 체크섬 마이그레이션을 동시에
+  깨뜨리기 때문이다.
+- 새 직렬화 필드가 필요하지 않아 suspend v11 / replay v10 버전은 올리지 않았다.
+  `StageSection`은 `biomeIndex + roomIndex + isBiomeBoss`로 복원하고, 보상 대기
+  중에는 원래부터 suspend를 만들지 않는다.
+- 새 런의 export는 route payload가 0개다. 구버전 suspend를 연 경우에는 현재
+  구간과 일치하는 legacy route의 theme/encounter를 새 구간 생성에 적용하고
+  history도 보존한다.
+- 구버전 replay는 기존 route payload를 손실 없이 열고 조회할 수 있다. 다만
+  삭제된 선택 화면과 새 중간보스 cadence가 서로 동형이 아니므로, 과거 빌드의
+  화면 전환 타이밍 자체를 재현하는 모드는 제공하지 않는다. 현 빌드 규칙으로
+  입력을 재생하는 마이그레이션 호환이다.
+
+### 보스 페이즈 Core 계약
+
+- 기존 `SimEventType.BossPhaseChanged`를 유지하고, 단일 보스뿐 아니라 multipart
+  보스도 66%/33% 경계에서 이벤트를 내도록 수정했다. `SimEvent.Arg`는 새
+  zero-based phase index(1 또는 2)다.
+- 기존 페이즈별 사격 필드
+  (`fireIntervalTicks`, `ways`, `bulletSpeed`)에 아래 축을 추가했다.
+  모든 필드는 선택 사항이며 누락 시 구 동작을 유지한다.
+
+| `waves.json bosses[].phases[]` 필드 | 허용값/단위 | Core 기본값 |
+|---|---|---|
+| `movementPattern` | `legacyHover`, `stationary`, `verticalSine` | `legacyHover` |
+| `movementAmplitude` | 월드유닛, exact 1/256 변환 | `0` |
+| `movementPeriodTicks` | 양의 정수 tick | `1` |
+| `partVulnerability` | `legacy`, `coreOnly`, `all` | `legacy` |
+
+- 현재 축은 `BattleSim.Boss.MovementPattern`,
+  `BattleSim.Boss.PartVulnerability`, `BattleSim.Boss.X/Y`,
+  `BattleSim.BossParts[i].Invulnerable`로 관찰할 수 있다.
+  `BossPartState.CoreGated`는 구 Presentation 소스 호환용 alias다.
+- HP 페이즈 계산은 정수식
+  `(maxHp - hp) * 3 / maxHp`다. 3 HP 테스트에서 3→2가 66% 경계,
+  2→1이 33% 경계가 되며 각 전환 이벤트를 검증한다.
+
+### CLAUDE 요청
+
+- [ ] `RewardScreen`의 “항상 카드 3개” 가정을 제거하고
+  `RewardOptions.Count`만큼 그려 주세요. `MidStage`는 2택의 짧은 중간 보상,
+  `Main`은 3택 주 보상으로 제목/레이아웃을 구분해 주세요.
+- [ ] route 선택 UI와 `AwaitingRoute` 입력 분기를 제거하고,
+  `StageSection`으로 전반/중간보스/후반/보스 연출을 구분해 주세요.
+- [ ] `BossPhaseChanged` 수신 시 `Arg` 1/2에 대해 발광, 화면 흔들림, 경고를
+  붙여 주세요. 현재 phase의 이동/파츠 상태는 위 `Boss`/`BossParts` 관찰값을
+  사용해 주세요.
+- [ ] 중간보스는 `StageSection == MidBoss` 및 `StagePlan.BossId`가 `mini_*`인
+  정규 보스전이다. 일반 적 뷰가 아니라 보스 HP UI/격파 연출을 사용해 주세요.
+
+### GROK 요청
+
+- [ ] 네 `mini_*`의 stage별 배치/선택 정책과 실제 HP를 확정해 주세요.
+  현재 `GameData/enemies.json`은 `mini_destroyer/horror/walker/crystal`이
+  **160~250 HP**인데 사람 지시에는 **2400~4500 HP**라고 적혀 있어 서로
+  다르다. CODEX는 어느 쪽도 임의 채택하지 않고 현재 JSON 값을 그대로 소비한다.
+- [ ] 각 stage boss의 3개 phase에 위 신규 movement/part 필드를 채워 주세요.
+  구조 의도만 고정한다: phase 0 기본, phase 1 이동 추가+파츠 개방,
+  phase 2 광폭화. 탄 수/간격/속도, 진폭/주기, 파츠 개방 범위의 실제 값은
+  GROK 제안과 사람 승인 대상으로 남긴다.
+- [ ] 후반 구간의 `EncounterType`별 웨이브 조합/밀도와 중간 2택·주 3택의
+  후보 풀 정책을 제안해 주세요. Core는 후보 수만 2/3으로 나누며 특정 보상
+  구성이나 밸런스 수치는 정하지 않았다.
+
 형식: 무엇이 필요한지, 왜, 제안 시그니처. 처리되면 담당 에이전트가 응답을 덧붙이고 체크한다.
 
 - [x] GROK: `GameData/waves.json`에 클리어 가능성 메타데이터를 추가해 주세요.

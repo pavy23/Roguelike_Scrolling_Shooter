@@ -11,35 +11,24 @@ namespace Shmup.Core.Tests
         const int Lane = 1;
 
         [Test]
-        public void RouteCandidatesAreDeterministicWithinCurrentBiomeTheme()
+        public void StageSectionsAdvanceDeterministicallyWithoutRouteChoice()
         {
             RunManager first = CreateRun(77UL, EncounterType.Supply);
             RunManager second = CreateRun(77UL, EncounterType.Supply);
 
-            ReachRouteChoice(first);
-            ReachRouteChoice(second);
+            first.Step(InputCommand.None);
+            second.Step(InputCommand.None);
 
-            Assert.AreEqual(first.RouteOptions.Count, second.RouteOptions.Count);
-            Assert.GreaterOrEqual(first.RouteOptions.Count, 2);
-            Assert.LessOrEqual(first.RouteOptions.Count, 3);
-            for (int i = 0; i < first.RouteOptions.Count; i++)
-            {
-                Assert.AreEqual(
-                    first.RouteOptions[i].ThemeId,
-                    second.RouteOptions[i].ThemeId);
-                Assert.AreEqual(
-                    first.RouteOptions[i].EncounterType,
-                    second.RouteOptions[i].EncounterType);
-                Assert.AreEqual(
-                    first.StagePlan.ThemeId,
-                    first.RouteOptions[i].ThemeId);
-                for (int earlier = 0; earlier < i; earlier++)
-                {
-                    Assert.AreNotEqual(
-                        first.RouteOptions[earlier].EncounterType,
-                        first.RouteOptions[i].EncounterType);
-                }
-            }
+            Assert.AreEqual(RunState.Playing, first.State);
+            Assert.AreEqual(RunStageSection.MidBoss, first.StageSection);
+            Assert.AreEqual(2, first.RoomIndex);
+            Assert.AreEqual(EncounterType.Elite, first.StagePlan.EncounterType);
+            Assert.AreEqual(0, first.RouteOptions.Count);
+            Assert.AreEqual(0, first.RouteChoiceHistory.Count);
+            Assert.AreEqual(first.StagePlan.ThemeId, second.StagePlan.ThemeId);
+            Assert.AreEqual(
+                first.StagePlan.EncounterType,
+                second.StagePlan.EncounterType);
         }
 
         [Test]
@@ -102,52 +91,25 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void RareRouteFrequencyIsLowDeterministicAndAtMostOneSlot()
+        public void RouteOptionsRemainEmptyForEverySeed()
         {
-            int runsWithRare = 0;
-            for (ulong seed = 0; seed < 1000; seed++)
+            for (ulong seed = 0; seed < 100; seed++)
             {
                 RunManager run = CreateRun(seed, EncounterType.Supply);
-                ReachRouteChoice(run);
-                int rareCount = 0;
-                for (int i = 0; i < run.RouteOptions.Count; i++)
-                {
-                    if (run.RouteOptions[i].EncounterType
-                        == EncounterType.Rare)
-                        rareCount++;
-                }
-                Assert.LessOrEqual(rareCount, 1);
-                if (rareCount == 1)
-                    runsWithRare++;
-
-                RunManager repeated =
-                    CreateRun(seed, EncounterType.Supply);
-                ReachRouteChoice(repeated);
-                Assert.AreEqual(
-                    run.RouteOptions.Count,
-                    repeated.RouteOptions.Count);
-                for (int i = 0; i < run.RouteOptions.Count; i++)
-                {
-                    Assert.AreEqual(
-                        run.RouteOptions[i].ThemeId,
-                        repeated.RouteOptions[i].ThemeId);
-                    Assert.AreEqual(
-                        run.RouteOptions[i].EncounterType,
-                        repeated.RouteOptions[i].EncounterType);
-                }
+                run.Step(InputCommand.None);
+                Assert.AreEqual(0, run.RouteOptions.Count);
+                Assert.AreEqual(RunState.Playing, run.State);
             }
-
-            Assert.GreaterOrEqual(runsWithRare, 80);
-            Assert.LessOrEqual(runsWithRare, 160);
         }
 
         [Test]
-        public void RareClearRoutesWithoutInflationaryRewardSelection()
+        public void RareOpeningBecomesSectionTraitWithoutChoiceScreen()
         {
             RunManager run = CreateRun(91UL, EncounterType.Rare);
             run.Step(InputCommand.None);
-            Assert.AreEqual(RunState.AwaitingRoute, run.State);
-            Assert.AreEqual(EncounterType.Rare, run.StagePlan.EncounterType);
+            Assert.AreEqual(RunState.Playing, run.State);
+            Assert.AreEqual(RunStageSection.MidBoss, run.StageSection);
+            Assert.AreEqual(1, run.RareEncountersCleared);
             Assert.AreEqual(0, run.RewardOptions.Count);
         }
 
@@ -248,8 +210,13 @@ namespace Shmup.Core.Tests
                 rewards);
 
             run.Step(InputCommand.None);
+            run.Step(InputCommand.None);
 
             Assert.AreEqual(RunState.AwaitingReward, run.State);
+            Assert.AreEqual(
+                RewardSelectionKind.MidStage,
+                run.RewardSelectionKind);
+            Assert.AreEqual(2, run.RewardOptions.Count);
             Assert.AreEqual(RewardType.Modifier, run.RewardOptions[0].Type);
             Assert.AreEqual(
                 BattleModifier.PierceShot,
@@ -257,40 +224,27 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void AwaitingRouteStopsStepUntilChooseRoute()
+        public void RemovedRouteApiNeverInterruptsPlaying()
         {
             RunManager run = CreateRun(88UL, EncounterType.Supply);
-            ReachRouteChoice(run);
-            int stoppedTick = run.Battle.Tick;
-            RouteOption selected = run.RouteOptions[0];
-
-            run.Step(new InputCommand(1, 1, true, true));
-
-            Assert.AreEqual(RunState.AwaitingRoute, run.State);
-            Assert.AreEqual(stoppedTick, run.Battle.Tick);
-            Assert.AreEqual(1, run.StageIndex);
-
-            run.ChooseRoute(0);
-
+            run.Step(InputCommand.None);
             Assert.AreEqual(RunState.Playing, run.State);
             Assert.AreEqual(1, run.BiomeIndex);
             Assert.AreEqual(2, run.RoomIndex);
-            Assert.AreEqual(selected.ThemeId, run.StagePlan.ThemeId);
-            Assert.AreEqual(
-                selected.EncounterType,
-                run.StagePlan.EncounterType);
-            Assert.AreEqual(1, run.RouteChoiceHistory.Count);
+            Assert.AreEqual(0, run.RouteOptions.Count);
+#pragma warning disable CS0618
+            Assert.Throws<NotSupportedException>(
+                () => run.ChooseRoute(0));
+#pragma warning restore CS0618
         }
 
         [Test]
-        public void SuspendAndInputReplayReproduceChosenRoute()
+        public void CurrentSuspendAndReplayExportNoRouteChoices()
         {
             RunManager source = CreateRun(20260729UL, EncounterType.Supply);
             var recorder = new InputRecorder(source);
             recorder.Record(InputCommand.None);
             source.Step(InputCommand.None);
-            RouteOption selected = source.RouteOptions[1];
-            source.ChooseRoute(1);
 
             RunSuspendData suspend = source.ExportSuspendData();
             InputRecordingData recording = recorder.Export();
@@ -302,25 +256,12 @@ namespace Shmup.Core.Tests
                 CreateContent(),
                 CreateGauge());
 
-            Assert.AreEqual(1, suspend.routeChoices.Length);
-            Assert.AreEqual(selected.ThemeId, resumed.StagePlan.ThemeId);
-            Assert.AreEqual(
-                selected.EncounterType,
-                resumed.StagePlan.EncounterType);
-            Assert.AreEqual(1, playback.RouteChoices.Count);
-
-            RunManager replay = CreateRun(
-                20260729UL,
-                EncounterType.Supply);
-            foreach (InputCommand input in playback)
-                replay.Step(in input);
-            RouteChoice replayChoice = playback.RouteChoices[0];
-            replay.ChooseRoute(replayChoice.OptionIndex);
-
-            Assert.AreEqual(resumed.StagePlan.ThemeId, replay.StagePlan.ThemeId);
+            Assert.AreEqual(0, suspend.routeChoices.Length);
+            Assert.AreEqual(0, playback.RouteChoices.Count);
+            Assert.AreEqual(RunStageSection.MidBoss, resumed.StageSection);
             Assert.AreEqual(
                 resumed.StagePlan.EncounterType,
-                replay.StagePlan.EncounterType);
+                source.StagePlan.EncounterType);
         }
 
         [Test]
@@ -359,10 +300,53 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(0, playback.RouteChoices.Count);
         }
 
-        static void ReachRouteChoice(RunManager run)
+        [Test]
+        public void LegacySaveAndReplayWithRoutePayloadStillOpenAfterRouteRemoval()
         {
-            run.Step(InputCommand.None);
-            Assert.AreEqual(RunState.AwaitingRoute, run.State);
+            var legacyChoice = new RouteChoiceData
+            {
+                stageIndex = 1,
+                biomeIndex = 1,
+                roomIndex = 1,
+                optionIndex = 0,
+                themeId = "beta",
+                encounterType = (int)EncounterType.Rare
+            };
+            RunManager run = CreateRun(54UL, EncounterType.Supply);
+            RunSuspendData oldSuspend = run.ExportSuspendData();
+            oldSuspend.schemaVersion = 10;
+            oldSuspend.checksum = null;
+            oldSuspend.powerUpProgress = null;
+            oldSuspend.routeChoices = new[] { legacyChoice };
+
+            RunManager resumed = RunManager.ResumeFromSuspendData(
+                oldSuspend,
+                new RouteStageGenerator(EncounterType.Supply),
+                CreateConfig(),
+                CreateContent(),
+                CreateGauge());
+
+            Assert.AreEqual(1, resumed.RouteChoiceHistory.Count);
+            Assert.AreEqual("beta", resumed.StagePlan.ThemeId);
+            Assert.AreEqual(
+                EncounterType.Rare,
+                resumed.StagePlan.EncounterType);
+            Assert.AreEqual(RunState.Playing, resumed.State);
+
+            var recorder = new InputRecorder();
+            recorder.Record(InputCommand.None);
+            InputRecordingData oldRecording = recorder.Export();
+            oldRecording.schemaVersion = 9;
+            oldRecording.checksum = null;
+            oldRecording.routeChoices = new[] { legacyChoice };
+            var playback = new InputPlayback(oldRecording);
+
+            Assert.AreEqual(1, playback.RouteChoices.Count);
+            Assert.AreEqual("beta", playback.RouteChoices[0].ThemeId);
+            Assert.AreEqual(
+                EncounterType.Rare,
+                playback.RouteChoices[0].EncounterType);
+            Assert.AreEqual(1, playback.TotalTicks);
         }
 
         static RunManager CreateRun(

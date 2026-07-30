@@ -32,9 +32,11 @@ namespace Shmup.Core.Simulation
             FoldInt32(run.RoomIndex);
             FoldBool(run.IsBiomeBoss);
             FoldBool(run.IsHiddenBiome);
+            FoldInt32((int)run.StageSection);
             FoldInt32(run.BiomeCount);
             FoldInt32(run.RoomsPerBiome);
             FoldInt32((int)run.State);
+            FoldInt32((int)run.RewardSelectionKind);
             FoldInt32((int)run.CompletionGrade);
             FoldInt32((int)run.SelectedColossalBoss);
             FoldInt32((int)run.LastColossalBossAtRunStart);
@@ -231,6 +233,11 @@ namespace Shmup.Core.Simulation
                 FoldInt32(phase.Ways);
                 FoldInt32(phase.BulletSpeedNumerator);
                 FoldInt32(phase.BulletSpeedDenominator);
+                FoldInt32((int)phase.MovementPattern);
+                FoldInt32(phase.MovementAmplitudeNumerator);
+                FoldInt32(phase.MovementAmplitudeDenominator);
+                FoldInt32(phase.MovementPeriodTicks);
+                FoldInt32((int)phase.PartVulnerability);
             }
 
             FoldInt32(plan.BossParts.Count);
@@ -461,6 +468,8 @@ namespace Shmup.Core.Simulation
             FoldInt32(boss.Hp);
             FoldInt32(boss.MaxHp);
             FoldInt32(boss.Phase);
+            FoldInt32((int)boss.MovementPattern);
+            FoldInt32((int)boss.PartVulnerability);
             FoldInt32(battle.BossParts.Count);
             for (int i = 0; i < battle.BossParts.Count; i++)
             {
@@ -472,7 +481,7 @@ namespace Shmup.Core.Simulation
                 FoldInt32(part.MaxHp);
                 FoldBool(part.Destroyed);
                 FoldBool(part.IsCore);
-                FoldBool(part.CoreGated);
+                FoldBool(part.Invulnerable);
             }
         }
 
