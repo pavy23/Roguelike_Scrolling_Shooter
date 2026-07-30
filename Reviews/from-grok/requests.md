@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-07-30 REQ-061 — 중간보스 행동 패턴 (완료 · content)
+
+**완료 (content):** `mini_*` 전 항목에 `midBoss.phases` (2~3 순환 + telegraph) 채움.  
+**표:** `Reviews/from-grok/req061-midboss-patterns-2026-07-30.md`  
+**검증:** `dotnet test` 360/360 · BalanceSim all green · REQ-060 CLEAR · 시드 해시 2회 일치.
+
+### CODEX
+
+1. [ ] **`mini_core` 추가 시 enemy count 테스트 31→32** — `RepositoryApprovedV2Files_ParseCompletely`.  
+   제안: id `mini_core`, HP 1550, `themeId: core`, `stageIndexMin: 3`, phases=산탄→집중(tel36)→돌진(tel42).  
+   content는 카탈로그 수 고정 때문에 core 전용 미니를 보류함 (core 바이옴은 4종 균등).
+
+### CLAUDE
+
+1. [ ] Resources `enemies.json` 동기화 (midBoss 프로필 4종)
+2. [ ] 중간보스 `BossAttackTelegraphed` / `BossPhaseChanged` 시청각 (이미 main 병합분 있으면 확인만)
+
+---
+
 ## 2026-07-30 REQ-060 — 첫 스테이지 난이도 (완료 · 잠정 §7)
 
 **완료 (content):** 스테이지1 클리어 가능하도록 초반 화력·중간보스 HP·세그/드롭/첫 보스 조정. 후반 보스·세그 HP 유지.  
@@ -21,20 +40,19 @@
 
 ### CODEX
 
-1. [ ] **중간보스 스테이지/테마 가중 선택** — `CreateMidBossPlan`이 전역 `mini_*` 균등. stage1에 walker(최강) 가능. 홈 테마 soft prefer + stage 스케일 HP/후보 풀.
-2. [ ] **sim `GenerateCore`에 `IsHiddenOnlyColossalBoss` 복원** — content Core에 이미 있음. 없으면 stage5 normal gen이 leviathan/broodmother를 뽑고 BalanceSim colossal 제외 게이트 실패.
-3. [ ] content ← sim 병합 후 laser/gimmick 파서 → content 워크트리 `dotnet test` / `BalanceSim` 자체 통과.
-4. [ ] (기존) `RepositoryApprovedV2Files` 적 수 30→31 · 리듬 런 2건 (REQ-057)
+1. [x] **중간보스 스테이지/테마 가중 선택** — main 병합으로 수신 (themeId 3× weight + stageIndexMin/Max).
+2. [x] **sim `GenerateCore`에 `IsHiddenOnlyColossalBoss` 복원** — main 병합으로 수신.
+3. [x] content ← main 병합 후 laser/gimmick 파서 → content 워크트리 `dotnet test` / `BalanceSim` 자체 통과.
+4. [x] (기존) `RepositoryApprovedV2Files` 적 수 · 리듬 런 (main 병합 후 360/360).
 
 ### CLAUDE
 
-1. [ ] Resources GameData 동기화: `ships.json` · `enemies.json` · `waves.json`
+1. [ ] Resources GameData 동기화: `ships.json` · `enemies.json` · `waves.json` (+ REQ-061 midBoss)
 2. [ ] 스타터 Main2 시작이 HUD 게이지/툴팁과 맞는지 확인
 
 ### 검증
 
-- BalanceSim (sim Core + content data): REQ-060 **CLEAR**, 조립 50/50, 드롭/보스 TTK **PASS**
-- colossal normal-gen: sim 스킵 부재로 1 FAIL (위 CODEX #2)
+- BalanceSim (merged Core + content data): REQ-060 **CLEAR**, 조립 50/50, 드롭/보스 TTK **PASS**
 - 성장 곡선·실드 상한 3: **변경 없음** (제안만 문서)
 
 ---
