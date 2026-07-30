@@ -5417,7 +5417,7 @@
         {
           "pattern": "aimed",
           "hpEnterRatio": 1.0,
-          "fireIntervalTicks": 55,
+          "fireIntervalTicks": 64,
           "ways": 3,
           "bulletSpeed": 9.0,
           "movementPattern": "stationary",
@@ -5428,8 +5428,8 @@
         {
           "pattern": "spread",
           "hpEnterRatio": 0.667,
-          "fireIntervalTicks": 48,
-          "ways": 6,
+          "fireIntervalTicks": 56,
+          "ways": 4,
           "bulletSpeed": 8.0,
           "movementPattern": "verticalSine",
           "movementAmplitude": 1.75,
@@ -5439,9 +5439,9 @@
         {
           "pattern": "rapid",
           "hpEnterRatio": 0.333,
-          "fireIntervalTicks": 20,
-          "ways": 3,
-          "bulletSpeed": 14.5,
+          "fireIntervalTicks": 30,
+          "ways": 2,
+          "bulletSpeed": 13.5,
           "movementPattern": "verticalSine",
           "movementAmplitude": 2.0,
           "movementPeriodTicks": 100,

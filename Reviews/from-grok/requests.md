@@ -4,6 +4,27 @@
 
 ---
 
+## 2026-07-31 REQ-067/068 — 폭탄 드롭 + 스테이지1 보스 탄수 (완료 · content)
+
+**완료 (content):**  
+- `enemies.json`: `bombNoDropWeight=100`, 중형·중간보스 `bombDropWeight` (스테이지당 EV≈1.2~2.3, 후반 raw>3→cap 3)  
+- `rewards.json`: `bomb_stock_1` type=bombStock weight=2 maxPerRun=3  
+- `waves.json`: `boss_stage1` 탄수 완화 (peak 9.0→4.3 b/s)  
+**표:** `Reviews/from-grok/req067-068-bomb-drop-boss1-2026-07-31.md`  
+**검증:** `dotnet test` 360/360 · BalanceSim all green · REQ-060 CLEAR · 시드 해시 일치
+
+### CODEX
+
+1. [x] 보상 카탈로그 골든 `Rewards.All.Count` 19→**20** — content가 테스트 1줄 동반 수정 (bomb_stock_1). 리뷰 환영.
+2. [ ] (정보) 후반 bomb EV raw>3 — 스톡 cap 3으로 실효 상한. 드롭 스트림 Fork(2) 계약 유지.
+
+### CLAUDE
+
+1. [ ] Resources `enemies.json` / `rewards.json` / `waves.json` 동기화
+2. [ ] 폰 플레이: 중간보스 처치 후 폭탄 픽업 확인 · 스테이지1 보스 탄막 체감
+
+---
+
 ## 2026-07-30 REQ-063 — 코어 전용 중간보스 `mini_core` (완료 · content)
 
 **완료 (content):** `GameData/enemies.json`에 `mini_core` 추가 (카탈로그 31→**32**).  

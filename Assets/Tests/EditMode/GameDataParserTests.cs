@@ -1060,8 +1060,9 @@ namespace Shmup.Core.Tests
                 hasLeviathan ? 7 : 5,
                 data.StageGeneration.Bosses.Count);
             Assert.AreEqual(3, data.Rewards.OptionCount);
-            // 13 base + 3 missileFamily + 3 optionFormation (REQ-034).
-            Assert.AreEqual(19, data.Rewards.All.Count);
+            // 13 base + 3 missileFamily + 3 optionFormation (REQ-034)
+            // + bomb_stock_1 (REQ-067).
+            Assert.AreEqual(20, data.Rewards.All.Count);
             Assert.AreEqual(3, data.Ships.Count);
             Assert.AreEqual(
                 WeaponType.Vulcan,

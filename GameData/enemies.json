@@ -1,7 +1,8 @@
 {
   "schemaVersion": 3,
   "dropTable": {
-    "noDropWeight": 13
+    "noDropWeight": 13,
+    "bombNoDropWeight": 100
   },
   "enemies": [
     {
@@ -48,7 +49,8 @@
       "halfHeight": 0.875,
       "movement": {
         "pattern": "static"
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "zako_fast",
@@ -80,7 +82,8 @@
       "movement": {
         "pattern": "straight",
         "speed": 2.5
-      }
+      },
+      "bombDropWeight": 25
     },
     {
       "id": "zako_sine_slow",
@@ -111,7 +114,8 @@
       "halfHeight": 0.875,
       "movement": {
         "pattern": "static"
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "elite_sine",
@@ -128,7 +132,8 @@
         "speed": 3.25,
         "amplitude": 3,
         "periodTicks": 90
-      }
+      },
+      "bombDropWeight": 25
     },
     {
       "id": "spore_drifter",
@@ -176,7 +181,8 @@
       "halfHeight": 1.25,
       "movement": {
         "pattern": "static"
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "sentry_drone",
@@ -190,7 +196,8 @@
       "halfHeight": 0.75,
       "movement": {
         "pattern": "static"
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "interceptor_rush",
@@ -239,7 +246,8 @@
       "movement": {
         "pattern": "straight",
         "speed": 1.75
-      }
+      },
+      "bombDropWeight": 25
     },
     {
       "id": "scrap_tumbler",
@@ -256,7 +264,8 @@
         "speed": 3.75,
         "amplitude": 2.75,
         "periodTicks": 100
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "brood_spitter",
@@ -273,7 +282,8 @@
         "speed": 3.0,
         "amplitude": 2.0,
         "periodTicks": 90
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "mortar_drone",
@@ -287,7 +297,8 @@
       "halfHeight": 0.8125,
       "movement": {
         "pattern": "static"
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "echo_wisp",
@@ -304,7 +315,8 @@
         "speed": 4.5,
         "amplitude": 3.25,
         "periodTicks": 80
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "rust_skimmer",
@@ -338,7 +350,8 @@
         "speed": 3.5,
         "amplitude": 2.25,
         "periodTicks": 130
-      }
+      },
+      "bombDropWeight": 4
     },
     {
       "id": "void_moth",
@@ -355,7 +368,8 @@
         "speed": 4.75,
         "amplitude": 3.0,
         "periodTicks": 75
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "shard_prism",
@@ -370,7 +384,8 @@
       "movement": {
         "pattern": "straight",
         "speed": 1.5
-      }
+      },
+      "bombDropWeight": 25
     },
     {
       "id": "sting_hornet",
@@ -418,7 +433,8 @@
       "halfHeight": 0.75,
       "movement": {
         "pattern": "static"
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "rift_blade",
@@ -487,7 +503,8 @@
             "telegraphTicks": 0
           }
         ]
-      }
+      },
+      "bombDropWeight": 150
     },
     {
       "id": "mini_horror",
@@ -541,7 +558,8 @@
             "telegraphTicks": 0
           }
         ]
-      }
+      },
+      "bombDropWeight": 150
     },
     {
       "id": "mini_walker",
@@ -592,7 +610,8 @@
             "telegraphTicks": 0
           }
         ]
-      }
+      },
+      "bombDropWeight": 150
     },
     {
       "id": "mini_crystal",
@@ -646,7 +665,8 @@
             "telegraphTicks": 36
           }
         ]
-      }
+      },
+      "bombDropWeight": 150
     },
     {
       "id": "mini_core",
@@ -700,7 +720,8 @@
             "telegraphTicks": 42
           }
         ]
-      }
+      },
+      "bombDropWeight": 150
     }
   ]
 }
