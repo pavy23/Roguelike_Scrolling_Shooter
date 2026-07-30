@@ -36,6 +36,27 @@ namespace Shmup.Core.Generation
             EncounterType encounterType);
     }
 
+    public enum ColossalBossKind
+    {
+        None = 0,
+        Leviathan = 1,
+        Broodmother = 2
+    }
+
+    /// <summary>
+    /// Optional content-backed extension used by the hidden biome to request the
+    /// exact colossal boss chosen by RunManager.
+    /// </summary>
+    public interface IColossalBossStageGenerator
+    {
+        bool CanGenerateColossalBoss(ColossalBossKind kind);
+        StagePlan GenerateColossalBoss(
+            ulong seed,
+            int stageIndex,
+            int difficulty,
+            ColossalBossKind kind);
+    }
+
     public enum EncounterType
     {
         Normal = 0,
@@ -71,6 +92,206 @@ namespace Shmup.Core.Generation
         public int Ways { get; }
         public int BulletSpeedNumerator { get; }
         public int BulletSpeedDenominator { get; }
+    }
+
+    public enum BossPartAttackType
+    {
+        None = 0,
+        AimedSpread = 1,
+        RadialSpread = 2,
+        MeleeCharge = 3,
+        VerticalMovement = 4,
+        SpawnEnemy = 5,
+        Suction = 6
+    }
+
+    /// <summary>
+    /// Allocation-free runtime parameters for one independently destructible
+    /// boss-part attack. Speeds are exact simulation-subunit fractions per tick.
+    /// </summary>
+    public sealed class BossPartAttackProfile
+    {
+        public static readonly BossPartAttackProfile None =
+            new BossPartAttackProfile(
+                BossPartAttackType.None, 0, 0, 0, 1, 0, 1, null);
+
+        public BossPartAttackProfile(
+            BossPartAttackType type,
+            int intervalTicks,
+            int ways,
+            int bulletSpeedNumerator,
+            int bulletSpeedDenominator,
+            int effectSpeedNumerator,
+            int effectSpeedDenominator,
+            string spawnEnemyId)
+            : this(
+                type,
+                intervalTicks,
+                ways,
+                bulletSpeedNumerator,
+                bulletSpeedDenominator,
+                effectSpeedNumerator,
+                effectSpeedDenominator,
+                spawnEnemyId,
+                0)
+        {
+        }
+
+        public BossPartAttackProfile(
+            BossPartAttackType type,
+            int intervalTicks,
+            int ways,
+            int bulletSpeedNumerator,
+            int bulletSpeedDenominator,
+            int effectSpeedNumerator,
+            int effectSpeedDenominator,
+            string spawnEnemyId,
+            int contactDamage)
+        {
+            if (!Enum.IsDefined(typeof(BossPartAttackType), type))
+                throw new ArgumentOutOfRangeException(nameof(type));
+            if (intervalTicks < 0)
+                throw new ArgumentOutOfRangeException(nameof(intervalTicks));
+            if (ways < 0)
+                throw new ArgumentOutOfRangeException(nameof(ways));
+            if (bulletSpeedNumerator < 0)
+                throw new ArgumentOutOfRangeException(nameof(bulletSpeedNumerator));
+            if (bulletSpeedDenominator < 1)
+                throw new ArgumentOutOfRangeException(nameof(bulletSpeedDenominator));
+            if (effectSpeedNumerator < 0)
+                throw new ArgumentOutOfRangeException(nameof(effectSpeedNumerator));
+            if (effectSpeedDenominator < 1)
+                throw new ArgumentOutOfRangeException(nameof(effectSpeedDenominator));
+            if (contactDamage < 0)
+                throw new ArgumentOutOfRangeException(nameof(contactDamage));
+            if ((type == BossPartAttackType.AimedSpread
+                    || type == BossPartAttackType.RadialSpread)
+                && (intervalTicks < 1 || ways < 1
+                    || bulletSpeedNumerator < 1))
+                throw new ArgumentException(
+                    "Projectile part attacks require interval, ways, and speed.");
+            if ((type == BossPartAttackType.MeleeCharge
+                    || type == BossPartAttackType.VerticalMovement)
+                && (intervalTicks < 1 || effectSpeedNumerator < 1))
+                throw new ArgumentException(
+                    "Movement part attacks require interval and effect speed.");
+            if (type == BossPartAttackType.SpawnEnemy
+                && (intervalTicks < 1 || string.IsNullOrEmpty(spawnEnemyId)))
+                throw new ArgumentException(
+                    "Spawn attacks require interval and enemy id.");
+            if (type == BossPartAttackType.Suction
+                && effectSpeedNumerator < 1)
+                throw new ArgumentException(
+                    "Suction requires a positive effect speed.");
+            if (type != BossPartAttackType.SpawnEnemy
+                && spawnEnemyId != null)
+                throw new ArgumentException(
+                    "Only spawn attacks may specify an enemy id.",
+                    nameof(spawnEnemyId));
+            if (type != BossPartAttackType.MeleeCharge
+                && contactDamage != 0)
+                throw new ArgumentException(
+                    "Only melee-charge attacks may specify contact damage.",
+                    nameof(contactDamage));
+
+            Type = type;
+            IntervalTicks = intervalTicks;
+            Ways = ways;
+            BulletSpeedNumerator = bulletSpeedNumerator;
+            BulletSpeedDenominator = bulletSpeedDenominator;
+            EffectSpeedNumerator = effectSpeedNumerator;
+            EffectSpeedDenominator = effectSpeedDenominator;
+            SpawnEnemyId = spawnEnemyId;
+            ContactDamage = contactDamage;
+        }
+
+        public BossPartAttackType Type { get; }
+        public int IntervalTicks { get; }
+        public int Ways { get; }
+        public int BulletSpeedNumerator { get; }
+        public int BulletSpeedDenominator { get; }
+        public int EffectSpeedNumerator { get; }
+        public int EffectSpeedDenominator { get; }
+        public string SpawnEnemyId { get; }
+        public int ContactDamage { get; }
+    }
+
+    /// <summary>
+    /// Immutable hitbox and behavior definition relative to the boss body.
+    /// Core gate ids are copied in declared order and must refer to sibling parts.
+    /// </summary>
+    public sealed class BossPartDefinition
+    {
+        readonly ReadOnlyCollection<string> _coreGatePartIds;
+
+        public BossPartDefinition(
+            string partId,
+            int offsetX,
+            int offsetY,
+            int halfWidth,
+            int halfHeight,
+            int maxHp,
+            bool isCore,
+            IReadOnlyList<string> coreGatePartIds,
+            BossPartAttackProfile attack,
+            int regenerationTicks)
+        {
+            if (string.IsNullOrEmpty(partId))
+                throw new ArgumentException(
+                    "Boss part id cannot be null or empty.", nameof(partId));
+            if (halfWidth < 1)
+                throw new ArgumentOutOfRangeException(nameof(halfWidth));
+            if (halfHeight < 1)
+                throw new ArgumentOutOfRangeException(nameof(halfHeight));
+            if (maxHp < 1)
+                throw new ArgumentOutOfRangeException(nameof(maxHp));
+            if (regenerationTicks < 0)
+                throw new ArgumentOutOfRangeException(nameof(regenerationTicks));
+
+            PartId = partId;
+            OffsetX = offsetX;
+            OffsetY = offsetY;
+            HalfWidth = halfWidth;
+            HalfHeight = halfHeight;
+            MaxHp = maxHp;
+            IsCore = isCore;
+            Attack = attack ?? BossPartAttackProfile.None;
+            RegenerationTicks = regenerationTicks;
+
+            int count = coreGatePartIds == null ? 0 : coreGatePartIds.Count;
+            var gates = new string[count];
+            for (int i = 0; i < gates.Length; i++)
+            {
+                string gate = coreGatePartIds[i];
+                if (string.IsNullOrEmpty(gate))
+                    throw new ArgumentException(
+                        "Core gate part ids cannot be null or empty.",
+                        nameof(coreGatePartIds));
+                for (int previous = 0; previous < i; previous++)
+                    if (string.Equals(
+                            gates[previous], gate, StringComparison.Ordinal))
+                        throw new ArgumentException(
+                            $"Duplicate core gate part id '{gate}'.",
+                            nameof(coreGatePartIds));
+                gates[i] = gate;
+            }
+            if (!isCore && gates.Length != 0)
+                throw new ArgumentException(
+                    "Only a core part may specify gate ids.",
+                    nameof(coreGatePartIds));
+            _coreGatePartIds = new ReadOnlyCollection<string>(gates);
+        }
+
+        public string PartId { get; }
+        public int OffsetX { get; }
+        public int OffsetY { get; }
+        public int HalfWidth { get; }
+        public int HalfHeight { get; }
+        public int MaxHp { get; }
+        public bool IsCore { get; }
+        public IReadOnlyList<string> CoreGatePartIds => _coreGatePartIds;
+        public BossPartAttackProfile Attack { get; }
+        public int RegenerationTicks { get; }
     }
 
     /// <summary>Ordered segments followed by a boss. Pure data — no Unity types.</summary>
@@ -190,6 +411,39 @@ namespace Shmup.Core.Generation
             string themeId,
             string requestedThemeId,
             EncounterType encounterType)
+            : this(
+                segments,
+                bossId,
+                laneCount,
+                startLaneMask,
+                bossEntryLaneMask,
+                bossMaxHp,
+                bossHalfWidth,
+                bossHalfHeight,
+                bossHoldX,
+                bossPhases,
+                themeId,
+                requestedThemeId,
+                encounterType,
+                null)
+        {
+        }
+
+        public StagePlan(
+            IReadOnlyList<StageSegment> segments,
+            string bossId,
+            int laneCount,
+            int startLaneMask,
+            int bossEntryLaneMask,
+            int bossMaxHp,
+            int bossHalfWidth,
+            int bossHalfHeight,
+            int bossHoldX,
+            IReadOnlyList<BossPhase> bossPhases,
+            string themeId,
+            string requestedThemeId,
+            EncounterType encounterType,
+            IReadOnlyList<BossPartDefinition> bossParts)
         {
             if (bossMaxHp < 0)
                 throw new ArgumentOutOfRangeException(nameof(bossMaxHp));
@@ -215,6 +469,8 @@ namespace Shmup.Core.Generation
             BossHalfHeight = bossHalfHeight;
             BossHoldX = bossHoldX;
             BossPhases = CopyPhases(bossPhases);
+            BossParts = CopyParts(bossParts);
+            ValidateParts(BossParts, BossMaxHp);
             ThemeId = themeId;
             RequestedThemeId = requestedThemeId;
             EncounterType = encounterType;
@@ -235,6 +491,7 @@ namespace Shmup.Core.Generation
         public int BossHoldX { get; }
         /// <summary>HP를 페이즈 수로 균등 분할해 전환한다. 비어 있으면 시뮬 기본 1페이즈.</summary>
         public IReadOnlyList<BossPhase> BossPhases { get; }
+        public IReadOnlyList<BossPartDefinition> BossParts { get; }
         /// <summary>
         /// Deterministically selected stage theme, or null for an unthemed catalog.
         /// Presentation uses this id to select the matching background.
@@ -309,6 +566,76 @@ namespace Shmup.Core.Generation
                 copy[i] = source[i] ?? throw new ArgumentException(
                     "Boss phases cannot contain null.", nameof(source));
             return new ReadOnlyCollection<BossPhase>(copy);
+        }
+
+        static IReadOnlyList<BossPartDefinition> CopyParts(
+            IReadOnlyList<BossPartDefinition> source)
+        {
+            if (source == null || source.Count == 0)
+                return Array.Empty<BossPartDefinition>();
+            var copy = new BossPartDefinition[source.Count];
+            for (int i = 0; i < copy.Length; i++)
+                copy[i] = source[i] ?? throw new ArgumentException(
+                    "Boss parts cannot contain null.", nameof(source));
+            return new ReadOnlyCollection<BossPartDefinition>(copy);
+        }
+
+        static void ValidateParts(
+            IReadOnlyList<BossPartDefinition> parts,
+            int bossMaxHp)
+        {
+            int coreCount = 0;
+            long totalHp = 0;
+            for (int i = 0; i < parts.Count; i++)
+            {
+                BossPartDefinition part = parts[i];
+                totalHp += part.MaxHp;
+                for (int previous = 0; previous < i; previous++)
+                    if (string.Equals(
+                            parts[previous].PartId,
+                            part.PartId,
+                            StringComparison.Ordinal))
+                        throw new ArgumentException(
+                            $"Duplicate boss part id '{part.PartId}'.",
+                            nameof(parts));
+                if (part.IsCore)
+                    coreCount++;
+            }
+            if (parts.Count != 0 && coreCount != 1)
+                throw new ArgumentException(
+                    "A multipart boss requires exactly one core.",
+                    nameof(parts));
+            if (parts.Count != 0 && totalHp != bossMaxHp)
+                throw new ArgumentException(
+                    "Multipart boss HP must equal the sum of its part HP.",
+                    nameof(parts));
+
+            for (int i = 0; i < parts.Count; i++)
+            {
+                BossPartDefinition part = parts[i];
+                for (int gate = 0; gate < part.CoreGatePartIds.Count; gate++)
+                {
+                    string gateId = part.CoreGatePartIds[gate];
+                    bool found = false;
+                    for (int candidate = 0; candidate < parts.Count; candidate++)
+                    {
+                        if (candidate == i)
+                            continue;
+                        if (string.Equals(
+                                parts[candidate].PartId,
+                                gateId,
+                                StringComparison.Ordinal))
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                        throw new ArgumentException(
+                            $"Boss core gate references unknown part '{gateId}'.",
+                            nameof(parts));
+                }
+            }
         }
 
         static IReadOnlyList<StageSegment> Copy(

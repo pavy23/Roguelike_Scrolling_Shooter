@@ -34,7 +34,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class InputRecordingData
     {
-        public const int CurrentSchemaVersion = 7;
+        public const int CurrentSchemaVersion = 8;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -71,6 +71,9 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 11)]
         public int optionFormation;
+
+        [DataMember(Order = 12)]
+        public int lastColossalBossAtRunStart;
     }
 
     /// <summary>
@@ -90,6 +93,7 @@ namespace Shmup.Core.Simulation
         readonly int _roomsPerBiome;
         readonly MissileFamily _missileFamily;
         readonly OptionFormation _optionFormation;
+        readonly ColossalBossKind _lastColossalBossAtRunStart;
         readonly List<RouteChoice> _recordedRouteChoices;
         readonly RunManager _routeSource;
         int _runCount;
@@ -126,6 +130,8 @@ namespace Shmup.Core.Simulation
             _routeSource = run;
             _missileFamily = run.CurrentMissileFamily;
             _optionFormation = run.CurrentOptionFormation;
+            _lastColossalBossAtRunStart =
+                run.LastColossalBossAtRunStart;
         }
 
         public InputRecorder(
@@ -189,6 +195,8 @@ namespace Shmup.Core.Simulation
             _roomsPerBiome = roomsPerBiome;
             _missileFamily = MissileFamily.Straight;
             _optionFormation = OptionFormation.Trail;
+            _lastColossalBossAtRunStart =
+                ColossalBossKind.None;
             _runs = new InputRun[runCapacity];
             _recordedRouteChoices = new List<RouteChoice>();
         }
@@ -328,7 +336,9 @@ namespace Shmup.Core.Simulation
                 biomeCount = _finalStageIndex,
                 roomsPerBiome = _roomsPerBiome,
                 missileFamily = (int)_missileFamily,
-                optionFormation = (int)_optionFormation
+                optionFormation = (int)_optionFormation,
+                lastColossalBossAtRunStart =
+                    (int)_lastColossalBossAtRunStart
             };
             SaveDataIntegrity.Seal(data);
             return data;
@@ -441,6 +451,8 @@ namespace Shmup.Core.Simulation
                 (MissileFamily)data.missileFamily;
             OptionFormation =
                 (OptionFormation)data.optionFormation;
+            LastColossalBossAtRunStart =
+                (ColossalBossKind)data.lastColossalBossAtRunStart;
             _runs = new PlaybackRun[data.runs.Length];
             for (int i = 0; i < data.runs.Length; i++)
             {
@@ -478,6 +490,7 @@ namespace Shmup.Core.Simulation
         public int RoomsPerBiome { get; }
         public MissileFamily MissileFamily { get; }
         public OptionFormation OptionFormation { get; }
+        public ColossalBossKind LastColossalBossAtRunStart { get; }
         public IReadOnlyList<RouteChoice> RouteChoices =>
             _routeChoiceView;
 
@@ -524,7 +537,10 @@ namespace Shmup.Core.Simulation
                     data.missileFamily)
                 || !Enum.IsDefined(
                     typeof(OptionFormation),
-                    data.optionFormation))
+                    data.optionFormation)
+                || !Enum.IsDefined(
+                    typeof(ColossalBossKind),
+                    data.lastColossalBossAtRunStart))
                 throw Corrupted(
                     "The input recording weapon loadout is invalid.");
             if (data.totalTicks < 1)

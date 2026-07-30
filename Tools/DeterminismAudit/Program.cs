@@ -17,6 +17,7 @@ namespace Shmup.DeterminismAudit
         const int ExpectedRunMinutes = 22;
         const int TickBudgetMarginPercent = 25;
         const int AuditBossHitRatePercent = 50;
+        const int ColossalBossMaxHp = 62_000;
 
         static int Main(string[] args)
         {
@@ -82,8 +83,9 @@ namespace Shmup.DeterminismAudit
             };
 
             Console.WriteLine(
-                "suite=determinism-audit-04 "
+                "suite=determinism-audit-05 "
                 + $"scenarios={scenarios.Length} state=full-observable "
+                + "hiddenPath=required "
                 + $"tickBudget={tickBudget} "
                 + $"expectedRunTicks={ExpectedRunTicks()} "
                 + $"marginPercent={TickBudgetMarginPercent} "
@@ -109,6 +111,8 @@ namespace Shmup.DeterminismAudit
                 int expectedRooms =
                     scenarios[i].StageCount
                     * RunProgressionConfig.DefaultRoomsPerBiome;
+                if (first.CompletionGrade == RunCompletionGrade.PerfectClear)
+                    expectedRooms += RunProgressionConfig.HiddenRooms;
                 if (first.CompletedRooms != expectedRooms)
                     throw new InvalidOperationException(
                         $"Scenario '{scenarios[i].Name}' completed only "
@@ -116,6 +120,10 @@ namespace Shmup.DeterminismAudit
 
                 Console.WriteLine("PASS " + first.Format());
             }
+            if (RunScenario(data, scenarios[0]).CompletionGrade
+                != RunCompletionGrade.PerfectClear)
+                throw new InvalidOperationException(
+                    "The required hidden-biome audit path was not completed.");
 
             CapSweepResult capSweep = RunCapBoundarySweep();
             Console.WriteLine(
@@ -141,7 +149,7 @@ namespace Shmup.DeterminismAudit
             config.PlayerMaxHp = 1_000_000;
             var run = new RunManager(
                 scenario.Seed,
-                new SegmentStageGenerator(data.StageGeneration),
+                new AuditStageGenerator(data),
                 config,
                 data.BattleContent,
                 data.CreatePowerUpGauge(),
@@ -156,7 +164,8 @@ namespace Shmup.DeterminismAudit
 
             hasher.FoldRunState(run);
             while (executedTicks < scenario.TickCount
-                && run.StageIndex <= scenario.StageCount
+                && (run.StageIndex <= scenario.StageCount
+                    || run.IsHiddenBiome)
                 && run.State != RunState.RunOver
                 && run.State != RunState.RunCleared)
             {
@@ -236,7 +245,8 @@ namespace Shmup.DeterminismAudit
                 run.RoomIndex,
                 run.Battle.Tick,
                 run.Battle.Boss.Hp,
-                run.Battle.Boss.MaxHp);
+                run.Battle.Boss.MaxHp,
+                run.CompletionGrade);
         }
 
         static int ComputeSuiteTickBudget(GameDataSet data)
@@ -263,7 +273,20 @@ namespace Shmup.DeterminismAudit
                 * main.FireIntervalTicks
                 * 100
                 / (main.BaseDamage * AuditBossHitRatePercent);
-            long derived = expectedWithMargin + bossDamageTicks;
+            long colossalDamageTicks =
+                (long)ColossalBossMaxHp
+                * main.FireIntervalTicks
+                * 100
+                / (main.BaseDamage * AuditBossHitRatePercent);
+            long hiddenRoomTicks =
+                (long)ExpectedRunTicks()
+                * RunProgressionConfig.HiddenRooms
+                / (RunProgressionConfig.DefaultBiomeCount
+                    * RunProgressionConfig.DefaultRoomsPerBiome);
+            long derived = expectedWithMargin
+                + bossDamageTicks
+                + colossalDamageTicks
+                + hiddenRoomTicks;
             if (derived > int.MaxValue)
                 throw new InvalidOperationException(
                     "Cannot derive audit tick budget: GameData boss HP and weapon "
@@ -566,10 +589,34 @@ namespace Shmup.DeterminismAudit
             BossState boss = battle.Boss;
             if (battle.BossActive)
             {
+                int targetY = boss.Y;
+                for (int i = 0; i < battle.BossParts.Count; i++)
+                {
+                    BossPartState part = battle.BossParts[i];
+                    if (!part.Destroyed
+                        && part.IsCore
+                        && !part.CoreGated)
+                    {
+                        targetY = part.Y;
+                        break;
+                    }
+                }
+                if (targetY == boss.Y)
+                {
+                    for (int i = 0; i < battle.BossParts.Count; i++)
+                    {
+                        BossPartState part = battle.BossParts[i];
+                        if (!part.Destroyed && !part.IsCore)
+                        {
+                            targetY = part.Y;
+                            break;
+                        }
+                    }
+                }
                 int aimTolerance = SimSpace.SubUnitsPerWorldUnit / 8;
-                if (battle.PlayerY < boss.Y - aimTolerance)
+                if (battle.PlayerY < targetY - aimTolerance)
                     moveY = 1;
-                else if (battle.PlayerY > boss.Y + aimTolerance)
+                else if (battle.PlayerY > targetY + aimTolerance)
                     moveY = -1;
                 else
                     moveY = 0;
@@ -732,7 +779,8 @@ namespace Shmup.DeterminismAudit
                 int roomIndex,
                 int battleTick,
                 int bossHp,
-                int bossMaxHp)
+                int bossMaxHp,
+                RunCompletionGrade completionGrade)
             {
                 Scenario = scenario;
                 Hash = hash;
@@ -749,6 +797,7 @@ namespace Shmup.DeterminismAudit
                 BattleTick = battleTick;
                 BossHp = bossHp;
                 BossMaxHp = bossMaxHp;
+                CompletionGrade = completionGrade;
             }
 
             public AuditScenario Scenario { get; }
@@ -766,6 +815,7 @@ namespace Shmup.DeterminismAudit
             public int BattleTick { get; }
             public int BossHp { get; }
             public int BossMaxHp { get; }
+            public RunCompletionGrade CompletionGrade { get; }
 
             public bool Matches(ScenarioResult other)
             {
@@ -783,7 +833,8 @@ namespace Shmup.DeterminismAudit
                     && RoomIndex == other.RoomIndex
                     && BattleTick == other.BattleTick
                     && BossHp == other.BossHp
-                    && BossMaxHp == other.BossMaxHp;
+                    && BossMaxHp == other.BossMaxHp
+                    && CompletionGrade == other.CompletionGrade;
             }
 
             public string Format()
@@ -799,7 +850,8 @@ namespace Shmup.DeterminismAudit
                     + $"finalStage={FinalStage} state={FinalState} "
                     + $"biome={BiomeIndex} room={RoomIndex} "
                     + $"battleTick={BattleTick} "
-                    + $"bossHp={BossHp}/{BossMaxHp}";
+                    + $"bossHp={BossHp}/{BossMaxHp} "
+                    + $"grade={CompletionGrade}";
             }
         }
 
@@ -873,6 +925,286 @@ namespace Shmup.DeterminismAudit
             public int SeedsScanned { get; }
             public int QualifyingSeeds { get; }
             public ulong ExampleSeed { get; }
+        }
+
+        /// <summary>
+        /// Keeps the audit runnable before the content-owned colossal boss rows land.
+        /// Normal route generation always delegates to parsed GameData. Colossal rows
+        /// also delegate as soon as both approved boss ids exist in that catalog.
+        /// </summary>
+        sealed class AuditStageGenerator :
+            IRouteStageGenerator,
+            IColossalBossStageGenerator
+        {
+            const int U = SimSpace.SubUnitsPerWorldUnit;
+            static readonly BossPhase[] DormantLegacyPhases =
+            {
+                new BossPhase(3_600, 1, U, 60)
+            };
+
+            readonly SegmentStageGenerator _inner;
+            readonly string _spawnEnemyId;
+
+            public AuditStageGenerator(GameDataSet data)
+            {
+                if (data == null)
+                    throw new ArgumentNullException(nameof(data));
+                _inner = new SegmentStageGenerator(data.StageGeneration);
+                if (data.BattleContent.Enemies.Count == 0)
+                    throw new InvalidOperationException(
+                        "The colossal audit requires at least one enemy definition.");
+                _spawnEnemyId = data.BattleContent.Enemies[0].Id;
+            }
+
+            public System.Collections.Generic.IReadOnlyList<string> ThemeIds
+                => _inner.ThemeIds;
+
+            public System.Collections.Generic.IReadOnlyList<string> GetThemeOrder(
+                ulong seed)
+            {
+                return _inner.GetThemeOrder(seed);
+            }
+
+            public StagePlan Generate(ulong seed, int stageIndex, int difficulty)
+            {
+                return _inner.Generate(seed, stageIndex, difficulty);
+            }
+
+            public bool CanGenerateRoute(
+                string themeId,
+                int stageIndex,
+                int difficulty,
+                EncounterType encounterType)
+            {
+                return _inner.CanGenerateRoute(
+                    themeId,
+                    stageIndex,
+                    difficulty,
+                    encounterType);
+            }
+
+            public StagePlan GenerateRoute(
+                ulong seed,
+                int stageIndex,
+                int difficulty,
+                string themeId,
+                EncounterType encounterType)
+            {
+                return _inner.GenerateRoute(
+                    seed,
+                    stageIndex,
+                    difficulty,
+                    themeId,
+                    encounterType);
+            }
+
+            public bool CanGenerateColossalBoss(ColossalBossKind kind)
+            {
+                return kind == ColossalBossKind.Leviathan
+                    || kind == ColossalBossKind.Broodmother;
+            }
+
+            public StagePlan GenerateColossalBoss(
+                ulong seed,
+                int stageIndex,
+                int difficulty,
+                ColossalBossKind kind)
+            {
+                if (_inner.CanGenerateColossalBoss(kind))
+                {
+                    return _inner.GenerateColossalBoss(
+                        seed,
+                        stageIndex,
+                        difficulty,
+                        kind);
+                }
+
+                if (!CanGenerateColossalBoss(kind))
+                    throw new ArgumentOutOfRangeException(nameof(kind));
+                return CreateFallbackColossalPlan(kind);
+            }
+
+            StagePlan CreateFallbackColossalPlan(ColossalBossKind kind)
+            {
+                BossPartDefinition[] parts = kind == ColossalBossKind.Leviathan
+                    ? CreateLeviathanParts()
+                    : CreateBroodmotherParts();
+                string bossId = kind == ColossalBossKind.Leviathan
+                    ? SegmentStageGenerator.LeviathanBossId
+                    : SegmentStageGenerator.BroodmotherBossId;
+                return new StagePlan(
+                    new[]
+                    {
+                        new StageSegment(
+                            "audit_hidden_approach",
+                            1,
+                            Array.Empty<SpawnEvent>(),
+                            1,
+                            1,
+                            new[] { 1 })
+                    },
+                    bossId,
+                    1,
+                    1,
+                    1,
+                    62_000,
+                    5 * U,
+                    5 * U,
+                    14 * U,
+                    DormantLegacyPhases,
+                    null,
+                    null,
+                    EncounterType.Normal,
+                    parts);
+            }
+
+            BossPartDefinition[] CreateLeviathanParts()
+            {
+                return new[]
+                {
+                    Part(
+                        "shield_generator", 0, 0, 2, 2, 10_000,
+                        false, null, BossPartAttackProfile.None, 0),
+                    Part(
+                        "upper_turret", 0, 3, 2, 1, 6_000,
+                        false, null, Projectile(
+                            BossPartAttackType.AimedSpread, 72, 3, 7), 0),
+                    Part(
+                        "lower_launcher", 0, -3, 2, 1, 6_000,
+                        false, null, Projectile(
+                            BossPartAttackType.AimedSpread, 90, 5, 6), 0),
+                    Part(
+                        "front_claw", -3, 0, 2, 2, 8_000,
+                        false, null, Movement(
+                            BossPartAttackType.MeleeCharge, 240, 10), 0),
+                    Part(
+                        "engine", 3, 0, 2, 2, 7_000,
+                        false, null, Movement(
+                            BossPartAttackType.VerticalMovement, 180, 3), 0),
+                    Part(
+                        "core", 0, 0, 2, 2, 25_000,
+                        true, new[] { "shield_generator" }, Projectile(
+                            BossPartAttackType.RadialSpread, 96, 8, 6), 0)
+                };
+            }
+
+            BossPartDefinition[] CreateBroodmotherParts()
+            {
+                var spawn = new BossPartAttackProfile(
+                    BossPartAttackType.SpawnEnemy,
+                    8 * SimSpace.TicksPerSecond,
+                    0,
+                    0,
+                    1,
+                    0,
+                    1,
+                    _spawnEnemyId);
+                return new[]
+                {
+                    Part(
+                        "spawn_sac_left", 0, 3, 2, 1, 6_000,
+                        false, null, spawn, 0),
+                    Part(
+                        "spawn_sac_center", 0, 0, 2, 1, 6_000,
+                        false, null, spawn, 0),
+                    Part(
+                        "spawn_sac_right", 0, -3, 2, 1, 6_000,
+                        false, null, spawn, 0),
+                    Part(
+                        "tentacle_left", -3, 3, 1, 2, 5_000,
+                        false, null, Movement(
+                            BossPartAttackType.MeleeCharge, 210, 8),
+                        20 * SimSpace.TicksPerSecond),
+                    Part(
+                        "tentacle_right", -3, -3, 1, 2, 5_000,
+                        false, null, Projectile(
+                            BossPartAttackType.AimedSpread, 84, 5, 6),
+                        20 * SimSpace.TicksPerSecond),
+                    Part(
+                        "maw", 2, 0, 2, 2, 9_000,
+                        false, null, new BossPartAttackProfile(
+                            BossPartAttackType.Suction,
+                            1,
+                            0,
+                            0,
+                            1,
+                            3 * U,
+                            SimSpace.TicksPerSecond,
+                            null),
+                        0),
+                    Part(
+                        "heart", 0, 0, 2, 2, 25_000,
+                        true,
+                        new[]
+                        {
+                            "spawn_sac_left",
+                            "spawn_sac_center",
+                            "spawn_sac_right"
+                        },
+                        Projectile(
+                            BossPartAttackType.RadialSpread, 90, 8, 6),
+                        0)
+                };
+            }
+
+            static BossPartDefinition Part(
+                string id,
+                int offsetX,
+                int offsetY,
+                int halfWidth,
+                int halfHeight,
+                int hp,
+                bool isCore,
+                string[] gates,
+                BossPartAttackProfile attack,
+                int regenerationTicks)
+            {
+                return new BossPartDefinition(
+                    id,
+                    offsetX * U,
+                    offsetY * U,
+                    halfWidth * U,
+                    halfHeight * U,
+                    hp,
+                    isCore,
+                    gates,
+                    attack,
+                    regenerationTicks);
+            }
+
+            static BossPartAttackProfile Projectile(
+                BossPartAttackType type,
+                int intervalTicks,
+                int ways,
+                int worldUnitsPerSecond)
+            {
+                return new BossPartAttackProfile(
+                    type,
+                    intervalTicks,
+                    ways,
+                    worldUnitsPerSecond * U,
+                    SimSpace.TicksPerSecond,
+                    0,
+                    1,
+                    null);
+            }
+
+            static BossPartAttackProfile Movement(
+                BossPartAttackType type,
+                int intervalTicks,
+                int worldUnitsPerSecond)
+            {
+                return new BossPartAttackProfile(
+                    type,
+                    intervalTicks,
+                    0,
+                    0,
+                    1,
+                    worldUnitsPerSecond * U,
+                    SimSpace.TicksPerSecond,
+                    null,
+                    type == BossPartAttackType.MeleeCharge ? 1 : 0);
+            }
         }
 
         sealed class AuditBossEveryStageGenerator : IStageGenerator

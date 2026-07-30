@@ -272,6 +272,8 @@ namespace Shmup.Core.Content
         public decimal? holdX;
         [DataMember]
         public BossPhaseDto[] phases;
+        [DataMember]
+        public BossPartDto[] parts;
     }
 
     [DataContract]
@@ -283,6 +285,50 @@ namespace Shmup.Core.Content
         public int? ways;
         [DataMember]
         public decimal? bulletSpeed;
+    }
+
+    [DataContract]
+    internal sealed class BossPartDto
+    {
+        [DataMember]
+        public string id;
+        [DataMember]
+        public decimal? offsetX;
+        [DataMember]
+        public decimal? offsetY;
+        [DataMember]
+        public decimal? halfWidth;
+        [DataMember]
+        public decimal? halfHeight;
+        [DataMember]
+        public int? hp;
+        [DataMember]
+        public bool? isCore;
+        [DataMember]
+        public string[] coreGatePartIds;
+        [DataMember]
+        public int? regenerationTicks;
+        [DataMember]
+        public BossPartAttackDto attack;
+    }
+
+    [DataContract]
+    internal sealed class BossPartAttackDto
+    {
+        [DataMember]
+        public string type;
+        [DataMember]
+        public int? intervalTicks;
+        [DataMember]
+        public int? ways;
+        [DataMember]
+        public decimal? bulletSpeed;
+        [DataMember]
+        public decimal? effectSpeed;
+        [DataMember]
+        public string spawnEnemyId;
+        [DataMember]
+        public int? contactDamage;
     }
 
     [DataContract]

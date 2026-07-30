@@ -50,7 +50,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class RunSuspendData
     {
-        public const int CurrentSchemaVersion = 6;
+        public const int CurrentSchemaVersion = 7;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -159,5 +159,26 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 34)]
         public int optionFormation;
+
+        [DataMember(Order = 35)]
+        public bool isHiddenBiome;
+
+        [DataMember(Order = 36)]
+        public int eliteRoomsCleared;
+
+        [DataMember(Order = 37)]
+        public int noHitBiomesCleared;
+
+        [DataMember(Order = 38)]
+        public int rareEncountersCleared;
+
+        [DataMember(Order = 39)]
+        public bool currentBiomeHit;
+
+        [DataMember(Order = 40)]
+        public int selectedColossalBoss;
+
+        [DataMember(Order = 41)]
+        public int lastColossalBossAtRunStart;
     }
 }

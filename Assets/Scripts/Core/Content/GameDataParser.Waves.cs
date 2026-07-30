@@ -35,7 +35,7 @@ namespace Shmup.Core.Content
             var bosses = new StageBossTemplate[bossSource.Length];
             for (int i = 0; i < bossSource.Length; i++)
             {
-                bosses[i] = ParseBoss(bossSource[i], i);
+                bosses[i] = ParseBoss(bossSource[i], i, content);
                 EnsureUniqueBossId(bosses, i);
             }
 
@@ -224,7 +224,10 @@ namespace Shmup.Core.Content
             return weight;
         }
 
-        static StageBossTemplate ParseBoss(BossDto source, int index)
+        static StageBossTemplate ParseBoss(
+            BossDto source,
+            int index,
+            BattleContent content)
         {
             string path = $"waves.json.bosses[{index}]";
             if (source == null)
@@ -266,6 +269,17 @@ namespace Shmup.Core.Content
                 }
             }
 
+            BossPartDefinition[] parts = Array.Empty<BossPartDefinition>();
+            if (source.parts != null && source.parts.Length > 0)
+            {
+                parts = new BossPartDefinition[source.parts.Length];
+                for (int i = 0; i < parts.Length; i++)
+                    parts[i] = ParseBossPart(
+                        source.parts[i],
+                        $"{path}.parts[{i}]",
+                        content);
+            }
+
             return new StageBossTemplate(
                 RequireText(source.id, path + ".id"),
                 Require(source.stageIndexMin, path + ".stageIndexMin"),
@@ -278,7 +292,121 @@ namespace Shmup.Core.Content
                 halfHeight,
                 holdX,
                 phases,
-                OptionalText(source.theme, path + ".theme"));
+                OptionalText(source.theme, path + ".theme"),
+                parts);
+        }
+
+        static BossPartDefinition ParseBossPart(
+            BossPartDto source,
+            string path,
+            BattleContent content)
+        {
+            if (source == null)
+                throw Error(path, "cannot be null.");
+            int halfWidth = ToSubUnits(
+                Require(source.halfWidth, path + ".halfWidth"),
+                path + ".halfWidth");
+            int halfHeight = ToSubUnits(
+                Require(source.halfHeight, path + ".halfHeight"),
+                path + ".halfHeight");
+            if (halfWidth < 1)
+                throw Error(path + ".halfWidth", "must be positive.");
+            if (halfHeight < 1)
+                throw Error(path + ".halfHeight", "must be positive.");
+
+            BossPartAttackProfile attack = ParseBossPartAttack(
+                source.attack,
+                path + ".attack",
+                content);
+            try
+            {
+                return new BossPartDefinition(
+                    RequireText(source.id, path + ".id"),
+                    source.offsetX.HasValue
+                        ? ToSubUnits(source.offsetX.Value, path + ".offsetX")
+                        : 0,
+                    source.offsetY.HasValue
+                        ? ToSubUnits(source.offsetY.Value, path + ".offsetY")
+                        : 0,
+                    halfWidth,
+                    halfHeight,
+                    Require(source.hp, path + ".hp"),
+                    source.isCore ?? false,
+                    source.coreGatePartIds ?? Array.Empty<string>(),
+                    attack,
+                    source.regenerationTicks ?? 0);
+            }
+            catch (ArgumentException error)
+            {
+                throw Error(path, error.Message);
+            }
+        }
+
+        static BossPartAttackProfile ParseBossPartAttack(
+            BossPartAttackDto source,
+            string path,
+            BattleContent content)
+        {
+            if (source == null)
+                return BossPartAttackProfile.None;
+            BossPartAttackType type = ParseBossPartAttackType(
+                RequireText(source.type, path + ".type"),
+                path + ".type");
+            string spawnEnemyId = OptionalText(
+                source.spawnEnemyId,
+                path + ".spawnEnemyId");
+            if (type == BossPartAttackType.SpawnEnemy
+                && content.FindEnemy(spawnEnemyId) == null)
+            {
+                throw Error(
+                    path + ".spawnEnemyId",
+                    $"references unknown enemy '{spawnEnemyId}'.");
+            }
+            ExactFraction bulletSpeed = source.bulletSpeed.HasValue
+                ? ToPerTickSpeed(
+                    source.bulletSpeed.Value,
+                    path + ".bulletSpeed")
+                : new ExactFraction(0, 1);
+            ExactFraction effectSpeed = source.effectSpeed.HasValue
+                ? ToPerTickSpeed(
+                    source.effectSpeed.Value,
+                    path + ".effectSpeed")
+                : new ExactFraction(0, 1);
+            try
+            {
+                return new BossPartAttackProfile(
+                    type,
+                    source.intervalTicks ?? 0,
+                    source.ways ?? 0,
+                    bulletSpeed.Numerator,
+                    bulletSpeed.Denominator,
+                    effectSpeed.Numerator,
+                    effectSpeed.Denominator,
+                    spawnEnemyId,
+                    source.contactDamage ?? 0);
+            }
+            catch (ArgumentException error)
+            {
+                throw Error(path, error.Message);
+            }
+        }
+
+        static BossPartAttackType ParseBossPartAttackType(
+            string value,
+            string path)
+        {
+            switch (value)
+            {
+                case "none": return BossPartAttackType.None;
+                case "aimedSpread": return BossPartAttackType.AimedSpread;
+                case "radialSpread": return BossPartAttackType.RadialSpread;
+                case "meleeCharge": return BossPartAttackType.MeleeCharge;
+                case "verticalMovement": return BossPartAttackType.VerticalMovement;
+                case "spawnEnemy": return BossPartAttackType.SpawnEnemy;
+                case "suction": return BossPartAttackType.Suction;
+                default:
+                    throw Error(path, $"has unknown boss-part attack type '{value}'.");
+            }
         }
 
         static void EnsureUniqueSegmentId(StageSegmentTemplate[] items, int index)

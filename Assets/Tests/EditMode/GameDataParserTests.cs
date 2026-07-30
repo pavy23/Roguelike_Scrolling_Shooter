@@ -195,6 +195,67 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void Parse_BossPartsBuildExactGateSpawnAndSuctionModels()
+        {
+            string waves = WavesJson.Replace(
+                @"""entryLaneMask"": 7, ""hp"": 500",
+                @"""entryLaneMask"": 7, ""hp"": 500,
+    ""parts"": [
+      {
+        ""id"": ""spawn_sac"", ""offsetX"": -2.5, ""offsetY"": 1.25,
+        ""halfWidth"": 1.5, ""halfHeight"": 1, ""hp"": 100,
+        ""attack"": {
+          ""type"": ""spawnEnemy"", ""intervalTicks"": 480,
+          ""spawnEnemyId"": ""elite_sine""
+        }
+      },
+      {
+        ""id"": ""maw"", ""offsetX"": 0, ""offsetY"": 0,
+        ""halfWidth"": 2, ""halfHeight"": 2, ""hp"": 150,
+        ""regenerationTicks"": 1200,
+        ""attack"": { ""type"": ""suction"", ""effectSpeed"": 3.0 }
+      },
+      {
+        ""id"": ""heart"", ""offsetX"": 2, ""offsetY"": 0,
+        ""halfWidth"": 1.5, ""halfHeight"": 1.5, ""hp"": 250,
+        ""isCore"": true, ""coreGatePartIds"": [""spawn_sac""],
+        ""attack"": {
+          ""type"": ""radialSpread"", ""intervalTicks"": 90,
+          ""ways"": 8, ""bulletSpeed"": 6.0
+        }
+      }
+    ]");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                waves);
+            StageBossTemplate boss =
+                data.StageGeneration.Bosses[0];
+            Assert.AreEqual(3, boss.Parts.Count);
+            Assert.AreEqual(-640, boss.Parts[0].OffsetX);
+            Assert.AreEqual(320, boss.Parts[0].OffsetY);
+            Assert.AreEqual(
+                BossPartAttackType.SpawnEnemy,
+                boss.Parts[0].Attack.Type);
+            Assert.AreEqual(
+                "elite_sine",
+                boss.Parts[0].Attack.SpawnEnemyId);
+            Assert.AreEqual(1200, boss.Parts[1].RegenerationTicks);
+            Assert.AreEqual(768, boss.Parts[1].Attack.EffectSpeedNumerator);
+            Assert.AreEqual(60, boss.Parts[1].Attack.EffectSpeedDenominator);
+            CollectionAssert.AreEqual(
+                new[] { "spawn_sac" },
+                boss.Parts[2].CoreGatePartIds);
+
+            StagePlan plan =
+                new SegmentStageGenerator(data.StageGeneration)
+                    .Generate(12UL, 1, 1);
+            Assert.AreEqual(3, plan.BossParts.Count);
+            Assert.IsTrue(plan.BossParts[2].IsCore);
+        }
+
+        [Test]
         public void Parse_WaveObstaclesBuildExactModelsAndGeneratedPlan()
         {
             string waves = WavesJson.Replace(

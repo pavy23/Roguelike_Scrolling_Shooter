@@ -31,6 +31,8 @@ namespace Shmup.Core
             if (source.schemaVersion
                     < RunSuspendData.CurrentSchemaVersion
                 && !string.IsNullOrEmpty(source.checksum)
+                && !(source.schemaVersion == 6
+                    && HasValidRunSuspendV6Checksum(source))
                 && !(source.schemaVersion == 5
                     && HasValidRunSuspendV5Checksum(source))
                 && !(source.schemaVersion == 4
@@ -115,7 +117,33 @@ namespace Shmup.Core
                 optionFormation =
                     source.schemaVersion >= 6
                         ? source.optionFormation
-                        : (int)OptionFormation.Trail
+                        : (int)OptionFormation.Trail,
+                isHiddenBiome =
+                    source.schemaVersion >= 7
+                        && source.isHiddenBiome,
+                eliteRoomsCleared =
+                    source.schemaVersion >= 7
+                        ? source.eliteRoomsCleared
+                        : 0,
+                noHitBiomesCleared =
+                    source.schemaVersion >= 7
+                        ? source.noHitBiomesCleared
+                        : 0,
+                rareEncountersCleared =
+                    source.schemaVersion >= 7
+                        ? source.rareEncountersCleared
+                        : 0,
+                currentBiomeHit =
+                    source.schemaVersion >= 7
+                        && source.currentBiomeHit,
+                selectedColossalBoss =
+                    source.schemaVersion >= 7
+                        ? source.selectedColossalBoss
+                        : 0,
+                lastColossalBossAtRunStart =
+                    source.schemaVersion >= 7
+                        ? source.lastColossalBossAtRunStart
+                        : 0
             };
             Seal(migrated);
             return migrated;
@@ -144,6 +172,8 @@ namespace Shmup.Core
             if (source.schemaVersion
                     < InputRecordingData.CurrentSchemaVersion
                 && !string.IsNullOrEmpty(source.checksum)
+                && !(source.schemaVersion == 7
+                    && HasValidInputRecordingV7Checksum(source))
                 && !(source.schemaVersion == 6
                     && HasValidInputRecordingV6Checksum(source))
                 && !(source.schemaVersion == 5
@@ -195,7 +225,11 @@ namespace Shmup.Core
                 optionFormation =
                     source.schemaVersion >= 7
                         ? source.optionFormation
-                        : (int)OptionFormation.Trail
+                        : (int)OptionFormation.Trail,
+                lastColossalBossAtRunStart =
+                    source.schemaVersion >= 8
+                        ? source.lastColossalBossAtRunStart
+                        : 0
             };
             Seal(migrated);
             return migrated;
@@ -207,6 +241,7 @@ namespace Shmup.Core
             if (source == null)
                 throw new ArgumentNullException(nameof(source));
             if (source.schemaVersion != 0
+                && source.schemaVersion != 1
                 && source.schemaVersion
                     != MetaStateData.CurrentSchemaVersion)
             {
@@ -217,6 +252,12 @@ namespace Shmup.Core
                 && !HasValidChecksum(source))
             {
                 throw Corrupted("Meta state checksum is missing or invalid.");
+            }
+            if (source.schemaVersion == 1
+                && !HasValidLegacyMetaChecksum(source))
+            {
+                throw Corrupted(
+                    "Legacy meta state checksum is missing or invalid.");
             }
             if (source.schemaVersion == 0
                 && !string.IsNullOrEmpty(source.checksum))
@@ -230,7 +271,10 @@ namespace Shmup.Core
                 schemaVersion = MetaStateData.CurrentSchemaVersion,
                 totalCurrency = source.totalCurrency,
                 unlockedShipIds = Clone(source.unlockedShipIds),
-                selectedShipId = source.selectedShipId
+                selectedShipId = source.selectedShipId,
+                lastColossalBoss = source.schemaVersion >= 2
+                    ? source.lastColossalBoss
+                    : 0
             };
             Seal(migrated);
             return migrated;
@@ -331,6 +375,13 @@ namespace Shmup.Core
             hash.Add(data.roomsCleared);
             hash.Add(data.missileFamily);
             hash.Add(data.optionFormation);
+            hash.Add(data.isHiddenBiome);
+            hash.Add(data.eliteRoomsCleared);
+            hash.Add(data.noHitBiomesCleared);
+            hash.Add(data.rareEncountersCleared);
+            hash.Add(data.currentBiomeHit);
+            hash.Add(data.selectedColossalBoss);
+            hash.Add(data.lastColossalBossAtRunStart);
             return hash.ToString();
         }
 
@@ -367,7 +418,31 @@ namespace Shmup.Core
             hash.Add(data.roomsPerBiome);
             hash.Add(data.missileFamily);
             hash.Add(data.optionFormation);
+            hash.Add(data.lastColossalBossAtRunStart);
             return hash.ToString();
+        }
+
+        static bool HasValidInputRecordingV7Checksum(
+            InputRecordingData data)
+        {
+            if (!IsChecksum(data.checksum))
+                return false;
+            var hash = new CanonicalHash("InputRecordingData");
+            hash.Add(data.schemaVersion);
+            hash.Add(data.totalTicks);
+            AddInputRuns(ref hash, data.runs);
+            hash.Add(data.difficultyMultiplierNumerator);
+            hash.Add(data.difficultyMultiplierDenominator);
+            Add(ref hash, data.routeChoices);
+            hash.Add(data.finalStageIndex);
+            hash.Add(data.biomeCount);
+            hash.Add(data.roomsPerBiome);
+            hash.Add(data.missileFamily);
+            hash.Add(data.optionFormation);
+            return string.Equals(
+                data.checksum,
+                hash.ToString(),
+                StringComparison.Ordinal);
         }
 
         static bool HasValidRunSuspendV5Checksum(
@@ -408,6 +483,52 @@ namespace Shmup.Core
             hash.Add(data.biomeCount);
             hash.Add(data.roomsPerBiome);
             hash.Add(data.roomsCleared);
+            return string.Equals(
+                data.checksum,
+                hash.ToString(),
+                StringComparison.Ordinal);
+        }
+
+        static bool HasValidRunSuspendV6Checksum(
+            RunSuspendData data)
+        {
+            if (!IsChecksum(data.checksum))
+                return false;
+            var hash = new CanonicalHash("RunSuspendData");
+            hash.Add(data.schemaVersion);
+            hash.Add(data.runSeed);
+            hash.Add(data.runNumber);
+            hash.Add(data.stageIndex);
+            hash.Add(data.score);
+            hash.Add(data.shotsFired);
+            hash.Add(data.shotsHit);
+            hash.Add(data.kills);
+            hash.Add(data.capsulesCollected);
+            hash.Add(data.grazeCount);
+            hash.Add(data.stagesCleared);
+            hash.Add(data.powerUpLevels);
+            hash.Add(data.powerUpCursor);
+            hash.Add(data.playerHp);
+            hash.Add(data.shieldRemaining);
+            Add(ref hash, data.rewardAcquisitions);
+            hash.Add(data.activeModifiers);
+            hash.Add(data.shipId);
+            hash.Add(data.fireIntervalTicks);
+            hash.Add(data.mainShotBaseDamage);
+            hash.Add(data.playerSpeedNumerator);
+            hash.Add(data.playerSpeedDenominator);
+            hash.Add(data.difficultyMultiplierNumerator);
+            hash.Add(data.difficultyMultiplierDenominator);
+            Add(ref hash, data.routeChoices);
+            hash.Add(data.finalStageIndex);
+            hash.Add(data.biomeIndex);
+            hash.Add(data.roomIndex);
+            hash.Add(data.isBiomeBoss);
+            hash.Add(data.biomeCount);
+            hash.Add(data.roomsPerBiome);
+            hash.Add(data.roomsCleared);
+            hash.Add(data.missileFamily);
+            hash.Add(data.optionFormation);
             return string.Equals(
                 data.checksum,
                 hash.ToString(),
@@ -494,7 +615,22 @@ namespace Shmup.Core
             hash.Add(data.totalCurrency);
             hash.Add(data.unlockedShipIds);
             hash.Add(data.selectedShipId);
+            hash.Add(data.lastColossalBoss);
             return hash.ToString();
+        }
+
+        static bool HasValidLegacyMetaChecksum(
+            MetaStateData data)
+        {
+            var hash = new CanonicalHash("MetaStateData");
+            hash.Add(data.schemaVersion);
+            hash.Add(data.totalCurrency);
+            hash.Add(data.unlockedShipIds);
+            hash.Add(data.selectedShipId);
+            return string.Equals(
+                data.checksum,
+                hash.ToString(),
+                StringComparison.Ordinal);
         }
 
         static void Add(

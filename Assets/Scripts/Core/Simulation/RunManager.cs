@@ -17,6 +17,13 @@ namespace Shmup.Core.Simulation
         RunCleared = 4
     }
 
+    public enum RunCompletionGrade
+    {
+        None = 0,
+        StandardClear = 1,
+        PerfectClear = 2
+    }
+
     public enum RewardType
     {
         /// <summary>캡슐 n개 즉시 수집 (커서 전진).</summary>
@@ -337,6 +344,7 @@ namespace Shmup.Core.Simulation
         public const int DefaultBiomeCount = 5;
         public const int DefaultRoomsPerBiome = 6;
         public const int DefaultFinalStageIndex = DefaultBiomeCount;
+        public const int HiddenRooms = 2;
 
         /// <summary>
         /// Legacy constructor: one regular room per biome. Existing callers and
@@ -423,6 +431,7 @@ namespace Shmup.Core.Simulation
         const int RewardSelectionStream = 2;
         const int RouteSelectionStream = 3;
         const int RoomGenerationStream = 4;
+        const int ColossalBossSelectionStream = 5;
         public const int RewardOptionCount = 3;
         public const int MinimumRouteOptionCount = 2;
         public const int MaximumRouteOptionCount = 3;
@@ -479,6 +488,8 @@ namespace Shmup.Core.Simulation
         readonly Rng _routeRng;
         readonly List<RouteChoice> _routeChoiceHistory;
         readonly ReadOnlyCollection<RouteChoice> _routeChoiceHistoryView;
+        MetaState _metaState;
+        ColossalBossKind _lastColossalBossAtRunStart;
 
         ulong _runSeed;
         int _stageLengthTicks;
@@ -506,6 +517,10 @@ namespace Shmup.Core.Simulation
         BattleModifier _stageStartActiveModifiers;
         MissileFamily _stageStartMissileFamily;
         OptionFormation _stageStartOptionFormation;
+        int _stageStartEliteRoomsCleared;
+        int _stageStartNoHitBiomesCleared;
+        int _stageStartRareEncountersCleared;
+        bool _stageStartCurrentBiomeHit;
         int _stageStartFireIntervalTicks;
         int _stageStartMainShotBaseDamage;
         int _stageStartPlayerSpeedNumerator;
@@ -513,6 +528,7 @@ namespace Shmup.Core.Simulation
         int _rewardSelectionsRemaining;
         int _rewardSelectionRound;
         bool _rewardFromBiomeBoss;
+        bool _currentBiomeHit;
 
         public RunManager(
             ulong runSeed,
@@ -533,6 +549,50 @@ namespace Shmup.Core.Simulation
                 1,
                 1)
         {
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            MetaState metaState)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge)
+        {
+            _metaState = metaState
+                ?? throw new ArgumentNullException(nameof(metaState));
+            _lastColossalBossAtRunStart =
+                metaState.LastColossalBoss;
+        }
+
+        /// <summary>
+        /// Replay constructor: injects the recorded meta input without mutating
+        /// or requiring a live MetaState.
+        /// </summary>
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            RunProgressionConfig progressionConfig,
+            ColossalBossKind lastColossalBossAtRunStart)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                progressionConfig)
+        {
+            SetLastColossalBossAtRunStart(
+                lastColossalBossAtRunStart);
         }
 
         public RunManager(
@@ -587,6 +647,28 @@ namespace Shmup.Core.Simulation
             BattleSimConfig battleConfig,
             BattleContent battleContent,
             PowerUpGauge powerUpGauge,
+            RunProgressionConfig progressionConfig,
+            MetaState metaState)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                progressionConfig)
+        {
+            _metaState = metaState
+                ?? throw new ArgumentNullException(nameof(metaState));
+            _lastColossalBossAtRunStart =
+                metaState.LastColossalBoss;
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
             RewardCatalog rewards,
             ShipDefinition ship)
             : this(
@@ -632,6 +714,64 @@ namespace Shmup.Core.Simulation
                 difficultyMultiplierNumerator,
                 difficultyMultiplierDenominator)
         {
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            RewardCatalog rewards,
+            ShipDefinition ship,
+            int difficultyMultiplierNumerator,
+            int difficultyMultiplierDenominator,
+            MetaState metaState)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                rewards,
+                ship,
+                difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator)
+        {
+            _metaState = metaState
+                ?? throw new ArgumentNullException(nameof(metaState));
+            SetLastColossalBossAtRunStart(
+                metaState.LastColossalBoss);
+        }
+
+        /// <summary>
+        /// Full replay constructor. lastColossalBossAtRunStart must come from
+        /// InputPlayback so hidden-boss weighting remains reproducible.
+        /// </summary>
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            RewardCatalog rewards,
+            ShipDefinition ship,
+            int difficultyMultiplierNumerator,
+            int difficultyMultiplierDenominator,
+            ColossalBossKind lastColossalBossAtRunStart)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                rewards,
+                ship,
+                difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator)
+        {
+            SetLastColossalBossAtRunStart(
+                lastColossalBossAtRunStart);
         }
 
         public RunManager(
@@ -880,7 +1020,16 @@ namespace Shmup.Core.Simulation
             BiomeIndex = 1;
             RoomIndex = 1;
             IsBiomeBoss = false;
+            IsHiddenBiome = false;
             State = RunState.Playing;
+            CompletionGrade = RunCompletionGrade.None;
+            SelectedColossalBoss = ColossalBossKind.None;
+            EliteRoomsCleared = 0;
+            NoHitBiomesCleared = 0;
+            RareEncountersCleared = 0;
+            _currentBiomeHit = false;
+            _lastColossalBossAtRunStart =
+                ColossalBossKind.None;
             if (buildInitialStage)
                 BuildCurrentStage();
         }
@@ -893,7 +1042,22 @@ namespace Shmup.Core.Simulation
         public int RoomIndex { get; private set; }
         /// <summary>True after the final regular room while fighting the biome boss.</summary>
         public bool IsBiomeBoss { get; private set; }
+        public bool IsHiddenBiome { get; private set; }
         public RunState State { get; private set; }
+        public RunCompletionGrade CompletionGrade { get; private set; }
+        public ColossalBossKind SelectedColossalBoss { get; private set; }
+        public ColossalBossKind LastColossalBossAtRunStart =>
+            _lastColossalBossAtRunStart;
+        public int EliteRoomsCleared { get; private set; }
+        public int NoHitBiomesCleared { get; private set; }
+        public int RareEncountersCleared { get; private set; }
+        public int HiddenConditionCount =>
+            CountHiddenBiomeConditions(
+                EliteRoomsCleared,
+                NoHitBiomesCleared,
+                RareEncountersCleared);
+        public bool HiddenBiomeUnlocked =>
+            IsHiddenBiome || HiddenConditionCount >= 2;
         public int FinalStageIndex => _progressionConfig.FinalStageIndex;
         public int BiomeCount => _progressionConfig.BiomeCount;
         public int RoomsPerBiome => _progressionConfig.RoomsPerBiome;
@@ -1041,7 +1205,20 @@ namespace Shmup.Core.Simulation
                 routeChoices = routeChoices,
                 finalStageIndex = FinalStageIndex,
                 biomeCount = BiomeCount,
-                roomsPerBiome = RoomsPerBiome
+                roomsPerBiome = RoomsPerBiome,
+                isHiddenBiome = IsHiddenBiome,
+                eliteRoomsCleared =
+                    _stageStartEliteRoomsCleared,
+                noHitBiomesCleared =
+                    _stageStartNoHitBiomesCleared,
+                rareEncountersCleared =
+                    _stageStartRareEncountersCleared,
+                currentBiomeHit =
+                    _stageStartCurrentBiomeHit,
+                selectedColossalBoss =
+                    (int)SelectedColossalBoss,
+                lastColossalBossAtRunStart =
+                    (int)_lastColossalBossAtRunStart
             };
             SaveDataIntegrity.Seal(data);
             return data;
@@ -1152,6 +1329,21 @@ namespace Shmup.Core.Simulation
             manager.BiomeIndex = data.biomeIndex;
             manager.RoomIndex = data.roomIndex;
             manager.IsBiomeBoss = data.isBiomeBoss;
+            manager.IsHiddenBiome = data.isHiddenBiome;
+            manager.EliteRoomsCleared =
+                data.eliteRoomsCleared;
+            manager.NoHitBiomesCleared =
+                data.noHitBiomesCleared;
+            manager.RareEncountersCleared =
+                data.rareEncountersCleared;
+            manager._currentBiomeHit =
+                data.currentBiomeHit;
+            manager.SelectedColossalBoss =
+                (ColossalBossKind)data.selectedColossalBoss;
+            manager._lastColossalBossAtRunStart =
+                (ColossalBossKind)data.lastColossalBossAtRunStart;
+            manager.CompletionGrade =
+                RunCompletionGrade.None;
             manager.State = RunState.Playing;
             manager._rewardOptions = Array.Empty<RewardOption>();
             manager._routeOptions = Array.Empty<RouteOption>();
@@ -1219,6 +1411,7 @@ namespace Shmup.Core.Simulation
                 input.Fire,
                 activatePressed);
             Battle.Step(in battleInput);
+            ObserveBattleEvents();
             if (Battle.PlayerHp <= 0)
             {
                 State = RunState.RunOver;
@@ -1237,10 +1430,23 @@ namespace Shmup.Core.Simulation
                 if (bossCleared)
                 {
                     IncrementStagesCleared();
-                    if (_progressionConfig.IsFinalBiome(BiomeIndex))
-                        CompleteRun();
+                    if (IsHiddenBiome)
+                        CompleteRun(
+                            RunCompletionGrade.PerfectClear);
+                    else if (_progressionConfig.IsFinalBiome(BiomeIndex))
+                    {
+                        RecordNoHitBiomeClear();
+                        if (HiddenConditionCount >= 2)
+                            BeginHiddenBiome();
+                        else
+                            CompleteRun(
+                                RunCompletionGrade.StandardClear);
+                    }
                     else
+                    {
+                        RecordNoHitBiomeClear();
                         BeginRewardSelection(true);
+                    }
                 }
                 return;
             }
@@ -1248,6 +1454,21 @@ namespace Shmup.Core.Simulation
             if (Battle.Tick >= _stageLengthTicks)
             {
                 IncrementRoomsCleared();
+                if (IsHiddenBiome)
+                {
+                    if (RoomIndex
+                        >= RunProgressionConfig.HiddenRooms)
+                        AdvanceToBiomeBoss();
+                    else
+                        AdvanceHiddenRoom();
+                    return;
+                }
+                if (StagePlan.EncounterType == EncounterType.Elite
+                    && EliteRoomsCleared < int.MaxValue)
+                    EliteRoomsCleared++;
+                if (StagePlan.EncounterType == EncounterType.Rare
+                    && RareEncountersCleared < int.MaxValue)
+                    RareEncountersCleared++;
                 if (StagePlan.EncounterType == EncounterType.Elite)
                     BeginRewardSelection(false);
                 else
@@ -1264,15 +1485,139 @@ namespace Shmup.Core.Simulation
             State = RunState.AwaitingReward;
         }
 
-        void CompleteRun()
+        void CompleteRun(RunCompletionGrade grade)
         {
+            if (grade != RunCompletionGrade.StandardClear
+                && grade != RunCompletionGrade.PerfectClear)
+                throw new ArgumentOutOfRangeException(nameof(grade));
             _rewardSelectionsRemaining = 0;
             _rewardSelectionRound = 0;
             _rewardFromBiomeBoss = false;
             _rewardOptions = Array.Empty<RewardOption>();
             _routeOptions = Array.Empty<RouteOption>();
             _preparedRouteOptions = Array.Empty<RouteOption>();
+            CompletionGrade = grade;
             State = RunState.RunCleared;
+        }
+
+        void ObserveBattleEvents()
+        {
+            ReadOnlySpan<SimEvent> events =
+                Battle.EventsThisTick;
+            for (int i = 0; i < events.Length; i++)
+            {
+                if (events[i].Type == SimEventType.PlayerHit)
+                {
+                    _currentBiomeHit = true;
+                    return;
+                }
+            }
+        }
+
+        void RecordNoHitBiomeClear()
+        {
+            if (!_currentBiomeHit
+                && NoHitBiomesCleared < int.MaxValue)
+                NoHitBiomesCleared++;
+            _currentBiomeHit = false;
+        }
+
+        void BeginHiddenBiome()
+        {
+            SelectedColossalBoss = SelectColossalBoss(
+                _runSeed,
+                _lastColossalBossAtRunStart);
+            if (!(_stageGenerator
+                    is IColossalBossStageGenerator colossal)
+                || !colossal.CanGenerateColossalBoss(
+                    SelectedColossalBoss))
+            {
+                throw new InvalidOperationException(
+                    $"Hidden biome selected {SelectedColossalBoss}, "
+                    + "but the stage catalog cannot generate it.");
+            }
+
+            AccumulateCompletedBattle();
+            IsHiddenBiome = true;
+            BiomeIndex = BiomeCount + 1;
+            RoomIndex = 1;
+            IsBiomeBoss = false;
+            State = RunState.Playing;
+            _rewardOptions = Array.Empty<RewardOption>();
+            _routeOptions = Array.Empty<RouteOption>();
+            _preparedRouteOptions = Array.Empty<RouteOption>();
+            _metaState?.RecordColossalBossEncounter(
+                SelectedColossalBoss);
+            BuildCurrentStage();
+        }
+
+        public static int CountHiddenBiomeConditions(
+            int eliteRoomsCleared,
+            int noHitBiomesCleared,
+            int rareEncountersCleared)
+        {
+            if (eliteRoomsCleared < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(eliteRoomsCleared));
+            if (noHitBiomesCleared < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(noHitBiomesCleared));
+            if (rareEncountersCleared < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(rareEncountersCleared));
+            return (eliteRoomsCleared >= 3 ? 1 : 0)
+                + (noHitBiomesCleared >= 2 ? 1 : 0)
+                + (rareEncountersCleared >= 1 ? 1 : 0);
+        }
+
+        public static bool MeetsHiddenBiomeConditions(
+            int eliteRoomsCleared,
+            int noHitBiomesCleared,
+            int rareEncountersCleared)
+        {
+            return CountHiddenBiomeConditions(
+                eliteRoomsCleared,
+                noHitBiomesCleared,
+                rareEncountersCleared) >= 2;
+        }
+
+        public static ColossalBossKind SelectColossalBoss(
+            ulong runSeed,
+            ColossalBossKind lastEncounteredBoss)
+        {
+            if (!Enum.IsDefined(
+                    typeof(ColossalBossKind),
+                    lastEncounteredBoss))
+                throw new ArgumentOutOfRangeException(
+                    nameof(lastEncounteredBoss));
+            int leviathanWeight =
+                lastEncounteredBoss
+                    == ColossalBossKind.Broodmother
+                ? 3
+                : 1;
+            int broodmotherWeight =
+                lastEncounteredBoss
+                    == ColossalBossKind.Leviathan
+                ? 3
+                : 1;
+            Rng rng = new Rng(runSeed)
+                .Fork(ColossalBossSelectionStream);
+            int roll = rng.NextInt(
+                0,
+                leviathanWeight + broodmotherWeight);
+            return roll < leviathanWeight
+                ? ColossalBossKind.Leviathan
+                : ColossalBossKind.Broodmother;
+        }
+
+        void SetLastColossalBossAtRunStart(
+            ColossalBossKind boss)
+        {
+            if (!Enum.IsDefined(
+                    typeof(ColossalBossKind),
+                    boss))
+                throw new ArgumentOutOfRangeException(nameof(boss));
+            _lastColossalBossAtRunStart = boss;
         }
 
         /// <summary>
@@ -1632,7 +1977,18 @@ namespace Shmup.Core.Simulation
             BiomeIndex = 1;
             RoomIndex = 1;
             IsBiomeBoss = false;
+            IsHiddenBiome = false;
             State = RunState.Playing;
+            CompletionGrade = RunCompletionGrade.None;
+            SelectedColossalBoss = ColossalBossKind.None;
+            _lastColossalBossAtRunStart =
+                _metaState == null
+                    ? ColossalBossKind.None
+                    : _metaState.LastColossalBoss;
+            EliteRoomsCleared = 0;
+            NoHitBiomesCleared = 0;
+            RareEncountersCleared = 0;
+            _currentBiomeHit = false;
             _rewardOptions = Array.Empty<RewardOption>();
             _routeOptions = Array.Empty<RouteOption>();
             _preparedRouteOptions = Array.Empty<RouteOption>();
@@ -1663,6 +2019,20 @@ namespace Shmup.Core.Simulation
             if (RoomIndex >= RoomsPerBiome)
                 throw new InvalidOperationException(
                     "The regular-room counter is already at the biome boundary.");
+            AccumulateCompletedBattle();
+            RoomIndex++;
+            IsBiomeBoss = false;
+            State = RunState.Playing;
+            BuildCurrentStage();
+        }
+
+        void AdvanceHiddenRoom()
+        {
+            if (!IsHiddenBiome
+                || RoomIndex
+                    >= RunProgressionConfig.HiddenRooms)
+                throw new InvalidOperationException(
+                    "The hidden-room counter is already at its boundary.");
             AccumulateCompletedBattle();
             RoomIndex++;
             IsBiomeBoss = false;
@@ -1831,19 +2201,26 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     "Suspend stageIndex must be positive.",
                     nameof(data));
+            bool hiddenBiomePosition =
+                data.isHiddenBiome
+                && data.biomeIndex == data.biomeCount + 1;
             if (data.biomeCount < 1
                 || data.finalStageIndex != data.biomeCount
                 || data.biomeIndex < 1
-                || data.biomeIndex > data.biomeCount
+                || (data.biomeIndex > data.biomeCount
+                    && !hiddenBiomePosition)
                 || data.stageIndex != data.biomeIndex)
             {
                 throw new ArgumentException(
                     "Suspend biome progression is invalid.",
                     nameof(data));
             }
+            int roomLimit = hiddenBiomePosition
+                ? RunProgressionConfig.HiddenRooms
+                : data.roomsPerBiome;
             if (data.roomsPerBiome < 1
                 || data.roomIndex < 1
-                || data.roomIndex > data.roomsPerBiome)
+                || data.roomIndex > roomLimit)
                 throw new ArgumentException(
                     "Suspend room progression is invalid.",
                     nameof(data));
@@ -1851,11 +2228,16 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     "Suspend biomesCleared must match the biome boundary.",
                     nameof(data));
-            long expectedRoomsCleared =
-                (long)(data.biomeIndex - 1) * data.roomsPerBiome
-                + (data.isBiomeBoss
-                    ? data.roomsPerBiome
-                    : data.roomIndex - 1);
+            long expectedRoomsCleared = hiddenBiomePosition
+                ? (long)data.biomeCount * data.roomsPerBiome
+                    + (data.isBiomeBoss
+                        ? RunProgressionConfig.HiddenRooms
+                        : data.roomIndex - 1)
+                : (long)(data.biomeIndex - 1)
+                    * data.roomsPerBiome
+                    + (data.isBiomeBoss
+                        ? data.roomsPerBiome
+                        : data.roomIndex - 1);
             if (expectedRoomsCleared > int.MaxValue
                 || data.roomsCleared != (int)expectedRoomsCleared)
                 throw new ArgumentException(
@@ -1880,6 +2262,7 @@ namespace Shmup.Core.Simulation
                         && choice.roomIndex == 1;
                     if (choice == null
                         || choice.biomeIndex < 1
+                        || choice.biomeIndex > data.biomeCount
                         || (choice.biomeIndex > data.biomeIndex
                             && !isPendingNextBiomeChoice)
                         || choice.roomIndex < 1
@@ -1902,6 +2285,26 @@ namespace Shmup.Core.Simulation
                     previousRouteBiome = choice.biomeIndex;
                     previousRouteRoom = choice.roomIndex;
                 }
+            }
+            if (data.eliteRoomsCleared < 0
+                || data.noHitBiomesCleared < 0
+                || data.rareEncountersCleared < 0
+                || !Enum.IsDefined(
+                    typeof(ColossalBossKind),
+                    data.selectedColossalBoss)
+                || !Enum.IsDefined(
+                    typeof(ColossalBossKind),
+                    data.lastColossalBossAtRunStart)
+                || (hiddenBiomePosition
+                    && data.selectedColossalBoss
+                        == (int)ColossalBossKind.None)
+                || (!hiddenBiomePosition
+                    && data.selectedColossalBoss
+                        != (int)ColossalBossKind.None))
+            {
+                throw new ArgumentException(
+                    "Suspend hidden-biome progression is invalid.",
+                    nameof(data));
             }
             if (data.score < 0
                 || data.shotsFired < 0
@@ -2110,9 +2513,16 @@ namespace Shmup.Core.Simulation
                 return;
 
             int historyIndex = 0;
-            for (int biome = 1; biome <= BiomeIndex; biome++)
+            int historyBiomeCount =
+                IsHiddenBiome ? BiomeCount : BiomeIndex;
+            for (int biome = 1;
+                biome <= historyBiomeCount;
+                biome++)
             {
-                int lastRoom = biome < BiomeIndex || IsBiomeBoss
+                int lastRoom =
+                    IsHiddenBiome
+                    || biome < BiomeIndex
+                    || IsBiomeBoss
                     ? RoomsPerBiome
                     : RoomIndex;
                 for (int room = 2; room <= lastRoom; room++)
@@ -2259,17 +2669,32 @@ namespace Shmup.Core.Simulation
         void BuildCurrentStage()
         {
             ApplyCurrentLoadoutProfiles();
-            Difficulty = _difficultyCurve.GetDifficulty(BiomeIndex);
+            int generationBiomeIndex =
+                IsHiddenBiome ? BiomeCount : BiomeIndex;
+            Difficulty = _difficultyCurve.GetDifficulty(
+                IsHiddenBiome ? BiomeCount + 1 : BiomeIndex);
             ulong generationSeed = GetRoomGenerationSeed(
                 BiomeIndex,
                 RoomIndex,
                 IsBiomeBoss);
             StagePlan generated;
-            if (_stageGenerator is IRouteStageGenerator routeGenerator)
+            if (IsHiddenBiome && IsBiomeBoss)
+            {
+                if (!(_stageGenerator
+                        is IColossalBossStageGenerator colossal))
+                    throw new InvalidOperationException(
+                        "The hidden boss requires a colossal boss generator.");
+                generated = colossal.GenerateColossalBoss(
+                    generationSeed,
+                    generationBiomeIndex,
+                    Difficulty,
+                    SelectedColossalBoss);
+            }
+            else if (_stageGenerator is IRouteStageGenerator routeGenerator)
             {
                 StagePlan basePlan = _stageGenerator.Generate(
                     _runSeed,
-                    BiomeIndex,
+                    generationBiomeIndex,
                     Difficulty);
                 if (basePlan == null)
                     throw new InvalidOperationException(
@@ -2298,7 +2723,7 @@ namespace Shmup.Core.Simulation
                     }
                     generated = routeGenerator.GenerateRoute(
                         generationSeed,
-                        BiomeIndex,
+                        generationBiomeIndex,
                         Difficulty,
                         themeId,
                         encounterType);
@@ -2308,7 +2733,7 @@ namespace Shmup.Core.Simulation
             {
                 generated = _stageGenerator.Generate(
                     generationSeed,
-                    BiomeIndex,
+                    generationBiomeIndex,
                     Difficulty);
             }
             if (generated == null)
@@ -2337,7 +2762,7 @@ namespace Shmup.Core.Simulation
 
         IReadOnlyList<RouteOption> GenerateExitRouteOptions()
         {
-            if (IsBiomeBoss)
+            if (IsBiomeBoss || IsHiddenBiome)
                 return Array.Empty<RouteOption>();
             if (RoomIndex < RoomsPerBiome)
             {
@@ -2438,7 +2863,8 @@ namespace Shmup.Core.Simulation
                 Array.Empty<BossPhase>(),
                 source.ThemeId,
                 source.RequestedThemeId,
-                source.EncounterType);
+                source.EncounterType,
+                Array.Empty<BossPartDefinition>());
         }
 
         static StagePlan CreateBiomeBossPlan(StagePlan source)
@@ -2466,7 +2892,8 @@ namespace Shmup.Core.Simulation
                 source.BossPhases,
                 source.ThemeId,
                 source.RequestedThemeId,
-                EncounterType.Normal);
+                EncounterType.Normal,
+                source.BossParts);
         }
 
         void CaptureStageStart()
@@ -2492,6 +2919,14 @@ namespace Shmup.Core.Simulation
             _stageStartActiveModifiers = ActiveModifiers;
             _stageStartMissileFamily = CurrentMissileFamily;
             _stageStartOptionFormation = CurrentOptionFormation;
+            _stageStartEliteRoomsCleared =
+                EliteRoomsCleared;
+            _stageStartNoHitBiomesCleared =
+                NoHitBiomesCleared;
+            _stageStartRareEncountersCleared =
+                RareEncountersCleared;
+            _stageStartCurrentBiomeHit =
+                _currentBiomeHit;
             _stageStartFireIntervalTicks =
                 _battleConfig.FireIntervalTicks;
             _stageStartMainShotBaseDamage =

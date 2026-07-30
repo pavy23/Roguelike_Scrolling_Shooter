@@ -1217,7 +1217,7 @@ rewards.json에 항목을 넣을 수 있게 파싱(값은 GROK 후속).
 
 ---
 
-## [ ] REQ-035 → CODEX: 초대형 보스 2종 — 다중 파츠 + 랜덤 출현 (사람 승인 완료)
+## [x] REQ-035 → CODEX: 초대형 보스 2종 — 다중 파츠 + 랜덤 출현 (사람 승인 완료)
 
 사람 요청: "보스가 심심하니 화면을 뒤덮는 초대형 보스", "바이오 계열로 무섭게 하나 더",
 "둘 중 랜덤 출현". 아트는 CLAUDE가 완성해 art-input에 배치했다
@@ -1269,3 +1269,22 @@ rewards.json에 항목을 넣을 수 있게 파싱(값은 GROK 후속).
 조건 판정 경계, 보스 랜덤 선택 결정론, 리줌/리플레이 재현.
 규모가 크다 — 단계적으로. Unity NUnit 호환 API만. 잠정 §7.
 GROK 후속: 파츠 HP 배분·조건 임계·TTK 검산. CLAUDE 후속: 파츠 좌표 매핑·파괴 연출·조건 HUD.
+
+### CODEX 응답 (2026-07-30)
+
+완료. `Shmup.Core`에 불변 `BossPartDefinition`/공격 프로파일, 파츠별 AABB·HP,
+파괴 시 공격 중단, 코어 게이트, 정확한 재생 타이머, 공용 적 스폰 상한,
+정수 유리수 흡입과 `BossPartDestroyed`/`BossPartRegenerated` 이벤트를 추가했다.
+
+런 진행은 5바이옴 종료 시 승인된 3조건 중 2개를 판정하고, 충족하면 2개 숨은 룸 뒤
+시드 결정론 콜로설 보스로 진행한다. `MetaState.lastColossalBoss`를 입력으로 반대 보스에
+3:1 가중치를 주며 조우 시 메타를 갱신한다. 결과는 `RunCompletionGrade`의
+`StandardClear`/`PerfectClear`로 구분한다. 서스펜드/입력 녹화/메타 스키마와 이전 버전
+마이그레이션, 전체 관측 감사 해시도 갱신했다.
+
+실제 `GameData/waves.json`과 Presentation은 소유 경계 때문에 수정하지 않았고
+`Reviews/from-codex/requests.md`에 GROK/CLAUDE 후속 계약을 남겼다. 감사 러너에는
+콘텐츠 반영 전에도 승인된 구조를 검증하는 임시 콜로설 카탈로그 폴백을 두었으며,
+실제 두 boss ID가 들어오면 자동으로 GameData 정의를 사용한다.
+
+검증: CoreStandalone 297 tests PASS, determinism-audit-05 `AUDIT PASS`.

@@ -467,6 +467,37 @@ namespace Shmup.Core.Generation
             int holdX,
             IReadOnlyList<BossPhase> phases,
             string themeId)
+            : this(
+                bossId,
+                stageIndexMin,
+                stageIndexMax,
+                difficultyMin,
+                difficultyMax,
+                entryLaneMask,
+                maxHp,
+                halfWidth,
+                halfHeight,
+                holdX,
+                phases,
+                themeId,
+                null)
+        {
+        }
+
+        public StageBossTemplate(
+            string bossId,
+            int stageIndexMin,
+            int stageIndexMax,
+            int difficultyMin,
+            int difficultyMax,
+            int entryLaneMask,
+            int maxHp,
+            int halfWidth,
+            int halfHeight,
+            int holdX,
+            IReadOnlyList<BossPhase> phases,
+            string themeId,
+            IReadOnlyList<BossPartDefinition> parts)
         {
             BossId = bossId ?? throw new ArgumentNullException(nameof(bossId));
             StageIndexMin = stageIndexMin;
@@ -479,6 +510,7 @@ namespace Shmup.Core.Generation
             HalfHeight = halfHeight;
             HoldX = holdX;
             Phases = CopyPhases(phases);
+            Parts = CopyParts(parts);
             ThemeId = themeId;
         }
 
@@ -493,6 +525,7 @@ namespace Shmup.Core.Generation
         public int HalfHeight { get; }
         public int HoldX { get; }
         public IReadOnlyList<BossPhase> Phases { get; }
+        public IReadOnlyList<BossPartDefinition> Parts { get; }
         public string ThemeId { get; }
 
         internal bool Supports(int stageIndex, int difficulty)
@@ -523,8 +556,66 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException("Boss HP cannot be negative.");
             if (HalfWidth < 0 || HalfHeight < 0)
                 throw new ArgumentException("Boss hitbox dimensions cannot be negative.");
+            ValidateParts();
             StagePlanClearability.ValidateLaneMask(
                 EntryLaneMask, validLanes, nameof(EntryLaneMask));
+        }
+
+        void ValidateParts()
+        {
+            if (Parts.Count == 0)
+                return;
+            int coreCount = 0;
+            long totalHp = 0;
+            for (int i = 0; i < Parts.Count; i++)
+            {
+                BossPartDefinition part = Parts[i];
+                totalHp += part.MaxHp;
+                if (part.IsCore)
+                    coreCount++;
+                for (int previous = 0; previous < i; previous++)
+                    if (string.Equals(
+                            Parts[previous].PartId,
+                            part.PartId,
+                            StringComparison.Ordinal))
+                        throw new ArgumentException(
+                            $"Duplicate boss part id '{part.PartId}'.");
+            }
+            if (coreCount != 1)
+                throw new ArgumentException(
+                    "A multipart boss requires exactly one core.");
+            if (totalHp != MaxHp)
+                throw new ArgumentException(
+                    "Multipart boss HP must equal the sum of its part HP.");
+            for (int i = 0; i < Parts.Count; i++)
+            {
+                BossPartDefinition part = Parts[i];
+                for (int gate = 0;
+                    gate < part.CoreGatePartIds.Count;
+                    gate++)
+                {
+                    bool found = false;
+                    for (int candidate = 0;
+                        candidate < Parts.Count;
+                        candidate++)
+                    {
+                        if (candidate == i)
+                            continue;
+                        if (string.Equals(
+                                Parts[candidate].PartId,
+                                part.CoreGatePartIds[gate],
+                                StringComparison.Ordinal))
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                        throw new ArgumentException(
+                            "Boss core gate references unknown part "
+                            + $"'{part.CoreGatePartIds[gate]}'.");
+                }
+            }
         }
 
         static IReadOnlyList<BossPhase> CopyPhases(IReadOnlyList<BossPhase> source)
@@ -537,19 +628,35 @@ namespace Shmup.Core.Generation
                     "Boss phases cannot contain null.", nameof(source));
             return new ReadOnlyCollection<BossPhase>(copy);
         }
+
+        static IReadOnlyList<BossPartDefinition> CopyParts(
+            IReadOnlyList<BossPartDefinition> source)
+        {
+            if (source == null || source.Count == 0)
+                return Array.Empty<BossPartDefinition>();
+            var copy = new BossPartDefinition[source.Count];
+            for (int i = 0; i < copy.Length; i++)
+                copy[i] = source[i] ?? throw new ArgumentException(
+                    "Boss parts cannot contain null.", nameof(source));
+            return new ReadOnlyCollection<BossPartDefinition>(copy);
+        }
     }
 
     /// <summary>
     /// Deterministically assembles compatible segment templates. Look-ahead removes
     /// choices that would strand the player before a later segment or the boss.
     /// </summary>
-    public sealed class SegmentStageGenerator : IRouteStageGenerator
+    public sealed class SegmentStageGenerator :
+        IRouteStageGenerator,
+        IColossalBossStageGenerator
     {
         const int StageGenerationStream = 0;
         const int SegmentSelectionStream = 0;
         const int BossSelectionStream = 1;
         const int ThemePermutationStream = 2;
         const int HazardCenterOffsetSubUnits = 256;
+        public const string LeviathanBossId = "boss_leviathan";
+        public const string BroodmotherBossId = "boss_broodmother";
 
         readonly StageGenerationCatalog _catalog;
         readonly int _validLanes;
@@ -651,6 +758,83 @@ namespace Shmup.Core.Generation
                 encounterType);
         }
 
+        public bool CanGenerateColossalBoss(ColossalBossKind kind)
+        {
+            string id = GetColossalBossId(kind);
+            if (id == null)
+                return false;
+            for (int i = 0; i < _catalog.Bosses.Count; i++)
+                if (string.Equals(
+                        _catalog.Bosses[i].BossId,
+                        id,
+                        StringComparison.Ordinal))
+                    return true;
+            return false;
+        }
+
+        public StagePlan GenerateColossalBoss(
+            ulong seed,
+            int stageIndex,
+            int difficulty,
+            ColossalBossKind kind)
+        {
+            string id = GetColossalBossId(kind);
+            if (id == null)
+                throw new ArgumentOutOfRangeException(nameof(kind));
+            StageBossTemplate selected = null;
+            for (int i = 0; i < _catalog.Bosses.Count; i++)
+            {
+                StageBossTemplate candidate = _catalog.Bosses[i];
+                if (string.Equals(
+                    candidate.BossId,
+                    id,
+                    StringComparison.Ordinal))
+                {
+                    selected = candidate;
+                    break;
+                }
+            }
+            if (selected == null)
+                throw new InvalidOperationException(
+                    $"The stage catalog does not contain colossal boss '{id}'.");
+            if (!selected.Supports(stageIndex, difficulty))
+                throw new InvalidOperationException(
+                    $"Colossal boss '{id}' does not support stage {stageIndex} "
+                    + $"at difficulty {difficulty}.");
+
+            int laneMask = selected.EntryLaneMask != 0
+                ? selected.EntryLaneMask
+                : _catalog.StartLaneMask;
+            return new StagePlan(
+                Array.Empty<StageSegment>(),
+                selected.BossId,
+                _catalog.LaneCount,
+                laneMask,
+                laneMask,
+                selected.MaxHp,
+                selected.HalfWidth,
+                selected.HalfHeight,
+                selected.HoldX,
+                selected.Phases,
+                selected.ThemeId,
+                selected.ThemeId,
+                EncounterType.Normal,
+                selected.Parts);
+        }
+
+        static string GetColossalBossId(ColossalBossKind kind)
+        {
+            switch (kind)
+            {
+                case ColossalBossKind.Leviathan:
+                    return LeviathanBossId;
+                case ColossalBossKind.Broodmother:
+                    return BroodmotherBossId;
+                default:
+                    return null;
+            }
+        }
+
         StagePlan GenerateCore(
             ulong seed,
             int stageIndex,
@@ -749,7 +933,8 @@ namespace Shmup.Core.Generation
                 selectedBoss.Phases,
                 themeId,
                 requestedThemeId,
-                encounterType);
+                encounterType,
+                selectedBoss.Parts);
             return ApplyEncounterPlan(normalPlan, encounterType);
         }
 
@@ -813,6 +998,7 @@ namespace Shmup.Core.Generation
             int bossHalfHeight = source.BossHalfHeight;
             int bossHoldX = source.BossHoldX;
             IReadOnlyList<BossPhase> bossPhases = source.BossPhases;
+            IReadOnlyList<BossPartDefinition> bossParts = source.BossParts;
 
             if (encounterType == EncounterType.Supply)
             {
@@ -822,6 +1008,7 @@ namespace Shmup.Core.Generation
                 bossHalfHeight = 0;
                 bossHoldX = 0;
                 bossPhases = Array.Empty<BossPhase>();
+                bossParts = Array.Empty<BossPartDefinition>();
             }
             else if (encounterType == EncounterType.Hazard)
             {
@@ -841,7 +1028,8 @@ namespace Shmup.Core.Generation
                 bossPhases,
                 source.ThemeId,
                 source.RequestedThemeId,
-                encounterType);
+                encounterType,
+                bossParts);
         }
 
         static IReadOnlyList<StageSegment> AddHazardObstacles(

@@ -31,9 +31,17 @@ namespace Shmup.Core.Simulation
             FoldInt32(run.BiomeIndex);
             FoldInt32(run.RoomIndex);
             FoldBool(run.IsBiomeBoss);
+            FoldBool(run.IsHiddenBiome);
             FoldInt32(run.BiomeCount);
             FoldInt32(run.RoomsPerBiome);
             FoldInt32((int)run.State);
+            FoldInt32((int)run.CompletionGrade);
+            FoldInt32((int)run.SelectedColossalBoss);
+            FoldInt32((int)run.LastColossalBossAtRunStart);
+            FoldInt32(run.EliteRoomsCleared);
+            FoldInt32(run.NoHitBiomesCleared);
+            FoldInt32(run.RareEncountersCleared);
+            FoldInt32(run.HiddenConditionCount);
             FoldUInt64(run.RunSeed);
             FoldInt32(run.Difficulty);
             FoldInt32(run.DifficultyMultiplierNumerator);
@@ -208,6 +216,35 @@ namespace Shmup.Core.Simulation
                 FoldInt32(phase.BulletSpeedDenominator);
             }
 
+            FoldInt32(plan.BossParts.Count);
+            for (int i = 0; i < plan.BossParts.Count; i++)
+            {
+                BossPartDefinition part = plan.BossParts[i];
+                FoldString(part.PartId);
+                FoldInt32(part.OffsetX);
+                FoldInt32(part.OffsetY);
+                FoldInt32(part.HalfWidth);
+                FoldInt32(part.HalfHeight);
+                FoldInt32(part.MaxHp);
+                FoldBool(part.IsCore);
+                FoldInt32(part.RegenerationTicks);
+                FoldInt32(part.CoreGatePartIds.Count);
+                for (int gate = 0;
+                    gate < part.CoreGatePartIds.Count;
+                    gate++)
+                    FoldString(part.CoreGatePartIds[gate]);
+                BossPartAttackProfile attack = part.Attack;
+                FoldInt32((int)attack.Type);
+                FoldInt32(attack.IntervalTicks);
+                FoldInt32(attack.Ways);
+                FoldInt32(attack.BulletSpeedNumerator);
+                FoldInt32(attack.BulletSpeedDenominator);
+                FoldInt32(attack.EffectSpeedNumerator);
+                FoldInt32(attack.EffectSpeedDenominator);
+                FoldString(attack.SpawnEnemyId);
+                FoldInt32(attack.ContactDamage);
+            }
+
             FoldInt32(plan.Segments.Count);
             for (int i = 0; i < plan.Segments.Count; i++)
             {
@@ -364,6 +401,7 @@ namespace Shmup.Core.Simulation
                 FoldInt32(simEvent.X);
                 FoldInt32(simEvent.Y);
                 FoldInt32(simEvent.Arg);
+                FoldString(simEvent.PartId);
             }
 
             FoldBool(battle.BossActive);
@@ -374,6 +412,19 @@ namespace Shmup.Core.Simulation
             FoldInt32(boss.Hp);
             FoldInt32(boss.MaxHp);
             FoldInt32(boss.Phase);
+            FoldInt32(battle.BossParts.Count);
+            for (int i = 0; i < battle.BossParts.Count; i++)
+            {
+                BossPartState part = battle.BossParts[i];
+                FoldString(part.PartId);
+                FoldInt32(part.X);
+                FoldInt32(part.Y);
+                FoldInt32(part.Hp);
+                FoldInt32(part.MaxHp);
+                FoldBool(part.Destroyed);
+                FoldBool(part.IsCore);
+                FoldBool(part.CoreGated);
+            }
         }
 
         void FoldBool(bool value)

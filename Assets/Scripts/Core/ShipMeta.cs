@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Runtime.Serialization;
+using Shmup.Core.Generation;
 
 namespace Shmup.Core
 {
@@ -135,7 +136,7 @@ namespace Shmup.Core
     [DataContract]
     public sealed class MetaStateData
     {
-        public const int CurrentSchemaVersion = 1;
+        public const int CurrentSchemaVersion = 2;
 
         /// <summary>Zero denotes the legacy schema that had no version field.</summary>
         [DataMember(Order = 0)]
@@ -151,6 +152,9 @@ namespace Shmup.Core
         public string selectedShipId;
 
         [DataMember(Order = 4)]
+        public int lastColossalBoss;
+
+        [DataMember(Order = 5)]
         public string checksum;
     }
 
@@ -167,6 +171,19 @@ namespace Shmup.Core
             long totalCurrency,
             IReadOnlyList<string> unlockedShipIds,
             string selectedShipId)
+            : this(
+                totalCurrency,
+                unlockedShipIds,
+                selectedShipId,
+                ColossalBossKind.None)
+        {
+        }
+
+        public MetaState(
+            long totalCurrency,
+            IReadOnlyList<string> unlockedShipIds,
+            string selectedShipId,
+            ColossalBossKind lastColossalBoss)
         {
             if (totalCurrency < 0)
                 throw new ArgumentOutOfRangeException(nameof(totalCurrency));
@@ -180,6 +197,11 @@ namespace Shmup.Core
                 throw new ArgumentException(
                     "Selected ship id cannot be null or empty.",
                     nameof(selectedShipId));
+            if (!Enum.IsDefined(
+                    typeof(ColossalBossKind),
+                    lastColossalBoss))
+                throw new ArgumentOutOfRangeException(
+                    nameof(lastColossalBoss));
 
             _unlockedShipIds = new List<string>(unlockedShipIds.Count);
             for (int i = 0; i < unlockedShipIds.Count; i++)
@@ -204,12 +226,14 @@ namespace Shmup.Core
 
             TotalCurrency = totalCurrency;
             SelectedShipId = selectedShipId;
+            LastColossalBoss = lastColossalBoss;
             _readOnlyUnlockedShipIds = _unlockedShipIds.AsReadOnly();
         }
 
         public long TotalCurrency { get; private set; }
         public IReadOnlyList<string> UnlockedShipIds => _readOnlyUnlockedShipIds;
         public string SelectedShipId { get; private set; }
+        public ColossalBossKind LastColossalBoss { get; private set; }
 
         public static MetaState CreateDefault(ShipDefinition startingShip)
         {
@@ -227,7 +251,8 @@ namespace Shmup.Core
             return new MetaState(
                 data.totalCurrency,
                 data.unlockedShipIds,
-                data.selectedShipId);
+                data.selectedShipId,
+                (ColossalBossKind)data.lastColossalBoss);
         }
 
         public MetaStateData ExportData()
@@ -237,7 +262,8 @@ namespace Shmup.Core
                 schemaVersion = MetaStateData.CurrentSchemaVersion,
                 totalCurrency = TotalCurrency,
                 unlockedShipIds = _unlockedShipIds.ToArray(),
-                selectedShipId = SelectedShipId
+                selectedShipId = SelectedShipId,
+                lastColossalBoss = (int)LastColossalBoss
             };
             SaveDataIntegrity.Seal(data);
             return data;
@@ -282,6 +308,15 @@ namespace Shmup.Core
                 throw new InvalidOperationException(
                     $"Ship '{shipId}' is not unlocked.");
             SelectedShipId = shipId;
+        }
+
+        public void RecordColossalBossEncounter(
+            ColossalBossKind boss)
+        {
+            if (boss != ColossalBossKind.Leviathan
+                && boss != ColossalBossKind.Broodmother)
+                throw new ArgumentOutOfRangeException(nameof(boss));
+            LastColossalBoss = boss;
         }
 
         static bool ContainsOrdinal(List<string> ids, string id)

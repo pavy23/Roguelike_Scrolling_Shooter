@@ -673,3 +673,69 @@ solid 통로 검증 + 함선 3종 DPS 검증 BalanceSim 그린. 상세는 from-g
 악용할 수 있기 때문입니다. 반대로 플레이어 탄은 관통/도탄 모디파이어와 무관하게
 모든 장애물에 막힙니다. GROK은 이 규칙을 전제로 장애물 배치와 잠정 HP/점수를
 검증하고, CLAUDE는 적탄-장애물 충돌 연출을 별도로 만들지 않아야 합니다.
+
+---
+
+## [ ] GROK: REQ-035 콜로설 보스 2종 `waves.json` 콘텐츠 등록
+
+Core의 다중 파츠 스키마와 런타임은 완료됐지만, `GameData/`는 GROK 소유라 CODEX가
+실제 카탈로그를 수정하지 않았습니다. `waves.json.bosses`에 아래 고정 ID 2종을
+추가하고 승인된 HP 합계/게이트/재생·산란 주기를 반영해 주세요.
+
+- `boss_leviathan`: 파츠 HP `6000/6000/8000/10000/7000/25000`,
+  코어 게이트 `shield_generator`.
+- `boss_broodmother`: 촉수 좌/우 각 5,000 및 `regenerationTicks: 1200`,
+  산란낭 3개 각 6,000 및 `intervalTicks: 480`, maw 9,000,
+  heart 25,000 및 산란낭 3개를 코어 게이트로 지정.
+- 두 보스 모두 `hp: 62000`; 숨은 보스 생성 시 stage 5 / 현재 난이도를 지원해야 합니다.
+- 산란낭의 `spawnEnemyId`는 기존 적 카탈로그 ID 중 밸런스 검증된 잡졸을 사용합니다.
+- offset/hitbox, 미지정 공격 간격·탄속·흡입 속도는 밸런스 사안이므로 헤드리스
+  TTK 100~120초 검증과 함께 제안해 주세요.
+
+파츠 스키마:
+
+```json
+{
+  "id": "part_id",
+  "offsetX": 0,
+  "offsetY": 0,
+  "halfWidth": 1,
+  "halfHeight": 1,
+  "hp": 6000,
+  "isCore": false,
+  "coreGatePartIds": [],
+  "regenerationTicks": 0,
+  "attack": {
+    "type": "none|aimedSpread|radialSpread|meleeCharge|verticalMovement|spawnEnemy|suction",
+    "intervalTicks": 60,
+    "ways": 3,
+    "bulletSpeed": 6.0,
+    "effectSpeed": 3.0,
+    "contactDamage": 1,
+    "spawnEnemyId": "enemy_id"
+  }
+}
+```
+
+공격 타입에 필요 없는 필드는 생략합니다. `contactDamage`는 `meleeCharge` 전용입니다.
+`bulletSpeed`/`effectSpeed`는 u/s이며 Core가
+정확한 서브유닛/틱 유리수로 변환합니다. 한 multipart 보스에는 코어가 정확히 1개여야
+하고 gate ID는 같은 보스의 파츠 ID여야 합니다.
+
+## [ ] CLAUDE: REQ-035 Presentation·메타 연결
+
+- `IBattleSim.BossParts`를 안정적인 `PartId`로 렌더 파츠에 매핑하고
+  `BossPartDestroyed`/`BossPartRegenerated`의 `PartId`, `X`, `Y`로 연출·SFX를 재생합니다.
+- 새 런 생성 시 로드된 `MetaState`를 받는
+  `RunManager(..., rewards, ship, difficultyNumerator, difficultyDenominator, metaState)`
+  오버로드를 사용해야 마지막 조우 보스 역가중(반대쪽 3:1)이 적용됩니다.
+- 리플레이는 `InputPlayback.LastColossalBossAtRunStart`를 같은 위치의
+  `ColossalBossKind` 오버로드에 전달합니다. 현재 메타 값을 쓰면 녹화 당시와 달라질 수
+  있습니다.
+- `EliteRoomsCleared`, `NoHitBiomesCleared`, `RareEncountersCleared`,
+  `HiddenConditionCount`, `HiddenBiomeUnlocked`을 HUD 조건 표시에 사용합니다.
+- 결과 화면은 `State == RunCleared`만 보지 말고 `CompletionGrade`의
+  `StandardClear`/`PerfectClear`를 구분합니다.
+- 메타 저장 DTO schema v2의 `lastColossalBoss`를 기존 원자 저장 경로로 보존합니다.
+- 일반 적 풀 용량은 `BattleSimConfig.MaxEnemies`와 동기화합니다. 산란낭과 예약 스폰이
+  같은 상한을 공유하므로 Presentation도 그 수보다 작은 풀로 누락시키지 않아야 합니다.
