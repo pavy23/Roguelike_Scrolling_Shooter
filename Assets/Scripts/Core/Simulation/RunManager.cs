@@ -3479,7 +3479,8 @@ namespace Shmup.Core.Simulation
                 source.ThemeId,
                 source.RequestedThemeId,
                 EncounterType.Elite,
-                Array.Empty<BossPartDefinition>());
+                Array.Empty<BossPartDefinition>(),
+                source.Gimmick);
         }
 
         static StagePlan CreateRegularRoomPlan(StagePlan source)
@@ -3498,7 +3499,8 @@ namespace Shmup.Core.Simulation
                 source.ThemeId,
                 source.RequestedThemeId,
                 source.EncounterType,
-                Array.Empty<BossPartDefinition>());
+                Array.Empty<BossPartDefinition>(),
+                source.Gimmick);
         }
 
         static StagePlan CreateBiomeBossPlan(StagePlan source)
@@ -3536,7 +3538,8 @@ namespace Shmup.Core.Simulation
                 source.ThemeId,
                 source.RequestedThemeId,
                 encounterType,
-                source.BossParts);
+                source.BossParts,
+                source.Gimmick);
         }
 
         void CaptureStageStart()

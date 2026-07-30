@@ -1,5 +1,111 @@
 ﻿# CODEX → 다른 에이전트 요청
 
+## REQ-055 — 스테이지 고유 기믹 Core 계약 (2026-07-30)
+
+### 재사용 판정
+
+- **스크랩 잔해:** 기존 `ObstacleType.Breakable`을 그대로 사용한다. `hp > 0`,
+  플레이어 탄 충돌/HP 감소/제거, `SimEventType.ObstacleDestroyed`, 남은 HP를
+  포함한 `ObstacleState`가 이미 있었다. 새 잔해 엔티티를 만들지 않았다.
+- **포트리스 게이트:** 기존 `ObstacleType.LaserEmitter`와
+  `Telegraph → Firing → Sustaining → Dissipating`, `LaserState`,
+  `LaserCapacityExceeded`를 그대로 사용한다.
+- **바이오 촉수:** 기존 `EnemyMovePattern.Static`은 자체 전진을 하지 않고 월드
+  스크롤만 적용되므로 벽에 붙은 파괴 가능 적으로 사용 가능하다. `EnemyState`가
+  definition id, 위치, HP를 이미 공개한다. 새 촉수 엔티티를 만들지 않았다.
+- 장애물/일반 적 상한 초과가 조용히 누락되던 경로에는 각각
+  `ObstacleCapacityExceeded`, `EnemyCapacityExceeded` 이벤트를 추가했다.
+
+### 새 JSON 계약 — GROK 요청
+
+실제 `GameData`는 수정하지 않았다. 아래 필드는 모두 선택 사항이고, 누락 시 기존
+동작(기믹 없음)을 보존한다.
+
+```json
+{
+  "gimmicks": [{
+    "theme": "core",
+    "visionObscured": false,
+    "timeLimitTicks": 12000
+  }],
+  "segments": [{
+    "environment": {
+      "corridor": {
+        "startMinY": -9.5,
+        "startMaxY": 9.5,
+        "endMinY": -4.5,
+        "endMaxY": 4.5,
+        "contactDamage": 1
+      },
+      "drift": {
+        "xPerSecond": 0.75,
+        "yPerSecond": -0.5
+      }
+    }
+  }]
+}
+```
+
+- `gimmicks[]`는 최상위 `themes[]`의 id로 연결하며 theme당 최대 하나다.
+- `visionObscured`는 Core 판정에 사용하지 않고 Presentation에 사실만 노출한다.
+- `timeLimitTicks == 0`은 제한 없음이다. 양수 제한은 해당 Battle의 하드
+  데드라인이며, 0틱이 되는 순간 방어막과 무적 시간을 무시하고 실패한다.
+  `12000`(200초)은 **연결 검증용 잠정 시작값**일 뿐이다. 실제 45,000 HP 코어
+  보스 P10/P50 TTK를 측정해 GROK이 제안하고 사람이 확정해 달라.
+- `corridor` Y는 월드유닛 벽 표면이다. 시작/끝 값을 세그먼트 tick에 따라 정수
+  선형 보간한다. 플레이어 중심은 hitbox half-height만큼 안쪽에서 clamp되고,
+  벽 접촉은 `contactDamage`를 준다.
+- `drift`는 월드유닛/초의 signed decimal이다. Core가 정확한 정수 분수/틱으로
+  바꾼다. 입력 벡터를 기체 속도로 clamp한 **뒤**에 더하므로 손을 떼어도 흐르고,
+  플레이어 조작 속도 상한 자체는 바뀌지 않는다.
+
+GROK 작업 요청:
+
+- [ ] `scrapyard`의 빈 잔해 세그먼트에도 `breakable` obstacle을 배치하고 HP,
+  개수, 동시 존재량을 제안해 달라. 시작안은 한 화면 4~8개, HP 20~60이나 최종
+  수치는 밸런스 시뮬/사람 승인 대상이다.
+- [ ] `hive` 적 정의에 `movement.pattern: "static"`, `speed: 0`인 벽 촉수
+  definition을 추가하고 wave spawn으로 배치해 달라. 좁아지는 구간에는 위
+  `environment.corridor`를 추가하되 최소 폭이 플레이어 hitbox보다 충분히 큰지
+  검증해 달라.
+- [ ] `fortress`는 기존 `laserEmitter`를 게이트로 재사용하고 telegraph/발사
+  주기와 배치를 타이밍 회피가 가능하도록 조정해 달라.
+- [ ] `nebula`에 `visionObscured: true`와 세그먼트별 signed drift를 넣어 달라.
+  시작안은 합성 세기 0.5~0.9 u/s이며, 연속으로 같은 방향만 나오지 않도록
+  세그먼트 데이터에서 방향을 교대해 달라.
+- [ ] `core`에 앞선 obstacle/corridor/drift/laser를 혼합하고
+  `timeLimitTicks`를 넣어 달라. 제한 시간은 현 보스 HP의 실제 TTK 분포와 함께
+  제안해 달라.
+
+### Presentation 계약 — CLAUDE 요청
+
+```text
+IBattleSim.Environment
+  SegmentIndex / SegmentId
+  HasCorridor / CorridorMinY / CorridorMaxY / CorridorContactDamage
+  HasDrift / DriftXNumerator/Denominator / DriftYNumerator/Denominator
+IBattleSim.VisionObscured
+IBattleSim.TimeLimitTicks / RemainingTimeTicks / TimeLimitExpired
+```
+
+- [ ] 통로 상·하 벽을 `Environment.CorridorMinY/MaxY`에 맞춰 그려 달라.
+  `CorridorContact`는 벽 접촉 피드백, `PlayerHit`는 실제 피해 피드백으로 사용한다.
+- [ ] 드리프트 방향/세기는 위 exact fraction을 읽어 파티클/배경 흐름으로
+  시각화하되 Presentation에서 기체 위치를 추가 이동시키지 말아 달라.
+- [ ] `VisionObscured`일 때만 네뷸라 구름을 화면에 그려 달라. 구름 alpha/마스크는
+  시각 전용이며 Core 명중·탐지 판정을 바꾸지 않는다.
+- [ ] `RemainingTimeTicks / 60` 카운트다운과 임박 경고를 표시하고,
+  `TimeLimitExpired`에서 명확한 실패 연출을 붙여 달라.
+- [ ] `EnemyCapacityExceeded` / `ObstacleCapacityExceeded` /
+  `LaserCapacityExceeded`를 개발 HUD/로그에 드러내 달라. `Arg`는 설정 상한,
+  X/Y는 거부된 위치다.
+
+하드 데드라인을 선택한 이유: 초과 후 적/탄 밀도를 올리는 방식은 동시 존재 상한에
+걸릴 때 압박이 조용히 약해질 수 있고 여러 밸런스 계수를 동시에 바꾼다. 즉사형은
+카운트다운과 결과가 일치하고 정수 tick 하나로 재현 가능하다.
+
+---
+
 ## REQ-054 요약 — 새 상태 흐름과 외부 계약 (2026-07-30)
 
 ### Core 상태 흐름

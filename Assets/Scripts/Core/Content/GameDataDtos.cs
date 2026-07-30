@@ -186,6 +186,8 @@ namespace Shmup.Core.Content
         [DataMember]
         public string[] themes;
         [DataMember]
+        public StageGimmickDto[] gimmicks;
+        [DataMember]
         public SegmentDto[] segments;
         [DataMember]
         public BossDto[] bosses;
@@ -216,6 +218,52 @@ namespace Shmup.Core.Content
         public SpawnDto[] spawns;
         [DataMember]
         public ObstacleDto[] obstacles;
+        [DataMember]
+        public SegmentEnvironmentDto environment;
+    }
+
+    [DataContract]
+    internal sealed class StageGimmickDto
+    {
+        [DataMember]
+        public string theme;
+        [DataMember]
+        public bool? visionObscured;
+        [DataMember]
+        public int? timeLimitTicks;
+    }
+
+    [DataContract]
+    internal sealed class SegmentEnvironmentDto
+    {
+        [DataMember]
+        public CorridorDto corridor;
+        [DataMember]
+        public DriftDto drift;
+    }
+
+    [DataContract]
+    internal sealed class CorridorDto
+    {
+        [DataMember]
+        public decimal? startMinY;
+        [DataMember]
+        public decimal? startMaxY;
+        [DataMember]
+        public decimal? endMinY;
+        [DataMember]
+        public decimal? endMaxY;
+        [DataMember]
+        public int? contactDamage;
+    }
+
+    [DataContract]
+    internal sealed class DriftDto
+    {
+        [DataMember]
+        public decimal? xPerSecond;
+        [DataMember]
+        public decimal? yPerSecond;
     }
 
     [DataContract]
