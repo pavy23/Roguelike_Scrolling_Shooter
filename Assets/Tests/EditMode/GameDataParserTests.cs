@@ -1014,9 +1014,22 @@ namespace Shmup.Core.Tests
             bool hasHiveTentacle =
                 data.BattleContent.FindEnemy("hive_tentacle")
                 != null;
+            EnemyDefinition miniCore =
+                data.BattleContent.FindEnemy("mini_core");
             Assert.AreEqual(
-                hasHiveTentacle ? 31 : 30,
+                (hasHiveTentacle ? 31 : 30)
+                    + (miniCore != null ? 1 : 0),
                 data.BattleContent.Enemies.Count);
+            if (miniCore != null)
+            {
+                Assert.IsNotNull(miniCore.MidBossProfile);
+                Assert.AreEqual(
+                    "core",
+                    miniCore.MidBossProfile.ThemeId);
+                Assert.GreaterOrEqual(
+                    miniCore.MidBossProfile.StageIndexMin,
+                    3);
+            }
             Assert.AreEqual(4, data.BattleContent.Weapons.Count);
             Assert.AreEqual(3, data.BattleContent.MissileFamilies.Count);
             Assert.AreEqual(3, data.BattleContent.OptionFormations.Count);
