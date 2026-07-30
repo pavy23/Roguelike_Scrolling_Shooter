@@ -901,6 +901,7 @@ namespace Shmup.EditorTools
             AddEnemySprite("mini_horror", LoadExternalSprite("enemy_mini_horror.png", "enemy_mini_horror"));
             AddEnemySprite("mini_walker", LoadExternalSprite("enemy_mini_walker.png", "enemy_mini_walker"));
             AddEnemySprite("mini_crystal", LoadExternalSprite("enemy_mini_crystal.png", "enemy_mini_crystal"));
+            AddEnemySprite("mini_core", LoadExternalSprite("enemy_mini_core.png", "enemy_mini_core"));
             AddEnemySprite("scrap_tumbler", LoadExternalSprite("enemy_scrap_tumbler.png", "enemy_scrap_tumbler"));
             AddEnemySprite("brood_spitter", LoadExternalSprite("enemy_brood_spitter.png", "enemy_brood_spitter"));
             AddEnemySprite("mortar_drone", LoadExternalSprite("enemy_mortar_drone.png", "enemy_mortar_drone"));
@@ -937,7 +938,7 @@ namespace Shmup.EditorTools
                 "scrap_tumbler", "brood_spitter", "mortar_drone", "echo_wisp",
                 "rust_skimmer", "junk_roller", "void_moth", "shard_prism",
                 "sting_hornet", "pipe_rat", "phase_disc", "rift_blade",
-                "mini_destroyer", "mini_horror", "mini_walker", "mini_crystal",
+                "mini_destroyer", "mini_horror", "mini_walker", "mini_crystal", "mini_core",
                 "boss_stage1", "boss_hive", "boss_fortress", "boss_storm", "boss_core"
             })
                 AddAnim(prefix);
