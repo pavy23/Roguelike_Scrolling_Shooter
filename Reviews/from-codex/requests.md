@@ -749,3 +749,103 @@ BalanceSim `CheckColossalBosses` TTK 110.7s / full-eff 41.3s / spawn peak 45≤1
 - 메타 저장 DTO schema v2의 `lastColossalBoss`를 기존 원자 저장 경로로 보존합니다.
 - 일반 적 풀 용량은 `BattleSimConfig.MaxEnemies`와 동기화합니다. 산란낭과 예약 스폰이
   같은 상한을 공유하므로 Presentation도 그 수보다 작은 풀로 누락시키지 않아야 합니다.
+
+---
+
+## [ ] 사람 결정 / [ ] GROK / [ ] CLAUDE: REQ-040 단일 실드 스톡 계약
+
+Core는 HP와 실드를 분리하던 규칙을 제거하고 다음 단일 내구도 계약으로 변경했습니다.
+
+- `IBattleSim.ShieldStock`이 유일한 내구도 자원입니다.
+- 스톡이 1 이상일 때 피격되면 피해량과 무관하게 정확히 1만 소모하고
+  `PlayerHitInvulnerabilityTicks` 동안 추가 피격을 무시합니다.
+- 스톡 0에서 다음 유효 피격을 받으면 즉사하며 `PlayerKilled`를 발행합니다.
+- `PlayerHp`는 Presentation 컴파일 호환용 생존 플래그입니다. 생존 중 1, 사망 후 0이며
+  다중 HP가 아닙니다.
+- `ShieldRemaining`은 `ShieldStock`의 호환 별칭입니다.
+- `RewardType.ShieldStock = 2`가 정식 이름이며 `RewardType.RepairHp`는 같은 숫자 2의
+  호환 별칭입니다. JSON의 기존 `"type": "repairHp"`를 그대로 읽고,
+  신규 `"shieldStock"`도 읽습니다.
+- `ships.json.maxHp`는 파일명을 바꾸지 않고 `ShipDefinition.StartingShieldStock`으로
+  해석합니다. `ShipDefinition.MaxHp`도 읽기 호환 별칭으로 남아 있습니다.
+- 실드 게이지 레벨이 런 시작 시 기초 스톡에 더해지고, 런 중 Shield 슬롯 레벨 상승은
+  스톡 1을 회복합니다. 룸 사이에는 소모된 현재 스톡을 그대로 승계합니다.
+- `RunSuspendData`는 schema v8입니다. `shieldStock`/`maxShieldStock`을 FNV-1a에
+  포함하며, `playerHp`/`shieldRemaining`은 호환 미러로 계속 저장합니다.
+  v1~v7 세이브는 `max(0, oldHp + oldShield - 1)`을 상한 내 스톡으로 변환해 기존의
+  “남은 피격 가능 횟수”에 가깝게 보존하고 v8 체크섬으로 다시 봉인합니다.
+- `MetaStateData`에는 런 내구도 필드가 없어 schema v2를 유지합니다.
+
+### 사람 결정 필요
+
+1. **실드 스톡 상한:** 잠정값은 **5**입니다
+   (`BattleSimConfig.ProvisionalMaxShieldStock`). 현재 `ships.json`의 최대 `maxHp=5`를
+   보존하는 최소 상한입니다. 이 값에서는 Bulwark의 `maxHp: 5`가 이미 상한이라
+   `startingPowerUpLevels`의 Shield 1이 시작 스톡을 더 늘리지 못합니다.
+   Bulwark의 시작 Shield 레벨까지 유효하게 하려면 상한 6 이상이 필요합니다.
+2. **피격 무적:** Core에 없던 값을 Presentation의 기존 0.3초 피격 플래시에 맞춰
+   잠정 **18틱(60 Hz)** 으로 명시했습니다
+   (`DefaultPlayerHitInvulnerabilityTicks`). 사람 승인 또는 다른 수치 지시가 필요합니다.
+
+### GROK 계약
+
+- `ships.json`/`rewards.json`의 키나 ID는 마이그레이션을 위해 지금 바꿀 필요가 없습니다.
+  현재 값은 Starter 3, Interceptor 2, Bulwark 5 시작 스톡이며
+  `repair_hp_1`은 스톡 1 회복(상한 적용)입니다.
+- 사람의 상한 결정 후 함선별 시작 스톡과 Bulwark 시작 Shield 레벨의 중복을 재검산해
+  주세요. 수치 변경은 GROK 소유입니다.
+
+### CLAUDE 계약
+
+- HUD/DevCheats/GameOver는 `ShieldStock`을 표시하고 사망 판정은
+  `PlayerHp == 0` 또는 `!IsPlayerAlive`를 사용해 주세요.
+- `LowHpWarning`은 더 이상 `PlayerHp == 1`을 쓰면 안 됩니다(모든 생존 프레임에서 1).
+  경고를 유지한다면 `ShieldStock == 0`을 사용해 주세요.
+- 피격 무적 연출은 `PlayerInvulnerabilityTicksRemaining`과 18틱 계약에 맞추고,
+  보상 라벨은 `Repair HP` 대신 `SHIELD STOCK +n`으로 바꿔 주세요.
+- Presentation 저장기가 v8의 `shieldStock`/`maxShieldStock`을 보존해야 합니다.
+  기존 v7 저장은 Core `SaveDataIntegrity.MigrateAndValidate`에 그대로 전달하면 됩니다.
+
+---
+
+## [ ] GROK / [ ] 감사 도구 담당: REQ-043 20룸 성장 곡선·감사 예산 후속
+
+Core 기본 진행은 5 바이옴 × 4룸 = **20룸**, 분기 **19회**로 변경했습니다.
+세이브와 리플레이는 `roomsPerBiome`을 명시 저장하므로 구 6룸 기록은 6룸으로 재생되고,
+신규 기본 기록만 4룸을 사용합니다.
+
+### 성장량 계산
+
+현재 `Tools/BalanceSim`의 GameData 가중 평균은 3세그먼트 룸당 캡슐
+**14.02개**입니다.
+
+- 구 30룸: `30 × 14.02 = 420.6`
+- 신 20룸: `20 × 14.02 = 280.4`
+- 감소: **140.2개(-33.3%)**
+
+4슬롯을 0에서 현재 상한 5/3/4/3까지 목표 슬롯에서 즉시 활성화한다고 가정한 필요
+캡슐은 `5×1 + 3×2 + 4×3 + 3×4 = 35개`입니다. 신규 기대량 280.4는 그 **8.0배**이고,
+회수/활성화 효율이 12.5%만 되어도 전 슬롯 최대에 도달할 수 있습니다. 따라서
+**캡슐 보상량 증가는 현재 수치상 필요하지 않으며**, `capsules_5`를 즉시 올리지 않는
+것을 제안합니다.
+
+바이옴 보스 보상은 비최종 4회로 유지됩니다. 룸 분기 기반 Elite/Rare 기회는
+29회→19회로 **34.5% 감소**합니다. 기존 총량을 기계적으로 보존하려면 변동 보상량을
+`29/19 = 1.526배` 해야 하므로 `capsules_5`의 대응 정수는 8이지만, 위 캡슐 과잉 때문에
+현재는 권장하지 않습니다. GROK은 실제 선택률을 포함한 20룸 헤드리스 표본으로
+슬롯 레벨·modifier/family/formation 완성 시점을 재검산해 주세요.
+
+### 결정론 감사 예산
+
+감사 코드의 기대 룸 수와 숨은 룸 환산식은
+`DefaultRoomsPerBiome`에서 파생되어 자동으로 20룸/19분기를 검증합니다. 실제 suite는
+5개 중 4개 시나리오가 동일 해시로 클리어했으나, `seed-max-prefer-capped` 저성장 경로는
+기존 데이터 기반 예산 **566,120틱**에서 `Playing`으로 종료되어 `AUDIT PASS`에
+도달하지 못했습니다. 4개 통과 경로는 20룸, 분기 19회였고 완료 틱은
+207,562~438,032였습니다.
+
+`Tools/DeterminismAudit/`는 이번 CODEX 소유 범위 밖이라 수정하지 않았습니다.
+감사 도구 담당은 룸 감소로 인한 보상 희소 계수 `6/4 = 1.5`를 저성장 보스 예산에
+반영해 suite 하한을 우선 **849,180틱**(`566,120 × 1.5`)으로 올리거나,
+실제 무업그레이드 DPS에서 예산을 직접 파생해 주세요. GameData 보상 상향으로 감사를
+억지 통과시키기보다는 감사 예산을 최악 성장 경로에 맞추는 것을 권장합니다.

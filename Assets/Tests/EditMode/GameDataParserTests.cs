@@ -785,6 +785,9 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 WeaponType.Vulcan,
                 data.FindShip("starter").WeaponType);
+            Assert.AreEqual(
+                3,
+                data.FindShip("starter").StartingShieldStock);
             Assert.AreEqual(3, data.FindShip("starter").MaxHp);
             Assert.AreEqual(
                 WeaponType.Laser,
@@ -917,6 +920,9 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 WeaponType.Vulcan,
                 data.FindShip("starter").WeaponType);
+            Assert.AreEqual(
+                3,
+                data.FindShip("starter").StartingShieldStock.Value);
             Assert.AreEqual(3, data.FindShip("starter").MaxHp.Value);
             Assert.AreEqual(
                 WeaponType.Laser,

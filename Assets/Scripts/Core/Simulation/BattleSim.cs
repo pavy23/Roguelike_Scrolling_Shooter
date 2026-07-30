@@ -337,9 +337,20 @@ namespace Shmup.Core.Simulation
     public sealed class BattleSimConfig
     {
         internal const int DefaultMaxEnemyBullets = 128;
+        /// <summary>
+        /// Provisional REQ-040 stock cap. The final value is a human balance
+        /// decision; five preserves the largest current ships.json hull value.
+        /// </summary>
+        public const int ProvisionalMaxShieldStock = 5;
+        /// <summary>
+        /// Matches Presentation's existing 0.3 second damage flash at 60 Hz.
+        /// </summary>
+        public const int DefaultPlayerHitInvulnerabilityTicks =
+            3 * SimSpace.TicksPerSecond / 10;
 
         int _playerSpeedNumerator, _bulletSpeedNumerator;
         int _playerSpeedDenominator = 1, _bulletSpeedDenominator = 1;
+        int _startingShieldStock = 1;
 
         /// <summary>Whole subunits/tick shorthand. Setting it resets the denominator to 1.</summary>
         public int PlayerSpeedPerTick
@@ -380,7 +391,28 @@ namespace Shmup.Core.Simulation
         public int EnemyDespawnX { get; set; } = int.MinValue;
         public int PlayerSpawnX { get; set; }
         public int PlayerSpawnY { get; set; }
-        public int PlayerMaxHp { get; set; } = 1;
+        /// <summary>Shield stocks available at battle tick zero.</summary>
+        public int StartingShieldStock
+        {
+            get => _startingShieldStock;
+            set => _startingShieldStock = value;
+        }
+        /// <summary>
+        /// Compatibility alias for callers that still populate ship HP. REQ-040
+        /// interprets the old value as starting shield stock; it is not hull HP.
+        /// </summary>
+        public int PlayerMaxHp
+        {
+            get => _startingShieldStock;
+            set => _startingShieldStock = value;
+        }
+        /// <summary>
+        /// Provisional cap pending the human balance decision requested by REQ-040.
+        /// </summary>
+        public int MaxShieldStock { get; set; } =
+            ProvisionalMaxShieldStock;
+        public int PlayerHitInvulnerabilityTicks { get; set; } =
+            DefaultPlayerHitInvulnerabilityTicks;
         public int PlayerHalfWidth { get; set; }
         public int PlayerHalfHeight { get; set; }
         public int CapsuleHalfWidth { get; set; }
@@ -559,7 +591,10 @@ namespace Shmup.Core.Simulation
                 EnemyDespawnX = -(SimSpace.PlayfieldHalfWidthSubUnits + SimSpace.DespawnMarginSubUnits),
                 PlayerSpawnX = -13 * u,
                 PlayerSpawnY = 0,
-                PlayerMaxHp = 1,
+                StartingShieldStock = 1,
+                MaxShieldStock = ProvisionalMaxShieldStock,
+                PlayerHitInvulnerabilityTicks =
+                    DefaultPlayerHitInvulnerabilityTicks,
                 PlayerHalfWidth = 3 * u / 8,
                 PlayerHalfHeight = 3 * u / 8,
                 CapsuleMagnetRadiusSubUnits = 3 * u,
@@ -594,7 +629,15 @@ namespace Shmup.Core.Simulation
         long ScrollX { get; }
         int PlayerX { get; }
         int PlayerY { get; }
+        bool IsPlayerAlive { get; }
+        int ShieldStock { get; }
+        int PlayerInvulnerabilityTicksRemaining { get; }
+        /// <summary>
+        /// Compatibility health flag: one while alive, zero after the lethal
+        /// unshielded hit. It is no longer a multi-point hull resource.
+        /// </summary>
         int PlayerHp { get; }
+        /// <summary>Compatibility alias for ShieldStock.</summary>
         int ShieldRemaining { get; }
         WeaponType PlayerWeaponType { get; }
         IReadOnlyList<BulletState> Bullets { get; }
@@ -725,6 +768,8 @@ namespace Shmup.Core.Simulation
         readonly int _enemyBulletSpeedNumerator, _enemyBulletSpeedDenominator;
         readonly int _enemyBulletHalfWidth, _enemyBulletHalfHeight;
         readonly int _enemyBulletDamage, _maxEnemyBullets;
+        readonly int _maxShieldStock;
+        readonly int _playerHitInvulnerabilityTicks;
         readonly BattleModifier _activeModifiers;
         readonly int _pierceShotEnemyCount, _ricochetRangeSubUnits;
         readonly int _homingMissileTurnLutSlotsPerTick;
@@ -775,7 +820,8 @@ namespace Shmup.Core.Simulation
         int _playerHistoryCount;
         int _bulletHitRecordCount;
         int _multiplierLevel, _comboGauge, _ticksSinceLastKill;
-        bool _killScoredThisTick, _activateHeld;
+        bool _killScoredThisTick, _activateHeld, _playerAlive;
+        int _playerInvulnerabilityTicksRemaining;
 
         /// <summary>Backward-compatible stage-less player movement and basic-shot simulation.</summary>
         public BattleSim(BattleSimConfig config, Rng rng)
@@ -965,6 +1011,9 @@ namespace Shmup.Core.Simulation
             _enemyBulletHalfHeight = config.EnemyBulletHalfHeight;
             _enemyBulletDamage = config.EnemyBulletDamage;
             _maxEnemyBullets = config.MaxEnemyBullets;
+            _maxShieldStock = config.MaxShieldStock;
+            _playerHitInvulnerabilityTicks =
+                config.PlayerHitInvulnerabilityTicks;
             _activeModifiers = activeModifiers;
             _pierceShotEnemyCount = config.PierceShotEnemyCount;
             _ricochetRangeSubUnits = config.RicochetRangeSubUnits;
@@ -992,6 +1041,9 @@ namespace Shmup.Core.Simulation
                 config.ComboMultiplierLevel4
             };
             _powerUpGauge = powerUpGauge;
+            _shieldGaugeLevel = powerUpGauge == null
+                ? 0
+                : powerUpGauge.GetLevel(PowerUpSlot.Shield);
             _dropRng = rng.Fork(DropRngStream);
 
             if (stageEnabled && stagePlan.BossMaxHp > 0)
@@ -1186,7 +1238,10 @@ namespace Shmup.Core.Simulation
 
             PlayerX = config.PlayerSpawnX;
             PlayerY = config.PlayerSpawnY;
-            PlayerHp = config.PlayerMaxHp;
+            ShieldStock = Math.Min(
+                config.StartingShieldStock,
+                _maxShieldStock);
+            _playerAlive = true;
             RecordPlayerPosition();
             ReadPowerUpLevels();
             UpdateOptionPositions();
@@ -1207,8 +1262,12 @@ namespace Shmup.Core.Simulation
         public long ScrollX => GetScrollXAtTick(Tick);
         public int PlayerX { get; private set; }
         public int PlayerY { get; private set; }
-        public int PlayerHp { get; private set; }
-        public int ShieldRemaining { get; private set; }
+        public bool IsPlayerAlive => _playerAlive;
+        public int ShieldStock { get; private set; }
+        public int PlayerInvulnerabilityTicksRemaining =>
+            _playerInvulnerabilityTicksRemaining;
+        public int PlayerHp => _playerAlive ? 1 : 0;
+        public int ShieldRemaining => ShieldStock;
         public WeaponType PlayerWeaponType => _playerWeaponType;
         public IReadOnlyList<BulletState> Bullets => _readOnlyBullets;
         public IReadOnlyList<OptionState> Options => _readOnlyOptions;
@@ -1295,6 +1354,8 @@ namespace Shmup.Core.Simulation
             Tick++;
             _eventCount = 0;
             _killScoredThisTick = false;
+            if (_playerInvulnerabilityTicksRemaining > 0)
+                _playerInvulnerabilityTicksRemaining--;
 
             PlayerX = AdvancePlayerAxis(PlayerX, input.MoveX, ref _playerXRemainder, _playerMinX, _playerMaxX);
             PlayerY = AdvancePlayerAxis(PlayerY, input.MoveY, ref _playerYRemainder, _playerMinY, _playerMaxY);
@@ -1405,7 +1466,6 @@ namespace Shmup.Core.Simulation
                 _missileLevel = 0;
                 _optionLevel = 0;
                 _shieldGaugeLevel = 0;
-                ShieldRemaining = 0;
                 return;
             }
 
@@ -1421,10 +1481,22 @@ namespace Shmup.Core.Simulation
             int nextShieldLevel = _powerUpGauge.GetLevel(PowerUpSlot.Shield);
             EmitLevelChange(PowerUpSlot.Shield, _shieldGaugeLevel, nextShieldLevel);
             if (nextShieldLevel > _shieldGaugeLevel)
-                ShieldRemaining = nextShieldLevel;
-            else if (ShieldRemaining > nextShieldLevel)
-                ShieldRemaining = nextShieldLevel;
+                RecoverShieldStock(nextShieldLevel - _shieldGaugeLevel);
             _shieldGaugeLevel = nextShieldLevel;
+        }
+
+        /// <summary>
+        /// Restores the single REQ-040 durability resource without exceeding the
+        /// configured provisional cap. Returns the number of stocks restored.
+        /// </summary>
+        public int RecoverShieldStock(int amount)
+        {
+            if (amount < 0)
+                throw new ArgumentOutOfRangeException(nameof(amount));
+            int available = _maxShieldStock - ShieldStock;
+            int restored = Math.Min(amount, available);
+            ShieldStock += restored;
+            return restored;
         }
 
         void UpdateOptionPositions()
@@ -2253,28 +2325,7 @@ namespace Shmup.Core.Simulation
                 return;
 
             _bossPartContactHitThisCycle[partIndex] = true;
-            int absorbed = Math.Min(
-                ShieldRemaining,
-                attack.ContactDamage);
-            ShieldRemaining -= absorbed;
-            bool wasAlive = PlayerHp > 0;
-            int hullDamage = attack.ContactDamage - absorbed;
-            PlayerHp = Damage.ApplyToHp(
-                PlayerHp,
-                hullDamage);
-            EmitEvent(
-                SimEventType.PlayerHit,
-                0,
-                PlayerX,
-                PlayerY,
-                hullDamage);
-            if (wasAlive && PlayerHp == 0)
-                EmitEvent(
-                    SimEventType.PlayerKilled,
-                    0,
-                    PlayerX,
-                    PlayerY,
-                    0);
+            ApplyPlayerHit(attack.ContactDamage);
         }
 
         static int PullAxis(
@@ -2541,18 +2592,9 @@ namespace Shmup.Core.Simulation
                         bullet.X, bullet.Y, _enemyBulletHalfWidth, _enemyBulletHalfHeight))
                 {
                     RemoveBulletAt(index);
-                    int absorbed = Math.Min(ShieldRemaining, _enemyBulletDamage);
-                    ShieldRemaining -= absorbed;
-                    PlayerHp = Damage.ApplyToHp(PlayerHp, _enemyBulletDamage - absorbed);
-                    EmitEvent(
-                        SimEventType.PlayerHit,
-                        0,
-                        PlayerX,
-                        PlayerY,
-                        _enemyBulletDamage - absorbed);
-                    if (PlayerHp == 0)
+                    ApplyPlayerHit(_enemyBulletDamage);
+                    if (!_playerAlive)
                     {
-                        EmitEvent(SimEventType.PlayerKilled, 0, PlayerX, PlayerY, 0);
                         return;
                     }
                     continue;
@@ -3457,14 +3499,8 @@ namespace Shmup.Core.Simulation
                 }
 
                 int contactDamage = definition.ContactDamage;
-                int absorbed = Math.Min(ShieldRemaining, contactDamage);
-                ShieldRemaining -= absorbed;
-                PlayerHp = Damage.ApplyToHp(PlayerHp, contactDamage - absorbed);
                 RemoveEnemyAt(index);
-                // Arg = 실드를 뚫고 선체에 닿은 데미지. 0이면 실드가 전부 흡수한 것.
-                EmitEvent(SimEventType.PlayerHit, 0, PlayerX, PlayerY, contactDamage - absorbed);
-                if (PlayerHp == 0)
-                    EmitEvent(SimEventType.PlayerKilled, 0, PlayerX, PlayerY, 0);
+                ApplyPlayerHit(contactDamage);
             }
         }
 
@@ -3484,27 +3520,45 @@ namespace Shmup.Core.Simulation
                         _obstacleHalfHeight))
                     continue;
 
-                int absorbed = Math.Min(
-                    ShieldRemaining,
-                    _obstacleContactDamage);
-                ShieldRemaining -= absorbed;
-                bool wasAlive = PlayerHp > 0;
-                int hullDamage = _obstacleContactDamage - absorbed;
-                PlayerHp = Damage.ApplyToHp(PlayerHp, hullDamage);
+                ApplyPlayerHit(_obstacleContactDamage);
+            }
+        }
+
+        bool ApplyPlayerHit(int incomingDamage)
+        {
+            if (incomingDamage <= 0
+                || !_playerAlive
+                || _playerInvulnerabilityTicksRemaining > 0)
+                return false;
+
+            int eventDamage;
+            if (ShieldStock > 0)
+            {
+                ShieldStock--;
+                eventDamage = 0;
+                _playerInvulnerabilityTicksRemaining =
+                    _playerHitInvulnerabilityTicks;
+            }
+            else
+            {
+                _playerAlive = false;
+                eventDamage = incomingDamage;
+            }
+
+            EmitEvent(
+                SimEventType.PlayerHit,
+                0,
+                PlayerX,
+                PlayerY,
+                eventDamage);
+            if (!_playerAlive)
                 EmitEvent(
-                    SimEventType.PlayerHit,
+                    SimEventType.PlayerKilled,
                     0,
                     PlayerX,
                     PlayerY,
-                    hullDamage);
-                if (wasAlive && PlayerHp == 0)
-                    EmitEvent(
-                        SimEventType.PlayerKilled,
-                        0,
-                        PlayerX,
-                        PlayerY,
-                        0);
-            }
+                    0);
+            return true;
         }
 
         void ResolveCapsulePlayerCollisions()
@@ -4095,8 +4149,15 @@ namespace Shmup.Core.Simulation
                 || (config.OptionFormation == OptionFormation.Trail
                     && config.OptionFollowDelayTicks < 1))
                 throw new ArgumentOutOfRangeException(nameof(config.OptionFollowDelayTicks));
-            if (config.PlayerMaxHp < 1)
-                throw new ArgumentOutOfRangeException(nameof(config.PlayerMaxHp));
+            if (config.StartingShieldStock < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.StartingShieldStock));
+            if (config.MaxShieldStock < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.MaxShieldStock));
+            if (config.PlayerHitInvulnerabilityTicks < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.PlayerHitInvulnerabilityTicks));
             if (config.PlayerHalfWidth < 0 || config.PlayerHalfHeight < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.PlayerHalfWidth));
             if (config.CapsuleHalfWidth < 0 || config.CapsuleHalfHeight < 0)

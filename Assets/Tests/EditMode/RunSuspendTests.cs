@@ -108,7 +108,9 @@ namespace Shmup.Core.Tests
             RunSuspendData data = source.ExportSuspendData();
             data.roomIndex = 2;
             data.roomsCleared = 1;
-            data.playerHp = 7;
+            data.playerHp = 1;
+            data.shieldStock = 4;
+            data.shieldRemaining = 4;
             data.rewardAcquisitions = new[]
             {
                 new RewardAcquisitionData
@@ -132,8 +134,8 @@ namespace Shmup.Core.Tests
                 ship);
             RunSuspendData restored = resumed.ExportSuspendData();
 
-            Assert.AreEqual(7, resumed.Battle.PlayerHp);
-            Assert.AreEqual(2, resumed.Battle.ShieldRemaining);
+            Assert.AreEqual(1, resumed.Battle.PlayerHp);
+            Assert.AreEqual(4, resumed.Battle.ShieldStock);
             Assert.AreEqual(
                 BattleModifier.PierceShot,
                 resumed.ActiveModifiers);
@@ -142,7 +144,8 @@ namespace Shmup.Core.Tests
                 "repair",
                 restored.rewardAcquisitions[0].rewardId);
             Assert.AreEqual(1, restored.rewardAcquisitions[0].count);
-            Assert.AreEqual(7, restored.playerHp);
+            Assert.AreEqual(1, restored.playerHp);
+            Assert.AreEqual(4, restored.shieldStock);
         }
 
         [Test]
@@ -241,6 +244,35 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void SchemaSevenSuspend_MigratesHpAndShieldToSingleStock()
+        {
+            RunSuspendData legacy =
+                CreateRun(new BoundaryStageGenerator())
+                    .ExportSuspendData();
+            legacy.schemaVersion = 7;
+            legacy.checksum = null;
+            legacy.playerHp = 3;
+            legacy.shieldRemaining = 2;
+            legacy.shieldStock = 0;
+            legacy.maxShieldStock = 0;
+
+            RunSuspendData migrated =
+                SaveDataIntegrity.MigrateAndValidate(legacy);
+
+            Assert.AreEqual(
+                RunSuspendData.CurrentSchemaVersion,
+                migrated.schemaVersion);
+            Assert.AreEqual(1, migrated.playerHp);
+            Assert.AreEqual(4, migrated.shieldStock);
+            Assert.AreEqual(4, migrated.shieldRemaining);
+            Assert.AreEqual(
+                BattleSimConfig.ProvisionalMaxShieldStock,
+                migrated.maxShieldStock);
+            Assert.IsTrue(
+                SaveDataIntegrity.HasValidChecksum(migrated));
+        }
+
+        [Test]
         public void CurrentSuspendChecksumMismatch_IsClearlyRejected()
         {
             RunSuspendData corrupted =
@@ -259,7 +291,14 @@ namespace Shmup.Core.Tests
         public void ExportOutsidePlayingState_IsRejected()
         {
             var generator = new LethalStageGenerator();
-            RunManager run = CreateRun(generator);
+            BattleSimConfig config = CreateConfig();
+            config.StartingShieldStock = 0;
+            RunManager run = new RunManager(
+                42UL,
+                generator,
+                config,
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
             InputCommand none = InputCommand.None;
             run.Step(in none);
 
@@ -452,6 +491,12 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 expected.shieldRemaining,
                 actual.shieldRemaining);
+            Assert.AreEqual(
+                expected.shieldStock,
+                actual.shieldStock);
+            Assert.AreEqual(
+                expected.maxShieldStock,
+                actual.maxShieldStock);
             Assert.AreEqual(
                 expected.activeModifiers,
                 actual.activeModifiers);

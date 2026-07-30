@@ -191,6 +191,7 @@ namespace Shmup.Core.Tests
             var generator = new RewardThenLethalGenerator("lethal");
             ulong seed = FindSeedOfferingCappedReward(rewards, generator);
             BattleSimConfig config = Config();
+            config.StartingShieldStock = 0;
             var lethal = new EnemyDefinition(
                 "lethal", 1, 100, EnemyMovePattern.Static,
                 0, 1, 0, 0, 0, 0, 1);
@@ -223,6 +224,7 @@ namespace Shmup.Core.Tests
         static void AssertPassiveExpires(RewardType type)
         {
             BattleSimConfig config = Config();
+            config.StartingShieldStock = 0;
             config.PlayerSpeedNumerator = 0;
             config.PlayerSpeedDenominator = SimSpace.TicksPerSecond;
             config.MainShotMinimumFireIntervalTicks = 1;

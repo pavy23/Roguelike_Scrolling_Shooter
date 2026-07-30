@@ -377,7 +377,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void RepairRewardExpiresWhenTheRunEnds()
+        public void LegacyRepairRewardRestoresShieldStockAndExpiresOnRestart()
         {
             RunManager run = null;
             int repairIndex = -1;
@@ -397,14 +397,17 @@ namespace Shmup.Core.Tests
 
             Assert.IsNotNull(run, "테스트 시드 범위에서 RepairHp 보상을 찾지 못했다");
             run.ChooseReward(repairIndex);
-            Assert.AreEqual(51, run.Battle.PlayerHp);
+            Assert.AreEqual(1, run.Battle.ShieldStock);
 
             InputCommand none = InputCommand.None;
+            run.Step(in none);
+            Assert.AreEqual(RunState.Playing, run.State);
+            Assert.AreEqual(0, run.Battle.ShieldStock);
             run.Step(in none);
             Assert.AreEqual(RunState.RunOver, run.State);
 
             run.Restart(999UL);
-            Assert.AreEqual(50, run.Battle.PlayerHp);
+            Assert.AreEqual(0, run.Battle.ShieldStock);
         }
 
         [Test]
@@ -500,7 +503,8 @@ namespace Shmup.Core.Tests
             BattleContent content = Content(
                 new WeaponDefinition("shot", 10, 1, 50, 1, 8, 8), lethal);
             BattleSimConfig config = CreateConfig();
-            config.PlayerMaxHp = 50;
+            config.StartingShieldStock = 0;
+            config.PlayerHitInvulnerabilityTicks = 0;
             return new RunManager(
                 seed,
                 new RewardThenLethalGenerator(lethal.Id),
@@ -558,7 +562,8 @@ namespace Shmup.Core.Tests
                         Segment(
                             "lethal",
                             5,
-                            new SpawnEvent(1, _lethalEnemyId, 0, 0))
+                            new SpawnEvent(1, _lethalEnemyId, 0, 0),
+                            new SpawnEvent(2, _lethalEnemyId, 0, 0))
                     },
                     "legacy", 1, 1, 1);
             }

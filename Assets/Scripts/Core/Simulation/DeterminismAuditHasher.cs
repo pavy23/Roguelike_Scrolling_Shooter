@@ -337,7 +337,9 @@ namespace Shmup.Core.Simulation
             FoldInt32(battle.PlayerX);
             FoldInt32(battle.PlayerY);
             FoldInt32(battle.PlayerHp);
-            FoldInt32(battle.ShieldRemaining);
+            FoldInt32(battle.ShieldStock);
+            FoldInt32(
+                battle.PlayerInvulnerabilityTicksRemaining);
             FoldInt32((int)battle.PlayerWeaponType);
 
             FoldInt32(battle.Bullets.Count);

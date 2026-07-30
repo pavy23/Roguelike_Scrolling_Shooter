@@ -597,7 +597,9 @@ namespace Shmup.Core.Content
             {
                 case "capsules": return RewardType.Capsules;
                 case "slotLevel": return RewardType.SlotLevel;
-                case "repairHp": return RewardType.RepairHp;
+                case "repairHp":
+                case "shieldStock":
+                    return RewardType.ShieldStock;
                 case "fireRateUp": return RewardType.FireRateUp;
                 case "damageUp": return RewardType.DamageUp;
                 case "moveSpeedUp": return RewardType.MoveSpeedUp;

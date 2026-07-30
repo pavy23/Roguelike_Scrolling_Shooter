@@ -92,7 +92,7 @@ namespace Shmup.Core
             MoveSpeedMultiplierDenominator = moveSpeedMultiplierDenominator;
             UnlockCost = unlockCost;
             WeaponType = weaponType;
-            MaxHp = maxHp;
+            StartingShieldStock = maxHp;
             _readOnlyStartingPowerUpLevels =
                 Array.AsReadOnly(_startingPowerUpLevels);
         }
@@ -106,9 +106,12 @@ namespace Shmup.Core
         public long UnlockCost { get; }
         public WeaponType WeaponType { get; }
         /// <summary>
-        /// Ship-specific starting hull. Null preserves BattleSimConfig.PlayerMaxHp.
+        /// Ship-specific starting shield stock sourced from the legacy maxHp JSON
+        /// field. Null preserves BattleSimConfig.StartingShieldStock.
         /// </summary>
-        public int? MaxHp { get; }
+        public int? StartingShieldStock { get; }
+        /// <summary>Compatibility alias for pre-REQ-040 callers.</summary>
+        public int? MaxHp => StartingShieldStock;
 
         public int[] ExportStartingPowerUpLevels()
         {

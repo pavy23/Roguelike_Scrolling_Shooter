@@ -235,16 +235,16 @@ namespace Shmup.Core.Tests
             AdvanceBossEntry(sim);
             InputCommand none = InputCommand.None;
 
-            int startingHp = sim.PlayerHp;
+            int startingStock = sim.ShieldStock;
             for (int tick = 0; tick < 8; tick++)
                 sim.Step(in none);
-            Assert.AreEqual(startingHp - 3, sim.PlayerHp);
+            Assert.AreEqual(startingStock - 1, sim.ShieldStock);
 
             FireUntilDestroyed(sim, 0);
-            int hpAfterDestruction = sim.PlayerHp;
+            int stockAfterDestruction = sim.ShieldStock;
             for (int tick = 0; tick < 16; tick++)
                 sim.Step(in none);
-            Assert.AreEqual(hpAfterDestruction, sim.PlayerHp);
+            Assert.AreEqual(stockAfterDestruction, sim.ShieldStock);
         }
 
         [Test]

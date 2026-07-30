@@ -354,7 +354,8 @@ namespace Shmup.Core.Tests
                 EnemyDespawnX = -100,
                 PlayerSpawnX = 0,
                 PlayerSpawnY = 0,
-                PlayerMaxHp = 1,
+                StartingShieldStock = 0,
+                PlayerHitInvulnerabilityTicks = 0,
                 PlayerHalfWidth = 0,
                 PlayerHalfHeight = 0,
                 CapsuleHalfWidth = 0,
@@ -525,7 +526,13 @@ namespace Shmup.Core.Tests
                 for (int i = 0; i < segments.Length; i++)
                 {
                     SpawnEvent[] spawns = _lethal && i == 0
-                        ? new[] { new SpawnEvent(1, "rammer", 0, 0) }
+                        ? new[]
+                        {
+                            new SpawnEvent(1, "rammer", 0, 0),
+                            new SpawnEvent(1, "rammer", 0, 0),
+                            new SpawnEvent(1, "rammer", 0, 0),
+                            new SpawnEvent(1, "rammer", 0, 0)
+                        }
                         : new SpawnEvent[0];
                     segments[i] = new StageSegment(
                         "segment_" + i + "_" + rng.NextInt(0, 100000),

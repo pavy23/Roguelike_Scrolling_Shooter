@@ -99,8 +99,8 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(RunState.RunCleared, first.FinalState);
             Assert.AreEqual(5, first.StagesCleared);
             Assert.AreEqual(4, first.RewardChoices);
-            Assert.AreEqual(29, first.RouteChoices);
-            Assert.AreEqual(30, first.RoomsCleared);
+            Assert.AreEqual(19, first.RouteChoices);
+            Assert.AreEqual(20, first.RoomsCleared);
             Assert.AreEqual(first.Hash, second.Hash);
             Assert.AreEqual(first.Ticks, second.Ticks);
             Assert.AreEqual(

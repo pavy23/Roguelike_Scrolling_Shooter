@@ -122,13 +122,13 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void PlayerContact_EmitsPlayerHitAndPlayerKilledAtZeroHp()
+        public void PlayerContact_AtZeroShieldStockKillsImmediately()
         {
             EnemyDefinition enemy = Enemy("rammer", EnemyMovePattern.Static, contactDamage: 2);
             BattleContent content = Content(enemy);
             StagePlan plan = Plan(Segment("contact", 10, new SpawnEvent(1, enemy.Id, 0, 0)));
             BattleSimConfig config = CreateConfig();
-            config.PlayerMaxHp = 2;
+            config.StartingShieldStock = 0;
             var sim = CreateSim(plan, content, config, 4UL);
             InputCommand none = InputCommand.None;
 
