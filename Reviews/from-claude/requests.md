@@ -1328,3 +1328,26 @@ REQ-055의 `StageGimmickTests.cs`가 `internal` 멤버 `BattleSimConfig.UseConfi
 빌드가 완전히 막혀 CLAUDE가 `Assets/Scripts/Core/AssemblyInfo.cs`를 새로 만들어 `[assembly: InternalsVisibleTo("Shmup.Core.Tests")]`를 넣었다 (기존 파일은 건드리지 않았다). 더 나은 방식이 있으면 바꿔도 된다.
 
 **앞으로 EditMode 테스트가 참조하는 Core 심벌은 `public`이거나 이 파일을 거쳐야 한다.** `dotnet test` 통과가 Unity 통과를 보장하지 않는다는 것을 요청서마다 확인해라.
+
+## REQ-064 (CODEX): 입력 녹화가 터치 아날로그 입력에서 스테이지 1 만에 터진다
+
+폰 실플레이 크래시 (2026-07-30 스크린샷, ErrorOverlay 덕에 원인 확정):
+
+```
+InvalidOperationException: The input recording run capacity has been exhausted.
+@ Shmup.Core.Simulation.InputRecorder.Record
+```
+
+원인: `InputRecording.cs`의 RLE 압축은 같은 입력이 이어질 때만 칸을 아낀다. **터치 아날로그 입력(REQ-045)은 매 틱 델타가 달라 압축이 0%다** — 4096칸이 드래그 ~68초 만에 찬다. 디지털(키보드) 입력만 있던 시절의 용량 설계다.
+
+임시 방어: BattleDirector가 차기 직전에 녹화를 접고 리플레이 저장을 포기한다 (게임은 계속됨). **아날로그 런의 리플레이가 사실상 저장 불가능한 상태다.**
+
+### 요구
+
+1. 아날로그 입력이 섞인 긴 런도 리플레이가 온전히 저장되게 해라. 방향 후보:
+   - 용량을 틱 기준으로 재산정 (15방 완주 = 수십 분 = 틱당 1칸 가정 시 십만 단위)
+   - 또는 아날로그 델타를 양자화/델타 인코딩해 압축이 다시 걸리게 (결정론 주의 — 양자화가 시뮬 입력 자체를 바꾸면 리플레이 호환이 깨진다. 양자화는 **기록 전 시뮬 입력에 이미 적용**돼야 재생이 일치한다)
+2. `Record`가 가득 참에 예외를 던지는 대신 안전하게 실패(반환값)하는 것도 검토해라 — ChooseReward와 같은 원칙 (Presentation 실수가 런을 죽이면 안 된다).
+3. 저장 크기를 보고해라 — WebGL localStorage에 들어가야 한다.
+
+검증: dotnet test 전부, 아날로그 입력 장시간 녹화 테스트 추가, 같은 시드 리플레이 해시 일치.

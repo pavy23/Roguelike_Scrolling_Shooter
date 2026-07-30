@@ -516,7 +516,26 @@ namespace Shmup.Presentation.Battle
                 command = _input.ConsumeCommand();
             }
             if (_recordingActive && playingBefore)
-                _recorder.Record(in command);
+            {
+                // 용량 방어 (스테이지 1 크래시, 2026-07-30 폰 스크린샷). 녹화는 같은
+                // 입력이 이어지면 한 칸으로 압축하는데, 터치 아날로그 입력은 매 틱
+                // 델타가 달라 압축이 전혀 안 되고 4096칸이 ~68초 만에 찬다. 가득 찬
+                // 뒤의 Record는 예외를 던져 Update가 매 프레임 죽는다.
+                //
+                // 잘린 리플레이는 재생 시 어차피 어긋나므로, 차기 직전에 녹화를 접고
+                // 리플레이 저장을 포기한다 — 게임은 계속된다. 근본(용량/아날로그 압축)은
+                // Core 몫이라 REQ로 넘겼다.
+                if (_recorder.RunCount >= _recorder.Capacity - 1)
+                {
+                    _recordingActive = false;
+                    Debug.LogWarning(
+                        "[replay] 입력 녹화 용량 도달 — 이번 런은 리플레이 저장 없이 진행한다.");
+                }
+                else
+                {
+                    _recorder.Record(in command);
+                }
+            }
             _run.Step(command);
 
             // 런 종료(사망 또는 완주) 시 점수를 메타 재화로 1회 적립. 리플레이는 비적립.
@@ -588,7 +607,13 @@ namespace Shmup.Presentation.Battle
                         }
                         break;
                     case SimEventType.BossSpawned:
-                        if (_bossIntro != null) _bossIntro.Trigger();
+                        // WARNING 배너는 스테이지 최종 보스(와 숨은 보스)에게만 띄운다
+                        // ("중간보스 나올때 Warning 뜨는것도 이상함", 2026-07-30).
+                        // 중간보스는 스테이지마다 나오는 통과 의례라 매번 배너가 뜨면
+                        // 경고의 무게가 사라진다 — 흔들림만 남긴다.
+                        if (_bossIntro != null
+                            && StageSection != RunStageSection.MidBoss)
+                            _bossIntro.Trigger();
                         if (_juice != null) _juice.Shake(0.3f);
                         break;
                     case SimEventType.BossPhaseChanged:
@@ -603,7 +628,10 @@ namespace Shmup.Presentation.Battle
                         }
                         _bossPhaseFlash = enraged ? 0.75f : 0.45f;
                         _bossPhaseFlashPeak = enraged ? 1f : 0.6f;
-                        if (_bossIntro != null && enraged) _bossIntro.Trigger();
+                        // WARNING 배너를 여기서 다시 틀지 않는다 ("보스 HP가 내려갈때마다
+                        // Warning이 또 뜨는건 이상해", 2026-07-30). 배너는 "보스가 왔다"는
+                        // 등장 신호인데 페이즈마다 반복되면 의미가 섞인다 — 페이즈 전환은
+                        // 흔들림·히트스톱·보스 글로우만으로 알린다.
                         break;
                     case SimEventType.CorridorContact:
                         // 벽에 닿았다 — 어디가 벽인지 번쩍여 알린다 (실제 피해는 PlayerHit).
