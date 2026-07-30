@@ -2304,7 +2304,7 @@ static class Program
     }
 
     /// <summary>
-    /// REQ-021: schema v3 roster must include dive/zigzag/dash on 8–12 of 30 enemies.
+    /// REQ-021/055: schema v3 roster must include dive/zigzag/dash on 8–12 of 31 enemies.
     /// </summary>
     static int CheckEnemyMovementRoster(GameDataSet data)
     {
@@ -2340,10 +2340,11 @@ static class Program
         Console.WriteLine(
             $"  new patterns (dive|zigzag|dash) = {newPatternCount} / {data.BattleContent.Enemies.Count}");
 
-        if (data.BattleContent.Enemies.Count != 30)
+        // REQ-055 adds hive_tentacle (static wall tentacle) → 31 catalog enemies.
+        if (data.BattleContent.Enemies.Count != 31)
         {
             Console.WriteLine(
-                $"FAIL movement: expected 30 enemies, got {data.BattleContent.Enemies.Count}.");
+                $"FAIL movement: expected 31 enemies, got {data.BattleContent.Enemies.Count}.");
             failures++;
         }
 
@@ -2368,9 +2369,11 @@ static class Program
     }
 
     /// <summary>
-    /// REQ-023: stage-1 segments empty of obstacles; progressive density; solid corridors.
-    /// Lane-mask clearability remains authoritative for stage assembly; this check is
-    /// spatial corridor sanity for solid blocks at the same X (plus plan spawn counts).
+    /// REQ-023 + REQ-055: obstacle density, solid corridor gaps, scrapyard debris.
+    /// Shared intro (theme-null) stage-1 segments stay empty. Themed scrapyard may place
+    /// breakable debris on difficultyMin≤1 so stage 1 teaches cover/clear (REQ-055).
+    /// Solids remain banned on stage-1-capable rows (unfair walls in the tutorial band).
+    /// Laser emitters (enum value 2 on sim Core) use HP 0 and count toward MaxObstacles.
     /// </summary>
     static int CheckObstacleLayouts(GameDataSet data, SegmentStageGenerator generator)
     {
@@ -2379,9 +2382,12 @@ static class Program
         int halfH = defaults.ObstacleHalfHeight;
         int maxObstacles = defaults.MaxObstacles;
         var catalog = data.StageGeneration;
+        // LaserEmitter = 2 when sim REQ-055 Core is present; absent on older content Core.
+        const int LaserEmitterTypeValue = 2;
+        const int MaxStage1Breakables = 8;
 
         Console.WriteLine(
-            "Obstacle layouts (waves.json segments, provisional §7):");
+            "Obstacle layouts (waves.json segments, provisional §7 + REQ-055):");
         Console.WriteLine(
             $"  config halfH={halfH}su ({halfH / (double)SimSpace.SubUnitsPerWorldUnit:F2}u) " +
             $"MaxObstacles={maxObstacles} minCorridorGap={MinSolidCorridorGapSubUnits}su");
@@ -2399,17 +2405,9 @@ static class Program
                 totalWithObstacles++;
 
             bool stage1Capable = seg.DifficultyMin <= 1;
-            if (stage1Capable && count > 0)
-            {
-                Console.WriteLine(
-                    $"FAIL obstacles: stage-1-capable segment '{seg.SegmentId}' " +
-                    $"has {count} obstacles (must be empty).");
-                failures++;
-                stage1WithObstacles++;
-            }
-
             int solids = 0;
             int breakables = 0;
+            int lasers = 0;
             foreach (ObstacleSpawn o in seg.Obstacles)
             {
                 if (o.Type == ObstacleType.Solid)
@@ -2422,6 +2420,16 @@ static class Program
                         failures++;
                     }
                 }
+                else if ((int)o.Type == LaserEmitterTypeValue)
+                {
+                    lasers++;
+                    if (o.Hp != 0)
+                    {
+                        Console.WriteLine(
+                            $"FAIL obstacles: laserEmitter in '{seg.SegmentId}' has hp={o.Hp} (must 0).");
+                        failures++;
+                    }
+                }
                 else
                 {
                     breakables++;
@@ -2431,6 +2439,33 @@ static class Program
                             $"FAIL obstacles: breakable in '{seg.SegmentId}' has hp={o.Hp}.");
                         failures++;
                     }
+                }
+            }
+
+            if (stage1Capable && count > 0)
+            {
+                stage1WithObstacles++;
+                // Shared intro pool must stay empty; scrapyard debris is intentional.
+                if (seg.ThemeId == null)
+                {
+                    Console.WriteLine(
+                        $"FAIL obstacles: shared stage-1 segment '{seg.SegmentId}' " +
+                        $"has {count} obstacles (must be empty).");
+                    failures++;
+                }
+                else if (solids > 0 || lasers > 0)
+                {
+                    Console.WriteLine(
+                        $"FAIL obstacles: stage-1-capable '{seg.SegmentId}' may only use " +
+                        $"breakable debris (solids={solids} lasers={lasers}).");
+                    failures++;
+                }
+                else if (breakables > MaxStage1Breakables)
+                {
+                    Console.WriteLine(
+                        $"FAIL obstacles: stage-1-capable '{seg.SegmentId}' has " +
+                        $"{breakables} breakables > {MaxStage1Breakables}.");
+                    failures++;
                 }
             }
 
@@ -2486,7 +2521,7 @@ static class Program
             string theme = NullLabel(seg.ThemeId);
             Console.WriteLine(
                 $"  {seg.SegmentId,-36} theme={theme,-10} " +
-                $"n={count,2} solid={solids} break={breakables} " +
+                $"n={count,2} solid={solids} break={breakables} laser={lasers} " +
                 $"stage1={(stage1Capable ? "Y" : "n")} " +
                 $"corridor={(count == 0 || corridorOk ? "ok" : "FAIL")}");
         }
@@ -2561,11 +2596,20 @@ static class Program
                 $"  plan stage={stage} theme={plan.ThemeId} obstacles={planObstacles} " +
                 $"segs=[{string.Join(",", SegmentIds(plan))}]");
 
-            if (stage == 1 && planObstacles != 0)
+            // REQ-055: stage 1 scrapyard may include breakable debris.
+            // Soft bound only — hard zero is no longer required.
+            if (stage == 1 && planObstacles > MaxStage1Breakables * 3)
             {
                 Console.WriteLine(
-                    $"FAIL obstacles: stage 1 plan has {planObstacles} obstacles (must 0).");
+                    $"FAIL obstacles: stage 1 plan has {planObstacles} obstacles " +
+                    $"(>{MaxStage1Breakables * 3} across 3 segments).");
                 failures++;
+            }
+            else if (stage == 1 && planObstacles > 0)
+            {
+                Console.WriteLine(
+                    $"  note: stage 1 plan obstacles={planObstacles} " +
+                    "(REQ-055 scrapyard debris — expected).");
             }
             if (stage >= 4 && planObstacles < 1)
             {

@@ -346,7 +346,7 @@
         {
           "type": "breakable",
           "x": 18.0,
-          "y": 0.0,
+          "y": 1.5,
           "hp": 15
         }
       ],
@@ -541,7 +541,7 @@
         {
           "type": "breakable",
           "x": 19.0,
-          "y": 0.0,
+          "y": -1.5,
           "hp": 15
         }
       ],
@@ -777,9 +777,24 @@
           "y": 3
         },
         {
+          "tick": 80,
+          "enemyId": "hive_tentacle",
+          "y": -5.5
+        },
+        {
+          "tick": 80,
+          "enemyId": "hive_tentacle",
+          "y": 5.5
+        },
+        {
           "tick": 85,
           "enemyId": "spore_drifter",
           "y": -2
+        },
+        {
+          "tick": 120,
+          "enemyId": "sting_hornet",
+          "y": 4
         },
         {
           "tick": 130,
@@ -792,14 +807,29 @@
           "y": -4
         },
         {
+          "tick": 180,
+          "enemyId": "sting_hornet",
+          "y": -4
+        },
+        {
           "tick": 220,
           "enemyId": "spore_drifter",
           "y": 2.5
         },
         {
+          "tick": 240,
+          "enemyId": "sting_hornet",
+          "y": 2
+        },
+        {
           "tick": 265,
           "enemyId": "spore_drifter",
           "y": -1.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "sting_hornet",
+          "y": -2
         },
         {
           "tick": 310,
@@ -812,34 +842,19 @@
           "y": -3.5
         },
         {
-          "tick": 400,
-          "enemyId": "spore_drifter",
-          "y": 0
-        },
-        {
-          "tick": 120,
-          "enemyId": "sting_hornet",
-          "y": 4
-        },
-        {
-          "tick": 180,
-          "enemyId": "sting_hornet",
-          "y": -4
-        },
-        {
-          "tick": 240,
-          "enemyId": "sting_hornet",
-          "y": 2
-        },
-        {
-          "tick": 300,
-          "enemyId": "sting_hornet",
-          "y": -2
-        },
-        {
           "tick": 360,
           "enemyId": "brood_spitter",
           "y": 3
+        },
+        {
+          "tick": 360,
+          "enemyId": "hive_tentacle",
+          "y": 4.5
+        },
+        {
+          "tick": 400,
+          "enemyId": "spore_drifter",
+          "y": 0
         },
         {
           "tick": 420,
@@ -873,7 +888,7 @@
         {
           "type": "breakable",
           "x": 13.0,
-          "y": 0.0,
+          "y": -1.5,
           "hp": 20
         },
         {
@@ -909,6 +924,16 @@
           "y": -3
         },
         {
+          "tick": 60,
+          "enemyId": "hive_tentacle",
+          "y": -5.75
+        },
+        {
+          "tick": 60,
+          "enemyId": "hive_tentacle",
+          "y": 5.75
+        },
+        {
           "tick": 89,
           "enemyId": "lancer_dart",
           "y": 2
@@ -929,6 +954,11 @@
           "y": 3.5
         },
         {
+          "tick": 200,
+          "enemyId": "sting_hornet",
+          "y": 3
+        },
+        {
           "tick": 217,
           "enemyId": "lancer_dart",
           "y": -1.5
@@ -937,6 +967,11 @@
           "tick": 249,
           "enemyId": "lancer_dart",
           "y": 1
+        },
+        {
+          "tick": 280,
+          "enemyId": "sting_hornet",
+          "y": -3
         },
         {
           "tick": 281,
@@ -954,6 +989,11 @@
           "y": -4.5
         },
         {
+          "tick": 360,
+          "enemyId": "sting_hornet",
+          "y": 1
+        },
+        {
           "tick": 377,
           "enemyId": "lancer_dart",
           "y": 2.5
@@ -962,6 +1002,11 @@
           "tick": 409,
           "enemyId": "lancer_dart",
           "y": -0.5
+        },
+        {
+          "tick": 440,
+          "enemyId": "sting_hornet",
+          "y": -1
         },
         {
           "tick": 441,
@@ -977,26 +1022,6 @@
           "tick": 505,
           "enemyId": "lancer_dart",
           "y": 0.5
-        },
-        {
-          "tick": 200,
-          "enemyId": "sting_hornet",
-          "y": 3
-        },
-        {
-          "tick": 280,
-          "enemyId": "sting_hornet",
-          "y": -3
-        },
-        {
-          "tick": 360,
-          "enemyId": "sting_hornet",
-          "y": 1
-        },
-        {
-          "tick": 440,
-          "enemyId": "sting_hornet",
-          "y": -1
         },
         {
           "tick": 520,
@@ -1150,31 +1175,65 @@
         {
           "type": "solid",
           "x": 10.0,
-          "y": 5.5,
+          "y": 6.5,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
-          "y": -5.5,
+          "y": -6.5,
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 18.0,
-          "y": 7.5,
-          "hp": 0
+          "type": "laserEmitter",
+          "x": 16.0,
+          "y": 4.0,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 16.0,
+          "y": -4.0,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 180,
+            "telegraphTicks": 42,
+            "firingTicks": 6,
+            "sustainTicks": 30,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         },
         {
           "type": "breakable",
           "x": 12.5,
-          "y": 0.0,
+          "y": 1.75,
           "hp": 30
         },
         {
           "type": "breakable",
-          "x": 16.5,
-          "y": 3.25,
+          "x": 18.5,
+          "y": -1.75,
           "hp": 35
         }
       ],
@@ -1317,32 +1376,52 @@
       "obstacles": [
         {
           "type": "solid",
-          "x": 11.0,
+          "x": 10.0,
           "y": 6.5,
           "hp": 0
         },
         {
           "type": "solid",
-          "x": 11.0,
+          "x": 14.0,
           "y": -6.5,
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 17.0,
-          "y": 4.0,
-          "hp": 0
+          "type": "laserEmitter",
+          "x": 15.0,
+          "y": 2.75,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 120,
+            "telegraphTicks": 30,
+            "firingTicks": 5,
+            "sustainTicks": 20,
+            "dissipateTicks": 10,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         },
         {
           "type": "breakable",
-          "x": 14.0,
-          "y": -1.5,
-          "hp": 30
+          "x": 12.0,
+          "y": 3.0,
+          "hp": 28
         },
         {
           "type": "breakable",
-          "x": 19.5,
-          "y": 0.0,
+          "x": 12.0,
+          "y": -3.0,
+          "hp": 28
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": -1.75,
           "hp": 40
         }
       ],
@@ -1479,7 +1558,7 @@
         {
           "type": "breakable",
           "x": 11.5,
-          "y": 0.0,
+          "y": -1.5,
           "hp": 25
         },
         {
@@ -1495,7 +1574,13 @@
           "hp": 35
         }
       ],
-      "intent": "잡몹 폭풍 회피 후 중형·중형"
+      "intent": "잡몹 폭풍 회피 후 중형·중형",
+      "environment": {
+        "drift": {
+          "xPerSecond": 0.45,
+          "yPerSecond": 0.2
+        }
+      }
     },
     {
       "id": "seg_nebula_wisp_ribbon",
@@ -1630,11 +1715,17 @@
         {
           "type": "breakable",
           "x": 20.0,
-          "y": 0.0,
+          "y": 1.5,
           "hp": 40
         }
       ],
-      "intent": "리본 회피 동선 + 중형 앵커"
+      "intent": "리본 회피 동선 + 중형 앵커",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.35,
+          "yPerSecond": 0.4
+        }
+      }
     },
     {
       "id": "seg_core_guardian_wall",
@@ -1750,31 +1841,37 @@
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 18.0,
-          "y": -7.5,
-          "hp": 0
-        },
-        {
           "type": "breakable",
-          "x": 11.0,
-          "y": 0.0,
-          "hp": 40
-        },
-        {
-          "type": "breakable",
-          "x": 14.5,
-          "y": 3.25,
+          "x": 12.0,
+          "y": 2.0,
           "hp": 45
         },
         {
           "type": "breakable",
-          "x": 19.5,
-          "y": -1.5,
+          "x": 14.5,
+          "y": -2.5,
           "hp": 50
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": 1.75,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": 3.0,
+          "hp": 48
         }
       ],
-      "intent": "중형 벽 돌파 + 중형"
+      "intent": "중형 벽 돌파 + 중형",
+      "environment": {
+        "drift": {
+          "xPerSecond": 0.3,
+          "yPerSecond": -0.2
+        }
+      }
     },
     {
       "id": "seg_core_final_gauntlet",
@@ -1920,28 +2017,56 @@
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 17.5,
-          "y": -5.5,
-          "hp": 0
+          "type": "laserEmitter",
+          "x": 15.0,
+          "y": 3.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 18.0,
+          "y": -3.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 180,
+            "telegraphTicks": 42,
+            "firingTicks": 6,
+            "sustainTicks": 28,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         },
         {
           "type": "breakable",
           "x": 12.0,
-          "y": 0.0,
-          "hp": 40
-        },
-        {
-          "type": "breakable",
-          "x": 15.5,
-          "y": 2.5,
-          "hp": 45
-        },
-        {
-          "type": "breakable",
-          "x": 19.0,
-          "y": -3.0,
+          "y": 1.75,
           "hp": 50
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": -1.75,
+          "hp": 55
         }
       ],
       "intent": "잡몹 가틀릿 속 중형 연속 처리"
@@ -2020,7 +2145,38 @@
           "y": 1.5
         }
       ],
-      "obstacles": [],
+      "obstacles": [
+        {
+          "type": "breakable",
+          "x": 11.0,
+          "y": 2.5,
+          "hp": 25
+        },
+        {
+          "type": "breakable",
+          "x": 13.5,
+          "y": -1.75,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": 3.5,
+          "hp": 28
+        },
+        {
+          "type": "breakable",
+          "x": 18.5,
+          "y": -3.0,
+          "hp": 32
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": 1.75,
+          "hp": 35
+        }
+      ],
       "intent": "스크랩 잡몹 직선 리듬"
     },
     {
@@ -2107,7 +2263,44 @@
           "y": -2.5
         }
       ],
-      "obstacles": [],
+      "obstacles": [
+        {
+          "type": "breakable",
+          "x": 12.0,
+          "y": 4.0,
+          "hp": 22
+        },
+        {
+          "type": "breakable",
+          "x": 14.5,
+          "y": -3.5,
+          "hp": 26
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": 1.75,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 19.5,
+          "y": -2.0,
+          "hp": 28
+        },
+        {
+          "type": "breakable",
+          "x": 15.5,
+          "y": 3.0,
+          "hp": 24
+        },
+        {
+          "type": "breakable",
+          "x": 13.0,
+          "y": -1.75,
+          "hp": 34
+        }
+      ],
       "intent": "대시 잡몹 회피 — 반응 속도"
     },
     {
@@ -2199,7 +2392,44 @@
           "y": -4.5
         }
       ],
-      "obstacles": [],
+      "obstacles": [
+        {
+          "type": "breakable",
+          "x": 11.5,
+          "y": 3.25,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": -3.25,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": 1.75,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": 4.0,
+          "hp": 28
+        },
+        {
+          "type": "breakable",
+          "x": 12.5,
+          "y": -1.75,
+          "hp": 32
+        },
+        {
+          "type": "breakable",
+          "x": 17.5,
+          "y": -4.0,
+          "hp": 26
+        }
+      ],
       "intent": "스킴 잡몹 직조 회피 동선"
     },
     {
@@ -2311,15 +2541,33 @@
         },
         {
           "type": "breakable",
-          "x": 13.0,
-          "y": 0.0,
-          "hp": 15
+          "x": 12.5,
+          "y": 1.75,
+          "hp": 35
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": -2.0,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": 3.0,
+          "hp": 38
         },
         {
           "type": "breakable",
           "x": 18.0,
-          "y": 3.25,
-          "hp": 20
+          "y": -1.75,
+          "hp": 45
+        },
+        {
+          "type": "breakable",
+          "x": 19.5,
+          "y": 2.5,
+          "hp": 42
         }
       ],
       "intent": "강화형 조준 + 통로 압박"
@@ -2443,15 +2691,39 @@
         },
         {
           "type": "breakable",
-          "x": 16.0,
-          "y": 0.0,
-          "hp": 20
+          "x": 12.0,
+          "y": 1.75,
+          "hp": 45
+        },
+        {
+          "type": "breakable",
+          "x": 14.5,
+          "y": 3.5,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 14.5,
+          "y": -3.5,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": 2.0,
+          "hp": 50
         },
         {
           "type": "breakable",
           "x": 19.0,
-          "y": 2.5,
-          "hp": 25
+          "y": -2.5,
+          "hp": 48
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": -1.75,
+          "hp": 55
         }
       ],
       "intent": "강화형 텀블러 팩 조준 강요"
@@ -2586,15 +2858,45 @@
         },
         {
           "type": "breakable",
-          "x": 12.5,
-          "y": 0.0,
-          "hp": 25
+          "x": 11.5,
+          "y": 2.0,
+          "hp": 50
         },
         {
           "type": "breakable",
-          "x": 16.5,
+          "x": 13.0,
           "y": -2.5,
-          "hp": 30
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 15.5,
+          "y": 1.75,
+          "hp": 60
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": 3.5,
+          "hp": 48
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": -3.5,
+          "hp": 48
+        },
+        {
+          "type": "breakable",
+          "x": 19.5,
+          "y": -1.75,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 12.5,
+          "y": -4.0,
+          "hp": 42
         }
       ],
       "intent": "중형 앵커 가틀릿 — 화력 집중"
@@ -2618,39 +2920,34 @@
           "y": 3
         },
         {
-          "tick": 120,
-          "enemyId": "brood_spitter",
-          "y": -3
-        },
-        {
-          "tick": 190,
-          "enemyId": "brood_spitter",
-          "y": 0
-        },
-        {
-          "tick": 260,
-          "enemyId": "brood_spitter",
-          "y": 4
-        },
-        {
-          "tick": 330,
-          "enemyId": "brood_spitter",
-          "y": -4
-        },
-        {
-          "tick": 400,
-          "enemyId": "brood_spitter",
-          "y": 1.5
-        },
-        {
           "tick": 80,
           "enemyId": "spore_drifter",
           "y": 2
         },
         {
+          "tick": 100,
+          "enemyId": "hive_tentacle",
+          "y": -5.25
+        },
+        {
+          "tick": 100,
+          "enemyId": "hive_tentacle",
+          "y": 5.25
+        },
+        {
+          "tick": 120,
+          "enemyId": "brood_spitter",
+          "y": -3
+        },
+        {
           "tick": 140,
           "enemyId": "spore_drifter",
           "y": -2
+        },
+        {
+          "tick": 190,
+          "enemyId": "brood_spitter",
+          "y": 0
         },
         {
           "tick": 200,
@@ -2663,14 +2960,34 @@
           "y": -3.5
         },
         {
+          "tick": 260,
+          "enemyId": "brood_spitter",
+          "y": 4
+        },
+        {
           "tick": 320,
           "enemyId": "sting_hornet",
           "y": 0
         },
         {
+          "tick": 330,
+          "enemyId": "brood_spitter",
+          "y": -4
+        },
+        {
           "tick": 380,
           "enemyId": "sting_hornet",
           "y": 4
+        },
+        {
+          "tick": 400,
+          "enemyId": "brood_spitter",
+          "y": 1.5
+        },
+        {
+          "tick": 400,
+          "enemyId": "hive_tentacle",
+          "y": 3.5
         },
         {
           "tick": 440,
@@ -2713,7 +3030,7 @@
         {
           "type": "breakable",
           "x": 15.0,
-          "y": 0.0,
+          "y": -1.5,
           "hp": 20
         },
         {
@@ -2749,6 +3066,16 @@
           "y": -2
         },
         {
+          "tick": 90,
+          "enemyId": "hive_tentacle",
+          "y": -5.5
+        },
+        {
+          "tick": 90,
+          "enemyId": "hive_tentacle",
+          "y": 5.5
+        },
+        {
           "tick": 115,
           "enemyId": "sting_hornet",
           "y": 4
@@ -2764,6 +3091,11 @@
           "y": 1
         },
         {
+          "tick": 200,
+          "enemyId": "spore_drifter",
+          "y": 2
+        },
+        {
           "tick": 235,
           "enemyId": "lancer_dart",
           "y": -1
@@ -2774,6 +3106,11 @@
           "y": 2.5
         },
         {
+          "tick": 280,
+          "enemyId": "spore_drifter",
+          "y": -2
+        },
+        {
           "tick": 315,
           "enemyId": "lancer_dart",
           "y": -3.5
@@ -2781,6 +3118,11 @@
         {
           "tick": 355,
           "enemyId": "sting_hornet",
+          "y": 0
+        },
+        {
+          "tick": 360,
+          "enemyId": "brood_spitter",
           "y": 0
         },
         {
@@ -2794,29 +3136,14 @@
           "y": -0.5
         },
         {
-          "tick": 475,
-          "enemyId": "lancer_dart",
-          "y": 4.5
-        },
-        {
-          "tick": 200,
-          "enemyId": "spore_drifter",
-          "y": 2
-        },
-        {
-          "tick": 280,
-          "enemyId": "spore_drifter",
-          "y": -2
-        },
-        {
-          "tick": 360,
-          "enemyId": "brood_spitter",
-          "y": 0
-        },
-        {
           "tick": 440,
           "enemyId": "brood_spitter",
           "y": 3
+        },
+        {
+          "tick": 475,
+          "enemyId": "lancer_dart",
+          "y": 4.5
         },
         {
           "tick": 520,
@@ -2872,8 +3199,18 @@
       "spawns": [
         {
           "tick": 40,
+          "enemyId": "hive_tentacle",
+          "y": -6.5
+        },
+        {
+          "tick": 40,
           "enemyId": "spore_drifter",
           "y": 3
+        },
+        {
+          "tick": 40,
+          "enemyId": "hive_tentacle",
+          "y": 6.5
         },
         {
           "tick": 80,
@@ -2899,6 +3236,11 @@
           "tick": 280,
           "enemyId": "lancer_dart",
           "y": -4
+        },
+        {
+          "tick": 300,
+          "enemyId": "hive_tentacle",
+          "y": 4.0
         },
         {
           "tick": 320,
@@ -2950,15 +3292,9 @@
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 18.0,
-          "y": 4.0,
-          "hp": 0
-        },
-        {
           "type": "breakable",
           "x": 12.5,
-          "y": 0.0,
+          "y": 1.5,
           "hp": 25
         },
         {
@@ -2968,7 +3304,16 @@
           "hp": 30
         }
       ],
-      "intent": "중형 위협 + 중형 화력 집중"
+      "intent": "중형 위협 + 중형 화력 집중",
+      "environment": {
+        "corridor": {
+          "startMinY": -9.0,
+          "startMaxY": 9.0,
+          "endMinY": -5.0,
+          "endMaxY": 5.0,
+          "contactDamage": 1
+        }
+      }
     },
     {
       "id": "seg_hive_nest_choke",
@@ -2983,6 +3328,16 @@
       ],
       "theme": "hive",
       "spawns": [
+        {
+          "tick": 30,
+          "enemyId": "hive_tentacle",
+          "y": -5.75
+        },
+        {
+          "tick": 30,
+          "enemyId": "hive_tentacle",
+          "y": 5.75
+        },
         {
           "tick": 50,
           "enemyId": "brood_spitter",
@@ -3058,15 +3413,9 @@
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 19.0,
-          "y": 5.5,
-          "hp": 0
-        },
-        {
           "type": "breakable",
           "x": 13.0,
-          "y": 0.0,
+          "y": -1.5,
           "hp": 25
         },
         {
@@ -3076,7 +3425,16 @@
           "hp": 30
         }
       ],
-      "intent": "좁은 구간 중형 격파 목표"
+      "intent": "좁은 구간 중형 격파 목표",
+      "environment": {
+        "corridor": {
+          "startMinY": -8.5,
+          "startMaxY": 8.5,
+          "endMinY": -3.75,
+          "endMaxY": 3.75,
+          "contactDamage": 1
+        }
+      }
     },
     {
       "id": "seg_fortress_mortar_line",
@@ -3191,26 +3549,66 @@
         {
           "type": "solid",
           "x": 11.0,
-          "y": 5.5,
+          "y": 6.0,
           "hp": 0
         },
         {
           "type": "solid",
-          "x": 15.0,
-          "y": -5.5,
+          "x": 16.0,
+          "y": -6.0,
           "hp": 0
         },
         {
-          "type": "breakable",
-          "x": 13.5,
-          "y": 0.0,
-          "hp": 25
+          "type": "laserEmitter",
+          "x": 17.0,
+          "y": 3.25,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 17.0,
+          "y": -3.25,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 180,
+            "telegraphTicks": 42,
+            "firingTicks": 6,
+            "sustainTicks": 30,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         },
         {
           "type": "breakable",
-          "x": 18.0,
-          "y": 3.25,
-          "hp": 30
+          "x": 13.0,
+          "y": 1.75,
+          "hp": 35
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": -2.0,
+          "hp": 40
         }
       ],
       "intent": "강화형 박격 라인 조준"
@@ -3340,20 +3738,60 @@
         {
           "type": "solid",
           "x": 18.0,
-          "y": 4.0,
+          "y": 5.5,
           "hp": 0
+        },
+        {
+          "type": "laserEmitter",
+          "x": 15.5,
+          "y": 2.75,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 120,
+            "telegraphTicks": 30,
+            "firingTicks": 5,
+            "sustainTicks": 20,
+            "dissipateTicks": 10,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 15.5,
+          "y": -2.75,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         },
         {
           "type": "breakable",
           "x": 12.0,
-          "y": 0.0,
-          "hp": 30
+          "y": 1.75,
+          "hp": 35
         },
         {
           "type": "breakable",
-          "x": 16.5,
-          "y": -1.5,
-          "hp": 35
+          "x": 19.0,
+          "y": -1.75,
+          "hp": 40
         }
       ],
       "intent": "교차 포탑 위치 선정 + 중형"
@@ -3500,39 +3938,99 @@
       "obstacles": [
         {
           "type": "solid",
-          "x": 11.0,
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
           "y": 5.5,
           "hp": 0
         },
         {
           "type": "solid",
-          "x": 11.0,
+          "x": 18.0,
           "y": -5.5,
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 17.0,
-          "y": 7.5,
-          "hp": 0
+          "type": "laserEmitter",
+          "x": 13.0,
+          "y": 4.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         },
         {
-          "type": "solid",
-          "x": 17.0,
-          "y": -7.5,
-          "hp": 0
-        },
-        {
-          "type": "breakable",
-          "x": 14.0,
-          "y": 0.0,
-          "hp": 35
-        },
-        {
-          "type": "breakable",
-          "x": 19.5,
+          "type": "laserEmitter",
+          "x": 16.0,
           "y": 2.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 120,
+            "telegraphTicks": 30,
+            "firingTicks": 5,
+            "sustainTicks": 20,
+            "dissipateTicks": 10,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 19.0,
+          "y": -4.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 180,
+            "telegraphTicks": 42,
+            "firingTicks": 6,
+            "sustainTicks": 30,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "breakable",
+          "x": 14.5,
+          "y": 2.0,
           "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 17.5,
+          "y": -2.0,
+          "hp": 45
         }
       ],
       "intent": "강화형 드론 격자 압박"
@@ -3687,16 +4185,76 @@
           "hp": 0
         },
         {
-          "type": "breakable",
-          "x": 12.5,
-          "y": 0.0,
-          "hp": 35
+          "type": "laserEmitter",
+          "x": 12.0,
+          "y": 3.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 15.5,
+          "y": -2.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 160,
+            "telegraphTicks": 40,
+            "firingTicks": 6,
+            "sustainTicks": 28,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -30.0,
+            "endOffsetY": -4.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 19.0,
+          "y": -3.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 180,
+            "telegraphTicks": 42,
+            "firingTicks": 6,
+            "sustainTicks": 30,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         },
         {
           "type": "breakable",
-          "x": 16.5,
-          "y": 3.25,
-          "hp": 40
+          "x": 14.0,
+          "y": 1.75,
+          "hp": 45
+        },
+        {
+          "type": "breakable",
+          "x": 17.5,
+          "y": -1.75,
+          "hp": 50
         }
       ],
       "intent": "중형·중형 화력 집중 관문"
@@ -3821,7 +4379,7 @@
         {
           "type": "breakable",
           "x": 14.0,
-          "y": 0.0,
+          "y": 1.5,
           "hp": 25
         },
         {
@@ -3831,7 +4389,13 @@
           "hp": 30
         }
       ],
-      "intent": "강화형 에코 조준 리본"
+      "intent": "강화형 에코 조준 리본",
+      "environment": {
+        "drift": {
+          "xPerSecond": 0.15,
+          "yPerSecond": -0.55
+        }
+      }
     },
     {
       "id": "seg_nebula_void_moth_swarm",
@@ -3949,7 +4513,7 @@
         {
           "type": "breakable",
           "x": 13.0,
-          "y": 0.0,
+          "y": -1.5,
           "hp": 30
         },
         {
@@ -3959,7 +4523,13 @@
           "hp": 30
         }
       ],
-      "intent": "잡몹·강화 혼합 + 중형"
+      "intent": "잡몹·강화 혼합 + 중형",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.55,
+          "yPerSecond": -0.25
+        }
+      }
     },
     {
       "id": "seg_nebula_crystal_drift",
@@ -4063,7 +4633,7 @@
         {
           "type": "breakable",
           "x": 12.5,
-          "y": 0.0,
+          "y": 1.5,
           "hp": 35
         },
         {
@@ -4073,7 +4643,13 @@
           "hp": 35
         }
       ],
-      "intent": "중형 드리프트 화력 집중"
+      "intent": "중형 드리프트 화력 집중",
+      "environment": {
+        "drift": {
+          "xPerSecond": 0.7,
+          "yPerSecond": 0.35
+        }
+      }
     },
     {
       "id": "seg_nebula_prism_haze",
@@ -4171,7 +4747,7 @@
         {
           "type": "breakable",
           "x": 13.0,
-          "y": 0.0,
+          "y": -1.5,
           "hp": 35
         },
         {
@@ -4187,7 +4763,13 @@
           "hp": 40
         }
       ],
-      "intent": "중형 프리즘 + 중형 목표"
+      "intent": "중형 프리즘 + 중형 목표",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.4,
+          "yPerSecond": 0.8
+        }
+      }
     },
     {
       "id": "seg_core_rift_blades",
@@ -4313,18 +4895,30 @@
         },
         {
           "type": "breakable",
-          "x": 14.0,
-          "y": 0.0,
-          "hp": 35
+          "x": 13.0,
+          "y": 2.5,
+          "hp": 40
         },
         {
           "type": "breakable",
-          "x": 18.5,
-          "y": 3.25,
+          "x": 16.0,
+          "y": -2.5,
           "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": 1.75,
+          "hp": 45
         }
       ],
-      "intent": "잡몹 칼날 회피 + 강화형 사격"
+      "intent": "잡몹 칼날 회피 + 강화형 사격",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.35,
+          "yPerSecond": 0.25
+        }
+      }
     },
     {
       "id": "seg_core_phase_discs",
@@ -4444,25 +5038,48 @@
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 19.0,
-          "y": 4.0,
-          "hp": 0
+          "type": "laserEmitter",
+          "x": 17.0,
+          "y": 2.75,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         },
         {
           "type": "breakable",
           "x": 13.0,
-          "y": 0.0,
-          "hp": 40
+          "y": 2.0,
+          "hp": 45
         },
         {
           "type": "breakable",
-          "x": 17.0,
-          "y": -2.5,
+          "x": 13.0,
+          "y": -2.0,
           "hp": 45
         }
       ],
-      "intent": "강화형 원반 조준 + 중형"
+      "intent": "강화형 원반 조준 + 중형",
+      "environment": {
+        "corridor": {
+          "startMinY": -9.0,
+          "startMaxY": 9.0,
+          "endMinY": -5.5,
+          "endMaxY": 5.5,
+          "contactDamage": 1
+        }
+      }
     },
     {
       "id": "seg_core_shard_battery",
@@ -4585,24 +5202,50 @@
         },
         {
           "type": "breakable",
-          "x": 12.0,
-          "y": 0.0,
-          "hp": 40
+          "x": 12.5,
+          "y": 1.75,
+          "hp": 55
         },
         {
           "type": "breakable",
+          "x": 15.0,
+          "y": -2.0,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": 2.5,
+          "hp": 60
+        },
+        {
+          "type": "laserEmitter",
           "x": 16.0,
-          "y": 3.25,
-          "hp": 45
-        },
-        {
-          "type": "breakable",
-          "x": 20.0,
-          "y": -1.5,
-          "hp": 50
+          "y": -4.0,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 180,
+            "telegraphTicks": 42,
+            "firingTicks": 6,
+            "sustainTicks": 28,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         }
       ],
-      "intent": "중형 배터리 화력 집중"
+      "intent": "중형 배터리 화력 집중",
+      "environment": {
+        "drift": {
+          "xPerSecond": 0.5,
+          "yPerSecond": 0.3
+        }
+      }
     },
     {
       "id": "seg_core_void_mix",
@@ -4713,31 +5356,44 @@
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 17.0,
-          "y": -5.5,
-          "hp": 0
-        },
-        {
           "type": "breakable",
-          "x": 11.0,
-          "y": 0.0,
-          "hp": 40
-        },
-        {
-          "type": "breakable",
-          "x": 15.0,
-          "y": 2.5,
-          "hp": 45
-        },
-        {
-          "type": "breakable",
-          "x": 19.5,
-          "y": -3.0,
+          "x": 12.0,
+          "y": 1.75,
           "hp": 50
+        },
+        {
+          "type": "breakable",
+          "x": 15.5,
+          "y": 2.5,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 18.5,
+          "y": -2.0,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": -3.0,
+          "hp": 48
         }
       ],
-      "intent": "전 티어 혼합 최종 가틀릿"
+      "intent": "전 티어 혼합 최종 가틀릿",
+      "environment": {
+        "corridor": {
+          "startMinY": -8.5,
+          "startMaxY": 8.5,
+          "endMinY": -4.5,
+          "endMaxY": 4.5,
+          "contactDamage": 1
+        },
+        "drift": {
+          "xPerSecond": -0.4,
+          "yPerSecond": 0.45
+        }
+      }
     }
   ],
   "bosses": [
@@ -5206,6 +5862,33 @@
           }
         }
       ]
+    }
+  ],
+  "gimmicks": [
+    {
+      "theme": "scrapyard",
+      "visionObscured": false,
+      "timeLimitTicks": 0
+    },
+    {
+      "theme": "hive",
+      "visionObscured": false,
+      "timeLimitTicks": 0
+    },
+    {
+      "theme": "fortress",
+      "visionObscured": false,
+      "timeLimitTicks": 0
+    },
+    {
+      "theme": "nebula",
+      "visionObscured": true,
+      "timeLimitTicks": 0
+    },
+    {
+      "theme": "core",
+      "visionObscured": false,
+      "timeLimitTicks": 9000
     }
   ]
 }
