@@ -4,8 +4,13 @@ using UnityEngine.UI;
 namespace Shmup.Presentation.Battle
 {
     /// <summary>
-    /// 저체력 경고 (HP 1): 붉은 비네트 맥동 + 주기적 경고음.
-    /// 순수 표현 — director의 HP를 읽기만 한다. 접근성(플래시 감소) 설정을 존중한다.
+    /// 마지막 목숨 경고: 붉은 비네트 맥동 + 주기적 경고음.
+    ///
+    /// HP가 사라지고 실드 스톡이 유일한 내구도가 된 뒤로(REQ-040), 위험 신호는
+    /// **스톡 0**이다 — 그 상태에서 한 번만 더 맞으면 즉사한다. 예전 `PlayerHp == 1`
+    /// 조건은 이제 살아 있는 동안 항상 참이라(생존 1 / 사망 0 호환 프로퍼티) 쓸 수 없다.
+    ///
+    /// 순수 표현 — director의 상태를 읽기만 한다. 접근성(플래시 감소) 설정을 존중한다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class LowHpWarning : MonoBehaviour
@@ -40,7 +45,8 @@ namespace Shmup.Presentation.Battle
         {
             if (_director == null || _vignette == null) return;
 
-            bool danger = !_director.IsRunFinished && _director.PlayerHp == 1 && Time.timeScale > 0f;
+            bool danger = !_director.IsRunFinished && _director.ShieldRemaining == 0
+                          && Time.timeScale > 0f;
             if (_vignette.gameObject.activeSelf != danger)
             {
                 _vignette.gameObject.SetActive(danger);

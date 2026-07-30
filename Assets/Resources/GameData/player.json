@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "player": {
-    "moveSpeed": 13.0,
+    "moveSpeed": 9.5,
     "spawnX": -13.0,
     "spawnY": 0.0,
     "hitboxRadius": 0.375,

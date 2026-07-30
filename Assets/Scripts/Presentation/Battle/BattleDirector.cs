@@ -949,9 +949,10 @@ namespace Shmup.Presentation.Battle
         static readonly Color[] ShieldTierColors =
         {
             new Color(0.35f, 0.70f, 1.00f, 0.55f),   // 1: 청색
-            new Color(0.35f, 1.00f, 0.85f, 0.65f),   // 2: 청록
-            new Color(1.00f, 0.90f, 0.45f, 0.75f),   // 3: 금색
-            new Color(1.00f, 0.55f, 0.95f, 0.85f)    // 4+: 자홍
+            new Color(0.35f, 1.00f, 0.85f, 0.62f),   // 2: 청록
+            new Color(0.70f, 1.00f, 0.55f, 0.70f),   // 3: 연녹
+            new Color(1.00f, 0.90f, 0.45f, 0.78f),   // 4: 금색
+            new Color(1.00f, 0.55f, 0.95f, 0.86f)    // 5+: 자홍 (현재 상한)
         };
 
         void SyncShield()
@@ -977,7 +978,8 @@ namespace Shmup.Presentation.Battle
 
             int tier = Mathf.Clamp(remaining, 1, ShieldTierColors.Length);
             // 스톡이 쌓이면 테두리가 두꺼워진다 (기체와의 크기 차이가 곧 두께다).
-            float thickness = 1f + 0.11f * tier;
+            // 상한(5)에서도 기체 실루엣을 알아볼 수 있는 범위로 계수를 잡았다.
+            float thickness = 1f + 0.08f * tier;
             _shieldView.transform.localScale = new Vector3(thickness, thickness, 1f);
             _shieldView.color = ShieldTierColors[tier - 1];
         }
