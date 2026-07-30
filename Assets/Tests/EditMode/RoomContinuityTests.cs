@@ -66,6 +66,7 @@ namespace Shmup.Core.Tests
             Assert.IsTrue(manager.ChooseReward(0));
             StepUntilReward(manager, RewardSelectionKind.Main, in move);
             Assert.IsTrue(manager.ChooseReward(0));
+            Assert.IsTrue(manager.ChooseContract(0));
 
             Assert.AreEqual(2, manager.BiomeIndex);
             Assert.AreEqual(1, manager.RoomIndex);
@@ -145,6 +146,15 @@ namespace Shmup.Core.Tests
                         second.RewardSelectionKind);
                     Assert.IsTrue(first.ChooseReward(0));
                     Assert.IsTrue(second.ChooseReward(0));
+                }
+                else if (first.State
+                    == RunState.AwaitingContract)
+                {
+                    Assert.AreEqual(
+                        RunState.AwaitingContract,
+                        second.State);
+                    Assert.IsTrue(first.ChooseContract(0));
+                    Assert.IsTrue(second.ChooseContract(0));
                 }
 
                 var firstHash = new DeterminismAuditHasher();

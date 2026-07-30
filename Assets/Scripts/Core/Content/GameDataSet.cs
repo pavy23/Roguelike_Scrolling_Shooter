@@ -31,6 +31,7 @@ namespace Shmup.Core.Content
             PowerUpCostCurve powerUpCostCurve,
             WeaponDefinition missile,
             RewardCatalog rewards,
+            ContractCatalog contracts,
             IReadOnlyList<ShipDefinition> ships,
             ScoringDefinition scoring)
         {
@@ -61,6 +62,7 @@ namespace Shmup.Core.Content
                 ?? throw new ArgumentNullException(nameof(powerUpCostCurve));
             _missile = missile ?? throw new ArgumentNullException(nameof(missile));
             Rewards = rewards;
+            Contracts = contracts;
             _scoring = scoring;
 
             if (ships == null) throw new ArgumentNullException(nameof(ships));
@@ -107,6 +109,10 @@ namespace Shmup.Core.Content
         /// three-input parser overload was used.
         /// </summary>
         public RewardCatalog Rewards { get; }
+        /// <summary>
+        /// Parsed waves.json sector contracts, or null for legacy data.
+        /// </summary>
+        public ContractCatalog Contracts { get; }
         public IReadOnlyList<ShipDefinition> Ships => _ships;
         public ShipDefinition DefaultShip { get; }
 

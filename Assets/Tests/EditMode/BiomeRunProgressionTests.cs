@@ -71,6 +71,10 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(3, run.RewardOptions.Count);
 
             run.ChooseReward(0);
+            Assert.AreEqual(
+                RunState.AwaitingContract,
+                run.State);
+            Assert.IsTrue(run.ChooseContract(0));
             Assert.AreEqual(RunState.Playing, run.State);
             Assert.AreEqual(2, run.BiomeIndex);
             Assert.AreEqual(1, run.RoomIndex);
@@ -110,6 +114,10 @@ namespace Shmup.Core.Tests
                 RunManager.MainRewardOptionCount,
                 run.RewardOptions.Count);
             Assert.IsTrue(run.ChooseReward(0));
+            Assert.AreEqual(
+                RunState.AwaitingContract,
+                run.State);
+            Assert.IsTrue(run.ChooseContract(0));
             Assert.AreEqual(2, run.BiomeIndex);
             Assert.AreEqual(RunStageSection.Opening, run.StageSection);
         }
@@ -282,6 +290,9 @@ namespace Shmup.Core.Tests
             {
                 if (run.State == RunState.AwaitingReward)
                     run.ChooseReward(0);
+                else if (run.State
+                    == RunState.AwaitingContract)
+                    run.ChooseContract(0);
                 else
                 {
                     InputCommand input = run.IsBiomeBoss

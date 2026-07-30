@@ -358,6 +358,9 @@ namespace Shmup.Core.Tests
             {
                 if (run.State == RunState.AwaitingReward)
                     run.ChooseReward(0);
+                else if (run.State
+                    == RunState.AwaitingContract)
+                    run.ChooseContract(0);
                 else
                     run.Step(in fire);
                 Assert.LessOrEqual(
@@ -378,6 +381,9 @@ namespace Shmup.Core.Tests
             {
                 if (run.State == RunState.AwaitingReward)
                     run.ChooseReward(0);
+                else if (run.State
+                    == RunState.AwaitingContract)
+                    run.ChooseContract(0);
                 else
                     run.Step(in fire);
             }

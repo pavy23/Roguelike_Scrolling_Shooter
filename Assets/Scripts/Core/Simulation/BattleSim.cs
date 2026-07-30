@@ -828,6 +828,17 @@ namespace Shmup.Core.Simulation
         public int CapsuleHalfWidth { get; set; }
         public int CapsuleHalfHeight { get; set; }
         public int CapsuleNoDropWeight { get; set; }
+        /// <summary>
+        /// Persistent reward cost subtracted from each enemy capsule weight.
+        /// </summary>
+        public int CapsuleDropWeightReduction { get; set; }
+        public int ContractBombDropMultiplierNumerator { get; set; } = 1;
+        public int ContractBombDropMultiplierDenominator { get; set; } = 1;
+        public bool ContractGuaranteesBombDrop { get; set; }
+        public int ContractCapsuleDropMultiplierNumerator { get; set; } = 1;
+        public int ContractCapsuleDropMultiplierDenominator { get; set; } = 1;
+        public int ContractScoreMultiplierNumerator { get; set; } = 1;
+        public int ContractScoreMultiplierDenominator { get; set; } = 1;
         public int ScrollSpeedNumerator { get; set; }
         public int ScrollSpeedDenominator { get; set; } = 1;
         /// <summary>
@@ -1177,6 +1188,7 @@ namespace Shmup.Core.Simulation
         readonly int _playerHalfWidth, _playerHalfHeight;
         readonly int _capsuleHalfWidth, _capsuleHalfHeight;
         readonly int _capsuleNoDropWeight;
+        readonly int _capsuleDropWeightReduction;
         readonly int _capsuleMagnetRadiusSubUnits;
         readonly int _capsuleMagnetSpeedNumerator;
         readonly int _capsuleMagnetSpeedDenominator;
@@ -1189,8 +1201,12 @@ namespace Shmup.Core.Simulation
         readonly int _encounterEnemyHpMultiplierDenominator;
         readonly int _capsuleDropMultiplierNumerator;
         readonly int _capsuleDropMultiplierDenominator;
+        readonly int _contractCapsuleDropMultiplierNumerator;
+        readonly int _contractCapsuleDropMultiplierDenominator;
         readonly int _encounterScoreMultiplierNumerator;
         readonly int _encounterScoreMultiplierDenominator;
+        readonly int _contractScoreMultiplierNumerator;
+        readonly int _contractScoreMultiplierDenominator;
         readonly int _playerBulletDamage, _playerBulletHalfWidth, _playerBulletHalfHeight;
         readonly PowerUpGauge _powerUpGauge;
         readonly Rng _dropRng;
@@ -1251,11 +1267,15 @@ namespace Shmup.Core.Simulation
         readonly int _enemyBulletDamage, _maxEnemyBullets;
         int _maxShieldStock;
         readonly int _playerHitInvulnerabilityTicks;
-        readonly int _maxBombStock, _bombInvulnerabilityTicks;
+        int _maxBombStock;
+        readonly int _bombInvulnerabilityTicks;
         readonly int _bombEffectRadiusSubUnits;
         readonly int _bombRegularEnemyDamage;
         readonly int _bombBossDamageCap, _bombBossPartDamageCap;
         readonly int _bombNoDropWeight, _maxBombPickups, _maxLasers;
+        readonly int _bombDropMultiplierNumerator;
+        readonly int _bombDropMultiplierDenominator;
+        readonly bool _contractGuaranteesBombDrop;
         readonly BattleModifier _activeModifiers;
         readonly int _pierceShotEnemyCount, _ricochetRangeSubUnits;
         readonly int _ricochetCount;
@@ -1531,6 +1551,8 @@ namespace Shmup.Core.Simulation
             _capsuleHalfWidth = config.CapsuleHalfWidth;
             _capsuleHalfHeight = config.CapsuleHalfHeight;
             _capsuleNoDropWeight = config.CapsuleNoDropWeight;
+            _capsuleDropWeightReduction =
+                config.CapsuleDropWeightReduction;
             _capsuleMagnetRadiusSubUnits =
                 config.CapsuleMagnetRadiusSubUnits;
             _capsuleMagnetSpeedNumerator =
@@ -1560,12 +1582,20 @@ namespace Shmup.Core.Simulation
             _capsuleDropMultiplierDenominator = stageEnabled
                 ? stagePlan.CapsuleDropMultiplierDenominator
                 : 1;
+            _contractCapsuleDropMultiplierNumerator =
+                config.ContractCapsuleDropMultiplierNumerator;
+            _contractCapsuleDropMultiplierDenominator =
+                config.ContractCapsuleDropMultiplierDenominator;
             _encounterScoreMultiplierNumerator = stageEnabled
                 ? stagePlan.EncounterScoreMultiplierNumerator
                 : 1;
             _encounterScoreMultiplierDenominator = stageEnabled
                 ? stagePlan.EncounterScoreMultiplierDenominator
                 : 1;
+            _contractScoreMultiplierNumerator =
+                config.ContractScoreMultiplierNumerator;
+            _contractScoreMultiplierDenominator =
+                config.ContractScoreMultiplierDenominator;
             _enemyBulletSpeedNumerator = config.EnemyBulletSpeedNumerator;
             _enemyBulletSpeedDenominator = config.EnemyBulletSpeedDenominator;
             _enemyBulletHalfWidth = config.EnemyBulletHalfWidth;
@@ -1586,6 +1616,12 @@ namespace Shmup.Core.Simulation
             _bombBossPartDamageCap =
                 config.BombBossPartDamageCap;
             _bombNoDropWeight = config.BombNoDropWeight;
+            _bombDropMultiplierNumerator =
+                config.ContractBombDropMultiplierNumerator;
+            _bombDropMultiplierDenominator =
+                config.ContractBombDropMultiplierDenominator;
+            _contractGuaranteesBombDrop =
+                config.ContractGuaranteesBombDrop;
             _maxBombPickups = config.MaxBombPickups;
             _maxLasers = config.MaxLasers;
             _activeModifiers = activeModifiers;
@@ -2257,19 +2293,29 @@ namespace Shmup.Core.Simulation
         /// </summary>
         public int SetMaxShieldStock(int maxShieldStock)
         {
-            if (maxShieldStock
-                    < BattleSimConfig.DefaultMaxShieldStock
+            if (maxShieldStock < 1
                 || maxShieldStock
                     > BattleSimConfig.MaximumShieldStock)
                 throw new ArgumentOutOfRangeException(
                     nameof(maxShieldStock),
                     $"Shield cap must be in "
-                    + $"{BattleSimConfig.DefaultMaxShieldStock}.."
+                    + $"1.."
                     + $"{BattleSimConfig.MaximumShieldStock}.");
             _maxShieldStock = maxShieldStock;
             if (ShieldStock > _maxShieldStock)
                 ShieldStock = _maxShieldStock;
             return ShieldStock;
+        }
+
+        public int SetMaxBombStock(int maxBombStock)
+        {
+            if (maxBombStock < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maxBombStock));
+            _maxBombStock = maxBombStock;
+            if (BombStock > _maxBombStock)
+                BombStock = _maxBombStock;
+            return BombStock;
         }
 
         /// <summary>
@@ -5296,6 +5342,11 @@ namespace Shmup.Core.Simulation
                 _encounterScoreMultiplierNumerator,
                 _encounterScoreMultiplierDenominator,
                 false);
+            multipliedScore = ScalePositiveRatioSaturated(
+                multipliedScore,
+                _contractScoreMultiplierNumerator,
+                _contractScoreMultiplierDenominator,
+                false);
             long awardedScore = AddScoreSaturated(multipliedScore);
             return awardedScore >= int.MaxValue
                 ? int.MaxValue
@@ -5517,11 +5568,20 @@ namespace Shmup.Core.Simulation
 
         void TryDropCapsule(EnemyDefinition definition, int x, int y)
         {
-            if (definition.DropWeight == 0) return;
+            int baseWeight = Math.Max(
+                0,
+                definition.DropWeight
+                    - _capsuleDropWeightReduction);
+            if (baseWeight == 0) return;
             long scaledWeight = ScalePositiveRatioSaturated(
-                definition.DropWeight,
+                baseWeight,
                 _capsuleDropMultiplierNumerator,
                 _capsuleDropMultiplierDenominator,
+                false);
+            scaledWeight = ScalePositiveRatioSaturated(
+                scaledWeight,
+                _contractCapsuleDropMultiplierNumerator,
+                _contractCapsuleDropMultiplierDenominator,
                 false);
             int dropWeight = scaledWeight >= int.MaxValue - _capsuleNoDropWeight
                 ? int.MaxValue - _capsuleNoDropWeight
@@ -5542,15 +5602,25 @@ namespace Shmup.Core.Simulation
             if (definition.BombDropWeight == 0
                 || _bombPickups.Count >= _maxBombPickups)
                 return;
+            long scaledWeight = ScalePositiveRatioSaturated(
+                definition.BombDropWeight,
+                _bombDropMultiplierNumerator,
+                _bombDropMultiplierDenominator,
+                false);
+            int dropWeight = scaledWeight >= int.MaxValue
+                - _bombNoDropWeight
+                    ? int.MaxValue - _bombNoDropWeight
+                    : (int)scaledWeight;
             if (_bombNoDropWeight > int.MaxValue
-                - definition.BombDropWeight)
+                - dropWeight)
                 throw new InvalidOperationException(
                     "The bomb drop-table total exceeds the integer range.");
             int totalWeight =
-                _bombNoDropWeight + definition.BombDropWeight;
-            if (totalWeight == 0
+                _bombNoDropWeight + dropWeight;
+            if (!_contractGuaranteesBombDrop
+                && (totalWeight == 0
                 || _bombDropRng.NextInt(0, totalWeight)
-                    < _bombNoDropWeight)
+                    < _bombNoDropWeight))
                 return;
             if (_nextBombPickupId == int.MaxValue)
                 throw new InvalidOperationException(
@@ -6171,6 +6241,21 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(config.CapsuleHalfWidth));
             if (config.CapsuleNoDropWeight < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.CapsuleNoDropWeight));
+            if (config.CapsuleDropWeightReduction < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.CapsuleDropWeightReduction));
+            if (config.ContractBombDropMultiplierNumerator < 0
+                || config.ContractBombDropMultiplierDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.ContractBombDropMultiplierNumerator));
+            if (config.ContractCapsuleDropMultiplierNumerator < 0
+                || config.ContractCapsuleDropMultiplierDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.ContractCapsuleDropMultiplierNumerator));
+            if (config.ContractScoreMultiplierNumerator < 0
+                || config.ContractScoreMultiplierDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.ContractScoreMultiplierNumerator));
             if (config.ScrollSpeedNumerator < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.ScrollSpeedNumerator));
             if (config.ScrollSpeedDenominator < 1)

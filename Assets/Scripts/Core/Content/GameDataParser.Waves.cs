@@ -50,7 +50,103 @@ namespace Shmup.Core.Content
                 bosses,
                 themes,
                 gimmicks);
-            return new WavesParseResult(catalog, scrollSpeed);
+            ContractCatalog contracts =
+                ParseContracts(root.contracts);
+            return new WavesParseResult(
+                catalog,
+                scrollSpeed,
+                contracts);
+        }
+
+        static ContractCatalog ParseContracts(
+            ContractCatalogDto root)
+        {
+            if (root == null)
+                return null;
+            ContractDto[] source = RequireArray(
+                root.entries,
+                "waves.json.contracts.entries");
+            var definitions =
+                new ContractDefinition[source.Length];
+            for (int i = 0; i < definitions.Length; i++)
+            {
+                string path =
+                    $"waves.json.contracts.entries[{i}]";
+                ContractDto item = source[i];
+                if (item == null)
+                    throw Error(path, "cannot be null.");
+                ExactFraction density = ParseContractMultiplier(
+                    item.enemyDensityMultiplier,
+                    path + ".enemyDensityMultiplier");
+                ExactFraction capsules = ParseContractMultiplier(
+                    item.capsuleDropMultiplier,
+                    path + ".capsuleDropMultiplier");
+                ExactFraction bombs = ParseContractMultiplier(
+                    item.bombDropMultiplier,
+                    path + ".bombDropMultiplier");
+                ExactFraction gimmick = ParseContractMultiplier(
+                    item.gimmickIntensityMultiplier,
+                    path + ".gimmickIntensityMultiplier");
+                ExactFraction score = ParseContractMultiplier(
+                    item.scoreMultiplier,
+                    path + ".scoreMultiplier");
+                definitions[i] = new ContractDefinition(
+                    RequireText(item.id, path + ".id"),
+                    Require(item.weight, path + ".weight"),
+                    ParseContractRisk(
+                        item.riskTier,
+                        path + ".riskTier"),
+                    density.Numerator,
+                    density.Denominator,
+                    capsules.Numerator,
+                    capsules.Denominator,
+                    bombs.Numerator,
+                    bombs.Denominator,
+                    item.guaranteedBombDrop ?? false,
+                    gimmick.Numerator,
+                    gimmick.Denominator,
+                    item.rewardOptionCountDelta ?? 0,
+                    score.Numerator,
+                    score.Denominator);
+            }
+            return new ContractCatalog(
+                RequireText(
+                    root.standardContractId,
+                    "waves.json.contracts.standardContractId"),
+                Require(
+                    root.minimumOptionCount,
+                    "waves.json.contracts.minimumOptionCount"),
+                Require(
+                    root.maximumOptionCount,
+                    "waves.json.contracts.maximumOptionCount"),
+                definitions);
+        }
+
+        static ExactFraction ParseContractMultiplier(
+            decimal? value,
+            string path)
+        {
+            decimal multiplier = value ?? 1m;
+            if (multiplier < 0m)
+                throw Error(path, "cannot be negative.");
+            return DecimalToFraction(multiplier, path);
+        }
+
+        static ContractRiskTier ParseContractRisk(
+            string value,
+            string path)
+        {
+            switch (RequireText(value, path))
+            {
+                case "safe": return ContractRiskTier.Safe;
+                case "low": return ContractRiskTier.Low;
+                case "high": return ContractRiskTier.High;
+                case "extreme": return ContractRiskTier.Extreme;
+                default:
+                    throw Error(
+                        path,
+                        "must be 'safe', 'low', 'high', or 'extreme'.");
+            }
         }
 
         static StageGimmickDefinition[] ParseStageGimmicks(
@@ -734,14 +830,17 @@ namespace Shmup.Core.Content
         {
             public WavesParseResult(
                 StageGenerationCatalog catalog,
-                ExactFraction scrollSpeed)
+                ExactFraction scrollSpeed,
+                ContractCatalog contracts)
             {
                 Catalog = catalog;
                 ScrollSpeed = scrollSpeed;
+                Contracts = contracts;
             }
 
             public StageGenerationCatalog Catalog { get; }
             public ExactFraction ScrollSpeed { get; }
+            public ContractCatalog Contracts { get; }
         }
     }
 }

@@ -558,6 +558,7 @@ namespace Shmup.Core.Tests
     }
   ]
 }";
+
             GameDataSet data = GameDataParser.Parse(
                 EnemiesJson,
                 WeaponsJson,
@@ -577,6 +578,68 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual(1, modifier.ModifierInteractionCost);
                 Assert.IsFalse(data.Rewards.All[1].ModifierStackable);
             });
+        }
+
+        [Test]
+        public void Parse_ContractsPoolsAndRewardCostsAreDataDriven()
+        {
+            string waves = WavesJson.Replace(
+                @"""segments"": [",
+                @"""contracts"": {
+    ""standardContractId"": ""standard_route"",
+    ""minimumOptionCount"": 2,
+    ""maximumOptionCount"": 2,
+    ""entries"": [
+      { ""id"": ""standard_route"", ""weight"": 1, ""riskTier"": ""safe"" },
+      {
+        ""id"": ""dense_salvage"", ""weight"": 4, ""riskTier"": ""high"",
+        ""enemyDensityMultiplier"": 1.5,
+        ""capsuleDropMultiplier"": 1.25,
+        ""bombDropMultiplier"": 2,
+        ""guaranteedBombDrop"": true,
+        ""gimmickIntensityMultiplier"": 1.5,
+        ""rewardOptionCountDelta"": 1,
+        ""scoreMultiplier"": 1.5
+      }
+    ]
+  },
+  ""segments"": [");
+            string rewards = RewardsJson
+                .Replace(
+                    @"""schemaVersion"": 1",
+                    @"""schemaVersion"": 4")
+                .Replace(
+                    @"""optionCount"": 3,",
+                    @"""optionCount"": 3,
+  ""maxCombinedModifierCost"": 4,")
+                .Replace(
+                    @"""id"": ""capsules_3"", ""type"": ""capsules"", ""amount"": 3,",
+                    @"""id"": ""capsules_3"", ""type"": ""capsules"", ""amount"": 3,
+      ""pool"": ""mid"",
+      ""costs"": [
+        { ""type"": ""shieldMaxDown"", ""amount"": 1 },
+        { ""type"": ""moveSpeedDown"", ""amount"": 1 },
+        { ""type"": ""capsuleDropWeightDown"", ""amount"": 2 },
+        { ""type"": ""bombMaxDown"", ""amount"": 1 }
+      ],");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                waves,
+                rewards);
+
+            Assert.IsNotNull(data.Contracts);
+            Assert.AreEqual(
+                "standard_route",
+                data.Contracts.Standard.Id);
+            Assert.AreEqual(2, data.Contracts.All.Count);
+            Assert.AreEqual(
+                RewardPool.Mid,
+                data.Rewards.All[0].Pool);
+            Assert.AreEqual(
+                4,
+                data.Rewards.All[0].Costs.Count);
         }
 
         [Test]

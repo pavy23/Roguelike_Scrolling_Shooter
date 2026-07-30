@@ -200,6 +200,7 @@ namespace Shmup.Core.Tests
                 twoStageRun.State);
             Assert.AreEqual(3, twoStageRun.RewardOptions.Count);
             twoStageRun.ChooseReward(0);
+            Assert.IsTrue(twoStageRun.ChooseContract(0));
             DrivePlayingTicks(twoStageRun, 500);
             Assert.AreEqual(
                 RunState.AwaitingReward,
@@ -251,6 +252,12 @@ namespace Shmup.Core.Tests
                         in option);
                     run.ChooseReward(optionIndex);
                     rewards++;
+                }
+                else if (run.State
+                    == RunState.AwaitingContract)
+                {
+                    Assert.Greater(run.ContractOptions.Count, 0);
+                    run.ChooseContract(0);
                 }
                 else
                 {
@@ -356,6 +363,12 @@ namespace Shmup.Core.Tests
                         0,
                         in option);
                     run.ChooseReward(0);
+                }
+                else if (run.State
+                    == RunState.AwaitingContract)
+                {
+                    Assert.Greater(run.ContractOptions.Count, 0);
+                    run.ChooseContract(0);
                 }
                 else
                 {
@@ -485,6 +498,12 @@ namespace Shmup.Core.Tests
                                 : RunManager.MainRewardOptionCount;
                     Assert.AreEqual(expectedCount, run.RewardOptions.Count);
                     run.ChooseReward(0);
+                }
+                else if (run.State
+                    == RunState.AwaitingContract)
+                {
+                    Assert.Greater(run.ContractOptions.Count, 0);
+                    run.ChooseContract(0);
                 }
                 else
                 {
