@@ -20,6 +20,8 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(RunState.RunCleared, run.State);
             Assert.IsTrue(run.IsFinished);
             Assert.AreEqual(1, run.StageIndex);
+            Assert.AreEqual(run.BiomeCount, run.BiomeIndex);
+            Assert.LessOrEqual(run.BiomeIndex, run.BiomeCount);
             Assert.AreEqual(1, run.Statistics.StagesCleared);
             Assert.AreEqual(0, run.RewardOptions.Count);
             Assert.AreEqual(0, run.RouteOptions.Count);
@@ -158,6 +160,8 @@ namespace Shmup.Core.Tests
             DriveWholeRun(run, 20_000);
 
             Assert.AreEqual(RunState.RunCleared, run.State);
+            Assert.AreEqual(run.BiomeCount, run.BiomeIndex);
+            Assert.LessOrEqual(run.BiomeIndex, run.BiomeCount);
             Assert.AreEqual(15, run.Statistics.RoomsCleared);
             Assert.AreEqual(14, run.RouteChoiceHistory.Count);
         }
