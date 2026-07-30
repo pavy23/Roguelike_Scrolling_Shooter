@@ -128,6 +128,19 @@ namespace Shmup.Core.Content
         public string defaultOptionFormation;
         [DataMember]
         public PrimaryWeaponFamilyDto[] primaryWeaponFamilies;
+        [DataMember]
+        public PowerUpCostCurveDto powerUpCostCurve;
+    }
+
+    [DataContract]
+    internal sealed class PowerUpCostCurveDto
+    {
+        [DataMember]
+        public int? baseCost;
+        [DataMember]
+        public int? linearGrowth;
+        [DataMember]
+        public int? quadraticGrowth;
     }
 
     [DataContract]
@@ -151,6 +164,8 @@ namespace Shmup.Core.Content
         public decimal? projectileHalfHeight;
         [DataMember]
         public int? maxLevel;
+        [DataMember]
+        public int? effectSoftCapLevel;
     }
 
     [DataContract]
@@ -414,6 +429,8 @@ namespace Shmup.Core.Content
         public int? optionCount;
         [DataMember]
         public RewardDto[] rewards;
+        [DataMember]
+        public int? maxCombinedModifierCost;
     }
 
     [DataContract]
@@ -437,6 +454,16 @@ namespace Shmup.Core.Content
         public int? maxPerRun;
         [DataMember]
         public string modifierId;
+        [DataMember]
+        public string modifierEffect;
+        [DataMember]
+        public bool? stackable;
+        [DataMember]
+        public int? maxStacks;
+        [DataMember]
+        public int? stackStrength;
+        [DataMember]
+        public int? interactionCost;
         [DataMember]
         public string familyId;
         [DataMember]

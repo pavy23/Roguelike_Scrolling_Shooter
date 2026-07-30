@@ -1235,3 +1235,121 @@ biome=1, room=3, bossHp=23100/24000
 이는 빈 선택지/진행 게이트 고착이 아니라 감사 자동 조작의 생존 실패입니다. 감사 러너의
 무피해 설정 또는 생존 입력을 갱신한 뒤, 기존 `seed-max-prefer-capped` 최악 성장 경로의
 틱 예산 문제를 별도로 재측정해 주세요. CODEX는 해당 도구를 수정하지 않았습니다.
+
+---
+
+## [ ] 사람 결정 / [ ] GROK / [ ] CLAUDE: REQ-053 성장 곡선·스택 모디파이어 계약
+
+### 성장 시뮬레이션 요약
+
+Core 잠정 비용식은 목표 레벨의 현재 레벨을 `L`이라 할 때
+`1 + L + L²` 캡슐 적립입니다. 한 번 활성화할 때 현재 커서의 캡슐 1개만 그 슬롯에
+부분 적립하고 커서를 비웁니다. 원하는 슬롯 앞을 지나간 캡슐은 적립되지 않으므로
+그라디우스식 낭비가 유지됩니다.
+
+현재 상한 5/3/4/3, 공급 170개, 15스테이지 균등 공급, 슬롯을
+S→M→O→B 순환 투자하는 전략의 결과:
+
+| 슬롯 | 170개 종료 상태 | 만렙 스테이지 |
+|---|---:|---:|
+| MainShot | 4레벨, 다음 비용 21 중 8 적립 | 17스테이지 예상 |
+| Missile | 3레벨 | 10 |
+| Option | 4레벨 | 15 |
+| Shield | 3레벨 | 10 |
+
+전 슬롯 만렙의 실제 수집 비용은 커서 이동 낭비를 포함해 **183개**입니다.
+`183 / 170 × 15 = 16.15`, 즉 같은 공급률이면 17스테이지에 완성됩니다. 목표인
+“최종 스테이지 전후”에 걸치지만 이는 잠정 폴백이며 승인값이 아닙니다.
+
+### GROK: weapons.json schema v5
+
+실제 JSON은 수정하지 않았습니다. v2~v4는 위 잠정 곡선으로 이행합니다.
+v5에서는 다음 루트 필드와 무기별 필드가 필수입니다.
+
+```json
+{
+  "schemaVersion": 5,
+  "powerUpCostCurve": {
+    "baseCost": 1,
+    "linearGrowth": 1,
+    "quadraticGrowth": 1
+  },
+  "weapons": [{
+    "id": "main_shot",
+    "maxLevel": 5,
+    "effectSoftCapLevel": 5
+  }]
+}
+```
+
+비용은 정확히
+`baseCost + linearGrowth*L + quadraticGrowth*L*L`이며 모두 정수입니다.
+세 값과 `maxLevel`, `effectSoftCapLevel`은 사람 승인 전 잠정값으로 취급해 주세요.
+공급 P10/P50/P90과 실제 슬롯 선택 전략을 넣어 “주요 슬롯/전 슬롯 완성 스테이지”를
+다시 산출하고 제안해 주세요.
+
+효과는 `effectSoftCapLevel`까지 기존 선형이고, 이후 유효 레벨은
+`softCap + floor(sqrt(rawLevel-softCap))`입니다. 높은 상한에서 옵션 수·대미지·회복이
+무제한 선형 폭증하지 않으면서도 추가 레벨이 완전히 무효가 되지 않게 한 결정입니다.
+상한 자체는 고정 배열이 아니라 슬롯별 정수라 Core 변경 없이 올릴 수 있습니다.
+
+### GROK: rewards.json schema v3
+
+v1/v2 모디파이어는 1회성, strength/cost 1로 이행됩니다. v3은 루트 조합 예산과
+모디파이어별 스택 계약을 데이터로 지정합니다.
+
+```json
+{
+  "schemaVersion": 3,
+  "maxCombinedModifierCost": 4,
+  "rewards": [{
+    "id": "mod_pierce_stack",
+    "type": "modifier",
+    "modifierId": "pierce_stack",
+    "modifierEffect": "pierce_shot",
+    "stackable": true,
+    "maxStacks": 3,
+    "stackStrength": 1,
+    "interactionCost": 1
+  }]
+}
+```
+
+`modifierId`는 새 데이터 ID이고, `modifierEffect`는 현재 Core가 제공하는
+`pierce_shot`, `ricochet`, `homing_missile`, `kill_explosion` 프리미티브 중 하나입니다.
+따라서 새 이름·스택 프로필·강도의 변형은 데이터만으로 추가할 수 있습니다. 완전히 새
+판정 메커니즘은 Core 구현이 필요하므로 요청서로 계약해 주세요.
+
+- 관통: 설정 관통 수 × 누적 strength
+- 도탄: 누적 strength만큼 같은 탄환이 추가 도탄
+- 유도: 회전량 × 누적 strength, 반 바퀴/틱에서 구조적 포화
+- 킬폭발: 최대 대상 수 × 누적 strength. 대미지·반경은 곱하지 않음
+- 전체 조합은 `maxCombinedModifierCost`, 개별 효과는 `maxStacks`로 이중 제한
+- 폭발로 죽은 적은 다시 킬폭발을 만들지 않아 연쇄 재귀가 없음
+- 관통/도탄은 탄환별 명중 ID 기록을 공유해 같은 적 반복 타격을 막음
+- 도탄의 직접 처치에는 킬폭발이 정상 발동하므로 조합 시너지는 유지
+
+위 예시 4/3/1 수치는 호환 설명용 잠정값입니다. 4.12배 폭주 전례를 기준으로 실제
+strength/cost/조합 예산을 헤드리스 표본과 함께 제안해 주세요.
+
+### CLAUDE: HUD·저장 연결
+
+- `PowerUpGauge.GetProgress/GetRequiredCapsules/GetRemainingCapsules`로 선택 슬롯의
+  `현재 적립 / 요구량 / 남은 양`을 표시해 주세요.
+- `ActivateDetailed()`의 `ProgressAdded`, `LevelIncreased`, `SlotMaxed`,
+  `NoSelection`을 구분해 피드백해 주세요. 기존 `Activate()`는 실제 승급 때만
+  `true`입니다.
+- 상한을 픽스된 핍/배열 길이로 가정하지 말고 숫자 또는 동적 생성으로 표시해 주세요.
+- 중단 저장은 schema v11의 슬롯 순서 `powerUpProgress[4]`를 보존합니다.
+  v1~v10은 0으로 이행됩니다.
+- 모디파이어 표시는 `ModifierStacks.GetStackCount/GetStrength`를 사용하고 비트 플래그를
+  단순 on/off 아이콘으로만 해석하지 마세요.
+
+### 적 크기 확인
+
+Core 파서는 `enemies.json`의 `halfWidth`/`halfHeight`를 정수 서브유닛으로 변환하고,
+탄환·플레이어 충돌 모두 `EnemyDefinition.HalfWidth/HalfHeight`를 사용합니다. 즉 시각
+크기와 이 두 필드가 맞으면 히트박스는 데이터 크기를 반영합니다. “모든 조무래기 맷집”
+문제는 히트박스가 아니라 `hp` 티어이므로 이번 Core 작업에는 넣지 않았습니다.
+GROK은 스프라이트 크기와 halfWidth/halfHeight 정합 및 크기별 hp 티어를 같은 데이터
+사이클에서 검산해 주세요.

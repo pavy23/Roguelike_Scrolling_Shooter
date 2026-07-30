@@ -33,6 +33,8 @@ namespace Shmup.Core
                 && !string.IsNullOrEmpty(source.checksum)
                 && !(source.schemaVersion == 9
                     && HasValidRunSuspendV9Checksum(source))
+                && !(source.schemaVersion == 10
+                    && HasValidRunSuspendV10Checksum(source))
                 && !(source.schemaVersion == 8
                     && HasValidRunSuspendV8Checksum(source))
                 && !(source.schemaVersion == 7
@@ -177,7 +179,11 @@ namespace Shmup.Core
                 primaryWeaponFamily =
                     source.schemaVersion >= 10
                         ? source.primaryWeaponFamily
-                        : -1
+                        : -1,
+                powerUpProgress =
+                    source.schemaVersion >= 11
+                        ? Clone(source.powerUpProgress)
+                        : new int[PowerUpGauge.SlotCount]
             };
             Seal(migrated);
             return migrated;
@@ -427,7 +433,66 @@ namespace Shmup.Core
             hash.Add(data.bombStock);
             hash.Add(data.maxBombStock);
             hash.Add(data.primaryWeaponFamily);
+            hash.Add(data.powerUpProgress);
             return hash.ToString();
+        }
+
+        static bool HasValidRunSuspendV10Checksum(
+            RunSuspendData data)
+        {
+            if (!IsChecksum(data.checksum))
+                return false;
+            var hash = new CanonicalHash("RunSuspendData");
+            hash.Add(data.schemaVersion);
+            hash.Add(data.runSeed);
+            hash.Add(data.runNumber);
+            hash.Add(data.stageIndex);
+            hash.Add(data.score);
+            hash.Add(data.shotsFired);
+            hash.Add(data.shotsHit);
+            hash.Add(data.kills);
+            hash.Add(data.capsulesCollected);
+            hash.Add(data.grazeCount);
+            hash.Add(data.stagesCleared);
+            hash.Add(data.powerUpLevels);
+            hash.Add(data.powerUpCursor);
+            hash.Add(data.playerHp);
+            hash.Add(data.shieldRemaining);
+            Add(ref hash, data.rewardAcquisitions);
+            hash.Add(data.activeModifiers);
+            hash.Add(data.shipId);
+            hash.Add(data.fireIntervalTicks);
+            hash.Add(data.mainShotBaseDamage);
+            hash.Add(data.playerSpeedNumerator);
+            hash.Add(data.playerSpeedDenominator);
+            hash.Add(data.difficultyMultiplierNumerator);
+            hash.Add(data.difficultyMultiplierDenominator);
+            Add(ref hash, data.routeChoices);
+            hash.Add(data.finalStageIndex);
+            hash.Add(data.biomeIndex);
+            hash.Add(data.roomIndex);
+            hash.Add(data.isBiomeBoss);
+            hash.Add(data.biomeCount);
+            hash.Add(data.roomsPerBiome);
+            hash.Add(data.roomsCleared);
+            hash.Add(data.missileFamily);
+            hash.Add(data.optionFormation);
+            hash.Add(data.isHiddenBiome);
+            hash.Add(data.eliteRoomsCleared);
+            hash.Add(data.noHitBiomesCleared);
+            hash.Add(data.rareEncountersCleared);
+            hash.Add(data.currentBiomeHit);
+            hash.Add(data.selectedColossalBoss);
+            hash.Add(data.lastColossalBossAtRunStart);
+            hash.Add(data.shieldStock);
+            hash.Add(data.maxShieldStock);
+            hash.Add(data.bombStock);
+            hash.Add(data.maxBombStock);
+            hash.Add(data.primaryWeaponFamily);
+            return string.Equals(
+                data.checksum,
+                hash.ToString(),
+                StringComparison.Ordinal);
         }
 
         static bool HasValidRunSuspendV9Checksum(

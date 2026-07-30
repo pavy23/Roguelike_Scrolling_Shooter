@@ -216,6 +216,70 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void StackedPierce_AddsOneTargetPerStrengthUnit()
+        {
+            BattleModifierStackSet stacks =
+                BattleModifierStackSet.CreateSingle(
+                    BattleModifier.PierceShot,
+                    2,
+                    1,
+                    1,
+                    4);
+            BattleSim sim = CreateSim(
+                stacks,
+                Config(),
+                Gauge(),
+                new[]
+                {
+                    Enemy("a", 1),
+                    Enemy("b", 1),
+                    Enemy("c", 1)
+                },
+                new[]
+                {
+                    Spawn(0, "a", 100, 0),
+                    Spawn(0, "b", 200, 0),
+                    Spawn(0, "c", 300, 0)
+                });
+
+            FireOnceThenStep(sim, 3);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(0, sim.Enemies.Count);
+                Assert.AreEqual(3L, sim.Statistics.ShotsHit);
+                Assert.AreEqual(2, stacks.GetStackCount(BattleModifier.PierceShot));
+                Assert.AreEqual(2, stacks.GetStrength(BattleModifier.PierceShot));
+            });
+        }
+
+        [Test]
+        public void ModifierCombinationBudget_RejectsFurtherStacks()
+        {
+            BattleModifierStackSet stacks =
+                BattleModifierStackSet.CreateSingle(
+                    BattleModifier.KillExplosion,
+                    2,
+                    1,
+                    2,
+                    4);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(4, stacks.CombinationUsed);
+                Assert.IsFalse(
+                    stacks.CanAdd(
+                        BattleModifier.Ricochet,
+                        1,
+                        1,
+                        1));
+                Assert.AreEqual(
+                    BattleModifier.KillExplosion,
+                    stacks.ActiveModifiers);
+            });
+        }
+
+        [Test]
         public void ModifierCollisionScanDoesNotAllocateAfterConstruction()
         {
             // Warm all code paths before taking a per-thread allocation sample.
@@ -391,6 +455,35 @@ namespace Shmup.Core.Tests
                 123UL,
                 new[] { first, second },
                 spawns);
+        }
+
+        static BattleSim CreateSim(
+            BattleModifierStackSet modifiers,
+            BattleSimConfig config,
+            PowerUpGauge gauge,
+            EnemyDefinition[] enemies,
+            SpawnEvent[] spawns)
+        {
+            var weapon =
+                new WeaponDefinition("shot", 1, 100, 100, 1, 0, 0);
+            var content =
+                new BattleContent(enemies, new[] { weapon }, weapon.Id);
+            var segment = new StageSegment(
+                "modifier_stack_test",
+                100,
+                spawns,
+                1,
+                1,
+                new[] { 1 });
+            var plan =
+                new StagePlan(new[] { segment }, "legacy", 1, 1, 1);
+            return new BattleSim(
+                config,
+                new Rng(123UL),
+                plan,
+                content,
+                gauge,
+                modifiers);
         }
 
         static BattleSim CreateSim(
@@ -595,6 +688,8 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual(firstEvents[i].Arg, secondEvents[i].Arg);
             }
         }
+
+        static void AssertAll(Action assert) => assert();
 
         sealed class ModifierRunGenerator : IStageGenerator
         {

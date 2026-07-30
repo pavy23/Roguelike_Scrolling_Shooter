@@ -50,7 +50,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class RunSuspendData
     {
-        public const int CurrentSchemaVersion = 10;
+        public const int CurrentSchemaVersion = 11;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -203,5 +203,12 @@ namespace Shmup.Core.Simulation
         /// </summary>
         [DataMember(Order = 46)]
         public int primaryWeaponFamily;
+
+        /// <summary>
+        /// Partial capsule investments ordered by PowerUpSlot. Schema v1-v10
+        /// migrate to zero because those versions had no partial progress.
+        /// </summary>
+        [DataMember(Order = 47)]
+        public int[] powerUpProgress;
     }
 }
