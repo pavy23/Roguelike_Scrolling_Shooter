@@ -92,13 +92,14 @@ static class Program
     const double MaxStageCapsuleExpectation = 16.0;
     const double MaxSupplyNodeCapsuleExpectation = 18.0;
 
-    // Boss redesign TTK / phase gates (playtest 2026-07-30: first boss HP half + 4-room path).
+    // Boss redesign TTK / phase gates (playtest 2026-07-30: first boss tutorial-short).
     // Biome path: 4 rooms then boss — average build DPS at reach, not full-power max.
-    // Target TTK shortened from 35–45s (felt too long) to ~22–32s.
+    // First boss is a short "learn the boss fight" beat (~18s @ mid DPS);
+    // later bosses stay in the 22–32s mid band and lengthen toward the finale.
     const double BossFullPowerDps = 1880.0;
-    const double BossTtkExpectedMin = 22.0;
+    const double BossTtkExpectedMin = 16.0;
     const double BossTtkExpectedMax = 32.0;
-    const double BossTtkFullMin = 6.0;
+    const double BossTtkFullMin = 4.5;
     const int BossRequiredPhaseCount = 3;
     // Equal-split remaining-HP ratios for phase 1 / phase 2 (Core N-way equal split).
     const double BossPhaseThreshold0 = 2.0 / 3.0; // enter phase 1
@@ -114,12 +115,14 @@ static class Program
     };
 
     // REQ-034 missile family / option formation gates (provisional §7).
+    // Playtest 2026-07-30: missile fire rate lowered (support weapon, less screen fill).
+    // ST DPS bands rebased around longer base intervals (straight 42t / bomb 54t / lance 70t).
     const int MissileRapidFireStartLevel = 2;
     const int MissileFamilyStSimTicks = 300;
-    const double MissileFamilyL1StMin = 32.0;
-    const double MissileFamilyL1StMax = 52.0;
-    const double MissileFamilyL3StMin = 95.0;
-    const double MissileFamilyL3StMax = 130.0;
+    const double MissileFamilyL1StMin = 26.0;
+    const double MissileFamilyL1StMax = 40.0;
+    const double MissileFamilyL3StMin = 70.0;
+    const double MissileFamilyL3StMax = 100.0;
     const double MissileFamilyStMaxMinRatio = 1.25; // three lineages stay in same ST band
     const double LancePierceShotClearRatioMax = 1.05; // missile-only: pierce_shot must not buff lance
     const double BombKillExpClearRatioMax = 1.40; // bomb splash kills never reseed kill_explosion
@@ -2867,10 +2870,10 @@ static class Program
             return failures + 1;
         }
 
-        // Catalog numeric anchors from design doc.
+        // Catalog numeric anchors (playtest retune: longer missile intervals).
         if (straight.BaseDamage != 20
-            || straight.FireIntervalTicks != 30
-            || straight.MinimumFireIntervalTicks != 15
+            || straight.FireIntervalTicks != 42
+            || straight.MinimumFireIntervalTicks != 20
             || straight.FireIntervalReductionPerLevel != 5
             || straight.PierceEnemyCount != 0
             || straight.ExplosionDamage != 0)
@@ -2880,8 +2883,8 @@ static class Program
         }
         if (bomb.BaseDamage != 12
             || bomb.ExplosionDamage != 16
-            || bomb.FireIntervalTicks != 42
-            || bomb.MinimumFireIntervalTicks != 28
+            || bomb.FireIntervalTicks != 54
+            || bomb.MinimumFireIntervalTicks != 36
             || bomb.FireIntervalReductionPerLevel != 5
             || bomb.ExplosionMaxTargets != 5
             || bomb.ExplosionRadiusSubUnits
@@ -2893,8 +2896,8 @@ static class Program
             failures++;
         }
         if (lance.BaseDamage != 40
-            || lance.FireIntervalTicks != 54
-            || lance.MinimumFireIntervalTicks != 36
+            || lance.FireIntervalTicks != 70
+            || lance.MinimumFireIntervalTicks != 44
             || lance.FireIntervalReductionPerLevel != 6
             || lance.PierceEnemyCount != 2
             || lance.ExplosionDamage != 0)

@@ -5531,7 +5531,7 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 12000,
+      "hp": 9000,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,

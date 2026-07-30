@@ -1,9 +1,12 @@
-"""Stage segment HP + boss TTK analysis (playtest 2026-07-30 boss HP retune).
+"""Stage segment HP + boss TTK analysis (playtest 2026-07-30 boss HP retune #2).
 
 Boss HP curve (provisional, AGENTS.md §7 — human finalizes):
-  stage1 12000 → hive 15000 → fortress 19000 → storm 24000 → core 30000
+  stage1 9000 → hive 15000 → fortress 19000 → storm 24000 → core 30000
   3 phases each (aimed → spread → rapid). Equal-split HP thresholds:
   remaining 2/3 → phase1, remaining 1/3 → phase2 (Core equal-N split).
+
+First boss is intentionally short (tutorial boss fight). Later bosses stay
+gentle and lengthen; do not slash the back half again this cycle.
 
 --- Expected firepower (biome: 4 rooms then boss; CODEX shortening 6→4) ---
 
@@ -13,7 +16,7 @@ Formulas (match Core Damage.Compute / interval reduce, full-hit, 60 tps):
     gauge0–1: 75, 2: 112.5, 3: 171.4, 4: 250, 5: 360
   Option O adds O extra main beams → total main contribution × (1+O)
   Missile DPS(L)  ≈ base20 × mult(L) × (60 / max(minInterval, reduced))
-    L1≈40, L2≈72, L3≈120 (minInterval 15)
+    L1≈28.6, L2≈32.4, L3≈37.5 (interval 42/37/32, minInterval 20) — support weapon
 
 Acquisition pace after 4 rooms (NOT death-carry full stack, NOT max power):
   Capsules + room rewards offer slot levels; shorter path than old 6-room model.
@@ -31,18 +34,18 @@ Why mid > pure theoretical low end:
   Large boss hitbox ≈ full-hit; average successful run focuses combat slots;
   not a noob death-spiral and not full-power god run.
 
-Boss TTK gates (playtest: first boss 24000 felt too long → HP half):
-  - Expected biome-reach DPS: TTK **22–32 s**  (primary sizing; was 35–45)
-  - Full-power ~1880 DPS: TTK **≥ 6 s**        (anti-instant; was ≥12)
+Boss TTK gates (playtest: 12000 still long → −25% to 9000 tutorial short):
+  - Expected biome-reach DPS: TTK **16–32 s**  (first boss ~18s; later 22–32)
+  - Full-power ~1880 DPS: TTK **≥ 4.5 s**      (first-boss floor; later higher)
 
 Chosen HP vs gates (mid anchor → TTK; full @1880):
-  boss_stage1   12000 @500  → 24.0 s; @1880 → 6.4 s   (human: half of 24000)
+  boss_stage1    9000 @500  → 18.0 s; @1880 → 4.8 s   (human: 12000 −25%)
   boss_hive     15000 @600  → 25.0 s; @1880 → 8.0 s
   boss_fortress 19000 @720  → 26.4 s; @1880 → 10.1 s
   boss_storm    24000 @880  → 27.3 s; @1880 → 12.8 s
   boss_core     30000 @1050 → 28.6 s; @1880 → 16.0 s
 
-HP mono ratios ≈ ×1.25 each step (smooth; avoids stage1-half leaving 2.3× jump to hive).
+HP mono: stage1→hive jumps (~1.67×) as tutorial→real; thereafter ≈×1.25.
 
 All values provisional per AGENTS.md §7.
 """
