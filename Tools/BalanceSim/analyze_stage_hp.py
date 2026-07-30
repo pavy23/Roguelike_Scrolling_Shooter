@@ -1,42 +1,48 @@
-"""Stage segment HP + boss TTK analysis (REQ-033 boss redesign).
+"""Stage segment HP + boss TTK analysis (playtest 2026-07-30 boss HP retune).
 
-Boss HP curve target (provisional, AGENTS.md §7 — human finalizes):
-  stage1 24000 → hive 28000 → fortress 32000 → storm 38000 → core 45000
+Boss HP curve (provisional, AGENTS.md §7 — human finalizes):
+  stage1 12000 → hive 15000 → fortress 19000 → storm 24000 → core 30000
   3 phases each (aimed → spread → rapid). Equal-split HP thresholds:
   remaining 2/3 → phase1, remaining 1/3 → phase2 (Core equal-N split).
 
---- Expected firepower (biome: 6 rooms then boss event) ---
+--- Expected firepower (biome: 4 rooms then boss; CODEX shortening 6→4) ---
 
 Formulas (match Core Damage.Compute / interval reduce, full-hit, 60 tps):
-  MainShot DPS(L) ≈ base10 × (100+50(L-1))/100 × (60 / interval(L))
-    L1: 75, L2: 112.5, L3: 171.4, L4: 250, L5: 360
+  Gauge level L → weaponLevel = max(1, L); base10 main_shot.
+  MainShot DPS(L) ≈ dmg(L) × (60 / interval(L))
+    gauge0–1: 75, 2: 112.5, 3: 171.4, 4: 250, 5: 360
   Option O adds O extra main beams → total main contribution × (1+O)
-  Missile DPS(L)  ≈ base20 × (100+50(L-1))/100 × (60 / max(minInterval, reduced))
-    With minInterval 15 (weapons.json provisional): L1≈40, L2≈72, L3≈120
+  Missile DPS(L)  ≈ base20 × mult(L) × (60 / max(minInterval, reduced))
+    L1≈40, L2≈72, L3≈120 (minInterval 15)
 
-Acquisition pace after 6 rooms + stage rewards (NOT death-carry full stack):
-  Capsules cycle the gauge; room/stage rewards offer slot levels.
-  Mid firepower measured ~500 DPS even on early bosses (old HP melted in 2–3s).
+Acquisition pace after 4 rooms (NOT death-carry full stack, NOT max power):
+  Capsules + room rewards offer slot levels; shorter path than old 6-room model.
 
-  Boss order | Assumed build (levels)           | Theoretical DPS | Band used
-  -----------|----------------------------------|-----------------|----------
-  stage1     | Main3 Opt1–2 Mis0–1              | ~340–550        | **450–650** mid **550**
-  hive       | Main3 Opt2 Mis1                  | ~554            | **550–750** mid **650**
-  fortress   | Main4 Opt2 Mis1–2                | ~650–850        | **650–850** mid **750**
-  storm      | Main4 Opt3 Mis2                  | ~850–1050       | **800–1000** mid **900**
-  core       | Main5 Opt3 Mis2 (not always max) | ~1000–1400      | **950–1200** mid **1050**
-  max        | Main5 Opt4 Mis3                  | ~1880–1920      | full-power floor only
+  Boss order | Assumed avg build (gauge)     | Theoretical DPS | Band used
+  -----------|-------------------------------|-----------------|----------
+  stage1     | Main2–3 Opt1 Mis0–1           | ~225–380        | **400–600** mid **500**
+  hive       | Main3 Opt1–2 Mis1             | ~380–550        | **500–700** mid **600**
+  fortress   | Main3–4 Opt2 Mis1             | ~550–790        | **620–820** mid **720**
+  storm      | Main4 Opt2–3 Mis2             | ~820–1070       | **780–980** mid **880**
+  core       | Main4–5 Opt3 Mis2 (not max)   | ~1070–1510      | **950–1200** mid **1050**
+  max        | Main5 Opt4 Mis3               | ~1880–1920      | full-power floor only
 
-Boss TTK gates for REQ-033 (provisional):
-  - Expected biome-reach DPS: TTK **35–45 s**  (primary sizing)
-  - Full-power ~1880 DPS: TTK **≥ 12 s**       (anti-instant melt floor)
+Why mid > pure theoretical low end:
+  Large boss hitbox ≈ full-hit; average successful run focuses combat slots;
+  not a noob death-spiral and not full-power god run.
+
+Boss TTK gates (playtest: first boss 24000 felt too long → HP half):
+  - Expected biome-reach DPS: TTK **22–32 s**  (primary sizing; was 35–45)
+  - Full-power ~1880 DPS: TTK **≥ 6 s**        (anti-instant; was ≥12)
 
 Chosen HP vs gates (mid anchor → TTK; full @1880):
-  boss_stage1  24000 @550 → 43.6 s; @1880 → 12.8 s
-  boss_hive    28000 @650 → 43.1 s; @1880 → 14.9 s
-  boss_fortress 32000 @750 → 42.7 s; @1880 → 17.0 s
-  boss_storm   38000 @900 → 42.2 s; @1880 → 20.2 s
-  boss_core    45000 @1050 → 42.9 s; @1880 → 23.9 s
+  boss_stage1   12000 @500  → 24.0 s; @1880 → 6.4 s   (human: half of 24000)
+  boss_hive     15000 @600  → 25.0 s; @1880 → 8.0 s
+  boss_fortress 19000 @720  → 26.4 s; @1880 → 10.1 s
+  boss_storm    24000 @880  → 27.3 s; @1880 → 12.8 s
+  boss_core     30000 @1050 → 28.6 s; @1880 → 16.0 s
+
+HP mono ratios ≈ ×1.25 each step (smooth; avoids stage1-half leaving 2.3× jump to hive).
 
 All values provisional per AGENTS.md §7.
 """
@@ -105,20 +111,20 @@ for stage in range(1, 6):
 # --- Boss TTK (expected firepower + full-power floor) ---
 FULL_POWER_DPS = 1880.0
 EXPECTED_DPS = {
-    "boss_stage1": 550.0,
-    "boss_hive": 650.0,
-    "boss_fortress": 750.0,
-    "boss_storm": 900.0,
+    "boss_stage1": 500.0,
+    "boss_hive": 600.0,
+    "boss_fortress": 720.0,
+    "boss_storm": 880.0,
     "boss_core": 1050.0,
 }
-TTK_EXPECTED_MIN = 35.0
-TTK_EXPECTED_MAX = 45.0
-TTK_FULL_MIN = 12.0
+TTK_EXPECTED_MIN = 22.0
+TTK_EXPECTED_MAX = 32.0
+TTK_FULL_MIN = 6.0
 PHASE_COUNT = 3
 
 print()
-print("=== Boss HP curve (REQ-033) ===")
-bosses = waves["bosses"]
+print("=== Boss HP curve (4-room avg firepower) ===")
+bosses = [b for b in waves["bosses"] if not b.get("parts")]
 prev = None
 for b in bosses:
     hp = b["hp"]
@@ -129,7 +135,7 @@ for b in bosses:
 
 print()
 print(
-    f"=== Boss TTK @ expected DPS (biome-reach, full-hit) "
+    f"=== Boss TTK @ expected DPS (4-room avg, full-hit) "
     f"target {TTK_EXPECTED_MIN:.0f}–{TTK_EXPECTED_MAX:.0f}s ==="
 )
 for b in bosses:
@@ -149,7 +155,7 @@ for b in bosses:
 print()
 print("=== Boss phases (pattern / equal-split thresholds) ===")
 for b in bosses:
-    phases = b["phases"]
+    phases = b.get("phases") or []
     thresholds = b.get("phaseHpThresholds", [])
     print(
         f"{b['id']:16} phases={len(phases)} "
