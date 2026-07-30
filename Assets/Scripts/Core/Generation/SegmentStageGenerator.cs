@@ -32,7 +32,8 @@ namespace Shmup.Core.Generation
             int startLaneMask,
             IReadOnlyList<StageSegmentTemplate> segments,
             IReadOnlyList<StageBossTemplate> bosses,
-            IReadOnlyList<string> themeIds)
+            IReadOnlyList<string> themeIds,
+            IReadOnlyList<StageGimmickDefinition> gimmicks = null)
         {
             if (laneCount < 1 || laneCount > 30)
                 throw new ArgumentOutOfRangeException(nameof(laneCount));
@@ -57,6 +58,7 @@ namespace Shmup.Core.Generation
             ThemeIds = themeIds == null
                 ? CollectThemeIds(Segments, Bosses)
                 : CopyExplicitThemeIds(themeIds, Segments, Bosses);
+            Gimmicks = CopyGimmicks(gimmicks, ThemeIds);
         }
 
         public int LaneCount { get; }
@@ -65,6 +67,58 @@ namespace Shmup.Core.Generation
         public IReadOnlyList<StageSegmentTemplate> Segments { get; }
         public IReadOnlyList<StageBossTemplate> Bosses { get; }
         public IReadOnlyList<string> ThemeIds { get; }
+        public IReadOnlyList<StageGimmickDefinition> Gimmicks { get; }
+
+        public StageGimmickDefinition FindGimmick(string themeId)
+        {
+            for (int i = 0; i < Gimmicks.Count; i++)
+                if (string.Equals(
+                        Gimmicks[i].ThemeId,
+                        themeId,
+                        StringComparison.Ordinal))
+                    return Gimmicks[i];
+            return StageGimmickDefinition.None;
+        }
+
+        static IReadOnlyList<StageGimmickDefinition> CopyGimmicks(
+            IReadOnlyList<StageGimmickDefinition> source,
+            IReadOnlyList<string> themeIds)
+        {
+            if (source == null || source.Count == 0)
+                return Array.Empty<StageGimmickDefinition>();
+            var copy = new StageGimmickDefinition[source.Count];
+            for (int i = 0; i < copy.Length; i++)
+            {
+                StageGimmickDefinition gimmick = source[i]
+                    ?? throw new ArgumentException(
+                        "Stage gimmicks cannot contain null.",
+                        nameof(source));
+                bool themeFound = false;
+                for (int theme = 0; theme < themeIds.Count; theme++)
+                    if (string.Equals(
+                            themeIds[theme],
+                            gimmick.ThemeId,
+                            StringComparison.Ordinal))
+                    {
+                        themeFound = true;
+                        break;
+                    }
+                if (!themeFound)
+                    throw new ArgumentException(
+                        $"Gimmick theme '{gimmick.ThemeId}' is not registered.",
+                        nameof(source));
+                for (int earlier = 0; earlier < i; earlier++)
+                    if (string.Equals(
+                            copy[earlier].ThemeId,
+                            gimmick.ThemeId,
+                            StringComparison.Ordinal))
+                        throw new ArgumentException(
+                            $"Gimmick theme '{gimmick.ThemeId}' is duplicated.",
+                            nameof(source));
+                copy[i] = gimmick;
+            }
+            return new ReadOnlyCollection<StageGimmickDefinition>(copy);
+        }
 
         static IReadOnlyList<string> CollectThemeIds(
             IReadOnlyList<StageSegmentTemplate> segments,
@@ -279,7 +333,8 @@ namespace Shmup.Core.Generation
             IReadOnlyList<SpawnEvent> spawns,
             IReadOnlyList<ObstacleSpawn> obstacles,
             string themeId,
-            int weight)
+            int weight,
+            SegmentEnvironmentDefinition environment = null)
         {
             SegmentId = segmentId ?? throw new ArgumentNullException(nameof(segmentId));
             DifficultyMin = difficultyMin;
@@ -292,6 +347,8 @@ namespace Shmup.Core.Generation
             Obstacles = CopyObstacles(obstacles);
             ThemeId = themeId;
             Weight = weight;
+            Environment =
+                environment ?? SegmentEnvironmentDefinition.None;
         }
 
         public string SegmentId { get; }
@@ -305,6 +362,7 @@ namespace Shmup.Core.Generation
         public IReadOnlyList<ObstacleSpawn> Obstacles { get; }
         public string ThemeId { get; }
         public int Weight { get; }
+        public SegmentEnvironmentDefinition Environment { get; }
 
         internal bool SupportsDifficulty(int difficulty)
         {
@@ -363,7 +421,8 @@ namespace Shmup.Core.Generation
                 EntryLaneMask,
                 ExitLaneMask,
                 TraversableLaneMasks,
-                Obstacles);
+                Obstacles,
+                Environment);
         }
 
         static IReadOnlyList<int> CopyMasks(IReadOnlyList<int> source)
@@ -819,7 +878,8 @@ namespace Shmup.Core.Generation
                 selected.ThemeId,
                 selected.ThemeId,
                 EncounterType.Normal,
-                selected.Parts);
+                selected.Parts,
+                _catalog.FindGimmick(selected.ThemeId));
         }
 
         static string GetColossalBossId(ColossalBossKind kind)
@@ -938,7 +998,8 @@ namespace Shmup.Core.Generation
                 themeId,
                 requestedThemeId,
                 encounterType,
-                selectedBoss.Parts);
+                selectedBoss.Parts,
+                _catalog.FindGimmick(themeId));
             return ApplyEncounterPlan(normalPlan, encounterType);
         }
 
@@ -1033,7 +1094,8 @@ namespace Shmup.Core.Generation
                 source.ThemeId,
                 source.RequestedThemeId,
                 encounterType,
-                bossParts);
+                bossParts,
+                source.Gimmick);
         }
 
         static IReadOnlyList<StageSegment> AddHazardObstacles(
@@ -1070,7 +1132,8 @@ namespace Shmup.Core.Generation
                             original.Type,
                             original.X,
                             mirroredY,
-                            original.Hp);
+                            original.Hp,
+                            original.LaserAttack);
                 }
 
                 segments[i] = new StageSegment(
@@ -1080,7 +1143,8 @@ namespace Shmup.Core.Generation
                     segment.EntryLaneMask,
                     segment.ExitLaneMask,
                     segment.TraversableLaneMasks,
-                    obstacles);
+                    obstacles,
+                    segment.Environment);
             }
             return Array.AsReadOnly(segments);
         }

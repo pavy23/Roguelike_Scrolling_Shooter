@@ -75,7 +75,15 @@ namespace Shmup.Core.Simulation
         /// <summary>
         /// EntityId = rejected source entity id, Arg = configured laser cap.
         /// </summary>
-        LaserCapacityExceeded = 26
+        LaserCapacityExceeded = 26,
+        /// <summary>X/Y = rejected spawn point, Arg = configured enemy cap.</summary>
+        EnemyCapacityExceeded = 27,
+        /// <summary>X/Y = rejected spawn point, Arg = configured obstacle cap.</summary>
+        ObstacleCapacityExceeded = 28,
+        /// <summary>EntityId = segment index, X/Y = clamped player point, Arg = damage.</summary>
+        CorridorContact = 29,
+        /// <summary>Arg = configured hard deadline tick.</summary>
+        TimeLimitExpired = 30
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -484,6 +492,50 @@ namespace Shmup.Core.Simulation
         public int Y { get; }
         /// <summary>Remaining HP for breakable obstacles; zero for solid obstacles.</summary>
         public int Hp { get; }
+    }
+
+    /// <summary>
+    /// Observable segment environment in integer simulation subunits.
+    /// SegmentIndex is -1 outside a stage segment (for example, in a boss arena).
+    /// </summary>
+    public readonly struct StageEnvironmentState
+    {
+        public StageEnvironmentState(
+            int segmentIndex,
+            string segmentId,
+            bool hasCorridor,
+            int corridorMinY,
+            int corridorMaxY,
+            int corridorContactDamage,
+            int driftXNumerator,
+            int driftXDenominator,
+            int driftYNumerator,
+            int driftYDenominator)
+        {
+            SegmentIndex = segmentIndex;
+            SegmentId = segmentId;
+            HasCorridor = hasCorridor;
+            CorridorMinY = corridorMinY;
+            CorridorMaxY = corridorMaxY;
+            CorridorContactDamage = corridorContactDamage;
+            DriftXNumerator = driftXNumerator;
+            DriftXDenominator = driftXDenominator;
+            DriftYNumerator = driftYNumerator;
+            DriftYDenominator = driftYDenominator;
+        }
+
+        public int SegmentIndex { get; }
+        public string SegmentId { get; }
+        public bool HasCorridor { get; }
+        public int CorridorMinY { get; }
+        public int CorridorMaxY { get; }
+        public int CorridorContactDamage { get; }
+        public int DriftXNumerator { get; }
+        public int DriftXDenominator { get; }
+        public int DriftYNumerator { get; }
+        public int DriftYDenominator { get; }
+        public bool HasDrift =>
+            DriftXNumerator != 0 || DriftYNumerator != 0;
     }
 
     public enum LaserSourceKind
@@ -1004,6 +1056,11 @@ namespace Shmup.Core.Simulation
         IReadOnlyList<CapsuleState> Capsules { get; }
         IReadOnlyList<BombPickupState> BombPickups { get; }
         IReadOnlyList<LaserState> Lasers { get; }
+        StageEnvironmentState Environment { get; }
+        bool VisionObscured { get; }
+        int TimeLimitTicks { get; }
+        int RemainingTimeTicks { get; }
+        bool TimeLimitExpired { get; }
         /// <summary>Events emitted by the most recent Step. Cleared at the start of each Step.</summary>
         ReadOnlySpan<SimEvent> EventsThisTick { get; }
         /// <summary>보스전 진행 중 여부. false면 Boss 값은 무의미하다.</summary>
@@ -1134,6 +1191,10 @@ namespace Shmup.Core.Simulation
         readonly ReadOnlyCollection<LaserState> _readOnlyLasers;
         readonly ScheduledSpawn[] _scheduledSpawns;
         readonly ScheduledObstacle[] _scheduledObstacles;
+        readonly IReadOnlyList<StageSegment> _stageSegments;
+        readonly int[] _segmentStartTicks;
+        readonly bool _visionObscured;
+        readonly int _timeLimitTicks;
 
         // 적탄 설정 (config 스냅숏)
         readonly int _enemyBulletSpeedNumerator, _enemyBulletSpeedDenominator;
@@ -1186,6 +1247,10 @@ namespace Shmup.Core.Simulation
         long _shotsFired, _shotsHit, _kills, _capsulesCollected, _grazeCount;
 
         long _playerXRemainder, _playerYRemainder;
+        long _driftXRemainder, _driftYRemainder;
+        StageEnvironmentState _environment;
+        int _currentEnvironmentSegmentIndex = -1;
+        bool _timeLimitExpired;
         int _cooldown, _missileCooldown;
         int _mainShotLevel, _missileLevel, _optionLevel, _shieldGaugeLevel;
         int _nextBulletId = 1;
@@ -1529,6 +1594,13 @@ namespace Shmup.Core.Simulation
 
             if (stageEnabled)
             {
+                _stageSegments = stagePlan.Segments;
+                _segmentStartTicks =
+                    BuildSegmentStartTicks(stagePlan);
+                _visionObscured =
+                    stagePlan.Gimmick.VisionObscured;
+                _timeLimitTicks =
+                    stagePlan.Gimmick.TimeLimitTicks;
                 WeaponDefinition weapon = content.PlayerWeapon;
                 _bulletSpeedNumerator = config.UseConfiguredMainShotStats
                     ? config.PlayerBulletSpeedNumerator
@@ -1579,6 +1651,10 @@ namespace Shmup.Core.Simulation
             }
             else
             {
+                _stageSegments = Array.Empty<StageSegment>();
+                _segmentStartTicks = Array.Empty<int>();
+                _visionObscured = false;
+                _timeLimitTicks = 0;
                 _bulletSpeedNumerator = useLaserProfile
                     ? config.LaserSpeedNumerator
                     : useSpreadProfile
@@ -1687,7 +1763,9 @@ namespace Shmup.Core.Simulation
             long eventCapacity = 64L
                 + 3L * spawnCapacity
                 + 2L * bulletCapacity
-                + 2L * _maxObstacles
+                + 2L * Math.Max(
+                    _maxObstacles,
+                    _scheduledObstacles.Length)
                 + 2L * _maxBombPickups
                 + 3L * _maxLasers;
             if (eventCapacity > int.MaxValue)
@@ -1705,6 +1783,7 @@ namespace Shmup.Core.Simulation
                 config.StartingBombStock,
                 _maxBombStock);
             _playerAlive = true;
+            UpdateEnvironmentState();
             RecordPlayerPosition();
             ReadPowerUpLevels();
             UpdateOptionPositions();
@@ -1742,6 +1821,13 @@ namespace Shmup.Core.Simulation
         public IReadOnlyList<BombPickupState> BombPickups =>
             _readOnlyBombPickups;
         public IReadOnlyList<LaserState> Lasers => _readOnlyLasers;
+        public StageEnvironmentState Environment => _environment;
+        public bool VisionObscured => _visionObscured;
+        public int TimeLimitTicks => _timeLimitTicks;
+        public int RemainingTimeTicks => _timeLimitTicks == 0
+            ? 0
+            : Math.Max(0, _timeLimitTicks - Tick);
+        public bool TimeLimitExpired => _timeLimitExpired;
         public ReadOnlySpan<SimEvent> EventsThisTick => new ReadOnlySpan<SimEvent>(_events, 0, _eventCount);
         public bool BossActive => _bossSpawned && !_bossDefeated;
         public BossState Boss => new BossState(
@@ -1831,6 +1917,8 @@ namespace Shmup.Core.Simulation
             if (_playerInvulnerabilityTicksRemaining > 0)
                 _playerInvulnerabilityTicksRemaining--;
 
+            UpdateEnvironmentState();
+            ExpireTimeLimitIfNeeded();
             AdvancePlayer(in input);
             RecordPlayerPosition();
             bool activatePressed = input.Activate && !_activateHeld;
@@ -2301,8 +2389,116 @@ namespace Shmup.Core.Simulation
         const int DigitalDirectionScale = 65536;
         const int DigitalDiagonalComponent = 46340;
 
+        void UpdateEnvironmentState()
+        {
+            int segmentIndex = -1;
+            for (int i = 0; i < _stageSegments.Count; i++)
+            {
+                long endTick =
+                    (long)_segmentStartTicks[i]
+                    + _stageSegments[i].LengthTicks;
+                if (Tick >= _segmentStartTicks[i] && Tick < endTick)
+                {
+                    segmentIndex = i;
+                    break;
+                }
+            }
+
+            if (segmentIndex != _currentEnvironmentSegmentIndex)
+            {
+                _driftXRemainder = 0;
+                _driftYRemainder = 0;
+                _currentEnvironmentSegmentIndex = segmentIndex;
+            }
+            if (segmentIndex < 0)
+            {
+                _environment = new StageEnvironmentState(
+                    -1,
+                    null,
+                    false,
+                    0,
+                    0,
+                    0,
+                    0,
+                    1,
+                    0,
+                    1);
+                return;
+            }
+
+            StageSegment segment = _stageSegments[segmentIndex];
+            SegmentEnvironmentDefinition definition =
+                segment.Environment;
+            int localTick = Tick - _segmentStartTicks[segmentIndex];
+            int corridorMinY = definition.HasCorridor
+                ? InterpolateSegmentValue(
+                    definition.StartMinY,
+                    definition.EndMinY,
+                    localTick,
+                    segment.LengthTicks)
+                : 0;
+            int corridorMaxY = definition.HasCorridor
+                ? InterpolateSegmentValue(
+                    definition.StartMaxY,
+                    definition.EndMaxY,
+                    localTick,
+                    segment.LengthTicks)
+                : 0;
+            _environment = new StageEnvironmentState(
+                segmentIndex,
+                segment.SegmentId,
+                definition.HasCorridor,
+                corridorMinY,
+                corridorMaxY,
+                definition.CorridorContactDamage,
+                definition.DriftXNumerator,
+                definition.DriftXDenominator,
+                definition.DriftYNumerator,
+                definition.DriftYDenominator);
+        }
+
+        static int InterpolateSegmentValue(
+            int start,
+            int end,
+            int elapsedTicks,
+            int durationTicks)
+        {
+            return SaturateToInt(
+                (long)start
+                + ((long)end - start) * elapsedTicks / durationTicks);
+        }
+
+        void ExpireTimeLimitIfNeeded()
+        {
+            if (_timeLimitExpired
+                || _timeLimitTicks == 0
+                || Tick < _timeLimitTicks
+                || _bossDefeated)
+                return;
+
+            _timeLimitExpired = true;
+            EmitEvent(
+                SimEventType.TimeLimitExpired,
+                0,
+                PlayerX,
+                PlayerY,
+                _timeLimitTicks);
+            if (!_playerAlive)
+                return;
+            ShieldStock = 0;
+            _playerAlive = false;
+            EmitEvent(
+                SimEventType.PlayerKilled,
+                0,
+                PlayerX,
+                PlayerY,
+                0);
+        }
+
         void AdvancePlayer(in InputCommand input)
         {
+            int controlledX;
+            int controlledY;
             if (input.UseAnalogMovement)
             {
                 _playerXRemainder = 0;
@@ -2312,37 +2508,102 @@ namespace Shmup.Core.Simulation
                     input.AnalogDeltaYSubUnits,
                     out int deltaX,
                     out int deltaY);
-                PlayerX = ClampPlayerPosition(
+                controlledX = ClampPlayerPosition(
                     PlayerX,
                     deltaX,
                     _playerMinX,
                     _playerMaxX);
-                PlayerY = ClampPlayerPosition(
+                controlledY = ClampPlayerPosition(
                     PlayerY,
                     deltaY,
                     _playerMinY,
                     _playerMaxY);
-                return;
+            }
+            else
+            {
+                int componentScale =
+                    input.MoveX != 0 && input.MoveY != 0
+                        ? DigitalDiagonalComponent
+                        : DigitalDirectionScale;
+                controlledX = AdvanceDigitalPlayerAxis(
+                    PlayerX,
+                    input.MoveX,
+                    componentScale,
+                    ref _playerXRemainder,
+                    _playerMinX,
+                    _playerMaxX);
+                controlledY = AdvanceDigitalPlayerAxis(
+                    PlayerY,
+                    input.MoveY,
+                    componentScale,
+                    ref _playerYRemainder,
+                    _playerMinY,
+                    _playerMaxY);
             }
 
-            int componentScale =
-                input.MoveX != 0 && input.MoveY != 0
-                    ? DigitalDiagonalComponent
-                    : DigitalDirectionScale;
-            PlayerX = AdvanceDigitalPlayerAxis(
-                PlayerX,
-                input.MoveX,
-                componentScale,
-                ref _playerXRemainder,
+            int driftX = AdvanceSignedFraction(
+                _environment.DriftXNumerator,
+                _environment.DriftXDenominator,
+                ref _driftXRemainder);
+            int driftY = AdvanceSignedFraction(
+                _environment.DriftYNumerator,
+                _environment.DriftYDenominator,
+                ref _driftYRemainder);
+            PlayerX = ClampPlayerPosition(
+                controlledX,
+                driftX,
                 _playerMinX,
                 _playerMaxX);
-            PlayerY = AdvanceDigitalPlayerAxis(
-                PlayerY,
-                input.MoveY,
-                componentScale,
-                ref _playerYRemainder,
-                _playerMinY,
-                _playerMaxY);
+
+            long candidateY = (long)controlledY + driftY;
+            int minimumY = _playerMinY;
+            int maximumY = _playerMaxY;
+            bool corridorContact = false;
+            if (_environment.HasCorridor)
+            {
+                minimumY = Math.Max(
+                    minimumY,
+                    SaturateToInt(
+                        (long)_environment.CorridorMinY
+                        + _playerHalfHeight));
+                maximumY = Math.Min(
+                    maximumY,
+                    SaturateToInt(
+                        (long)_environment.CorridorMaxY
+                        - _playerHalfHeight));
+                if (minimumY > maximumY)
+                    throw new InvalidOperationException(
+                        "The active corridor is narrower than the player hitbox.");
+                corridorContact =
+                    candidateY < minimumY || candidateY > maximumY;
+            }
+            PlayerY = candidateY <= minimumY
+                ? minimumY
+                : candidateY >= maximumY
+                    ? maximumY
+                    : (int)candidateY;
+            if (corridorContact)
+            {
+                EmitEvent(
+                    SimEventType.CorridorContact,
+                    _environment.SegmentIndex,
+                    PlayerX,
+                    PlayerY,
+                    _environment.CorridorContactDamage);
+                ApplyPlayerHit(
+                    _environment.CorridorContactDamage);
+            }
+        }
+
+        static int AdvanceSignedFraction(
+            int numerator,
+            int denominator,
+            ref long remainder)
+        {
+            long accumulated = remainder + numerator;
+            int delta = (int)(accumulated / denominator);
+            remainder = accumulated % denominator;
+            return delta;
         }
 
         void ClampAnalogDelta(
@@ -2755,7 +3016,15 @@ namespace Shmup.Core.Simulation
                 ScheduledObstacle scheduled =
                     _scheduledObstacles[_nextScheduledObstacle++];
                 if (_obstacles.Count >= _maxObstacles)
+                {
+                    EmitEvent(
+                        SimEventType.ObstacleCapacityExceeded,
+                        0,
+                        scheduled.Obstacle.X,
+                        scheduled.Obstacle.Y,
+                        _maxObstacles);
                     continue;
+                }
                 if (_nextObstacleId == int.MaxValue)
                     throw new InvalidOperationException(
                         "The obstacle id counter is exhausted.");
@@ -2796,7 +3065,15 @@ namespace Shmup.Core.Simulation
             int y)
         {
             if (_enemies.Count >= _maxEnemies)
+            {
+                EmitEvent(
+                    SimEventType.EnemyCapacityExceeded,
+                    0,
+                    x,
+                    y,
+                    _maxEnemies);
                 return false;
+            }
             if (_nextEnemyId == int.MaxValue)
                 throw new InvalidOperationException(
                     "The enemy id counter is exhausted.");
@@ -5396,6 +5673,22 @@ namespace Shmup.Core.Simulation
                 segmentStart += segment.LengthTicks;
             }
             return schedule.ToArray();
+        }
+
+        static int[] BuildSegmentStartTicks(StagePlan stagePlan)
+        {
+            var result = new int[stagePlan.Segments.Count];
+            long startTick = 0;
+            for (int i = 0; i < result.Length; i++)
+            {
+                if (startTick > int.MaxValue)
+                    throw new ArgumentException(
+                        "Stage environment timeline exceeds the tick range.",
+                        nameof(stagePlan));
+                result[i] = (int)startTick;
+                startTick += stagePlan.Segments[i].LengthTicks;
+            }
+            return result;
         }
 
         static int CompareScheduledSpawns(ScheduledSpawn left, ScheduledSpawn right)

@@ -111,6 +111,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(10, first.RewardChoices);
             Assert.AreEqual(0, first.RouteChoices);
             Assert.AreEqual(15, first.RoomsCleared);
+            Assert.AreEqual(31, first.ObservedGimmickMask);
             Assert.AreEqual(first.Hash, second.Hash);
             Assert.AreEqual(first.Ticks, second.Ticks);
             Assert.AreEqual(
@@ -118,6 +119,9 @@ namespace Shmup.Core.Tests
                 second.RewardChoices);
             Assert.AreEqual(first.RouteChoices, second.RouteChoices);
             Assert.AreEqual(first.RoomsCleared, second.RoomsCleared);
+            Assert.AreEqual(
+                first.ObservedGimmickMask,
+                second.ObservedGimmickMask);
             TestContext.WriteLine(
                 $"determinism hash={first.Hash:X16}, ticks={first.Ticks}");
         }
@@ -212,6 +216,7 @@ namespace Shmup.Core.Tests
             RunState previousChoiceState = RunState.Playing;
             int choiceStateIterations = 0;
             int maximumChoiceStateIterations = 0;
+            int observedGimmickMask = 0;
             hasher.FoldRunState(run);
 
             for (int guard = 0; guard < 5_000 && !run.IsFinished; guard++)
@@ -250,6 +255,9 @@ namespace Shmup.Core.Tests
                     var input = new InputCommand(0, 0, true);
                     run.Step(in input);
                     ticks++;
+                    ObserveGimmicks(
+                        run.Battle,
+                        ref observedGimmickMask);
                 }
                 hasher.FoldRunState(run);
             }
@@ -262,7 +270,32 @@ namespace Shmup.Core.Tests
                 run.Statistics.StagesCleared,
                 run.Statistics.RoomsCleared,
                 maximumChoiceStateIterations,
+                observedGimmickMask,
                 run.State);
+        }
+
+        static void ObserveGimmicks(
+            IBattleSim battle,
+            ref int observedMask)
+        {
+            if (battle.Environment.HasCorridor)
+                observedMask |= 1 << 1;
+            if (battle.Lasers.Count != 0)
+                observedMask |= 1 << 2;
+            if (battle.VisionObscured
+                && battle.Environment.HasDrift)
+                observedMask |= 1 << 3;
+            if (battle.TimeLimitTicks != 0)
+                observedMask |= 1 << 4;
+            ReadOnlySpan<SimEvent> events =
+                battle.EventsThisTick;
+            for (int i = 0; i < events.Length; i++)
+                if (events[i].Type
+                    == SimEventType.ObstacleDestroyed)
+                {
+                    observedMask |= 1;
+                    break;
+                }
         }
 
         static RhythmTrace RunRhythmTrace(
@@ -484,8 +517,20 @@ namespace Shmup.Core.Tests
                 1,
                 0,
                 0);
+            var tentacle = new EnemyDefinition(
+                "completion_tentacle",
+                1,
+                1,
+                EnemyMovePattern.Static,
+                0,
+                1,
+                0,
+                0,
+                0,
+                0,
+                1);
             return new BattleContent(
-                Array.Empty<EnemyDefinition>(),
+                new[] { tentacle },
                 new[] { weapon },
                 weapon.Id);
         }
@@ -569,6 +614,7 @@ namespace Shmup.Core.Tests
                 int stagesCleared,
                 int roomsCleared,
                 int maximumChoiceStateIterations,
+                int observedGimmickMask,
                 RunState finalState)
             {
                 Hash = hash;
@@ -579,6 +625,7 @@ namespace Shmup.Core.Tests
                 RoomsCleared = roomsCleared;
                 MaximumChoiceStateIterations =
                     maximumChoiceStateIterations;
+                ObservedGimmickMask = observedGimmickMask;
                 FinalState = finalState;
             }
 
@@ -589,6 +636,7 @@ namespace Shmup.Core.Tests
             public int StagesCleared { get; }
             public int RoomsCleared { get; }
             public int MaximumChoiceStateIterations { get; }
+            public int ObservedGimmickMask { get; }
             public RunState FinalState { get; }
         }
 
@@ -636,7 +684,13 @@ namespace Shmup.Core.Tests
         sealed class CompletingRouteGenerator : IRouteStageGenerator
         {
             static readonly string[] Themes =
-                { "a", "b", "c", "d", "e" };
+                {
+                    "scrapyard",
+                    "bioHive",
+                    "fortress",
+                    "nebula",
+                    "core"
+                };
             static readonly BossPhase[] Phases =
                 { new BossPhase(999, 1, 1, 1) };
 
@@ -676,17 +730,116 @@ namespace Shmup.Core.Tests
 
             static StagePlan Plan(string themeId)
             {
-                return new StagePlan(
-                    new[]
+                SegmentEnvironmentDefinition environment =
+                    SegmentEnvironmentDefinition.None;
+                SpawnEvent[] spawns =
+                    Array.Empty<SpawnEvent>();
+                ObstacleSpawn[] obstacles =
+                    Array.Empty<ObstacleSpawn>();
+                StageGimmickDefinition gimmick =
+                    StageGimmickDefinition.None;
+
+                if (string.Equals(
+                        themeId,
+                        "scrapyard",
+                        StringComparison.Ordinal))
+                {
+                    obstacles = new[]
                     {
-                        new StageSegment(
-                            themeId + "_segment",
-                            1,
-                            Array.Empty<SpawnEvent>(),
-                            1,
-                            1,
-                            new[] { 1 })
-                    },
+                        new ObstacleSpawn(
+                            ObstacleType.Breakable,
+                            256,
+                            0,
+                            1)
+                    };
+                }
+                else if (string.Equals(
+                    themeId,
+                    "bioHive",
+                    StringComparison.Ordinal))
+                {
+                    environment = Corridor();
+                    spawns = new[]
+                    {
+                        new SpawnEvent(
+                            0,
+                            "completion_tentacle",
+                            256,
+                            0)
+                    };
+                }
+                else if (string.Equals(
+                    themeId,
+                    "fortress",
+                    StringComparison.Ordinal))
+                {
+                    obstacles = new[]
+                    {
+                        new ObstacleSpawn(
+                            ObstacleType.LaserEmitter,
+                            512,
+                            512,
+                            0,
+                            GateLaser())
+                    };
+                }
+                else if (string.Equals(
+                    themeId,
+                    "nebula",
+                    StringComparison.Ordinal))
+                {
+                    environment = Drift();
+                    gimmick = new StageGimmickDefinition(
+                        themeId,
+                        true,
+                        0);
+                }
+                else if (string.Equals(
+                    themeId,
+                    "core",
+                    StringComparison.Ordinal))
+                {
+                    environment = new SegmentEnvironmentDefinition(
+                        true,
+                        -1024,
+                        1024,
+                        -512,
+                        512,
+                        1,
+                        1,
+                        2,
+                        0,
+                        1);
+                    obstacles = new[]
+                    {
+                        new ObstacleSpawn(
+                            ObstacleType.Breakable,
+                            256,
+                            0,
+                            1),
+                        new ObstacleSpawn(
+                            ObstacleType.LaserEmitter,
+                            512,
+                            512,
+                            0,
+                            GateLaser())
+                    };
+                    gimmick = new StageGimmickDefinition(
+                        themeId,
+                        false,
+                        120);
+                }
+                var segment = new StageSegment(
+                    themeId + "_segment",
+                    12,
+                    spawns,
+                    1,
+                    1,
+                    new[] { 1 },
+                    obstacles,
+                    environment);
+                return new StagePlan(
+                    new[] { segment },
                     "completion_boss",
                     1,
                     1,
@@ -697,7 +850,57 @@ namespace Shmup.Core.Tests
                     512,
                     Phases,
                     themeId,
-                    themeId);
+                    themeId,
+                    EncounterType.Normal,
+                    Array.Empty<BossPartDefinition>(),
+                    gimmick);
+            }
+
+            static SegmentEnvironmentDefinition Corridor()
+            {
+                return new SegmentEnvironmentDefinition(
+                    true,
+                    -1024,
+                    1024,
+                    -512,
+                    512,
+                    1,
+                    0,
+                    1,
+                    0,
+                    1);
+            }
+
+            static SegmentEnvironmentDefinition Drift()
+            {
+                return new SegmentEnvironmentDefinition(
+                    false,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    1,
+                    2,
+                    -1,
+                    3);
+            }
+
+            static LaserAttackDefinition GateLaser()
+            {
+                return new LaserAttackDefinition(
+                    20,
+                    5,
+                    2,
+                    2,
+                    1,
+                    0,
+                    0,
+                    0,
+                    -256,
+                    8,
+                    32,
+                    1);
             }
         }
 

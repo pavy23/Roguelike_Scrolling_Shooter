@@ -224,6 +224,9 @@ namespace Shmup.Core.Simulation
             FoldInt32(plan.BossHalfWidth);
             FoldInt32(plan.BossHalfHeight);
             FoldInt32(plan.BossHoldX);
+            FoldString(plan.Gimmick.ThemeId);
+            FoldBool(plan.Gimmick.VisionObscured);
+            FoldInt32(plan.Gimmick.TimeLimitTicks);
 
             FoldInt32(plan.BossPhases.Count);
             for (int i = 0; i < plan.BossPhases.Count; i++)
@@ -277,6 +280,18 @@ namespace Shmup.Core.Simulation
                 FoldInt32(segment.LengthTicks);
                 FoldInt32(segment.EntryLaneMask);
                 FoldInt32(segment.ExitLaneMask);
+                SegmentEnvironmentDefinition environment =
+                    segment.Environment;
+                FoldBool(environment.HasCorridor);
+                FoldInt32(environment.StartMinY);
+                FoldInt32(environment.StartMaxY);
+                FoldInt32(environment.EndMinY);
+                FoldInt32(environment.EndMaxY);
+                FoldInt32(environment.CorridorContactDamage);
+                FoldInt32(environment.DriftXNumerator);
+                FoldInt32(environment.DriftXDenominator);
+                FoldInt32(environment.DriftYNumerator);
+                FoldInt32(environment.DriftYDenominator);
                 FoldInt32(segment.TraversableLaneMasks.Count);
                 for (int j = 0; j < segment.TraversableLaneMasks.Count; j++)
                     FoldInt32(segment.TraversableLaneMasks[j]);
@@ -299,6 +314,24 @@ namespace Shmup.Core.Simulation
                     FoldInt32(obstacle.X);
                     FoldInt32(obstacle.Y);
                     FoldInt32(obstacle.Hp);
+                    LaserAttackDefinition laser =
+                        obstacle.LaserAttack;
+                    FoldBool(laser != null);
+                    if (laser != null)
+                    {
+                        FoldInt32(laser.CycleIntervalTicks);
+                        FoldInt32(laser.TelegraphTicks);
+                        FoldInt32(laser.FiringTicks);
+                        FoldInt32(laser.SustainTicks);
+                        FoldInt32(laser.DissipateTicks);
+                        FoldInt32(laser.StartOffsetX);
+                        FoldInt32(laser.StartOffsetY);
+                        FoldInt32(laser.EndOffsetX);
+                        FoldInt32(laser.EndOffsetY);
+                        FoldInt32(laser.ThinHalfWidth);
+                        FoldInt32(laser.FullHalfWidth);
+                        FoldInt32(laser.Damage);
+                    }
                 }
             }
         }
@@ -368,6 +401,21 @@ namespace Shmup.Core.Simulation
             FoldInt32(
                 battle.PlayerInvulnerabilityTicksRemaining);
             FoldInt32((int)battle.PlayerWeaponType);
+            StageEnvironmentState environment = battle.Environment;
+            FoldInt32(environment.SegmentIndex);
+            FoldString(environment.SegmentId);
+            FoldBool(environment.HasCorridor);
+            FoldInt32(environment.CorridorMinY);
+            FoldInt32(environment.CorridorMaxY);
+            FoldInt32(environment.CorridorContactDamage);
+            FoldInt32(environment.DriftXNumerator);
+            FoldInt32(environment.DriftXDenominator);
+            FoldInt32(environment.DriftYNumerator);
+            FoldInt32(environment.DriftYDenominator);
+            FoldBool(battle.VisionObscured);
+            FoldInt32(battle.TimeLimitTicks);
+            FoldInt32(battle.RemainingTimeTicks);
+            FoldBool(battle.TimeLimitExpired);
 
             FoldInt32(battle.Bullets.Count);
             for (int i = 0; i < battle.Bullets.Count; i++)

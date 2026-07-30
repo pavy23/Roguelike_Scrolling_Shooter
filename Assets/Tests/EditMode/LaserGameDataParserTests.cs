@@ -55,10 +55,24 @@ namespace Shmup.Core.Tests
             const string waves = @"{
   ""schemaVersion"": 2, ""scrollSpeed"": 3, ""spawnX"": 13,
   ""laneCount"": 3, ""segmentsPerStage"": 1, ""startLaneMask"": 2,
+  ""themes"": [""fortress""],
+  ""gimmicks"": [{
+    ""theme"": ""fortress"", ""visionObscured"": true,
+    ""timeLimitTicks"": 900
+  }],
   ""segments"": [{
     ""id"": ""laser_room"", ""difficultyMin"": 1, ""difficultyMax"": 5,
+    ""theme"": ""fortress"",
     ""lengthTicks"": 120, ""entryLaneMask"": 7, ""exitLaneMask"": 7,
     ""traversableLaneMasks"": [7],
+    ""environment"": {
+      ""corridor"": {
+        ""startMinY"": -10, ""startMaxY"": 10,
+        ""endMinY"": -5, ""endMaxY"": 5,
+        ""contactDamage"": 1
+      },
+      ""drift"": { ""xPerSecond"": -1.5, ""yPerSecond"": 0.25 }
+    },
     ""spawns"": [{ ""tick"": 1, ""enemyId"": ""laser_enemy"", ""y"": 0 }],
     ""obstacles"": [{
       ""type"": ""laserEmitter"", ""x"": 10, ""y"": 5, ""hp"": 0,
@@ -74,6 +88,7 @@ namespace Shmup.Core.Tests
   }],
   ""bosses"": [{
     ""id"": ""boss"", ""stageIndexMin"": 1, ""stageIndexMax"": 1,
+    ""theme"": ""fortress"",
     ""difficultyMin"": 1, ""difficultyMax"": 5,
     ""entryLaneMask"": 7, ""hp"": 1
   }]
@@ -108,6 +123,21 @@ namespace Shmup.Core.Tests
                 plan.Segments[0].Obstacles[0].Type);
             Assert.IsNotNull(
                 plan.Segments[0].Obstacles[0].LaserAttack);
+            Assert.IsTrue(plan.Gimmick.VisionObscured);
+            Assert.AreEqual(900, plan.Gimmick.TimeLimitTicks);
+            Assert.IsTrue(plan.Segments[0].Environment.HasCorridor);
+            Assert.AreEqual(
+                -384,
+                plan.Segments[0].Environment.DriftXNumerator);
+            Assert.AreEqual(
+                60,
+                plan.Segments[0].Environment.DriftXDenominator);
+            Assert.AreEqual(
+                64,
+                plan.Segments[0].Environment.DriftYNumerator);
+            Assert.AreEqual(
+                60,
+                plan.Segments[0].Environment.DriftYDenominator);
             Assert.AreEqual(
                 RewardType.BombStock,
                 data.Rewards.All[0].Type);

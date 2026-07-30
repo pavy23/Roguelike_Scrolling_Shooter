@@ -40,14 +40,55 @@ namespace Shmup.Core.Content
             }
 
             string[] themes = ParseThemes(root.themes, segments, bosses);
+            StageGimmickDefinition[] gimmicks =
+                ParseStageGimmicks(root.gimmicks, themes);
             var catalog = new StageGenerationCatalog(
                 Require(root.laneCount, "waves.json.laneCount"),
                 Require(root.segmentsPerStage, "waves.json.segmentsPerStage"),
                 Require(root.startLaneMask, "waves.json.startLaneMask"),
                 segments,
                 bosses,
-                themes);
+                themes,
+                gimmicks);
             return new WavesParseResult(catalog, scrollSpeed);
+        }
+
+        static StageGimmickDefinition[] ParseStageGimmicks(
+            StageGimmickDto[] source,
+            string[] themes)
+        {
+            if (source == null || source.Length == 0)
+                return Array.Empty<StageGimmickDefinition>();
+            if (themes == null)
+                throw Error(
+                    "waves.json.gimmicks",
+                    "requires waves.json.themes.");
+            var result = new StageGimmickDefinition[source.Length];
+            for (int i = 0; i < result.Length; i++)
+            {
+                string path = $"waves.json.gimmicks[{i}]";
+                StageGimmickDto dto = source[i];
+                if (dto == null)
+                    throw Error(path, "cannot be null.");
+                string theme = RequireText(dto.theme, path + ".theme");
+                EnsureThemeIsListed(theme, path + ".theme", themes);
+                for (int earlier = 0; earlier < i; earlier++)
+                    if (string.Equals(
+                            result[earlier].ThemeId,
+                            theme,
+                            StringComparison.Ordinal))
+                        throw Error(path + ".theme", $"duplicates theme '{theme}'.");
+                int timeLimitTicks = dto.timeLimitTicks ?? 0;
+                if (timeLimitTicks < 0)
+                    throw Error(
+                        path + ".timeLimitTicks",
+                        "cannot be negative.");
+                result[i] = new StageGimmickDefinition(
+                    theme,
+                    dto.visionObscured ?? false,
+                    timeLimitTicks);
+            }
+            return result;
         }
 
         static string[] ParseThemes(
@@ -226,7 +267,102 @@ namespace Shmup.Core.Content
                 spawns,
                 obstacles,
                 OptionalText(source.theme, path + ".theme"),
-                ParseSegmentWeight(source.weight, path + ".weight"));
+                ParseSegmentWeight(source.weight, path + ".weight"),
+                ParseSegmentEnvironment(
+                    source.environment,
+                    path + ".environment"));
+        }
+
+        static SegmentEnvironmentDefinition ParseSegmentEnvironment(
+            SegmentEnvironmentDto source,
+            string path)
+        {
+            if (source == null)
+                return SegmentEnvironmentDefinition.None;
+
+            bool hasCorridor = source.corridor != null;
+            int startMinY = 0;
+            int startMaxY = 0;
+            int endMinY = 0;
+            int endMaxY = 0;
+            int contactDamage = 0;
+            if (hasCorridor)
+            {
+                startMinY = ToSubUnits(
+                    Require(
+                        source.corridor.startMinY,
+                        path + ".corridor.startMinY"),
+                    path + ".corridor.startMinY");
+                startMaxY = ToSubUnits(
+                    Require(
+                        source.corridor.startMaxY,
+                        path + ".corridor.startMaxY"),
+                    path + ".corridor.startMaxY");
+                endMinY = ToSubUnits(
+                    Require(
+                        source.corridor.endMinY,
+                        path + ".corridor.endMinY"),
+                    path + ".corridor.endMinY");
+                endMaxY = ToSubUnits(
+                    Require(
+                        source.corridor.endMaxY,
+                        path + ".corridor.endMaxY"),
+                    path + ".corridor.endMaxY");
+                contactDamage = Require(
+                    source.corridor.contactDamage,
+                    path + ".corridor.contactDamage");
+                if (contactDamage < 1)
+                    throw Error(
+                        path + ".corridor.contactDamage",
+                        "must be positive.");
+            }
+
+            ExactFraction driftX = new ExactFraction(0, 1);
+            ExactFraction driftY = new ExactFraction(0, 1);
+            if (source.drift != null)
+            {
+                driftX = ToSignedPerTickVelocity(
+                    source.drift.xPerSecond ?? 0m,
+                    path + ".drift.xPerSecond");
+                driftY = ToSignedPerTickVelocity(
+                    source.drift.yPerSecond ?? 0m,
+                    path + ".drift.yPerSecond");
+            }
+            try
+            {
+                return new SegmentEnvironmentDefinition(
+                    hasCorridor,
+                    startMinY,
+                    startMaxY,
+                    endMinY,
+                    endMaxY,
+                    contactDamage,
+                    driftX.Numerator,
+                    driftX.Denominator,
+                    driftY.Numerator,
+                    driftY.Denominator);
+            }
+            catch (ArgumentException error)
+            {
+                throw Error(path, error.Message);
+            }
+        }
+
+        static ExactFraction ToSignedPerTickVelocity(
+            decimal worldUnitsPerSecond,
+            string path)
+        {
+            ExactFraction perSecond =
+                ToSubUnitFraction(worldUnitsPerSecond, path);
+            long denominator =
+                (long)perSecond.Denominator * SimSpace.TicksPerSecond;
+            if (denominator > int.MaxValue)
+                throw Error(
+                    path,
+                    "needs a denominator larger than the simulation supports.");
+            return new ExactFraction(
+                perSecond.Numerator,
+                (int)denominator);
         }
 
         static int ParseSegmentWeight(int? source, string path)
