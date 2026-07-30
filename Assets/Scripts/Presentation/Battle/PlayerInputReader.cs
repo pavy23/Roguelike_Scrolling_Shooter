@@ -92,6 +92,17 @@ namespace Shmup.Presentation.Battle
             _fireHeld = _fireAction.IsPressed();
             if (_fireAction.WasPressedThisFrame()) _firePressedThisFrame = true;
 
+            // 모바일 터치 조작 (원격 플레이): 터치 UI가 켜져 있으면 값을 덮어쓴다.
+            // 시뮬은 InputCommand만 보므로 입력원이 달라도 결정론에 영향 없다.
+            var touch = TouchControls.Instance;
+            if (touch != null && touch.Active)
+            {
+                var touchMove = touch.Move;
+                if (touchMove.sqrMagnitude > 0.0001f) _move = touchMove;
+                if (touch.Fire) _fireHeld = true;
+                if (touch.ConsumeActivate()) _activatePressedThisFrame = true;
+            }
+
             // 게이지 활성화 (REQ-019): Activate 액션(기본 X / 패드 Y) — 리바인딩 가능.
             // 액션이 없는 구 에셋에서는 하드코딩 키로 폴백한다. 상승 에지 판정은 Core가 한다.
             if (_activateAction != null)

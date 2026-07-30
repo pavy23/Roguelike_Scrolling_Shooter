@@ -197,6 +197,14 @@ namespace Shmup.Presentation.Battle
         /// <summary>런 완주(최종 보스 격파) 여부 — 결과 화면이 승리/패배를 가른다 (REQ-031).</summary>
         public bool IsRunCleared => _run != null && _run.State == RunState.RunCleared;
 
+        /// <summary>초대형 보스 파츠 상태 (REQ-035) — BossPartsView가 읽는다.</summary>
+        public IReadOnlyList<BossPartState> BossParts =>
+            _sim != null ? _sim.BossParts : null;
+
+        /// <summary>보스 본체의 월드 좌표 (파츠 오버레이 기준점).</summary>
+        public Vector3 BossWorldPosition =>
+            _sim != null ? SimView.ToWorld(_sim.Boss.X, _sim.Boss.Y) : Vector3.zero;
+
         // 바이옴/룸 진행도 (REQ-032) — 22분 런에서 현재 위치를 알려 준다
         public int BiomeIndex => _run?.BiomeIndex ?? 0;
         public int RoomIndex => _run?.RoomIndex ?? 0;

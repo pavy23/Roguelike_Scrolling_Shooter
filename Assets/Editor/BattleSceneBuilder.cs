@@ -869,6 +869,17 @@ namespace Shmup.EditorTools
             SetReference(onboarding, "_director", director);
             SetReference(onboarding, "_font", uiFont);
 
+            // 모바일 터치 조작 (원격 플레이) — 터치 기기에서만 표시된다
+            var touchControls = battleRoot.AddComponent<TouchControls>();
+            SetReference(touchControls, "_font", uiFont);
+
+            // 초대형 보스 파츠 오버레이 (REQ-035)
+            var partsRoot = new GameObject("BossParts");
+            partsRoot.transform.SetParent(battleRoot.transform, false);
+            var partsView = battleRoot.AddComponent<BossPartsView>();
+            SetReference(partsView, "_director", director);
+            SetReference(partsView, "_root", partsRoot.transform);
+
             // 바이옴/룸 진행도 HUD + 바이옴 진입 배너 (REQ-032)
             var progress = battleRoot.AddComponent<ProgressHud>();
             SetReference(progress, "_director", director);
