@@ -149,21 +149,20 @@ namespace Shmup.Presentation.Battle
 
         /// <summary>
         /// 무기 진화 단계명 (REQ-086, 사람 승인 설계). 모르는 조합은 기본 이름으로.
-        /// 표시명은 슬롯 폭(76px) 안에 들어가게 짧게 유지한다.
+        /// 실데이터 nameKey는 "Double Shot"/"Triple Shot"/"Laser"처럼 표시용 문자열이라
+        /// (REQ-089에서 확인) 소문자 포함 검사로 매칭한다 — 정확 일치는 조용히 폴백돼
+        /// 진화명이 아예 안 보였다. 표시명은 슬롯 폭(76px) 안에 들어가게 짧게.
         /// </summary>
         static string EvolutionName(string nameKey, int level)
         {
-            switch (nameKey)
-            {
-                case "double":
-                    return level >= 3 ? "CROSS FIRE" : level == 2 ? "TAIL GUARD" : "DOUBLE";
-                case "triple":
-                    return level >= 3 ? "BURNER" : level == 2 ? "PULSE FAN" : "TRIPLE";
-                case "laser":
-                    return level >= 3 ? "PRISM BEAM" : level == 2 ? "LANCE" : "LASER";
-                default:
-                    return DisplayName(nameKey);
-            }
+            string key = (nameKey ?? "").ToLowerInvariant();
+            if (key.Contains("double"))
+                return level >= 3 ? "CROSS FIRE" : level == 2 ? "TAIL GUARD" : "DOUBLE";
+            if (key.Contains("triple"))
+                return level >= 3 ? "BURNER" : level == 2 ? "PULSE FAN" : "TRIPLE";
+            if (key.Contains("laser"))
+                return level >= 3 ? "PRISM BEAM" : level == 2 ? "LANCE" : "LASER";
+            return DisplayName(nameKey);
         }
 
         void LateUpdate()

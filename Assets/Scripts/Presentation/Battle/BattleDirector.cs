@@ -128,14 +128,31 @@ namespace Shmup.Presentation.Battle
         // 무기 계열별 주무기 탄 스프라이트 (REQ-022): laser/spread가 없으면 vulcan 폴백
         [SerializeField] Sprite _laserShotSprite;
         [SerializeField] Sprite _spreadShotSprite;
+        Sprite _vulcanShotSprite;   // 프리팹 원본 — 전환 후 벌컨 복귀용
+        Shmup.Core.WeaponType _shownWeaponType = (Shmup.Core.WeaponType)(-1);
 
         void ApplyWeaponBulletSprite(Shmup.Core.WeaponType weaponType)
         {
+            _shownWeaponType = weaponType;
             if (weaponType == Shmup.Core.WeaponType.Laser && _laserShotSprite != null)
                 _mainShotSprite = _laserShotSprite;
             else if (weaponType == Shmup.Core.WeaponType.Spread && _spreadShotSprite != null)
                 _mainShotSprite = _spreadShotSprite;
-            // Vulcan은 프리팹 원본(_mainShotSprite 초기값) 유지
+            else if (_vulcanShotSprite != null)
+                _mainShotSprite = _vulcanShotSprite;
+        }
+
+        /// <summary>
+        /// 게이지로 무기를 갈아탄 순간을 쫓는다 (REQ-089 회귀 수정). 예전에는 시작
+        /// 무기(전 기체 벌컨)로 한 번만 굳혀서, 더블/레이저 전환 후에도 탄이 벌컨
+        /// 그대로 그려져 "특수탄이 안 나간다"로 읽혔다. Core는 계속 정상 발사 중이었다.
+        /// </summary>
+        void TrackWeaponTypeChange()
+        {
+            if (_sim == null) return;
+            var current = _sim.PlayerWeaponType;
+            if (current != _shownWeaponType)
+                ApplyWeaponBulletSprite(current);
         }
 
         void ApplyShipSprite(string shipId)
@@ -468,6 +485,7 @@ namespace Shmup.Presentation.Battle
 
             var bulletPrefabRenderer = _bulletPrefab.GetComponent<SpriteRenderer>();
             _mainShotSprite = bulletPrefabRenderer != null ? bulletPrefabRenderer.sprite : null;
+            _vulcanShotSprite = _mainShotSprite;
             if (selectedShip != null)
                 ApplyWeaponBulletSprite(selectedShip.WeaponType);
 
@@ -834,6 +852,7 @@ namespace Shmup.Presentation.Battle
         {
             _playerTransform.localPosition = SimView.ToWorld(_sim.PlayerX, _sim.PlayerY);
 
+            TrackWeaponTypeChange();
             SyncBullets();
             SyncOptions();
             SyncEnemies();
