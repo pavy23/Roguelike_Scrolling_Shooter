@@ -169,15 +169,30 @@ namespace Shmup.Presentation.Battle
 
                 float banked = view.RequiredCapsules > 0
                     ? view.Progress / (float)view.RequiredCapsules : 0f;
-                for (int p = 0; p < MaxPips; p++)
+                if (view.MaxLevel <= 1)
                 {
-                    bool within = p < view.MaxLevel && view.MaxLevel > 1;
-                    _pips[i][p].enabled = within;
-                    if (!within) continue;
-                    if (p < view.Level) _pips[i][p].color = PipFilled;
-                    else if (p == view.Level && banked > 0.001f)
-                        _pips[i][p].color = banked >= 0.5f ? PipBankingNear : PipBanking;
-                    else _pips[i][p].color = PipEmpty;
+                    // 무기 모드: 핍 = 필요 캡슐 수, 채움 = 적립량
+                    int need = Mathf.Clamp(view.RequiredCapsules, 0, MaxPips);
+                    for (int p = 0; p < MaxPips; p++)
+                    {
+                        bool within = p < need && !view.IsActiveWeaponMode;
+                        _pips[i][p].enabled = within;
+                        if (!within) continue;
+                        _pips[i][p].color = p < view.Progress ? PipBankingNear : PipEmpty;
+                    }
+                }
+                else
+                {
+                    for (int p = 0; p < MaxPips; p++)
+                    {
+                        bool within = p < view.MaxLevel;
+                        _pips[i][p].enabled = within;
+                        if (!within) continue;
+                        if (p < view.Level) _pips[i][p].color = PipFilled;
+                        else if (p == view.Level && banked > 0.001f)
+                            _pips[i][p].color = banked >= 0.5f ? PipBankingNear : PipBanking;
+                        else _pips[i][p].color = PipEmpty;
+                    }
                 }
             }
         }

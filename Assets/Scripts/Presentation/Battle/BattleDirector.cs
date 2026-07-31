@@ -388,7 +388,9 @@ namespace Shmup.Presentation.Battle
                         new SegmentStageGenerator(data.StageGeneration),
                         config,
                         data.BattleContent,
-                        data.CreatePowerUpGauge(),
+                        // 기체 인식 게이지 (REQ-078) — 인자 없는 구버전은 7칸을
+                        // 만들어 5칸 기체 검증에서 예외가 난다 (실측 재현).
+                        data.CreatePowerUpGauge(resumeShip),
                         data.Rewards,
                         resumeShip);
                 }
@@ -419,7 +421,7 @@ namespace Shmup.Presentation.Battle
                     new SegmentStageGenerator(data.StageGeneration),
                     config,
                     data.BattleContent,
-                    data.CreatePowerUpGauge(),
+                    data.CreatePowerUpGauge(selectedShip),
                     data.Rewards,
                     selectedShip,
                     diffNum,

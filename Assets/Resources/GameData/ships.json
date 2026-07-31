@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "ships": [
     {
       "id": "starter",
@@ -9,7 +9,15 @@
       "startingPowerUpLevels": [2, 0, 0, 0],
       "unlockCost": 0,
       "weaponType": "vulcan",
-      "maxHp": 3
+      "startingShieldStock": 1,
+      "gaugeWeaponFamily": "double",
+      "powerUpGaugeSlots": [
+        "Speed",
+        "Missile",
+        "Weapon",
+        "Option",
+        "Shield"
+      ]
     },
     {
       "id": "interceptor",
@@ -18,18 +26,34 @@
       "moveSpeedMultiplierDenominator": 4,
       "startingPowerUpLevels": [0, 0, 0, 0],
       "unlockCost": 25000,
-      "weaponType": "laser",
-      "maxHp": 2
+      "weaponType": "spread",
+      "startingShieldStock": 0,
+      "gaugeWeaponFamily": "triple",
+      "powerUpGaugeSlots": [
+        "Speed",
+        "Missile",
+        "Weapon",
+        "Option",
+        "Shield"
+      ]
     },
     {
       "id": "bulwark",
       "displayName": "Bulwark",
       "moveSpeedMultiplierNumerator": 4,
       "moveSpeedMultiplierDenominator": 5,
-      "startingPowerUpLevels": [0, 0, 0, 1],
+      "startingPowerUpLevels": [0, 0, 0, 0],
       "unlockCost": 50000,
-      "weaponType": "spread",
-      "maxHp": 5
+      "weaponType": "laser",
+      "startingShieldStock": 2,
+      "gaugeWeaponFamily": "laser",
+      "powerUpGaugeSlots": [
+        "Speed",
+        "Missile",
+        "Weapon",
+        "Option",
+        "Shield"
+      ]
     }
   ]
 }
