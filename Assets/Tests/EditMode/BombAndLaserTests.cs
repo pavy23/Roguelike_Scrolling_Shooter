@@ -83,6 +83,37 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void BombDamagesBreakableObstacleAndEmitsRemainingHp()
+        {
+            BattleSimConfig config = Config();
+            config.StartingBombStock = 1;
+            config.BombRegularEnemyDamage = 20;
+            var sim = Sim(
+                config,
+                ObstacleSegment(
+                    "bomb-obstacle",
+                    100,
+                    new ObstacleSpawn(
+                        ObstacleType.Breakable,
+                        100,
+                        100,
+                        50)),
+                Array.Empty<EnemyDefinition>());
+
+            Step(sim, new InputCommand(0, 0, false, false, true));
+
+            Assert.AreEqual(1, sim.Obstacles.Count);
+            Assert.AreEqual(30, sim.Obstacles[0].Hp);
+            SimEvent damaged = FindEvent(
+                sim.EventsThisTick,
+                SimEventType.ObstacleDamaged);
+            Assert.AreEqual(1, damaged.EntityId);
+            Assert.AreEqual(100, damaged.X);
+            Assert.AreEqual(100, damaged.Y);
+            Assert.AreEqual(30, damaged.Arg);
+        }
+
+        [Test]
         public void BombBossDamageIsCapped()
         {
             BattleSimConfig config = Config();
@@ -533,6 +564,17 @@ namespace Shmup.Core.Tests
                 if (events[i].Type == type)
                     return true;
             return false;
+        }
+
+        static SimEvent FindEvent(
+            ReadOnlySpan<SimEvent> events,
+            SimEventType type)
+        {
+            for (int i = 0; i < events.Length; i++)
+                if (events[i].Type == type)
+                    return events[i];
+            Assert.Fail($"Expected event {type}.");
+            return default;
         }
 
         static void Step(

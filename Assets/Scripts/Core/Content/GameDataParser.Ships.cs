@@ -170,6 +170,7 @@ namespace Shmup.Core.Content
                 return new[]
                 {
                     PowerUpSlot.Speed,
+                    PowerUpSlot.MainShot,
                     PowerUpSlot.Missile,
                     ShipDefinition.GaugeSlotForFamily(family.Value),
                     PowerUpSlot.Option,
@@ -196,6 +197,9 @@ namespace Shmup.Core.Content
                 {
                     case "Speed":
                         slots[i] = PowerUpSlot.Speed;
+                        break;
+                    case "MainShot":
+                        slots[i] = PowerUpSlot.MainShot;
                         break;
                     case "Missile":
                         slots[i] = PowerUpSlot.Missile;

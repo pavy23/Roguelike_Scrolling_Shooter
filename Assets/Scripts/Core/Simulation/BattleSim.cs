@@ -93,7 +93,12 @@ namespace Shmup.Core.Simulation
         /// EntityId = boss id, Arg = configured enemy-bullet capacity.
         /// One event is emitted for a boss volley truncated by the hard cap.
         /// </summary>
-        EnemyBulletCapacityExceeded = 32
+        EnemyBulletCapacityExceeded = 32,
+        /// <summary>
+        /// EntityId = obstacle id, X/Y = impact point, Arg = remaining HP.
+        /// Destructive hits emit ObstacleDestroyed instead.
+        /// </summary>
+        ObstacleDamaged = 33
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -1330,7 +1335,7 @@ namespace Shmup.Core.Simulation
         // 보스 (REQ-007). _bossMaxHp == 0 이면 이 스테이지에 보스전 없음.
         readonly int _bossMaxHp, _bossRuntimeMaxHp;
         readonly int _bossHalfWidth, _bossHalfHeight, _bossHoldX;
-        readonly int _bossSpawnX, _bossEntryStartTick;
+        readonly int _bossSpawnX, _bossCleanupStartTick;
         readonly IReadOnlyList<Generation.BossPhase> _bossPhases;
         readonly IReadOnlyList<BossPartDefinition> _bossPartDefinitions;
         readonly BossPartState[] _bossPartStates;
@@ -1346,6 +1351,7 @@ namespace Shmup.Core.Simulation
         int _bossMovementAnchorY;
         int _bossMovementPhaseOffsetTicks;
         int _bossVelocityY;
+        int _bossFieldClearTick = -1;
         bool _bossPhaseTelegraphPending;
         bool _bossBurstAwaitingVolley;
         int _bossPatternVolleyIndex;
@@ -1354,6 +1360,11 @@ namespace Shmup.Core.Simulation
 
         const int BossHoverAmplitude = 3 * SimSpace.SubUnitsPerWorldUnit;
         const int BossGlideSpeedPerTick = 64;
+        public const int BossSpawnSuppressionLeadTicks = 90;
+        public const int BossPostClearDelayTicks = 60;
+        const int BossRetreatSpeedPerTick = 2 * SimSpace.SubUnitsPerWorldUnit;
+        const byte EnemyMovementDiveTargetLocked = 1;
+        const byte EnemyMovementBossRetreat = 2;
         const int BossHoverPeriodShift = 2;                            // age >> 2 → 약 4.3초 주기
         const int SpreadStepLutSlots = 2;                              // n-way 간격 = 11.25°
         const int SpiralStepLutSlots = 2;
@@ -1777,8 +1788,15 @@ namespace Shmup.Core.Simulation
                     BuildSegmentStartTicks(stagePlan);
                 _visionObscured =
                     stagePlan.Gimmick.VisionObscured;
-                _timeLimitTicks =
+                int configuredTimeLimit =
                     stagePlan.Gimmick.TimeLimitTicks;
+                _timeLimitTicks = configuredTimeLimit == 0
+                    ? 0
+                    : SaturateToInt(
+                        (long)configuredTimeLimit
+                        + (_bossMaxHp > 0
+                            ? BossPostClearDelayTicks
+                            : 0));
                 WeaponDefinition weapon = content.PlayerWeapon;
                 _bulletSpeedNumerator = config.UseConfiguredMainShotStats
                     ? config.PlayerBulletSpeedNumerator
@@ -1868,13 +1886,9 @@ namespace Shmup.Core.Simulation
                     (long)SimSpace.PlayfieldHalfWidthSubUnits
                     + GetBossLeftExtent()
                     + 1));
-            int bossEntryDistance =
-                Math.Max(0, _bossSpawnX - _bossHoldX);
-            int bossEntryTicks =
-                (bossEntryDistance + BossGlideSpeedPerTick - 1)
-                / BossGlideSpeedPerTick;
-            _bossEntryStartTick =
-                Math.Max(0, _stageTotalTicks - bossEntryTicks);
+            _bossCleanupStartTick = Math.Max(
+                0,
+                _stageTotalTicks - BossSpawnSuppressionLeadTicks);
 
             int bulletCapacity = _maxBullets + _maxEnemyBullets;
             _bullets = new List<BulletState>(bulletCapacity);
@@ -2718,6 +2732,21 @@ namespace Shmup.Core.Simulation
                 TryDropBomb(definition, enemy.X, enemy.Y);
             }
 
+            for (int i = _obstacles.Count - 1; i >= 0; i--)
+            {
+                ObstacleState obstacle = _obstacles[i];
+                if (obstacle.Type != ObstacleType.Breakable
+                    || !IsOnScreen(obstacle.X, obstacle.Y))
+                {
+                    continue;
+                }
+                ApplyDamageToObstacleAt(
+                    i,
+                    _bombRegularEnemyDamage,
+                    obstacle.X,
+                    obstacle.Y);
+            }
+
             if (BossEntering
                 || !BossActive
                 || !IsOnScreen(_bossX, _bossY))
@@ -3426,6 +3455,14 @@ namespace Shmup.Core.Simulation
                 EnemyDefinition definition = _enemyDefinitions[index];
                 int age = _enemyAges[index] + 1;
                 long nextX = state.X - scrollDelta;
+                if (_bossMaxHp > 0
+                    && Tick >= _bossCleanupStartTick
+                    && !_bossSpawned)
+                {
+                    _enemyMovementFlags[index] |=
+                        EnemyMovementBossRetreat;
+                    nextX -= BossRetreatSpeedPerTick;
+                }
                 int y = state.Y;
 
                 if (ShouldAdvanceEnemyX(definition, age))
@@ -3498,6 +3535,11 @@ namespace Shmup.Core.Simulation
                 && _scheduledSpawns[_nextScheduledSpawn].Tick <= tick)
             {
                 ScheduledSpawn spawn = _scheduledSpawns[_nextScheduledSpawn++];
+                if (_bossMaxHp > 0
+                    && spawn.Tick >= _bossCleanupStartTick)
+                {
+                    continue;
+                }
                 TrySpawnEnemy(spawn.Definition, spawn.X, spawn.Y);
             }
 
@@ -3594,7 +3636,22 @@ namespace Shmup.Core.Simulation
 
             if (!_bossSpawned)
             {
-                if (Tick < _bossEntryStartTick) return;
+                if (Tick < _bossCleanupStartTick) return;
+                if (_enemies.Count > 0)
+                {
+                    _bossFieldClearTick = -1;
+                    return;
+                }
+                if (_bossFieldClearTick < 0)
+                {
+                    _bossFieldClearTick = Tick;
+                    return;
+                }
+                if ((long)Tick - _bossFieldClearTick
+                    < BossPostClearDelayTicks)
+                {
+                    return;
+                }
                 if (_nextEnemyId == int.MaxValue)
                     throw new InvalidOperationException("The enemy id counter is exhausted.");
                 _bossSpawned = true;
@@ -3642,15 +3699,13 @@ namespace Shmup.Core.Simulation
             {
                 UpdateMultipartBoss(phase);
                 UpdateBossPhaseFire(phase);
-                if (_bossUsesTimedPattern)
-                    _bossPhaseAge++;
+                _bossPhaseAge++;
                 return;
             }
 
             ApplyBossPhaseMovement(phase, false);
             UpdateBossPhaseFire(phase);
-            if (_bossUsesTimedPattern)
-                _bossPhaseAge++;
+            _bossPhaseAge++;
         }
 
         static bool ResolveTimedBossPattern(
@@ -3937,9 +3992,7 @@ namespace Shmup.Core.Simulation
             int carriedVelocity = _bossVelocityY;
             int phaseOffset = FindClosestMovementPhase(
                 phase,
-                carriedVelocity,
-                SaturateToInt(
-                    (long)_bossY + carriedVelocity));
+                carriedVelocity);
             int firstOffset = ComputeMovementOffset(
                 phase,
                 phaseOffset);
@@ -3969,8 +4022,7 @@ namespace Shmup.Core.Simulation
 
         static int FindClosestMovementPhase(
             Generation.BossPhase phase,
-            int velocity,
-            int desiredPosition)
+            int velocity)
         {
             int period;
             switch (phase.MovementPattern)
@@ -3990,24 +4042,18 @@ namespace Shmup.Core.Simulation
             }
 
             int bestTick = 0;
-            long bestPositionError = long.MaxValue;
             long bestError = long.MaxValue;
             for (int tick = 0; tick < period; tick++)
             {
                 int offset =
                     ComputeMovementOffset(phase, tick);
-                long positionError = Math.Abs(
-                    (long)offset - desiredPosition);
                 long candidateVelocity =
                     (long)ComputeMovementOffset(phase, tick + 1)
                     - offset;
                 long error = Math.Abs(
                     candidateVelocity - velocity);
-                if (positionError < bestPositionError
-                    || (positionError == bestPositionError
-                        && error < bestError))
+                if (error < bestError)
                 {
-                    bestPositionError = positionError;
                     bestError = error;
                     bestTick = tick;
                 }
@@ -4732,10 +4778,12 @@ namespace Shmup.Core.Simulation
             if (age <= definition.MovementDelayTicks)
                 return spawnY;
 
-            if (_enemyMovementFlags[index] == 0)
+            if ((_enemyMovementFlags[index]
+                    & EnemyMovementDiveTargetLocked) == 0)
             {
                 _enemyDiveTargetYs[index] = PlayerY;
-                _enemyMovementFlags[index] = 1;
+                _enemyMovementFlags[index] |=
+                    EnemyMovementDiveTargetLocked;
             }
 
             int elapsed = age - definition.MovementDelayTicks;
@@ -5254,27 +5302,11 @@ namespace Shmup.Core.Simulation
                             ComputeMissileDamage(
                                 _missileExplosionDamage));
                     }
-                    int hp = Damage.ApplyToHp(obstacle.Hp, damage);
-                    if (hp > 0)
-                    {
-                        _obstacles[obstacleIndex] = new ObstacleState(
-                            obstacle.Id,
-                            obstacle.Type,
-                            obstacle.X,
-                            obstacle.Y,
-                            hp);
-                    }
-                    else
-                    {
-                        RemoveObstacleAt(obstacleIndex);
-                        int awardedScore = AwardScore(_breakableObstacleScore);
-                        EmitEvent(
-                            SimEventType.ObstacleDestroyed,
-                            obstacle.Id,
-                            obstacle.X,
-                            obstacle.Y,
-                            awardedScore);
-                    }
+                    ApplyDamageToObstacleAt(
+                        obstacleIndex,
+                        damage,
+                        bullet.X,
+                        bullet.Y);
                 }
 
                 // Terrain blocks every player projectile, including laser pierce.
@@ -5288,6 +5320,41 @@ namespace Shmup.Core.Simulation
                 }
                 RemoveBulletAt(bulletIndex);
             }
+        }
+
+        void ApplyDamageToObstacleAt(
+            int obstacleIndex,
+            int damage,
+            int hitX,
+            int hitY)
+        {
+            ObstacleState obstacle = _obstacles[obstacleIndex];
+            int hp = Damage.ApplyToHp(obstacle.Hp, damage);
+            if (hp > 0)
+            {
+                _obstacles[obstacleIndex] = new ObstacleState(
+                    obstacle.Id,
+                    obstacle.Type,
+                    obstacle.X,
+                    obstacle.Y,
+                    hp);
+                EmitEvent(
+                    SimEventType.ObstacleDamaged,
+                    obstacle.Id,
+                    hitX,
+                    hitY,
+                    hp);
+                return;
+            }
+
+            RemoveObstacleAt(obstacleIndex);
+            int awardedScore = AwardScore(_breakableObstacleScore);
+            EmitEvent(
+                SimEventType.ObstacleDestroyed,
+                obstacle.Id,
+                obstacle.X,
+                obstacle.Y,
+                awardedScore);
         }
 
         int FindBulletHitObstacle(in BulletState bullet)
@@ -5939,6 +6006,12 @@ namespace Shmup.Core.Simulation
             int index = 0;
             while (index < _enemies.Count)
             {
+                if ((_enemyMovementFlags[index]
+                        & EnemyMovementBossRetreat) != 0)
+                {
+                    index++;
+                    continue;
+                }
                 EnemyState enemy = _enemies[index];
                 EnemyDefinition definition = _enemyDefinitions[index];
                 if (!Intersects(

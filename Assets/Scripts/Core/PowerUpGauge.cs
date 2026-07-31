@@ -70,9 +70,9 @@ namespace Shmup.Core
     }
 
     /// <summary>
-    /// Stable state-array ids. MainShot remains a hidden shared power axis so
-    /// every primary family benefits from the same shot level. The other seven
-    /// entries are selectable gauge slots whose display order is data-owned.
+    /// Stable state-array ids. MainShot is the shared power axis used by every
+    /// primary family. It is hidden on the legacy gauge and selectable on the
+    /// ship-owned six-slot gauge. Display order is data-owned.
     /// Existing ids 0..3 deliberately remain unchanged.
     /// </summary>
     public enum PowerUpSlot
@@ -111,8 +111,7 @@ namespace Shmup.Core
             int speedBonusDenominator = 1,
             bool activatesImmediately = false)
         {
-            if (slot == PowerUpSlot.MainShot
-                || !Enum.IsDefined(typeof(PowerUpSlot), slot))
+            if (!Enum.IsDefined(typeof(PowerUpSlot), slot))
                 throw new ArgumentOutOfRangeException(nameof(slot));
             if (string.IsNullOrWhiteSpace(nameKey))
                 throw new ArgumentException(
@@ -209,14 +208,14 @@ namespace Shmup.Core
     }
 
     /// <summary>
-    /// Data-ordered seven-slot Gradius gauge. MainShot is intentionally not
-    /// selectable: it is a shared power axis upgraded by rewards/meta systems.
+    /// Data-ordered Gradius gauge. MainShot remains hidden on the legacy
+    /// seven-slot layout and is selectable on ship-owned six-slot layouts.
     /// </summary>
     public sealed class PowerUpGauge
     {
         public const int SlotCount = 8;
         public const int DefaultGaugeSlotCount = 7;
-        public const int ShipGaugeSlotCount = 5;
+        public const int ShipGaugeSlotCount = 6;
         public const int NoSelection = -1;
 
         readonly int[] _levels = new int[SlotCount];
@@ -280,7 +279,6 @@ namespace Shmup.Core
             _gaugeSlots =
                 new PowerUpSlotDefinition[gaugeSlots.Count];
             var seen = new bool[SlotCount];
-            seen[(int)PowerUpSlot.MainShot] = true;
             for (int i = 0; i < gaugeSlots.Count; i++)
             {
                 PowerUpSlotDefinition definition =
@@ -664,6 +662,14 @@ namespace Shmup.Core
                     throw new ArgumentException(
                         $"Gauge slot '{required[i]}' is missing.",
                         "gaugeSlots");
+
+            if (gaugeSlotCount == ShipGaugeSlotCount
+                && !seen[(int)PowerUpSlot.MainShot])
+            {
+                throw new ArgumentException(
+                    "The ship gauge requires a MainShot slot.",
+                    "gaugeSlots");
+            }
 
             int weaponModes = 0;
             for (int i = (int)PowerUpSlot.Double;

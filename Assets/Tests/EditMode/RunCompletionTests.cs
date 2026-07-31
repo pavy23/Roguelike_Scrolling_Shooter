@@ -483,6 +483,7 @@ namespace Shmup.Core.Tests
                 new[]
                 {
                     PowerUpSlot.Speed,
+                    PowerUpSlot.MainShot,
                     PowerUpSlot.Missile,
                     PowerUpSlot.Double,
                     PowerUpSlot.Option,

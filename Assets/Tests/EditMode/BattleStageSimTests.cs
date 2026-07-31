@@ -541,6 +541,80 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(1, destroyed.X);
             Assert.AreEqual(0, destroyed.Y);
             Assert.AreEqual(14, destroyed.Arg);
+            Assert.AreEqual(
+                0,
+                CountEvents(
+                    sim.EventsThisTick,
+                    SimEventType.ObstacleDamaged));
+        }
+
+        [Test]
+        public void BreakableObstacle_NonLethalMainShotEmitsRemainingHpAtImpact()
+        {
+            StagePlan plan = Plan(ObstacleSegment(
+                "damaged",
+                20,
+                new ObstacleSpawn(ObstacleType.Breakable, 1, 0, 20)));
+            WeaponDefinition weapon =
+                new WeaponDefinition("shot", 10, 1, 1, 1, 0, 0);
+            BattleSimConfig config = CreateConfig();
+            config.ObstacleHalfWidth = 0;
+            config.ObstacleHalfHeight = 0;
+            var sim = CreateSim(plan, Content(weapon), config, 0x82UL);
+            var fire = new InputCommand(0, 0, true);
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in fire);
+            sim.Step(in none);
+
+            Assert.AreEqual(1, sim.Obstacles.Count);
+            Assert.AreEqual(10, sim.Obstacles[0].Hp);
+            SimEvent damaged = FindEvent(
+                sim.EventsThisTick,
+                SimEventType.ObstacleDamaged);
+            Assert.AreEqual(1, damaged.EntityId);
+            Assert.AreEqual(1, damaged.X);
+            Assert.AreEqual(0, damaged.Y);
+            Assert.AreEqual(10, damaged.Arg);
+        }
+
+        [Test]
+        public void BreakableObstacle_MissileEmitsObstacleDamaged()
+        {
+            StagePlan plan = Plan(ObstacleSegment(
+                "missile-damaged",
+                20,
+                new ObstacleSpawn(ObstacleType.Breakable, 1, 0, 10)));
+            BattleSimConfig config = CreateConfig();
+            config.PlayerBulletSpeedPerTick = 0;
+            config.ObstacleHalfWidth = 0;
+            config.ObstacleHalfHeight = 0;
+            config.MissileBaseDamage = 4;
+            config.MissileSpeedXNumerator = 1;
+            config.MissileSpeedXDenominator = 1;
+            config.MissileFallSpeedYNumerator = 0;
+            config.MissileHalfWidth = 0;
+            config.MissileHalfHeight = 0;
+            var gauge = PowerUpGauge.CreateDefault();
+            gauge.GrantLevels(PowerUpSlot.Missile, 1);
+            var sim = new BattleSim(
+                config,
+                new Rng(0x83UL),
+                plan,
+                Content(),
+                gauge);
+            var fire = new InputCommand(0, 0, true);
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in fire);
+            sim.Step(in none);
+
+            Assert.AreEqual(6, sim.Obstacles[0].Hp);
+            SimEvent damaged = FindEvent(
+                sim.EventsThisTick,
+                SimEventType.ObstacleDamaged);
+            Assert.AreEqual(1, damaged.EntityId);
+            Assert.AreEqual(6, damaged.Arg);
         }
 
         [Test]
@@ -781,6 +855,17 @@ namespace Shmup.Core.Tests
                     return events[i];
             Assert.Fail($"Expected event {type}.");
             return default;
+        }
+
+        static int CountEvents(
+            ReadOnlySpan<SimEvent> events,
+            SimEventType type)
+        {
+            int count = 0;
+            for (int i = 0; i < events.Length; i++)
+                if (events[i].Type == type)
+                    count++;
+            return count;
         }
 
         static StagePlan Plan(params StageSegment[] segments)
