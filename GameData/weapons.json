@@ -69,7 +69,7 @@
     {
       "id": "double",
       "displayName": "Double Shot",
-      "description": "Asymmetric Gradius Double: forward + upward 45° diagonal. Shares MainShot power axis.",
+      "description": "Asymmetric Gradius Double: forward + upward ~30° diagonal. Shares MainShot power axis.",
       "weaponType": "spread",
       "baseDamage": 7,
       "fireIntervalTicks": 10,
@@ -82,7 +82,7 @@
       "pierceEnemyCount": 0,
       "spreadWays": 2,
       "spreadStepLutSlots": 16,
-      "shotAngleLutSlots": [0, 8]
+      "shotAngleLutSlots": [0, 5]
     },
     {
       "id": "laser",
@@ -240,8 +240,8 @@
   "defaultOptionFormation": "trail",
   "powerUpCostCurve": {
     "baseCost": 1,
-    "linearGrowth": 1,
-    "quadraticGrowth": 1
+    "linearGrowth": 0,
+    "quadraticGrowth": 0
   },
   "powerUpGauge": {
     "slots": [
@@ -252,7 +252,7 @@
         "speedBonusPerLevel": 1.0,
         "costCurve": {
           "baseCost": 1,
-          "linearGrowth": 1,
+          "linearGrowth": 0,
           "quadraticGrowth": 0
         }
       },
@@ -263,7 +263,7 @@
         "costCurve": {
           "baseCost": 1,
           "linearGrowth": 0,
-          "quadraticGrowth": 1
+          "quadraticGrowth": 0
         }
       },
       {
@@ -301,9 +301,9 @@
         "nameKey": "Option",
         "maxLevel": 4,
         "costCurve": {
-          "baseCost": 2,
-          "linearGrowth": 1,
-          "quadraticGrowth": 1
+          "baseCost": 1,
+          "linearGrowth": 0,
+          "quadraticGrowth": 0
         }
       },
       {
@@ -311,9 +311,9 @@
         "nameKey": "Shield",
         "maxLevel": 6,
         "costCurve": {
-          "baseCost": 2,
+          "baseCost": 1,
           "linearGrowth": 0,
-          "quadraticGrowth": 1
+          "quadraticGrowth": 0
         }
       }
     ]

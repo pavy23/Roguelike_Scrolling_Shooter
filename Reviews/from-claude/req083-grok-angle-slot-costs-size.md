@@ -38,3 +38,14 @@ BalanceSim으로 확인하고 수치를 보고서에 남겨라. 레이저 센트
 - 보고서 `Reviews/from-grok/req083-report.md`: 각도 슬롯 근거, 6칸 슬롯 표, 평탄화 후 캡슐 EV vs 총 레벨 비용, 크기 변경 목록
 
 끝나면 커밋해라.
+
+---
+
+## GROK 완료 (2026-07-31)
+
+- [x] 1. 더블 샷 각도 → `shotAngleLutSlots: [0, 5]` (≈28.1°)
+- [x] 2. MainShot 6칸 게이지 (ships + BalanceSim; 7슬롯 카탈로그는 Core가 MainShot 거부)
+- [x] 3. 비용 평탄 1 (powerUpCostCurve + 전 슬롯 costCurve)
+- [x] 4. 졸개 halfWidth/halfHeight ×1.25 (midBoss 제외 29종)
+
+보고서: `Reviews/from-grok/req083-report.md`
