@@ -86,6 +86,152 @@ namespace Shmup.Core.Simulation
     }
 
     /// <summary>
+    /// Fully resolved deterministic behavior for one primary-family evolution
+    /// level. Spatial values use simulation subunits and all timing is integer
+    /// ticks. Level one is synthesized from the family base profile.
+    /// </summary>
+    public sealed class PrimaryWeaponLevelDefinition
+    {
+        readonly ReadOnlyCollection<int> _shotAngleLutSlots;
+
+        public PrimaryWeaponLevelDefinition(
+            int level,
+            int minimumFireIntervalTicks,
+            int pierceEnemyCount,
+            int spreadWays,
+            int spreadStepLutSlots,
+            int[] shotAngleLutSlots,
+            int burstCount = 1,
+            int burstIntervalTicks = 1,
+            int pulseMinStepLutSlots = 0,
+            int pulseMaxStepLutSlots = 0,
+            int pulsePeriodTicks = 0,
+            int inertiaVelocityPercent = 0,
+            int impactExplosionDamage = 0,
+            int impactExplosionRadius = 0,
+            int beamDamagePerTick = 0,
+            int beamLength = 0,
+            int beamStartHalfWidth = 0,
+            int beamGrowthPerTick = 0,
+            int beamMaxHalfWidth = 0)
+        {
+            if (level < 1 || level > 3)
+                throw new ArgumentOutOfRangeException(nameof(level));
+            if (minimumFireIntervalTicks < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(minimumFireIntervalTicks));
+            if (pierceEnemyCount < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(pierceEnemyCount));
+            if (spreadWays < 1)
+                throw new ArgumentOutOfRangeException(nameof(spreadWays));
+            if (spreadStepLutSlots < 0
+                || spreadStepLutSlots
+                    > PrimaryWeaponFamilyDefinition.AngleLutSlotsPerTurn / 2)
+                throw new ArgumentOutOfRangeException(
+                    nameof(spreadStepLutSlots));
+            int[] angles = shotAngleLutSlots == null
+                ? Array.Empty<int>()
+                : (int[])shotAngleLutSlots.Clone();
+            if (angles.Length != 0 && angles.Length != spreadWays)
+                throw new ArgumentException(
+                    "Explicit shot angles must match spreadWays.",
+                    nameof(shotAngleLutSlots));
+            for (int i = 0; i < angles.Length; i++)
+                if (angles[i]
+                        < -PrimaryWeaponFamilyDefinition.AngleLutSlotsPerTurn / 2
+                    || angles[i]
+                        > PrimaryWeaponFamilyDefinition.AngleLutSlotsPerTurn / 2)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(shotAngleLutSlots));
+            if (burstCount < 1)
+                throw new ArgumentOutOfRangeException(nameof(burstCount));
+            if (burstIntervalTicks < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(burstIntervalTicks));
+            bool hasPulse = pulsePeriodTicks != 0
+                || pulseMinStepLutSlots != 0
+                || pulseMaxStepLutSlots != 0;
+            if (hasPulse
+                && (pulsePeriodTicks < 2
+                    || pulseMinStepLutSlots < 0
+                    || pulseMaxStepLutSlots < pulseMinStepLutSlots
+                    || pulseMaxStepLutSlots
+                        > PrimaryWeaponFamilyDefinition.AngleLutSlotsPerTurn / 2))
+                throw new ArgumentException(
+                    "Pulse spread requires a valid min/max and period >= 2.",
+                    nameof(pulsePeriodTicks));
+            if (inertiaVelocityPercent < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(inertiaVelocityPercent));
+            if ((impactExplosionDamage == 0)
+                    != (impactExplosionRadius == 0)
+                || impactExplosionDamage < 0
+                || impactExplosionRadius < 0)
+                throw new ArgumentException(
+                    "Impact explosion damage and radius must both be zero or positive.",
+                    nameof(impactExplosionDamage));
+            bool hasBeam = beamDamagePerTick != 0
+                || beamLength != 0
+                || beamStartHalfWidth != 0
+                || beamGrowthPerTick != 0
+                || beamMaxHalfWidth != 0;
+            if (hasBeam
+                && (beamDamagePerTick < 1
+                    || beamLength < 1
+                    || beamStartHalfWidth < 0
+                    || beamGrowthPerTick < 0
+                    || beamMaxHalfWidth < beamStartHalfWidth))
+                throw new ArgumentException(
+                    "Player beam fields must define positive damage/length and a valid integer growth curve.",
+                    nameof(beamDamagePerTick));
+
+            Level = level;
+            MinimumFireIntervalTicks = minimumFireIntervalTicks;
+            PierceEnemyCount = pierceEnemyCount;
+            SpreadWays = spreadWays;
+            SpreadStepLutSlots = spreadStepLutSlots;
+            _shotAngleLutSlots = Array.AsReadOnly(angles);
+            BurstCount = burstCount;
+            BurstIntervalTicks = burstIntervalTicks;
+            PulseMinStepLutSlots = pulseMinStepLutSlots;
+            PulseMaxStepLutSlots = pulseMaxStepLutSlots;
+            PulsePeriodTicks = pulsePeriodTicks;
+            InertiaVelocityPercent = inertiaVelocityPercent;
+            ImpactExplosionDamage = impactExplosionDamage;
+            ImpactExplosionRadius = impactExplosionRadius;
+            BeamDamagePerTick = beamDamagePerTick;
+            BeamLength = beamLength;
+            BeamStartHalfWidth = beamStartHalfWidth;
+            BeamGrowthPerTick = beamGrowthPerTick;
+            BeamMaxHalfWidth = beamMaxHalfWidth;
+        }
+
+        public int Level { get; }
+        public int MinimumFireIntervalTicks { get; }
+        public int PierceEnemyCount { get; }
+        public int SpreadWays { get; }
+        public int SpreadStepLutSlots { get; }
+        public IReadOnlyList<int> ShotAngleLutSlots =>
+            _shotAngleLutSlots;
+        public int BurstCount { get; }
+        public int BurstIntervalTicks { get; }
+        public int PulseMinStepLutSlots { get; }
+        public int PulseMaxStepLutSlots { get; }
+        public int PulsePeriodTicks { get; }
+        public bool HasPulse => PulsePeriodTicks > 0;
+        public int InertiaVelocityPercent { get; }
+        public int ImpactExplosionDamage { get; }
+        public int ImpactExplosionRadius { get; }
+        public int BeamDamagePerTick { get; }
+        public int BeamLength { get; }
+        public int BeamStartHalfWidth { get; }
+        public int BeamGrowthPerTick { get; }
+        public int BeamMaxHalfWidth { get; }
+        public bool IsPlayerBeam => BeamDamagePerTick > 0;
+    }
+
+    /// <summary>
     /// Immutable, data-owned primary weapon profile. Display text is carried
     /// with the deterministic profile so Presentation can explain both the
     /// equipped family and reward choices without hard-coded labels.
@@ -95,6 +241,8 @@ namespace Shmup.Core.Simulation
         public const int AngleLutSlotsPerTurn = 64;
 
         readonly ReadOnlyCollection<int> _shotAngleLutSlots;
+        readonly ReadOnlyCollection<PrimaryWeaponLevelDefinition>
+            _levels;
 
         public PrimaryWeaponFamilyDefinition(
             PrimaryWeaponFamily family,
@@ -113,7 +261,8 @@ namespace Shmup.Core.Simulation
             int pierceEnemyCount,
             int spreadWays,
             int spreadStepLutSlots,
-            int[] shotAngleLutSlots = null)
+            int[] shotAngleLutSlots = null,
+            IReadOnlyList<PrimaryWeaponLevelDefinition> levels = null)
         {
             if (!Enum.IsDefined(typeof(PrimaryWeaponFamily), family))
                 throw new ArgumentOutOfRangeException(nameof(family));
@@ -192,6 +341,25 @@ namespace Shmup.Core.Simulation
             SpreadWays = spreadWays;
             SpreadStepLutSlots = spreadStepLutSlots;
             _shotAngleLutSlots = Array.AsReadOnly(angles);
+            var resolvedLevels = levels == null
+                ? new[]
+                {
+                    new PrimaryWeaponLevelDefinition(
+                        1,
+                        minimumFireIntervalTicks,
+                        pierceEnemyCount,
+                        spreadWays,
+                        spreadStepLutSlots,
+                        angles)
+                }
+                : CopyAndValidateLevels(
+                    levels,
+                    minimumFireIntervalTicks,
+                    pierceEnemyCount,
+                    spreadWays,
+                    spreadStepLutSlots,
+                    angles);
+            _levels = Array.AsReadOnly(resolvedLevels);
         }
 
         public PrimaryWeaponFamily Family { get; }
@@ -217,6 +385,64 @@ namespace Shmup.Core.Simulation
         /// </summary>
         public IReadOnlyList<int> ShotAngleLutSlots =>
             _shotAngleLutSlots;
+        public IReadOnlyList<PrimaryWeaponLevelDefinition> Levels =>
+            _levels;
+
+        public PrimaryWeaponLevelDefinition GetLevel(int level)
+        {
+            if (level < 1)
+                throw new ArgumentOutOfRangeException(nameof(level));
+            int index = Math.Min(level, _levels.Count) - 1;
+            return _levels[index];
+        }
+
+        static PrimaryWeaponLevelDefinition[] CopyAndValidateLevels(
+            IReadOnlyList<PrimaryWeaponLevelDefinition> source,
+            int minimumFireIntervalTicks,
+            int pierceEnemyCount,
+            int spreadWays,
+            int spreadStepLutSlots,
+            int[] angles)
+        {
+            if (source.Count < 1 || source.Count > 3)
+                throw new ArgumentException(
+                    "Primary weapon levels must contain one to three entries.",
+                    nameof(source));
+            var copy = new PrimaryWeaponLevelDefinition[source.Count];
+            for (int i = 0; i < copy.Length; i++)
+            {
+                copy[i] = source[i]
+                    ?? throw new ArgumentException(
+                        "Primary weapon levels cannot contain null.",
+                        nameof(source));
+                if (copy[i].Level != i + 1)
+                    throw new ArgumentException(
+                        "Primary weapon levels must be consecutive from level one.",
+                        nameof(source));
+            }
+            PrimaryWeaponLevelDefinition first = copy[0];
+            if (first.MinimumFireIntervalTicks != minimumFireIntervalTicks
+                || first.PierceEnemyCount != pierceEnemyCount
+                || first.SpreadWays != spreadWays
+                || first.SpreadStepLutSlots != spreadStepLutSlots
+                || !AnglesEqual(first.ShotAngleLutSlots, angles))
+                throw new ArgumentException(
+                    "Primary weapon level one must match the family base profile.",
+                    nameof(source));
+            return copy;
+        }
+
+        static bool AnglesEqual(
+            IReadOnlyList<int> left,
+            IReadOnlyList<int> right)
+        {
+            if (left.Count != right.Count)
+                return false;
+            for (int i = 0; i < left.Count; i++)
+                if (left[i] != right[i])
+                    return false;
+            return true;
+        }
     }
 
     public static class PrimaryWeaponFamilyIds
@@ -871,6 +1097,24 @@ namespace Shmup.Core.Simulation
                 weapons,
                 playerWeaponId,
                 CreateLegacyPrimaryWeaponFamilies(weapons, playerWeaponId),
+                CreateLegacyMissileFamilies(weapons),
+                MissileFamily.Straight,
+                CreateLegacyOptionFormations(),
+                OptionFormation.Trail)
+        {
+        }
+
+        public BattleContent(
+            IReadOnlyList<EnemyDefinition> enemies,
+            IReadOnlyList<WeaponDefinition> weapons,
+            string playerWeaponId,
+            IReadOnlyList<PrimaryWeaponFamilyDefinition>
+                primaryWeaponFamilies)
+            : this(
+                enemies,
+                weapons,
+                playerWeaponId,
+                primaryWeaponFamilies,
                 CreateLegacyMissileFamilies(weapons),
                 MissileFamily.Straight,
                 CreateLegacyOptionFormations(),

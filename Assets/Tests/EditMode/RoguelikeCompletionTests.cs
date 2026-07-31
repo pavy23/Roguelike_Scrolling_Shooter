@@ -119,6 +119,73 @@ namespace Shmup.Core.Tests
                 first.StagePlan.ThemeId);
         }
 
+        [Test]
+        public void ContractDestinationsAreDistinctDeterministicAndSuspendable()
+        {
+            RunManager first = CreateStageOrderRun(0x8601UL);
+            RunManager second = CreateStageOrderRun(0x8601UL);
+            DriveToReward(first, RewardSelectionKind.Main);
+            DriveToReward(second, RewardSelectionKind.Main);
+            Assert.IsTrue(first.ChooseReward(0));
+            Assert.IsTrue(second.ChooseReward(0));
+
+            Assert.AreEqual(2, first.ContractOptions.Count);
+            Assert.AreNotEqual(
+                first.ContractOptions[0].DestinationThemeId,
+                first.ContractOptions[1].DestinationThemeId);
+            for (int i = 0; i < first.ContractOptions.Count; i++)
+            {
+                Assert.AreEqual(
+                    first.ContractOptions[i].DestinationThemeId,
+                    second.ContractOptions[i].DestinationThemeId);
+                Assert.AreEqual(
+                    first.ContractOptions[i]
+                        .DestinationThemeStageIndex,
+                    second.ContractOptions[i]
+                        .DestinationThemeStageIndex);
+            }
+
+            ContractOption selected = first.ContractOptions[1];
+            Assert.IsTrue(first.ChooseContract(1));
+            Assert.IsTrue(second.ChooseContract(1));
+            Assert.AreEqual(
+                selected.DestinationThemeStageIndex,
+                first.ThemeStageIndex);
+            Assert.AreEqual(
+                selected.DestinationThemeId,
+                first.StagePlan.ThemeId);
+            AssertRunHashEqual(first, second);
+
+            RunSuspendData suspend = first.ExportSuspendData();
+            Assert.AreEqual(
+                selected.DestinationThemeId,
+                suspend.contractChoices[0]
+                    .destinationThemeId);
+            Assert.AreEqual(
+                selected.DestinationThemeStageIndex,
+                suspend.contractChoices[0]
+                    .destinationThemeStageIndex);
+            RunManager resumed = RunManager.ResumeFromSuspendData(
+                suspend,
+                new StageOrderGenerator(),
+                CreateStageOrderConfig(),
+                CreateStageOrderContent(),
+                PowerUpGauge.CreateDefault(),
+                CreateStageOrderRewards(),
+                null);
+            AssertStageOrderEqual(first, resumed);
+            AssertRunHashEqual(first, resumed);
+
+            var recorder = new InputRecorder(first);
+            recorder.Record(InputCommand.None);
+            InputRecordingData recording = recorder.Export();
+            var playback = new InputPlayback(recording);
+            Assert.AreEqual(
+                selected.DestinationThemeId,
+                playback.ContractChoices[0]
+                    .DestinationThemeId);
+        }
+
         static RunManager CreateRerollRun(ulong seed)
         {
             var rewards = new RewardCatalog(
@@ -140,7 +207,15 @@ namespace Shmup.Core.Tests
 
         static RunManager CreateStageOrderRun(ulong seed)
         {
-            var rewards = new RewardCatalog(
+            return CreateRun(
+                seed,
+                CreateStageOrderRewards(),
+                new RunProgressionConfig(5, 1));
+        }
+
+        static RewardCatalog CreateStageOrderRewards()
+        {
+            return new RewardCatalog(
                 3,
                 new[]
                 {
@@ -149,10 +224,6 @@ namespace Shmup.Core.Tests
                     CapsuleReward("capsules_c"),
                     CapsuleReward("capsules_d")
                 });
-            return CreateRun(
-                seed,
-                rewards,
-                new RunProgressionConfig(5, 1));
         }
 
         static RunManager CreateRun(
@@ -160,30 +231,8 @@ namespace Shmup.Core.Tests
             RewardCatalog rewards,
             RunProgressionConfig progression)
         {
-            BattleSimConfig config =
-                BattleSimConfig.CreateDefault();
-            config.PlayerMinX = -10_000;
-            config.PlayerMaxX = 10_000;
-            config.PlayerMinY = -10_000;
-            config.PlayerMaxY = 10_000;
-            config.PlayerSpawnX = 0;
-            config.PlayerSpawnY = 0;
-            config.BulletDespawnX = 20_000;
-            config.EnemyDespawnX = -20_000;
-            config.StartingShieldStock = 5;
-            config.MaxShieldStock = 5;
-            var weapon = new WeaponDefinition(
-                "req072_shot",
-                1,
-                1,
-                256,
-                1,
-                0,
-                0);
-            var content = new BattleContent(
-                Array.Empty<EnemyDefinition>(),
-                new[] { weapon },
-                weapon.Id);
+            BattleSimConfig config = CreateStageOrderConfig();
+            BattleContent content = CreateStageOrderContent();
             return new RunManager(
                 seed,
                 new StageOrderGenerator(),
@@ -197,6 +246,39 @@ namespace Shmup.Core.Tests
                 1,
                 1,
                 progression);
+        }
+
+        static BattleSimConfig CreateStageOrderConfig()
+        {
+            BattleSimConfig config =
+                BattleSimConfig.CreateDefault();
+            config.PlayerMinX = -10_000;
+            config.PlayerMaxX = 10_000;
+            config.PlayerMinY = -10_000;
+            config.PlayerMaxY = 10_000;
+            config.PlayerSpawnX = 0;
+            config.PlayerSpawnY = 0;
+            config.BulletDespawnX = 20_000;
+            config.EnemyDespawnX = -20_000;
+            config.StartingShieldStock = 5;
+            config.MaxShieldStock = 5;
+            return config;
+        }
+
+        static BattleContent CreateStageOrderContent()
+        {
+            var weapon = new WeaponDefinition(
+                "req072_shot",
+                1,
+                1,
+                256,
+                1,
+                0,
+                0);
+            return new BattleContent(
+                Array.Empty<EnemyDefinition>(),
+                new[] { weapon },
+                weapon.Id);
         }
 
         static RewardDefinition CapsuleReward(string id)

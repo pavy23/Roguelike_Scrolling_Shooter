@@ -940,8 +940,8 @@ namespace Shmup.Core.Simulation
         RewardSelectionKind _rewardSelectionKind;
         bool _currentBiomeHit;
         int _capsuleBalance;
-        IReadOnlyList<ContractDefinition> _contractOptions =
-            Array.Empty<ContractDefinition>();
+        IReadOnlyList<ContractOption> _contractOptions =
+            Array.Empty<ContractOption>();
 
         public RunManager(
             ulong runSeed,
@@ -1719,10 +1719,10 @@ namespace Shmup.Core.Simulation
             State == RunState.AwaitingReward
                 ? _rewardSelectionKind
                 : RewardSelectionKind.None;
-        public IReadOnlyList<ContractDefinition> ContractOptions =>
+        public IReadOnlyList<ContractOption> ContractOptions =>
             State == RunState.AwaitingContract
                 ? _contractOptions
-                : Array.Empty<ContractDefinition>();
+                : Array.Empty<ContractOption>();
         /// <summary>
         /// Contract affecting the current biome. Null in biome 1 and after the run.
         /// </summary>
@@ -1813,7 +1813,11 @@ namespace Shmup.Core.Simulation
                         optionIndex = choice.OptionIndex,
                         contractId = choice.ContractId,
                         destinationKind =
-                            (int)choice.DestinationKind
+                            (int)choice.DestinationKind,
+                        destinationThemeId =
+                            choice.DestinationThemeId,
+                        destinationThemeStageIndex =
+                            choice.DestinationThemeStageIndex
                     };
             }
             var rewardDecisions =
@@ -2273,7 +2277,7 @@ namespace Shmup.Core.Simulation
             _routeOptions = Array.Empty<RouteOption>();
             _preparedRouteOptions = Array.Empty<RouteOption>();
             _contractOptions =
-                Array.Empty<ContractDefinition>();
+                Array.Empty<ContractOption>();
             ActiveContract = null;
             CompletionGrade = grade;
             State = RunState.RunCleared;
@@ -2494,7 +2498,10 @@ namespace Shmup.Core.Simulation
             if (_contractOptions.Count == 0)
                 _contractOptions = Array.AsReadOnly(new[]
                 {
-                    _contracts.Standard
+                    CreateContractOption(
+                        _contracts.Standard,
+                        BiomeIndex + 1,
+                        _stageThemeOrder[BiomeIndex])
                 });
             State = RunState.AwaitingContract;
         }
@@ -2522,15 +2529,15 @@ namespace Shmup.Core.Simulation
             {
                 _contractOptions = Array.AsReadOnly(new[]
                 {
-                    endRun,
-                    uncharted
+                    new ContractOption(endRun, null),
+                    new ContractOption(uncharted, null)
                 });
             }
             else
             {
                 _contractOptions = Array.AsReadOnly(new[]
                 {
-                    endRun
+                    new ContractOption(endRun, null)
                 });
             }
             State = RunState.AwaitingContract;
@@ -2543,8 +2550,10 @@ namespace Shmup.Core.Simulation
             if (optionIndex < 0
                 || optionIndex >= _contractOptions.Count)
                 return false;
+            ContractOption selectedOption =
+                _contractOptions[optionIndex];
             ContractDefinition selected =
-                _contractOptions[optionIndex]
+                selectedOption?.Definition
                 ?? _contracts.Standard;
             int targetBiome = BiomeIndex + 1;
             if (!selected.IsEligible(
@@ -2561,6 +2570,11 @@ namespace Shmup.Core.Simulation
                 && BiomeIndex != BiomeCount)
                 return false;
             ActiveContract = selected;
+            if (selected.DestinationKind
+                == ContractDestinationKind.NextStage)
+                ApplyContractDestination(
+                    selectedOption,
+                    targetBiome);
             _battleConfig.ContractCapsuleDropMultiplierNumerator =
                 selected.CapsuleDropNumerator;
             _battleConfig.ContractCapsuleDropMultiplierDenominator =
@@ -2579,9 +2593,11 @@ namespace Shmup.Core.Simulation
                 targetBiome,
                 optionIndex,
                 selected.Id,
-                selected.DestinationKind));
+                selected.DestinationKind,
+                selectedOption?.DestinationThemeId,
+                selectedOption?.DestinationThemeStageIndex ?? 0));
             _contractOptions =
-                Array.Empty<ContractDefinition>();
+                Array.Empty<ContractOption>();
             if (selected.DestinationKind
                 == ContractDestinationKind.EndRun)
             {
@@ -2601,7 +2617,7 @@ namespace Shmup.Core.Simulation
             return true;
         }
 
-        IReadOnlyList<ContractDefinition> GenerateContractOptions(
+        IReadOnlyList<ContractOption> GenerateContractOptions(
             int targetBiomeIndex)
         {
             _contractRng.ResetForked(
@@ -2654,7 +2670,107 @@ namespace Shmup.Core.Simulation
                 pool[pick] = pool[last];
                 weights[pick] = weights[last];
             }
+            return BindContractDestinations(
+                options,
+                targetBiomeIndex);
+        }
+
+        IReadOnlyList<ContractOption> BindContractDestinations(
+            ContractDefinition[] definitions,
+            int targetBiomeIndex)
+        {
+            int firstPosition = targetBiomeIndex - 1;
+            int lastShuffledPosition = Math.Min(
+                3,
+                BiomeCount - 2);
+            int candidateCount = targetBiomeIndex >= 2
+                && targetBiomeIndex <= 4
+                && firstPosition <= lastShuffledPosition
+                    ? lastShuffledPosition - firstPosition + 1
+                    : 1;
+            var options = new ContractOption[definitions.Length];
+            for (int i = 0; i < options.Length; i++)
+            {
+                int candidatePosition = candidateCount == 1
+                    ? firstPosition
+                    : firstPosition + i % candidateCount;
+                int themeStageIndex =
+                    _stageThemeOrder[candidatePosition];
+                options[i] = CreateContractOption(
+                    definitions[i],
+                    targetBiomeIndex,
+                    themeStageIndex);
+            }
             return Array.AsReadOnly(options);
+        }
+
+        ContractOption CreateContractOption(
+            ContractDefinition definition,
+            int targetBiomeIndex,
+            int themeStageIndex)
+        {
+            return new ContractOption(
+                definition,
+                GetDestinationThemeId(
+                    themeStageIndex,
+                    targetBiomeIndex),
+                themeStageIndex);
+        }
+
+        string GetDestinationThemeId(
+            int themeStageIndex,
+            int targetBiomeIndex)
+        {
+            if (_stageGenerator is IRouteStageGenerator routeGenerator
+                && themeStageIndex >= 1
+                && themeStageIndex <= routeGenerator.ThemeIds.Count)
+                return routeGenerator.ThemeIds[themeStageIndex - 1];
+            StagePlan plan = _stageGenerator.Generate(
+                _runSeed,
+                themeStageIndex,
+                _difficultyCurve.GetDifficulty(targetBiomeIndex));
+            if (plan == null)
+                throw new InvalidOperationException(
+                    "The stage generator returned no destination theme.");
+            return !string.IsNullOrEmpty(plan.ThemeId)
+                ? plan.ThemeId
+                : !string.IsNullOrEmpty(plan.RequestedThemeId)
+                    ? plan.RequestedThemeId
+                    : $"stage_{themeStageIndex}";
+        }
+
+        void ApplyContractDestination(
+            ContractOption option,
+            int targetBiomeIndex)
+        {
+            if (option == null
+                || option.DestinationThemeStageIndex < 1)
+                throw new InvalidOperationException(
+                    "The selected contract has no destination theme stage.");
+            int targetPosition = targetBiomeIndex - 1;
+            int sourcePosition = -1;
+            int lastShuffledPosition = Math.Min(
+                3,
+                BiomeCount - 2);
+            int searchEnd = targetBiomeIndex >= 2
+                && targetBiomeIndex <= 4
+                && targetPosition <= lastShuffledPosition
+                    ? lastShuffledPosition
+                    : targetPosition;
+            for (int i = targetPosition; i <= searchEnd; i++)
+                if (_stageThemeOrder[i]
+                    == option.DestinationThemeStageIndex)
+                {
+                    sourcePosition = i;
+                    break;
+                }
+            if (sourcePosition < 0)
+                throw new InvalidOperationException(
+                    "The selected destination is no longer in the remaining theme pool.");
+            int displaced = _stageThemeOrder[targetPosition];
+            _stageThemeOrder[targetPosition] =
+                option.DestinationThemeStageIndex;
+            _stageThemeOrder[sourcePosition] = displaced;
         }
 
         [Obsolete(
@@ -3179,7 +3295,7 @@ namespace Shmup.Core.Simulation
             _routeOptions = Array.Empty<RouteOption>();
             _preparedRouteOptions = Array.Empty<RouteOption>();
             _contractOptions =
-                Array.Empty<ContractDefinition>();
+                Array.Empty<ContractOption>();
             _routeChoiceHistory.Clear();
             _contractChoiceHistory.Clear();
             _rewardDecisionHistory.Clear();
@@ -3973,7 +4089,12 @@ namespace Shmup.Core.Simulation
                         data.optionIndex,
                         data.contractId,
                         (ContractDestinationKind)
-                            data.destinationKind));
+                            data.destinationKind,
+                        data.destinationThemeId,
+                        data.destinationThemeStageIndex));
+                if (definition.DestinationKind
+                    == ContractDestinationKind.NextStage)
+                    RestoreContractDestination(data);
                 previousBiome = data.targetBiomeIndex;
             }
 
@@ -4001,7 +4122,12 @@ namespace Shmup.Core.Simulation
                         new ContractChoice(
                             biome,
                             0,
-                            catalog.Standard.Id));
+                            catalog.Standard.Id,
+                            ContractDestinationKind.NextStage,
+                            GetDestinationThemeId(
+                                _stageThemeOrder[biome - 1],
+                                biome),
+                            _stageThemeOrder[biome - 1]));
             }
             if (ActiveContract == null
                 || _contractChoiceHistory.Count == 0)
@@ -4034,6 +4160,37 @@ namespace Shmup.Core.Simulation
                 ActiveContract.ScoreMultiplierNumerator;
             _battleConfig.ContractScoreMultiplierDenominator =
                 ActiveContract.ScoreMultiplierDenominator;
+        }
+
+        void RestoreContractDestination(ContractChoiceData data)
+        {
+            int targetPosition = data.targetBiomeIndex - 1;
+            int themeStageIndex =
+                data.destinationThemeStageIndex;
+            if (themeStageIndex == 0
+                && data.destinationThemeId == null)
+            {
+                // Pre-REQ-086 payloads used the already shuffled next theme.
+                themeStageIndex = _stageThemeOrder[targetPosition];
+            }
+            string themeId = GetDestinationThemeId(
+                themeStageIndex,
+                data.targetBiomeIndex);
+            if (data.destinationThemeId != null
+                && !string.Equals(
+                    data.destinationThemeId,
+                    themeId,
+                    StringComparison.Ordinal))
+                throw new ArgumentException(
+                    "Suspend contract destination theme is invalid.");
+            ApplyContractDestination(
+                new ContractOption(
+                    FindContractIncludingTerminal(
+                        _contracts,
+                        data.contractId),
+                    themeId,
+                    themeStageIndex),
+                data.targetBiomeIndex);
         }
 
         void RestoreRewardDecisionHistory(
@@ -4319,6 +4476,26 @@ namespace Shmup.Core.Simulation
                 if (basePlan == null)
                     throw new InvalidOperationException(
                         "The stage generator returned no biome base plan.");
+                if (generationBiomeIndex >= 1
+                    && generationBiomeIndex
+                        <= routeGenerator.ThemeIds.Count)
+                {
+                    string selectedThemeId =
+                        routeGenerator.ThemeIds[
+                            generationBiomeIndex - 1];
+                    if (!string.Equals(
+                            basePlan.ThemeId,
+                            selectedThemeId,
+                            StringComparison.Ordinal))
+                    {
+                        basePlan = routeGenerator.GenerateRoute(
+                            _runSeed,
+                            battleSequenceBiomeIndex,
+                            Difficulty,
+                            selectedThemeId,
+                            basePlan.EncounterType);
+                    }
+                }
                 if (TryGetRouteChoice(
                         battleSequenceBiomeIndex,
                         RoomIndex,
@@ -4611,9 +4788,15 @@ namespace Shmup.Core.Simulation
 
         string GetBiomeThemeId(int biomeIndex)
         {
+            int themeStageIndex =
+                _stageThemeOrder[biomeIndex - 1];
+            if (_stageGenerator
+                    is IRouteStageGenerator routeGenerator
+                && themeStageIndex <= routeGenerator.ThemeIds.Count)
+                return routeGenerator.ThemeIds[themeStageIndex - 1];
             StagePlan plan = _stageGenerator.Generate(
                 _runSeed,
-                biomeIndex,
+                themeStageIndex,
                 _difficultyCurve.GetDifficulty(biomeIndex));
             if (plan == null)
                 throw new InvalidOperationException(

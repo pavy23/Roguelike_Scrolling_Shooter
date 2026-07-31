@@ -26,7 +26,8 @@ namespace Shmup.Core
                 || source.schemaVersion == 15
                 || source.schemaVersion == 16
                 || source.schemaVersion == 17
-                || source.schemaVersion == 18)
+                || source.schemaVersion == 18
+                || source.schemaVersion == 19)
                 throw Unsupported(
                     "run suspend",
                     source.schemaVersion);
@@ -36,6 +37,11 @@ namespace Shmup.Core
             {
                 throw Corrupted("Run suspend checksum is missing or invalid.");
             }
+            if (source.schemaVersion
+                == RunSuspendData.CurrentSchemaVersion)
+                ValidateCurrentContractDestinations(
+                    source.contractChoices,
+                    "Run suspend");
             if (source.schemaVersion
                     < RunSuspendData.CurrentSchemaVersion
                 && !string.IsNullOrEmpty(source.checksum)
@@ -253,7 +259,8 @@ namespace Shmup.Core
                 || source.schemaVersion == 14
                 || source.schemaVersion == 15
                 || source.schemaVersion == 16
-                || source.schemaVersion == 17)
+                || source.schemaVersion == 17
+                || source.schemaVersion == 18)
                 throw Unsupported(
                     "input recording",
                     source.schemaVersion);
@@ -1344,6 +1351,8 @@ namespace Shmup.Core
                 hash.Add(choice.optionIndex);
                 hash.Add(choice.contractId);
                 hash.Add(choice.destinationKind);
+                hash.Add(choice.destinationThemeId);
+                hash.Add(choice.destinationThemeStageIndex);
             }
         }
 
@@ -1533,10 +1542,35 @@ namespace Shmup.Core
                         optionIndex = item.optionIndex,
                         contractId = item.contractId,
                         destinationKind =
-                            item.destinationKind
+                            item.destinationKind,
+                        destinationThemeId =
+                            item.destinationThemeId,
+                        destinationThemeStageIndex =
+                            item.destinationThemeStageIndex
                     };
             }
             return copy;
+        }
+
+        static void ValidateCurrentContractDestinations(
+            ContractChoiceData[] choices,
+            string payloadName)
+        {
+            if (choices == null)
+                return;
+            for (int i = 0; i < choices.Length; i++)
+            {
+                ContractChoiceData choice = choices[i];
+                if (choice != null
+                    && choice.destinationKind
+                        == (int)ContractDestinationKind.NextStage
+                    && (string.IsNullOrEmpty(
+                            choice.destinationThemeId)
+                        || choice.destinationThemeStageIndex < 1))
+                    throw Corrupted(
+                        payloadName
+                        + " contract destination is missing or invalid.");
+            }
         }
 
         static RewardDecisionData[] Clone(

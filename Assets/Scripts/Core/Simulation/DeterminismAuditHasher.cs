@@ -385,11 +385,16 @@ namespace Shmup.Core.Simulation
         }
 
         void FoldContracts(
-            IReadOnlyList<ContractDefinition> contracts)
+            IReadOnlyList<ContractOption> contracts)
         {
             FoldInt32(contracts.Count);
             for (int i = 0; i < contracts.Count; i++)
-                FoldContract(contracts[i]);
+            {
+                FoldContract(contracts[i].Definition);
+                FoldString(contracts[i].DestinationThemeId);
+                FoldInt32(
+                    contracts[i].DestinationThemeStageIndex);
+            }
         }
 
         void FoldContract(ContractDefinition contract)
@@ -421,6 +426,9 @@ namespace Shmup.Core.Simulation
                 FoldString(history[i].ContractId);
                 FoldInt32(
                     (int)history[i].DestinationKind);
+                FoldString(history[i].DestinationThemeId);
+                FoldInt32(
+                    history[i].DestinationThemeStageIndex);
             }
         }
 
@@ -487,6 +495,14 @@ namespace Shmup.Core.Simulation
             FoldInt32(
                 battle.PlayerInvulnerabilityTicksRemaining);
             FoldInt32((int)battle.PlayerWeaponType);
+            if (battle is BattleSim concreteBattle)
+            {
+                FoldInt32(
+                    concreteBattle.PrimaryWeaponEvolutionLevel);
+                FoldInt32(concreteBattle.BurstShotsRemaining);
+                FoldInt32(
+                    concreteBattle.BurstCooldownTicksRemaining);
+            }
             StageEnvironmentState environment = battle.Environment;
             FoldInt32(environment.SegmentIndex);
             FoldString(environment.SegmentId);

@@ -403,6 +403,83 @@ namespace Shmup.Core.Simulation
         }
     }
 
+    /// <summary>
+    /// One run-specific contract card. The catalog definition owns modifiers;
+    /// the option binds that card to a deterministic destination biome theme.
+    /// </summary>
+    public sealed class ContractOption
+    {
+        public ContractOption(
+            ContractDefinition definition,
+            string destinationThemeId,
+            int destinationThemeStageIndex = 0)
+        {
+            Definition = definition
+                ?? throw new ArgumentNullException(nameof(definition));
+            if (definition.DestinationKind
+                    == ContractDestinationKind.NextStage
+                && string.IsNullOrEmpty(destinationThemeId))
+                throw new ArgumentException(
+                    "A next-stage contract requires a destination theme.",
+                    nameof(destinationThemeId));
+            if (destinationThemeStageIndex < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(destinationThemeStageIndex));
+            DestinationThemeId = destinationThemeId;
+            DestinationThemeStageIndex =
+                destinationThemeStageIndex;
+        }
+
+        public ContractDefinition Definition { get; }
+        public string DestinationThemeId { get; }
+        public int DestinationThemeStageIndex { get; }
+        public string Id => Definition.Id;
+        public int Weight => Definition.Weight;
+        public ContractRiskTier RiskTier => Definition.RiskTier;
+        public ContractDestinationKind DestinationKind =>
+            Definition.DestinationKind;
+        public ContractEligibility Eligibility => Definition.Eligibility;
+        public IReadOnlyList<ContractEffectView> Effects =>
+            Definition.Effects;
+        public bool IsNeutral => Definition.IsNeutral;
+        public int EnemyDensityNumerator =>
+            Definition.EnemyDensityNumerator;
+        public int EnemyDensityDenominator =>
+            Definition.EnemyDensityDenominator;
+        public int CapsuleDropNumerator =>
+            Definition.CapsuleDropNumerator;
+        public int CapsuleDropDenominator =>
+            Definition.CapsuleDropDenominator;
+        public int BombDropNumerator => Definition.BombDropNumerator;
+        public int BombDropDenominator =>
+            Definition.BombDropDenominator;
+        public bool GuaranteedBombDrop =>
+            Definition.GuaranteedBombDrop;
+        public int GimmickIntensityNumerator =>
+            Definition.GimmickIntensityNumerator;
+        public int GimmickIntensityDenominator =>
+            Definition.GimmickIntensityDenominator;
+        public int RewardOptionCountDelta =>
+            Definition.RewardOptionCountDelta;
+        public int ScoreMultiplierNumerator =>
+            Definition.ScoreMultiplierNumerator;
+        public int ScoreMultiplierDenominator =>
+            Definition.ScoreMultiplierDenominator;
+
+        public static implicit operator ContractDefinition(
+            ContractOption option) =>
+            option?.Definition;
+
+        public bool IsEligible(
+            int eliteRoomsCleared,
+            int noHitBiomesCleared,
+            int rareEncountersCleared) =>
+            Definition.IsEligible(
+                eliteRoomsCleared,
+                noHitBiomesCleared,
+                rareEncountersCleared);
+    }
+
     public readonly struct ContractChoice
     {
         public ContractChoice(
@@ -413,7 +490,9 @@ namespace Shmup.Core.Simulation
                 targetBiomeIndex,
                 optionIndex,
                 contractId,
-                ContractDestinationKind.NextStage)
+                ContractDestinationKind.NextStage,
+                null,
+                0)
         {
         }
 
@@ -421,7 +500,9 @@ namespace Shmup.Core.Simulation
             int targetBiomeIndex,
             int optionIndex,
             string contractId,
-            ContractDestinationKind destinationKind)
+            ContractDestinationKind destinationKind,
+            string destinationThemeId = null,
+            int destinationThemeStageIndex = 0)
         {
             if (targetBiomeIndex < 2)
                 throw new ArgumentOutOfRangeException(
@@ -438,15 +519,29 @@ namespace Shmup.Core.Simulation
                     destinationKind))
                 throw new ArgumentOutOfRangeException(
                     nameof(destinationKind));
+            if (destinationKind == ContractDestinationKind.NextStage
+                && destinationThemeId != null
+                && destinationThemeId.Length == 0)
+                throw new ArgumentException(
+                    "Destination theme cannot be empty.",
+                    nameof(destinationThemeId));
+            if (destinationThemeStageIndex < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(destinationThemeStageIndex));
             TargetBiomeIndex = targetBiomeIndex;
             OptionIndex = optionIndex;
             ContractId = contractId;
             DestinationKind = destinationKind;
+            DestinationThemeId = destinationThemeId;
+            DestinationThemeStageIndex =
+                destinationThemeStageIndex;
         }
 
         public int TargetBiomeIndex { get; }
         public int OptionIndex { get; }
         public string ContractId { get; }
         public ContractDestinationKind DestinationKind { get; }
+        public string DestinationThemeId { get; }
+        public int DestinationThemeStageIndex { get; }
     }
 }

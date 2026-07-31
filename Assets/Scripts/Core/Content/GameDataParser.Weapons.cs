@@ -440,63 +440,78 @@ namespace Shmup.Core.Content
                         item.projectileSpeed,
                         path + ".projectileSpeed"),
                     path + ".projectileSpeed");
-                definitions[i] =
-                    new PrimaryWeaponFamilyDefinition(
+                int minimumFireIntervalTicks = Require(
+                    item.minimumFireIntervalTicks,
+                    path + ".minimumFireIntervalTicks");
+                int pierceEnemyCount = Require(
+                    item.pierceEnemyCount,
+                    path + ".pierceEnemyCount");
+                int spreadWays = Require(
+                    item.spreadWays,
+                    path + ".spreadWays");
+                int spreadStepLutSlots = Require(
+                    item.spreadStepLutSlots,
+                    path + ".spreadStepLutSlots");
+                int[] shotAngles = schemaVersion
+                    >= SupportedReq080WeaponsSchemaVersion
+                    ? RequireArray(
+                        item.shotAngleLutSlots,
+                        path + ".shotAngleLutSlots",
+                        allowEmpty: true)
+                    : item.shotAngleLutSlots;
+                PrimaryWeaponLevelDefinition[] levels =
+                    ParsePrimaryWeaponLevels(
+                        item,
                         family,
+                        path,
+                        minimumFireIntervalTicks,
+                        pierceEnemyCount,
+                        spreadWays,
+                        spreadStepLutSlots,
+                        shotAngles);
+                definitions[i] = new PrimaryWeaponFamilyDefinition(
+                    family,
+                    RequireText(
+                        item.displayName,
+                        path + ".displayName"),
+                    RequireText(
+                        item.description,
+                        path + ".description"),
+                    ParseWeaponType(
                         RequireText(
-                            item.displayName,
-                            path + ".displayName"),
-                        RequireText(
-                            item.description,
-                            path + ".description"),
-                        ParseWeaponType(
-                            RequireText(
-                                item.weaponType,
-                                path + ".weaponType"),
+                            item.weaponType,
                             path + ".weaponType"),
+                        path + ".weaponType"),
+                    Require(
+                        item.baseDamage,
+                        path + ".baseDamage"),
+                    Require(
+                        item.fireIntervalTicks,
+                        path + ".fireIntervalTicks"),
+                    minimumFireIntervalTicks,
+                    Require(
+                        item.rapidFireStartLevel,
+                        path + ".rapidFireStartLevel"),
+                    Require(
+                        item.fireIntervalReductionPerLevel,
+                        path + ".fireIntervalReductionPerLevel"),
+                    speed.Numerator,
+                    speed.Denominator,
+                    ToSubUnits(
                         Require(
-                            item.baseDamage,
-                            path + ".baseDamage"),
-                        Require(
-                            item.fireIntervalTicks,
-                            path + ".fireIntervalTicks"),
-                        Require(
-                            item.minimumFireIntervalTicks,
-                            path + ".minimumFireIntervalTicks"),
-                        Require(
-                            item.rapidFireStartLevel,
-                            path + ".rapidFireStartLevel"),
-                        Require(
-                            item.fireIntervalReductionPerLevel,
-                            path + ".fireIntervalReductionPerLevel"),
-                        speed.Numerator,
-                        speed.Denominator,
-                        ToSubUnits(
-                            Require(
-                                item.projectileHalfWidth,
-                                path + ".projectileHalfWidth"),
+                            item.projectileHalfWidth,
                             path + ".projectileHalfWidth"),
-                        ToSubUnits(
-                            Require(
-                                item.projectileHalfHeight,
-                                path + ".projectileHalfHeight"),
+                        path + ".projectileHalfWidth"),
+                    ToSubUnits(
+                        Require(
+                            item.projectileHalfHeight,
                             path + ".projectileHalfHeight"),
-                        Require(
-                            item.pierceEnemyCount,
-                            path + ".pierceEnemyCount"),
-                        Require(
-                            item.spreadWays,
-                            path + ".spreadWays"),
-                        Require(
-                            item.spreadStepLutSlots,
-                            path + ".spreadStepLutSlots"),
-                        schemaVersion
-                            >= SupportedReq080WeaponsSchemaVersion
-                            ? RequireArray(
-                                item.shotAngleLutSlots,
-                                path + ".shotAngleLutSlots",
-                                allowEmpty: true)
-                            : item.shotAngleLutSlots);
+                        path + ".projectileHalfHeight"),
+                    pierceEnemyCount,
+                    spreadWays,
+                    spreadStepLutSlots,
+                    shotAngles,
+                    levels);
             }
             if (!seen[(int)PrimaryWeaponFamily.Double]
                 || !seen[(int)PrimaryWeaponFamily.Laser])
@@ -504,6 +519,124 @@ namespace Shmup.Core.Content
                     "weapons.json.primaryWeaponFamilies",
                     "must include double and laser.");
             return definitions;
+        }
+
+        static PrimaryWeaponLevelDefinition[] ParsePrimaryWeaponLevels(
+            PrimaryWeaponFamilyDto family,
+            PrimaryWeaponFamily familyId,
+            string path,
+            int minimumFireIntervalTicks,
+            int pierceEnemyCount,
+            int spreadWays,
+            int spreadStepLutSlots,
+            int[] shotAngles)
+        {
+            if (family.levels != null && family.evolutionLevels != null)
+                throw Error(
+                    path,
+                    "cannot define both levels and evolutionLevels.");
+            PrimaryWeaponLevelDto[] source =
+                family.levels ?? family.evolutionLevels;
+            int[] normalizedBaseAngles = shotAngles == null
+                && familyId == PrimaryWeaponFamily.Double
+                    ? new[]
+                    {
+                        0,
+                        PrimaryWeaponFamilyDefinition
+                            .AngleLutSlotsPerTurn / 8
+                    }
+                    : shotAngles;
+            var baseLevel = new PrimaryWeaponLevelDefinition(
+                1,
+                minimumFireIntervalTicks,
+                pierceEnemyCount,
+                spreadWays,
+                spreadStepLutSlots,
+                normalizedBaseAngles);
+            if (source == null || source.Length == 0)
+                return new[] { baseLevel };
+            if (source.Length > 2)
+                throw Error(
+                    path + ".levels",
+                    "can contain only level 2 and level 3 overrides.");
+
+            var levels = new PrimaryWeaponLevelDefinition[source.Length + 1];
+            levels[0] = baseLevel;
+            for (int i = 0; i < source.Length; i++)
+            {
+                string levelPath = $"{path}.levels[{i}]";
+                PrimaryWeaponLevelDto item = source[i];
+                if (item == null)
+                    throw Error(levelPath, "cannot be null.");
+                int level = Require(item.level, levelPath + ".level");
+                if (level != i + 2)
+                    throw Error(
+                        levelPath + ".level",
+                        "must be consecutive level 2 then level 3.");
+                int resolvedWays = item.spreadWays ?? spreadWays;
+                int[] resolvedAngles = item.shotAngleLutSlots
+                    ?? normalizedBaseAngles;
+                int impactDamage =
+                    item.impactExplosionDamage ?? 0;
+                int impactRadius = item.impactExplosionRadius.HasValue
+                    ? ToSubUnits(
+                        item.impactExplosionRadius.Value,
+                        levelPath + ".impactExplosionRadius")
+                    : 0;
+                int beamLength = item.beamLength.HasValue
+                    ? ToSubUnits(
+                        item.beamLength.Value,
+                        levelPath + ".beamLength")
+                    : 0;
+                int beamStartHalfWidth =
+                    item.beamStartHalfWidth.HasValue
+                        ? ToSubUnits(
+                            item.beamStartHalfWidth.Value,
+                            levelPath + ".beamStartHalfWidth")
+                        : 0;
+                int beamGrowthPerTick =
+                    item.beamGrowthPerTick.HasValue
+                        ? ToSubUnits(
+                            item.beamGrowthPerTick.Value,
+                            levelPath + ".beamGrowthPerTick")
+                        : 0;
+                int beamMaxHalfWidth =
+                    item.beamMaxHalfWidth.HasValue
+                        ? ToSubUnits(
+                            item.beamMaxHalfWidth.Value,
+                            levelPath + ".beamMaxHalfWidth")
+                        : 0;
+                try
+                {
+                    levels[i + 1] = new PrimaryWeaponLevelDefinition(
+                        level,
+                        item.minimumFireIntervalTicks
+                            ?? minimumFireIntervalTicks,
+                        item.pierceEnemyCount ?? pierceEnemyCount,
+                        resolvedWays,
+                        item.spreadStepLutSlots
+                            ?? spreadStepLutSlots,
+                        resolvedAngles,
+                        item.burstCount ?? 1,
+                        item.burstIntervalTicks ?? 1,
+                        item.pulseMinStepLutSlots ?? 0,
+                        item.pulseMaxStepLutSlots ?? 0,
+                        item.pulsePeriodTicks ?? 0,
+                        item.inertiaVelocityPercent ?? 0,
+                        impactDamage,
+                        impactRadius,
+                        item.beamDamagePerTick ?? 0,
+                        beamLength,
+                        beamStartHalfWidth,
+                        beamGrowthPerTick,
+                        beamMaxHalfWidth);
+                }
+                catch (ArgumentException error)
+                {
+                    throw Error(levelPath, error.Message);
+                }
+            }
+            return levels;
         }
 
         static PrimaryWeaponFamilyDefinition[]

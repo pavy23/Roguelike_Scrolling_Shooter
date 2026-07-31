@@ -588,7 +588,8 @@ namespace Shmup.Core.Simulation
     public enum LaserSourceKind
     {
         Enemy = 0,
-        Terrain = 1
+        Terrain = 1,
+        Player = 2
     }
 
     public enum LaserPhase
@@ -1222,6 +1223,16 @@ namespace Shmup.Core.Simulation
         int _mainShotBasePierceEnemyCount;
         int _spreadWays, _spreadStepLutSlots;
         int[] _mainShotAngleLutSlots;
+        int _primaryWeaponEvolutionLevel;
+        int _burstCount = 1, _burstIntervalTicks = 1;
+        int _burstShotsRemaining, _burstCooldownTicks;
+        int _pulseMinStepLutSlots, _pulseMaxStepLutSlots;
+        int _pulsePeriodTicks, _inertiaVelocityPercent;
+        int _impactExplosionDamage, _impactExplosionRadius;
+        int _beamDamagePerTick, _beamLength;
+        int _beamStartHalfWidth, _beamGrowthPerTick;
+        int _beamMaxHalfWidth, _playerBeamAge;
+        int _playerVelocityX, _playerVelocityY;
         int _mainShotRapidFireStartLevel;
         int _mainShotFireIntervalReductionPerLevel;
         int _mainShotMinimumFireIntervalTicks;
@@ -2090,6 +2101,11 @@ namespace Shmup.Core.Simulation
         public WeaponType PlayerWeaponType => _playerWeaponType;
         public PrimaryWeaponFamily EquippedPrimaryWeaponFamily =>
             _equippedPrimaryWeaponFamily;
+        public int PrimaryWeaponEvolutionLevel =>
+            _primaryWeaponEvolutionLevel;
+        public int BurstShotsRemaining => _burstShotsRemaining;
+        public int BurstCooldownTicksRemaining =>
+            _burstCooldownTicks;
         public IReadOnlyList<BulletState> Bullets => _readOnlyBullets;
         public IReadOnlyList<OptionState> Options => _readOnlyOptions;
         public IReadOnlyList<EnemyState> Enemies => _readOnlyEnemies;
@@ -2198,7 +2214,11 @@ namespace Shmup.Core.Simulation
 
             UpdateEnvironmentState();
             ExpireTimeLimitIfNeeded();
+            int previousPlayerX = PlayerX;
+            int previousPlayerY = PlayerY;
             AdvancePlayer(in input);
+            _playerVelocityX = PlayerX - previousPlayerX;
+            _playerVelocityY = PlayerY - previousPlayerY;
             RecordPlayerPosition();
             bool activatePressed = input.Activate && !_activateHeld;
             _activateHeld = input.Activate;
@@ -2210,6 +2230,7 @@ namespace Shmup.Core.Simulation
                 input.ActivateBomb && !_bombHeld;
             _bombHeld = input.ActivateBomb;
             AdvanceLasers();
+            UpdatePlayerBeam(input.Fire);
             AdvanceBullets();
             AdvanceEnemies();
             AdvanceObstacles();
@@ -2223,6 +2244,8 @@ namespace Shmup.Core.Simulation
             ResolvePlayerBulletEnemyCollisions();
             ResolvePlayerBulletBossCollisions();
             RefreshLaserSegments();
+            ResolvePlayerLaserEnemyCollisions();
+            ResolvePlayerLaserBossCollisions();
             ResolveEnemyBulletPlayerCollisions();
             ResolveLaserPlayerCollisions();
             ResolveEnemyPlayerCollisions();
@@ -2233,10 +2256,14 @@ namespace Shmup.Core.Simulation
 
             if (_cooldown > 0) _cooldown--;
             if (_missileCooldown > 0) _missileCooldown--;
+            AdvanceMainShotBurst();
             if (input.Fire)
             {
-                if (_cooldown == 0 && CountPlayerBullets() < _maxBullets)
-                    SpawnMainShotVolley();
+                if (_beamDamagePerTick == 0
+                    && _cooldown == 0
+                    && _burstShotsRemaining == 0
+                    && CountPlayerBullets() < _maxBullets)
+                    SpawnMainShotVolley(false);
                 if (_missileLevel > 0
                     && _missileCooldown == 0
                     && CountPlayerBullets() < _maxBullets)
@@ -2388,7 +2415,14 @@ namespace Shmup.Core.Simulation
                     throw new InvalidOperationException(
                         "Unknown gauge weapon mode.");
             }
-            if (family == _equippedPrimaryWeaponFamily)
+            PowerUpSlot modeSlot = family == PrimaryWeaponFamily.Double
+                ? PowerUpSlot.Double
+                : family == PrimaryWeaponFamily.Laser
+                    ? PowerUpSlot.Laser
+                    : PowerUpSlot.Triple;
+            int evolutionLevel = _powerUpGauge.GetLevel(modeSlot);
+            if (family == _equippedPrimaryWeaponFamily
+                && evolutionLevel == _primaryWeaponEvolutionLevel)
                 return;
             PrimaryWeaponFamilyDefinition definition =
                 _battleContent.FindPrimaryWeaponFamily(family);
@@ -2410,6 +2444,8 @@ namespace Shmup.Core.Simulation
                     current.FireIntervalTicks
                         - _fireIntervalTicks);
             ApplyPrimaryWeaponProfile(definition);
+            ApplyPrimaryWeaponLevel(
+                definition.GetLevel(evolutionLevel));
             _playerBulletDamage = SaturateToInt(
                 (long)_playerBulletDamage + damageBonus);
             _fireIntervalTicks = Math.Max(
@@ -2440,6 +2476,45 @@ namespace Shmup.Core.Simulation
             _spreadStepLutSlots = definition.SpreadStepLutSlots;
             _mainShotAngleLutSlots =
                 CopyAngles(definition.ShotAngleLutSlots);
+            _primaryWeaponEvolutionLevel = 1;
+            _burstShotsRemaining = 0;
+            _burstCooldownTicks = 0;
+            RemovePlayerBeam();
+        }
+
+        void ApplyPrimaryWeaponLevel(
+            PrimaryWeaponLevelDefinition level)
+        {
+            _primaryWeaponEvolutionLevel = level.Level;
+            _mainShotMinimumFireIntervalTicks =
+                level.MinimumFireIntervalTicks;
+            _mainShotBasePierceEnemyCount =
+                level.PierceEnemyCount;
+            _spreadWays = level.SpreadWays;
+            _spreadStepLutSlots = level.SpreadStepLutSlots;
+            _mainShotAngleLutSlots =
+                CopyAngles(level.ShotAngleLutSlots);
+            _burstCount = level.BurstCount;
+            _burstIntervalTicks = level.BurstIntervalTicks;
+            _pulseMinStepLutSlots =
+                level.PulseMinStepLutSlots;
+            _pulseMaxStepLutSlots =
+                level.PulseMaxStepLutSlots;
+            _pulsePeriodTicks = level.PulsePeriodTicks;
+            _inertiaVelocityPercent =
+                level.InertiaVelocityPercent;
+            _impactExplosionDamage =
+                level.ImpactExplosionDamage;
+            _impactExplosionRadius =
+                level.ImpactExplosionRadius;
+            _beamDamagePerTick = level.BeamDamagePerTick;
+            _beamLength = level.BeamLength;
+            _beamStartHalfWidth = level.BeamStartHalfWidth;
+            _beamGrowthPerTick = level.BeamGrowthPerTick;
+            _beamMaxHalfWidth = level.BeamMaxHalfWidth;
+            _burstShotsRemaining = 0;
+            _burstCooldownTicks = 0;
+            RemovePlayerBeam();
         }
 
         static int[] CopyAngles(IReadOnlyList<int> source)
@@ -5061,6 +5136,19 @@ namespace Shmup.Core.Simulation
             {
                 LaserAttackDefinition definition =
                     _laserDefinitions[index];
+                if (_lasers[index].SourceKind
+                    == LaserSourceKind.Player)
+                {
+                    _playerBeamAge = _playerBeamAge == int.MaxValue
+                        ? int.MaxValue
+                        : _playerBeamAge + 1;
+                    _laserAges[index] = _playerBeamAge;
+                    _lasers[index] = CreatePlayerBeamState(
+                        _lasers[index].Id,
+                        _playerBeamAge);
+                    index++;
+                    continue;
+                }
                 LaserPhase previousPhase =
                     _lasers[index].Phase;
                 int age = _laserAges[index] + 1;
@@ -5127,6 +5215,14 @@ namespace Shmup.Core.Simulation
                         0);
                     continue;
                 }
+                if (laser.SourceKind == LaserSourceKind.Player)
+                {
+                    _lasers[index] = CreatePlayerBeamState(
+                        laser.Id,
+                        _playerBeamAge);
+                    index++;
+                    continue;
+                }
                 _lasers[index] = CreateLaserState(
                     laser.Id,
                     laser.SourceKind,
@@ -5145,6 +5241,12 @@ namespace Shmup.Core.Simulation
             out int x,
             out int y)
         {
+            if (kind == LaserSourceKind.Player)
+            {
+                x = PlayerX;
+                y = PlayerY;
+                return _playerAlive;
+            }
             if (kind == LaserSourceKind.Enemy)
             {
                 int enemyIndex =
@@ -5250,7 +5352,8 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < _lasers.Count; i++)
             {
                 LaserState laser = _lasers[i];
-                if (!laser.IsDamaging)
+                if (!laser.IsDamaging
+                    || laser.SourceKind == LaserSourceKind.Player)
                     continue;
                 int radius = SaturatingAddDamage(
                     playerRadius,
@@ -5268,6 +5371,214 @@ namespace Shmup.Core.Simulation
                     if (!_playerAlive)
                         return;
                 }
+            }
+        }
+
+        void UpdatePlayerBeam(bool firing)
+        {
+            int index = FindPlayerBeamIndex();
+            if (!firing || _beamDamagePerTick == 0 || !_playerAlive)
+            {
+                if (index >= 0)
+                    RemoveLaserAt(index);
+                _playerBeamAge = 0;
+                return;
+            }
+            if (index >= 0)
+            {
+                _lasers[index] = CreatePlayerBeamState(
+                    _lasers[index].Id,
+                    _playerBeamAge);
+                return;
+            }
+            if (_lasers.Count >= _maxLasers)
+            {
+                EmitEvent(
+                    SimEventType.LaserCapacityExceeded,
+                    0,
+                    PlayerX,
+                    PlayerY,
+                    _maxLasers);
+                return;
+            }
+            if (_nextLaserId == int.MaxValue)
+                throw new InvalidOperationException(
+                    "The laser id counter is exhausted.");
+            int id = _nextLaserId++;
+            _playerBeamAge = 0;
+            _laserDefinitions.Add(null);
+            _laserAges.Add(0);
+            _lasers.Add(CreatePlayerBeamState(id, 0));
+            IncrementSaturated(ref _shotsFired);
+            EmitEvent(
+                SimEventType.PlayerFired,
+                0,
+                PlayerX,
+                PlayerY,
+                (int)BulletKind.MainShot);
+            EmitEvent(
+                SimEventType.LaserFired,
+                id,
+                PlayerX,
+                PlayerY,
+                _beamStartHalfWidth);
+        }
+
+        LaserState CreatePlayerBeamState(int id, int age)
+        {
+            int halfWidth = SaturateToInt(
+                Math.Min(
+                    _beamMaxHalfWidth,
+                    (long)_beamStartHalfWidth
+                        + (long)_beamGrowthPerTick * age));
+            return new LaserState(
+                id,
+                LaserSourceKind.Player,
+                0,
+                PlayerX,
+                PlayerY,
+                SaturateToInt((long)PlayerX + _beamLength),
+                PlayerY,
+                LaserPhase.Sustaining,
+                halfWidth >= _beamMaxHalfWidth
+                    ? LaserThicknessStage.Full
+                    : LaserThicknessStage.Thin,
+                halfWidth,
+                0,
+                _beamDamagePerTick);
+        }
+
+        int FindPlayerBeamIndex()
+        {
+            for (int i = 0; i < _lasers.Count; i++)
+                if (_lasers[i].SourceKind
+                    == LaserSourceKind.Player)
+                    return i;
+            return -1;
+        }
+
+        void RemovePlayerBeam()
+        {
+            int index = FindPlayerBeamIndex();
+            if (index >= 0)
+                RemoveLaserAt(index);
+            _playerBeamAge = 0;
+        }
+
+        void ResolvePlayerLaserEnemyCollisions()
+        {
+            int beamIndex = FindPlayerBeamIndex();
+            if (beamIndex < 0)
+                return;
+            LaserState laser = _lasers[beamIndex];
+            int index = 0;
+            while (index < _enemies.Count)
+            {
+                EnemyState enemy = _enemies[index];
+                EnemyDefinition definition =
+                    _enemyDefinitions[index];
+                int radius = SaturatingAddDamage(
+                    Math.Max(
+                        definition.HalfWidth,
+                        definition.HalfHeight),
+                    laser.HalfWidth);
+                if (!LaserGeometry.IntersectsSegmentCircle(
+                        laser.StartX,
+                        laser.StartY,
+                        laser.EndX,
+                        laser.EndY,
+                        enemy.X,
+                        enemy.Y,
+                        radius))
+                {
+                    index++;
+                    continue;
+                }
+                int hp = Damage.ApplyToHp(
+                    enemy.Hp,
+                    laser.Damage);
+                if (hp > 0)
+                {
+                    _enemies[index] = new EnemyState(
+                        enemy.Id,
+                        enemy.DefinitionId,
+                        enemy.X,
+                        enemy.Y,
+                        hp);
+                    EmitEvent(
+                        SimEventType.EnemyHit,
+                        enemy.Id,
+                        enemy.X,
+                        enemy.Y,
+                        laser.Damage);
+                    index++;
+                    continue;
+                }
+                RemoveEnemyAt(index);
+                int awardedScore =
+                    RecordKillScore(definition.ScoreValue);
+                EmitEvent(
+                    SimEventType.EnemyKilled,
+                    enemy.Id,
+                    enemy.X,
+                    enemy.Y,
+                    awardedScore);
+                AdvanceKillCombo();
+                TryDropCapsule(definition, enemy.X, enemy.Y);
+                TryDropBomb(definition, enemy.X, enemy.Y);
+                if (HasModifier(BattleModifier.KillExplosion))
+                    ApplyKillExplosion(enemy.Id, enemy.X, enemy.Y);
+            }
+        }
+
+        void ResolvePlayerLaserBossCollisions()
+        {
+            if (!BossActive || BossEntering)
+                return;
+            int beamIndex = FindPlayerBeamIndex();
+            if (beamIndex < 0)
+                return;
+            LaserState laser = _lasers[beamIndex];
+            if (_bossPartDefinitions.Count == 0)
+            {
+                int radius = SaturatingAddDamage(
+                    Math.Max(_bossHalfWidth, _bossHalfHeight),
+                    laser.HalfWidth);
+                if (LaserGeometry.IntersectsSegmentCircle(
+                        laser.StartX,
+                        laser.StartY,
+                        laser.EndX,
+                        laser.EndY,
+                        _bossX,
+                        _bossY,
+                        radius))
+                    ApplyDamageToBoss(laser.Damage);
+                return;
+            }
+
+            for (int i = 0; i < _bossPartDefinitions.Count; i++)
+            {
+                BossPartState part = _bossPartStates[i];
+                if (part.Destroyed)
+                    continue;
+                BossPartDefinition definition =
+                    _bossPartDefinitions[i];
+                int radius = SaturatingAddDamage(
+                    Math.Max(
+                        definition.HalfWidth,
+                        definition.HalfHeight),
+                    laser.HalfWidth);
+                if (!LaserGeometry.IntersectsSegmentCircle(
+                        laser.StartX,
+                        laser.StartY,
+                        laser.EndX,
+                        laser.EndY,
+                        part.X,
+                        part.Y,
+                        radius))
+                    continue;
+                ApplyDamageToBossPart(i, laser.Damage);
+                return;
             }
         }
 
@@ -5498,6 +5809,17 @@ namespace Shmup.Core.Simulation
                         _bulletPiercesRemaining[bulletIndex]--;
                         keepBullet = true;
                     }
+                }
+
+                if (!keepBullet
+                    && bullet.Kind == BulletKind.MainShot
+                    && _impactExplosionDamage > 0)
+                {
+                    ApplyImpactExplosion(
+                        bullet.Id,
+                        enemy.Id,
+                        enemy.X,
+                        enemy.Y);
                 }
 
                 if (keepBullet)
@@ -5736,6 +6058,71 @@ namespace Shmup.Core.Simulation
                     enemy.Y,
                     awardedScore);
                 IncrementSaturated(ref _kills);
+                AdvanceKillCombo();
+                TryDropCapsule(definition, enemy.X, enemy.Y);
+                TryDropBomb(definition, enemy.X, enemy.Y);
+            }
+        }
+
+        void ApplyImpactExplosion(
+            int sourceBulletId,
+            int excludedEnemyId,
+            int centerX,
+            int centerY)
+        {
+            EmitEvent(
+                SimEventType.KillExplosionTriggered,
+                sourceBulletId,
+                centerX,
+                centerY,
+                _impactExplosionDamage);
+            long radiusSquared =
+                SquaredRadiusSaturated(_impactExplosionRadius);
+            int index = 0;
+            while (index < _enemies.Count)
+            {
+                EnemyState enemy = _enemies[index];
+                if (enemy.Id == excludedEnemyId
+                    || SquaredDistanceSaturated(
+                        centerX,
+                        centerY,
+                        enemy.X,
+                        enemy.Y) > radiusSquared)
+                {
+                    index++;
+                    continue;
+                }
+                int hp = Damage.ApplyToHp(
+                    enemy.Hp,
+                    _impactExplosionDamage);
+                if (hp > 0)
+                {
+                    _enemies[index] = new EnemyState(
+                        enemy.Id,
+                        enemy.DefinitionId,
+                        enemy.X,
+                        enemy.Y,
+                        hp);
+                    EmitEvent(
+                        SimEventType.EnemyHit,
+                        enemy.Id,
+                        enemy.X,
+                        enemy.Y,
+                        _impactExplosionDamage);
+                    index++;
+                    continue;
+                }
+                EnemyDefinition definition =
+                    _enemyDefinitions[index];
+                RemoveEnemyAt(index);
+                int awardedScore =
+                    RecordKillScore(definition.ScoreValue);
+                EmitEvent(
+                    SimEventType.EnemyKilled,
+                    enemy.Id,
+                    enemy.X,
+                    enemy.Y,
+                    awardedScore);
                 AdvanceKillCombo();
                 TryDropCapsule(definition, enemy.X, enemy.Y);
                 TryDropBomb(definition, enemy.X, enemy.Y);
@@ -6225,7 +6612,7 @@ namespace Shmup.Core.Simulation
             _bombPickupMagnetYRemainders.RemoveAt(index);
         }
 
-        void SpawnMainShotVolley()
+        void SpawnMainShotVolley(bool burstContinuation)
         {
             if (_nextBulletId == int.MaxValue)
                 throw new InvalidOperationException("The bullet id counter is exhausted.");
@@ -6233,6 +6620,12 @@ namespace Shmup.Core.Simulation
             EmitEvent(SimEventType.PlayerFired, 0, PlayerX, PlayerY, (int)BulletKind.MainShot);
             for (int i = 0; i < _options.Count && CountPlayerBullets() < _maxBullets; i++)
                 SpawnMainShotFrom(_options[i].X, _options[i].Y);
+            if (burstContinuation)
+                return;
+            _burstShotsRemaining = _burstCount - 1;
+            _burstCooldownTicks = _burstShotsRemaining > 0
+                ? _burstIntervalTicks
+                : 0;
             _cooldown = ComputeReducedInterval(
                 _fireIntervalTicks,
                 _mainShotLevel,
@@ -6246,12 +6639,20 @@ namespace Shmup.Core.Simulation
             if (_playerWeaponType != WeaponType.Spread)
             {
                 if (CountPlayerBullets() < _maxBullets)
+                {
                     SpawnBullet(BulletKind.MainShot, x, y);
+                    ApplyMainShotVelocity(
+                        _bullets.Count - 1,
+                        _bulletSpeedNumerator,
+                        0,
+                        _bulletSpeedDenominator);
+                }
                 return;
             }
 
             int available = Math.Max(0, _maxBullets - CountPlayerBullets());
             int shots = Math.Min(_spreadWays, available);
+            int spreadStep = GetCurrentSpreadStepLutSlots();
             for (int i = 0; i < shots; i++)
             {
                 int rotation;
@@ -6264,7 +6665,7 @@ namespace Shmup.Core.Simulation
                     long centeredIndex =
                         2L * i - (_spreadWays - 1L);
                     rotation = (int)(
-                        (centeredIndex * _spreadStepLutSlots / 2)
+                        (centeredIndex * spreadStep / 2)
                         % SineLut.Length);
                 }
                 SpawnSpreadBullet(x, y, rotation);
@@ -6274,9 +6675,6 @@ namespace Shmup.Core.Simulation
         void SpawnSpreadBullet(int x, int y, int lutRotation)
         {
             SpawnBullet(BulletKind.MainShot, x, y);
-            if (lutRotation == 0)
-                return;
-
             int index = ((lutRotation % SineLut.Length)
                 + SineLut.Length)
                 % SineLut.Length;
@@ -6288,22 +6686,85 @@ namespace Shmup.Core.Simulation
             long velocityY = (long)_bulletSpeedNumerator * sin;
             long velocityDenominator =
                 (long)_bulletSpeedDenominator * SineScale;
-            while (Math.Abs(velocityX) > int.MaxValue
-                || Math.Abs(velocityY) > int.MaxValue
-                || velocityDenominator > int.MaxValue)
-            {
-                velocityX >>= 1;
-                velocityY >>= 1;
-                velocityDenominator >>= 1;
-                if (velocityDenominator < 1)
-                    velocityDenominator = 1;
-            }
-
             int bulletIndex = _bullets.Count - 1;
-            _bulletVelXNumerators[bulletIndex] = (int)velocityX;
-            _bulletVelYNumerators[bulletIndex] = (int)velocityY;
-            _bulletVelDenominators[bulletIndex] =
-                (int)velocityDenominator;
+            ApplyMainShotVelocity(
+                bulletIndex,
+                velocityX,
+                velocityY,
+                velocityDenominator);
+        }
+
+        int GetCurrentSpreadStepLutSlots()
+        {
+            if (_pulsePeriodTicks == 0
+                || _pulseMaxStepLutSlots
+                    == _pulseMinStepLutSlots)
+                return _spreadStepLutSlots;
+            int halfPeriod = Math.Max(1, _pulsePeriodTicks / 2);
+            int phase = Tick % _pulsePeriodTicks;
+            int distance = phase <= halfPeriod
+                ? phase
+                : _pulsePeriodTicks - phase;
+            int range = _pulseMaxStepLutSlots
+                - _pulseMinStepLutSlots;
+            return _pulseMinStepLutSlots
+                + (int)((long)range * distance / halfPeriod);
+        }
+
+        void ApplyMainShotVelocity(
+            int bulletIndex,
+            long baseVelocityX,
+            long baseVelocityY,
+            long baseDenominator)
+        {
+            if (_inertiaVelocityPercent == 0)
+            {
+                if (baseVelocityY == 0
+                    && baseVelocityX == _bulletSpeedNumerator
+                    && baseDenominator == _bulletSpeedDenominator)
+                    return;
+                SetBulletVelocity(
+                    bulletIndex,
+                    baseVelocityX,
+                    baseVelocityY,
+                    baseDenominator);
+                return;
+            }
+            const int percentDenominator = 100;
+            long denominator = baseDenominator * percentDenominator;
+            long velocityX = baseVelocityX * percentDenominator
+                + (long)_playerVelocityX
+                    * _inertiaVelocityPercent
+                    * baseDenominator;
+            long velocityY = baseVelocityY * percentDenominator
+                + (long)_playerVelocityY
+                    * _inertiaVelocityPercent
+                    * baseDenominator;
+            SetBulletVelocity(
+                bulletIndex,
+                velocityX,
+                velocityY,
+                denominator);
+        }
+
+        void AdvanceMainShotBurst()
+        {
+            if (_burstShotsRemaining == 0)
+                return;
+            if (_burstCooldownTicks > 0)
+                _burstCooldownTicks--;
+            if (_burstCooldownTicks > 0)
+                return;
+            if (CountPlayerBullets() >= _maxBullets)
+            {
+                _burstCooldownTicks = 1;
+                return;
+            }
+            SpawnMainShotVolley(true);
+            _burstShotsRemaining--;
+            _burstCooldownTicks = _burstShotsRemaining > 0
+                ? _burstIntervalTicks
+                : 0;
         }
 
         void SpawnMissileVolley()

@@ -132,10 +132,6 @@ namespace Shmup.Core
                 throw new ArgumentException(
                     "Only the Speed slot can define a movement bonus.",
                     nameof(speedBonusNumerator));
-            if (IsWeaponModeSlot(slot) && maxLevel != 1)
-                throw new ArgumentException(
-                    "Mutually-exclusive weapon mode slots must have maxLevel 1.",
-                    nameof(maxLevel));
             if (activatesImmediately && !IsWeaponModeSlot(slot))
                 throw new ArgumentException(
                     "Only a weapon mode slot can activate immediately.",
@@ -448,7 +444,7 @@ namespace Shmup.Core
             Cursor = NoSelection;
             if (definition.ActivatesImmediately)
             {
-                ActivateWeaponMode(slot);
+                ActivateWeaponMode(slot, 1);
                 LastActivationResult =
                     PowerUpActivationResult.LevelIncreased;
                 return LastActivationResult;
@@ -466,7 +462,7 @@ namespace Shmup.Core
 
             _progress[stateIndex] = 0;
             if (PowerUpSlotDefinition.IsWeaponModeSlot(slot))
-                ActivateWeaponMode(slot);
+                ActivateWeaponMode(slot, 1);
             else
                 _levels[stateIndex]++;
             LastActivationResult =
@@ -488,7 +484,7 @@ namespace Shmup.Core
             if (PowerUpSlotDefinition.IsWeaponModeSlot(slot)
                 && amount > 0)
             {
-                ActivateWeaponMode(slot);
+                ActivateWeaponMode(slot, amount);
                 return _levels[index] - previous;
             }
             long requested = (long)previous + amount;
@@ -601,14 +597,20 @@ namespace Shmup.Core
             FindDefinition(PowerUpSlot.Speed)
                 .SpeedBonusDenominator;
 
-        void ActivateWeaponMode(PowerUpSlot slot)
+        void ActivateWeaponMode(PowerUpSlot slot, int amount)
         {
+            int selectedIndex = (int)slot;
+            int previous = _levels[selectedIndex];
             for (int i = 0; i < _gaugeSlots.Length; i++)
             {
                 PowerUpSlot other = _gaugeSlots[i].Slot;
                 if (!PowerUpSlotDefinition.IsWeaponModeSlot(other))
                     continue;
-                _levels[(int)other] = other == slot ? 1 : 0;
+                _levels[(int)other] = other == slot
+                    ? (int)Math.Min(
+                        _maxLevels[selectedIndex],
+                        (long)previous + amount)
+                    : 0;
                 _progress[(int)other] = 0;
             }
             ActiveWeaponMode = ToWeaponMode(slot);
@@ -730,13 +732,13 @@ namespace Shmup.Core
                 : 5;
             int doubleMax = maxLevels.Length == SlotCount
                 ? maxLevels[(int)PowerUpSlot.Double]
-                : 1;
+                : 3;
             int laser = maxLevels.Length == SlotCount
                 ? maxLevels[(int)PowerUpSlot.Laser]
-                : 1;
+                : 3;
             int triple = maxLevels.Length == SlotCount
                 ? maxLevels[(int)PowerUpSlot.Triple]
-                : 1;
+                : 3;
             return new[]
             {
                 new PowerUpSlotDefinition(

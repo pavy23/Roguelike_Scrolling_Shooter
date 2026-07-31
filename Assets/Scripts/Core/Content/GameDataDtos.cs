@@ -434,6 +434,53 @@ namespace Shmup.Core.Content
         public int? spreadStepLutSlots;
         [DataMember]
         public int[] shotAngleLutSlots;
+        [DataMember]
+        public PrimaryWeaponLevelDto[] levels;
+        [DataMember]
+        public PrimaryWeaponLevelDto[] evolutionLevels;
+    }
+
+    [DataContract]
+    internal sealed class PrimaryWeaponLevelDto
+    {
+        [DataMember]
+        public int? level;
+        [DataMember]
+        public int[] shotAngleLutSlots;
+        [DataMember]
+        public int? spreadWays;
+        [DataMember]
+        public int? spreadStepLutSlots;
+        [DataMember]
+        public int? burstCount;
+        [DataMember]
+        public int? burstIntervalTicks;
+        [DataMember]
+        public int? pierceEnemyCount;
+        [DataMember]
+        public int? pulseMinStepLutSlots;
+        [DataMember]
+        public int? pulseMaxStepLutSlots;
+        [DataMember]
+        public int? pulsePeriodTicks;
+        [DataMember]
+        public int? inertiaVelocityPercent;
+        [DataMember]
+        public int? impactExplosionDamage;
+        [DataMember]
+        public decimal? impactExplosionRadius;
+        [DataMember]
+        public int? minimumFireIntervalTicks;
+        [DataMember]
+        public int? beamDamagePerTick;
+        [DataMember]
+        public decimal? beamLength;
+        [DataMember]
+        public decimal? beamStartHalfWidth;
+        [DataMember]
+        public decimal? beamGrowthPerTick;
+        [DataMember]
+        public decimal? beamMaxHalfWidth;
     }
 
     [DataContract]

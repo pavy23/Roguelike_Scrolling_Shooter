@@ -56,6 +56,12 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 3)]
         public int destinationKind;
+
+        [DataMember(Order = 4)]
+        public string destinationThemeId;
+
+        [DataMember(Order = 5)]
+        public int destinationThemeStageIndex;
     }
 
     [Serializable]
@@ -85,11 +91,11 @@ namespace Shmup.Core.Simulation
     public sealed class RunSuspendData
     {
         /// <summary>
-        /// Schema 19 starts after option missiles changed combat resumed from an
-        /// otherwise identical room boundary. Schema 18 is rejected rather than
-        /// silently resuming under different simulation semantics.
+        /// Schema 20 records the destination theme bound to every contract.
+        /// Schema 19 is rejected because it cannot reproduce route-driven theme
+        /// swaps under the new simulation semantics.
         /// </summary>
-        public const int CurrentSchemaVersion = 19;
+        public const int CurrentSchemaVersion = 20;
 
         [DataMember(Order = 0)]
         public int schemaVersion;

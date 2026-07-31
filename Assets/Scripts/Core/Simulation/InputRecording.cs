@@ -47,11 +47,11 @@ namespace Shmup.Core.Simulation
     public sealed class InputRecordingData
     {
         /// <summary>
-        /// Schema 18 starts after option missiles changed identical fire input
-        /// into a larger deterministic volley. Schema 17 is rejected because
-        /// replaying it under the new simulation would produce different combat.
+        /// Schema 19 records contract destination themes. Schema 18 is rejected
+        /// because a replay cannot reproduce route-driven theme swaps without
+        /// that decision payload.
         /// </summary>
-        public const int CurrentSchemaVersion = 18;
+        public const int CurrentSchemaVersion = 19;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -376,7 +376,11 @@ namespace Shmup.Core.Simulation
                         optionIndex = choice.OptionIndex,
                         contractId = choice.ContractId,
                         destinationKind =
-                            (int)choice.DestinationKind
+                            (int)choice.DestinationKind,
+                        destinationThemeId =
+                            choice.DestinationThemeId,
+                        destinationThemeStageIndex =
+                            choice.DestinationThemeStageIndex
                     };
             }
             IReadOnlyList<RewardDecision> rewardDecisions =
@@ -619,7 +623,9 @@ namespace Shmup.Core.Simulation
                     choice.optionIndex,
                     choice.contractId,
                     (ContractDestinationKind)
-                        choice.destinationKind);
+                        choice.destinationKind,
+                    choice.destinationThemeId,
+                    choice.destinationThemeStageIndex);
             }
             _contractChoiceView =
                 Array.AsReadOnly(_contractChoices);
@@ -836,7 +842,12 @@ namespace Shmup.Core.Simulation
                     || (choice.targetBiomeIndex
                             <= data.biomeCount
                         && choice.destinationKind
-                            != (int)ContractDestinationKind.NextStage))
+                            != (int)ContractDestinationKind.NextStage)
+                    || (choice.destinationKind
+                            == (int)ContractDestinationKind.NextStage
+                        && (string.IsNullOrEmpty(
+                                choice.destinationThemeId)
+                            || choice.destinationThemeStageIndex < 1)))
                 {
                     throw Corrupted(
                         "Input recording contract choice history is invalid.");
