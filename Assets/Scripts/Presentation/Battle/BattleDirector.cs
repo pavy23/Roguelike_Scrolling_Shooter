@@ -950,6 +950,32 @@ namespace Shmup.Presentation.Battle
             return _mainShotSprite;
         }
 
+        /// <summary>
+        /// 신규 보스 탄종(REQ-087)의 색 — 전용 스프라이트가 나오기 전까지 색·크기로
+        /// 구분한다. 탄종 구분은 게임플레이 정보라 반드시 한눈에 갈라져야 한다.
+        /// </summary>
+        static Color ColorForBulletKind(BulletKind kind)
+        {
+            switch (kind)
+            {
+                case BulletKind.Heavy: return new Color(1f, 0.55f, 0.25f, 1f);     // 묵직한 주황
+                case BulletKind.Splitter: return new Color(1f, 0.5f, 0.8f, 1f);    // 분열 예고 핑크
+                case BulletKind.Mine: return new Color(0.55f, 0.85f, 1f, 1f);      // 정지 기뢰 청백
+                default: return Color.white;
+            }
+        }
+
+        static float ScaleForBulletKind(BulletKind kind)
+        {
+            switch (kind)
+            {
+                case BulletKind.Heavy: return 2.2f;
+                case BulletKind.Splitter: return 1.35f;
+                case BulletKind.Mine: return 1.6f;
+                default: return 1f;
+            }
+        }
+
         Sprite SpriteForMissileFamily(MissileFamily family)
         {
             if (_missileFamilySprites == null) return null;
@@ -1160,10 +1186,15 @@ namespace Shmup.Presentation.Battle
                     if (view == null) continue;   // 풀 소진 — 경고는 풀이 이미 냈다
                     _bulletViews.Add(bullet.Id, view);
 
-                    // Kind는 Id 수명 동안 불변 — 획득 시 한 번만 스프라이트를 고른다.
+                    // Kind는 Id 수명 동안 불변 — 획득 시 한 번만 외형을 고른다.
+                    // 풀 재사용 대비: 색·스케일도 매 획득마다 반드시 재설정한다.
                     var renderer = view.GetComponent<SpriteRenderer>();
                     if (renderer != null)
+                    {
                         renderer.sprite = SpriteForBulletKind(bullet.Kind);
+                        renderer.color = ColorForBulletKind(bullet.Kind);
+                    }
+                    view.localScale = Vector3.one * ScaleForBulletKind(bullet.Kind);
                 }
 
                 view.localPosition = SimView.ToWorld(bullet.X, bullet.Y);
