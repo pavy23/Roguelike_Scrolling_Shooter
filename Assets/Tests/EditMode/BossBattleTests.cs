@@ -177,6 +177,57 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void TimedMovementPhaseTransitionPreservesPositionDelta()
+        {
+            var phases = new[]
+            {
+                new BossPhase(
+                    999, 1, 0, 1,
+                    BossMovementPattern.VerticalSine,
+                    256, 1, 64,
+                    BossPartVulnerability.All,
+                    durationTicks: 12),
+                new BossPhase(
+                    999, 1, 0, 1,
+                    BossMovementPattern.VerticalSine,
+                    384, 1, 80,
+                    BossPartVulnerability.All,
+                    durationTicks: 12)
+            };
+            BattleSim sim = CreateBossSim(
+                bossMaxHp: 100,
+                holdX: 300,
+                phases: phases);
+            InputCommand none = InputCommand.None;
+            for (int tick = 0;
+                tick < 300
+                    && (!sim.BossActive || sim.Boss.X != 300);
+                tick++)
+                sim.Step(in none);
+
+            int previousY = sim.Boss.Y;
+            sim.Step(in none);
+            int previousDelta = sim.Boss.Y - previousY;
+            bool transitioned = false;
+            for (int tick = 0; tick < 24 && !transitioned; tick++)
+            {
+                previousY = sim.Boss.Y;
+                sim.Step(in none);
+                int currentDelta = sim.Boss.Y - previousY;
+                if (HasEvent(
+                        sim.EventsThisTick,
+                        SimEventType.BossPhaseChanged))
+                {
+                    transitioned = true;
+                    Assert.AreEqual(previousDelta, currentDelta);
+                    Assert.LessOrEqual(Math.Abs(currentDelta), 32);
+                }
+                previousDelta = currentDelta;
+            }
+            Assert.IsTrue(transitioned);
+        }
+
+        [Test]
         public void TurretDefinitionsFireAtConfiguredInterval()
         {
             EnemyDefinition turret = new EnemyDefinition(
@@ -709,6 +760,16 @@ namespace Shmup.Core.Tests
         }
 
         static void AssertAll(Action assert) => assert();
+
+        static bool HasEvent(
+            ReadOnlySpan<SimEvent> events,
+            SimEventType type)
+        {
+            for (int i = 0; i < events.Length; i++)
+                if (events[i].Type == type)
+                    return true;
+            return false;
+        }
 
         static BattleSimConfig CreateConfig()
         {

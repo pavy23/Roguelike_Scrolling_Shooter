@@ -66,9 +66,12 @@ namespace Shmup.Core
                     nameof(moveSpeedMultiplierDenominator));
             if (startingPowerUpLevels == null)
                 throw new ArgumentNullException(nameof(startingPowerUpLevels));
-            if (startingPowerUpLevels.Length != PowerUpGauge.SlotCount)
+            if (startingPowerUpLevels.Length != 4
+                && startingPowerUpLevels.Length
+                    != PowerUpGauge.SlotCount)
                 throw new ArgumentException(
-                    $"Starting levels must have exactly {PowerUpGauge.SlotCount} entries.",
+                    $"Starting levels must have exactly 4 or "
+                    + $"{PowerUpGauge.SlotCount} entries.",
                     nameof(startingPowerUpLevels));
             if (unlockCost < 0)
                 throw new ArgumentOutOfRangeException(nameof(unlockCost));
@@ -77,7 +80,12 @@ namespace Shmup.Core
             if (maxHp.HasValue && maxHp.Value < 1)
                 throw new ArgumentOutOfRangeException(nameof(maxHp));
 
-            _startingPowerUpLevels = (int[])startingPowerUpLevels.Clone();
+            _startingPowerUpLevels =
+                new int[PowerUpGauge.SlotCount];
+            Array.Copy(
+                startingPowerUpLevels,
+                _startingPowerUpLevels,
+                startingPowerUpLevels.Length);
             for (int i = 0; i < _startingPowerUpLevels.Length; i++)
             {
                 if (_startingPowerUpLevels[i] < 0)

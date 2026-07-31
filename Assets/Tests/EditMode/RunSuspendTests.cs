@@ -91,10 +91,10 @@ namespace Shmup.Core.Tests
                     data.schemaVersion);
                 Assert.IsTrue(SaveDataIntegrity.HasValidChecksum(data));
                 CollectionAssert.AreEqual(
-                    new[] { 63, 47, 31, 23 },
+                    new[] { 63, 47, 31, 23, 0, 0, 0, 0 },
                     resumed.PowerUpGauge.ExportLevels());
                 CollectionAssert.AreEqual(
-                    new[] { 1, 0, 0, 0 },
+                    new[] { 1, 0, 0, 0, 0, 0, 0, 0 },
                     resumed.PowerUpGauge.ExportProgress());
             });
         }
@@ -256,6 +256,19 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(1, resumed.DifficultyMultiplierNumerator);
             Assert.AreEqual(1, resumed.DifficultyMultiplierDenominator);
+        }
+
+        [Test]
+        public void SchemaFourteenSuspendIsRejectedAfterGaugeExpansion()
+        {
+            RunSuspendData legacy =
+                CreateRun(new BoundaryStageGenerator())
+                    .ExportSuspendData();
+            legacy.schemaVersion = 14;
+            legacy.checksum = null;
+
+            Assert.Throws<ArgumentException>(
+                () => SaveDataIntegrity.MigrateAndValidate(legacy));
         }
 
         [Test]

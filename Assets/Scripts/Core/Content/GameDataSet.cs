@@ -14,6 +14,7 @@ namespace Shmup.Core.Content
     {
         readonly int[] _powerUpMaxLevels;
         readonly PowerUpCostCurve _powerUpCostCurve;
+        readonly PowerUpSlotDefinition[] _powerUpGaugeSlots;
         readonly WeaponDefinition _missile;
         readonly ReadOnlyCollection<ShipDefinition> _ships;
         readonly ScoringDefinition _scoring;
@@ -29,6 +30,7 @@ namespace Shmup.Core.Content
             int maxEnemyBullets,
             int[] powerUpMaxLevels,
             PowerUpCostCurve powerUpCostCurve,
+            IReadOnlyList<PowerUpSlotDefinition> powerUpGaugeSlots,
             WeaponDefinition missile,
             RewardCatalog rewards,
             ContractCatalog contracts,
@@ -60,6 +62,17 @@ namespace Shmup.Core.Content
             _powerUpMaxLevels = (int[])powerUpMaxLevels.Clone();
             _powerUpCostCurve = powerUpCostCurve
                 ?? throw new ArgumentNullException(nameof(powerUpCostCurve));
+            if (powerUpGaugeSlots == null)
+                throw new ArgumentNullException(
+                    nameof(powerUpGaugeSlots));
+            _powerUpGaugeSlots =
+                new PowerUpSlotDefinition[powerUpGaugeSlots.Count];
+            for (int i = 0; i < _powerUpGaugeSlots.Length; i++)
+                _powerUpGaugeSlots[i] =
+                    powerUpGaugeSlots[i]
+                    ?? throw new ArgumentException(
+                        "Gauge slots cannot contain null.",
+                        nameof(powerUpGaugeSlots));
             _missile = missile ?? throw new ArgumentNullException(nameof(missile));
             Rewards = rewards;
             Contracts = contracts;
@@ -135,7 +148,9 @@ namespace Shmup.Core.Content
         public PowerUpGauge CreatePowerUpGauge()
         {
             return new PowerUpGauge(
-                (int[])_powerUpMaxLevels.Clone(),
+                _powerUpMaxLevels[
+                    (int)PowerUpSlot.MainShot],
+                _powerUpGaugeSlots,
                 _powerUpCostCurve);
         }
 

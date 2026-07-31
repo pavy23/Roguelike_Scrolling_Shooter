@@ -10,7 +10,7 @@ using Shmup.Core.Simulation;
 namespace Shmup.Core.Content
 {
     /// <summary>
-    /// Unity-free parser for enemies.json schema v2/v3, weapons.json schema v2-v4,
+    /// Unity-free parser for enemies.json schema v2/v3, weapons.json schema v2-v6,
     /// waves.json schema v2,
     /// rewards.json schema v1, optional ships.json schema v1, optional
     /// scoring.json schema v1, and optional player.json schema v1 tuning.
@@ -23,6 +23,7 @@ namespace Shmup.Core.Content
         public const int SupportedWeaponsSchemaVersion = 3;
         public const int SupportedPrimaryWeaponsSchemaVersion = 4;
         public const int SupportedPowerUpCurveSchemaVersion = 5;
+        public const int SupportedPowerUpGaugeSchemaVersion = 6;
 
         public static GameDataSet Parse(
             string enemiesJson,
@@ -136,8 +137,9 @@ namespace Shmup.Core.Content
                     waves.ScrollSpeed.Numerator,
                     waves.ScrollSpeed.Denominator,
                 maxEnemyBullets,
-                weapons.MaxLevels,
-                weapons.CostCurve,
+                    weapons.MaxLevels,
+                    weapons.CostCurve,
+                    weapons.GaugeSlots,
                     weapons.Missile,
                     rewards,
                     waves.Contracts,

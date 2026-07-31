@@ -2147,6 +2147,13 @@ namespace Shmup.Core.Simulation
             InputCommand battleInput =
                 input.WithActivate(activatePressed);
             Battle.Step(in battleInput);
+            if (Battle is BattleSim weaponBattle
+                && weaponBattle.EquippedPrimaryWeaponFamily
+                    != CurrentPrimaryWeaponFamily)
+            {
+                SwitchPrimaryWeaponFamily(
+                    weaponBattle.EquippedPrimaryWeaponFamily);
+            }
             ObserveBattleEvents();
             // Death is authoritative and wins over every room/boss-clear
             // transition produced by the same battle tick.
@@ -3537,7 +3544,7 @@ namespace Shmup.Core.Simulation
                     nameof(data));
             }
             if (data.powerUpCursor < PowerUpGauge.NoSelection
-                || data.powerUpCursor >= PowerUpGauge.SlotCount)
+                || data.powerUpCursor >= gauge.GaugeSlotCount)
             {
                 throw new ArgumentException(
                     "Suspend powerUpCursor is outside its valid range.",
@@ -4147,6 +4154,8 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentNullException(nameof(definition));
             _battleConfig.PlayerWeaponType =
                 definition.WeaponType;
+            _battleConfig.PlayerWeaponFamily =
+                definition.Family;
             _battleConfig.MainShotBaseDamage =
                 definition.BaseDamage;
             _battleConfig.FireIntervalTicks =

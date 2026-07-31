@@ -147,6 +147,30 @@ namespace Shmup.Core.Content
         public PrimaryWeaponFamilyDto[] primaryWeaponFamilies;
         [DataMember]
         public PowerUpCostCurveDto powerUpCostCurve;
+        [DataMember]
+        public PowerUpGaugeDto powerUpGauge;
+    }
+
+    [DataContract]
+    internal sealed class PowerUpGaugeDto
+    {
+        [DataMember]
+        public PowerUpGaugeSlotDto[] slots;
+    }
+
+    [DataContract]
+    internal sealed class PowerUpGaugeSlotDto
+    {
+        [DataMember]
+        public string slot;
+        [DataMember]
+        public string nameKey;
+        [DataMember]
+        public int? maxLevel;
+        [DataMember]
+        public PowerUpCostCurveDto costCurve;
+        [DataMember]
+        public decimal? speedBonusPerLevel;
     }
 
     [DataContract]

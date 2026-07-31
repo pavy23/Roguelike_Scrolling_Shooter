@@ -30,11 +30,18 @@ namespace Shmup.Core.Content
                     item.startingPowerUpLevels,
                     path + ".startingPowerUpLevels",
                     allowEmpty: true);
-                if (startingLevels.Length != PowerUpGauge.SlotCount)
+                if (startingLevels.Length != 4
+                    && startingLevels.Length != PowerUpGauge.SlotCount)
                     throw Error(
                         path + ".startingPowerUpLevels",
-                        $"must contain exactly {PowerUpGauge.SlotCount} entries.");
-                var levelCopy = (int[])startingLevels.Clone();
+                        $"must contain exactly 4 or "
+                        + $"{PowerUpGauge.SlotCount} entries.");
+                var levelCopy =
+                    new int[PowerUpGauge.SlotCount];
+                Array.Copy(
+                    startingLevels,
+                    levelCopy,
+                    startingLevels.Length);
                 for (int slot = 0; slot < levelCopy.Length; slot++)
                 {
                     if (levelCopy[slot] < 0)

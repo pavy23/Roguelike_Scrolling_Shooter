@@ -436,6 +436,51 @@ namespace Shmup.Core.Tests
                 + "Spread profile for existing starting ships.");
         }
 
+        [Test]
+        public void WeaponsV6PowerUpGaugeOrderCostsAndNamesAreDataDriven()
+        {
+            string root = FindRepositoryRoot();
+            string gameData = Path.Combine(root, "GameData");
+            GameDataSet data = GameDataParser.Parse(
+                File.ReadAllText(
+                    Path.Combine(gameData, "enemies.json")),
+                WeaponsV6Json(),
+                File.ReadAllText(
+                    Path.Combine(gameData, "waves.json")));
+            PowerUpGauge gauge = data.CreatePowerUpGauge();
+
+            Assert.AreEqual(7, gauge.GaugeSlotCount);
+            PowerUpGaugeSlotView speed = gauge.GetGaugeSlotView(0);
+            Assert.AreEqual(PowerUpSlot.Speed, speed.Slot);
+            Assert.AreEqual("powerUp.speed.full", speed.NameKey);
+            Assert.AreEqual(6, speed.MaxLevel);
+            Assert.AreEqual(2, speed.RequiredCapsules);
+            Assert.AreEqual(
+                SimSpace.SubUnitsPerWorldUnit * 5 / 4,
+                gauge.GaugeSlots[0].SpeedBonusNumerator);
+            Assert.AreEqual(
+                SimSpace.TicksPerSecond,
+                gauge.GaugeSlots[0].SpeedBonusDenominator);
+            Assert.AreEqual(
+                PowerUpSlot.Missile,
+                gauge.GetGaugeSlotView(1).Slot);
+            Assert.AreEqual(
+                PowerUpSlot.Double,
+                gauge.GetGaugeSlotView(2).Slot);
+            Assert.AreEqual(
+                PowerUpSlot.Laser,
+                gauge.GetGaugeSlotView(3).Slot);
+            Assert.AreEqual(
+                PowerUpSlot.Triple,
+                gauge.GetGaugeSlotView(4).Slot);
+            Assert.AreEqual(
+                PowerUpSlot.Option,
+                gauge.GetGaugeSlotView(5).Slot);
+            Assert.AreEqual(
+                PowerUpSlot.Shield,
+                gauge.GetGaugeSlotView(6).Slot);
+        }
+
         static BulletState FireMissile(
             MissileFamily family,
             int speedX,
@@ -566,6 +611,82 @@ namespace Shmup.Core.Tests
             gauge.ImportLevels(
                 new[] { 0, missileLevel, optionLevel, 0 });
             return gauge;
+        }
+
+        static string WeaponsV6Json()
+        {
+            string weapons = WeaponsV3Json
+                .Replace(
+                    @"""schemaVersion"": 3",
+                    @"""schemaVersion"": 6")
+                .Replace(
+                    @"""maxLevel"": 5 }",
+                    @"""maxLevel"": 5, ""effectSoftCapLevel"": 5 }")
+                .Replace(
+                    @"""maxLevel"": 4 }",
+                    @"""maxLevel"": 4, ""effectSoftCapLevel"": 4 }")
+                .Replace(
+                    @"""maxLevel"": 3 }",
+                    @"""maxLevel"": 3, ""effectSoftCapLevel"": 3 }");
+            int closingBrace = weapons.LastIndexOf('}');
+            return weapons.Insert(
+                closingBrace,
+                @",
+  ""primaryWeaponFamilies"": [
+    { ""id"": ""double"", ""displayName"": ""Double"",
+      ""description"": ""Two-way coverage shot."", ""weaponType"": ""spread"",
+      ""baseDamage"": 6, ""fireIntervalTicks"": 10,
+      ""minimumFireIntervalTicks"": 6, ""rapidFireStartLevel"": 3,
+      ""fireIntervalReductionPerLevel"": 1, ""projectileSpeed"": 20,
+      ""projectileHalfWidth"": 0.375, ""projectileHalfHeight"": 0.140625,
+      ""pierceEnemyCount"": 0, ""spreadWays"": 2,
+      ""spreadStepLutSlots"": 2 },
+    { ""id"": ""laser"", ""displayName"": ""Laser"",
+      ""description"": ""Pierces three aligned targets."", ""weaponType"": ""laser"",
+      ""baseDamage"": 15, ""fireIntervalTicks"": 16,
+      ""minimumFireIntervalTicks"": 8, ""rapidFireStartLevel"": 2,
+      ""fireIntervalReductionPerLevel"": 2, ""projectileSpeed"": 28,
+      ""projectileHalfWidth"": 0.1875, ""projectileHalfHeight"": 0.0703125,
+      ""pierceEnemyCount"": 2, ""spreadWays"": 1,
+      ""spreadStepLutSlots"": 0 }
+  ],
+  ""powerUpCostCurve"": {
+    ""baseCost"": 1, ""linearGrowth"": 1, ""quadraticGrowth"": 0
+  },
+  ""powerUpGauge"": {
+    ""slots"": [
+      { ""slot"": ""Speed"", ""nameKey"": ""powerUp.speed.full"",
+        ""maxLevel"": 6, ""speedBonusPerLevel"": 1.25,
+        ""costCurve"": {
+          ""baseCost"": 2, ""linearGrowth"": 1, ""quadraticGrowth"": 0
+        } },
+      { ""slot"": ""Missile"", ""nameKey"": ""powerUp.missile.full"",
+        ""maxLevel"": 3, ""costCurve"": {
+          ""baseCost"": 1, ""linearGrowth"": 1, ""quadraticGrowth"": 0
+        } },
+      { ""slot"": ""Double"", ""nameKey"": ""powerUp.double.full"",
+        ""maxLevel"": 1, ""costCurve"": {
+          ""baseCost"": 1, ""linearGrowth"": 0, ""quadraticGrowth"": 0
+        } },
+      { ""slot"": ""Laser"", ""nameKey"": ""powerUp.laser.full"",
+        ""maxLevel"": 1, ""costCurve"": {
+          ""baseCost"": 1, ""linearGrowth"": 0, ""quadraticGrowth"": 0
+        } },
+      { ""slot"": ""Triple"", ""nameKey"": ""powerUp.triple.full"",
+        ""maxLevel"": 1, ""costCurve"": {
+          ""baseCost"": 1, ""linearGrowth"": 0, ""quadraticGrowth"": 0
+        } },
+      { ""slot"": ""Option"", ""nameKey"": ""powerUp.option.full"",
+        ""maxLevel"": 4, ""costCurve"": {
+          ""baseCost"": 1, ""linearGrowth"": 1, ""quadraticGrowth"": 0
+        } },
+      { ""slot"": ""Shield"", ""nameKey"": ""powerUp.shield.full"",
+        ""maxLevel"": 3, ""costCurve"": {
+          ""baseCost"": 1, ""linearGrowth"": 1, ""quadraticGrowth"": 0
+        } }
+    ]
+  }
+");
         }
 
         static EnemyDefinition Enemy(string id, int hp)

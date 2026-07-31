@@ -770,6 +770,11 @@ namespace Shmup.Core.Simulation
         public int PlayerBulletSpeedNumerator { get => _bulletSpeedNumerator; set => _bulletSpeedNumerator = value; }
         public int PlayerBulletSpeedDenominator { get => _bulletSpeedDenominator; set => _bulletSpeedDenominator = value; }
         public WeaponType PlayerWeaponType { get; set; } = WeaponType.Vulcan;
+        /// <summary>
+        /// Optional exact family identity. This distinguishes Double from
+        /// Triple/Spread even though both use WeaponType.Spread.
+        /// </summary>
+        public PrimaryWeaponFamily? PlayerWeaponFamily { get; set; }
         public int MainShotBaseDamage { get; set; }
         public int FireIntervalTicks { get; set; }
         public int MainShotHalfWidth { get; set; }
@@ -1153,20 +1158,21 @@ namespace Shmup.Core.Simulation
             -1024, -1019, -1004, -980, -946, -903, -851, -790,
             -724, -650, -569, -483, -392, -297, -200, -100
         };
-        readonly int _playerSpeedNumerator, _playerSpeedDenominator;
-        readonly int _bulletSpeedNumerator, _bulletSpeedDenominator;
-        readonly int _fireIntervalTicks, _maxBullets, _maxEnemies;
+        int _playerSpeedNumerator, _playerSpeedDenominator;
+        int _bulletSpeedNumerator, _bulletSpeedDenominator;
+        int _fireIntervalTicks;
+        readonly int _maxBullets, _maxEnemies;
         readonly BattleContent _battleContent;
         readonly int _mainShotEffectSoftCap;
         readonly int _missileEffectSoftCap;
         readonly int _optionEffectSoftCap;
         readonly int _shieldEffectSoftCap;
-        readonly WeaponType _playerWeaponType;
-        readonly int _mainShotBasePierceEnemyCount;
-        readonly int _spreadWays, _spreadStepLutSlots;
-        readonly int _mainShotRapidFireStartLevel;
-        readonly int _mainShotFireIntervalReductionPerLevel;
-        readonly int _mainShotMinimumFireIntervalTicks;
+        WeaponType _playerWeaponType;
+        int _mainShotBasePierceEnemyCount;
+        int _spreadWays, _spreadStepLutSlots;
+        int _mainShotRapidFireStartLevel;
+        int _mainShotFireIntervalReductionPerLevel;
+        int _mainShotMinimumFireIntervalTicks;
         readonly int _missileBaseDamage, _missileFireIntervalTicks, _missileRapidFireStartLevel;
         readonly int _missileFireIntervalReductionPerLevel, _missileMinimumFireIntervalTicks;
         readonly int _missileSpeedXNumerator, _missileSpeedXDenominator;
@@ -1207,7 +1213,8 @@ namespace Shmup.Core.Simulation
         readonly int _encounterScoreMultiplierDenominator;
         readonly int _contractScoreMultiplierNumerator;
         readonly int _contractScoreMultiplierDenominator;
-        readonly int _playerBulletDamage, _playerBulletHalfWidth, _playerBulletHalfHeight;
+        int _playerBulletDamage;
+        int _playerBulletHalfWidth, _playerBulletHalfHeight;
         readonly PowerUpGauge _powerUpGauge;
         readonly Rng _dropRng;
         readonly Rng _bombDropRng;
@@ -1303,6 +1310,9 @@ namespace Shmup.Core.Simulation
         bool _bossSpawned, _bossDefeated;
         int _bossId, _bossX, _bossY, _bossHp, _bossPhase, _bossAge, _bossFireCooldown;
         int _bossPhaseAge;
+        int _bossMovementAnchorY;
+        int _bossMovementPhaseOffsetTicks;
+        int _bossVelocityY;
         bool _bossPhaseTelegraphPending;
         bool _bossBurstAwaitingVolley;
         int _bossPatternVolleyIndex;
@@ -1328,6 +1338,8 @@ namespace Shmup.Core.Simulation
         bool _timeLimitExpired;
         int _cooldown, _missileCooldown;
         int _mainShotLevel, _missileLevel, _optionLevel, _shieldGaugeLevel;
+        int _speedGaugeLevel;
+        PrimaryWeaponFamily _equippedPrimaryWeaponFamily;
         int _nextBulletId = 1;
         int _nextEnemyId = 1;
         int _nextObstacleId = 1;
@@ -1477,6 +1489,9 @@ namespace Shmup.Core.Simulation
             _shieldEffectSoftCap = ResolveEffectSoftCap(
                 content, powerUpGauge, PowerUpSlot.Shield);
             _playerWeaponType = config.PlayerWeaponType;
+            _equippedPrimaryWeaponFamily =
+                config.PlayerWeaponFamily
+                ?? PrimaryWeaponFamilyFor(config.PlayerWeaponType);
             _mainShotBasePierceEnemyCount =
                 _playerWeaponType == WeaponType.Laser
                     ? config.LaserPierceEnemyCount
@@ -1815,9 +1830,13 @@ namespace Shmup.Core.Simulation
             _bulletRicochetUsed = new List<int>(bulletCapacity);
             _bulletHomingTargetIds = new List<int>(bulletCapacity);
             _bulletGrazeScored = new List<byte>(bulletCapacity);
+            int maximumPrimaryPierce =
+                GetMaximumPrimaryPierce(
+                    content,
+                    _mainShotBasePierceEnemyCount);
             long hitRecordCapacity =
                 (long)_maxBullets
-                    * (_mainShotBasePierceEnemyCount
+                    * (maximumPrimaryPierce
                         + _pierceShotEnemyCount
                         + _ricochetCount
                         + _missilePierceEnemyCount
@@ -1985,6 +2004,8 @@ namespace Shmup.Core.Simulation
         public int PlayerHp => _playerAlive ? 1 : 0;
         public int ShieldRemaining => ShieldStock;
         public WeaponType PlayerWeaponType => _playerWeaponType;
+        public PrimaryWeaponFamily EquippedPrimaryWeaponFamily =>
+            _equippedPrimaryWeaponFamily;
         public IReadOnlyList<BulletState> Bullets => _readOnlyBullets;
         public IReadOnlyList<OptionState> Options => _readOnlyOptions;
         public IReadOnlyList<EnemyState> Enemies => _readOnlyEnemies;
@@ -2215,6 +2236,18 @@ namespace Shmup.Core.Simulation
             int previousMainShot = _mainShotLevel;
             int previousMissile = _missileLevel;
             int previousOption = _optionLevel;
+            int nextSpeedLevel =
+                _powerUpGauge.GetLevel(PowerUpSlot.Speed);
+            if (nextSpeedLevel != _speedGaugeLevel)
+            {
+                ApplySpeedGaugeLevel(nextSpeedLevel);
+                EmitLevelChange(
+                    PowerUpSlot.Speed,
+                    _speedGaugeLevel,
+                    nextSpeedLevel);
+                _speedGaugeLevel = nextSpeedLevel;
+            }
+            ApplyGaugeWeaponMode();
             _mainShotLevel =
                 GetEffectivePowerLevel(PowerUpSlot.MainShot);
             _missileLevel =
@@ -2230,6 +2263,150 @@ namespace Shmup.Core.Simulation
             if (nextShieldLevel > _shieldGaugeLevel)
                 RecoverShieldStock(nextShieldLevel - _shieldGaugeLevel);
             _shieldGaugeLevel = nextShieldLevel;
+        }
+
+        void ApplySpeedGaugeLevel(int nextLevel)
+        {
+            int delta = nextLevel - _speedGaugeLevel;
+            if (delta == 0)
+                return;
+            if (delta < 0)
+                throw new InvalidOperationException(
+                    "Speed gauge levels cannot decrease inside a battle.");
+            AddExactPositiveFraction(
+                ref _playerSpeedNumerator,
+                ref _playerSpeedDenominator,
+                (long)_powerUpGauge.SpeedBonusNumerator * delta,
+                _powerUpGauge.SpeedBonusDenominator);
+        }
+
+        void ApplyGaugeWeaponMode()
+        {
+            if (_battleContent == null)
+                return;
+            PrimaryWeaponFamily family;
+            switch (_powerUpGauge.ActiveWeaponMode)
+            {
+                case PowerUpWeaponMode.None:
+                    return;
+                case PowerUpWeaponMode.Double:
+                    family = PrimaryWeaponFamily.Double;
+                    break;
+                case PowerUpWeaponMode.Laser:
+                    family = PrimaryWeaponFamily.Laser;
+                    break;
+                case PowerUpWeaponMode.Triple:
+                    family = PrimaryWeaponFamily.Spread;
+                    break;
+                default:
+                    throw new InvalidOperationException(
+                        "Unknown gauge weapon mode.");
+            }
+            if (family == _equippedPrimaryWeaponFamily)
+                return;
+            PrimaryWeaponFamilyDefinition definition =
+                _battleContent.FindPrimaryWeaponFamily(family);
+            if (definition == null)
+                throw new InvalidOperationException(
+                    $"Gauge mode '{family}' has no primary weapon profile.");
+            PrimaryWeaponFamilyDefinition current =
+                _battleContent.FindPrimaryWeaponFamily(
+                    _equippedPrimaryWeaponFamily);
+            int damageBonus = current == null
+                ? 0
+                : Math.Max(
+                    0,
+                    _playerBulletDamage - current.BaseDamage);
+            int intervalReduction = current == null
+                ? 0
+                : Math.Max(
+                    0,
+                    current.FireIntervalTicks
+                        - _fireIntervalTicks);
+            ApplyPrimaryWeaponProfile(definition);
+            _playerBulletDamage = SaturateToInt(
+                (long)_playerBulletDamage + damageBonus);
+            _fireIntervalTicks = Math.Max(
+                _mainShotMinimumFireIntervalTicks,
+                _fireIntervalTicks - intervalReduction);
+        }
+
+        void ApplyPrimaryWeaponProfile(
+            PrimaryWeaponFamilyDefinition definition)
+        {
+            _equippedPrimaryWeaponFamily = definition.Family;
+            _playerWeaponType = definition.WeaponType;
+            _playerBulletDamage = definition.BaseDamage;
+            _fireIntervalTicks = definition.FireIntervalTicks;
+            _mainShotMinimumFireIntervalTicks =
+                definition.MinimumFireIntervalTicks;
+            _mainShotRapidFireStartLevel =
+                definition.RapidFireStartLevel;
+            _mainShotFireIntervalReductionPerLevel =
+                definition.FireIntervalReductionPerLevel;
+            _bulletSpeedNumerator = definition.SpeedNumerator;
+            _bulletSpeedDenominator = definition.SpeedDenominator;
+            _playerBulletHalfWidth = definition.HalfWidth;
+            _playerBulletHalfHeight = definition.HalfHeight;
+            _mainShotBasePierceEnemyCount =
+                definition.PierceEnemyCount;
+            _spreadWays = definition.SpreadWays;
+            _spreadStepLutSlots = definition.SpreadStepLutSlots;
+        }
+
+        static void AddExactPositiveFraction(
+            ref int numerator,
+            ref int denominator,
+            long bonusNumerator,
+            int bonusDenominator)
+        {
+            if (bonusNumerator < 0 || bonusDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(bonusNumerator));
+            long commonDivisor = GreatestCommonDivisorLong(
+                denominator,
+                bonusDenominator);
+            long leftScale = bonusDenominator / commonDivisor;
+            long rightScale = denominator / commonDivisor;
+            long nextDenominator = (long)denominator * leftScale;
+            long nextNumerator;
+            try
+            {
+                nextNumerator = checked(
+                    (long)numerator * leftScale
+                    + bonusNumerator * rightScale);
+            }
+            catch (OverflowException)
+            {
+                numerator = int.MaxValue;
+                denominator = 1;
+                return;
+            }
+            long divisor = GreatestCommonDivisorLong(
+                nextNumerator,
+                nextDenominator);
+            nextNumerator /= divisor;
+            nextDenominator /= divisor;
+            if (nextNumerator > int.MaxValue
+                || nextDenominator > int.MaxValue)
+            {
+                numerator = int.MaxValue;
+                denominator = 1;
+                return;
+            }
+            numerator = (int)nextNumerator;
+            denominator = (int)nextDenominator;
+        }
+
+        static long GreatestCommonDivisorLong(long left, long right)
+        {
+            while (right != 0)
+            {
+                long remainder = left % right;
+                left = right;
+                right = remainder;
+            }
+            return left == 0 ? 1 : left;
         }
 
         int GetEffectivePowerLevel(PowerUpSlot slot)
@@ -2270,6 +2447,39 @@ namespace Shmup.Core.Simulation
                 && definition.MaxLevel == gauge.GetMaxLevel(slot)
                     ? definition.EffectSoftCapLevel
                     : int.MaxValue;
+        }
+
+        static int GetMaximumPrimaryPierce(
+            BattleContent content,
+            int fallback)
+        {
+            int maximum = fallback;
+            if (content == null)
+                return maximum;
+            for (int i = 0;
+                i < content.PrimaryWeaponFamilies.Count;
+                i++)
+            {
+                maximum = Math.Max(
+                    maximum,
+                    content.PrimaryWeaponFamilies[i]
+                        .PierceEnemyCount);
+            }
+            return maximum;
+        }
+
+        static PrimaryWeaponFamily PrimaryWeaponFamilyFor(
+            WeaponType weaponType)
+        {
+            switch (weaponType)
+            {
+                case WeaponType.Laser:
+                    return PrimaryWeaponFamily.Laser;
+                case WeaponType.Spread:
+                    return PrimaryWeaponFamily.Spread;
+                default:
+                    return PrimaryWeaponFamily.Vulcan;
+            }
         }
 
         /// <summary>
@@ -3299,6 +3509,9 @@ namespace Shmup.Core.Simulation
                 _bossPhase = 0;
                 _bossAge = 0;
                 _bossPhaseAge = 0;
+                _bossMovementAnchorY = _bossY;
+                _bossMovementPhaseOffsetTicks = 0;
+                _bossVelocityY = 0;
                 Generation.BossPhase initialPhase =
                     _bossPhases[0];
                 _bossFireCooldown =
@@ -3378,10 +3591,14 @@ namespace Shmup.Core.Simulation
             _bossPhaseAge = 0;
             Generation.BossPhase phase =
                 _bossPhases[phaseIndex];
-            _bossFireCooldown =
-                phase.TelegraphTicks > 0
-                    ? phase.TelegraphTicks
-                    : phase.FireIntervalTicks;
+            ConfigureBossMovementPhase(phase);
+            _bossFireCooldown = phase.TelegraphTicks > 0
+                ? phase.TelegraphTicks
+                : Math.Max(
+                    1,
+                    Math.Min(
+                        _bossFireCooldown,
+                        phase.FireIntervalTicks));
             _bossPhaseTelegraphPending =
                 phase.TelegraphTicks > 0;
             _bossBurstAwaitingVolley =
@@ -3561,6 +3778,7 @@ namespace Shmup.Core.Simulation
             Generation.BossPhase phase,
             bool legacyVerticalMovementActive)
         {
+            int previousY = _bossY;
             switch (phase.MovementPattern)
             {
                 case BossMovementPattern.LegacyHover:
@@ -3568,43 +3786,198 @@ namespace Shmup.Core.Simulation
                     if (_bossPartDefinitions.Count > 0
                         && !legacyVerticalMovementActive)
                     {
-                        _bossY = 0;
-                        return;
+                        _bossY = _bossMovementAnchorY;
+                        break;
                     }
-                    int legacyIndex =
-                        (_bossAge >> BossHoverPeriodShift)
-                        % SineLut.Length;
-                    _bossY = (int)(
-                        (long)BossHoverAmplitude
-                        * SineLut[legacyIndex]
-                        / SineScale);
-                    return;
+                    int tick = _bossPhaseAge
+                        + _bossMovementPhaseOffsetTicks;
+                    _bossY = SaturateToInt(
+                        (long)_bossMovementAnchorY
+                        + ComputeLegacyHoverOffset(tick));
+                    break;
                 }
                 case BossMovementPattern.Stationary:
-                    _bossY = 0;
-                    return;
+                    _bossY = _bossMovementAnchorY;
+                    break;
                 case BossMovementPattern.VerticalSine:
                 {
-                    int phaseTick =
-                        _bossAge % phase.MovementPeriodTicks;
-                    int lutIndex = (int)(
-                        (long)phaseTick * SineLut.Length
-                        / phase.MovementPeriodTicks);
-                    long numerator =
-                        (long)phase.MovementAmplitudeNumerator
-                        * SineLut[lutIndex];
-                    long denominator =
-                        (long)phase.MovementAmplitudeDenominator
-                        * SineScale;
                     _bossY = SaturateToInt(
-                        numerator / denominator);
-                    return;
+                        (long)_bossMovementAnchorY
+                        + ComputeVerticalSineOffset(
+                            phase,
+                            _bossPhaseAge
+                                + _bossMovementPhaseOffsetTicks));
+                    break;
                 }
                 default:
                     throw new InvalidOperationException(
                         $"Unknown boss movement pattern "
                         + $"{phase.MovementPattern}.");
             }
+            _bossVelocityY = SaturateToInt(
+                (long)_bossY - previousY);
+        }
+
+        void ConfigureBossMovementPhase(
+            Generation.BossPhase phase)
+        {
+            int carriedVelocity = _bossVelocityY;
+            int phaseOffset = FindClosestMovementPhase(
+                phase,
+                carriedVelocity,
+                SaturateToInt(
+                    (long)_bossY + carriedVelocity));
+            int firstOffset = ComputeMovementOffset(
+                phase,
+                phaseOffset);
+            _bossMovementPhaseOffsetTicks = phaseOffset;
+            _bossMovementAnchorY = SaturateToInt(
+                (long)_bossY
+                + carriedVelocity
+                - firstOffset);
+            int amplitude = GetMovementAmplitude(phase);
+            int minimumAnchor = SaturateToInt(
+                (long)_playerMinY
+                + _bossHalfHeight
+                + amplitude);
+            int maximumAnchor = SaturateToInt(
+                (long)_playerMaxY
+                - _bossHalfHeight
+                - amplitude);
+            if (minimumAnchor <= maximumAnchor)
+            {
+                _bossMovementAnchorY = Math.Max(
+                    minimumAnchor,
+                    Math.Min(
+                        maximumAnchor,
+                        _bossMovementAnchorY));
+            }
+        }
+
+        static int FindClosestMovementPhase(
+            Generation.BossPhase phase,
+            int velocity,
+            int desiredPosition)
+        {
+            int period;
+            switch (phase.MovementPattern)
+            {
+                case BossMovementPattern.Stationary:
+                    return 0;
+                case BossMovementPattern.LegacyHover:
+                    period =
+                        SineLut.Length << BossHoverPeriodShift;
+                    break;
+                case BossMovementPattern.VerticalSine:
+                    period = phase.MovementPeriodTicks;
+                    break;
+                default:
+                    throw new InvalidOperationException(
+                        "Unknown boss movement pattern.");
+            }
+
+            int bestTick = 0;
+            long bestPositionError = long.MaxValue;
+            long bestError = long.MaxValue;
+            for (int tick = 0; tick < period; tick++)
+            {
+                int offset =
+                    ComputeMovementOffset(phase, tick);
+                long positionError = Math.Abs(
+                    (long)offset - desiredPosition);
+                long candidateVelocity =
+                    (long)ComputeMovementOffset(phase, tick + 1)
+                    - offset;
+                long error = Math.Abs(
+                    candidateVelocity - velocity);
+                if (positionError < bestPositionError
+                    || (positionError == bestPositionError
+                        && error < bestError))
+                {
+                    bestPositionError = positionError;
+                    bestError = error;
+                    bestTick = tick;
+                }
+            }
+            return bestTick;
+        }
+
+        static int ComputeMovementOffset(
+            Generation.BossPhase phase,
+            int tick)
+        {
+            switch (phase.MovementPattern)
+            {
+                case BossMovementPattern.Stationary:
+                    return 0;
+                case BossMovementPattern.LegacyHover:
+                    return ComputeLegacyHoverOffset(tick);
+                case BossMovementPattern.VerticalSine:
+                    return ComputeVerticalSineOffset(phase, tick);
+                default:
+                    throw new InvalidOperationException(
+                        "Unknown boss movement pattern.");
+            }
+        }
+
+        static int GetMovementAmplitude(
+            Generation.BossPhase phase)
+        {
+            switch (phase.MovementPattern)
+            {
+                case BossMovementPattern.Stationary:
+                    return 0;
+                case BossMovementPattern.LegacyHover:
+                    return BossHoverAmplitude;
+                case BossMovementPattern.VerticalSine:
+                    return SaturateToInt(
+                        (long)phase.MovementAmplitudeNumerator
+                        / phase.MovementAmplitudeDenominator);
+                default:
+                    throw new InvalidOperationException(
+                        "Unknown boss movement pattern.");
+            }
+        }
+
+        static int ComputeLegacyHoverOffset(int tick)
+        {
+            int period =
+                SineLut.Length << BossHoverPeriodShift;
+            int normalized = PositiveModulo(tick, period);
+            int legacyIndex =
+                (normalized >> BossHoverPeriodShift)
+                % SineLut.Length;
+            return SaturateToInt(
+                (long)BossHoverAmplitude
+                * SineLut[legacyIndex]
+                / SineScale);
+        }
+
+        static int ComputeVerticalSineOffset(
+            Generation.BossPhase phase,
+            int tick)
+        {
+            int phaseTick = PositiveModulo(
+                tick,
+                phase.MovementPeriodTicks);
+            int lutIndex = (int)(
+                (long)phaseTick * SineLut.Length
+                / phase.MovementPeriodTicks);
+            long numerator =
+                (long)phase.MovementAmplitudeNumerator
+                * SineLut[lutIndex];
+            long denominator =
+                (long)phase.MovementAmplitudeDenominator
+                * SineScale;
+            return SaturateToInt(numerator / denominator);
+        }
+
+        static int PositiveModulo(int value, int modulus)
+        {
+            int remainder = value % modulus;
+            return remainder < 0
+                ? remainder + modulus
+                : remainder;
         }
 
         void InitializeBossParts()
@@ -6130,6 +6503,12 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(config.PlayerSpeedNumerator));
             if (config.PlayerSpeedDenominator <= 0)
                 throw new ArgumentOutOfRangeException(nameof(config.PlayerSpeedDenominator));
+            if (config.PlayerWeaponFamily.HasValue
+                && !Enum.IsDefined(
+                    typeof(PrimaryWeaponFamily),
+                    config.PlayerWeaponFamily.Value))
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.PlayerWeaponFamily));
             if (config.PlayerBulletSpeedNumerator < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.PlayerBulletSpeedNumerator));
             if (config.PlayerBulletSpeedDenominator <= 0)

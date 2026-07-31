@@ -162,7 +162,7 @@ namespace Shmup.Core.Tests
             SimEvent[] events = sim.EventsThisTick.ToArray();
             Assert.AreEqual(1, events.Length);
             Assert.AreEqual(SimEventType.PowerUpLevelChanged, events[0].Type);
-            Assert.AreEqual((int)PowerUpSlot.MainShot, events[0].EntityId);
+            Assert.AreEqual((int)PowerUpSlot.Speed, events[0].EntityId);
             Assert.AreEqual(1, events[0].Arg);
         }
 

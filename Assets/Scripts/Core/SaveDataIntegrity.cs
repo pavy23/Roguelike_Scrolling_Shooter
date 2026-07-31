@@ -22,6 +22,10 @@ namespace Shmup.Core
                     "run suspend",
                     source.schemaVersion);
             }
+            if (source.schemaVersion == 14)
+                throw Unsupported(
+                    "run suspend",
+                    source.schemaVersion);
             if (source.schemaVersion
                     == RunSuspendData.CurrentSchemaVersion
                 && !HasValidChecksum(source))
@@ -241,6 +245,10 @@ namespace Shmup.Core
                     "input recording",
                     source.schemaVersion);
             }
+            if (source.schemaVersion == 13)
+                throw Unsupported(
+                    "input recording",
+                    source.schemaVersion);
             if (source.schemaVersion
                     == InputRecordingData.CurrentSchemaVersion
                 && !HasValidChecksum(source))
