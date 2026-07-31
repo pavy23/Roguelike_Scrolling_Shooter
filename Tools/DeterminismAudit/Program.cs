@@ -724,7 +724,15 @@ namespace Shmup.DeterminismAudit
             if (selected.GaugeIndex != gauge.Cursor)
                 throw new InvalidOperationException(
                     "Gauge observation index does not match its cursor.");
-            return selected.Level < selected.MaxLevel;
+            if (selected.Level >= selected.MaxLevel)
+                return false;
+
+            // The audit ship starts with its shared shot axis maxed. Keep its
+            // single-target Vulcan profile instead of cycling through every
+            // seven-slot weapon mode, and spend capsules only on the two
+            // remaining offensive growth axes.
+            return selected.Slot == PowerUpSlot.Missile
+                || selected.Slot == PowerUpSlot.Option;
         }
 
         static bool TrySelectPickupTargetY(
