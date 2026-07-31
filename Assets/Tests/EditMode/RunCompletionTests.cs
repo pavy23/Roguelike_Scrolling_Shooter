@@ -191,6 +191,37 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void RhythmRun_WithMidStageSpeedSlotReward_CompletesDeterministically()
+        {
+            string root = FindRepositoryRoot();
+            string gameData = Path.Combine(root, "GameData");
+            GameDataSet data = GameDataParser.Parse(
+                File.ReadAllText(
+                    Path.Combine(gameData, "enemies.json")),
+                File.ReadAllText(
+                    Path.Combine(gameData, "weapons.json")),
+                File.ReadAllText(
+                    Path.Combine(gameData, "waves.json")),
+                File.ReadAllText(
+                    Path.Combine(gameData, "rewards.json")));
+            RewardCatalog rewards =
+                EnsureMidSpeedSlotReward(data.Rewards);
+
+            RhythmTrace first =
+                RunRhythmTrace(data, 0x48DA7AUL, rewards);
+            RhythmTrace second =
+                RunRhythmTrace(data, 0x48DA7AUL, rewards);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(RunState.RunCleared, first.FinalState);
+                Assert.AreEqual(15, first.RoomsCleared);
+                Assert.AreEqual(first.Hash, second.Hash);
+                Assert.AreEqual(first.Ticks, second.Ticks);
+            });
+        }
+
+        [Test]
         public void ProgressionConfig_DefaultsToFiveAndSupportsOtherCampaignLengths()
         {
             RunManager defaultRun = CreateRun(11UL, null);
@@ -319,7 +350,8 @@ namespace Shmup.Core.Tests
 
         static RhythmTrace RunRhythmTrace(
             GameDataSet data,
-            ulong seed)
+            ulong seed,
+            RewardCatalog rewards = null)
         {
             BattleContent content = CreateRhythmContent(data);
             BattleSimConfig config = CreateRhythmConfig();
@@ -331,7 +363,7 @@ namespace Shmup.Core.Tests
                 data.CreatePowerUpGauge(),
                 new MetaProgression(1, 1),
                 StageDifficultyCurve.CreateDefault(),
-                data.Rewards,
+                rewards ?? data.Rewards,
                 null,
                 1,
                 1,
@@ -392,9 +424,11 @@ namespace Shmup.Core.Tests
                     }
 
                     int shieldBefore = run.Battle.ShieldStock;
-                    dodgeDirection = GetRhythmDodgeDirection(
-                        run.Battle,
-                        dodgeDirection);
+                    dodgeDirection = run.Battle.BossActive
+                        ? GetRhythmBossAimDirection(run.Battle)
+                        : GetRhythmDodgeDirection(
+                            run.Battle,
+                            dodgeDirection);
                     var fire = new InputCommand(
                         0,
                         dodgeDirection,
@@ -433,6 +467,57 @@ namespace Shmup.Core.Tests
                 run.State);
         }
 
+        static RewardCatalog EnsureMidSpeedSlotReward(
+            RewardCatalog source)
+        {
+            var replacements =
+                new RewardDefinition[source.All.Count];
+            bool found = false;
+            for (int i = 0; i < replacements.Length; i++)
+            {
+                RewardDefinition reward = source.All[i];
+                if (string.Equals(
+                        reward.Id,
+                        "slot_speed_1",
+                        StringComparison.Ordinal))
+                {
+                    Assert.AreEqual(RewardType.SlotLevel, reward.Type);
+                    Assert.AreEqual(PowerUpSlot.Speed, reward.Slot);
+                    replacements[i] = reward;
+                    found = true;
+                    continue;
+                }
+                if (!string.Equals(
+                        reward.Id,
+                        "passive_move_speed_1",
+                        StringComparison.Ordinal))
+                {
+                    replacements[i] = reward;
+                    continue;
+                }
+
+                replacements[i] = new RewardDefinition(
+                    "slot_speed_1",
+                    RewardType.SlotLevel,
+                    PowerUpSlot.Speed,
+                    1,
+                    reward.Weight,
+                    reward.StageIndexMin,
+                    reward.StageIndexMax,
+                    reward.MaxPerRun,
+                    pool: reward.Pool);
+                found = true;
+            }
+            Assert.IsTrue(
+                found,
+                "The rhythm regression fixture requires the mid speed reward.");
+            return new RewardCatalog(
+                source.OptionCount,
+                replacements,
+                source.MaxCombinedModifierCost,
+                source.RerollCost);
+        }
+
         static int GetRhythmDodgeDirection(
             IBattleSim battle,
             int currentDirection)
@@ -460,6 +545,16 @@ namespace Shmup.Core.Tests
             if (battle.PlayerY <= -640 && direction < 0)
                 return 1;
             return direction;
+        }
+
+        static int GetRhythmBossAimDirection(IBattleSim battle)
+        {
+            int tolerance = SimSpace.SubUnitsPerWorldUnit / 4;
+            if (battle.PlayerY < battle.Boss.Y - tolerance)
+                return 1;
+            if (battle.PlayerY > battle.Boss.Y + tolerance)
+                return -1;
+            return 0;
         }
 
         static void TrackChoiceState(
