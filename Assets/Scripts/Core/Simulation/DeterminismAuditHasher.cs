@@ -595,6 +595,7 @@ namespace Shmup.Core.Simulation
             }
 
             FoldBool(battle.BossActive);
+            FoldBool(battle.BossEntering);
             BossState boss = battle.Boss;
             FoldInt32(boss.Id);
             FoldInt32(boss.X);

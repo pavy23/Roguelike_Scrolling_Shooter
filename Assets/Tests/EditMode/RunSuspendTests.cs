@@ -272,6 +272,19 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void SchemaFifteenSuspendIsRejectedAfterShipGaugeChange()
+        {
+            RunSuspendData legacy =
+                CreateRun(new BoundaryStageGenerator())
+                    .ExportSuspendData();
+            legacy.schemaVersion = 15;
+            legacy.checksum = null;
+
+            Assert.Throws<ArgumentException>(
+                () => SaveDataIntegrity.MigrateAndValidate(legacy));
+        }
+
+        [Test]
         public void LegacySuspendSchemas_MigrateToChecksummedCurrentPayload()
         {
             RunManager source = CreateRun(new BoundaryStageGenerator());

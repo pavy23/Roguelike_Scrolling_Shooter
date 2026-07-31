@@ -108,6 +108,11 @@ namespace Shmup.Core.Tests
                 content,
                 PowerUpGauge.CreateDefault());
 
+            InputCommand none = InputCommand.None;
+            for (int guard = 0;
+                guard < 200 && (!sim.BossActive || sim.BossEntering);
+                guard++)
+                sim.Step(in none);
             Step(sim, new InputCommand(0, 0, false, false, true));
 
             Assert.IsTrue(sim.BossActive);

@@ -244,6 +244,19 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void SchemaFourteenRecordingIsRejectedAfterShipGaugeChange()
+        {
+            InputRecordingData legacy = ValidData();
+            legacy.schemaVersion = 14;
+            legacy.checksum = null;
+
+            Assert.Throws<ArgumentException>(
+                () => SaveDataIntegrity.MigrateAndValidate(legacy));
+            Assert.Throws<ArgumentException>(
+                () => new InputPlayback(legacy));
+        }
+
+        [Test]
         public void AnalogRecordedPlayback_ReproducesDeterminismHash()
         {
             BattleSimConfig config =

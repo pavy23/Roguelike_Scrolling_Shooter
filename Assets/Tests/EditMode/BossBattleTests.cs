@@ -14,24 +14,42 @@ namespace Shmup.Core.Tests
         public void BossSpawnsAfterSegmentsApproachesAndHolds()
         {
             var sim = CreateBossSim(
-                bossMaxHp: 100, holdX: 400, phases: Phase(interval: 999, ways: 1));
+                bossMaxHp: 100,
+                holdX: 400,
+                phases: Phase(interval: 1, ways: 1, speed: 64),
+                weaponDamage: 100,
+                bulletSpeed: 256);
             InputCommand none = InputCommand.None;
+            var fire = new InputCommand(0, 0, true);
 
-            for (int i = 0; i < 4; i++) sim.Step(in none);
-            Assert.IsFalse(sim.BossActive);
+            sim.Step(in none);
+            Assert.IsTrue(sim.BossActive);
+            Assert.IsTrue(sim.BossEntering);
 
-            sim.Step(in none);   // tick 5 = 세그먼트 소진 → 스폰
             Assert.IsTrue(sim.BossActive);
             Assert.AreEqual(1, sim.EventsThisTick.Length);
             Assert.AreEqual(SimEventType.BossSpawned, sim.EventsThisTick[0].Type);
             int entryX = sim.Boss.X;
+            Assert.Greater(
+                entryX - 256,
+                SimSpace.PlayfieldHalfWidthSubUnits);
 
-            sim.Step(in none);
-            Assert.AreEqual(entryX - 16, sim.Boss.X);   // 진입 속도 16 서브유닛/틱
+            sim.Step(in fire);
+            Assert.Less(sim.Boss.X, entryX);
 
-            for (int i = 0; i < 200; i++) sim.Step(in none);
+            while (sim.BossEntering)
+            {
+                Assert.AreEqual(100, sim.Boss.Hp);
+                for (int i = 0; i < sim.Bullets.Count; i++)
+                {
+                    Assert.AreNotEqual(
+                        BulletFaction.Enemy,
+                        sim.Bullets[i].Faction);
+                }
+                sim.Step(in fire);
+            }
             Assert.AreEqual(400, sim.Boss.X);           // holdX 정지
-            Assert.AreEqual(100, sim.Boss.Hp);
+            Assert.IsFalse(sim.BossEntering);
         }
 
         [Test]

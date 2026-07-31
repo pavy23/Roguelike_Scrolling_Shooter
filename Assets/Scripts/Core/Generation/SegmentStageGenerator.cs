@@ -33,12 +33,17 @@ namespace Shmup.Core.Generation
             IReadOnlyList<StageSegmentTemplate> segments,
             IReadOnlyList<StageBossTemplate> bosses,
             IReadOnlyList<string> themeIds,
-            IReadOnlyList<StageGimmickDefinition> gimmicks = null)
+            IReadOnlyList<StageGimmickDefinition> gimmicks = null,
+            int? closingSegmentsPerStage = null)
         {
             if (laneCount < 1 || laneCount > 30)
                 throw new ArgumentOutOfRangeException(nameof(laneCount));
             if (segmentsPerStage < 1)
                 throw new ArgumentOutOfRangeException(nameof(segmentsPerStage));
+            if (closingSegmentsPerStage.HasValue
+                && closingSegmentsPerStage.Value < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(closingSegmentsPerStage));
 
             int validLanes = StagePlanClearability.GetValidLaneMask(laneCount);
             StagePlanClearability.ValidateLaneMask(
@@ -46,6 +51,8 @@ namespace Shmup.Core.Generation
 
             LaneCount = laneCount;
             SegmentsPerStage = segmentsPerStage;
+            ClosingSegmentsPerStage =
+                closingSegmentsPerStage ?? segmentsPerStage;
             StartLaneMask = startLaneMask;
             Segments = CopySegments(segments, validLanes);
             Bosses = CopyBosses(bosses, validLanes);
@@ -63,6 +70,7 @@ namespace Shmup.Core.Generation
 
         public int LaneCount { get; }
         public int SegmentsPerStage { get; }
+        public int ClosingSegmentsPerStage { get; }
         public int StartLaneMask { get; }
         public IReadOnlyList<StageSegmentTemplate> Segments { get; }
         public IReadOnlyList<StageBossTemplate> Bosses { get; }
@@ -707,6 +715,7 @@ namespace Shmup.Core.Generation
     /// </summary>
     public sealed class SegmentStageGenerator :
         IRouteStageGenerator,
+        ISectionRouteStageGenerator,
         IColossalBossStageGenerator
     {
         const int StageGenerationStream = 0;
@@ -752,7 +761,10 @@ namespace Shmup.Core.Generation
                 difficulty,
                 themeId,
                 requestedThemeId,
-                EncounterType.Normal);
+                EncounterType.Normal,
+                GetSegmentCount(
+                    EncounterType.Normal,
+                    StageRouteSection.Default));
         }
 
         public bool CanGenerateRoute(
@@ -769,7 +781,9 @@ namespace Shmup.Core.Generation
             if (!ContainsTheme(themeId))
                 return false;
 
-            int segmentCount = GetSegmentCount(encounterType);
+            int segmentCount = GetSegmentCount(
+                encounterType,
+                StageRouteSection.Default);
             return CanAssemble(
                 themeId,
                 stageIndex,
@@ -814,7 +828,57 @@ namespace Shmup.Core.Generation
                 difficulty,
                 themeId,
                 themeId,
-                encounterType);
+                encounterType,
+                GetSegmentCount(
+                    encounterType,
+                    StageRouteSection.Default));
+        }
+
+        public bool CanGenerateRouteForSection(
+            string themeId,
+            int stageIndex,
+            int difficulty,
+            EncounterType encounterType,
+            StageRouteSection section)
+        {
+            if (!Enum.IsDefined(typeof(StageRouteSection), section)
+                || string.IsNullOrEmpty(themeId)
+                || stageIndex < 1
+                || difficulty < 1
+                || !Enum.IsDefined(typeof(EncounterType), encounterType)
+                || !ContainsTheme(themeId))
+                return false;
+            return CanAssemble(
+                themeId,
+                stageIndex,
+                difficulty,
+                GetSegmentCount(encounterType, section));
+        }
+
+        public StagePlan GenerateRouteForSection(
+            ulong seed,
+            int stageIndex,
+            int difficulty,
+            string themeId,
+            EncounterType encounterType,
+            StageRouteSection section)
+        {
+            if (!CanGenerateRouteForSection(
+                    themeId,
+                    stageIndex,
+                    difficulty,
+                    encounterType,
+                    section))
+                throw new InvalidOperationException(
+                    CannotAssembleMessage(themeId));
+            return GenerateCore(
+                seed,
+                stageIndex,
+                difficulty,
+                themeId,
+                themeId,
+                encounterType,
+                GetSegmentCount(encounterType, section));
         }
 
         public bool CanGenerateColossalBoss(ColossalBossKind kind)
@@ -901,7 +965,8 @@ namespace Shmup.Core.Generation
             int difficulty,
             string themeId,
             string requestedThemeId,
-            EncounterType encounterType)
+            EncounterType encounterType,
+            int segmentCount)
         {
             Rng stageRng = new Rng(seed)
                 .Fork(StageGenerationStream)
@@ -910,7 +975,7 @@ namespace Shmup.Core.Generation
             Rng segmentRng = stageRng.Fork(SegmentSelectionStream);
             Rng bossRng = stageRng.Fork(BossSelectionStream);
 
-            var assembled = new StageSegment[GetSegmentCount(encounterType)];
+            var assembled = new StageSegment[segmentCount];
             var completionCache = new Dictionary<long, bool>();
             var selectedTemplates = new bool[_catalog.Segments.Count];
             int reachable = _catalog.StartLaneMask;
@@ -1029,11 +1094,15 @@ namespace Shmup.Core.Generation
             return rng.PickWeighted(weights, weights.Length);
         }
 
-        int GetSegmentCount(EncounterType encounterType)
+        int GetSegmentCount(
+            EncounterType encounterType,
+            StageRouteSection section)
         {
-            return encounterType == EncounterType.Elite
-                || encounterType == EncounterType.Supply
-                ? 1
+            if (encounterType == EncounterType.Elite
+                || encounterType == EncounterType.Supply)
+                return 1;
+            return section == StageRouteSection.Closing
+                ? _catalog.ClosingSegmentsPerStage
                 : _catalog.SegmentsPerStage;
         }
 

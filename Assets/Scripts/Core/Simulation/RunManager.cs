@@ -1406,6 +1406,7 @@ namespace Shmup.Core.Simulation
             ModifierStacks = new BattleModifierStackSet(
                 _rewards.MaxCombinedModifierCost);
             _ship = ship ?? ShipDefinition.CreateDefault();
+            ValidateShipGauge(_ship, PowerUpGauge);
             NormalizeDifficultyMultiplier(
                 difficultyMultiplierNumerator,
                 difficultyMultiplierDenominator,
@@ -2983,11 +2984,13 @@ namespace Shmup.Core.Simulation
             var options = new RouteOption[desiredCount];
             int optionCount = 0;
             if (rareSlot == 0
-                && routeGenerator.CanGenerateRoute(
+                && CanGenerateRouteForRoom(
+                    routeGenerator,
                     themeId,
                     targetBiomeIndex,
                     targetDifficulty,
-                    EncounterType.Rare))
+                    EncounterType.Rare,
+                    targetRoomIndex))
             {
                 options[optionCount++] =
                     new RouteOption(themeId, EncounterType.Rare);
@@ -3004,20 +3007,24 @@ namespace Shmup.Core.Simulation
                 var encounterType = (EncounterType)(
                     (encounterStart + encounterOffset)
                     % commonEncounterCount);
-                if (!routeGenerator.CanGenerateRoute(
+                if (!CanGenerateRouteForRoom(
+                        routeGenerator,
                         themeId,
                         targetBiomeIndex,
                         targetDifficulty,
-                        encounterType))
+                        encounterType,
+                        targetRoomIndex))
                     continue;
                 options[optionCount++] =
                     new RouteOption(themeId, encounterType);
                 if (optionCount == rareSlot
-                    && routeGenerator.CanGenerateRoute(
+                    && CanGenerateRouteForRoom(
+                        routeGenerator,
                         themeId,
                         targetBiomeIndex,
                         targetDifficulty,
-                        EncounterType.Rare))
+                        EncounterType.Rare,
+                        targetRoomIndex))
                 {
                     options[optionCount++] =
                         new RouteOption(themeId, EncounterType.Rare);
@@ -3052,6 +3059,68 @@ namespace Shmup.Core.Simulation
             return (EncounterType)_routeRng.NextInt(
                 0,
                 commonEncounterCount);
+        }
+
+        bool CanGenerateRouteForRoom(
+            IRouteStageGenerator generator,
+            string themeId,
+            int stageIndex,
+            int difficulty,
+            EncounterType encounterType,
+            int roomIndex)
+        {
+            if (generator is ISectionRouteStageGenerator sectionGenerator)
+            {
+                return sectionGenerator.CanGenerateRouteForSection(
+                    themeId,
+                    stageIndex,
+                    difficulty,
+                    encounterType,
+                    GetRouteSection(roomIndex));
+            }
+            return generator.CanGenerateRoute(
+                themeId,
+                stageIndex,
+                difficulty,
+                encounterType);
+        }
+
+        StagePlan GenerateRouteForRoom(
+            IRouteStageGenerator generator,
+            ulong seed,
+            int stageIndex,
+            int difficulty,
+            string themeId,
+            EncounterType encounterType,
+            int roomIndex)
+        {
+            if (generator is ISectionRouteStageGenerator sectionGenerator)
+            {
+                return sectionGenerator.GenerateRouteForSection(
+                    seed,
+                    stageIndex,
+                    difficulty,
+                    themeId,
+                    encounterType,
+                    GetRouteSection(roomIndex));
+            }
+            return generator.GenerateRoute(
+                seed,
+                stageIndex,
+                difficulty,
+                themeId,
+                encounterType);
+        }
+
+        StageRouteSection GetRouteSection(int roomIndex)
+        {
+            bool isMidBossRoom =
+                RoomsPerBiome
+                    >= RunProgressionConfig.DefaultRoomsPerBiome
+                && roomIndex == 2;
+            return roomIndex > 1 && !isMidBossRoom
+                ? StageRouteSection.Closing
+                : StageRouteSection.Default;
         }
 
         public void Restart(ulong newRunSeed)
@@ -4233,14 +4302,16 @@ namespace Shmup.Core.Simulation
                         RoomIndex,
                         out RouteChoice routeChoice))
                 {
-                    generated = routeGenerator.GenerateRoute(
+                    generated = GenerateRouteForRoom(
+                        routeGenerator,
                         generationSeed,
                         battleSequenceBiomeIndex,
                         Difficulty,
                         routeChoice.ThemeId,
                         IsBiomeBoss
                             ? EncounterType.Normal
-                            : routeChoice.EncounterType);
+                            : routeChoice.EncounterType,
+                        IsBiomeBoss ? 1 : RoomIndex);
                 }
                 else if (!IsBiomeBoss
                     && RoomIndex > 1)
@@ -4251,18 +4322,22 @@ namespace Shmup.Core.Simulation
                             : SelectSectionEncounterType(
                                 battleSequenceBiomeIndex,
                                 RoomIndex);
-                    if (!routeGenerator.CanGenerateRoute(
+                    if (!CanGenerateRouteForRoom(
+                            routeGenerator,
                             basePlan.ThemeId,
                             generationBiomeIndex,
                             Difficulty,
-                            encounterType))
+                            encounterType,
+                            RoomIndex))
                         encounterType = EncounterType.Normal;
-                    generated = routeGenerator.GenerateRoute(
+                    generated = GenerateRouteForRoom(
+                        routeGenerator,
                         generationSeed,
                         battleSequenceBiomeIndex,
                         Difficulty,
                         basePlan.ThemeId,
-                        encounterType);
+                        encounterType,
+                        RoomIndex);
                 }
                 else
                     generated = basePlan;
@@ -4941,6 +5016,27 @@ namespace Shmup.Core.Simulation
                 levels[i] = Math.Max(levels[i], startingLevels[i]);
             }
             gauge.ImportLevels(levels);
+        }
+
+        static void ValidateShipGauge(
+            ShipDefinition ship,
+            PowerUpGauge gauge)
+        {
+            if (!ship.HasCustomPowerUpGauge)
+                return;
+            if (gauge.GaugeSlotCount != ship.GaugeSlots.Count)
+                throw new ArgumentException(
+                    $"Ship '{ship.Id}' requires a "
+                    + $"{ship.GaugeSlots.Count}-slot gauge.",
+                    nameof(gauge));
+            for (int i = 0; i < ship.GaugeSlots.Count; i++)
+            {
+                if (gauge.GaugeSlots[i].Slot != ship.GaugeSlots[i])
+                    throw new ArgumentException(
+                        $"Ship '{ship.Id}' gauge slot {i} must be "
+                        + $"'{ship.GaugeSlots[i]}'.",
+                        nameof(gauge));
+            }
         }
 
         void ResetShieldStockForNewRun()

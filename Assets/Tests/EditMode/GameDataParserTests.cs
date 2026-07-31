@@ -1203,11 +1203,17 @@ namespace Shmup.Core.Tests
                 != null;
             EnemyDefinition miniCore =
                 data.BattleContent.FindEnemy("mini_core");
-            // REQ-075: laser_sentry + prism_beamer add two laser-profile enemies.
+            int laserProfileEnemyCount =
+                (data.BattleContent.FindEnemy("laser_sentry") != null
+                    ? 1
+                    : 0)
+                + (data.BattleContent.FindEnemy("prism_beamer") != null
+                    ? 1
+                    : 0);
             Assert.AreEqual(
                 (hasHiveTentacle ? 31 : 30)
                     + (miniCore != null ? 1 : 0)
-                    + 2,
+                    + laserProfileEnemyCount,
                 data.BattleContent.Enemies.Count);
             if (miniCore != null)
             {
@@ -1617,6 +1623,128 @@ namespace Shmup.Core.Tests
                 () => GameDataParser.Parse(
                     EnemiesJson, WeaponsJson, WavesJson, invalid));
             StringAssert.Contains("rewards.json.optionCount", error.Message);
+        }
+
+        [Test]
+        public void Parse_ShipOwnedGaugeUsesFiveSlotsAndImmediateWeaponSwitch()
+        {
+            const string shipsJson = @"{
+  ""schemaVersion"": 2,
+  ""ships"": [{
+    ""id"": ""starter"",
+    ""displayName"": ""Starter"",
+    ""moveSpeedMultiplierNumerator"": 1,
+    ""moveSpeedMultiplierDenominator"": 1,
+    ""startingPowerUpLevels"": [0, 0, 0, 0],
+    ""unlockCost"": 0,
+    ""weaponType"": ""vulcan"",
+    ""startingShieldStock"": 0,
+    ""gaugeWeaponFamily"": ""double"",
+    ""powerUpGaugeSlots"": [
+      ""Speed"", ""Missile"", ""Weapon"", ""Option"", ""Shield""
+    ]
+  }]
+}";
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson,
+                RewardsJson,
+                shipsJson);
+            ShipDefinition ship = data.DefaultShip;
+            PowerUpGauge gauge = data.CreatePowerUpGauge(ship);
+
+            Assert.AreEqual(0, ship.StartingShieldStock);
+            Assert.AreEqual(PrimaryWeaponFamily.Double, ship.GaugeWeaponFamily);
+            Assert.AreEqual(PowerUpGauge.ShipGaugeSlotCount, gauge.GaugeSlotCount);
+            Assert.AreEqual(PowerUpSlot.Speed, gauge.GaugeSlots[0].Slot);
+            Assert.AreEqual(PowerUpSlot.Missile, gauge.GaugeSlots[1].Slot);
+            Assert.AreEqual(PowerUpSlot.Double, gauge.GaugeSlots[2].Slot);
+            Assert.AreEqual(PowerUpSlot.Option, gauge.GaugeSlots[3].Slot);
+            Assert.AreEqual(PowerUpSlot.Shield, gauge.GaugeSlots[4].Slot);
+
+            PowerUpGaugeSlotView before = gauge.GetGaugeSlotView(2);
+            Assert.AreEqual(0, before.Progress);
+            Assert.AreEqual(1, before.RequiredCapsules);
+            gauge.Collect();
+            gauge.Collect();
+            gauge.Collect();
+            Assert.AreEqual(
+                PowerUpActivationResult.LevelIncreased,
+                gauge.ActivateDetailed());
+            Assert.AreEqual(PowerUpWeaponMode.Double, gauge.ActiveWeaponMode);
+            Assert.AreEqual(1, gauge.GetLevel(PowerUpSlot.Double));
+            Assert.AreEqual(0, gauge.GetProgress(PowerUpSlot.Double));
+            Assert.AreEqual(0, gauge.GetGaugeSlotView(2).RequiredCapsules);
+        }
+
+        [Test]
+        public void Parse_MaxLevelSixSurvivesGaugeStateStorage()
+        {
+            string levelSixWeapons = WeaponsJson.Replace(
+                @"""maxLevel"": 5",
+                @"""maxLevel"": 6");
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                levelSixWeapons,
+                WavesJson);
+            PowerUpGauge source = data.CreatePowerUpGauge();
+
+            Assert.AreEqual(6, source.GetMaxLevel(PowerUpSlot.MainShot));
+            Assert.AreEqual(
+                6,
+                source.GrantLevels(PowerUpSlot.MainShot, 6));
+            int[] stored = source.ExportLevels();
+            PowerUpGauge restored = source.CreateEmptyWithSameRules();
+            restored.ImportLevels(stored);
+            Assert.AreEqual(6, restored.GetLevel(PowerUpSlot.MainShot));
+        }
+
+        [Test]
+        public void Parse_ClosingSegmentCountBuildsLongerClosingRoute()
+        {
+            string longerClosing = WavesWithThemes(
+                    @"[""hive""]",
+                    "hive",
+                    "hive")
+                .Replace(
+                @"""segmentsPerStage"": 1,",
+                @"""segmentsPerStage"": 1, ""closingSegmentsPerStage"": 2,");
+            longerClosing = longerClosing.Replace(
+                @"    ""spawns"": [{ ""tick"": 10, ""enemyId"": ""elite_sine"", ""y"": -5.5 }]
+  }],
+  ""bosses"":",
+                @"    ""spawns"": [{ ""tick"": 10, ""enemyId"": ""elite_sine"", ""y"": -5.5 }]
+  },{
+    ""id"": ""seg2"", ""theme"": ""hive"",
+    ""difficultyMin"": 1, ""difficultyMax"": 5,
+    ""lengthTicks"": 60, ""entryLaneMask"": 7, ""exitLaneMask"": 7,
+    ""traversableLaneMasks"": [7],
+    ""spawns"": []
+  }],
+  ""bosses"":");
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                longerClosing);
+            var generator = new SegmentStageGenerator(data.StageGeneration);
+
+            Assert.AreEqual(1, data.StageGeneration.SegmentsPerStage);
+            Assert.AreEqual(2, data.StageGeneration.ClosingSegmentsPerStage);
+            Assert.IsTrue(generator.CanGenerateRouteForSection(
+                "hive",
+                1,
+                1,
+                EncounterType.Normal,
+                StageRouteSection.Closing));
+            StagePlan closing = generator.GenerateRouteForSection(
+                123UL,
+                1,
+                1,
+                "hive",
+                EncounterType.Normal,
+                StageRouteSection.Closing);
+            Assert.AreEqual(2, closing.Segments.Count);
         }
 
         static string FindRepositoryRoot()

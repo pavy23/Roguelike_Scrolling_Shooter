@@ -203,6 +203,10 @@ namespace Shmup.Core.Tests
                 config);
             InputCommand none = InputCommand.None;
 
+            for (int tick = 0;
+                tick < 200 && (!sim.BossActive || sim.BossEntering);
+                tick++)
+                sim.Step(in none);
             for (int tick = 0; tick < 20; tick++)
                 sim.Step(in none);
 

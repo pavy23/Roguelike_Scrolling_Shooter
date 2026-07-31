@@ -155,6 +155,60 @@ namespace Shmup.Core.Content
         }
 
         /// <summary>
+        /// Creates the ship-owned five-slot gauge when the ship opts into one;
+        /// otherwise returns the backward-compatible seven-slot gauge.
+        /// The designated weapon entry is an immediate one-activation switch.
+        /// </summary>
+        public PowerUpGauge CreatePowerUpGauge(ShipDefinition ship)
+        {
+            if (ship == null)
+                throw new ArgumentNullException(nameof(ship));
+            if (!ship.HasCustomPowerUpGauge)
+                return CreatePowerUpGauge();
+
+            var slots =
+                new PowerUpSlotDefinition[ship.GaugeSlots.Count];
+            for (int i = 0; i < slots.Length; i++)
+            {
+                PowerUpSlot slot = ship.GaugeSlots[i];
+                PowerUpSlotDefinition source =
+                    FindPowerUpGaugeSlot(slot);
+                slots[i] = new PowerUpSlotDefinition(
+                    source.Slot,
+                    source.NameKey,
+                    source.MaxLevel,
+                    source.CostCurve,
+                    source.SpeedBonusNumerator,
+                    source.SpeedBonusDenominator,
+                    source.IsWeaponMode);
+            }
+            return new PowerUpGauge(
+                _powerUpMaxLevels[
+                    (int)PowerUpSlot.MainShot],
+                slots,
+                _powerUpCostCurve);
+        }
+
+        public PowerUpGauge CreatePowerUpGauge(string shipId)
+        {
+            ShipDefinition ship = FindShip(shipId);
+            if (ship == null)
+                throw new ArgumentException(
+                    $"Unknown ship id '{shipId}'.",
+                    nameof(shipId));
+            return CreatePowerUpGauge(ship);
+        }
+
+        PowerUpSlotDefinition FindPowerUpGaugeSlot(PowerUpSlot slot)
+        {
+            for (int i = 0; i < _powerUpGaugeSlots.Length; i++)
+                if (_powerUpGaugeSlots[i].Slot == slot)
+                    return _powerUpGaugeSlots[i];
+            throw new InvalidOperationException(
+                $"The weapons gauge does not define slot '{slot}'.");
+        }
+
+        /// <summary>
         /// Applies only schema-owned values. View bounds and provisional values
         /// without GameData fields retain BattleSimConfig defaults.
         /// </summary>
