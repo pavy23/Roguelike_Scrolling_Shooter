@@ -12,8 +12,11 @@ Run the full audit suite:
 dotnet run --project Tools/DeterminismAudit -- --suite
 ```
 
-The suite runs five multi-stage, multi-seed, multi-reward-path scenarios twice
-and requires exact trace hash equality. It also sweeps 256 seeds across a
+The suite runs six multi-stage, multi-seed, multi-reward-path scenarios twice
+and requires exact trace hash equality. Five scenarios complete the standard
+15-room route and the fixed seed-7 scenario must expose the `uncharted`
+contract, complete both hidden rooms, and defeat a 62,000-HP colossal boss.
+It also sweeps 256 seeds across a
 synthetic `maxPerRun` boundary: one path excludes a capped reward while another
 keeps it eligible, then verifies equal battle traces and equal next-stage reward
 options after both paths converge. This proves that different eligible pool
@@ -34,6 +37,10 @@ dotnet run --project Tools/DeterminismAudit -- 12345 3 30000
 ```
 
 `stageCount` is the number of stages to complete and `tickCount` is the total
-tick budget. The runner raises player HP only in its audit config so traversal
-does not depend on balance survivability; player hits, HP changes, and events
-remain part of the folded state.
+tick budget. The runner raises player HP and deterministically restores its
+shield so traversal does not depend on current balance survivability; player
+hits, HP changes, and events remain part of the folded state. Its automatic
+pilot returns to a stable X position after room-to-room position carry, tracks
+observable capsule/bomb pickups, aims at vulnerable boss cores and their
+required gate parts, and avoids regenerating parts until permanent targets are
+gone.

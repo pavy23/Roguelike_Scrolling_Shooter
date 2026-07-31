@@ -19,6 +19,10 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(RunState.AwaitingReward, run.State);
             Assert.AreEqual(3, run.RewardOptions.Count);
             run.ChooseReward(0);
+            Assert.AreEqual(
+                RunState.AwaitingContract,
+                run.State);
+            Assert.IsTrue(run.ChooseContract(0));
 
             Assert.AreEqual(RunState.RunCleared, run.State);
             Assert.IsTrue(run.IsFinished);
@@ -90,6 +94,9 @@ namespace Shmup.Core.Tests
             source.ChooseReward(0);
             resumed.ChooseReward(0);
             replay.ChooseReward(0);
+            source.ChooseContract(0);
+            resumed.ChooseContract(0);
+            replay.ChooseContract(0);
 
             Assert.AreEqual(RunState.RunCleared, source.State);
             Assert.AreEqual(RunState.RunCleared, resumed.State);
@@ -206,6 +213,7 @@ namespace Shmup.Core.Tests
                 RunState.AwaitingReward,
                 twoStageRun.State);
             twoStageRun.ChooseReward(0);
+            Assert.IsTrue(twoStageRun.ChooseContract(0));
 
             Assert.AreEqual(RunState.RunCleared, twoStageRun.State);
             Assert.AreEqual(2, twoStageRun.Statistics.StagesCleared);

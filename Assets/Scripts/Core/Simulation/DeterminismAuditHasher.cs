@@ -44,6 +44,10 @@ namespace Shmup.Core.Simulation
             FoldInt32(run.NoHitBiomesCleared);
             FoldInt32(run.RareEncountersCleared);
             FoldInt32(run.HiddenConditionCount);
+            FoldInt32(run.ThemeStageIndex);
+            FoldInt32(run.StageThemeOrder.Count);
+            for (int i = 0; i < run.StageThemeOrder.Count; i++)
+                FoldInt32(run.StageThemeOrder[i]);
             FoldUInt64(run.RunSeed);
             FoldInt32(run.Difficulty);
             FoldInt32(run.DifficultyMultiplierNumerator);
@@ -65,6 +69,8 @@ namespace Shmup.Core.Simulation
             FoldModifierStacks(run.ModifierStacks);
             FoldInt32((int)run.CurrentPrimaryWeaponFamily);
             FoldInt32(run.MaxShieldStock);
+            FoldInt32(run.CapsuleBalance);
+            FoldInt32(run.RewardRerollCost);
             FoldInt32((int)run.CurrentMissileFamily);
             FoldInt32((int)run.CurrentOptionFormation);
             FoldStagePlan(run.StagePlan);
@@ -72,6 +78,8 @@ namespace Shmup.Core.Simulation
             FoldContracts(run.ContractOptions);
             FoldContract(run.ActiveContract);
             FoldContractHistory(run.ContractChoiceHistory);
+            FoldRewardDecisionHistory(
+                run.RewardDecisionHistory);
             FoldRoutes(run.RouteOptions);
             FoldRouteHistory(run.RouteChoiceHistory);
             FoldBattle(run.Battle);
@@ -391,6 +399,8 @@ namespace Shmup.Core.Simulation
                 return;
             FoldString(contract.Id);
             FoldInt32((int)contract.RiskTier);
+            FoldInt32((int)contract.DestinationKind);
+            FoldInt32((int)contract.Eligibility);
             FoldInt32(contract.Effects.Count);
             for (int i = 0; i < contract.Effects.Count; i++)
             {
@@ -409,6 +419,23 @@ namespace Shmup.Core.Simulation
                 FoldInt32(history[i].TargetBiomeIndex);
                 FoldInt32(history[i].OptionIndex);
                 FoldString(history[i].ContractId);
+                FoldInt32(
+                    (int)history[i].DestinationKind);
+            }
+        }
+
+        void FoldRewardDecisionHistory(
+            IReadOnlyList<RewardDecision> history)
+        {
+            FoldInt32(history.Count);
+            for (int i = 0; i < history.Count; i++)
+            {
+                FoldInt32(history[i].RewardSequence);
+                FoldInt32(
+                    (int)history[i].SelectionKind);
+                FoldInt32(
+                    (int)history[i].DecisionKind);
+                FoldInt32(history[i].OptionIndex);
             }
         }
 

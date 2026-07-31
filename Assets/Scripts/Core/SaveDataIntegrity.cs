@@ -31,6 +31,8 @@ namespace Shmup.Core
             if (source.schemaVersion
                     < RunSuspendData.CurrentSchemaVersion
                 && !string.IsNullOrEmpty(source.checksum)
+                && !(source.schemaVersion == 13
+                    && HasValidRunSuspendV13Checksum(source))
                 && !(source.schemaVersion == 11
                     && HasValidRunSuspendV11Checksum(source))
                 && !(source.schemaVersion == 12
@@ -212,7 +214,15 @@ namespace Shmup.Core
                 capsuleDropWeightReduction =
                     source.schemaVersion >= 13
                         ? source.capsuleDropWeightReduction
-                        : 0
+                        : 0,
+                capsuleBalance =
+                    source.schemaVersion >= 14
+                        ? source.capsuleBalance
+                        : 0,
+                rewardDecisions =
+                    source.schemaVersion >= 14
+                        ? Clone(source.rewardDecisions)
+                        : Array.Empty<RewardDecisionData>()
             };
             Seal(migrated);
             return migrated;
@@ -241,6 +251,8 @@ namespace Shmup.Core
             if (source.schemaVersion
                     < InputRecordingData.CurrentSchemaVersion
                 && !string.IsNullOrEmpty(source.checksum)
+                && !(source.schemaVersion == 12
+                    && HasValidInputRecordingV12Checksum(source))
                 && !(source.schemaVersion == 8
                     && HasValidInputRecordingV8Checksum(source))
                 && !(source.schemaVersion == 9
@@ -308,7 +320,11 @@ namespace Shmup.Core
                 contractChoices =
                     source.schemaVersion >= 12
                         ? Clone(source.contractChoices)
-                        : Array.Empty<ContractChoiceData>()
+                        : Array.Empty<ContractChoiceData>(),
+                rewardDecisions =
+                    source.schemaVersion >= 13
+                        ? Clone(source.rewardDecisions)
+                        : Array.Empty<RewardDecisionData>()
             };
             Seal(migrated);
             return migrated;
@@ -476,7 +492,77 @@ namespace Shmup.Core
             hash.Add(data.activeContractId);
             Add(ref hash, data.contractChoices);
             hash.Add(data.capsuleDropWeightReduction);
+            hash.Add(data.capsuleBalance);
+            Add(ref hash, data.rewardDecisions);
             return hash.ToString();
+        }
+
+        static bool HasValidRunSuspendV13Checksum(
+            RunSuspendData data)
+        {
+            if (!IsChecksum(data.checksum))
+                return false;
+            var hash = new CanonicalHash("RunSuspendData");
+            hash.Add(data.schemaVersion);
+            hash.Add(data.runSeed);
+            hash.Add(data.runNumber);
+            hash.Add(data.stageIndex);
+            hash.Add(data.score);
+            hash.Add(data.shotsFired);
+            hash.Add(data.shotsHit);
+            hash.Add(data.kills);
+            hash.Add(data.capsulesCollected);
+            hash.Add(data.grazeCount);
+            hash.Add(data.stagesCleared);
+            hash.Add(data.powerUpLevels);
+            hash.Add(data.powerUpCursor);
+            hash.Add(data.playerHp);
+            hash.Add(data.shieldRemaining);
+            Add(ref hash, data.rewardAcquisitions);
+            hash.Add(data.activeModifiers);
+            hash.Add(data.shipId);
+            hash.Add(data.fireIntervalTicks);
+            hash.Add(data.mainShotBaseDamage);
+            hash.Add(data.playerSpeedNumerator);
+            hash.Add(data.playerSpeedDenominator);
+            hash.Add(data.difficultyMultiplierNumerator);
+            hash.Add(data.difficultyMultiplierDenominator);
+            Add(ref hash, data.routeChoices);
+            hash.Add(data.finalStageIndex);
+            hash.Add(data.biomeIndex);
+            hash.Add(data.roomIndex);
+            hash.Add(data.isBiomeBoss);
+            hash.Add(data.biomeCount);
+            hash.Add(data.roomsPerBiome);
+            hash.Add(data.roomsCleared);
+            hash.Add(data.missileFamily);
+            hash.Add(data.optionFormation);
+            hash.Add(data.isHiddenBiome);
+            hash.Add(data.eliteRoomsCleared);
+            hash.Add(data.noHitBiomesCleared);
+            hash.Add(data.rareEncountersCleared);
+            hash.Add(data.currentBiomeHit);
+            hash.Add(data.selectedColossalBoss);
+            hash.Add(data.lastColossalBossAtRunStart);
+            hash.Add(data.shieldStock);
+            hash.Add(data.maxShieldStock);
+            hash.Add(data.bombStock);
+            hash.Add(data.maxBombStock);
+            hash.Add(data.primaryWeaponFamily);
+            hash.Add(data.powerUpProgress);
+            hash.Add(data.hasStageStartContinuity);
+            hash.Add(data.stageStartPlayerX);
+            hash.Add(data.stageStartPlayerY);
+            hash.Add(data.stageStartMultiplierLevel);
+            hash.Add(data.stageStartComboGauge);
+            hash.Add(data.stageStartTicksSinceLastKill);
+            hash.Add(data.activeContractId);
+            AddLegacy(ref hash, data.contractChoices);
+            hash.Add(data.capsuleDropWeightReduction);
+            return string.Equals(
+                data.checksum,
+                hash.ToString(),
+                StringComparison.Ordinal);
         }
 
         static bool HasValidRunSuspendV12Checksum(
@@ -757,7 +843,56 @@ namespace Shmup.Core
             hash.Add(data.optionFormation);
             hash.Add(data.lastColossalBossAtRunStart);
             Add(ref hash, data.contractChoices);
+            Add(ref hash, data.rewardDecisions);
             return hash.ToString();
+        }
+
+        static bool HasValidInputRecordingV12Checksum(
+            InputRecordingData data)
+        {
+            if (!IsChecksum(data.checksum))
+                return false;
+            var hash = new CanonicalHash("InputRecordingData");
+            hash.Add(data.schemaVersion);
+            hash.Add(data.totalTicks);
+            if (data.runs == null)
+            {
+                hash.Add(-1);
+            }
+            else
+            {
+                hash.Add(data.runs.Length);
+                for (int i = 0; i < data.runs.Length; i++)
+                {
+                    InputRunData run = data.runs[i];
+                    hash.Add(run != null);
+                    if (run == null)
+                        continue;
+                    hash.Add(run.moveX);
+                    hash.Add(run.moveY);
+                    hash.Add(run.fire);
+                    hash.Add(run.activate);
+                    hash.Add(run.activateBomb);
+                    hash.Add(run.tickCount);
+                    hash.Add(run.useAnalogMovement);
+                    hash.Add(run.analogDeltaXSubUnits);
+                    hash.Add(run.analogDeltaYSubUnits);
+                }
+            }
+            hash.Add(data.difficultyMultiplierNumerator);
+            hash.Add(data.difficultyMultiplierDenominator);
+            Add(ref hash, data.routeChoices);
+            hash.Add(data.finalStageIndex);
+            hash.Add(data.biomeCount);
+            hash.Add(data.roomsPerBiome);
+            hash.Add(data.missileFamily);
+            hash.Add(data.optionFormation);
+            hash.Add(data.lastColossalBossAtRunStart);
+            AddLegacy(ref hash, data.contractChoices);
+            return string.Equals(
+                data.checksum,
+                hash.ToString(),
+                StringComparison.Ordinal);
         }
 
         static bool HasValidInputRecordingV7Checksum(
@@ -1192,6 +1327,52 @@ namespace Shmup.Core
                 hash.Add(choice.targetBiomeIndex);
                 hash.Add(choice.optionIndex);
                 hash.Add(choice.contractId);
+                hash.Add(choice.destinationKind);
+            }
+        }
+
+        static void AddLegacy(
+            ref CanonicalHash hash,
+            ContractChoiceData[] choices)
+        {
+            if (choices == null)
+            {
+                hash.Add(-1);
+                return;
+            }
+            hash.Add(choices.Length);
+            for (int i = 0; i < choices.Length; i++)
+            {
+                ContractChoiceData choice = choices[i];
+                hash.Add(choice != null);
+                if (choice == null)
+                    continue;
+                hash.Add(choice.targetBiomeIndex);
+                hash.Add(choice.optionIndex);
+                hash.Add(choice.contractId);
+            }
+        }
+
+        static void Add(
+            ref CanonicalHash hash,
+            RewardDecisionData[] decisions)
+        {
+            if (decisions == null)
+            {
+                hash.Add(-1);
+                return;
+            }
+            hash.Add(decisions.Length);
+            for (int i = 0; i < decisions.Length; i++)
+            {
+                RewardDecisionData decision = decisions[i];
+                hash.Add(decision != null);
+                if (decision == null)
+                    continue;
+                hash.Add(decision.rewardSequence);
+                hash.Add(decision.selectionKind);
+                hash.Add(decision.decisionKind);
+                hash.Add(decision.optionIndex);
             }
         }
 
@@ -1334,7 +1515,36 @@ namespace Shmup.Core
                         targetBiomeIndex =
                             item.targetBiomeIndex,
                         optionIndex = item.optionIndex,
-                        contractId = item.contractId
+                        contractId = item.contractId,
+                        destinationKind =
+                            item.destinationKind
+                    };
+            }
+            return copy;
+        }
+
+        static RewardDecisionData[] Clone(
+            RewardDecisionData[] source)
+        {
+            if (source == null)
+                return null;
+            var copy =
+                new RewardDecisionData[source.Length];
+            for (int i = 0; i < source.Length; i++)
+            {
+                RewardDecisionData item = source[i];
+                copy[i] = item == null
+                    ? null
+                    : new RewardDecisionData
+                    {
+                        rewardSequence =
+                            item.rewardSequence,
+                        selectionKind =
+                            item.selectionKind,
+                        decisionKind =
+                            item.decisionKind,
+                        optionIndex =
+                            item.optionIndex
                     };
             }
             return copy;

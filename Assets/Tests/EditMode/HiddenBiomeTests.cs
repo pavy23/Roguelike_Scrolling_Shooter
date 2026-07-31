@@ -360,7 +360,7 @@ namespace Shmup.Core.Tests
                     run.ChooseReward(0);
                 else if (run.State
                     == RunState.AwaitingContract)
-                    run.ChooseContract(0);
+                    ChooseUncharted(run);
                 else
                     run.Step(in fire);
                 Assert.LessOrEqual(
@@ -370,6 +370,25 @@ namespace Shmup.Core.Tests
             }
             Assert.IsTrue(run.IsHiddenBiome);
             Assert.IsTrue(run.IsBiomeBoss);
+        }
+
+        static void ChooseUncharted(RunManager run)
+        {
+            if (run.BiomeIndex < run.BiomeCount)
+            {
+                Assert.IsTrue(run.ChooseContract(0));
+                return;
+            }
+            for (int i = 0; i < run.ContractOptions.Count; i++)
+            {
+                if (run.ContractOptions[i].DestinationKind
+                    != ContractDestinationKind.Uncharted)
+                    continue;
+                Assert.IsTrue(run.ChooseContract(i));
+                return;
+            }
+            Assert.Fail(
+                "Qualified hidden-biome run did not expose an uncharted contract.");
         }
 
         static void AdvanceUntilFinished(RunManager run)

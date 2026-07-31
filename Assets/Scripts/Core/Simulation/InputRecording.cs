@@ -47,10 +47,11 @@ namespace Shmup.Core.Simulation
     public sealed class InputRecordingData
     {
         /// <summary>
-        /// REQ-065 changes room-boundary initial state, so older recordings are
-        /// intentionally rejected instead of replaying under different semantics.
+        /// Reward rerolls are explicit decisions in schema 13. Older recordings
+        /// are intentionally rejected instead of guessing whether a reward pool
+        /// was rerolled.
         /// </summary>
-        public const int CurrentSchemaVersion = 12;
+        public const int CurrentSchemaVersion = 13;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -93,6 +94,9 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 13)]
         public ContractChoiceData[] contractChoices;
+
+        [DataMember(Order = 14)]
+        public RewardDecisionData[] rewardDecisions;
     }
 
     /// <summary>
@@ -370,7 +374,31 @@ namespace Shmup.Core.Simulation
                         targetBiomeIndex =
                             choice.TargetBiomeIndex,
                         optionIndex = choice.OptionIndex,
-                        contractId = choice.ContractId
+                        contractId = choice.ContractId,
+                        destinationKind =
+                            (int)choice.DestinationKind
+                    };
+            }
+            IReadOnlyList<RewardDecision> rewardDecisions =
+                _routeSource != null
+                    ? _routeSource.RewardDecisionHistory
+                    : Array.Empty<RewardDecision>();
+            var exportedRewardDecisions =
+                new RewardDecisionData[rewardDecisions.Count];
+            for (int i = 0; i < rewardDecisions.Count; i++)
+            {
+                RewardDecision decision = rewardDecisions[i];
+                exportedRewardDecisions[i] =
+                    new RewardDecisionData
+                    {
+                        rewardSequence =
+                            decision.RewardSequence,
+                        selectionKind =
+                            (int)decision.SelectionKind,
+                        decisionKind =
+                            (int)decision.DecisionKind,
+                        optionIndex =
+                            decision.OptionIndex
                     };
             }
 
@@ -391,7 +419,8 @@ namespace Shmup.Core.Simulation
                 optionFormation = (int)_optionFormation,
                 lastColossalBossAtRunStart =
                     (int)_lastColossalBossAtRunStart,
-                contractChoices = exportedContractChoices
+                contractChoices = exportedContractChoices,
+                rewardDecisions = exportedRewardDecisions
             };
             SaveDataIntegrity.Seal(data);
             return data;
@@ -504,6 +533,9 @@ namespace Shmup.Core.Simulation
         readonly ContractChoice[] _contractChoices;
         readonly IReadOnlyList<ContractChoice>
             _contractChoiceView;
+        readonly RewardDecision[] _rewardDecisions;
+        readonly IReadOnlyList<RewardDecision>
+            _rewardDecisionView;
 
         public InputPlayback(InputRecordingData data)
         {
@@ -585,10 +617,31 @@ namespace Shmup.Core.Simulation
                 _contractChoices[i] = new ContractChoice(
                     choice.targetBiomeIndex,
                     choice.optionIndex,
-                    choice.contractId);
+                    choice.contractId,
+                    (ContractDestinationKind)
+                        choice.destinationKind);
             }
             _contractChoiceView =
                 Array.AsReadOnly(_contractChoices);
+            RewardDecisionData[] serializedDecisions =
+                data.rewardDecisions
+                ?? Array.Empty<RewardDecisionData>();
+            _rewardDecisions =
+                new RewardDecision[serializedDecisions.Length];
+            for (int i = 0; i < _rewardDecisions.Length; i++)
+            {
+                RewardDecisionData decision =
+                    serializedDecisions[i];
+                _rewardDecisions[i] = new RewardDecision(
+                    decision.rewardSequence,
+                    (RewardSelectionKind)
+                        decision.selectionKind,
+                    (RewardDecisionKind)
+                        decision.decisionKind,
+                    decision.optionIndex);
+            }
+            _rewardDecisionView =
+                Array.AsReadOnly(_rewardDecisions);
         }
 
         public int TotalTicks { get; }
@@ -605,6 +658,8 @@ namespace Shmup.Core.Simulation
             _routeChoiceView;
         public IReadOnlyList<ContractChoice> ContractChoices =>
             _contractChoiceView;
+        public IReadOnlyList<RewardDecision> RewardDecisions =>
+            _rewardDecisionView;
 
         public Enumerator GetEnumerator()
         {
@@ -766,17 +821,80 @@ namespace Shmup.Core.Simulation
                     || choice.targetBiomeIndex
                         <= previousContractBiome
                     || choice.targetBiomeIndex
-                        > data.biomeCount
+                        > data.biomeCount + 1
                     || choice.optionIndex < 0
                     || choice.optionIndex
                         >= RunManager.MaximumContractOptionCount
-                    || string.IsNullOrEmpty(choice.contractId))
+                    || string.IsNullOrEmpty(choice.contractId)
+                    || !Enum.IsDefined(
+                        typeof(ContractDestinationKind),
+                        choice.destinationKind)
+                    || (choice.targetBiomeIndex
+                            == data.biomeCount + 1
+                        && choice.destinationKind
+                            == (int)ContractDestinationKind.NextStage)
+                    || (choice.targetBiomeIndex
+                            <= data.biomeCount
+                        && choice.destinationKind
+                            != (int)ContractDestinationKind.NextStage))
                 {
                     throw Corrupted(
                         "Input recording contract choice history is invalid.");
                 }
                 previousContractBiome =
                     choice.targetBiomeIndex;
+            }
+            if (data.rewardDecisions == null)
+                throw Corrupted(
+                    "Input recording rewardDecisions cannot be null.");
+            int previousRewardSequence = 0;
+            bool sequenceSelected = false;
+            for (int i = 0;
+                i < data.rewardDecisions.Length;
+                i++)
+            {
+                RewardDecisionData decision =
+                    data.rewardDecisions[i];
+                if (decision == null
+                    || decision.rewardSequence < 1
+                    || decision.rewardSequence
+                        < previousRewardSequence
+                    || !Enum.IsDefined(
+                        typeof(RewardSelectionKind),
+                        decision.selectionKind)
+                    || decision.selectionKind
+                        == (int)RewardSelectionKind.None
+                    || !Enum.IsDefined(
+                        typeof(RewardDecisionKind),
+                        decision.decisionKind))
+                    throw Corrupted(
+                        "Input recording reward decision history is invalid.");
+                if (decision.rewardSequence
+                    != previousRewardSequence)
+                {
+                    sequenceSelected = false;
+                    previousRewardSequence =
+                        decision.rewardSequence;
+                }
+                if (sequenceSelected)
+                    throw Corrupted(
+                        "Input recording reward decisions occur after selection.");
+                if (decision.decisionKind
+                    == (int)RewardDecisionKind.Reroll)
+                {
+                    if (decision.optionIndex != -1)
+                        throw Corrupted(
+                            "Input recording reroll option index is invalid.");
+                }
+                else
+                {
+                    if (decision.optionIndex < 0
+                        || decision.optionIndex
+                            >= RunManager.MainRewardOptionCount)
+                        throw Corrupted(
+                            "Input recording reward option index is invalid.");
+                    sequenceSelected = true;
+                }
             }
         }
 

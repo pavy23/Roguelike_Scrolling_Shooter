@@ -1325,7 +1325,10 @@ namespace Shmup.Core.Generation
             Rng permutationRng = new Rng(seed)
                 .Fork(StageGenerationStream)
                 .Fork(ThemePermutationStream);
-            for (int i = runOrder.Length - 1; i > 1; i--)
+            int lastShuffledIndex = runOrder.Length >= 5
+                ? runOrder.Length - 2
+                : runOrder.Length - 1;
+            for (int i = lastShuffledIndex; i > 1; i--)
             {
                 int swapIndex = permutationRng.NextInt(1, i + 1);
                 string held = runOrder[i];

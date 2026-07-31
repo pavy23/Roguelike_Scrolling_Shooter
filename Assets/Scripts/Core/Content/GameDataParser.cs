@@ -484,7 +484,7 @@ namespace Shmup.Core.Content
             RewardsDto root,
             BattleContent content)
         {
-            const int supportedRewardsSchemaVersion = 4;
+            const int supportedRewardsSchemaVersion = 5;
             int schemaVersion = Require(
                 root.schemaVersion,
                 "rewards.json.schemaVersion");
@@ -559,10 +559,21 @@ namespace Shmup.Core.Content
                 throw Error(
                     "rewards.json.maxCombinedModifierCost",
                     "must be positive.");
+            int rerollCost =
+                schemaVersion >= 5
+                    ? Require(
+                        root.rerollCost,
+                        "rewards.json.rerollCost")
+                    : 5;
+            if (rerollCost < 1)
+                throw Error(
+                    "rewards.json.rerollCost",
+                    "must be positive.");
             return new RewardCatalog(
                 optionCount,
                 definitions,
-                maxCombinedModifierCost);
+                maxCombinedModifierCost,
+                rerollCost);
         }
 
         static ScoringDefinition ParseScoring(ScoringDto root)
