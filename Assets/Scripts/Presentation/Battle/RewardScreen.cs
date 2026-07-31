@@ -151,8 +151,8 @@ namespace Shmup.Presentation.Battle
                     // 번호는 키를 눌러 고를 때만 쓸모가 있다 — 탭으로 고르는 폰에서는
                     // 카드 공간을 설명에 쓰는 게 낫다.
                     _boxTexts[i].text = UiPlatform.TouchMode
-                        ? Describe(options[i])
-                        : $"[{i + 1}]\n{Describe(options[i])}";
+                        ? DescribeWithCosts(options[i])
+                        : $"[{i + 1}]\n{DescribeWithCosts(options[i])}";
                 }
             }
 
@@ -203,6 +203,44 @@ namespace Shmup.Presentation.Battle
         /// 모든 항목에 **효과를 평이한 말로 한 줄** 붙인다. 숫자만 보여 주고 해석을
         /// 플레이어에게 떠넘기지 않는 것이 목적이다.
         /// </summary>
+        /// <summary>
+        /// 대가(cost) 한 줄. 붉은 색으로 분리해 "이 카드는 거래"임을 명확히 한다 —
+        /// 대가가 본문에 섞여 있으면 집고 나서야 알게 되고, 그건 함정이지 결단이 아니다.
+        /// </summary>
+        static string DescribeCost(in RewardEffectView cost)
+        {
+            switch (cost.Type)
+            {
+                case RewardEffectType.ShieldMaxDown:
+                    return $"SHIELD CAP -{cost.Amount}";
+                case RewardEffectType.MoveSpeedDown:
+                    return $"ENGINE -{cost.Amount}";
+                case RewardEffectType.CapsuleDropWeightDown:
+                    return $"CAPSULE DROPS -{cost.Amount}";
+                case RewardEffectType.BombMaxDown:
+                    return $"BOMB CAP -{cost.Amount}";
+                default:
+                    return cost.Type.ToString().ToUpperInvariant() + $" -{cost.Amount}";
+            }
+        }
+
+        /// <summary>본문 + 대가 목록. 대가는 리치 텍스트로 붉게 칠한다.</summary>
+        static string DescribeWithCosts(in RewardOption option)
+        {
+            string body = Describe(option);
+            if (option.Costs == null || option.Costs.Count == 0) return body;
+
+            var sb = new System.Text.StringBuilder(body.Length + 48);
+            sb.Append(body);
+            for (int i = 0; i < option.Costs.Count; i++)
+            {
+                sb.Append("\n<color=#ff5f52>");
+                sb.Append(DescribeCost(option.Costs[i]));
+                sb.Append("</color>");
+            }
+            return sb.ToString();
+        }
+
         static string Describe(in RewardOption option)
         {
             switch (option.Type)
@@ -222,6 +260,14 @@ namespace Shmup.Presentation.Battle
                     return $"ENGINE +{option.Amount}\nmove faster, dodge easier";
                 case RewardType.Modifier:
                     return ModifierName(option.ModifierId);
+                case RewardType.BombStock:
+                    return $"BOMB +{option.Amount}\nscreen-clearing charge";
+                case RewardType.MissileFamily:
+                    return "MISSILE SWAP\nchanges missile behavior";
+                case RewardType.OptionFormation:
+                    return "FORMATION SWAP\nchanges drone positions";
+                case RewardType.PrimaryWeaponFamily:
+                    return "WEAPON SWAP\nchanges your main gun";
                 default:
                     return option.Type.ToString();
             }

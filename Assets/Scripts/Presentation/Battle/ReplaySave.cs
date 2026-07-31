@@ -19,6 +19,7 @@ namespace Shmup.Presentation.Battle
         public int difficultyDenominator = 1;
         public int[] rewardChoices;
         public int[] routeChoices;
+        public int[] contractChoices;   // 섹터 계약 선택 (REQ-070)
         public InputRecordingData recording;
     }
 

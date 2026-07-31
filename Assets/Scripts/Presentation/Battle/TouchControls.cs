@@ -160,7 +160,7 @@ namespace Shmup.Presentation.Battle
             && !OptionsScreen.IsOpen
             && (_director == null
                 || (!_director.AwaitingReward && !_director.AwaitingRoute
-                    && !_director.IsRunFinished));
+                    && !_director.AwaitingContract && !_director.IsRunFinished));
 
         void Update()
         {

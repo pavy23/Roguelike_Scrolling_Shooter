@@ -35,6 +35,9 @@ namespace Shmup.Presentation.Battle
         /// <summary>중간보스 직후의 짧은 2택 (REQ-054). 주 보상과 무게가 달라야 한다.</summary>
         public const string MidRewardTitle = "MID-BOSS DOWN - QUICK PICK";
         public const string RouteTitle = "CHOOSE YOUR ROUTE";
+
+        /// <summary>섹터 계약 (REQ-070) — 다음 스테이지의 조건을 보고 고른다.</summary>
+        public const string ContractTitle = "NEXT SECTOR - CHOOSE YOUR CONTRACT";
         public const string ChoiceHints =
             "[1]-[3] QUICK PICK      LEFT / RIGHT MOVE   (A) / [ENTER] CONFIRM";
 

@@ -22,6 +22,8 @@ namespace Shmup.Presentation.Battle
         [SerializeField] string[] _themeNames;
 
         Text _progressText;
+        Text _contractText;
+        string _shownContractId;
         Text _bannerText;
         GameObject _bannerRoot;
         int _shownBiome = -1, _shownRoom = -1;
@@ -38,6 +40,13 @@ namespace Shmup.Presentation.Battle
                 UiKit.TextDim, new Vector2(0f, 1f), new Vector2(8f, -30f),
                 TextAnchor.UpperLeft, "Progress");
             UiKit.AddShadow(_progressText);
+
+            // 활성 계약 (REQ-070). 계약이 스테이지 전체에 걸리는데 표시가 없으면
+            // "왜 적이 많지?"가 버그로 읽힌다 — 내가 고른 조건임을 계속 보여 준다.
+            _contractText = UiKit.CreateCornerText(canvas.transform, _font, "", 9,
+                UiKit.TextDim, new Vector2(0f, 1f), new Vector2(8f, -44f),
+                TextAnchor.UpperLeft, "Contract");
+            UiKit.AddShadow(_contractText);
 
             // 바이옴 진입 배너 (중앙, 짧게)
             var band = new GameObject("BiomeBanner");
@@ -68,6 +77,33 @@ namespace Shmup.Presentation.Battle
                 _shownRoom = room;
                 _shownSection = section;
                 _progressText.text = BuildProgress(biome, section);
+            }
+
+            var contract = _director.ActiveContract;
+            string contractId = contract != null ? contract.Id : null;
+            if (!string.Equals(contractId, _shownContractId, System.StringComparison.Ordinal))
+            {
+                _shownContractId = contractId;
+                if (contract == null
+                    || contract.RiskTier == Shmup.Core.Simulation.ContractRiskTier.Safe)
+                {
+                    // 표준 항로는 표시하지 않는다 — 무보정 상태가 기본값이다.
+                    _contractText.text = "";
+                }
+                else
+                {
+                    string name = contract.Id.StartsWith("contract_")
+                        ? contract.Id.Substring("contract_".Length)
+                        : contract.Id;
+                    _contractText.text =
+                        $"CONTRACT: {name.Replace('_', ' ').ToUpperInvariant()}";
+                    _contractText.color =
+                        contract.RiskTier == Shmup.Core.Simulation.ContractRiskTier.Low
+                            ? new UnityEngine.Color(0.35f, 0.65f, 1f, 1f)
+                            : contract.RiskTier == Shmup.Core.Simulation.ContractRiskTier.Extreme
+                                ? new UnityEngine.Color(1f, 0.32f, 0.28f, 1f)
+                                : new UnityEngine.Color(1f, 0.62f, 0.25f, 1f);
+                }
             }
 
             // 바이옴이 바뀐 순간 배너

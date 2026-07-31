@@ -12,6 +12,82 @@
     "nebula",
     "core"
   ],
+  "contracts": {
+    "standardContractId": "standard_route",
+    "minimumOptionCount": 2,
+    "maximumOptionCount": 3,
+    "entries": [
+      {
+        "id": "standard_route",
+        "weight": 1,
+        "riskTier": "safe"
+      },
+      {
+        "id": "risk_lane",
+        "weight": 4,
+        "riskTier": "high",
+        "enemyDensityMultiplier": 1.4,
+        "capsuleDropMultiplier": 1.5,
+        "scoreMultiplier": 1.3
+      },
+      {
+        "id": "lockdown_zone",
+        "weight": 3,
+        "riskTier": "high",
+        "gimmickIntensityMultiplier": 1.5,
+        "bombDropMultiplier": 1.5,
+        "guaranteedBombDrop": true,
+        "scoreMultiplier": 1.15
+      },
+      {
+        "id": "supply_line",
+        "weight": 4,
+        "riskTier": "low",
+        "capsuleDropMultiplier": 1.3,
+        "rewardOptionCountDelta": -1
+      },
+      {
+        "id": "drydock_route",
+        "weight": 3,
+        "riskTier": "low",
+        "enemyDensityMultiplier": 0.75,
+        "rewardOptionCountDelta": -1,
+        "scoreMultiplier": 0.8
+      },
+      {
+        "id": "high_stakes",
+        "weight": 4,
+        "riskTier": "high",
+        "enemyDensityMultiplier": 1.25,
+        "rewardOptionCountDelta": 1
+      },
+      {
+        "id": "scrap_bounty",
+        "weight": 3,
+        "riskTier": "high",
+        "enemyDensityMultiplier": 1.2,
+        "capsuleDropMultiplier": 0.7,
+        "scoreMultiplier": 1.5
+      },
+      {
+        "id": "soft_landing",
+        "weight": 3,
+        "riskTier": "low",
+        "enemyDensityMultiplier": 0.9,
+        "bombDropMultiplier": 2.0,
+        "scoreMultiplier": 0.85
+      },
+      {
+        "id": "escort_run",
+        "weight": 2,
+        "riskTier": "high",
+        "enemyDensityMultiplier": 1.5,
+        "capsuleDropMultiplier": 1.25,
+        "guaranteedBombDrop": true,
+        "scoreMultiplier": 1.4
+      }
+    ]
+  },
   "segments": [
     {
       "id": "seg_intro_line",

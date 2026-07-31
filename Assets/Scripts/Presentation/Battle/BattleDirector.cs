@@ -238,6 +238,8 @@ namespace Shmup.Presentation.Battle
         InputRecorder _recorder;
         bool _recordingActive;
         readonly List<int> _recordedChoices = new List<int>(8);
+        readonly List<int> _recordedContractChoices = new List<int>(8);
+        int _replayContractCursor;
         bool _replayMode;
         InputPlayback.Enumerator _playback;
         int _replayChoiceCursor;
@@ -354,6 +356,10 @@ namespace Shmup.Presentation.Battle
                 _recordedRoutes.Clear();
                 if (pendingReplay.routeChoices != null)
                     _recordedRoutes.AddRange(pendingReplay.routeChoices);
+                _recordedContractChoices.Clear();
+                if (pendingReplay.contractChoices != null)
+                    _recordedContractChoices.AddRange(pendingReplay.contractChoices);
+                _replayContractCursor = 0;
             }
 
             var config = data.CreateBattleSimConfig();
@@ -430,6 +436,7 @@ namespace Shmup.Presentation.Battle
                 _recordingActive = true;
                 _recordedChoices.Clear();
                 _recordedRoutes.Clear();
+                _recordedContractChoices.Clear();
                 _recordShipId = selectedShip != null ? selectedShip.Id : null;
             }
 
@@ -507,6 +514,14 @@ namespace Shmup.Presentation.Battle
                             ? _recordedChoices[_replayChoiceCursor++] : 0;
                         _run.ChooseReward(choice);
                     }
+                    // 계약 대기: 기록된 계약 선택을 재현. 기록이 모자라면 0(표준 항로) —
+                    // Core가 표준 항로를 항상 0번에 두므로 안전한 기본값이다.
+                    else if (_run.State == RunState.AwaitingContract)
+                    {
+                        int choice = _replayContractCursor < _recordedContractChoices.Count
+                            ? _recordedContractChoices[_replayContractCursor++] : 0;
+                        _run.ChooseContract(choice);
+                    }
                     // 경로 선택 재현은 없어졌다 (REQ-054). 구버전 리플레이의 route
                     // payload는 열리기만 하고, 재생은 현 빌드 규칙을 따른다.
                 }
@@ -561,6 +576,7 @@ namespace Shmup.Presentation.Battle
                         difficultyNumerator = _run.DifficultyMultiplierNumerator,
                         difficultyDenominator = _run.DifficultyMultiplierDenominator,
                         rewardChoices = _recordedChoices.ToArray(),
+                        contractChoices = _recordedContractChoices.ToArray(),
                         routeChoices = _recordedRoutes.ToArray(),
                         recording = _recorder.Export()
                     });
@@ -956,6 +972,28 @@ namespace Shmup.Presentation.Battle
         // ── 보상 선택 (RunManager AwaitingReward — RewardScreen이 소비) ─────────
 
         public bool AwaitingReward => _run != null && _run.State == RunState.AwaitingReward;
+
+        // ── 섹터 계약 (REQ-070 — ContractScreen이 소비) ─────────────────────────
+
+        public bool AwaitingContract =>
+            _run != null && _run.State == RunState.AwaitingContract;
+
+        public System.Collections.Generic.IReadOnlyList<ContractDefinition> ContractOptions
+            => _run?.ContractOptions;
+
+        /// <summary>현재 스테이지에 적용 중인 계약. 스테이지 1과 런 종료 후에는 null.</summary>
+        public ContractDefinition ActiveContract => _run?.ActiveContract;
+
+        public void ChooseContract(int index)
+        {
+            if (!AwaitingContract) return;
+            if (_replayMode) return;   // 리플레이 중 수동 선택 금지 (자동 재현)
+            if (!_run.ChooseContract(index)) return;   // 잘못된 인덱스는 Core가 안전 거부
+            // 기록은 성공 후에만 — 거부된 선택이 기록되면 리플레이가 어긋난다.
+            if (_recordingActive) _recordedContractChoices.Add(index);
+            RefreshBattle();
+            SyncViews();
+        }
 
         /// <summary>
         /// 지금 고르는 보상이 중간보스 직후의 짧은 2택인지, 스테이지 보스 후의 주 3택인지.

@@ -1008,6 +1008,12 @@ namespace Shmup.EditorTools
             SetReference(rewardScreen, "_director", director);
             SetReference(rewardScreen, "_font", uiFont);
             SetReference(rewardScreen, "_fontBold", uiFontBold);
+
+            // 섹터 계약 선택 (REQ-070) — 스테이지 경계에서 다음 구간 조건을 보고 고른다
+            var contractScreen = battleRoot.AddComponent<ContractScreen>();
+            SetReference(contractScreen, "_director", director);
+            SetReference(contractScreen, "_font", uiFont);
+            SetReference(contractScreen, "_fontBold", uiFontBold);
             var pause = battleRoot.AddComponent<PauseScreen>();
             SetReference(pause, "_font", uiFont);
             SetReference(pause, "_fontBold", uiFontBold);
