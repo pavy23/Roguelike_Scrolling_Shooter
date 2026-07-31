@@ -90,6 +90,12 @@ namespace Shmup.Presentation.Battle
         readonly Dictionary<int, Transform> _bombPickupViews = new Dictionary<int, Transform>(16);
         readonly Dictionary<int, float> _obstacleFadeAges = new Dictionary<int, float>(32);
         const float ObstacleFadeSeconds = 0.35f;
+
+        // 피격 플래시 (REQ-082 C): "데미지를 주고 있다는 표시가 안 난다" — 비치명
+        // ObstacleDamaged마다 앰버로 번쩍여 탄이 먹히고 있음을 보여 준다.
+        readonly Dictionary<int, float> _obstacleHitFlashes = new Dictionary<int, float>(32);
+        const float ObstacleHitFlashSeconds = 0.12f;
+        static readonly Color ObstacleHitFlashColor = new Color(1f, 0.72f, 0.25f, 1f);
         readonly Dictionary<int, Transform> _optionViews = new Dictionary<int, Transform>(4);
         readonly Dictionary<int, SpriteRenderer> _enemyRenderers = new Dictionary<int, SpriteRenderer>(32);
         readonly Dictionary<int, Color> _enemyDeathTints = new Dictionary<int, Color>(32);   // 테마별 폭발 틴트
@@ -728,6 +734,9 @@ namespace Shmup.Presentation.Battle
                         if (_scorePopups != null)
                             _scorePopups.Spawn(SimView.ToWorld(e.X, e.Y), e.Arg);
                         break;
+                    case SimEventType.ObstacleDamaged:
+                        _obstacleHitFlashes[e.EntityId] = ObstacleHitFlashSeconds;
+                        break;
                 }
             }
             RefreshBattle();
@@ -865,17 +874,33 @@ namespace Shmup.Presentation.Battle
                 }
                 view.localPosition = SimView.ToWorld(obstacle.X, obstacle.Y);
 
-                if (_obstacleFadeAges.TryGetValue(obstacle.Id, out float age)
-                    && age < ObstacleFadeSeconds)
+                bool fading = _obstacleFadeAges.TryGetValue(obstacle.Id, out float age)
+                    && age < ObstacleFadeSeconds;
+                bool flashing = _obstacleHitFlashes.TryGetValue(obstacle.Id, out float flash)
+                    && flash > 0f;
+                if (fading || flashing)
                 {
-                    age += Time.deltaTime;
-                    _obstacleFadeAges[obstacle.Id] = age;
-                    var fadeRenderer = view.GetComponent<SpriteRenderer>();
-                    if (fadeRenderer != null)
+                    var stateRenderer = view.GetComponent<SpriteRenderer>();
+                    if (fading)
                     {
-                        var c = fadeRenderer.color;
-                        c.a = Mathf.Clamp01(age / ObstacleFadeSeconds);
-                        fadeRenderer.color = c;
+                        age += Time.deltaTime;
+                        _obstacleFadeAges[obstacle.Id] = age;
+                    }
+                    if (flashing)
+                    {
+                        flash -= Time.deltaTime;
+                        // 0에 닿는 프레임에 흰색으로 복원되고 키가 빠진다 — 잔틴트 방지
+                        if (flash <= 0f) _obstacleHitFlashes.Remove(obstacle.Id);
+                        else _obstacleHitFlashes[obstacle.Id] = flash;
+                    }
+                    if (stateRenderer != null)
+                    {
+                        // 피격 플래시(앰버)와 스폰 페이드(알파)는 독립 축 — 동시여도 겹친다
+                        float flashT = flashing
+                            ? Mathf.Clamp01(flash / ObstacleHitFlashSeconds) : 0f;
+                        var c = Color.Lerp(Color.white, ObstacleHitFlashColor, flashT);
+                        c.a = fading ? Mathf.Clamp01(age / ObstacleFadeSeconds) : 1f;
+                        stateRenderer.color = c;
                     }
                 }
             }
@@ -890,6 +915,7 @@ namespace Shmup.Presentation.Battle
                 _obstaclePool.Release(_obstacleViews[id]);
                 _obstacleViews.Remove(id);
                 _obstacleFadeAges.Remove(id);
+                _obstacleHitFlashes.Remove(id);
             }
         }
 
