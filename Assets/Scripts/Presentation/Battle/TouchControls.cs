@@ -328,10 +328,10 @@ namespace Shmup.Presentation.Battle
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var image = go.AddComponent<Image>();
-            // 공용 베벨 스킨 — 플레이 시야를 가리지 않게 반투명 틴트만 다르다
+            // 공용 계기판 셀 — 플레이 시야를 가리지 않게 반투명 틴트만 다르다
             image.sprite = UiSkin.Button;
             image.type = Image.Type.Sliced;
-            image.color = new Color(0.32f, 0.47f, 0.82f, 0.78f);
+            image.color = new Color(0.34f, 0.385f, 0.435f, 0.85f);
             image.raycastTarget = false;
             var rect = image.rectTransform;
             rect.anchorMin = rect.anchorMax = anchor;

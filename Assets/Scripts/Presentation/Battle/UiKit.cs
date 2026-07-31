@@ -34,12 +34,13 @@ namespace Shmup.Presentation.Battle
         public const int ReferenceWidth = 640;
         public const int ReferenceHeight = 360;
 
-        // SNES풍 팔레트 (ART-DIRECTION 톤과 정합)
-        public static readonly Color PanelBg = new Color(0.045f, 0.06f, 0.12f, 0.92f);
-        public static readonly Color PanelBorder = new Color(0.42f, 0.55f, 0.85f, 1f);
-        public static readonly Color TextMain = new Color(0.85f, 0.92f, 1f, 1f);
-        public static readonly Color TextDim = new Color(0.55f, 0.65f, 0.85f, 1f);
-        public static readonly Color TextAccent = new Color(1f, 0.85f, 0.4f, 1f);
+        // CODEX 계기판 팔레트 (4-에이전트 시안 경쟁에서 사람 선택, 2026-07-31):
+        // 무채색 잉크/헤어라인에 앰버 한 색만 액센트로 쓴다.
+        public static readonly Color PanelBg = new Color(0.055f, 0.070f, 0.090f, 0.97f);
+        public static readonly Color PanelBorder = new Color(0.275f, 0.315f, 0.360f, 1f);
+        public static readonly Color TextMain = new Color(0.93f, 0.945f, 0.95f, 1f);
+        public static readonly Color TextDim = new Color(0.465f, 0.505f, 0.55f, 1f);
+        public static readonly Color TextAccent = new Color(1f, 0.70f, 0.11f, 1f);
         public static readonly Color TextDanger = new Color(1f, 0.3f, 0.25f, 1f);
 
         /// <summary>터치 버튼 최소 변; 640×360 좌표 기준이라 실기기에서는 배율만큼 커진다.</summary>
@@ -48,11 +49,12 @@ namespace Shmup.Presentation.Battle
         public static readonly Color ButtonBg = new Color(0.16f, 0.26f, 0.48f, 0.92f);
         public static readonly Color ButtonBgAccent = new Color(0.26f, 0.42f, 0.72f, 0.95f);
 
-        // UiSkin 베벨 스프라이트는 그레이스케일 — 이 틴트가 최종 색을 정한다.
-        // accent는 금색 면 + 진한 라벨: 화면당 하나뿐인 주 동작(CTA)이 즉시 읽힌다.
-        public static readonly Color ButtonFace = new Color(0.34f, 0.50f, 0.86f, 1f);
-        public static readonly Color ButtonFaceAccent = new Color(1f, 0.84f, 0.42f, 1f);
-        public static readonly Color TextOnAccent = new Color(0.22f, 0.13f, 0.02f, 1f);
+        // UiSkin 셀 스프라이트는 그레이스케일(보더 1.0 / 속 0.16) — 이 틴트가
+        // 헤어라인 색을 정하고 속은 자동으로 짙어진다. accent는 챔퍼 블록에 앰버를
+        // 채우고 라벨을 잉크색으로: 화면당 하나뿐인 주 동작(CTA)이 즉시 읽힌다.
+        public static readonly Color ButtonFace = new Color(0.34f, 0.385f, 0.435f, 1f);
+        public static readonly Color ButtonFaceAccent = new Color(1f, 0.70f, 0.11f, 1f);
+        public static readonly Color TextOnAccent = new Color(0.055f, 0.045f, 0.02f, 1f);
 
         public static Canvas CreateCanvas(string name, int sortingOrder)
         {
@@ -94,15 +96,12 @@ namespace Shmup.Presentation.Battle
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var image = go.AddComponent<Image>();
-            image.sprite = UiSkin.Button;
+            // 계기판 언어: 일반 버튼은 헤어라인 셀, 주 동작만 챔퍼 블록에 앰버.
+            // 드롭 섀도 없음 — 평면 계기판은 뜨지 않는다.
+            image.sprite = accent ? UiSkin.Cta : UiSkin.Button;
             image.type = Image.Type.Sliced;
             image.color = accent ? ButtonFaceAccent : ButtonFace;
             image.raycastTarget = true;
-
-            // 바닥에서 살짝 뜬 느낌 — 슬라이스 지오메트리를 아래로 복제하는 드롭 섀도
-            var drop = go.AddComponent<Shadow>();
-            drop.effectColor = new Color(0f, 0f, 0f, 0.5f);
-            drop.effectDistance = new Vector2(0f, -2f);
 
             var rect = image.rectTransform;
             rect.anchorMin = rect.anchorMax = anchor;
@@ -113,7 +112,6 @@ namespace Shmup.Presentation.Battle
 
             var text = CreateText(rect, font, label, fontSize,
                 accent ? TextOnAccent : TextMain, TextAnchor.MiddleCenter, "Label");
-            if (!accent) AddShadow(text, 1f);   // 밝은 라벨만 — 진한 라벨은 그림자가 번져 보인다
             var textRect = text.rectTransform;
             textRect.anchorMin = Vector2.zero;
             textRect.anchorMax = Vector2.one;
@@ -176,8 +174,8 @@ namespace Shmup.Presentation.Battle
             var inner = CreateImage(rect, "Bg", Color.white);
             inner.sprite = UiSkin.Fill;
             inner.type = Image.Type.Sliced;
-            // 프레임 링(아웃라인+릿지+인너 라인 = 4px)에 정확히 맞닿게 안쪽으로
-            Stretch(inner.rectTransform, new Vector2(4f, 4f), new Vector2(-4f, -4f));
+            // 헤어라인 프레임(1px 선 + 1px 안쪽 어둠)에 정확히 맞닿게 안쪽으로
+            Stretch(inner.rectTransform, new Vector2(2f, 2f), new Vector2(-2f, -2f));
             return rect;
         }
 

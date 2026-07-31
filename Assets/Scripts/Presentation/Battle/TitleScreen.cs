@@ -139,15 +139,50 @@ namespace Shmup.Presentation.Battle
             var canvas = UiKit.CreateCanvas("TitleCanvas", 50);
             canvas.transform.SetParent(transform, false);
 
+            // CODEX 계기판 시그니처: 상단 상태 스트립 — 장식이 아니라 "시스템이 켜져
+            // 있다"는 세계관 소품이다 (SYSTEM // READY).
+            var strip = new GameObject("StatusStrip");
+            strip.transform.SetParent(canvas.transform, false);
+            var stripImage = strip.AddComponent<Image>();
+            stripImage.sprite = UiSkin.Button;
+            stripImage.type = Image.Type.Sliced;
+            stripImage.color = new Color(0.275f, 0.315f, 0.360f, 0.9f);
+            stripImage.raycastTarget = false;
+            var stripRect = stripImage.rectTransform;
+            stripRect.anchorMin = new Vector2(0f, 1f);
+            stripRect.anchorMax = new Vector2(1f, 1f);
+            stripRect.pivot = new Vector2(0.5f, 1f);
+            stripRect.sizeDelta = new Vector2(0f, 18f);
+            var stripLeft = UiKit.CreateText(stripRect, _font, "SYSTEM // READY", 8,
+                UiKit.TextAccent, TextAnchor.MiddleLeft, "StripLeft");
+            var stripLeftRect = stripLeft.rectTransform;
+            stripLeftRect.anchorMin = Vector2.zero;
+            stripLeftRect.anchorMax = Vector2.one;
+            stripLeftRect.offsetMin = new Vector2(10f, 0f);
+            stripLeftRect.offsetMax = new Vector2(-10f, 0f);
+            var stripRight = UiKit.CreateText(stripRect, _font, "RSS-01 // PILOT LINK", 8,
+                UiKit.TextDim, TextAnchor.MiddleRight, "StripRight");
+            var stripRightRect = stripRight.rectTransform;
+            stripRightRect.anchorMin = Vector2.zero;
+            stripRightRect.anchorMax = Vector2.one;
+            stripRightRect.offsetMin = new Vector2(10f, 0f);
+            stripRightRect.offsetMax = new Vector2(-10f, 0f);
+
+            // 아이브로: 로고 위 작은 앰버 라벨 — 큰 타이포의 서열을 만들어 준다
+            var eyebrow = UiKit.CreateCornerText(canvas.transform, _font, "- RUN PROTOCOL -", 9,
+                UiKit.TextAccent, new Vector2(0.5f, 1f), new Vector2(0f, -46f),
+                TextAnchor.UpperCenter, "Eyebrow");
+            UiKit.AddShadow(eyebrow, 1f);
+
             var title1 = UiKit.CreateCornerText(canvas.transform, _fontBold, "ROGUELIKE", 40,
-                new Color(0.62f, 0.83f, 1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -58f),
+                UiKit.TextMain, new Vector2(0.5f, 1f), new Vector2(0f, -58f),
                 TextAnchor.UpperCenter, "Title1");
             var title2 = UiKit.CreateCornerText(canvas.transform, _fontBold, "SCROLLING SHOOTER", 40,
-                new Color(0.62f, 0.83f, 1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -102f),
+                UiKit.TextMain, new Vector2(0.5f, 1f), new Vector2(0f, -102f),
                 TextAnchor.UpperCenter, "Title2");
             UiKit.AddShadow(title1, 3f);
             UiKit.AddShadow(title2, 3f);
-            // 로고 밑줄 — 양끝이 사그라드는 금색 라인이 로고와 메뉴 영역을 나눈다
+            // 로고 밑줄 — 양끝이 사그라드는 앰버 라인이 로고와 메뉴 영역을 나눈다
             UiKit.CreateRule(canvas.transform, new Vector2(0.5f, 1f),
                 new Vector2(0f, -148f), 300f, UiKit.TextAccent, "TitleRule");
             _promptText = UiKit.CreateCornerText(canvas.transform, _font,

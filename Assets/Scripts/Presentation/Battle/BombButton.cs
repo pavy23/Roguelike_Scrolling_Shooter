@@ -29,8 +29,9 @@ namespace Shmup.Presentation.Battle
         float _emptyFlash;
         int _shownStock = -1;
 
-        static readonly Color Ready = new Color(0.62f, 0.16f, 0.55f, 0.85f);
-        static readonly Color Empty = new Color(0.24f, 0.20f, 0.28f, 0.55f);
+        // 계기판 단일 액센트: 쓸 수 있으면 앰버, 아니면 무채색으로 죽는다.
+        static readonly Color Ready = new Color(1f, 0.70f, 0.11f, 0.92f);
+        static readonly Color Empty = new Color(0.30f, 0.34f, 0.38f, 0.5f);
         static readonly Color EmptyFlash = new Color(1f, 0.28f, 0.24f, 0.95f);
 
         void Awake() => Instance = this;

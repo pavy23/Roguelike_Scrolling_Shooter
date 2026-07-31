@@ -26,12 +26,12 @@ namespace Shmup.Presentation.Battle
         const float SlotGap = 4f;
         const int MaxPips = 6;
 
-        // UiSkin.Button(그레이스케일 베벨) 위에 곱해지는 틴트 — 평면 배경 시절 값에서
-        // 베벨 그라데이션만큼(약 1.35배) 밝혀 체감 밝기를 유지한다.
-        static readonly Color FrameNormal = new Color(0.24f, 0.32f, 0.54f, 0.85f);
-        static readonly Color FrameCursor = new Color(0.74f, 0.57f, 0.16f, 0.95f);
-        static readonly Color FrameMaxed = new Color(0.19f, 0.49f, 0.32f, 0.9f);
-        static readonly Color FrameActiveMode = new Color(0.57f, 0.22f, 0.51f, 0.9f);
+        // UiSkin.Button(헤어라인 셀) 틴트 = 테두리 색, 속은 자동으로 짙어진다.
+        // 계기판 언어: 평시는 무채색, 커서만 앰버 — 색이 곧 "지금 여기"다.
+        static readonly Color FrameNormal = new Color(0.30f, 0.34f, 0.38f, 0.9f);
+        static readonly Color FrameCursor = new Color(1f, 0.70f, 0.11f, 1f);
+        static readonly Color FrameMaxed = new Color(0.35f, 0.62f, 0.42f, 0.95f);
+        static readonly Color FrameActiveMode = new Color(0.78f, 0.42f, 0.68f, 0.95f);
         static readonly Color32 PipFilled = new Color32(0x9C, 0xD4, 0xFF, 0xFF);
         static readonly Color32 PipEmpty = new Color32(0x22, 0x2C, 0x44, 0xFF);
         static readonly Color32 PipBanking = new Color32(0x4E, 0x7A, 0xB8, 0xFF);
