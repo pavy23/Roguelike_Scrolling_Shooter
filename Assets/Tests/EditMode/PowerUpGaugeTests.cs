@@ -11,6 +11,9 @@ namespace Shmup.Core.Tests
         {
             var gauge = PowerUpGauge.CreateDefault();
             Assert.AreEqual(PowerUpGauge.NoSelection, gauge.Cursor);
+            Assert.AreEqual(
+                PowerUpGauge.MaximumOptionCount,
+                gauge.GetMaxLevel(PowerUpSlot.Option));
             foreach (PowerUpSlot slot in Enum.GetValues(typeof(PowerUpSlot)))
                 Assert.AreEqual(0, gauge.GetLevel(slot));
         }

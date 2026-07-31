@@ -1328,7 +1328,8 @@ namespace Shmup.Core.Tests
                 data.StageGeneration.ClosingSegmentsPerStage);
             Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Speed));
             Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Missile));
-            // Option stays at 4: Fixed formation schema is locked to 4 offsets (Core).
+            // Content remains at 4 until the content-owned REQ-084 update lands;
+            // Core accepts both the legacy 4 and expanded 6 fixed offsets.
             Assert.AreEqual(4, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Option));
             Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Shield));
             Assert.AreEqual(128, data.CreateBattleSimConfig().MaxEnemyBullets);

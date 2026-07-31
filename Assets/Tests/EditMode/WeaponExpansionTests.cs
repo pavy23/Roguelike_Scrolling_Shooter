@@ -167,12 +167,12 @@ namespace Shmup.Core.Tests
             BattleSimConfig fixedConfig = Config();
             fixedConfig.OptionFormation = OptionFormation.Fixed;
             fixedConfig.OptionFixedOffsetXs =
-                new[] { 192, 192, 192, 192 };
+                new[] { 192, 192, 192, 192, 192, 192 };
             fixedConfig.OptionFixedOffsetYs =
-                new[] { 384, -384, 704, -704 };
+                new[] { 384, -384, 704, -704, 1024, -1024 };
             BattleSim fixedSim = CreateSim(
                 fixedConfig,
-                Gauge(optionLevel: 2),
+                Gauge(optionLevel: PowerUpGauge.MaximumOptionCount),
                 BattleModifier.None,
                 Array.Empty<EnemyDefinition>(),
                 Array.Empty<SpawnEvent>());
@@ -180,6 +180,10 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(384, fixedSim.Options[0].Y);
             Assert.AreEqual(192, fixedSim.Options[1].X);
             Assert.AreEqual(-384, fixedSim.Options[1].Y);
+            Assert.AreEqual(192, fixedSim.Options[4].X);
+            Assert.AreEqual(1024, fixedSim.Options[4].Y);
+            Assert.AreEqual(192, fixedSim.Options[5].X);
+            Assert.AreEqual(-1024, fixedSim.Options[5].Y);
 
             BattleSimConfig orbitConfig = Config();
             orbitConfig.OptionFormation = OptionFormation.Orbit;
@@ -188,18 +192,18 @@ namespace Shmup.Core.Tests
             orbitConfig.OptionOrbitAngularLutSlotsDenominator = 2;
             BattleSim first = CreateSim(
                 orbitConfig,
-                Gauge(optionLevel: 2),
+                Gauge(optionLevel: PowerUpGauge.MaximumOptionCount),
                 BattleModifier.None,
                 Array.Empty<EnemyDefinition>(),
                 Array.Empty<SpawnEvent>());
             BattleSim second = CreateSim(
                 orbitConfig,
-                Gauge(optionLevel: 2),
+                Gauge(optionLevel: PowerUpGauge.MaximumOptionCount),
                 BattleModifier.None,
                 Array.Empty<EnemyDefinition>(),
                 Array.Empty<SpawnEvent>());
             Assert.AreEqual(448, first.Options[0].X);
-            Assert.AreEqual(-448, first.Options[1].X);
+            Assert.AreEqual(-448, first.Options[3].X);
             InputCommand none = InputCommand.None;
             for (int tick = 0; tick < 130; tick++)
             {
@@ -742,6 +746,41 @@ namespace Shmup.Core.Tests
                 gauge.GetGaugeSlotView(6).Slot);
         }
 
+        [Test]
+        public void WeaponsDataAcceptsSixOptionsAndSixFixedOffsets()
+        {
+            string root = FindRepositoryRoot();
+            string gameData = Path.Combine(root, "GameData");
+            string weapons = WeaponsV6Json()
+                .Replace(
+                    @"""maxLevel"": 4, ""effectSoftCapLevel"": 4",
+                    @"""maxLevel"": 6, ""effectSoftCapLevel"": 6")
+                .Replace(
+                    @"""maxLevel"": 4, ""costCurve"":",
+                    @"""maxLevel"": 6, ""costCurve"":")
+                .Replace(
+                    @"{ ""x"": 0.75, ""y"": -2.75 }",
+                    @"{ ""x"": 0.75, ""y"": -2.75 },
+      { ""x"": 0.75, ""y"": 4.0 },
+      { ""x"": 0.75, ""y"": -4.0 }");
+
+            GameDataSet data = GameDataParser.Parse(
+                File.ReadAllText(Path.Combine(gameData, "enemies.json")),
+                weapons,
+                File.ReadAllText(Path.Combine(gameData, "waves.json")));
+            OptionFormationDefinition fixedFormation =
+                data.BattleContent.FindOptionFormation(OptionFormation.Fixed);
+
+            Assert.AreEqual(
+                PowerUpGauge.MaximumOptionCount,
+                data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Option));
+            Assert.AreEqual(
+                PowerUpGauge.MaximumOptionCount,
+                fixedFormation.OffsetXs.Count);
+            Assert.AreEqual(1024, fixedFormation.OffsetYs[4]);
+            Assert.AreEqual(-1024, fixedFormation.OffsetYs[5]);
+        }
+
         static BulletState FireMissile(
             MissileFamily family,
             int speedX,
@@ -892,9 +931,9 @@ namespace Shmup.Core.Tests
                 MissileHalfWidth = 0,
                 MissileHalfHeight = 0,
                 OptionFixedOffsetXs =
-                    new[] { 192, 192, 192, 192 },
+                    new[] { 192, 192, 192, 192, 192, 192 },
                 OptionFixedOffsetYs =
-                    new[] { 384, -384, 704, -704 },
+                    new[] { 384, -384, 704, -704, 1024, -1024 },
                 EnemyBulletDamage = 0,
                 MaxEnemyBullets = 0
             };

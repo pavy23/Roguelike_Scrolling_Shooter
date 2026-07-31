@@ -216,6 +216,7 @@ namespace Shmup.Core
         public const int SlotCount = 8;
         public const int DefaultGaugeSlotCount = 7;
         public const int ShipGaugeSlotCount = 6;
+        public const int MaximumOptionCount = 6;
         public const int NoSelection = -1;
 
         readonly int[] _levels = new int[SlotCount];
@@ -308,7 +309,7 @@ namespace Shmup.Core
             return new PowerUpGauge(
                 5,
                 CreateCanonicalDefinitions(
-                    new[] { 5, 3, 4, 3 },
+                    new[] { 5, 3, MaximumOptionCount, 3 },
                     curve),
                 curve);
         }
