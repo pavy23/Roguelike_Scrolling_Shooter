@@ -22,7 +22,8 @@ namespace Shmup.Core.Tests
             InputCommand none = InputCommand.None;
             var fire = new InputCommand(0, 0, true);
 
-            sim.Step(in none);
+            for (int tick = 0; tick < 200 && !sim.BossActive; tick++)
+                sim.Step(in none);
             Assert.IsTrue(sim.BossActive);
             Assert.IsTrue(sim.BossEntering);
 
@@ -50,6 +51,70 @@ namespace Shmup.Core.Tests
             }
             Assert.AreEqual(400, sim.Boss.X);           // holdX 정지
             Assert.IsFalse(sim.BossEntering);
+        }
+
+        [Test]
+        public void BossWaitsForNaturalEnemyExitAndPostClearDelay()
+        {
+            EnemyDefinition linger = new EnemyDefinition(
+                "linger", 10, 0, EnemyMovePattern.Static,
+                0, 1, 0, 0, 0, 0, 64);
+            BattleContent content = Content(linger);
+            StagePlan plan = new StagePlan(
+                new[]
+                {
+                    Segment(
+                        "closing",
+                        200,
+                        new SpawnEvent(1, linger.Id, 1000, 500),
+                        new SpawnEvent(150, linger.Id, 1000, 500))
+                },
+                "boss", 1, 1, 1,
+                100, 256, 256, 300,
+                Phase(interval: 999, ways: 1));
+            BattleSim sim = new BattleSim(
+                CreateConfig(),
+                new Rng(0x82UL),
+                plan,
+                content,
+                PowerUpGauge.CreateDefault());
+            InputCommand none = InputCommand.None;
+
+            int previousEnemyX = int.MaxValue;
+            int fieldClearTick = -1;
+            for (int tick = 0; tick < 250 && fieldClearTick < 0; tick++)
+            {
+                sim.Step(in none);
+                Assert.IsFalse(sim.BossActive);
+                Assert.LessOrEqual(sim.Enemies.Count, 1,
+                    "the spawn inside the 90-tick cleanup lead must be suppressed");
+                if (sim.Enemies.Count == 0)
+                {
+                    fieldClearTick = sim.Tick;
+                    break;
+                }
+                if (sim.Tick >= 110)
+                {
+                    Assert.Less(sim.Enemies[0].X, previousEnemyX,
+                        "the survivor must move left until it crosses the despawn boundary");
+                }
+                previousEnemyX = sim.Enemies[0].X;
+            }
+
+            Assert.GreaterOrEqual(fieldClearTick, 0);
+            for (int delay = 1;
+                delay < BattleSim.BossPostClearDelayTicks;
+                delay++)
+            {
+                sim.Step(in none);
+                Assert.IsFalse(sim.BossActive);
+            }
+            sim.Step(in none);
+            Assert.IsTrue(sim.BossActive,
+                $"boss inactive at tick {sim.Tick}; field cleared at {fieldClearTick}");
+            Assert.IsTrue(HasEvent(
+                sim.EventsThisTick,
+                SimEventType.BossSpawned));
         }
 
         [Test]
@@ -239,6 +304,13 @@ namespace Shmup.Core.Tests
                     transitioned = true;
                     Assert.AreEqual(previousDelta, currentDelta);
                     Assert.LessOrEqual(Math.Abs(currentDelta), 32);
+                    int transitionY = sim.Boss.Y;
+                    sim.Step(in none);
+                    int nextDelta = sim.Boss.Y - transitionY;
+                    Assert.LessOrEqual(
+                        Math.Abs(nextDelta - currentDelta),
+                        32,
+                        "the new sine phase must preserve velocity near the transition");
                 }
                 previousDelta = currentDelta;
             }
@@ -373,7 +445,8 @@ namespace Shmup.Core.Tests
                 PowerUpGauge.CreateDefault());
             InputCommand none = InputCommand.None;
 
-            sim.Step(in none); // 보스 스폰
+            for (int tick = 0; tick < 200 && !sim.BossActive; tick++)
+                sim.Step(in none);
             sim.Step(in none); // y=0에서 첫 2-way 발사
             sim.Step(in none); // 첫 볼리 1틱 전진
 

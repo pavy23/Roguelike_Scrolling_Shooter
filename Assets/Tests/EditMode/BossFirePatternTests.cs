@@ -104,7 +104,7 @@ namespace Shmup.Core.Tests
                 CreateSim(0x6605UL, BossFirePattern.Burst, 3, 64, 2);
             InputCommand none = InputCommand.None;
             bool telegraphed = false;
-            for (int tick = 0; tick < 128; tick++)
+            for (int tick = 0; tick < 256; tick++)
             {
                 sim.Step(in none);
                 if (HasEvent(
@@ -134,7 +134,7 @@ namespace Shmup.Core.Tests
                 CreateSim(0x6606UL, BossFirePattern.Radial, 8, 3, 0);
             InputCommand none = InputCommand.None;
             bool capacityEvent = false;
-            for (int tick = 0; tick < 128; tick++)
+            for (int tick = 0; tick < 256; tick++)
             {
                 sim.Step(in none);
                 capacityEvent |= HasEvent(
@@ -250,7 +250,7 @@ namespace Shmup.Core.Tests
         static void StepUntilEnemyBullets(BattleSim sim)
         {
             InputCommand none = InputCommand.None;
-            for (int tick = 0; tick < 128; tick++)
+            for (int tick = 0; tick < 256; tick++)
             {
                 sim.Step(in none);
                 if (CountEnemyBullets(sim) > 0)

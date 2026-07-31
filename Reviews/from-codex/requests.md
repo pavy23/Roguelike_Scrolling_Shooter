@@ -1651,3 +1651,20 @@ Core 파서와 런타임 계약은 구현했지만 `GameData/`는 GROK 소유이
 - `rerollCost`는 양의 정수 캡슐 비용이다.
 - 사람 지시의 권장 범위 4~6 중 Core 호환 폴백은 **5**다. 실제 기본값 확정은
   밸런스 시뮬 결과와 사람 승인 후 조정해 달라.
+
+---
+
+## [ ] REQ-082 → GROK: 함선 6칸 게이지 데이터·BalanceSim 계약 반영
+
+Core의 함선 전용 게이지 계약이 5칸에서 6칸으로 확장되었다. GROK 소유 영역에 아래를
+반영해 달라.
+
+1. `GameData/ships.json`의 각 `customGaugeSlots`에 `Speed` 바로 다음 `MainShot`을 추가:
+   `Speed, MainShot, Missile, 지정 무기, Option, Shield`.
+2. BalanceSim의 함선 게이지 기대 배열에도 같은 순서를 적용.
+3. 지정 무기 슬롯 검사/활성화 커서 인덱스를 2에서 3으로 이동하고, 해당 슬롯 도달을 위한
+   `Collect()` 횟수를 3회에서 4회로 조정.
+
+CODEX가 실제 소유 파일을 바꾸지 않고 통합 임시 사본으로 위 변경을 투영해 실행한 결과는
+종료 코드 0, `PASS: BalanceSim all checks green.`이었다. 상세 증거는
+`Reviews/from-codex/req082-report.md`에 있다.

@@ -1626,7 +1626,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void Parse_ShipOwnedGaugeUsesFiveSlotsAndImmediateWeaponSwitch()
+        public void Parse_ShipOwnedGaugeUsesSixSlotsMainShotAndImmediateWeaponSwitch()
         {
             const string shipsJson = @"{
   ""schemaVersion"": 2,
@@ -1641,7 +1641,7 @@ namespace Shmup.Core.Tests
     ""startingShieldStock"": 0,
     ""gaugeWeaponFamily"": ""double"",
     ""powerUpGaugeSlots"": [
-      ""Speed"", ""Missile"", ""Weapon"", ""Option"", ""Shield""
+      ""Speed"", ""MainShot"", ""Missile"", ""Weapon"", ""Option"", ""Shield""
     ]
   }]
 }";
@@ -1658,14 +1658,23 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(PrimaryWeaponFamily.Double, ship.GaugeWeaponFamily);
             Assert.AreEqual(PowerUpGauge.ShipGaugeSlotCount, gauge.GaugeSlotCount);
             Assert.AreEqual(PowerUpSlot.Speed, gauge.GaugeSlots[0].Slot);
-            Assert.AreEqual(PowerUpSlot.Missile, gauge.GaugeSlots[1].Slot);
-            Assert.AreEqual(PowerUpSlot.Double, gauge.GaugeSlots[2].Slot);
-            Assert.AreEqual(PowerUpSlot.Option, gauge.GaugeSlots[3].Slot);
-            Assert.AreEqual(PowerUpSlot.Shield, gauge.GaugeSlots[4].Slot);
+            Assert.AreEqual(PowerUpSlot.MainShot, gauge.GaugeSlots[1].Slot);
+            Assert.AreEqual(PowerUpSlot.Missile, gauge.GaugeSlots[2].Slot);
+            Assert.AreEqual(PowerUpSlot.Double, gauge.GaugeSlots[3].Slot);
+            Assert.AreEqual(PowerUpSlot.Option, gauge.GaugeSlots[4].Slot);
+            Assert.AreEqual(PowerUpSlot.Shield, gauge.GaugeSlots[5].Slot);
 
-            PowerUpGaugeSlotView before = gauge.GetGaugeSlotView(2);
+            gauge.Collect();
+            gauge.Collect();
+            Assert.AreEqual(
+                PowerUpActivationResult.LevelIncreased,
+                gauge.ActivateDetailed());
+            Assert.AreEqual(1, gauge.GetLevel(PowerUpSlot.MainShot));
+
+            PowerUpGaugeSlotView before = gauge.GetGaugeSlotView(3);
             Assert.AreEqual(0, before.Progress);
             Assert.AreEqual(1, before.RequiredCapsules);
+            gauge.Collect();
             gauge.Collect();
             gauge.Collect();
             gauge.Collect();
@@ -1675,7 +1684,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(PowerUpWeaponMode.Double, gauge.ActiveWeaponMode);
             Assert.AreEqual(1, gauge.GetLevel(PowerUpSlot.Double));
             Assert.AreEqual(0, gauge.GetProgress(PowerUpSlot.Double));
-            Assert.AreEqual(0, gauge.GetGaugeSlotView(2).RequiredCapsules);
+            Assert.AreEqual(0, gauge.GetGaugeSlotView(3).RequiredCapsules);
         }
 
         [Test]

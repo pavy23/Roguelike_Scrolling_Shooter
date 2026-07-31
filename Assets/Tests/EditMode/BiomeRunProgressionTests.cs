@@ -762,7 +762,7 @@ namespace Shmup.Core.Tests
         {
             InputCommand fire = new InputCommand(0, 0, true);
             for (int guard = 0;
-                guard < 100 && run.State == RunState.Playing;
+                guard < 300 && run.State == RunState.Playing;
                 guard++)
                 run.Step(in fire);
             Assert.AreEqual(RunState.AwaitingReward, run.State);

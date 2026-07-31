@@ -183,7 +183,7 @@ namespace Shmup.Core
         /// <summary>Compatibility alias for pre-REQ-040 callers.</summary>
         public int? MaxHp => StartingShieldStock;
         /// <summary>
-        /// Family selected by the custom five-slot ship weapon entry.
+        /// Family selected by the custom six-slot ship weapon entry.
         /// Null means the backward-compatible seven-slot gauge.
         /// </summary>
         public PrimaryWeaponFamily? GaugeWeaponFamily { get; }
@@ -208,23 +208,42 @@ namespace Shmup.Core
         {
             if (source == null || source.Count == 0)
                 return Array.Empty<PowerUpSlot>();
-            if (source.Count != PowerUpGauge.ShipGaugeSlotCount)
+            bool migrateLegacyFiveSlot = source.Count
+                == PowerUpGauge.ShipGaugeSlotCount - 1;
+            if (!migrateLegacyFiveSlot
+                && source.Count != PowerUpGauge.ShipGaugeSlotCount)
                 throw new ArgumentException(
                     $"A ship gauge requires exactly "
                     + $"{PowerUpGauge.ShipGaugeSlotCount} slots.",
                     nameof(source));
 
-            var copy = new PowerUpSlot[source.Count];
+            var copy = new PowerUpSlot[
+                PowerUpGauge.ShipGaugeSlotCount];
+            int write = 0;
+            for (int i = 0; i < source.Count; i++)
+            {
+                PowerUpSlot slot = source[i];
+                copy[write++] = slot;
+                if (migrateLegacyFiveSlot
+                    && slot == PowerUpSlot.Speed)
+                {
+                    copy[write++] = PowerUpSlot.MainShot;
+                }
+            }
+            if (write != copy.Length)
+                throw new ArgumentException(
+                    "A legacy five-slot ship gauge must contain Speed.",
+                    nameof(source));
+
             var seen = new bool[PowerUpGauge.SlotCount];
             int weaponModes = 0;
             PowerUpSlot expectedWeapon =
                 GaugeSlotForFamily(family.Value);
             for (int i = 0; i < copy.Length; i++)
             {
-                PowerUpSlot slot = source[i];
+                PowerUpSlot slot = copy[i];
                 int index = (int)slot;
-                if (slot == PowerUpSlot.MainShot
-                    || index < 0
+                if (index < 0
                     || index >= PowerUpGauge.SlotCount)
                     throw new ArgumentOutOfRangeException(
                         nameof(source));
@@ -233,19 +252,19 @@ namespace Shmup.Core
                         $"Duplicate ship gauge slot '{slot}'.",
                         nameof(source));
                 seen[index] = true;
-                copy[i] = slot;
                 if (PowerUpSlotDefinition.IsWeaponModeSlot(slot))
                     weaponModes++;
             }
             if (!seen[(int)PowerUpSlot.Speed]
+                || !seen[(int)PowerUpSlot.MainShot]
                 || !seen[(int)PowerUpSlot.Missile]
                 || !seen[(int)PowerUpSlot.Option]
                 || !seen[(int)PowerUpSlot.Shield]
                 || weaponModes != 1
                 || !seen[(int)expectedWeapon])
                 throw new ArgumentException(
-                    "A ship gauge requires Speed, Missile, its designated "
-                    + "weapon, Option, and Shield exactly once.",
+                    "A ship gauge requires Speed, MainShot, Missile, its "
+                    + "designated weapon, Option, and Shield exactly once.",
                     nameof(source));
             return copy;
         }

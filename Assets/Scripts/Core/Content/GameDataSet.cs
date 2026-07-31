@@ -155,7 +155,7 @@ namespace Shmup.Core.Content
         }
 
         /// <summary>
-        /// Creates the ship-owned five-slot gauge when the ship opts into one;
+        /// Creates the ship-owned six-slot gauge when the ship opts into one;
         /// otherwise returns the backward-compatible seven-slot gauge.
         /// The designated weapon entry is an immediate one-activation switch.
         /// </summary>
@@ -171,8 +171,13 @@ namespace Shmup.Core.Content
             for (int i = 0; i < slots.Length; i++)
             {
                 PowerUpSlot slot = ship.GaugeSlots[i];
-                PowerUpSlotDefinition source =
-                    FindPowerUpGaugeSlot(slot);
+                PowerUpSlotDefinition source = slot == PowerUpSlot.MainShot
+                    ? new PowerUpSlotDefinition(
+                        PowerUpSlot.MainShot,
+                        "powerUp.mainShot",
+                        _powerUpMaxLevels[(int)PowerUpSlot.MainShot],
+                        _powerUpCostCurve)
+                    : FindPowerUpGaugeSlot(slot);
                 slots[i] = new PowerUpSlotDefinition(
                     source.Slot,
                     source.NameKey,
