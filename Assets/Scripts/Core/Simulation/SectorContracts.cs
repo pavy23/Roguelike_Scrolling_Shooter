@@ -12,6 +12,19 @@ namespace Shmup.Core.Simulation
         Extreme = 3
     }
 
+    public enum ContractDestinationKind
+    {
+        NextStage = 0,
+        EndRun = 1,
+        Uncharted = 2
+    }
+
+    public enum ContractEligibility
+    {
+        Always = 0,
+        HiddenBiomeUnlocked = 1
+    }
+
     public enum ContractEffectType
     {
         EnemyDensityMultiplier = 0,
@@ -67,7 +80,11 @@ namespace Shmup.Core.Simulation
             int gimmickIntensityDenominator = 1,
             int rewardOptionCountDelta = 0,
             int scoreMultiplierNumerator = 1,
-            int scoreMultiplierDenominator = 1)
+            int scoreMultiplierDenominator = 1,
+            ContractDestinationKind destinationKind =
+                ContractDestinationKind.NextStage,
+            ContractEligibility eligibility =
+                ContractEligibility.Always)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException(
@@ -77,6 +94,28 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(weight));
             if (!Enum.IsDefined(typeof(ContractRiskTier), riskTier))
                 throw new ArgumentOutOfRangeException(nameof(riskTier));
+            if (!Enum.IsDefined(
+                    typeof(ContractDestinationKind),
+                    destinationKind))
+                throw new ArgumentOutOfRangeException(
+                    nameof(destinationKind));
+            if (!Enum.IsDefined(
+                    typeof(ContractEligibility),
+                    eligibility))
+                throw new ArgumentOutOfRangeException(
+                    nameof(eligibility));
+            if (destinationKind == ContractDestinationKind.Uncharted
+                && eligibility
+                    != ContractEligibility.HiddenBiomeUnlocked)
+                throw new ArgumentException(
+                    "Uncharted contracts must require the hidden-biome eligibility.",
+                    nameof(eligibility));
+            if (destinationKind != ContractDestinationKind.Uncharted
+                && eligibility
+                    == ContractEligibility.HiddenBiomeUnlocked)
+                throw new ArgumentException(
+                    "Hidden-biome eligibility is only valid for uncharted contracts.",
+                    nameof(eligibility));
             ValidateMultiplier(
                 enemyDensityNumerator,
                 enemyDensityDenominator,
@@ -117,6 +156,8 @@ namespace Shmup.Core.Simulation
             RewardOptionCountDelta = rewardOptionCountDelta;
             ScoreMultiplierNumerator = scoreMultiplierNumerator;
             ScoreMultiplierDenominator = scoreMultiplierDenominator;
+            DestinationKind = destinationKind;
+            Eligibility = eligibility;
             _effects = Array.AsReadOnly(BuildEffects());
         }
 
@@ -135,7 +176,30 @@ namespace Shmup.Core.Simulation
         public int RewardOptionCountDelta { get; }
         public int ScoreMultiplierNumerator { get; }
         public int ScoreMultiplierDenominator { get; }
+        public ContractDestinationKind DestinationKind { get; }
+        public ContractEligibility Eligibility { get; }
         public IReadOnlyList<ContractEffectView> Effects => _effects;
+
+        public bool IsEligible(
+            int eliteRoomsCleared,
+            int noHitBiomesCleared,
+            int rareEncountersCleared)
+        {
+            if (eliteRoomsCleared < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(eliteRoomsCleared));
+            if (noHitBiomesCleared < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(noHitBiomesCleared));
+            if (rareEncountersCleared < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(rareEncountersCleared));
+            return Eligibility == ContractEligibility.Always
+                || RunManager.MeetsHiddenBiomeConditions(
+                    eliteRoomsCleared,
+                    noHitBiomesCleared,
+                    rareEncountersCleared);
+        }
 
         public bool IsNeutral =>
             EnemyDensityNumerator == EnemyDensityDenominator
@@ -241,6 +305,8 @@ namespace Shmup.Core.Simulation
 
             var copy = new ContractDefinition[contracts.Count];
             ContractDefinition standard = null;
+            ContractDefinition endRun = null;
+            ContractDefinition uncharted = null;
             long nonStandardWeight = 0;
             for (int i = 0; i < copy.Length; i++)
             {
@@ -264,15 +330,44 @@ namespace Shmup.Core.Simulation
                     standard = item;
                 else
                     nonStandardWeight += item.Weight;
+                if (item.DestinationKind
+                    == ContractDestinationKind.EndRun)
+                {
+                    if (endRun != null)
+                        throw new ArgumentException(
+                            "The contract catalog can contain only one endRun destination.",
+                            nameof(contracts));
+                    endRun = item;
+                }
+                else if (item.DestinationKind
+                    == ContractDestinationKind.Uncharted)
+                {
+                    if (uncharted != null)
+                        throw new ArgumentException(
+                            "The contract catalog can contain only one uncharted destination.",
+                            nameof(contracts));
+                    uncharted = item;
+                }
             }
             if (standard == null)
                 throw new ArgumentException(
                     "The standard contract id is missing from the catalog.",
                     nameof(standardContractId));
             if (!standard.IsNeutral
-                || standard.RiskTier != ContractRiskTier.Safe)
+                || standard.RiskTier != ContractRiskTier.Safe
+                || standard.DestinationKind
+                    != ContractDestinationKind.NextStage
+                || standard.Eligibility
+                    != ContractEligibility.Always)
                 throw new ArgumentException(
-                    "The standard contract must be safe and neutral.",
+                    "The standard contract must be a safe, neutral nextStage destination.",
+                    nameof(contracts));
+            if (endRun != null
+                && (endRun.RiskTier != ContractRiskTier.Safe
+                    || endRun.Eligibility
+                        != ContractEligibility.Always))
+                throw new ArgumentException(
+                    "The endRun contract must be safe and always eligible.",
                     nameof(contracts));
             if (nonStandardWeight > int.MaxValue)
                 throw new ArgumentException(
@@ -280,12 +375,16 @@ namespace Shmup.Core.Simulation
                     nameof(contracts));
 
             Standard = standard;
+            EndRun = endRun;
+            Uncharted = uncharted;
             MinimumOptionCount = minimumOptionCount;
             MaximumOptionCount = maximumOptionCount;
             _all = Array.AsReadOnly(copy);
         }
 
         public ContractDefinition Standard { get; }
+        public ContractDefinition EndRun { get; }
+        public ContractDefinition Uncharted { get; }
         public int MinimumOptionCount { get; }
         public int MaximumOptionCount { get; }
         public IReadOnlyList<ContractDefinition> All => _all;
@@ -310,6 +409,19 @@ namespace Shmup.Core.Simulation
             int targetBiomeIndex,
             int optionIndex,
             string contractId)
+            : this(
+                targetBiomeIndex,
+                optionIndex,
+                contractId,
+                ContractDestinationKind.NextStage)
+        {
+        }
+
+        public ContractChoice(
+            int targetBiomeIndex,
+            int optionIndex,
+            string contractId,
+            ContractDestinationKind destinationKind)
         {
             if (targetBiomeIndex < 2)
                 throw new ArgumentOutOfRangeException(
@@ -321,13 +433,20 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     "Contract id cannot be empty.",
                     nameof(contractId));
+            if (!Enum.IsDefined(
+                    typeof(ContractDestinationKind),
+                    destinationKind))
+                throw new ArgumentOutOfRangeException(
+                    nameof(destinationKind));
             TargetBiomeIndex = targetBiomeIndex;
             OptionIndex = optionIndex;
             ContractId = contractId;
+            DestinationKind = destinationKind;
         }
 
         public int TargetBiomeIndex { get; }
         public int OptionIndex { get; }
         public string ContractId { get; }
+        public ContractDestinationKind DestinationKind { get; }
     }
 }

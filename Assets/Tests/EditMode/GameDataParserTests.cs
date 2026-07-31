@@ -581,6 +581,57 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void Req072SchemasExposeTerminalContractsAndRerollCost()
+        {
+            string waves = WavesJson.Replace(
+                @"  ""segments"": [{",
+                @"  ""contracts"": {
+    ""standardContractId"": ""standard_route"",
+    ""minimumOptionCount"": 2,
+    ""maximumOptionCount"": 3,
+    ""entries"": [
+      { ""id"": ""standard_route"", ""weight"": 1, ""riskTier"": ""safe"" },
+      { ""id"": ""end_run"", ""weight"": 1, ""riskTier"": ""safe"",
+        ""destinationKind"": ""endRun"" },
+      { ""id"": ""uncharted"", ""weight"": 1, ""riskTier"": ""high"",
+        ""destinationKind"": ""uncharted"",
+        ""eligibility"": ""hiddenBiomeUnlocked"" }
+    ]
+  },
+  ""segments"": [{");
+            string rewards = RewardsJson
+                .Replace(
+                    @"""schemaVersion"": 1",
+                    @"""schemaVersion"": 5")
+                .Replace(
+                    @"""optionCount"": 3,",
+                    @"""optionCount"": 3,
+  ""maxCombinedModifierCost"": 4,
+  ""rerollCost"": 5,");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                waves,
+                rewards);
+
+            Assert.AreEqual(5, data.Rewards.RerollCost);
+            Assert.AreEqual(
+                ContractDestinationKind.EndRun,
+                data.Contracts.EndRun.DestinationKind);
+            Assert.AreEqual(
+                ContractDestinationKind.Uncharted,
+                data.Contracts.Uncharted.DestinationKind);
+            Assert.AreEqual(
+                ContractEligibility.HiddenBiomeUnlocked,
+                data.Contracts.Uncharted.Eligibility);
+            Assert.IsFalse(
+                data.Contracts.Uncharted.IsEligible(2, 1, 0));
+            Assert.IsTrue(
+                data.Contracts.Uncharted.IsEligible(3, 2, 0));
+        }
+
+        [Test]
         public void Parse_ContractsPoolsAndRewardCostsAreDataDriven()
         {
             string waves = WavesJson.Replace(

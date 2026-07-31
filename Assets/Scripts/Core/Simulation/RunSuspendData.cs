@@ -53,6 +53,26 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 2)]
         public string contractId;
+
+        [DataMember(Order = 3)]
+        public int destinationKind;
+    }
+
+    [Serializable]
+    [DataContract]
+    public sealed class RewardDecisionData
+    {
+        [DataMember(Order = 0)]
+        public int rewardSequence;
+
+        [DataMember(Order = 1)]
+        public int selectionKind;
+
+        [DataMember(Order = 2)]
+        public int decisionKind;
+
+        [DataMember(Order = 3)]
+        public int optionIndex;
     }
 
     /// <summary>
@@ -64,7 +84,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class RunSuspendData
     {
-        public const int CurrentSchemaVersion = 13;
+        public const int CurrentSchemaVersion = 14;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -251,5 +271,11 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 56)]
         public int capsuleDropWeightReduction;
+
+        [DataMember(Order = 57)]
+        public int capsuleBalance;
+
+        [DataMember(Order = 58)]
+        public RewardDecisionData[] rewardDecisions;
     }
 }

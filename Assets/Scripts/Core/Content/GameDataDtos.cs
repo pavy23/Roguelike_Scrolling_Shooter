@@ -264,6 +264,10 @@ namespace Shmup.Core.Content
         [DataMember]
         public string riskTier;
         [DataMember]
+        public string destinationKind;
+        [DataMember]
+        public string eligibility;
+        [DataMember]
         public decimal? enemyDensityMultiplier;
         [DataMember]
         public decimal? capsuleDropMultiplier;
@@ -550,6 +554,8 @@ namespace Shmup.Core.Content
         public RewardDto[] rewards;
         [DataMember]
         public int? maxCombinedModifierCost;
+        [DataMember]
+        public int? rerollCost;
     }
 
     [DataContract]

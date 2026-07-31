@@ -107,7 +107,13 @@ namespace Shmup.Core.Content
                     gimmick.Denominator,
                     item.rewardOptionCountDelta ?? 0,
                     score.Numerator,
-                    score.Denominator);
+                    score.Denominator,
+                    ParseContractDestination(
+                        item.destinationKind,
+                        path + ".destinationKind"),
+                    ParseContractEligibility(
+                        item.eligibility,
+                        path + ".eligibility"));
             }
             return new ContractCatalog(
                 RequireText(
@@ -146,6 +152,42 @@ namespace Shmup.Core.Content
                     throw Error(
                         path,
                         "must be 'safe', 'low', 'high', or 'extreme'.");
+            }
+        }
+
+        static ContractDestinationKind ParseContractDestination(
+            string value,
+            string path)
+        {
+            if (value == null || value == "nextStage")
+                return ContractDestinationKind.NextStage;
+            switch (RequireText(value, path))
+            {
+                case "endRun":
+                    return ContractDestinationKind.EndRun;
+                case "uncharted":
+                    return ContractDestinationKind.Uncharted;
+                default:
+                    throw Error(
+                        path,
+                        "must be 'nextStage', 'endRun', or 'uncharted'.");
+            }
+        }
+
+        static ContractEligibility ParseContractEligibility(
+            string value,
+            string path)
+        {
+            if (value == null || value == "always")
+                return ContractEligibility.Always;
+            switch (RequireText(value, path))
+            {
+                case "hiddenBiomeUnlocked":
+                    return ContractEligibility.HiddenBiomeUnlocked;
+                default:
+                    throw Error(
+                        path,
+                        "must be 'always' or 'hiddenBiomeUnlocked'.");
             }
         }
 

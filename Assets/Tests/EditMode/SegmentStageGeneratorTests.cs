@@ -221,15 +221,20 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual("scrapyard", stageOne.ThemeId);
                 Assert.AreEqual("scrapyard", stageOne.RequestedThemeId);
                 Assert.IsFalse(stageOne.ThemeFallbackApplied);
+                StagePlan stageFive =
+                    generator.Generate(seed, 5, 1);
+                Assert.AreEqual("core", stageFive.ThemeId);
+                Assert.AreEqual("core", stageFive.RequestedThemeId);
+                Assert.IsFalse(stageFive.ThemeFallbackApplied);
 
                 string permutation = ThemeSequence(
                     generator,
                     seed,
                     2,
-                    5);
+                    4);
                 Assert.AreEqual(
                     permutation,
-                    ThemeSequence(generator, seed, 2, 5));
+                    ThemeSequence(generator, seed, 2, 4));
 
                 if (firstPermutation == null)
                     firstPermutation = permutation;

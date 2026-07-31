@@ -1614,3 +1614,50 @@ REQ-065 Core는 같은 바이옴의 일반 방→중간보스→후반 방→바
   스폰 위치/콤보 0으로 이행된다.
 - `EnemyBulletCapacityExceeded`는 보스 일제사가 적탄 상한으로 잘렸음을 나타내는
   진단 이벤트다. 개발 HUD/로그에서 관찰 가능하게 연결하면 패턴 데이터 검산에 유용하다.
+
+---
+
+## [ ] REQ-072 → GROK: 종료/숨은 바이옴 계약과 보상 리롤 비용
+
+Core 파서와 런타임 계약은 구현했지만 `GameData/`는 GROK 소유이므로 아래 실제 데이터
+반영을 요청한다. 반영 전에도 Core의 내장 terminal 계약과 리롤 비용 5 폴백으로
+기능은 동작한다.
+
+`waves.json.contracts.entries`에 다음 두 terminal 계약을 추가해 달라.
+
+```json
+{
+  "id": "end_run",
+  "weight": 1,
+  "riskTier": "safe",
+  "destinationKind": "endRun"
+},
+{
+  "id": "uncharted",
+  "weight": 1,
+  "riskTier": "high",
+  "destinationKind": "uncharted",
+  "eligibility": "hiddenBiomeUnlocked"
+}
+```
+
+- `destinationKind` 기본값은 `"nextStage"`다. 허용값은 `"nextStage"`,
+  `"endRun"`, `"uncharted"`다.
+- `eligibility` 기본값은 `"always"`다. 숨은 바이옴 카드는
+  `"hiddenBiomeUnlocked"`만 사용한다.
+- terminal 두 계약은 일반 바이옴의 가중 계약 후보에서 자동 제외되고, 최종 보스
+  이후 예외 화면에서만 제공된다. `end_run`은 항상, `uncharted`는 기존 2-of-3
+  조건 충족 시에만 노출된다.
+
+`rewards.json`은 `schemaVersion`을 5로 올리고 루트에 아래 필드를 추가해 달라.
+
+```json
+{
+  "schemaVersion": 5,
+  "rerollCost": 5
+}
+```
+
+- `rerollCost`는 양의 정수 캡슐 비용이다.
+- 사람 지시의 권장 범위 4~6 중 Core 호환 폴백은 **5**다. 실제 기본값 확정은
+  밸런스 시뮬 결과와 사람 승인 후 조정해 달라.
