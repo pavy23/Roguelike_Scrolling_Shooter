@@ -16,6 +16,7 @@ namespace Shmup.Core.Content
         readonly PowerUpCostCurve _powerUpCostCurve;
         readonly PowerUpSlotDefinition[] _powerUpGaugeSlots;
         readonly WeaponDefinition _missile;
+        readonly int _optionMissileDamagePercent;
         readonly ReadOnlyCollection<ShipDefinition> _ships;
         readonly ScoringDefinition _scoring;
         readonly int _maxEnemyBullets;
@@ -32,6 +33,7 @@ namespace Shmup.Core.Content
             PowerUpCostCurve powerUpCostCurve,
             IReadOnlyList<PowerUpSlotDefinition> powerUpGaugeSlots,
             WeaponDefinition missile,
+            int optionMissileDamagePercent,
             RewardCatalog rewards,
             ContractCatalog contracts,
             IReadOnlyList<ShipDefinition> ships,
@@ -74,6 +76,10 @@ namespace Shmup.Core.Content
                         "Gauge slots cannot contain null.",
                         nameof(powerUpGaugeSlots));
             _missile = missile ?? throw new ArgumentNullException(nameof(missile));
+            if (optionMissileDamagePercent < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(optionMissileDamagePercent));
+            _optionMissileDamagePercent = optionMissileDamagePercent;
             Rewards = rewards;
             Contracts = contracts;
             _scoring = scoring;
@@ -240,6 +246,8 @@ namespace Shmup.Core.Content
             config.MissileSpeedXDenominator = _missile.ProjectileSpeedDenominator;
             config.MissileHalfWidth = _missile.ProjectileHalfWidth;
             config.MissileHalfHeight = _missile.ProjectileHalfHeight;
+            config.OptionMissileDamagePercent =
+                _optionMissileDamagePercent;
             ApplyMissileFamily(
                 config,
                 BattleContent.FindMissileFamily(

@@ -543,25 +543,25 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void PreviousReplayAndSuspendVersionsAreRejected()
+        public void PreReq085ReplayAndSuspendVersionsAreRejected()
         {
             Assert.AreEqual(
-                17,
+                18,
                 InputRecordingData.CurrentSchemaVersion);
             Assert.AreEqual(
-                18,
+                19,
                 RunSuspendData.CurrentSchemaVersion);
             Assert.Throws<ArgumentException>(
                 () => SaveDataIntegrity.MigrateAndValidate(
                     new InputRecordingData
                     {
-                        schemaVersion = 16
+                        schemaVersion = 17
                     }));
             Assert.Throws<ArgumentException>(
                 () => SaveDataIntegrity.MigrateAndValidate(
                     new RunSuspendData
                     {
-                        schemaVersion = 17
+                        schemaVersion = 18
                     }));
         }
 
@@ -607,6 +607,32 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 MissileFamily.Homing,
                 data.FindShip("bulwark").StartingMissileFamily);
+            Assert.AreEqual(
+                100,
+                data.CreateBattleSimConfig().OptionMissileDamagePercent);
+        }
+
+        [Test]
+        public void OptionalOptionMissileDamagePercentFlowsIntoBattleConfig()
+        {
+            string root = FindRepositoryRoot();
+            string gameData = Path.Combine(root, "GameData");
+            string weapons = WeaponsV7Json().Replace(
+                @"""defaultOptionFormation"": ""trail""",
+                @"""defaultOptionFormation"": ""trail"",
+  ""optionMissileDamagePercent"": 42");
+            GameDataSet data = GameDataParser.Parse(
+                File.ReadAllText(
+                    Path.Combine(gameData, "enemies.json")),
+                weapons,
+                File.ReadAllText(
+                    Path.Combine(gameData, "waves.json")),
+                null,
+                ShipsV3Json);
+
+            Assert.AreEqual(
+                42,
+                data.CreateBattleSimConfig().OptionMissileDamagePercent);
         }
 
         [Test]

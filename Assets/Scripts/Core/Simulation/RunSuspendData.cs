@@ -85,11 +85,11 @@ namespace Shmup.Core.Simulation
     public sealed class RunSuspendData
     {
         /// <summary>
-        /// Schema 18 stores eight stable power axes and a ship-specific six-slot
-        /// gauge cursor. Schema 17 is rejected because its cursor assumed five
-        /// ship slots.
+        /// Schema 19 starts after option missiles changed combat resumed from an
+        /// otherwise identical room boundary. Schema 18 is rejected rather than
+        /// silently resuming under different simulation semantics.
         /// </summary>
-        public const int CurrentSchemaVersion = 18;
+        public const int CurrentSchemaVersion = 19;
 
         [DataMember(Order = 0)]
         public int schemaVersion;

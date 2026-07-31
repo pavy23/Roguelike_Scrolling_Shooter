@@ -54,7 +54,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void BossWaitsForNaturalEnemyExitAndPostClearDelay()
+        public void BossEntersAtFortyTickLeadWhileSurvivingEnemiesRetreat()
         {
             EnemyDefinition linger = new EnemyDefinition(
                 "linger", 10, 0, EnemyMovePattern.Static,
@@ -67,54 +67,57 @@ namespace Shmup.Core.Tests
                         "closing",
                         200,
                         new SpawnEvent(1, linger.Id, 1000, 500),
-                        new SpawnEvent(150, linger.Id, 1000, 500))
+                        new SpawnEvent(160, linger.Id, 1000, 500))
                 },
                 "boss", 1, 1, 1,
                 100, 256, 256, 300,
-                Phase(interval: 999, ways: 1));
+                Phase(interval: 999, ways: 1),
+                "boss_theme",
+                "boss_theme",
+                EncounterType.Normal,
+                null,
+                new StageGimmickDefinition(
+                    "boss_theme",
+                    false,
+                    260));
+            BattleSimConfig config = CreateConfig();
+            config.EnemyDespawnX = -100000;
             BattleSim sim = new BattleSim(
-                CreateConfig(),
+                config,
                 new Rng(0x82UL),
                 plan,
                 content,
                 PowerUpGauge.CreateDefault());
             InputCommand none = InputCommand.None;
 
-            int previousEnemyX = int.MaxValue;
-            int fieldClearTick = -1;
-            for (int tick = 0; tick < 250 && fieldClearTick < 0; tick++)
-            {
-                sim.Step(in none);
-                Assert.IsFalse(sim.BossActive);
-                Assert.LessOrEqual(sim.Enemies.Count, 1,
-                    "the spawn inside the 90-tick cleanup lead must be suppressed");
-                if (sim.Enemies.Count == 0)
-                {
-                    fieldClearTick = sim.Tick;
-                    break;
-                }
-                if (sim.Tick >= 110)
-                {
-                    Assert.Less(sim.Enemies[0].X, previousEnemyX,
-                        "the survivor must move left until it crosses the despawn boundary");
-                }
-                previousEnemyX = sim.Enemies[0].X;
-            }
+            Assert.AreEqual(40, BattleSim.BossSpawnSuppressionLeadTicks);
+            Assert.AreEqual(260, sim.TimeLimitTicks,
+                "the removed static delay must not extend the deadline");
 
-            Assert.GreaterOrEqual(fieldClearTick, 0);
-            for (int delay = 1;
-                delay < BattleSim.BossPostClearDelayTicks;
-                delay++)
-            {
+            for (int tick = 0; tick < 199; tick++)
                 sim.Step(in none);
-                Assert.IsFalse(sim.BossActive);
-            }
+            Assert.AreEqual(199, sim.Tick);
+            Assert.IsFalse(sim.BossActive);
+            Assert.AreEqual(1, sim.Enemies.Count);
+            int enemyXBeforeEntrance = sim.Enemies[0].X;
+
             sim.Step(in none);
-            Assert.IsTrue(sim.BossActive,
-                $"boss inactive at tick {sim.Tick}; field cleared at {fieldClearTick}");
+            Assert.AreEqual(200, sim.Tick);
+            Assert.IsTrue(sim.BossActive);
+            Assert.IsTrue(sim.BossEntering);
+            Assert.AreEqual(1, sim.Enemies.Count,
+                "the boundary spawn is suppressed while the survivor remains");
+            Assert.Less(sim.Enemies[0].X, enemyXBeforeEntrance,
+                "the survivor retreats naturally during boss entrance");
             Assert.IsTrue(HasEvent(
                 sim.EventsThisTick,
                 SimEventType.BossSpawned));
+
+            int retreatX = sim.Enemies[0].X;
+            sim.Step(in none);
+            Assert.IsTrue(sim.BossActive);
+            Assert.AreEqual(1, sim.Enemies.Count);
+            Assert.Less(sim.Enemies[0].X, retreatX);
         }
 
         [Test]

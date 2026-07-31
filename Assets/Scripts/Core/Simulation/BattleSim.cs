@@ -450,15 +450,30 @@ namespace Shmup.Core.Simulation
             int x,
             int y,
             int ageTicks)
+            : this(id, faction, kind, x, y, ageTicks, 100)
+        {
+        }
+
+        public BulletState(
+            int id,
+            BulletFaction faction,
+            BulletKind kind,
+            int x,
+            int y,
+            int ageTicks,
+            int damagePercent)
         {
             if (ageTicks < 0)
                 throw new ArgumentOutOfRangeException(nameof(ageTicks));
+            if (damagePercent < 0)
+                throw new ArgumentOutOfRangeException(nameof(damagePercent));
             Id = id;
             Faction = faction;
             Kind = kind;
             X = x;
             Y = y;
             AgeTicks = ageTicks;
+            DamagePercent = damagePercent;
         }
 
         public int Id { get; }
@@ -467,6 +482,8 @@ namespace Shmup.Core.Simulation
         public int X { get; }
         public int Y { get; }
         public int AgeTicks { get; }
+        /// <summary>Percent of configured damage dealt by this projectile.</summary>
+        public int DamagePercent { get; }
     }
 
     /// <summary>Observable option position in integer simulation subunits.</summary>
@@ -942,6 +959,7 @@ namespace Shmup.Core.Simulation
             Array.Empty<int>();
         public int MissileBaseDamage { get; set; } = 2;
         public int MissileDamageGrowthPercentPerLevel { get; set; } = 50;
+        public int OptionMissileDamagePercent { get; set; } = 100;
         public int MissileFireIntervalTicks { get; set; } = 45;
         public int MissileRapidFireStartLevel { get; set; } = 2;
         public int MissileFireIntervalReductionPerLevel { get; set; } = 5;
@@ -1209,6 +1227,7 @@ namespace Shmup.Core.Simulation
         int _mainShotMinimumFireIntervalTicks;
         readonly int _missileBaseDamage;
         readonly int _missileDamageGrowthPercentPerLevel;
+        readonly int _optionMissileDamagePercent;
         readonly int _missileFireIntervalTicks, _missileRapidFireStartLevel;
         readonly int _missileFireIntervalReductionPerLevel, _missileMinimumFireIntervalTicks;
         readonly int _missileSpeedXNumerator, _missileSpeedXDenominator;
@@ -1351,7 +1370,6 @@ namespace Shmup.Core.Simulation
         int _bossMovementAnchorY;
         int _bossMovementPhaseOffsetTicks;
         int _bossVelocityY;
-        int _bossFieldClearTick = -1;
         bool _bossPhaseTelegraphPending;
         bool _bossBurstAwaitingVolley;
         int _bossPatternVolleyIndex;
@@ -1360,8 +1378,7 @@ namespace Shmup.Core.Simulation
 
         const int BossHoverAmplitude = 3 * SimSpace.SubUnitsPerWorldUnit;
         const int BossGlideSpeedPerTick = 64;
-        public const int BossSpawnSuppressionLeadTicks = 90;
-        public const int BossPostClearDelayTicks = 60;
+        public const int BossSpawnSuppressionLeadTicks = 40;
         const int BossRetreatSpeedPerTick = 2 * SimSpace.SubUnitsPerWorldUnit;
         const byte EnemyMovementDiveTargetLocked = 1;
         const byte EnemyMovementBossRetreat = 2;
@@ -1570,6 +1587,8 @@ namespace Shmup.Core.Simulation
             _missileBaseDamage = config.MissileBaseDamage;
             _missileDamageGrowthPercentPerLevel =
                 config.MissileDamageGrowthPercentPerLevel;
+            _optionMissileDamagePercent =
+                config.OptionMissileDamagePercent;
             _missileFireIntervalTicks = config.MissileFireIntervalTicks;
             _missileRapidFireStartLevel = config.MissileRapidFireStartLevel;
             _missileFireIntervalReductionPerLevel =
@@ -1790,13 +1809,7 @@ namespace Shmup.Core.Simulation
                     stagePlan.Gimmick.VisionObscured;
                 int configuredTimeLimit =
                     stagePlan.Gimmick.TimeLimitTicks;
-                _timeLimitTicks = configuredTimeLimit == 0
-                    ? 0
-                    : SaturateToInt(
-                        (long)configuredTimeLimit
-                        + (_bossMaxHp > 0
-                            ? BossPostClearDelayTicks
-                            : 0));
+                _timeLimitTicks = configuredTimeLimit;
                 WeaponDefinition weapon = content.PlayerWeapon;
                 _bulletSpeedNumerator = config.UseConfiguredMainShotStats
                     ? config.PlayerBulletSpeedNumerator
@@ -2227,7 +2240,7 @@ namespace Shmup.Core.Simulation
                 if (_missileLevel > 0
                     && _missileCooldown == 0
                     && CountPlayerBullets() < _maxBullets)
-                    SpawnMissile();
+                    SpawnMissileVolley();
             }
         }
 
@@ -3269,7 +3282,8 @@ namespace Shmup.Core.Simulation
                     ApplyMissileExplosion(
                         bullet.Id,
                         SaturateToInt(nextX),
-                        -SimSpace.PlayfieldHalfHeightSubUnits);
+                        -SimSpace.PlayfieldHalfHeightSubUnits,
+                        bullet.DamagePercent);
                     ClearBulletHitRecords(bullet.Id);
                     continue;
                 }
@@ -3289,7 +3303,8 @@ namespace Shmup.Core.Simulation
                     bullet.Kind,
                     (int)nextX,
                     nextY,
-                    nextAge);
+                    nextAge,
+                    bullet.DamagePercent);
                 _bulletXRemainders[write] = nextXRemainder;
                 _bulletYRemainders[write] = nextYRemainder;
                 _bulletVelXNumerators[write] = _bulletVelXNumerators[read];
@@ -3455,9 +3470,12 @@ namespace Shmup.Core.Simulation
                 EnemyDefinition definition = _enemyDefinitions[index];
                 int age = _enemyAges[index] + 1;
                 long nextX = state.X - scrollDelta;
+                bool retreatingForBoss =
+                    (_enemyMovementFlags[index]
+                        & EnemyMovementBossRetreat) != 0;
                 if (_bossMaxHp > 0
                     && Tick >= _bossCleanupStartTick
-                    && !_bossSpawned)
+                    && (!_bossSpawned || retreatingForBoss))
                 {
                     _enemyMovementFlags[index] |=
                         EnemyMovementBossRetreat;
@@ -3636,22 +3654,7 @@ namespace Shmup.Core.Simulation
 
             if (!_bossSpawned)
             {
-                if (Tick < _bossCleanupStartTick) return;
-                if (_enemies.Count > 0)
-                {
-                    _bossFieldClearTick = -1;
-                    return;
-                }
-                if (_bossFieldClearTick < 0)
-                {
-                    _bossFieldClearTick = Tick;
-                    return;
-                }
-                if ((long)Tick - _bossFieldClearTick
-                    < BossPostClearDelayTicks)
-                {
-                    return;
-                }
+                if (Tick < _stageTotalTicks) return;
                 if (_nextEnemyId == int.MaxValue)
                     throw new InvalidOperationException("The enemy id counter is exhausted.");
                 _bossSpawned = true;
@@ -4542,7 +4545,9 @@ namespace Shmup.Core.Simulation
 
                 RemoveBulletAt(bulletIndex);
                 int damage = bullet.Kind == BulletKind.Missile
-                    ? ComputeMissileDamage(_missileBaseDamage)
+                    ? ComputeMissileDamage(
+                        _missileBaseDamage,
+                        bullet.DamagePercent)
                     : Damage.Compute(_playerBulletDamage, Math.Max(1, _mainShotLevel));
                 bool defeated = partIndex >= 0
                     ? ApplyDamageToBossPart(partIndex, damage)
@@ -4554,7 +4559,8 @@ namespace Shmup.Core.Simulation
                     ApplyMissileExplosion(
                         bullet.Id,
                         bullet.X,
-                        bullet.Y);
+                        bullet.Y,
+                        bullet.DamagePercent);
                     defeated = _bossDefeated;
                 }
                 if (defeated)
@@ -5289,7 +5295,8 @@ namespace Shmup.Core.Simulation
                 {
                     int damage = bullet.Kind == BulletKind.Missile
                         ? ComputeMissileDamage(
-                            _missileBaseDamage)
+                            _missileBaseDamage,
+                            bullet.DamagePercent)
                         : Damage.Compute(
                             _playerBulletDamage,
                             Math.Max(1, _mainShotLevel));
@@ -5300,7 +5307,8 @@ namespace Shmup.Core.Simulation
                         damage = SaturatingAddDamage(
                             damage,
                             ComputeMissileDamage(
-                                _missileExplosionDamage));
+                                _missileExplosionDamage,
+                                bullet.DamagePercent));
                     }
                     ApplyDamageToObstacleAt(
                         obstacleIndex,
@@ -5316,7 +5324,8 @@ namespace Shmup.Core.Simulation
                     ApplyMissileExplosion(
                         bullet.Id,
                         obstacle.X,
-                        obstacle.Y);
+                        obstacle.Y,
+                        bullet.DamagePercent);
                 }
                 RemoveBulletAt(bulletIndex);
             }
@@ -5403,7 +5412,9 @@ namespace Shmup.Core.Simulation
 
                 EnemyState enemy = _enemies[enemyIndex];
                 int damage = bullet.Kind == BulletKind.Missile
-                    ? ComputeMissileDamage(_missileBaseDamage)
+                    ? ComputeMissileDamage(
+                        _missileBaseDamage,
+                        bullet.DamagePercent)
                     : Damage.Compute(_playerBulletDamage, Math.Max(1, _mainShotLevel));
                 int hp = Damage.ApplyToHp(enemy.Hp, damage);
                 if (hp > 0)
@@ -5479,7 +5490,8 @@ namespace Shmup.Core.Simulation
                         ApplyMissileExplosion(
                             bullet.Id,
                             enemy.X,
-                            enemy.Y);
+                            enemy.Y,
+                            bullet.DamagePercent);
                     }
                     else if (_bulletPiercesRemaining[bulletIndex] > 0)
                     {
@@ -5733,10 +5745,12 @@ namespace Shmup.Core.Simulation
         void ApplyMissileExplosion(
             int sourceBulletId,
             int centerX,
-            int centerY)
+            int centerY,
+            int damagePercent)
         {
             int damage = ComputeMissileDamage(
-                _missileExplosionDamage);
+                _missileExplosionDamage,
+                damagePercent);
             EmitEvent(
                 SimEventType.MissileExploded,
                 sourceBulletId,
@@ -6292,10 +6306,20 @@ namespace Shmup.Core.Simulation
                 (int)velocityDenominator;
         }
 
-        void SpawnMissile()
+        void SpawnMissileVolley()
         {
             SpawnBullet(BulletKind.Missile, PlayerX, PlayerY);
             EmitEvent(SimEventType.PlayerFired, 0, PlayerX, PlayerY, (int)BulletKind.Missile);
+            for (int i = 0;
+                i < _options.Count && CountPlayerBullets() < _maxBullets;
+                i++)
+            {
+                SpawnBullet(
+                    BulletKind.Missile,
+                    _options[i].X,
+                    _options[i].Y,
+                    _optionMissileDamagePercent);
+            }
             _missileCooldown = ComputeReducedInterval(
                 _missileFireIntervalTicks,
                 _missileLevel,
@@ -6304,11 +6328,22 @@ namespace Shmup.Core.Simulation
                 _missileMinimumFireIntervalTicks);
         }
 
-        void SpawnBullet(BulletKind kind, int x, int y)
+        void SpawnBullet(
+            BulletKind kind,
+            int x,
+            int y,
+            int damagePercent = 100)
         {
             if (_nextBulletId == int.MaxValue)
                 throw new InvalidOperationException();
-            _bullets.Add(new BulletState(_nextBulletId++, BulletFaction.Player, kind, x, y));
+            _bullets.Add(new BulletState(
+                _nextBulletId++,
+                BulletFaction.Player,
+                kind,
+                x,
+                y,
+                0,
+                damagePercent));
             _bulletXRemainders.Add(0);
             _bulletYRemainders.Add(0);
             _bulletVelXNumerators.Add(0);
@@ -6625,12 +6660,16 @@ namespace Shmup.Core.Simulation
             return result;
         }
 
-        int ComputeMissileDamage(int baseDamage)
+        int ComputeMissileDamage(int baseDamage, int damagePercent)
         {
-            return Damage.Compute(
+            int levelDamage = Damage.Compute(
                 baseDamage,
                 Math.Max(1, _missileLevel),
                 _missileDamageGrowthPercentPerLevel);
+            long scaled = (long)levelDamage * damagePercent / 100;
+            return scaled >= int.MaxValue
+                ? int.MaxValue
+                : (int)scaled;
         }
 
         static int SaturatingAddDamage(int left, int right)
@@ -6796,6 +6835,9 @@ namespace Shmup.Core.Simulation
             if (config.MissileDamageGrowthPercentPerLevel < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(config.MissileDamageGrowthPercentPerLevel));
+            if (config.OptionMissileDamagePercent < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.OptionMissileDamagePercent));
             if (config.MissileFireIntervalTicks < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.MissileFireIntervalTicks));
             if (config.MissileRapidFireStartLevel < 1)

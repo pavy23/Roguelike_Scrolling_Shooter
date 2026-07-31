@@ -144,6 +144,8 @@ namespace Shmup.Core.Content
         [DataMember]
         public string defaultOptionFormation;
         [DataMember]
+        public int? optionMissileDamagePercent;
+        [DataMember]
         public PrimaryWeaponFamilyDto[] primaryWeaponFamilies;
         [DataMember]
         public PowerUpCostCurveDto powerUpCostCurve;

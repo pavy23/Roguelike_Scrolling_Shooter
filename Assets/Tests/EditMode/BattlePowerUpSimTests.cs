@@ -12,6 +12,9 @@ namespace Shmup.Core.Tests
         public void OptionFollowDelayDefaultsToTwelveTicks()
         {
             Assert.AreEqual(12, new BattleSimConfig().OptionFollowDelayTicks);
+            Assert.AreEqual(
+                100,
+                new BattleSimConfig().OptionMissileDamagePercent);
         }
 
         [Test]
@@ -291,6 +294,84 @@ namespace Shmup.Core.Tests
                     0);
                 Assert.AreEqual(first.Bullets[i].Id, second.Bullets[i].Id);
             }
+        }
+
+        [Test]
+        public void OptionMissileVolleyMirrorsInIndexOrderAndTruncatesAtBulletBudget()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpeedPerTick = 0;
+            config.PlayerBulletSpeedPerTick = 0;
+            config.MissileSpeedXNumerator = 0;
+            config.MissileFallSpeedYNumerator = 0;
+            config.OptionFormation = OptionFormation.Fixed;
+            config.OptionFixedOffsetXs = new[] { 10, 20, 30, 40, 50, 60 };
+            config.OptionFixedOffsetYs = new[] { 0, 0, 0, 0, 0, 0 };
+            config.OptionMissileDamagePercent = 37;
+            config.MaxBullets = 10;
+            BattleSim sim = CreateSim(
+                config,
+                Gauge(0, 1, PowerUpGauge.MaximumOptionCount, 0),
+                EmptyPlan(),
+                Content(Weapon(baseDamage: 0, interval: 100, speed: 0)),
+                0x8501UL);
+
+            Step(sim, 0, 0, true);
+
+            Assert.AreEqual(10, sim.Bullets.Count);
+            Assert.AreEqual(3, CountBullets(sim.Bullets, BulletKind.Missile));
+            int[] expectedXs = { 0, 10, 20 };
+            int[] expectedPercents = { 100, 37, 37 };
+            for (int i = 0; i < expectedXs.Length; i++)
+            {
+                BulletState missile = sim.Bullets[7 + i];
+                AssertBullet(
+                    missile,
+                    BulletKind.Missile,
+                    expectedXs[i],
+                    0);
+                Assert.AreEqual(expectedPercents[i], missile.DamagePercent);
+            }
+        }
+
+        [Test]
+        public void OptionMissileDamagePercentScalesCollisionDamage()
+        {
+            EnemyDefinition bodyTarget = Enemy("body_target", hp: 30);
+            EnemyDefinition optionTarget = Enemy("option_target", hp: 30);
+            StagePlan plan = Plan(Segment(
+                "targets",
+                20,
+                new SpawnEvent(1, bodyTarget.Id, 500, 0),
+                new SpawnEvent(1, optionTarget.Id, 1500, 0)));
+            BattleSimConfig config = CreateConfig();
+            config.MissileBaseDamage = 10;
+            config.MissileDamageGrowthPercentPerLevel = 0;
+            config.MissileSpeedXNumerator = 500;
+            config.MissileSpeedXDenominator = 1;
+            config.MissileFallSpeedYNumerator = 0;
+            config.OptionFormation = OptionFormation.Fixed;
+            config.OptionFixedOffsetXs = new[] { 1000, 0, 0, 0, 0, 0 };
+            config.OptionFixedOffsetYs = new[] { 0, 0, 0, 0, 0, 0 };
+            config.OptionMissileDamagePercent = 50;
+            BattleSim sim = CreateSim(
+                config,
+                Gauge(0, 1, 1, 0),
+                plan,
+                Content(
+                    Weapon(baseDamage: 0, interval: 100, speed: 500),
+                    bodyTarget,
+                    optionTarget),
+                0x8502UL);
+
+            Step(sim, 0, 0, true);
+            Step(sim, 0, 0, false);
+
+            Assert.AreEqual(2, sim.Enemies.Count);
+            Assert.AreEqual(20, sim.Enemies[0].Hp,
+                "the body missile deals the full configured damage");
+            Assert.AreEqual(25, sim.Enemies[1].Hp,
+                "the option missile deals the configured percentage");
         }
 
         [Test]
@@ -583,6 +664,10 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual(left.Kind, right.Kind, $"tick {tick}, bullet {i}");
                 Assert.AreEqual(left.X, right.X, $"tick {tick}, bullet {i}");
                 Assert.AreEqual(left.Y, right.Y, $"tick {tick}, bullet {i}");
+                Assert.AreEqual(
+                    left.DamagePercent,
+                    right.DamagePercent,
+                    $"tick {tick}, bullet {i}");
             }
 
             for (int i = 0; i < expected.Options.Count; i++)
