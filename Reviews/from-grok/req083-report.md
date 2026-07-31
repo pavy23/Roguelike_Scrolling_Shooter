@@ -220,3 +220,93 @@ dotnet run --no-restore --project . -- 12345 3 30000
 - 수정: `GameData/*.json`, `Tools/BalanceSim/`, Reviews (from-grok / 체크박스 응답).
 - Core / Presentation / QA 소유 파일 미수정.
 - 사람 §7 잠금: 시작 레벨 0 유지, Shield softCap 3 유지, 비용 평탄 1 준수.
+
+---
+
+## Option 6 (REQ-084 Content follow-up)
+
+작성일: 2026-07-31  
+전제: main에 REQ-084 Core 병합 완료 (`PowerUpGauge.MaximumOptionCount = 6`, fixed 4/6 오프셋 파서 수용).
+
+### 데이터 변경 (`GameData/weapons.json`)
+
+| 항목 | before | after |
+|---|---|---|
+| `weapons[].option.maxLevel` | 4 | **6** |
+| `weapons[].option.effectSoftCapLevel` | 4 | **6** |
+| `powerUpGauge.slots[Option].maxLevel` | 4 | **6** |
+| Option `costCurve` | flat 1 | **유지** (사람 지정) |
+
+### fixed 편성 오프셋 (Core REQ-084 정합)
+
+World 단위 정의 → subunits = world × 256.
+
+| index | x (world / su) | y (world / su) |
+|---|---|---|
+| 1 | 0.75 / 192 | +1.5 / +384 |
+| 2 | 0.75 / 192 | −1.5 / −384 |
+| 3 | 0.75 / 192 | +2.75 / +704 |
+| 4 | 0.75 / 192 | −2.75 / −704 |
+| 5 (신규) | 0.75 / 192 | **+4.0 / +1024** |
+| 6 (신규) | 0.75 / 192 | **−4.0 / −1024** |
+
+`Reviews/from-codex/req084-report.md` 5·6번 오프셋과 일치.
+
+### BalanceSim
+
+- 7슬롯 카탈로그 기대 maxLevel: Option **4 → 6**
+- Option `costToMax` 게이트: flat-1 기준 **[4,8]** (maxLevel 6)
+- fixed formation 오프셋 검사: **4 → 6** (+ y ±4.0)
+
+실측: Option max=6 costToMax=6 · exclusive full≈25 · run EV≈114
+
+### 콘텐츠-연동 테스트 1줄
+
+`GameDataParserTests.RepositoryApprovedV2Files_ParseCompletely`가 저장소 Option maxLevel을 4로 고정하고 있었음  
+(CODEX 주석: content-owned REQ-084 반영 전까지). **6으로 갱신** (데이터 계약 동기화, Core 로직 변경 없음).
+
+### 검증 증거 (Option 6 후)
+
+```text
+cd Tools\CoreStandalone && dotnet test --no-restore
+통과!  실패: 0, 통과: 415, 전체: 415
+```
+
+```text
+cd Tools\BalanceSim && dotnet run --project VerifyThemeAssembly.csproj -c Release
+PASS: BalanceSim all checks green.
+```
+
+```text
+cd Tools\DeterminismAudit && dotnet run --no-restore --project . -- --suite
+AUDIT PASS
+```
+
+| 시나리오 | hash (Option 6 데이터 기준) |
+|---|---|
+| seed-0-first | `39321721C89A947C` |
+| seed-1-last | `23778E265F533C7C` |
+| seed-12345-rotating | `8F25A13F2507914E` |
+| seed-deadbeef-rotating | `82C4E471CF44ABE3` |
+| seed-max-prefer-capped | `2BE53C20A522FDD9` |
+| seed-7-hidden | `77E6CFF86E100130` |
+
+cap-boundary: 256/256 matched.
+
+같은 시드 2회 (`12345`, stages=3, ticks=30000):
+
+| 회차 | hash | ticks | stages | rooms |
+|---|---|---|---|---|
+| 1 | `B51FE840D8DD3011` | 17752 | 3/3 | 9/9 |
+| 2 | `B51FE840D8DD3011` | 17752 | 3/3 | 9/9 |
+
+**SAME-SEED HASH MATCH** (Option max 6 반영으로 suite/single 해시 베이스라인 갱신됨 — 결정론 자체는 유지).
+
+### 변경 파일 (Option 6)
+
+| 경로 | 내용 |
+|---|---|
+| `GameData/weapons.json` | option max/softCap 6, gauge offsets 6, gauge slot max 6 |
+| `Tools/BalanceSim/Program.cs` | Option·fixed 기대값 6 |
+| `Assets/Tests/EditMode/GameDataParserTests.cs` | RepositoryApproved Option max 6 (1 assert) |
+| `Reviews/from-grok/req083-report.md` | 본 절 |
