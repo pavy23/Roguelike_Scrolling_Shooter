@@ -1020,6 +1020,34 @@ namespace Shmup.EditorTools
             SetReference(contractScreen, "_director", director);
             SetReference(contractScreen, "_font", uiFont);
             SetReference(contractScreen, "_fontBold", uiFontBold);
+            // 목적지 프리뷰 (REQ-086): 테마 중경 + 대표 잡몹 + 보스를 카드에 합성한다.
+            // LoadExternalSprite는 멱등이라 이미 임포트된 에셋을 그대로 재사용한다.
+            SetStringArray(contractScreen, "_themeIds",
+                new[] { "scrapyard", "hive", "fortress", "nebula", "core" });
+            SetReferenceArray(contractScreen, "_themeBgs", new UnityEngine.Object[]
+            {
+                LoadExternalSprite("scrap_mid.png", "scrap_mid"),
+                LoadExternalSprite("hive_mid.png", "hive_mid"),
+                LoadExternalSprite("fort_mid.png", "fort_mid"),
+                LoadExternalSprite("nebula_mid.png", "nebula_mid"),
+                LoadExternalSprite("core_mid.png", "core_mid"),
+            });
+            SetReferenceArray(contractScreen, "_themeBosses", new UnityEngine.Object[]
+            {
+                LoadExternalSprite("boss_stage1.png", "boss_stage1"),
+                LoadExternalSprite("boss_hive.png", "boss_hive"),
+                LoadExternalSprite("boss_fortress.png", "boss_fortress"),
+                LoadExternalSprite("boss_storm.png", "boss_storm"),
+                LoadExternalSprite("boss_core.png", "boss_core"),
+            });
+            SetReferenceArray(contractScreen, "_themeEnemies", new UnityEngine.Object[]
+            {
+                LoadExternalSprite("enemy_scrap_tumbler.png", "enemy_scrap_tumbler"),
+                LoadExternalSprite("enemy_brood_spitter.png", "enemy_brood_spitter"),
+                LoadExternalSprite("enemy_sentry.png", "enemy_sentry"),
+                LoadExternalSprite("enemy_void_moth.png", "enemy_void_moth"),
+                LoadExternalSprite("enemy_phase_disc.png", "enemy_phase_disc"),
+            });
             var pause = battleRoot.AddComponent<PauseScreen>();
             SetReference(pause, "_font", uiFont);
             SetReference(pause, "_fontBold", uiFontBold);

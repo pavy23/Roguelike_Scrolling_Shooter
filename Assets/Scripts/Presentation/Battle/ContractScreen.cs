@@ -21,10 +21,19 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Font _font;
         [SerializeField] Font _fontBold;
 
+        // 목적지 바이옴 프리뷰 (REQ-086 + 사람 지정 "다음 스테이지 모습을 스샷으로"):
+        // 런타임 캡처 대신 실제 게임 스프라이트(테마 중경 + 대표 잡몹 + 보스)를
+        // 카드에 합성한다 — 픽셀 아트가 그대로 살고 결정론과도 무관하다.
+        [SerializeField] string[] _themeIds;
+        [SerializeField] Sprite[] _themeBgs;
+        [SerializeField] Sprite[] _themeBosses;
+        [SerializeField] Sprite[] _themeEnemies;
+
         const int MaxOptions = 3;
         const float BoxWidth = 168f;
-        const float BoxHeight = 170f;
+        const float BoxHeight = 216f;
         const float BoxGap = 14f;
+        const float PreviewHeight = 54f;
 
         GameObject _root;
         Text _titleText;
@@ -32,6 +41,11 @@ namespace Shmup.Presentation.Battle
         readonly Image[] _boxBorders = new Image[MaxOptions];
         readonly Text[] _boxTitles = new Text[MaxOptions];
         readonly Text[] _boxTexts = new Text[MaxOptions];
+        readonly GameObject[] _previewRoots = new GameObject[MaxOptions];
+        readonly Image[] _previewBgs = new Image[MaxOptions];
+        readonly Image[] _previewBosses = new Image[MaxOptions];
+        readonly Image[] _previewEnemies = new Image[MaxOptions];
+        readonly Text[] _previewLabels = new Text[MaxOptions];
         bool _built;
         int _cursor;
         int _shownCount;
@@ -79,19 +93,24 @@ namespace Shmup.Presentation.Battle
                 _boxRects[i] = panel;
                 _boxBorders[i] = panel.GetComponent<Image>();
 
-                // 카드 상단: 계약 이름 + 위험 등급 (색과 문자 이중 표기 — 색맹 대비)
+                // 카드 최상단: 목적지 프리뷰 (테마 배경 + 대표 잡몹 + 보스 실루엣)
+                _previewRoots[i] = BuildPreview(panel, i);
+
+                // 프리뷰 아래: 계약 이름 + 위험 등급 (색과 문자 이중 표기 — 색맹 대비)
                 _boxTitles[i] = UiKit.CreateText(panel, _fontBold, "", 11,
                     UiKit.TextMain, TextAnchor.UpperCenter, "Name");
                 var titleRect = _boxTitles[i].rectTransform;
                 titleRect.anchorMin = new Vector2(0f, 1f);
                 titleRect.anchorMax = new Vector2(1f, 1f);
                 titleRect.pivot = new Vector2(0.5f, 1f);
-                titleRect.anchoredPosition = new Vector2(0f, -8f);
+                titleRect.anchoredPosition = new Vector2(0f, -8f - PreviewHeight);
                 titleRect.sizeDelta = new Vector2(-12f, 42f);
 
-                // 카드 본문: 효과 전체 목록
+                // 카드 본문: 효과 전체 목록 (프리뷰·제목 아래 영역)
                 _boxTexts[i] = UiKit.CreateTextStretch(panel, _font, "", 10,
                     UiKit.TextMain, TextAnchor.MiddleCenter, 8f, "Effects");
+                var effectsRect = _boxTexts[i].rectTransform;
+                effectsRect.offsetMax = new Vector2(-8f, -(PreviewHeight + 44f));
 
                 int index = i;   // 클로저가 루프 변수를 잡지 않도록 복사
                 UiKit.MakeTappable(_boxBorders[i], () => Choose(index));
@@ -116,6 +135,102 @@ namespace Shmup.Presentation.Battle
                 _boxRects[i].anchoredPosition = new Vector2(
                     -total / 2f + BoxWidth / 2f + i * (BoxWidth + BoxGap), -6f);
             }
+        }
+
+        /// <summary>
+        /// 카드 상단의 목적지 프리뷰 조각. 배경은 테마 중경 스프라이트를 어둡게 깔고,
+        /// 왼쪽에 대표 잡몹·오른쪽에 보스를 세운다. 하단 라벨이 "NEXT: 테마"를 박는다.
+        /// </summary>
+        GameObject BuildPreview(RectTransform panel, int index)
+        {
+            var root = new GameObject("Preview");
+            root.transform.SetParent(panel, false);
+            var rootRect = root.AddComponent<RectTransform>();
+            rootRect.anchorMin = new Vector2(0f, 1f);
+            rootRect.anchorMax = new Vector2(1f, 1f);
+            rootRect.pivot = new Vector2(0.5f, 1f);
+            rootRect.anchoredPosition = new Vector2(0f, -4f);
+            rootRect.sizeDelta = new Vector2(-8f, PreviewHeight);
+
+            var bg = new GameObject("Bg").AddComponent<Image>();
+            bg.transform.SetParent(rootRect, false);
+            bg.raycastTarget = false;
+            // 프리뷰는 창밖 풍경 — 카드 잉크보다 살짝 어둡게 눌러 텍스트와 싸우지 않게
+            bg.color = new Color(0.62f, 0.66f, 0.74f, 1f);
+            var bgRect = bg.rectTransform;
+            bgRect.anchorMin = Vector2.zero;
+            bgRect.anchorMax = Vector2.one;
+            bgRect.offsetMin = Vector2.zero;
+            bgRect.offsetMax = Vector2.zero;
+            _previewBgs[index] = bg;
+
+            var enemy = new GameObject("Enemy").AddComponent<Image>();
+            enemy.transform.SetParent(rootRect, false);
+            enemy.raycastTarget = false;
+            enemy.preserveAspect = true;
+            var enemyRect = enemy.rectTransform;
+            enemyRect.anchorMin = enemyRect.anchorMax = new Vector2(0.24f, 0.52f);
+            enemyRect.sizeDelta = new Vector2(26f, 26f);
+            _previewEnemies[index] = enemy;
+
+            var boss = new GameObject("Boss").AddComponent<Image>();
+            boss.transform.SetParent(rootRect, false);
+            boss.raycastTarget = false;
+            boss.preserveAspect = true;
+            var bossRect = boss.rectTransform;
+            bossRect.anchorMin = bossRect.anchorMax = new Vector2(0.72f, 0.55f);
+            bossRect.sizeDelta = new Vector2(44f, 40f);
+            _previewBosses[index] = boss;
+
+            var label = UiKit.CreateText(rootRect, _fontBold, "", 9,
+                UiKit.TextAccent, TextAnchor.LowerLeft, "Dest");
+            UiKit.AddShadow(label, 1f);
+            var labelRect = label.rectTransform;
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = new Vector2(4f, 2f);
+            labelRect.offsetMax = new Vector2(-4f, 0f);
+            _previewLabels[index] = label;
+            return root;
+        }
+
+        int ThemeIndex(string themeId)
+        {
+            if (_themeIds == null || string.IsNullOrEmpty(themeId)) return -1;
+            for (int i = 0; i < _themeIds.Length; i++)
+                if (string.Equals(_themeIds[i], themeId, System.StringComparison.Ordinal))
+                    return i;
+            return -1;
+        }
+
+        static Sprite At(Sprite[] array, int index)
+        {
+            return array != null && index >= 0 && index < array.Length ? array[index] : null;
+        }
+
+        /// <summary>카드 하나의 프리뷰를 계약 목적지에 맞춘다. 테마가 없으면 통째로 숨긴다.</summary>
+        void RefreshPreview(int i, ContractOption contract)
+        {
+            bool nextStage =
+                contract.DestinationKind == ContractDestinationKind.NextStage;
+            int theme = nextStage ? ThemeIndex(contract.DestinationThemeId) : -1;
+            bool show = theme >= 0 && At(_themeBgs, theme) != null;
+            if (_previewRoots[i].activeSelf != show)
+                _previewRoots[i].SetActive(show);
+            // 프리뷰가 없는 카드(귀환·미지의 구역·미지 테마)는 기존 레이아웃으로 복귀
+            _boxTitles[i].rectTransform.anchoredPosition =
+                new Vector2(0f, show ? -8f - PreviewHeight : -8f);
+            _boxTexts[i].rectTransform.offsetMax =
+                new Vector2(-8f, show ? -(PreviewHeight + 44f) : -44f);
+            if (!show) return;
+
+            _previewBgs[i].sprite = At(_themeBgs, theme);
+            _previewEnemies[i].sprite = At(_themeEnemies, theme);
+            _previewEnemies[i].enabled = _previewEnemies[i].sprite != null;
+            _previewBosses[i].sprite = At(_themeBosses, theme);
+            _previewBosses[i].enabled = _previewBosses[i].sprite != null;
+            _previewLabels[i].text =
+                $"NEXT: {contract.DestinationThemeId.ToUpperInvariant()}";
         }
 
         void Choose(int index)
@@ -184,6 +299,7 @@ namespace Shmup.Presentation.Battle
 
                     var contract = options[i];
                     var tierColor = TierColor(contract.RiskTier);
+                    RefreshPreview(i, contract);
                     // 최종 화면(REQ-072): 목적지가 곧 카드의 정체다. 귀환은 "여기서
                     // 끝낸다", 미지의 구역은 "더 간다" — 등급 라벨보다 앞세운다.
                     string headline =
