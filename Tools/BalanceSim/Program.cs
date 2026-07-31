@@ -2903,9 +2903,11 @@ static class Program
         }
 
         PowerUpSlot weaponSlot = ShipDefinition.GaugeSlotForFamily(expectedFamily);
+        // REQ-082/083: Speed, MainShot, Missile, designated weapon, Option, Shield.
         PowerUpSlot[] expected =
         {
             PowerUpSlot.Speed,
+            PowerUpSlot.MainShot,
             PowerUpSlot.Missile,
             weaponSlot,
             PowerUpSlot.Option,
@@ -2922,7 +2924,28 @@ static class Program
             }
         }
 
-        PowerUpSlotDefinition weaponDef = gauge.GaugeSlots[2];
+        PowerUpSlotDefinition mainShotDef = gauge.GaugeSlots[1];
+        if (mainShotDef.Slot != PowerUpSlot.MainShot
+            || mainShotDef.MaxLevel < 1)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} MainShot slot missing or maxLevel 0.");
+            failures++;
+        }
+        if (mainShotDef.CostCurve.BaseCost != 1
+            || mainShotDef.CostCurve.LinearGrowth != 0
+            || mainShotDef.CostCurve.QuadraticGrowth != 0)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} MainShot cost must be flat 1 "
+                + $"(got {mainShotDef.CostCurve.BaseCost}+"
+                + $"{mainShotDef.CostCurve.LinearGrowth}L+"
+                + $"{mainShotDef.CostCurve.QuadraticGrowth}L²).");
+            failures++;
+        }
+
+        // Designated weapon is now index 3 (after Speed / MainShot / Missile).
+        PowerUpSlotDefinition weaponDef = gauge.GaugeSlots[3];
         if (!weaponDef.ActivatesImmediately || weaponDef.MaxLevel != 1)
         {
             Console.WriteLine(
@@ -2943,7 +2966,8 @@ static class Program
             failures++;
         }
 
-        // One Collect cycle onto weapon index 2 then Activate → family switches.
+        // Four Collect cycles onto weapon index 3 then Activate → family switches.
+        gauge.Collect();
         gauge.Collect();
         gauge.Collect();
         gauge.Collect();
@@ -5272,9 +5296,9 @@ static class Program
         double starterEff = starterDps * MidSkillHitUptime;
 
         // Open-room capsule EV funds Main growth before midboss (not start-level lever).
-        // Shared MainShot cost matches weapons.json powerUpCostCurve (1+L+L²).
+        // REQ-083: MainShot uses shared powerUpCostCurve (human lock: flat 1).
         double openCapsuleEv = EstimateStageCapsuleEv(data, stage: 1);
-        PowerUpCostCurve mainCost = PowerUpCostCurve.CreateProvisional();
+        PowerUpCostCurve mainCost = ResolveMainShotCostCurve(data, starter);
         int mainAtMid = EstimateMainLevelAfterCapsules(
             mainStart,
             openCapsuleEv,
@@ -5484,7 +5508,7 @@ static class Program
             prevAvgPoolHp = avgSegHp;
         }
 
-        // Capsule growth note: L0→1=1, L1→2=3, L2→3=7 under 1+L+L².
+        // Capsule growth note: REQ-083 flat-1 → each activate costs 1 capsule.
         double eStage = openCapsuleEv;
         int costL0to1 = mainCost.GetCostForCurrentLevel(0);
         int costL1to2 = mainCost.GetCostForCurrentLevel(1);
@@ -5492,10 +5516,10 @@ static class Program
         Console.WriteLine(
             $"  stage1 capsule EV (3-seg room)≈{eStage:F2} · " +
             $"Main costs L0→1={costL0to1} L1→2={costL1to2} L2→3={costL2to3} "
-            + $"(1+L+L²) · open+close≈2 rooms → {eStage * 2:F1} caps · "
+            + $"(flat 1) · open+close≈2 rooms → {eStage * 2:F1} caps · "
             + $"mid Main L{mainAtMid} / boss Main L{mainAtBoss}");
 
-        // Double asymmetric angle (Gradius 45°) — report only.
+        // Double asymmetric angle (REQ-083: ~30° upward, LUT slot 5 of 64).
         PrimaryWeaponFamilyDefinition doubleFamily =
             content.FindPrimaryWeaponFamily(PrimaryWeaponFamily.Double);
         if (doubleFamily != null
@@ -5506,12 +5530,12 @@ static class Program
                 / PrimaryWeaponFamilyDefinition.AngleLutSlotsPerTurn;
             Console.WriteLine(
                 $"  double shotAngleLutSlots=[{doubleFamily.ShotAngleLutSlots[0]}, "
-                + $"{up}] ≈ {deg:F0}° upward (Gradius Double grammar)");
-            if (doubleFamily.ShotAngleLutSlots[0] != 0 || up != 8)
+                + $"{up}] ≈ {deg:F1}° upward (REQ-083 ~30° Double grammar)");
+            if (doubleFamily.ShotAngleLutSlots[0] != 0 || up != 5)
             {
                 Console.WriteLine(
-                    "FAIL clear: double must be forward+upward 45° "
-                    + "(shotAngleLutSlots [0, 8]).");
+                    "FAIL clear: double must be forward+upward ~30° "
+                    + "(shotAngleLutSlots [0, 5]).");
                 failures++;
             }
         }
@@ -5959,28 +5983,29 @@ static class Program
             failures++;
         }
 
-        // Exchange ratio: stage capsule EV vs cost curve 1+L+L² and one reroll.
+        // Exchange ratio: stage capsule EV vs REQ-083 flat-1 gauge and one reroll.
         double eStage1 = EstimateStageCapsuleEv(data, stage: 1);
         double eStage2 = EstimateStageCapsuleEv(data, stage: 2);
         double eStageAvg = (eStage1 + eStage2) / 2.0;
-        // Pure costs for L→L+1 under provisional 1+L+L².
-        int Cost(int level) => 1 + level + level * level;
-        int main2to3 = Cost(2); // 7
-        int main1to2 = Cost(1); // 3
-        int main0to1 = Cost(0); // 1
+        PowerUpCostCurve mainCurve = ResolveMainShotCostCurve(data, data.DefaultShip);
+        int main2to3 = mainCurve.GetCostForCurrentLevel(2);
+        int main1to2 = mainCurve.GetCostForCurrentLevel(1);
+        int main0to1 = mainCurve.GetCostForCurrentLevel(0);
         double rerollsPerStage = eStageAvg / Math.Max(1, reroll);
-        double levelShare = reroll / (double)main2to3;
-        double earlyLevelShare = reroll / (double)(main0to1 + main1to2); // 4
+        // Under flat 1, one reroll (4..6 caps) buys several Main levels.
+        double levelsPerReroll = reroll / (double)Math.Max(1, main0to1);
+        double earlyClimb = main0to1 + main1to2;
+        double earlyLevelShare = reroll / (double)Math.Max(1, earlyClimb);
 
         Console.WriteLine(
             $"  capsule EV S1≈{eStage1:F2} S2≈{eStage2:F2} avg≈{eStageAvg:F2}");
         Console.WriteLine(
-            $"  gauge cost 1+L+L²: L0→1={main0to1} L1→2={main1to2} "
+            $"  gauge cost flat-1: L0→1={main0to1} L1→2={main1to2} "
             + $"L2→3={main2to3}");
         Console.WriteLine(
             $"  exchange: 1 reroll = {reroll} caps "
-            + $"≈ {levelShare:P0} of Main2→3 ({main2to3}) "
-            + $"≈ {earlyLevelShare:P0} of early climb L0→2 ({main0to1 + main1to2})");
+            + $"≈ {levelsPerReroll:F1} Main levels "
+            + $"≈ {earlyLevelShare:P0} of early climb L0→2 ({earlyClimb})");
         Console.WriteLine(
             $"  stage budget: ≈{rerollsPerStage:F1} rerolls/stage if all caps spent on reroll "
             + $"(target 1.5..3.5 — not free spam, not dead button)");
@@ -5993,11 +6018,12 @@ static class Program
             failures++;
         }
 
-        if (levelShare < 0.45 || levelShare > 1.0)
+        // REQ-083: flat 1 makes each level cheap; reroll should still cost several levels.
+        if (levelsPerReroll < 3.0 || levelsPerReroll > 8.0)
         {
             Console.WriteLine(
-                $"FAIL terminal: reroll vs Main2→3 share {levelShare:P0} "
-                + "outside 45%..100%.");
+                $"FAIL terminal: reroll vs Main levels {levelsPerReroll:F1} "
+                + "outside 3..8 (flat-1 model).");
             failures++;
         }
 
@@ -6330,6 +6356,25 @@ static class Program
         return poolWeight == 0 ? 0.0 : poolHpWeighted / (double)poolWeight;
     }
 
+
+    static PowerUpCostCurve ResolveMainShotCostCurve(
+        GameDataSet data,
+        ShipDefinition ship)
+    {
+        if (ship != null && ship.HasCustomPowerUpGauge)
+        {
+            PowerUpGauge shipGauge = data.CreatePowerUpGauge(ship);
+            for (int i = 0; i < shipGauge.GaugeSlotCount; i++)
+            {
+                if (shipGauge.GaugeSlots[i].Slot == PowerUpSlot.MainShot)
+                    return shipGauge.GaugeSlots[i].CostCurve;
+            }
+        }
+        // Hidden MainShot axis uses the shared weapons.json powerUpCostCurve.
+        // Ship gauges always expose MainShot under REQ-082/083; fall back to flat 1.
+        return PowerUpCostCurve.FlatOne;
+    }
+
     static double TheoreticalMainShotDps(WeaponDefinition main, int gaugeLevel)
     {
         int weaponLevel = Math.Max(1, gaugeLevel);
@@ -6348,9 +6393,9 @@ static class Program
     }
 
     /// <summary>
-    /// REQ-075/079: seven-slot catalog ownership — maxLevel 6 level slots,
-    /// weapon modes maxLevel 1 flat cost 1, front-cheap rear-expensive,
-    /// all-in L6 ≈ run capsule EV (~50), exclusive full impossible in one run.
+    /// REQ-075/079/083: seven-slot catalog ownership — maxLevel 6 level slots,
+    /// weapon modes maxLevel 1, REQ-083 flat-1 costs on every slot,
+    /// scarcity via capsule EV / enemy HP rather than growing cost curves.
     /// </summary>
     static int CheckPowerUpGaugeSevenSlots(GameDataSet data)
     {
@@ -6451,11 +6496,12 @@ static class Program
         PowerUpSlotDefinition shield = gauge.GaugeSlots[6];
         int speedL0 = speed.CostCurve.GetCostForCurrentLevel(0);
         int shieldL0 = shield.CostCurve.GetCostForCurrentLevel(0);
+        // REQ-083 flat-1: front == rear L0 cost is allowed; rear must not be cheaper.
         if (speedL0 > shieldL0)
         {
             Console.WriteLine(
                 $"FAIL gauge: Speed L0 cost {speedL0} > Shield L0 {shieldL0} "
-                + "(front should be cheaper).");
+                + "(front must not cost more than rear).");
             failures++;
         }
 
@@ -6516,16 +6562,17 @@ static class Program
             failures++;
         }
 
-        // Cost-to-max bands vs run capsule EV (~50 open-only historical; ~100 open+close).
+        // REQ-083: flat-1 cost curves — costToMax equals maxLevel for level slots.
+        // Soft progress gates move to drop rate / enemy HP, not capsule cost.
         foreach ((string name, int cost) in levelSlotCosts)
         {
             if (name.Equals("Speed", StringComparison.Ordinal))
             {
-                if (cost < 15 || cost > 40)
+                if (cost < 4 || cost > 8)
                 {
                     Console.WriteLine(
-                        $"FAIL gauge: Speed costToMax {cost} outside [15,40] "
-                        + "(front-cheap but not free).");
+                        $"FAIL gauge: Speed costToMax {cost} outside [4,8] "
+                        + "(flat-1, maxLevel 6).");
                     failures++;
                 }
                 continue;
@@ -6533,33 +6580,35 @@ static class Program
 
             if (name.Equals("Option", StringComparison.Ordinal))
             {
-                // maxLevel 4 (Fixed offset lock): still rear-expensive, not free.
-                if (cost < 20 || cost > 50)
+                if (cost < 3 || cost > 6)
                 {
                     Console.WriteLine(
-                        $"FAIL gauge: Option costToMax {cost} outside [20,50] "
-                        + "(maxLevel 4 rear slot).");
+                        $"FAIL gauge: Option costToMax {cost} outside [3,6] "
+                        + "(flat-1, maxLevel 4).");
                     failures++;
                 }
                 continue;
             }
 
-            // Missile / Shield L6 all-in band.
-            if (cost < 40 || cost > 90)
+            // Missile / Shield L6 under flat 1.
+            if (cost < 4 || cost > 8)
             {
                 Console.WriteLine(
-                    $"FAIL gauge: {name} costToMax {cost} outside [40,90] "
-                    + "(L6 should require ~all-in vs run EV≈50).");
+                    $"FAIL gauge: {name} costToMax {cost} outside [4,8] "
+                    + "(flat-1, maxLevel 6).");
                 failures++;
             }
         }
 
-        // Exclusive full must exceed one run EV — cannot max everything.
-        if (exclusiveFull <= runEv * 1.2)
+        // Flat-1 makes exclusive full cheap vs run EV; report only (human cost lock).
+        Console.WriteLine(
+            $"  note: exclusive full {exclusiveFull} vs run EV {runEv:F0} "
+            + $"(flat-1: full gauge intentional; scarcity via drop EV / HP).");
+        if (exclusiveFull < 10 || exclusiveFull > 40)
         {
             Console.WriteLine(
-                $"FAIL gauge: exclusive full {exclusiveFull} ≤ 1.2× run EV "
-                + $"{runEv:F0} (full power too cheap).");
+                $"FAIL gauge: exclusive full {exclusiveFull} outside [10,40] "
+                + "(flat-1 total level budget).");
             failures++;
         }
 
@@ -6698,12 +6747,14 @@ static class Program
             Console.WriteLine("FAIL primary: Double must be spreadWays=2.");
             failures++;
         }
-        else if (dbl.SpreadStepLutSlots < 8)
+        else if (dbl.ShotAngleLutSlots.Count != 2
+            || dbl.ShotAngleLutSlots[0] != 0
+            || dbl.ShotAngleLutSlots[1] != 5)
         {
-            // 8 lut slots ≈ ±22.5°; 16 ≈ ±45° (1/64-turn LUT).
+            // REQ-083: asymmetric Double uses shotAngleLutSlots [0, 5] ≈ 28.1°.
             Console.WriteLine(
-                $"WARN primary: Double step={dbl.SpreadStepLutSlots} "
-                + "(want ≥8 for noticeable V / ~45° feel).");
+                "FAIL primary: Double must use shotAngleLutSlots [0, 5] (~30°).");
+            failures++;
         }
 
         if (tri == null || tri.SpreadWays < 3)
