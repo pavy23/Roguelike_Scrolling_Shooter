@@ -101,6 +101,11 @@ static class Program
     const double BossTtkExpectedMin = 16.0;
     const double BossTtkExpectedMax = 32.0;
     const double BossTtkFullMin = 4.5;
+    // REQ-088: stage1 boss HP halved by human directive — shorter tutorial TTK band.
+    const int BossStage1Hp = 4250;
+    const double BossStage1TtkExpectedMin = 8.0;
+    const double BossStage1TtkExpectedMax = 16.0;
+    const double BossStage1TtkFullMin = 2.0;
     const int BossRequiredPhaseCount = 3;
     // Equal-split remaining-HP ratios for phase 1 / phase 2 (Core N-way equal split).
     const double BossPhaseThreshold0 = 2.0 / 3.0; // enter phase 1
@@ -108,13 +113,20 @@ static class Program
     // Expected biome-reach DPS anchors (see analyze_stage_hp.py) — 4-room average.
     static readonly (string Id, double ExpectedDps)[] BossExpectedDps =
     {
-        // REQ-060/081: first boss tutorial-short; mid anchor assumes Main L0 + open-room growth.
+        // REQ-060/081/088: first boss tutorial-short (HP 4250); mid @ reach ~450 → ~9.4s.
         ("boss_stage1", 450.0),
         ("boss_hive", 600.0),
         ("boss_fortress", 720.0),
         ("boss_storm", 880.0),
         ("boss_core", 1050.0),
     };
+
+    // REQ-088 option missile / weapon evolution gates (provisional §7).
+    const int OptionMissileDamagePercentTarget = 50;
+    const int OptionMissileMaxBodies = 1 + 6; // ship + Option max 6
+    const double OptionMissileTotalMultiplierMax = 4.5; // body 100% + 6×50% = 4.0
+    const double WeaponEvolutionL3OverL1Min = 1.15;
+    const double WeaponEvolutionL3OverL1Max = 4.5; // no per-level damage axis yet
 
     // REQ-060 stage-1 / curve clearability (provisional §7).
     // Mid-skill hit uptime on large hitboxes; not god-run, not death spiral.
@@ -235,6 +247,10 @@ static class Program
         failures += CheckPowerUpGaugeSevenSlots(data);
         Console.WriteLine();
         failures += CheckPrimaryWeaponFamilyDps(data);
+        Console.WriteLine();
+        failures += CheckOptionMissileAndWeaponEvolution(data);
+        Console.WriteLine();
+        failures += CheckBossBulletVocabulary(data);
         Console.WriteLine();
         failures += CheckEnemyLaserProfiles(data);
         Console.WriteLine();
@@ -2945,11 +2961,12 @@ static class Program
         }
 
         // Designated weapon is now index 3 (after Speed / MainShot / Missile).
+        // REQ-088: weapon modes evolve to maxLevel 3 (still immediate one-slot identity).
         PowerUpSlotDefinition weaponDef = gauge.GaugeSlots[3];
-        if (!weaponDef.ActivatesImmediately || weaponDef.MaxLevel != 1)
+        if (!weaponDef.ActivatesImmediately || weaponDef.MaxLevel != 3)
         {
             Console.WriteLine(
-                $"FAIL ships: {ship.Id} weapon slot must be immediate maxLevel 1 "
+                $"FAIL ships: {ship.Id} weapon slot must be immediate maxLevel 3 "
                 + $"(immediate={weaponDef.ActivatesImmediately}, "
                 + $"max={weaponDef.MaxLevel}).");
             failures++;
@@ -4607,6 +4624,13 @@ static class Program
             }
 
             int hp = boss.MaxHp;
+            bool isStage1 = string.Equals(id, "boss_stage1", StringComparison.Ordinal);
+            if (isStage1 && hp != BossStage1Hp)
+            {
+                Console.WriteLine(
+                    $"FAIL boss: boss_stage1 hp must be {BossStage1Hp} (REQ-088 human lock), got {hp}.");
+                failures++;
+            }
             if (i > 0 && hp <= prevHp)
             {
                 Console.WriteLine(
@@ -4618,8 +4642,11 @@ static class Program
 
             double ttkExpected = hp / expectedDps;
             double ttkFull = hp / BossFullPowerDps;
-            bool midOk = ttkExpected >= BossTtkExpectedMin && ttkExpected <= BossTtkExpectedMax;
-            bool fullOk = ttkFull >= BossTtkFullMin;
+            double midMin = isStage1 ? BossStage1TtkExpectedMin : BossTtkExpectedMin;
+            double midMax = isStage1 ? BossStage1TtkExpectedMax : BossTtkExpectedMax;
+            double fullMin = isStage1 ? BossStage1TtkFullMin : BossTtkFullMin;
+            bool midOk = ttkExpected >= midMin && ttkExpected <= midMax;
+            bool fullOk = ttkFull >= fullMin;
 
             Console.WriteLine(
                 $"  {id,-16} hp={hp,6} @ {expectedDps,6:F0} DPS → TTK={ttkExpected:F1}s " +
@@ -4630,14 +4657,14 @@ static class Program
             {
                 Console.WriteLine(
                     $"FAIL boss: '{id}' expected TTK {ttkExpected:F1}s outside " +
-                    $"[{BossTtkExpectedMin:F0},{BossTtkExpectedMax:F0}]s.");
+                    $"[{midMin:F0},{midMax:F0}]s.");
                 failures++;
             }
 
             if (!fullOk)
             {
                 Console.WriteLine(
-                    $"FAIL boss: '{id}' full-power TTK {ttkFull:F1}s < {BossTtkFullMin:F0}s.");
+                    $"FAIL boss: '{id}' full-power TTK {ttkFull:F1}s < {fullMin:F0}s.");
                 failures++;
             }
 
@@ -6399,15 +6426,15 @@ static class Program
     }
 
     /// <summary>
-    /// REQ-075/079/083: seven-slot catalog ownership — maxLevel 6 level slots,
-    /// weapon modes maxLevel 1, REQ-083 flat-1 costs on every slot,
+    /// REQ-075/079/083/088: seven-slot catalog ownership — maxLevel 6 level slots,
+    /// weapon modes maxLevel 3 (evolution), REQ-083 flat-1 costs on every slot,
     /// scarcity via capsule EV / enemy HP rather than growing cost curves.
     /// </summary>
     static int CheckPowerUpGaugeSevenSlots(GameDataSet data)
     {
         int failures = 0;
         Console.WriteLine(
-            "REQ-079 power-up gauge (maxLevel 6 + closing EV, provisional §7):");
+            "REQ-079/088 power-up gauge (maxLevel 6 + weapon evo 3, provisional §7):");
 
         PowerUpGauge gauge = data.CreatePowerUpGauge();
         if (gauge.GaugeSlotCount != PowerUpGauge.DefaultGaugeSlotCount)
@@ -6430,10 +6457,10 @@ static class Program
         };
 
         // REQ-084/Option-6: Speed/Missile/Option/Shield max 6.
-        // Weapon modes stay one-shot max 1.
+        // REQ-088: weapon modes Double/Laser/Triple evolve to max 3.
         int[] expectedMax =
         {
-            6, 6, 1, 1, 1, 6, 6,
+            6, 6, 3, 3, 3, 6, 6,
         };
 
         int totalMaxCost = 0;
@@ -6777,6 +6804,303 @@ static class Program
 
         if (failures == 0)
             Console.WriteLine("PASS: REQ-075 primary family DPS table.");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-088: option missile damage percent + weapon evolution 3-step DPS curve.
+    /// </summary>
+    static int CheckOptionMissileAndWeaponEvolution(GameDataSet data)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "REQ-088 option missile + weapon evolution (provisional §7):");
+
+        int optionPercent = data.CreateBattleSimConfig().OptionMissileDamagePercent;
+        Console.WriteLine(
+            $"  optionMissileDamagePercent={optionPercent} "
+            + $"(target {OptionMissileDamagePercentTarget})");
+        if (optionPercent != OptionMissileDamagePercentTarget)
+        {
+            Console.WriteLine(
+                $"FAIL option-missile: percent must be {OptionMissileDamagePercentTarget}, "
+                + $"got {optionPercent}.");
+            failures++;
+        }
+
+        MissileFamilyDefinition straight =
+            data.BattleContent.FindMissileFamily(MissileFamily.Straight);
+        if (straight == null)
+        {
+            Console.WriteLine("FAIL option-missile: missing straight family.");
+            failures++;
+        }
+        else
+        {
+            // Body L6 ST with option volley budget (analytical, no homing tax).
+            double bodySt = TheoreticalMissileStDps(straight, 6);
+            double optionSt = bodySt * optionPercent / 100.0;
+            double totalSt = bodySt + optionSt * 6.0;
+            double mult = bodySt <= 0 ? 0 : totalSt / bodySt;
+            Console.WriteLine(
+                $"  missile L6 body ST={bodySt:F1} × option6@{optionPercent}% "
+                + $"→ total ST={totalSt:F1} ({mult:F2}× body, max {OptionMissileTotalMultiplierMax:F1}×)");
+            if (mult > OptionMissileTotalMultiplierMax)
+            {
+                Console.WriteLine(
+                    $"FAIL option-missile: total ST multiplier {mult:F2}× > "
+                    + $"{OptionMissileTotalMultiplierMax:F1}× at Option×6.");
+                failures++;
+            }
+            if (totalSt >= bodySt * OptionMissileMaxBodies * 0.95)
+            {
+                Console.WriteLine(
+                    "FAIL option-missile: options nearly match 100% body ×7 — percent too high.");
+                failures++;
+            }
+        }
+
+        PrimaryWeaponFamily[] evoFamilies =
+        {
+            PrimaryWeaponFamily.Double,
+            PrimaryWeaponFamily.Laser,
+            PrimaryWeaponFamily.Spread,
+        };
+        Console.WriteLine("  evolution DPS curve (analytical volley/beam):");
+        for (int f = 0; f < evoFamilies.Length; f++)
+        {
+            PrimaryWeaponFamilyDefinition def =
+                data.BattleContent.FindPrimaryWeaponFamily(evoFamilies[f]);
+            if (def == null)
+            {
+                Console.WriteLine($"FAIL evo: missing family {evoFamilies[f]}.");
+                failures++;
+                continue;
+            }
+
+            if (def.Levels == null || def.Levels.Count != 3)
+            {
+                Console.WriteLine(
+                    $"FAIL evo: {def.Id} needs exactly 3 levels, got {def.Levels?.Count ?? 0}.");
+                failures++;
+                continue;
+            }
+
+            double dps1 = AnalyticalPrimaryLevelDps(def, 1);
+            double dps2 = AnalyticalPrimaryLevelDps(def, 2);
+            double dps3 = AnalyticalPrimaryLevelDps(def, 3);
+            double r21 = dps1 <= 0 ? 0 : dps2 / dps1;
+            double r31 = dps1 <= 0 ? 0 : dps3 / dps1;
+            Console.WriteLine(
+                $"    {def.Id,-8} L1={dps1:F1} L2={dps2:F1} ({r21:F2}×) "
+                + $"L3={dps3:F1} ({r31:F2}×)");
+
+            // Structural axes required by REQ-086 design.
+            PrimaryWeaponLevelDefinition l2 = def.GetLevel(2);
+            PrimaryWeaponLevelDefinition l3 = def.GetLevel(3);
+            if (def.Family == PrimaryWeaponFamily.Double)
+            {
+                if (l2.SpreadWays != 3
+                    || l2.ShotAngleLutSlots.Count != 3
+                    || l2.ShotAngleLutSlots[2] != 32)
+                {
+                    Console.WriteLine(
+                        "FAIL evo: Double L2 must be Tail Guard (3-way incl. LUT 32 rear).");
+                    failures++;
+                }
+                if (l3.SpreadWays != 4
+                    || l3.BurstCount < 2
+                    || l3.ShotAngleLutSlots.Count != 4)
+                {
+                    Console.WriteLine(
+                        "FAIL evo: Double L3 must be Cross Fire (4-way + burst≥2).");
+                    failures++;
+                }
+            }
+            else if (def.Family == PrimaryWeaponFamily.Spread)
+            {
+                if (!l2.HasPulse || l2.SpreadWays != 5)
+                {
+                    Console.WriteLine(
+                        "FAIL evo: Triple L2 must be Pulse Fan (5-way + pulse).");
+                    failures++;
+                }
+                if (!l3.HasPulse
+                    || l3.InertiaVelocityPercent < 1
+                    || l3.MinimumFireIntervalTicks
+                        > def.MinimumFireIntervalTicks - 1)
+                {
+                    Console.WriteLine(
+                        "FAIL evo: Triple L3 must add inertia + min interval -1.");
+                    failures++;
+                }
+            }
+            else if (def.Family == PrimaryWeaponFamily.Laser)
+            {
+                if (l2.PierceEnemyCount < 4
+                    || l2.ImpactExplosionDamage < 1
+                    || l2.ImpactExplosionRadius < 1)
+                {
+                    Console.WriteLine(
+                        "FAIL evo: Laser L2 must be Lance (pierce≥4 + impact blast).");
+                    failures++;
+                }
+                if (!l3.IsPlayerBeam)
+                {
+                    Console.WriteLine(
+                        "FAIL evo: Laser L3 must be Prism Beam (player beam fields).");
+                    failures++;
+                }
+            }
+
+            if (dps2 + 0.01 < dps1 || dps3 + 0.01 < dps2)
+            {
+                Console.WriteLine(
+                    $"FAIL evo: {def.Id} DPS not non-decreasing L1→L2→L3.");
+                failures++;
+            }
+            if (r31 < WeaponEvolutionL3OverL1Min
+                || r31 > WeaponEvolutionL3OverL1Max)
+            {
+                Console.WriteLine(
+                    $"FAIL evo: {def.Id} L3/L1={r31:F2} outside "
+                    + $"[{WeaponEvolutionL3OverL1Min:F2},{WeaponEvolutionL3OverL1Max:F2}].");
+                failures++;
+            }
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-088 option missile + weapon evolution.");
+        return failures;
+    }
+
+    static double AnalyticalPrimaryLevelDps(
+        PrimaryWeaponFamilyDefinition def,
+        int level)
+    {
+        PrimaryWeaponLevelDefinition lv = def.GetLevel(level);
+        if (lv.IsPlayerBeam)
+        {
+            // Hold-to-fire continuous beam: damage every tick while held.
+            return lv.BeamDamagePerTick * (double)SimSpace.TicksPerSecond;
+        }
+
+        int interval = Math.Max(1, def.FireIntervalTicks);
+        // Burst packs extra volleys inside the same fire cadence (cooldown from first).
+        int shots = Math.Max(1, lv.SpreadWays) * Math.Max(1, lv.BurstCount);
+        double volley = def.BaseDamage * shots;
+        // Impact blast is situational; count half ST for lance to keep curve readable.
+        if (lv.ImpactExplosionDamage > 0)
+            volley += lv.ImpactExplosionDamage * 0.5;
+        return volley * (double)SimSpace.TicksPerSecond / interval;
+    }
+
+    /// <summary>
+    /// REQ-088/087: phase-1 has no signature; phase 2–3 carry per-boss signatures
+    /// and denser projectile vocabulary toward later stages.
+    /// </summary>
+    static int CheckBossBulletVocabulary(GameDataSet data)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "REQ-088 boss bullet vocabulary placement (provisional §7):");
+
+        var expected = new Dictionary<string, BossSignaturePattern>(
+            StringComparer.Ordinal)
+        {
+            ["boss_stage1"] = BossSignaturePattern.ScrapThrow,
+            ["boss_hive"] = BossSignaturePattern.Brood,
+            ["boss_fortress"] = BossSignaturePattern.LaserGrid,
+            ["boss_storm"] = BossSignaturePattern.Lightning,
+            ["boss_core"] = BossSignaturePattern.PrismCore,
+        };
+
+        int kindsSeen = 0;
+        int stageMixScore = 0;
+        for (int i = 0; i < BossExpectedDps.Length; i++)
+        {
+            string id = BossExpectedDps[i].Id;
+            StageBossTemplate boss = null;
+            for (int b = 0; b < data.StageGeneration.Bosses.Count; b++)
+            {
+                if (string.Equals(
+                        data.StageGeneration.Bosses[b].BossId,
+                        id,
+                        StringComparison.Ordinal))
+                {
+                    boss = data.StageGeneration.Bosses[b];
+                    break;
+                }
+            }
+
+            if (boss == null || boss.Phases == null || boss.Phases.Count < 3)
+            {
+                Console.WriteLine($"FAIL vocab: missing 3-phase boss '{id}'.");
+                failures++;
+                continue;
+            }
+
+            BossSignaturePattern want = expected[id];
+            BossPhase p0 = boss.Phases[0];
+            BossPhase p1 = boss.Phases[1];
+            BossPhase p2 = boss.Phases[2];
+
+            if (p0.SignaturePattern != BossSignaturePattern.None)
+            {
+                Console.WriteLine(
+                    $"FAIL vocab: '{id}' p0 must have no signature (learn phase).");
+                failures++;
+            }
+
+            if (p1.SignaturePattern != want || p2.SignaturePattern != want)
+            {
+                Console.WriteLine(
+                    $"FAIL vocab: '{id}' p1/p2 signature must be {want} "
+                    + $"(got {p1.SignaturePattern}/{p2.SignaturePattern}).");
+                failures++;
+            }
+
+            if (p0.ProjectileKind != BossProjectileKind.Normal)
+            {
+                Console.WriteLine(
+                    $"FAIL vocab: '{id}' p0 projectileKind should stay normal.");
+                failures++;
+            }
+
+            // Later stages denser mix: count non-normal kinds across p1+p2.
+            int mix = 0;
+            if (p1.ProjectileKind != BossProjectileKind.Normal) mix++;
+            if (p2.ProjectileKind != BossProjectileKind.Normal) mix++;
+            if (p1.ProjectileKind != p2.ProjectileKind) mix++;
+            stageMixScore += mix * (i + 1);
+            if (p1.ProjectileKind != BossProjectileKind.Normal)
+                kindsSeen |= 1 << (int)p1.ProjectileKind;
+            if (p2.ProjectileKind != BossProjectileKind.Normal)
+                kindsSeen |= 1 << (int)p2.ProjectileKind;
+
+            Console.WriteLine(
+                $"  {id,-16} p0={p0.ProjectileKind}/{p0.SignaturePattern} "
+                + $"p1={p1.ProjectileKind}/{p1.SignaturePattern} "
+                + $"p2={p2.ProjectileKind}/{p2.SignaturePattern} mix={mix}");
+        }
+
+        // Expect at least heavy+splitter+mine+bossLaser represented somewhere.
+        bool hasHeavy = (kindsSeen & (1 << (int)BossProjectileKind.Heavy)) != 0;
+        bool hasSplit = (kindsSeen & (1 << (int)BossProjectileKind.Splitter)) != 0;
+        bool hasMine = (kindsSeen & (1 << (int)BossProjectileKind.Mine)) != 0;
+        bool hasLaser = (kindsSeen & (1 << (int)BossProjectileKind.BossLaser)) != 0;
+        Console.WriteLine(
+            $"  vocabulary coverage heavy={hasHeavy} splitter={hasSplit} "
+            + $"mine={hasMine} bossLaser={hasLaser} weightedMix={stageMixScore}");
+        if (!hasHeavy || !hasSplit || !hasMine || !hasLaser)
+        {
+            Console.WriteLine(
+                "FAIL vocab: need all four shared projectile kinds placed on bosses.");
+            failures++;
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-088 boss bullet vocabulary.");
         return failures;
     }
 
