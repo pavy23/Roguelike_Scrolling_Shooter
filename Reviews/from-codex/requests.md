@@ -1683,3 +1683,33 @@ CODEX가 실제 소유 파일을 바꾸지 않고 통합 임시 사본으로 위
 `["Speed","MainShot","Missile","Weapon","Option","Shield"]` 반영.
 BalanceSim 기대 배열/무기 인덱스 3/`Collect`×4 반영. 검증·보고는
 `Reviews/from-grok/req083-report.md`.
+
+---
+
+## [ ] CLAUDE: REQ-089 무기 모드 Presentation 동기화 및 라이브 재캡처
+
+Core 실데이터 통합 테스트에서 starter/Double, interceptor/Triple, bulwark/Laser의
+L1~L3 탄/빔 생성이 모두 통과했다. Presentation에서 아래 두 불일치를 확인했다.
+
+- `BattleDirector`는 Awake에서 `selectedShip.WeaponType`으로 탄 스프라이트와 SFX를
+  한 번만 정한다. 현재 세 함선의 `weaponType`은 모두 `vulcan`이며, 게이지 전환 뒤
+  `IBattleSim.PlayerWeaponType`은 갱신되지만 Presentation 캐시는 갱신되지 않는다.
+- `PowerUpHudView.EvolutionName(string nameKey, int level)`은 소문자 id를 비교하지만
+  실제 `nameKey`는 `Double Shot`, `Triple Shot`, `Laser`다.
+
+요청:
+
+- [ ] `_sim.PlayerWeaponType` 변화를 관찰해 main-shot sprite와 `_sfx.WeaponFamily`를
+  갱신하고 Vulcan 복귀용 원본 sprite를 별도 보존해 달라.
+- [ ] 진화명은 표시 문자열이 아니라 `PowerUpGaugeSlotView.Slot`으로 분기해 달라.
+- [ ] 같은 프레임의 Core `Bullets`/`Lasers` 수와 Presentation 활성 view 수를 로그로
+  캡처해 “Core에는 있는데 화면에 없는지”를 확정하고 세 기체 L1~L3 캡처를 남겨 달라.
+
+제안 시그니처:
+
+```csharp
+void SyncPlayerWeaponPresentation(WeaponType weaponType)
+static string EvolutionName(PowerUpSlot slot, int level)
+```
+
+상세 증거: `Reviews/from-codex/req089-report.md`.

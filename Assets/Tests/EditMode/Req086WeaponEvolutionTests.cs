@@ -216,37 +216,12 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void OptionalLevelAxesParseWithoutWeaponsSchemaBump()
+        public void RepositoryLevelAxesParseWithoutWeaponsSchemaBump()
         {
             string root = FindRepositoryRoot();
             string gameData = Path.Combine(root, "GameData");
             string weapons = File.ReadAllText(
-                Path.Combine(gameData, "weapons.json"))
-                .Replace("\r\n", "\n");
-            weapons = weapons.Replace(
-                @"""spreadStepLutSlots"": 4,
-      ""shotAngleLutSlots"": []",
-                @"""spreadStepLutSlots"": 4,
-      ""shotAngleLutSlots"": [],
-      ""levels"": [
-        {
-          ""level"": 2,
-          ""spreadWays"": 5,
-          ""shotAngleLutSlots"": [],
-          ""pulseMinStepLutSlots"": 1,
-          ""pulseMaxStepLutSlots"": 5,
-          ""pulsePeriodTicks"": 12
-        },
-        {
-          ""level"": 3,
-          ""spreadWays"": 5,
-          ""shotAngleLutSlots"": [],
-          ""burstCount"": 2,
-          ""burstIntervalTicks"": 1,
-          ""inertiaVelocityPercent"": 50,
-          ""minimumFireIntervalTicks"": 4
-        }
-      ]");
+                Path.Combine(gameData, "weapons.json"));
             GameDataSet data = GameDataParser.Parse(
                 File.ReadAllText(
                     Path.Combine(gameData, "enemies.json")),
