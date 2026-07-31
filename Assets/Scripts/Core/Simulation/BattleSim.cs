@@ -967,9 +967,9 @@ namespace Shmup.Core.Simulation
         public OptionFormation OptionFormation { get; set; } =
             OptionFormation.Trail;
         public int[] OptionFixedOffsetXs { get; set; } =
-            Array.Empty<int>();
+            new[] { 192, 192, 192, 192, 192, 192 };
         public int[] OptionFixedOffsetYs { get; set; } =
-            Array.Empty<int>();
+            new[] { 384, -384, 704, -704, 1024, -1024 };
         public int OptionOrbitRadiusSubUnits { get; set; } =
             7 * SimSpace.SubUnitsPerWorldUnit / 4;
         public int OptionOrbitAngularLutSlotsNumerator { get; set; } = 1;

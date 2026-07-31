@@ -210,7 +210,9 @@ namespace Shmup.Core.Content
             {
                 case PowerUpSlot.MainShot: legacySoftCap = 5; break;
                 case PowerUpSlot.Missile: legacySoftCap = 3; break;
-                case PowerUpSlot.Option: legacySoftCap = 4; break;
+                case PowerUpSlot.Option:
+                    legacySoftCap = PowerUpGauge.MaximumOptionCount;
+                    break;
                 case PowerUpSlot.Shield: legacySoftCap = 3; break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(slot));
@@ -736,10 +738,12 @@ namespace Shmup.Core.Content
                     OptionOffsetDto[] offsets = RequireArray(
                         item.offsets,
                         path + ".offsets");
-                    if (offsets.Length != 4)
+                    if (offsets.Length != 4
+                        && offsets.Length != PowerUpGauge.MaximumOptionCount)
                         throw Error(
                             path + ".offsets",
-                            "must contain exactly four offsets.");
+                            $"must contain exactly 4 or "
+                            + $"{PowerUpGauge.MaximumOptionCount} offsets.");
                     offsetXs = new int[offsets.Length];
                     offsetYs = new int[offsets.Length];
                     for (int offset = 0; offset < offsets.Length; offset++)

@@ -222,6 +222,78 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void SixOptionsUseFullTrailHistoryCapacity()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.OptionFollowDelayTicks = 1;
+            var sim = CreateSim(
+                config,
+                Gauge(0, 0, PowerUpGauge.MaximumOptionCount, 0),
+                EmptyPlan(),
+                Content(Weapon(baseDamage: 1, interval: 100, speed: 0)),
+                84UL);
+
+            for (int tick = 0; tick < PowerUpGauge.MaximumOptionCount; tick++)
+                Step(sim, 1, 0, false);
+
+            Assert.AreEqual(PowerUpGauge.MaximumOptionCount, sim.Options.Count);
+            for (int i = 0; i < sim.Options.Count; i++)
+                AssertOption(
+                    sim.Options[i],
+                    i + 1,
+                    PowerUpGauge.MaximumOptionCount - 1 - i,
+                    0);
+        }
+
+        [Test]
+        public void SixOptionMirrorVolleyTruncatesInStableIndexOrderAtBulletBudget()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpeedPerTick = 0;
+            config.PlayerBulletSpeedPerTick = 0;
+            config.OptionFormation = OptionFormation.Fixed;
+            config.OptionFixedOffsetXs = new[] { 10, 20, 30, 40, 50, 60 };
+            config.OptionFixedOffsetYs = new[] { 0, 0, 0, 0, 0, 0 };
+            config.MaxBullets = 4;
+            BattleContent content =
+                Content(Weapon(baseDamage: 1, interval: 100, speed: 0));
+            BattleSim first = CreateSim(
+                config,
+                Gauge(0, 0, PowerUpGauge.MaximumOptionCount, 0),
+                EmptyPlan(),
+                content,
+                8400UL);
+            BattleSim second = CreateSim(
+                config,
+                Gauge(0, 0, PowerUpGauge.MaximumOptionCount, 0),
+                EmptyPlan(),
+                content,
+                8400UL);
+
+            Step(first, 0, 0, true);
+            Step(second, 0, 0, true);
+
+            AssertOption(first.Options[4], 5, 50, 0);
+            AssertOption(first.Options[5], 6, 60, 0);
+            Assert.AreEqual(4, first.Bullets.Count);
+            int[] expectedXs = { 0, 10, 20, 30 };
+            for (int i = 0; i < expectedXs.Length; i++)
+            {
+                AssertBullet(
+                    first.Bullets[i],
+                    BulletKind.MainShot,
+                    expectedXs[i],
+                    0);
+                AssertBullet(
+                    second.Bullets[i],
+                    BulletKind.MainShot,
+                    expectedXs[i],
+                    0);
+                Assert.AreEqual(first.Bullets[i].Id, second.Bullets[i].Id);
+            }
+        }
+
+        [Test]
         public void ShieldStock_ConsumesOnePerHitAndShieldUpgradeRestoresOne()
         {
             EnemyDefinition heavy = Enemy("heavy", contactDamage: 3);
