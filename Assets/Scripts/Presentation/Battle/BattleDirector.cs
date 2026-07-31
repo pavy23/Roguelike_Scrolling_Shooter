@@ -1059,7 +1059,8 @@ namespace Shmup.Presentation.Battle
         public bool AwaitingContract =>
             _run != null && _run.State == RunState.AwaitingContract;
 
-        public System.Collections.Generic.IReadOnlyList<ContractDefinition> ContractOptions
+        // REQ-086부터 후보는 목적지 바이옴이 결합된 ContractOption이다.
+        public System.Collections.Generic.IReadOnlyList<ContractOption> ContractOptions
             => _run?.ContractOptions;
 
         /// <summary>현재 스테이지에 적용 중인 계약. 스테이지 1과 런 종료 후에는 null.</summary>
