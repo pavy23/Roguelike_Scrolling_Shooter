@@ -513,6 +513,7 @@ namespace Shmup.Core.Simulation
                 FoldInt32(bullet.X);
                 FoldInt32(bullet.Y);
                 FoldInt32(bullet.AgeTicks);
+                FoldInt32(bullet.DamagePercent);
             }
 
             FoldInt32(battle.Options.Count);

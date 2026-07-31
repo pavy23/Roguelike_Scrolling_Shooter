@@ -170,6 +170,12 @@ namespace Shmup.Core.Content
             for (int i = 0; i < gaugeSlots.Length; i++)
                 maxLevels[(int)gaugeSlots[i].Slot] =
                     gaugeSlots[i].MaxLevel;
+            int optionMissileDamagePercent =
+                root.optionMissileDamagePercent ?? 100;
+            if (optionMissileDamagePercent < 0)
+                throw Error(
+                    "weapons.json.optionMissileDamagePercent",
+                    "cannot be negative.");
 
             return new WeaponParseResult(
                 definitions,
@@ -182,7 +188,8 @@ namespace Shmup.Core.Content
                 missileFamilies,
                 defaultMissileFamily,
                 optionFormations,
-                defaultOptionFormation);
+                defaultOptionFormation,
+                optionMissileDamagePercent);
         }
 
         static int ParseEffectSoftCapLevel(
@@ -883,7 +890,8 @@ namespace Shmup.Core.Content
                 MissileFamilyDefinition[] missileFamilies,
                 MissileFamily defaultMissileFamily,
                 OptionFormationDefinition[] optionFormations,
-                OptionFormation defaultOptionFormation)
+                OptionFormation defaultOptionFormation,
+                int optionMissileDamagePercent)
             {
                 Definitions = definitions;
                 MaxLevels = maxLevels;
@@ -896,6 +904,7 @@ namespace Shmup.Core.Content
                 DefaultMissileFamily = defaultMissileFamily;
                 OptionFormations = optionFormations;
                 DefaultOptionFormation = defaultOptionFormation;
+                OptionMissileDamagePercent = optionMissileDamagePercent;
             }
 
             public WeaponDefinition[] Definitions { get; }
@@ -910,6 +919,7 @@ namespace Shmup.Core.Content
             public MissileFamily DefaultMissileFamily { get; }
             public OptionFormationDefinition[] OptionFormations { get; }
             public OptionFormation DefaultOptionFormation { get; }
+            public int OptionMissileDamagePercent { get; }
         }
     }
 }

@@ -47,12 +47,11 @@ namespace Shmup.Core.Simulation
     public sealed class InputRecordingData
     {
         /// <summary>
-        /// Schema 17 records commands against the ship-owned six-slot or
-        /// backward-compatible seven-slot gauge order. Older recordings are
-        /// rejected because identical capsule/activate input can select a
-        /// different slot.
+        /// Schema 18 starts after option missiles changed identical fire input
+        /// into a larger deterministic volley. Schema 17 is rejected because
+        /// replaying it under the new simulation would produce different combat.
         /// </summary>
-        public const int CurrentSchemaVersion = 17;
+        public const int CurrentSchemaVersion = 18;
 
         [DataMember(Order = 0)]
         public int schemaVersion;

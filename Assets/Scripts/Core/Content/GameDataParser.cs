@@ -142,6 +142,7 @@ namespace Shmup.Core.Content
                     weapons.CostCurve,
                     weapons.GaugeSlots,
                     weapons.Missile,
+                    weapons.OptionMissileDamagePercent,
                     rewards,
                     waves.Contracts,
                     ships,
