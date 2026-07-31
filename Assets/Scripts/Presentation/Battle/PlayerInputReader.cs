@@ -155,10 +155,11 @@ namespace Shmup.Presentation.Battle
 
         public static void LoadAutoFirePreference()
         {
-            // 모바일과 WebGL(폰 사파리)에서는 기본 ON, 데스크톱은 기본 OFF
-            int fallback = Application.isMobilePlatform
-                           || Application.platform == RuntimePlatform.WebGLPlayer ? 1 : 0;
-            AutoFire = PlayerPrefs.GetInt(AutoFirePrefKey, fallback) == 1;
+            // 항상 ON ("오토샷은 그냥 없애자. 늘 쏴야하니까", 2026-07-31).
+            // 슈팅에서 발사를 쉬는 순간은 없고, 토글은 실수로 꺼져 "총이 안 나간다"
+            // 문의만 만들었다. 저장값도 무시한다 — 과거에 꺼 둔 채 저장된 사람이
+            // 업데이트 후 무발사 상태로 시작하면 안 된다.
+            AutoFire = true;
         }
 
         /// <summary>한 틱 분량의 입력을 만들어 반환하고 눌림 래치를 소모한다.</summary>

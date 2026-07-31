@@ -38,8 +38,8 @@ namespace Shmup.Presentation.Battle
         Text _debugText;
 
         GameObject _root;
-        Text _autoFireLabel;
-        RectTransform _activateButton, _autoFireButton;
+        RectTransform _activateButton;
+        [SerializeField] Sprite _selectIcon;   // 캡슐 스프라이트 — 게이지 활성화의 시각 언어
         Camera _camera;
 
         int _dragFinger = -1;
@@ -124,11 +124,11 @@ namespace Shmup.Presentation.Battle
             _root = canvas.gameObject;
             _camera = Camera.main;
 
-            _activateButton = CreateButton(canvas.transform, "ACTIVATE", "X",
-                new Vector2(1f, 1f), new Vector2(-52f, -52f), 64f);
-            _autoFireButton = CreateButton(canvas.transform, "AutoFire", "AUTO",
-                new Vector2(1f, 1f), new Vector2(-52f, -126f), 56f);
-            _autoFireLabel = _autoFireButton.GetComponentInChildren<Text>();
+            // SELECT = 게이지 활성화. "X"라는 정체불명 글자 대신 캡슐 아이콘 + 라벨
+            // ("Bomb, Select을 이쁘게 누르기 편한 아이콘으로", 2026-07-31).
+            // 오토샷 토글은 없앴다 — 발사는 항상 자동이다 ("늘 쏴야하니까").
+            _activateButton = CreateIconButton(canvas.transform, "Select", "SELECT",
+                _selectIcon, new Vector2(1f, 1f), new Vector2(-56f, -56f), 72f);
 
             // 진단 오버레이 (REQ-045 조작 회귀 추적용 — 원인 확정 후 제거한다).
             // 폰에서 무엇이 들어오는지 눈으로 확인할 방법이 없어서 화면에 직접 찍는다.
@@ -144,7 +144,6 @@ namespace Shmup.Presentation.Battle
             _enabledForDevice = touchDevice;
             _root.SetActive(touchDevice);
             if (touchDevice) EnhancedTouchSupport.Enable();
-            RefreshAutoFireLabel();
         }
 
         /// <summary>
@@ -195,14 +194,8 @@ namespace Shmup.Presentation.Battle
                 if (touch.began)
                 {
                     if (HitButton(_activateButton, screen)) { _activatePressed = true; continue; }
-                    if (HitButton(_autoFireButton, screen))
-                    {
-                        PlayerInputReader.SetAutoFire(!PlayerInputReader.AutoFire);
-                        RefreshAutoFireLabel();
-                        continue;
-                    }
                 }
-                else if (HitButton(_activateButton, screen) || HitButton(_autoFireButton, screen))
+                else if (HitButton(_activateButton, screen))
                 {
                     continue;   // 버튼 위에서 끌어도 기체가 끌려가지 않게
                 }
@@ -250,17 +243,8 @@ namespace Shmup.Presentation.Battle
 
                 if (pressed)
                 {
-                    bool onOwnButton =
-                        HitButton(_activateButton, screen) || HitButton(_autoFireButton, screen);
-                    if (justPressed)
-                    {
-                        if (HitButton(_activateButton, screen)) _activatePressed = true;
-                        else if (HitButton(_autoFireButton, screen))
-                        {
-                            PlayerInputReader.SetAutoFire(!PlayerInputReader.AutoFire);
-                            RefreshAutoFireLabel();
-                        }
-                    }
+                    bool onOwnButton = HitButton(_activateButton, screen);
+                    if (justPressed && onOwnButton) _activatePressed = true;
                     if (!onOwnButton && !HitReserved(screen)
                         && AccumulateDrag(screen, PointerFingerId))
                         dragActive = true;
@@ -331,12 +315,71 @@ namespace Shmup.Presentation.Battle
                 && screen.y >= corners[0].y && screen.y <= corners[2].y;
         }
 
-        void RefreshAutoFireLabel()
+
+        /// <summary>
+        /// 아이콘 + 라벨의 원형 느낌 버튼. 글자 한 칸짜리 반투명 사각형보다 "누르는
+        /// 것"으로 읽히고, 아이콘이 게임 내 오브젝트(캡슐/폭탄)와 같은 그림이라
+        /// 기능 연결이 설명 없이 된다.
+        /// </summary>
+        RectTransform CreateIconButton(
+            Transform parent, string name, string label, Sprite icon,
+            Vector2 anchor, Vector2 offset, float size)
         {
-            if (_autoFireLabel == null) return;
-            _autoFireLabel.text = PlayerInputReader.AutoFire ? "AUTO\nON" : "AUTO\nOFF";
-            _autoFireLabel.color = PlayerInputReader.AutoFire
-                ? UiKit.TextAccent : new Color(0.6f, 0.7f, 0.85f, 0.8f);
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var image = go.AddComponent<Image>();
+            image.color = new Color(0.16f, 0.24f, 0.45f, 0.66f);
+            image.raycastTarget = false;
+            var rect = image.rectTransform;
+            rect.anchorMin = rect.anchorMax = anchor;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = offset;
+            rect.sizeDelta = new Vector2(size, size);
+
+            // 테두리 — 활성 버튼임을 알리는 밝은 링
+            var border = new GameObject("Border");
+            border.transform.SetParent(rect, false);
+            var borderImage = border.AddComponent<Image>();
+            borderImage.color = new Color(0.55f, 0.75f, 1f, 0.5f);
+            borderImage.raycastTarget = false;
+            var borderRect = borderImage.rectTransform;
+            borderRect.anchorMin = Vector2.zero;
+            borderRect.anchorMax = Vector2.one;
+            borderRect.offsetMin = Vector2.zero;
+            borderRect.offsetMax = Vector2.zero;
+            // 안쪽 채움을 다시 덮어 링만 남긴다
+            var inner = new GameObject("Inner");
+            inner.transform.SetParent(borderRect, false);
+            var innerImage = inner.AddComponent<Image>();
+            innerImage.color = new Color(0.10f, 0.15f, 0.30f, 0.85f);
+            innerImage.raycastTarget = false;
+            var innerRect = innerImage.rectTransform;
+            innerRect.anchorMin = Vector2.zero;
+            innerRect.anchorMax = Vector2.one;
+            innerRect.offsetMin = new Vector2(2f, 2f);
+            innerRect.offsetMax = new Vector2(-2f, -2f);
+
+            if (icon != null)
+            {
+                var iconGo = new GameObject("Icon");
+                iconGo.transform.SetParent(rect, false);
+                var iconImage = iconGo.AddComponent<Image>();
+                iconImage.sprite = icon;
+                iconImage.preserveAspect = true;
+                iconImage.raycastTarget = false;
+                var iconRect = iconImage.rectTransform;
+                iconRect.anchorMin = iconRect.anchorMax = new Vector2(0.5f, 0.58f);
+                iconRect.sizeDelta = new Vector2(size * 0.42f, size * 0.42f);
+            }
+
+            var text = UiKit.CreateText(rect, _font, label, 9,
+                UiKit.TextDim, TextAnchor.LowerCenter, "Label");
+            var textRect = text.rectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(0f, 5f);
+            textRect.offsetMax = Vector2.zero;
+            return rect;
         }
 
         RectTransform CreateButton(

@@ -301,6 +301,35 @@
       "bombDropWeight": 6
     },
     {
+      "id": "laser_sentry",
+      "displayName": "Laser Sentry",
+      "hp": 160,
+      "contactDamage": 1,
+      "scoreValue": 420,
+      "fireIntervalTicks": 0,
+      "dropWeight": 7,
+      "halfWidth": 1.0,
+      "halfHeight": 0.875,
+      "movement": {
+        "pattern": "static"
+      },
+      "bombDropWeight": 8,
+      "laser": {
+        "cycleIntervalTicks": 240,
+        "telegraphTicks": 48,
+        "firingTicks": 6,
+        "sustainTicks": 24,
+        "dissipateTicks": 12,
+        "startOffsetX": 0.0,
+        "startOffsetY": 0.0,
+        "endOffsetX": -38.0,
+        "endOffsetY": 0.0,
+        "thinHalfWidth": 0.0625,
+        "fullHalfWidth": 0.375,
+        "damage": 1
+      }
+    },
+    {
       "id": "echo_wisp",
       "displayName": "Echo Wisp",
       "hp": 90,
@@ -435,6 +464,35 @@
         "pattern": "static"
       },
       "bombDropWeight": 6
+    },
+    {
+      "id": "prism_beamer",
+      "displayName": "Prism Beamer",
+      "hp": 150,
+      "contactDamage": 1,
+      "scoreValue": 400,
+      "fireIntervalTicks": 0,
+      "dropWeight": 7,
+      "halfWidth": 1.0,
+      "halfHeight": 0.875,
+      "movement": {
+        "pattern": "static"
+      },
+      "bombDropWeight": 8,
+      "laser": {
+        "cycleIntervalTicks": 210,
+        "telegraphTicks": 42,
+        "firingTicks": 6,
+        "sustainTicks": 20,
+        "dissipateTicks": 12,
+        "startOffsetX": 0.0,
+        "startOffsetY": 0.0,
+        "endOffsetX": -38.0,
+        "endOffsetY": 0.0,
+        "thinHalfWidth": 0.0625,
+        "fullHalfWidth": 0.3125,
+        "damage": 1
+      }
     },
     {
       "id": "rift_blade",

@@ -47,7 +47,7 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         static readonly Item[] TouchItems =
         {
-            Item.AutoFire, Item.ScreenShake, Item.ReduceFlash, Item.Close
+            Item.ScreenShake, Item.ReduceFlash, Item.Close
         };
 
         bool _open;

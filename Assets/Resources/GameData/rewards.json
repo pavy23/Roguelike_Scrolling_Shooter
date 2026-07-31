@@ -230,8 +230,9 @@
     },
     {
       "id": "light_frame",
-      "type": "moveSpeedUp",
-      "amount": 6,
+      "type": "slotLevel",
+      "slot": "Speed",
+      "amount": 2,
       "weight": 2,
       "stageIndexMin": 1,
       "stageIndexMax": 99,

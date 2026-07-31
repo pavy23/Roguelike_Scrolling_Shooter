@@ -88,6 +88,8 @@ namespace Shmup.Presentation.Battle
         readonly Dictionary<int, Transform> _enemyViews = new Dictionary<int, Transform>(32);
         readonly Dictionary<int, Transform> _capsuleViews = new Dictionary<int, Transform>(16);
         readonly Dictionary<int, Transform> _bombPickupViews = new Dictionary<int, Transform>(16);
+        readonly Dictionary<int, float> _obstacleFadeAges = new Dictionary<int, float>(32);
+        const float ObstacleFadeSeconds = 0.35f;
         readonly Dictionary<int, Transform> _optionViews = new Dictionary<int, Transform>(4);
         readonly Dictionary<int, SpriteRenderer> _enemyRenderers = new Dictionary<int, SpriteRenderer>(32);
         readonly Dictionary<int, Color> _enemyDeathTints = new Dictionary<int, Color>(32);   // 테마별 폭발 틴트
@@ -851,10 +853,29 @@ namespace Shmup.Presentation.Battle
                     {
                         var sprite = SpriteForObstacle(obstacle.Type);
                         if (sprite != null) renderer.sprite = sprite;
-                        renderer.color = Color.white;
+                        // 장애물은 예약 틱에 자기 좌표(화면 안 포함)에서 즉시 생겨난다 —
+                        // 그대로 그리면 끊기듯 나타난다 ("장애물이 끊기듯 등장", 2026-07-31).
+                        // 시뮬 판정은 스폰 즉시 유효하지만, 페이드는 짧아(0.35s) 판정과
+                        // 표시의 어긋남이 문제되기 전에 끝난다.
+                        renderer.color = new Color(1f, 1f, 1f, 0f);
                     }
+                    _obstacleFadeAges[obstacle.Id] = 0f;
                 }
                 view.localPosition = SimView.ToWorld(obstacle.X, obstacle.Y);
+
+                if (_obstacleFadeAges.TryGetValue(obstacle.Id, out float age)
+                    && age < ObstacleFadeSeconds)
+                {
+                    age += Time.deltaTime;
+                    _obstacleFadeAges[obstacle.Id] = age;
+                    var fadeRenderer = view.GetComponent<SpriteRenderer>();
+                    if (fadeRenderer != null)
+                    {
+                        var c = fadeRenderer.color;
+                        c.a = Mathf.Clamp01(age / ObstacleFadeSeconds);
+                        fadeRenderer.color = c;
+                    }
+                }
             }
 
             _retiredIds.Clear();
@@ -866,6 +887,7 @@ namespace Shmup.Presentation.Battle
                 int id = _retiredIds[i];
                 _obstaclePool.Release(_obstacleViews[id]);
                 _obstacleViews.Remove(id);
+                _obstacleFadeAges.Remove(id);
             }
         }
 
@@ -1137,6 +1159,9 @@ namespace Shmup.Presentation.Battle
                     view = _optionPool.Acquire();
                     if (view == null) continue;
                     _optionViews.Add(option.Index, view);
+                    // 옵션 8×8은 너무 작아 눈에 안 띈다 ("크기를 두배정도", 2026-07-31).
+                    // 순수 표현 스케일 — 옵션은 피격 판정이 없어 크기가 커져도 안전하다.
+                    view.localScale = Vector3.one * 2f;
                 }
 
                 view.localPosition = SimView.ToWorld(option.X, option.Y);

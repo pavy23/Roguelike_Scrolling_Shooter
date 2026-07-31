@@ -18,10 +18,12 @@ namespace Shmup.Presentation.Battle
     {
         [SerializeField] BattleDirector _director;
         [SerializeField] Font _font;
+        [SerializeField] Sprite _icon;   // 폭탄 픽업 스프라이트 — 게임 내 아이템과 같은 그림
 
         public static BombButton Instance { get; private set; }
 
         Image _background;
+        Image _iconImage;
         Text _label;
         bool _pressed;
         float _emptyFlash;
@@ -47,13 +49,36 @@ namespace Shmup.Presentation.Battle
 
             // 우하단 — 가로 모드에서 오른손 엄지가 닿는 자리다. 기체 드래그는 화면
             // 어디서나 시작되므로 버튼 영역은 아래에서 드래그 대상에서 뺀다.
+            // 텍스트 사각형 대신 아이콘 버튼 — 게임에서 줍는 폭탄과 같은 그림이라
+            // 설명 없이 연결된다 ("이쁘게 누르기 편한 아이콘으로", 2026-07-31).
             var button = UiKit.CreateTouchButton(
-                canvas.transform, _font, "BOMB", 10,
-                new Vector2(1f, 0f), new Vector2(-14f, 14f), new Vector2(52f, 44f),
+                canvas.transform, _font, "", 9,
+                new Vector2(1f, 0f), new Vector2(-16f, 16f), new Vector2(64f, 64f),
                 OnTap, "BombButton", accent: true);
 
             _background = button.targetGraphic as Image;
             _label = button.GetComponentInChildren<Text>();
+            // 라벨은 하단 띠로 내려 아이콘 자리를 비운다
+            var labelRect = _label.rectTransform;
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = new Vector2(1f, 0.36f);
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+            _label.alignment = TextAnchor.MiddleCenter;
+
+            if (_icon != null)
+            {
+                var iconGo = new GameObject("Icon");
+                iconGo.transform.SetParent(button.transform, false);
+                var iconImage = iconGo.AddComponent<Image>();
+                iconImage.sprite = _icon;
+                iconImage.preserveAspect = true;
+                iconImage.raycastTarget = false;
+                var iconRect = iconImage.rectTransform;
+                iconRect.anchorMin = iconRect.anchorMax = new Vector2(0.5f, 0.62f);
+                iconRect.sizeDelta = new Vector2(28f, 28f);
+                _iconImage = iconImage;
+            }
 
             // 폭탄 버튼을 누르려다 기체가 끌려가면 최악이다 — 이 사각형은 드래그에서 뺀다.
             var touch = TouchControls.Instance;
@@ -91,7 +116,13 @@ namespace Shmup.Presentation.Battle
             if (stock != _shownStock)
             {
                 _shownStock = stock;
-                if (_label != null) _label.text = stock > 0 ? $"BOMB {stock}" : "BOMB 0";
+                if (_label != null) _label.text = $"x{stock}";
+                if (_iconImage != null)
+                {
+                    var ic = _iconImage.color;
+                    ic.a = stock > 0 ? 1f : 0.4f;   // 재고 없으면 아이콘도 죽인다
+                    _iconImage.color = ic;
+                }
             }
 
             if (_emptyFlash > 0f)

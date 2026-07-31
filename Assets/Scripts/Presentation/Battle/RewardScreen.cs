@@ -252,7 +252,7 @@ namespace Shmup.Presentation.Battle
                 case RewardEffectType.ShieldMaxDown:
                     return $"SHIELD CAP -{cost.Amount}";
                 case RewardEffectType.MoveSpeedDown:
-                    return $"ENGINE -{cost.Amount}";
+                    return $"SPEED -{cost.Amount}";
                 case RewardEffectType.CapsuleDropWeightDown:
                     return $"CAPSULE DROPS -{cost.Amount}";
                 case RewardEffectType.BombMaxDown:
@@ -339,7 +339,7 @@ namespace Shmup.Presentation.Battle
         {
             switch (slot)
             {
-                case PowerUpSlot.MainShot: return "MAIN SHOT";
+                case PowerUpSlot.MainShot: return "SHOT";
                 case PowerUpSlot.Missile: return "MISSILE";
                 case PowerUpSlot.Option: return "OPTION";
                 case PowerUpSlot.Shield: return "SHIELD";

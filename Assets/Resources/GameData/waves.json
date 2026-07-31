@@ -1232,6 +1232,11 @@
           "y": 0
         },
         {
+          "tick": 360,
+          "enemyId": "laser_sentry",
+          "y": 4.5
+        },
+        {
           "tick": 280,
           "enemyId": "interceptor_rush",
           "y": 3.5
@@ -1705,6 +1710,11 @@
           "tick": 175,
           "enemyId": "echo_wisp",
           "y": -4
+        },
+        {
+          "tick": 240,
+          "enemyId": "prism_beamer",
+          "y": 4.5
         },
         {
           "tick": 220,
@@ -2760,6 +2770,11 @@
           "tick": 520,
           "enemyId": "rust_skimmer",
           "y": 3
+        },
+        {
+          "tick": 400,
+          "enemyId": "prism_beamer",
+          "y": 4.25
         },
         {
           "tick": 580,

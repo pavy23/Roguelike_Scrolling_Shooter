@@ -914,6 +914,10 @@ namespace Shmup.EditorTools
             AddEnemySprite("pipe_rat", LoadExternalSprite("enemy_pipe_rat.png", "enemy_pipe_rat"));
             AddEnemySprite("phase_disc", LoadExternalSprite("enemy_phase_disc.png", "enemy_phase_disc"));
             AddEnemySprite("rift_blade", LoadExternalSprite("enemy_rift_blade.png", "enemy_rift_blade"));
+            // 레이저 적 2종 (REQ-075). PixelLab 500으로 아트 생성이 막혀 지금은
+            // 폴백(기본+틴트)이다 — art-input에 파일이 생기면 자동 반영된다.
+            AddEnemySprite("laser_sentry", LoadExternalSprite("enemy_laser_sentry.png", "enemy_laser_sentry"));
+            AddEnemySprite("prism_beamer", LoadExternalSprite("enemy_prism_beamer.png", "enemy_prism_beamer"));
             AddEnemySprite("hive_tentacle",
                 AssetDatabase.LoadAssetAtPath<Sprite>(HiveTentacleSpritePath));
             SetStringArray(director, "_enemySpritePrefixes", enemyTypePrefixes.ToArray());
@@ -1038,6 +1042,9 @@ namespace Shmup.EditorTools
             var touchControls = battleRoot.AddComponent<TouchControls>();
             SetReference(touchControls, "_font", uiFont);
             SetReference(touchControls, "_director", director);
+            // SELECT 버튼 아이콘 = 캡슐 — 게이지 활성화가 소비하는 그 아이템 (2026-07-31 UIUX)
+            SetReference(touchControls, "_selectIcon",
+                AssetDatabase.LoadAssetAtPath<Sprite>(CapsuleSpritePath));
 
             // 오류 오버레이: 원격 플레이(폰)에서는 콘솔을 볼 수 없다. C# 예외가 화면에
             // 보이지 않으면 "게임이 멈춘다"는 보고만 남고 원인을 추측할 수밖에 없다.
@@ -1050,6 +1057,8 @@ namespace Shmup.EditorTools
             var bombButton = battleRoot.AddComponent<BombButton>();
             SetReference(bombButton, "_font", uiFont);
             SetReference(bombButton, "_director", director);
+            SetReference(bombButton, "_icon",
+                AssetDatabase.LoadAssetAtPath<Sprite>(BombPickupSpritePath));
             SetReference(director, "_bombButton", bombButton);
 
             // 초대형 보스 파츠 오버레이 (REQ-035)
@@ -1524,61 +1533,19 @@ namespace Shmup.EditorTools
         // ── HUD ───────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// 파워업 게이지 HUD: 하단 중앙 슬롯 4개 + 슬롯당 레벨 핍 5개, 그리고 DevCheats 오버레이.
-        /// 좌표는 640×360 뷰(월드 40×22.5u) 안에서 픽셀(1/16u) 정렬로 배치한다.
+        /// 파워업 게이지 HUD (REQ-074에서 재작성). 슬롯 수·이름이 GameData 주도가 되어
+        /// 씬에 스프라이트를 박지 않는다 — PowerUpHudView가 게이지 관측 API를 순회하며
+        /// 런타임에 UGUI로 조립한다. 여기서는 컴포넌트와 폰트만 배선한다.
         /// </summary>
         static void CreateHud(BattleDirector director, Sprite slotSprite, Sprite pipSprite)
         {
-            const float px = 1f / AssetsPPU;
-            const float slotSpacing = 24 * px;       // 슬롯 중심 간격 1.5u
-            const float frameCenterY = -(RefResolutionY / 2f / AssetsPPU) + 10 * px; // 화면 하단 + 여백 4px + 프레임 절반 6px
-            const float pipRowY = frameCenterY + 9 * px;
-            const float pipSpacing = 4 * px;
-
             var hudRoot = new GameObject("Hud");
-
-            var slotFrames = new SpriteRenderer[PowerUpHudView.SlotCount];
-            var pips = new SpriteRenderer[PowerUpHudView.SlotCount * PowerUpHudView.MaxPipsPerSlot];
-
-            for (int slot = 0; slot < PowerUpHudView.SlotCount; slot++)
-            {
-                float x = (slot - (PowerUpHudView.SlotCount - 1) / 2f) * slotSpacing;
-
-                var frame = new GameObject($"Slot{slot}");
-                frame.transform.SetParent(hudRoot.transform, false);
-                frame.transform.localPosition = new Vector3(x, frameCenterY, 0f);
-                var frameRenderer = frame.AddComponent<SpriteRenderer>();
-                frameRenderer.sprite = slotSprite;
-                frameRenderer.sortingOrder = 100;
-                slotFrames[slot] = frameRenderer;
-
-                // 슬롯 글자 아이콘 (S/M/O/B) — 프레임 중앙, 상태와 무관한 정적 표시
-                var icon = new GameObject($"Slot{slot}Icon");
-                icon.transform.SetParent(frame.transform, false);
-                var iconRenderer = icon.AddComponent<SpriteRenderer>();
-                iconRenderer.sprite = WritePixelSprite(
-                    $"{SpriteDir}/hud_icon_{slot}.png", HudIconPixels[slot], HudPalette);
-                iconRenderer.sortingOrder = 102;
-                iconRenderer.color = new Color32(0xC8, 0xD4, 0xE8, 0xFF);
-
-                for (int pip = 0; pip < PowerUpHudView.MaxPipsPerSlot; pip++)
-                {
-                    float pipX = x + (pip - (PowerUpHudView.MaxPipsPerSlot - 1) / 2f) * pipSpacing;
-
-                    var pipGo = new GameObject($"Slot{slot}Pip{pip}");
-                    pipGo.transform.SetParent(hudRoot.transform, false);
-                    pipGo.transform.localPosition = new Vector3(pipX, pipRowY, 0f);
-                    var pipRenderer = pipGo.AddComponent<SpriteRenderer>();
-                    pipRenderer.sprite = pipSprite;
-                    pipRenderer.sortingOrder = 101;
-                    pips[slot * PowerUpHudView.MaxPipsPerSlot + pip] = pipRenderer;
-                }
-            }
 
             var hudView = hudRoot.AddComponent<PowerUpHudView>();
             SetReference(hudView, "_director", director);
-            SetReferenceArray(hudView, "_slotFrames", slotFrames);
-            SetReferenceArray(hudView, "_pips", pips);
+            // 슬롯 풀네임 + LV/MAX 라벨과 실드 잔량 숫자용 (2026-07-31 피드백 1·3)
+            SetReference(hudView, "_font",
+                AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Galmuri9.ttf"));
 
             var cheats = hudRoot.AddComponent<DevCheats>();
             SetReference(cheats, "_director", director);
