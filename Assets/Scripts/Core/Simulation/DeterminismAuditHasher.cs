@@ -255,6 +255,19 @@ namespace Shmup.Core.Simulation
                 FoldInt32(phase.DurationTicks);
                 FoldInt32(phase.TelegraphTicks);
                 FoldInt32((int)phase.FirePattern);
+                FoldInt32((int)phase.ProjectileKind);
+                FoldInt32(phase.SplitAfterTicks);
+                FoldInt32(phase.MineTravelTicks);
+                FoldInt32(phase.MineTelegraphTicks);
+                FoldInt32(phase.MineAccelerationNumerator);
+                FoldInt32(phase.MineAccelerationDenominator);
+                FoldInt32((int)phase.SignaturePattern);
+                FoldString(phase.SignatureSpawnEnemyId);
+                FoldInt32(phase.SignatureObstacleHp);
+                FoldInt32(phase.SignatureGravityNumerator);
+                FoldInt32(phase.SignatureGravityDenominator);
+                FoldInt32(phase.SignatureHomingTurnLutSlotsPerTick);
+                FoldLaserDefinition(phase.LaserAttack);
             }
 
             FoldInt32(plan.BossParts.Count);
@@ -330,24 +343,28 @@ namespace Shmup.Core.Simulation
                     FoldInt32(obstacle.Hp);
                     LaserAttackDefinition laser =
                         obstacle.LaserAttack;
-                    FoldBool(laser != null);
-                    if (laser != null)
-                    {
-                        FoldInt32(laser.CycleIntervalTicks);
-                        FoldInt32(laser.TelegraphTicks);
-                        FoldInt32(laser.FiringTicks);
-                        FoldInt32(laser.SustainTicks);
-                        FoldInt32(laser.DissipateTicks);
-                        FoldInt32(laser.StartOffsetX);
-                        FoldInt32(laser.StartOffsetY);
-                        FoldInt32(laser.EndOffsetX);
-                        FoldInt32(laser.EndOffsetY);
-                        FoldInt32(laser.ThinHalfWidth);
-                        FoldInt32(laser.FullHalfWidth);
-                        FoldInt32(laser.Damage);
-                    }
+                    FoldLaserDefinition(laser);
                 }
             }
+        }
+
+        void FoldLaserDefinition(LaserAttackDefinition laser)
+        {
+            FoldBool(laser != null);
+            if (laser == null)
+                return;
+            FoldInt32(laser.CycleIntervalTicks);
+            FoldInt32(laser.TelegraphTicks);
+            FoldInt32(laser.FiringTicks);
+            FoldInt32(laser.SustainTicks);
+            FoldInt32(laser.DissipateTicks);
+            FoldInt32(laser.StartOffsetX);
+            FoldInt32(laser.StartOffsetY);
+            FoldInt32(laser.EndOffsetX);
+            FoldInt32(laser.EndOffsetY);
+            FoldInt32(laser.ThinHalfWidth);
+            FoldInt32(laser.FullHalfWidth);
+            FoldInt32(laser.Damage);
         }
 
         void FoldRewards(IReadOnlyList<RewardOption> rewards)
@@ -530,6 +547,8 @@ namespace Shmup.Core.Simulation
                 FoldInt32(bullet.Y);
                 FoldInt32(bullet.AgeTicks);
                 FoldInt32(bullet.DamagePercent);
+                FoldInt32(bullet.CollisionScalePercent);
+                FoldInt32((int)bullet.SignaturePattern);
             }
 
             FoldInt32(battle.Options.Count);
@@ -610,6 +629,9 @@ namespace Shmup.Core.Simulation
                 FoldInt32(simEvent.Y);
                 FoldInt32(simEvent.Arg);
                 FoldString(simEvent.PartId);
+                FoldInt32((int)simEvent.BulletKind);
+                FoldInt32((int)simEvent.SignaturePattern);
+                FoldInt32((int)simEvent.TelegraphKind);
             }
 
             FoldBool(battle.BossActive);

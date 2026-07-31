@@ -116,6 +116,29 @@ namespace Shmup.Core.Simulation
             int y,
             int arg,
             string partId)
+            : this(
+                type,
+                entityId,
+                x,
+                y,
+                arg,
+                partId,
+                BulletKind.MainShot,
+                BossSignaturePattern.None,
+                BossTelegraphKind.None)
+        {
+        }
+
+        public SimEvent(
+            SimEventType type,
+            int entityId,
+            int x,
+            int y,
+            int arg,
+            string partId,
+            BulletKind bulletKind,
+            BossSignaturePattern signaturePattern,
+            BossTelegraphKind telegraphKind)
         {
             Type = type;
             EntityId = entityId;
@@ -123,6 +146,9 @@ namespace Shmup.Core.Simulation
             Y = y;
             Arg = arg;
             PartId = partId;
+            BulletKind = bulletKind;
+            SignaturePattern = signaturePattern;
+            TelegraphKind = telegraphKind;
         }
 
         public SimEventType Type { get; }
@@ -140,6 +166,10 @@ namespace Shmup.Core.Simulation
         /// null for all legacy events.
         /// </summary>
         public string PartId { get; }
+        /// <summary>Projectile vocabulary for boss telegraphs; legacy events use MainShot.</summary>
+        public BulletKind BulletKind { get; }
+        public BossSignaturePattern SignaturePattern { get; }
+        public BossTelegraphKind TelegraphKind { get; }
     }
 
     /// <summary>
@@ -170,7 +200,23 @@ namespace Shmup.Core.Simulation
     }
 
     public enum BulletFaction { Player = 0, Enemy = 1 }
-    public enum BulletKind { MainShot = 0, Missile = 1, EnemyShot = 2 }
+    public enum BulletKind
+    {
+        MainShot = 0,
+        Missile = 1,
+        EnemyShot = 2,
+        Heavy = 3,
+        Splitter = 4,
+        Mine = 5,
+        BossLaser = 6
+    }
+
+    public enum BossTelegraphKind
+    {
+        None = 0,
+        Barrage = 1,
+        Laser = 2
+    }
 
     [Flags]
     public enum BattleModifier
@@ -462,11 +508,37 @@ namespace Shmup.Core.Simulation
             int y,
             int ageTicks,
             int damagePercent)
+            : this(
+                id,
+                faction,
+                kind,
+                x,
+                y,
+                ageTicks,
+                damagePercent,
+                100,
+                BossSignaturePattern.None)
+        {
+        }
+
+        public BulletState(
+            int id,
+            BulletFaction faction,
+            BulletKind kind,
+            int x,
+            int y,
+            int ageTicks,
+            int damagePercent,
+            int collisionScalePercent,
+            BossSignaturePattern signaturePattern)
         {
             if (ageTicks < 0)
                 throw new ArgumentOutOfRangeException(nameof(ageTicks));
             if (damagePercent < 0)
                 throw new ArgumentOutOfRangeException(nameof(damagePercent));
+            if (collisionScalePercent < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(collisionScalePercent));
             Id = id;
             Faction = faction;
             Kind = kind;
@@ -474,6 +546,8 @@ namespace Shmup.Core.Simulation
             Y = y;
             AgeTicks = ageTicks;
             DamagePercent = damagePercent;
+            CollisionScalePercent = collisionScalePercent;
+            SignaturePattern = signaturePattern;
         }
 
         public int Id { get; }
@@ -484,6 +558,8 @@ namespace Shmup.Core.Simulation
         public int AgeTicks { get; }
         /// <summary>Percent of configured damage dealt by this projectile.</summary>
         public int DamagePercent { get; }
+        public int CollisionScalePercent { get; }
+        public BossSignaturePattern SignaturePattern { get; }
     }
 
     /// <summary>Observable option position in integer simulation subunits.</summary>
@@ -589,7 +665,8 @@ namespace Shmup.Core.Simulation
     {
         Enemy = 0,
         Terrain = 1,
-        Player = 2
+        Player = 2,
+        Boss = 3
     }
 
     public enum LaserPhase
@@ -1297,6 +1374,13 @@ namespace Shmup.Core.Simulation
         readonly List<int> _bulletRicochetUsed;
         readonly List<int> _bulletHomingTargetIds;
         readonly List<byte> _bulletGrazeScored;
+        readonly List<int> _bulletSplitAfterTicks;
+        readonly List<int> _bulletMineTravelTicks;
+        readonly List<int> _bulletMineTelegraphTicks;
+        readonly List<int> _bulletAccelerationXNumerators;
+        readonly List<int> _bulletAccelerationYNumerators;
+        readonly List<int> _bulletAccelerationDenominators;
+        readonly List<int> _bulletHomingTurnLutSlotsPerTick;
         readonly int[] _bulletHitRecordBulletIds;
         readonly int[] _bulletHitRecordEnemyIds;
         readonly ReadOnlyCollection<BulletState> _readOnlyBullets;
@@ -1315,6 +1399,13 @@ namespace Shmup.Core.Simulation
         readonly List<ObstacleState> _obstacles;
         readonly List<int> _obstacleAges;
         readonly List<LaserAttackDefinition> _obstacleLaserAttacks;
+        readonly List<long> _obstacleMotionXRemainders;
+        readonly List<long> _obstacleMotionYRemainders;
+        readonly List<long> _obstacleVelocityXNumerators;
+        readonly List<long> _obstacleVelocityYNumerators;
+        readonly List<long> _obstacleVelocityDenominators;
+        readonly List<long> _obstacleGravityNumerators;
+        readonly List<long> _obstacleGravityDenominators;
         readonly ReadOnlyCollection<ObstacleState> _readOnlyObstacles;
         readonly List<CapsuleState> _capsules;
         readonly List<long> _capsuleMagnetXRemainders;
@@ -1396,6 +1487,8 @@ namespace Shmup.Core.Simulation
         const int BossHoverPeriodShift = 2;                            // age >> 2 → 약 4.3초 주기
         const int SpreadStepLutSlots = 2;                              // n-way 간격 = 11.25°
         const int SpiralStepLutSlots = 2;
+        const int SplitterStepLutSlots = 4;
+        const int HeavyCollisionScalePercent = 250;
 
         readonly SimEvent[] _events;
         readonly int[] _enemyScanIds;
@@ -1794,6 +1887,7 @@ namespace Shmup.Core.Simulation
             }
             _bossUsesTimedPattern =
                 ResolveTimedBossPattern(_bossPhases);
+            ValidateBossPhaseRuntimeData();
 
             _bossPartStates =
                 new BossPartState[_bossPartDefinitions.Count];
@@ -1925,6 +2019,13 @@ namespace Shmup.Core.Simulation
             _bulletRicochetUsed = new List<int>(bulletCapacity);
             _bulletHomingTargetIds = new List<int>(bulletCapacity);
             _bulletGrazeScored = new List<byte>(bulletCapacity);
+            _bulletSplitAfterTicks = new List<int>(bulletCapacity);
+            _bulletMineTravelTicks = new List<int>(bulletCapacity);
+            _bulletMineTelegraphTicks = new List<int>(bulletCapacity);
+            _bulletAccelerationXNumerators = new List<int>(bulletCapacity);
+            _bulletAccelerationYNumerators = new List<int>(bulletCapacity);
+            _bulletAccelerationDenominators = new List<int>(bulletCapacity);
+            _bulletHomingTurnLutSlotsPerTick = new List<int>(bulletCapacity);
             int maximumPrimaryPierce =
                 GetMaximumPrimaryPierce(
                     content,
@@ -1975,6 +2076,13 @@ namespace Shmup.Core.Simulation
             _obstacleAges = new List<int>(_maxObstacles);
             _obstacleLaserAttacks =
                 new List<LaserAttackDefinition>(_maxObstacles);
+            _obstacleMotionXRemainders = new List<long>(_maxObstacles);
+            _obstacleMotionYRemainders = new List<long>(_maxObstacles);
+            _obstacleVelocityXNumerators = new List<long>(_maxObstacles);
+            _obstacleVelocityYNumerators = new List<long>(_maxObstacles);
+            _obstacleVelocityDenominators = new List<long>(_maxObstacles);
+            _obstacleGravityNumerators = new List<long>(_maxObstacles);
+            _obstacleGravityDenominators = new List<long>(_maxObstacles);
             _readOnlyObstacles = _obstacles.AsReadOnly();
             _capsules = new List<CapsuleState>(spawnCapacity);
             _capsuleMagnetXRemainders = new List<long>(spawnCapacity);
@@ -2177,6 +2285,21 @@ namespace Shmup.Core.Simulation
             }
         }
 
+        void ValidateBossPhaseRuntimeData()
+        {
+            for (int i = 0; i < _bossPhases.Count; i++)
+            {
+                Generation.BossPhase phase = _bossPhases[i];
+                if (phase.SignaturePattern == BossSignaturePattern.Brood
+                    && _battleContent.FindEnemy(
+                        phase.SignatureSpawnEnemyId) == null)
+                    throw new ArgumentException(
+                        $"Boss phase {i} references unknown brood enemy "
+                        + $"'{phase.SignatureSpawnEnemyId}'.",
+                        nameof(_battleContent));
+            }
+        }
+
         int SumBossPartMaxHp()
         {
             int total = 0;
@@ -2231,6 +2354,7 @@ namespace Shmup.Core.Simulation
             _bombHeld = input.ActivateBomb;
             AdvanceLasers();
             UpdatePlayerBeam(input.Fire);
+            UpdateEnemyProjectileBehaviors();
             AdvanceBullets();
             AdvanceEnemies();
             AdvanceObstacles();
@@ -2320,6 +2444,31 @@ namespace Shmup.Core.Simulation
                 throw new InvalidOperationException(
                     "The preallocated simulation event buffer is exhausted.");
             _events[_eventCount++] = new SimEvent(type, entityId, x, y, arg);
+        }
+
+        void EmitBossAttackTelegraph(Generation.BossPhase phase)
+        {
+            if (_eventCount == _events.Length)
+                throw new InvalidOperationException(
+                    "The preallocated simulation event buffer is exhausted.");
+            BulletKind kind = ToBulletKind(phase.ProjectileKind);
+            BossTelegraphKind telegraphKind =
+                kind == BulletKind.BossLaser
+                || phase.SignaturePattern == BossSignaturePattern.LaserGrid
+                || phase.SignaturePattern == BossSignaturePattern.Lightning
+                || phase.SignaturePattern == BossSignaturePattern.PrismCore
+                    ? BossTelegraphKind.Laser
+                    : BossTelegraphKind.Barrage;
+            _events[_eventCount++] = new SimEvent(
+                SimEventType.BossAttackTelegraphed,
+                _bossId,
+                _bossX,
+                _bossY,
+                _bossPhase,
+                null,
+                kind,
+                phase.SignaturePattern,
+                telegraphKind);
         }
 
         static void IncrementSaturated(ref long counter)
@@ -3306,6 +3455,199 @@ namespace Shmup.Core.Simulation
             return result;
         }
 
+        void UpdateEnemyProjectileBehaviors()
+        {
+            for (int index = _bullets.Count - 1; index >= 0; index--)
+            {
+                BulletState bullet = _bullets[index];
+                if (bullet.Faction != BulletFaction.Enemy)
+                    continue;
+                if (bullet.Kind == BulletKind.Splitter
+                    && bullet.AgeTicks == _bulletSplitAfterTicks[index])
+                {
+                    SplitEnemyProjectile(index, in bullet);
+                    continue;
+                }
+                if (bullet.Kind == BulletKind.Mine)
+                    UpdateMineProjectile(index, in bullet);
+                int turn = _bulletHomingTurnLutSlotsPerTick[index];
+                if (turn > 0)
+                    TurnEnemyProjectileTowardPlayer(index, in bullet, turn);
+            }
+        }
+
+        void SplitEnemyProjectile(int index, in BulletState parent)
+        {
+            long velocityX = _bulletVelXNumerators[index];
+            long velocityY = _bulletVelYNumerators[index];
+            long denominator = _bulletVelDenominators[index];
+            BossSignaturePattern signature = parent.SignaturePattern;
+            RemoveBulletAt(index);
+            int available = Math.Max(
+                0,
+                _maxEnemyBullets - CountEnemyBullets());
+            int children = Math.Min(3, available);
+            if (children < 3)
+                EmitEvent(
+                    SimEventType.EnemyBulletCapacityExceeded,
+                    _bossId,
+                    parent.X,
+                    parent.Y,
+                    _maxEnemyBullets);
+            for (int child = 0; child < children; child++)
+            {
+                int rotation = (child - 1) * SplitterStepLutSlots;
+                RotateVector(
+                    velocityX,
+                    velocityY,
+                    rotation,
+                    out long childX,
+                    out long childY);
+                AddExactEnemyBullet(
+                    BulletKind.EnemyShot,
+                    signature,
+                    parent.X,
+                    parent.Y,
+                    childX,
+                    childY,
+                    denominator,
+                    100);
+            }
+        }
+
+        void UpdateMineProjectile(int index, in BulletState mine)
+        {
+            int travelTicks = _bulletMineTravelTicks[index];
+            int telegraphTicks = _bulletMineTelegraphTicks[index];
+            if (mine.AgeTicks == travelTicks)
+            {
+                SetBulletVelocity(index, 0, 0, 1);
+                return;
+            }
+            if (mine.AgeTicks < travelTicks + telegraphTicks)
+                return;
+            if (mine.AgeTicks == travelTicks + telegraphTicks)
+            {
+                int acceleration = _bulletAccelerationXNumerators[index];
+                int accelerationDenominator =
+                    _bulletAccelerationDenominators[index];
+                long dx = (long)PlayerX - mine.X;
+                long dy = (long)PlayerY - mine.Y;
+                ScaleVectorForProducts(ref dx, ref dy);
+                long length = IntegerSqrt(dx * dx + dy * dy);
+                if (length == 0)
+                {
+                    dx = -1;
+                    length = 1;
+                }
+                long denominator = accelerationDenominator * length;
+                SetBulletAcceleration(
+                    index,
+                    acceleration * dx,
+                    acceleration * dy,
+                    denominator);
+            }
+            SetBulletVelocity(
+                index,
+                (long)_bulletVelXNumerators[index]
+                    + _bulletAccelerationXNumerators[index],
+                (long)_bulletVelYNumerators[index]
+                    + _bulletAccelerationYNumerators[index],
+                _bulletVelDenominators[index]);
+        }
+
+        void SetBulletAcceleration(
+            int index,
+            long x,
+            long y,
+            long denominator)
+        {
+            while (denominator > int.MaxValue
+                || Math.Abs(x) > int.MaxValue
+                || Math.Abs(y) > int.MaxValue)
+            {
+                denominator >>= 1;
+                x >>= 1;
+                y >>= 1;
+            }
+            if (denominator < 1)
+                denominator = 1;
+            _bulletAccelerationXNumerators[index] = (int)x;
+            _bulletAccelerationYNumerators[index] = (int)y;
+            _bulletAccelerationDenominators[index] = (int)denominator;
+            SetBulletVelocity(index, 0, 0, denominator);
+        }
+
+        void TurnEnemyProjectileTowardPlayer(
+            int index,
+            in BulletState bullet,
+            int turn)
+        {
+            long desiredX = (long)PlayerX - bullet.X;
+            long desiredY = (long)PlayerY - bullet.Y;
+            ScaleVectorForProducts(ref desiredX, ref desiredY);
+            long velocityX = _bulletVelXNumerators[index];
+            long velocityY = _bulletVelYNumerators[index];
+            long cross = velocityX * desiredY - velocityY * desiredX;
+            if (cross == 0)
+                return;
+            int rotation = cross > 0 ? turn : -turn;
+            RotateVector(
+                velocityX,
+                velocityY,
+                rotation,
+                out long turnedX,
+                out long turnedY);
+            long currentDot = velocityX * desiredX + velocityY * desiredY;
+            long turnedDot = turnedX * desiredX + turnedY * desiredY;
+            if (turnedDot > currentDot)
+                SetBulletVelocity(
+                    index,
+                    turnedX,
+                    turnedY,
+                    _bulletVelDenominators[index]);
+        }
+
+        void AddExactEnemyBullet(
+            BulletKind kind,
+            BossSignaturePattern signature,
+            int x,
+            int y,
+            long velocityX,
+            long velocityY,
+            long denominator,
+            int collisionScalePercent)
+        {
+            if (_nextBulletId == int.MaxValue)
+                throw new InvalidOperationException(
+                    "The bullet id counter is exhausted.");
+            _bullets.Add(new BulletState(
+                _nextBulletId++,
+                BulletFaction.Enemy,
+                kind,
+                x,
+                y,
+                0,
+                100,
+                collisionScalePercent,
+                signature));
+            _bulletXRemainders.Add(0);
+            _bulletYRemainders.Add(0);
+            _bulletVelXNumerators.Add(0);
+            _bulletVelYNumerators.Add(0);
+            _bulletVelDenominators.Add(1);
+            _bulletPiercesRemaining.Add(0);
+            _bulletRicochetUsed.Add(0);
+            _bulletHomingTargetIds.Add(0);
+            _bulletGrazeScored.Add(0);
+            AddDefaultEnemyProjectileBehavior();
+            SetBulletVelocity(
+                _bullets.Count - 1,
+                velocityX,
+                velocityY,
+                denominator);
+        }
+
         void AdvanceBullets()
         {
             int despawnY = SimSpace.PlayfieldHalfHeightSubUnits + SimSpace.DespawnMarginSubUnits;
@@ -3379,7 +3721,9 @@ namespace Shmup.Core.Simulation
                     (int)nextX,
                     nextY,
                     nextAge,
-                    bullet.DamagePercent);
+                    bullet.DamagePercent,
+                    bullet.CollisionScalePercent,
+                    bullet.SignaturePattern);
                 _bulletXRemainders[write] = nextXRemainder;
                 _bulletYRemainders[write] = nextYRemainder;
                 _bulletVelXNumerators[write] = _bulletVelXNumerators[read];
@@ -3389,6 +3733,17 @@ namespace Shmup.Core.Simulation
                 _bulletRicochetUsed[write] = _bulletRicochetUsed[read];
                 _bulletHomingTargetIds[write] = _bulletHomingTargetIds[read];
                 _bulletGrazeScored[write] = _bulletGrazeScored[read];
+                _bulletSplitAfterTicks[write] = _bulletSplitAfterTicks[read];
+                _bulletMineTravelTicks[write] = _bulletMineTravelTicks[read];
+                _bulletMineTelegraphTicks[write] = _bulletMineTelegraphTicks[read];
+                _bulletAccelerationXNumerators[write] =
+                    _bulletAccelerationXNumerators[read];
+                _bulletAccelerationYNumerators[write] =
+                    _bulletAccelerationYNumerators[read];
+                _bulletAccelerationDenominators[write] =
+                    _bulletAccelerationDenominators[read];
+                _bulletHomingTurnLutSlotsPerTick[write] =
+                    _bulletHomingTurnLutSlotsPerTick[read];
                 write++;
             }
 
@@ -3405,6 +3760,13 @@ namespace Shmup.Core.Simulation
                 _bulletRicochetUsed.RemoveRange(write, removed);
                 _bulletHomingTargetIds.RemoveRange(write, removed);
                 _bulletGrazeScored.RemoveRange(write, removed);
+                _bulletSplitAfterTicks.RemoveRange(write, removed);
+                _bulletMineTravelTicks.RemoveRange(write, removed);
+                _bulletMineTelegraphTicks.RemoveRange(write, removed);
+                _bulletAccelerationXNumerators.RemoveRange(write, removed);
+                _bulletAccelerationYNumerators.RemoveRange(write, removed);
+                _bulletAccelerationDenominators.RemoveRange(write, removed);
+                _bulletHomingTurnLutSlotsPerTick.RemoveRange(write, removed);
             }
         }
 
@@ -3665,6 +4027,7 @@ namespace Shmup.Core.Simulation
                     obstacle.Hp));
                 _obstacleAges.Add(0);
                 _obstacleLaserAttacks.Add(obstacle.LaserAttack);
+                AddDefaultObstacleMotion();
                 if (obstacle.LaserAttack != null)
                     TryStartLaser(
                         LaserSourceKind.Terrain,
@@ -3868,12 +4231,7 @@ namespace Shmup.Core.Simulation
             if (!_bossPhaseTelegraphPending)
                 return;
             _bossPhaseTelegraphPending = false;
-            EmitEvent(
-                SimEventType.BossAttackTelegraphed,
-                _bossId,
-                _bossX,
-                _bossY,
-                _bossPhase);
+            EmitBossAttackTelegraph(_bossPhases[_bossPhase]);
         }
 
         void UpdateBossPhaseFire(Generation.BossPhase phase)
@@ -3887,25 +4245,38 @@ namespace Shmup.Core.Simulation
             {
                 if (_bossBurstAwaitingVolley)
                 {
-                    FireAimedBossVolley(phase);
+                    if (phase.ProjectileKind == BossProjectileKind.BossLaser)
+                        TryStartLaser(
+                            LaserSourceKind.Boss,
+                            _bossId,
+                            phase.LaserAttack,
+                            _bossX,
+                            _bossY);
+                    else
+                        FireAimedBossVolley(phase);
+                    FireBossSignature(phase);
                     _bossPatternVolleyIndex++;
                     _bossBurstAwaitingVolley = false;
                     _bossFireCooldown = phase.FireIntervalTicks;
                     return;
                 }
 
-                EmitEvent(
-                    SimEventType.BossAttackTelegraphed,
-                    _bossId,
-                    _bossX,
-                    _bossY,
-                    _bossPhase);
+                EmitBossAttackTelegraph(phase);
                 _bossBurstAwaitingVolley = true;
                 _bossFireCooldown = phase.TelegraphTicks;
                 return;
             }
 
-            switch (phase.FirePattern)
+            if (phase.ProjectileKind == BossProjectileKind.BossLaser)
+            {
+                TryStartLaser(
+                    LaserSourceKind.Boss,
+                    _bossId,
+                    phase.LaserAttack,
+                    _bossX,
+                    _bossY);
+            }
+            else switch (phase.FirePattern)
             {
                 case BossFirePattern.Aimed:
                     FireAimedBossVolley(phase);
@@ -3927,6 +4298,7 @@ namespace Shmup.Core.Simulation
                     throw new InvalidOperationException(
                         "Unknown boss fire pattern.");
             }
+            FireBossSignature(phase);
             _bossPatternVolleyIndex++;
             _bossFireCooldown = phase.FireIntervalTicks;
         }
@@ -3948,7 +4320,8 @@ namespace Shmup.Core.Simulation
                     PlayerY,
                     phase.BulletSpeedNumerator,
                     phase.BulletSpeedDenominator,
-                    rotation);
+                    rotation,
+                    phase);
             }
         }
 
@@ -3972,7 +4345,8 @@ namespace Shmup.Core.Simulation
                     _bossY,
                     phase.BulletSpeedNumerator,
                     phase.BulletSpeedDenominator,
-                    rotation);
+                    rotation,
+                    phase);
             }
         }
 
@@ -3998,9 +4372,176 @@ namespace Shmup.Core.Simulation
                     y,
                     phase.BulletSpeedNumerator,
                     phase.BulletSpeedDenominator,
-                    0);
+                    0,
+                    phase);
                 fired++;
             }
+        }
+
+        void FireBossSignature(Generation.BossPhase phase)
+        {
+            switch (phase.SignaturePattern)
+            {
+                case BossSignaturePattern.None:
+                    return;
+                case BossSignaturePattern.ScrapThrow:
+                    TrySpawnBossScrap(phase);
+                    return;
+                case BossSignaturePattern.Brood:
+                    SpawnBossEnemy(
+                        _battleContent.FindEnemy(phase.SignatureSpawnEnemyId),
+                        _bossX,
+                        _bossY);
+                    return;
+                case BossSignaturePattern.LaserGrid:
+                    TryStartLaser(
+                        LaserSourceKind.Boss,
+                        _bossId,
+                        phase.LaserAttack,
+                        _bossX,
+                        _bossY);
+                    TryStartLaser(
+                        LaserSourceKind.Boss,
+                        _bossId,
+                        MirrorLaserVertically(phase.LaserAttack),
+                        _bossX,
+                        _bossY);
+                    return;
+                case BossSignaturePattern.Lightning:
+                    TryStartLaser(
+                        LaserSourceKind.Boss,
+                        _bossId,
+                        OffsetLaserX(
+                            phase.LaserAttack,
+                            PlayerX - _bossX),
+                        _bossX,
+                        _bossY);
+                    return;
+                case BossSignaturePattern.PrismCore:
+                    FirePrismLasers(phase.LaserAttack);
+                    return;
+                default:
+                    throw new InvalidOperationException(
+                        "Unknown boss signature pattern.");
+            }
+        }
+
+        void FirePrismLasers(LaserAttackDefinition source)
+        {
+            int rotation = (_bossPatternVolleyIndex * SpiralStepLutSlots)
+                % SineLut.Length;
+            RotateVector(
+                source.EndOffsetX - source.StartOffsetX,
+                source.EndOffsetY - source.StartOffsetY,
+                rotation,
+                out long endX,
+                out long endY);
+            LaserAttackDefinition first = CloneLaser(
+                source,
+                source.StartOffsetX,
+                source.StartOffsetY,
+                SaturateToInt((long)source.StartOffsetX + endX),
+                SaturateToInt((long)source.StartOffsetY + endY));
+            LaserAttackDefinition second = CloneLaser(
+                source,
+                source.StartOffsetX,
+                source.StartOffsetY,
+                SaturateToInt((long)source.StartOffsetX - endX),
+                SaturateToInt((long)source.StartOffsetY - endY));
+            TryStartLaser(
+                LaserSourceKind.Boss,
+                _bossId,
+                first,
+                _bossX,
+                _bossY);
+            TryStartLaser(
+                LaserSourceKind.Boss,
+                _bossId,
+                second,
+                _bossX,
+                _bossY);
+        }
+
+        static LaserAttackDefinition MirrorLaserVertically(
+            LaserAttackDefinition source)
+        {
+            return CloneLaser(
+                source,
+                source.StartOffsetX,
+                -source.StartOffsetY,
+                source.EndOffsetX,
+                -source.EndOffsetY);
+        }
+
+        static LaserAttackDefinition OffsetLaserX(
+            LaserAttackDefinition source,
+            int offsetX)
+        {
+            return CloneLaser(
+                source,
+                SaturateToInt((long)source.StartOffsetX + offsetX),
+                source.StartOffsetY,
+                SaturateToInt((long)source.EndOffsetX + offsetX),
+                source.EndOffsetY);
+        }
+
+        static LaserAttackDefinition CloneLaser(
+            LaserAttackDefinition source,
+            int startX,
+            int startY,
+            int endX,
+            int endY)
+        {
+            return new LaserAttackDefinition(
+                source.CycleIntervalTicks,
+                source.TelegraphTicks,
+                source.FiringTicks,
+                source.SustainTicks,
+                source.DissipateTicks,
+                startX,
+                startY,
+                endX,
+                endY,
+                source.ThinHalfWidth,
+                source.FullHalfWidth,
+                source.Damage);
+        }
+
+        void TrySpawnBossScrap(Generation.BossPhase phase)
+        {
+            if (_obstacles.Count >= _maxObstacles)
+            {
+                EmitEvent(
+                    SimEventType.ObstacleCapacityExceeded,
+                    _bossId,
+                    _bossX,
+                    _bossY,
+                    _maxObstacles);
+                return;
+            }
+            if (_nextObstacleId == int.MaxValue)
+                throw new InvalidOperationException(
+                    "The obstacle id counter is exhausted.");
+            _obstacles.Add(new ObstacleState(
+                _nextObstacleId++,
+                ObstacleType.Breakable,
+                _bossX,
+                _bossY,
+                phase.SignatureObstacleHp));
+            _obstacleAges.Add(0);
+            _obstacleLaserAttacks.Add(null);
+            _obstacleMotionXRemainders.Add(0);
+            _obstacleMotionYRemainders.Add(0);
+            _obstacleVelocityXNumerators.Add(
+                -phase.BulletSpeedNumerator);
+            _obstacleVelocityYNumerators.Add(
+                phase.BulletSpeedNumerator);
+            _obstacleVelocityDenominators.Add(
+                phase.BulletSpeedDenominator);
+            _obstacleGravityNumerators.Add(
+                phase.SignatureGravityNumerator);
+            _obstacleGravityDenominators.Add(
+                phase.SignatureGravityDenominator);
         }
 
         int GetBossVolleyShotCount(int requested)
@@ -4800,9 +5341,15 @@ namespace Shmup.Core.Simulation
                 }
 
                 // A hit always wins over graze on the same tick.
+                int bulletHalfWidth = ScaleProjectileHitbox(
+                    _enemyBulletHalfWidth,
+                    bullet.CollisionScalePercent);
+                int bulletHalfHeight = ScaleProjectileHitbox(
+                    _enemyBulletHalfHeight,
+                    bullet.CollisionScalePercent);
                 if (Intersects(
                         PlayerX, PlayerY, _playerHalfWidth, _playerHalfHeight,
-                        bullet.X, bullet.Y, _enemyBulletHalfWidth, _enemyBulletHalfHeight))
+                        bullet.X, bullet.Y, bulletHalfWidth, bulletHalfHeight))
                 {
                     RemoveBulletAt(index);
                     ApplyPlayerHit(_enemyBulletDamage);
@@ -5052,8 +5599,36 @@ namespace Shmup.Core.Simulation
             while (index < _obstacles.Count)
             {
                 ObstacleState obstacle = _obstacles[index];
-                long nextX = obstacle.X - scrollDelta;
-                if (nextX < _enemyDespawnX)
+                long velocityDenominator =
+                    _obstacleVelocityDenominators[index];
+                long gravityDenominator =
+                    _obstacleGravityDenominators[index];
+                long gcd = GreatestCommonDivisor(
+                    velocityDenominator,
+                    gravityDenominator);
+                long commonDenominator = checked(
+                    velocityDenominator / gcd * gravityDenominator);
+                long velocityScale = commonDenominator / velocityDenominator;
+                long gravityScale = commonDenominator / gravityDenominator;
+                long velocityX = checked(
+                    _obstacleVelocityXNumerators[index] * velocityScale);
+                long velocityY = checked(
+                    _obstacleVelocityYNumerators[index] * velocityScale
+                    - _obstacleGravityNumerators[index] * gravityScale);
+                long accumulatedX = checked(
+                    _obstacleMotionXRemainders[index] * velocityScale
+                    + velocityX);
+                long accumulatedY = checked(
+                    _obstacleMotionYRemainders[index] * velocityScale
+                    + velocityY);
+                long nextX = obstacle.X
+                    - scrollDelta
+                    + accumulatedX / commonDenominator;
+                long nextY = obstacle.Y
+                    + accumulatedY / commonDenominator;
+                if (nextX < _enemyDespawnX
+                    || nextY < -SimSpace.PlayfieldHalfHeightSubUnits
+                        - SimSpace.DespawnMarginSubUnits)
                 {
                     RemoveObstacleAt(index);
                     continue;
@@ -5061,11 +5636,18 @@ namespace Shmup.Core.Simulation
 
                 int age = _obstacleAges[index] + 1;
                 _obstacleAges[index] = age;
+                _obstacleMotionXRemainders[index] =
+                    accumulatedX % commonDenominator;
+                _obstacleMotionYRemainders[index] =
+                    accumulatedY % commonDenominator;
+                _obstacleVelocityXNumerators[index] = velocityX;
+                _obstacleVelocityYNumerators[index] = velocityY;
+                _obstacleVelocityDenominators[index] = commonDenominator;
                 _obstacles[index] = new ObstacleState(
                     obstacle.Id,
                     obstacle.Type,
                     SaturateToInt(nextX),
-                    obstacle.Y,
+                    SaturateToInt(nextY),
                     obstacle.Hp);
                 LaserAttackDefinition laser =
                     _obstacleLaserAttacks[index];
@@ -5083,11 +5665,42 @@ namespace Shmup.Core.Simulation
             }
         }
 
+        static long GreatestCommonDivisor(long left, long right)
+        {
+            left = Math.Abs(left);
+            right = Math.Abs(right);
+            while (right != 0)
+            {
+                long remainder = left % right;
+                left = right;
+                right = remainder;
+            }
+            return left == 0 ? 1 : left;
+        }
+
         void RemoveObstacleAt(int index)
         {
             _obstacles.RemoveAt(index);
             _obstacleAges.RemoveAt(index);
             _obstacleLaserAttacks.RemoveAt(index);
+            _obstacleMotionXRemainders.RemoveAt(index);
+            _obstacleMotionYRemainders.RemoveAt(index);
+            _obstacleVelocityXNumerators.RemoveAt(index);
+            _obstacleVelocityYNumerators.RemoveAt(index);
+            _obstacleVelocityDenominators.RemoveAt(index);
+            _obstacleGravityNumerators.RemoveAt(index);
+            _obstacleGravityDenominators.RemoveAt(index);
+        }
+
+        void AddDefaultObstacleMotion()
+        {
+            _obstacleMotionXRemainders.Add(0);
+            _obstacleMotionYRemainders.Add(0);
+            _obstacleVelocityXNumerators.Add(0);
+            _obstacleVelocityYNumerators.Add(0);
+            _obstacleVelocityDenominators.Add(1);
+            _obstacleGravityNumerators.Add(0);
+            _obstacleGravityDenominators.Add(1);
         }
 
         void TryStartLaser(
@@ -5257,6 +5870,13 @@ namespace Shmup.Core.Simulation
                     y = _enemies[enemyIndex].Y;
                     return true;
                 }
+            }
+            else if (kind == LaserSourceKind.Boss)
+            {
+                x = _bossX;
+                y = _bossY;
+                return _bossSpawned && !_bossDefeated
+                    && sourceEntityId == _bossId;
             }
             else
             {
@@ -6270,7 +6890,13 @@ namespace Shmup.Core.Simulation
         bool IsWithinGrazeRadius(in BulletState bullet)
         {
             long playerRadius = Math.Max(_playerHalfWidth, _playerHalfHeight);
-            long bulletRadius = Math.Max(_enemyBulletHalfWidth, _enemyBulletHalfHeight);
+            long bulletRadius = Math.Max(
+                ScaleProjectileHitbox(
+                    _enemyBulletHalfWidth,
+                    bullet.CollisionScalePercent),
+                ScaleProjectileHitbox(
+                    _enemyBulletHalfHeight,
+                    bullet.CollisionScalePercent));
             long radius = playerRadius + bulletRadius + _grazeExtraRadiusSubUnits;
             long radiusSquared = radius * radius;
             return SquaredDistanceSaturated(
@@ -6278,6 +6904,11 @@ namespace Shmup.Core.Simulation
                 PlayerY,
                 bullet.X,
                 bullet.Y) <= radiusSquared;
+        }
+
+        static int ScaleProjectileHitbox(int halfExtent, int percent)
+        {
+            return SaturateToInt((long)halfExtent * percent / 100);
         }
 
         int RecordKillScore(long baseScore)
@@ -6819,6 +7450,7 @@ namespace Shmup.Core.Simulation
             _bulletRicochetUsed.Add(0);
             _bulletHomingTargetIds.Add(0);
             _bulletGrazeScored.Add(0);
+            AddDefaultEnemyProjectileBehavior();
             IncrementSaturated(ref _shotsFired);
         }
 
@@ -6853,7 +7485,8 @@ namespace Shmup.Core.Simulation
         /// <summary>발사 위치에서 (targetX, targetY)를 향해 지정 유리수 속도의 적탄을 스폰한다.</summary>
         void SpawnEnemyAimedBullet(
             int fromX, int fromY, int targetX, int targetY,
-            int speedNumerator, int speedDenominator, int lutRotation)
+            int speedNumerator, int speedDenominator, int lutRotation,
+            Generation.BossPhase phase = null)
         {
             if (CountEnemyBullets() >= _maxEnemyBullets) return;
             if (_nextBulletId == int.MaxValue)
@@ -6894,8 +7527,25 @@ namespace Shmup.Core.Simulation
                 if (velDen < 1) { velDen = 1; break; }
             }
 
+            BulletKind kind = phase == null
+                ? BulletKind.EnemyShot
+                : ToBulletKind(phase.ProjectileKind);
+            int collisionScale = kind == BulletKind.Heavy
+                ? HeavyCollisionScalePercent
+                : 100;
+            BossSignaturePattern signature = phase == null
+                ? BossSignaturePattern.None
+                : phase.SignaturePattern;
             _bullets.Add(new BulletState(
-                _nextBulletId++, BulletFaction.Enemy, BulletKind.EnemyShot, fromX, fromY));
+                _nextBulletId++,
+                BulletFaction.Enemy,
+                kind,
+                fromX,
+                fromY,
+                0,
+                100,
+                collisionScale,
+                signature));
             _bulletXRemainders.Add(0);
             _bulletYRemainders.Add(0);
             _bulletVelXNumerators.Add((int)velXNum);
@@ -6905,6 +7555,48 @@ namespace Shmup.Core.Simulation
             _bulletRicochetUsed.Add(0);
             _bulletHomingTargetIds.Add(0);
             _bulletGrazeScored.Add(0);
+            _bulletSplitAfterTicks.Add(
+                phase == null ? 0 : phase.SplitAfterTicks);
+            _bulletMineTravelTicks.Add(
+                phase == null ? 0 : phase.MineTravelTicks);
+            _bulletMineTelegraphTicks.Add(
+                phase == null ? 0 : phase.MineTelegraphTicks);
+            _bulletAccelerationXNumerators.Add(
+                phase == null ? 0 : phase.MineAccelerationNumerator);
+            _bulletAccelerationYNumerators.Add(0);
+            _bulletAccelerationDenominators.Add(
+                phase == null ? 1 : phase.MineAccelerationDenominator);
+            _bulletHomingTurnLutSlotsPerTick.Add(
+                phase != null
+                    && phase.SignaturePattern == BossSignaturePattern.Brood
+                        ? phase.SignatureHomingTurnLutSlotsPerTick
+                        : 0);
+        }
+
+        static BulletKind ToBulletKind(BossProjectileKind kind)
+        {
+            switch (kind)
+            {
+                case BossProjectileKind.Normal: return BulletKind.EnemyShot;
+                case BossProjectileKind.Heavy: return BulletKind.Heavy;
+                case BossProjectileKind.Splitter: return BulletKind.Splitter;
+                case BossProjectileKind.Mine: return BulletKind.Mine;
+                case BossProjectileKind.BossLaser: return BulletKind.BossLaser;
+                default:
+                    throw new InvalidOperationException(
+                        "Unknown boss projectile kind.");
+            }
+        }
+
+        void AddDefaultEnemyProjectileBehavior()
+        {
+            _bulletSplitAfterTicks.Add(0);
+            _bulletMineTravelTicks.Add(0);
+            _bulletMineTelegraphTicks.Add(0);
+            _bulletAccelerationXNumerators.Add(0);
+            _bulletAccelerationYNumerators.Add(0);
+            _bulletAccelerationDenominators.Add(1);
+            _bulletHomingTurnLutSlotsPerTick.Add(0);
         }
 
         static long IntegerSqrt(long value)
@@ -7009,6 +7701,13 @@ namespace Shmup.Core.Simulation
             _bulletRicochetUsed.RemoveAt(index);
             _bulletHomingTargetIds.RemoveAt(index);
             _bulletGrazeScored.RemoveAt(index);
+            _bulletSplitAfterTicks.RemoveAt(index);
+            _bulletMineTravelTicks.RemoveAt(index);
+            _bulletMineTelegraphTicks.RemoveAt(index);
+            _bulletAccelerationXNumerators.RemoveAt(index);
+            _bulletAccelerationYNumerators.RemoveAt(index);
+            _bulletAccelerationDenominators.RemoveAt(index);
+            _bulletHomingTurnLutSlotsPerTick.RemoveAt(index);
             ClearBulletHitRecords(bulletId);
         }
 

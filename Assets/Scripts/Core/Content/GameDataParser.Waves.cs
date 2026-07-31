@@ -546,6 +546,19 @@ namespace Shmup.Core.Content
                     phases[i] = ParseBossPhase(
                         source.phases[i],
                         phasePath);
+                    if (i == 0
+                        && phases[i].SignaturePattern
+                            != BossSignaturePattern.None)
+                        throw Error(
+                            phasePath + ".signaturePatternId",
+                            "is reserved for phase 2 or later.");
+                    if (phases[i].SignaturePattern
+                            == BossSignaturePattern.Brood
+                        && content.FindEnemy(
+                            phases[i].SignatureSpawnEnemyId) == null)
+                        throw Error(
+                            phasePath + ".signatureSpawnEnemyId",
+                            $"references unknown enemy '{phases[i].SignatureSpawnEnemyId}'.");
                 }
             }
 
@@ -643,6 +656,34 @@ namespace Shmup.Core.Content
             int ways = Require(
                 phase.ways,
                 phasePath + ".ways");
+            BossProjectileKind projectileKind = ParseBossProjectileKind(
+                phase.projectileKind,
+                phasePath + ".projectileKind");
+            int splitAfterTicks = phase.splitAfterTicks ?? 0;
+            int mineTravelTicks = phase.mineTravelTicks ?? 0;
+            int mineTelegraphTicks = phase.mineTelegraphTicks ?? 0;
+            ExactFraction mineAcceleration = phase.mineAcceleration.HasValue
+                ? ToPerTickAcceleration(
+                    phase.mineAcceleration.Value,
+                    phasePath + ".mineAcceleration")
+                : new ExactFraction(0, 1);
+            BossSignaturePattern signaturePattern =
+                ParseBossSignaturePattern(
+                    phase.signaturePatternId,
+                    phasePath + ".signaturePatternId");
+            int signatureObstacleHp = phase.signatureObstacleHp ?? 0;
+            ExactFraction signatureGravity = phase.signatureGravity.HasValue
+                ? ToPerTickAcceleration(
+                    phase.signatureGravity.Value,
+                    phasePath + ".signatureGravity")
+                : new ExactFraction(0, 1);
+            int signatureHomingTurn =
+                phase.signatureHomingTurnLutSlotsPerTick ?? 0;
+            LaserAttackDefinition bossLaser = phase.bossLaser == null
+                ? null
+                : ParseLaser(
+                    phase.bossLaser,
+                    phasePath + ".bossLaser");
             if (firePattern == BossFirePattern.Wall && ways < 2)
                 throw Error(
                     phasePath + ".ways",
@@ -666,7 +707,59 @@ namespace Shmup.Core.Content
                 partVulnerability,
                 durationTicks,
                 telegraphTicks,
-                firePattern);
+                firePattern,
+                projectileKind,
+                splitAfterTicks,
+                mineTravelTicks,
+                mineTelegraphTicks,
+                mineAcceleration.Numerator,
+                mineAcceleration.Denominator,
+                signaturePattern,
+                OptionalText(
+                    phase.signatureSpawnEnemyId,
+                    phasePath + ".signatureSpawnEnemyId"),
+                signatureObstacleHp,
+                signatureGravity.Numerator,
+                signatureGravity.Denominator,
+                signatureHomingTurn,
+                bossLaser);
+        }
+
+        static BossProjectileKind ParseBossProjectileKind(
+            string value,
+            string path)
+        {
+            if (value == null)
+                return BossProjectileKind.Normal;
+            switch (RequireText(value, path))
+            {
+                case "normal": return BossProjectileKind.Normal;
+                case "heavy": return BossProjectileKind.Heavy;
+                case "splitter": return BossProjectileKind.Splitter;
+                case "mine": return BossProjectileKind.Mine;
+                case "bossLaser": return BossProjectileKind.BossLaser;
+                default:
+                    throw Error(path, $"has unknown projectile kind '{value}'.");
+            }
+        }
+
+        static BossSignaturePattern ParseBossSignaturePattern(
+            string value,
+            string path)
+        {
+            if (value == null)
+                return BossSignaturePattern.None;
+            switch (RequireText(value, path))
+            {
+                case "none": return BossSignaturePattern.None;
+                case "scrapThrow": return BossSignaturePattern.ScrapThrow;
+                case "brood": return BossSignaturePattern.Brood;
+                case "laserGrid": return BossSignaturePattern.LaserGrid;
+                case "lightning": return BossSignaturePattern.Lightning;
+                case "prismCore": return BossSignaturePattern.PrismCore;
+                default:
+                    throw Error(path, $"has unknown signature pattern id '{value}'.");
+            }
         }
 
         static BossFirePattern ParseBossFirePattern(

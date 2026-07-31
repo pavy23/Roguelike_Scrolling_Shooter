@@ -105,6 +105,29 @@ namespace Shmup.Core.Content
             return new ExactFraction(perSecond.Numerator, (int)denominator);
         }
 
+        static ExactFraction ToPerTickAcceleration(
+            decimal worldUnitsPerSecondSquared,
+            string path)
+        {
+            if (worldUnitsPerSecondSquared < 0)
+                throw Error(path, "cannot be negative.");
+            ExactFraction perSecondSquared =
+                ToSubUnitFraction(worldUnitsPerSecondSquared, path);
+            long denominator = (long)perSecondSquared.Denominator
+                * SimSpace.TicksPerSecond
+                * SimSpace.TicksPerSecond;
+            if (denominator > int.MaxValue)
+                throw Error(
+                    path,
+                    "needs a denominator larger than the simulation supports.");
+            int divisor = GreatestCommonDivisor(
+                Math.Abs(perSecondSquared.Numerator),
+                (int)denominator);
+            return new ExactFraction(
+                perSecondSquared.Numerator / divisor,
+                (int)denominator / divisor);
+        }
+
         static ExactFraction DecimalToFraction(decimal value, string path)
         {
             int[] bits = decimal.GetBits(value);
