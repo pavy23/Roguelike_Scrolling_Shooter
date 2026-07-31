@@ -6,38 +6,82 @@ using UnityEngine.UI;
 namespace Shmup.Presentation.Battle
 {
     /// <summary>
-    /// 모바일 터치 조작 (원격 플레이용). 왼쪽 절반 = 가상 스틱(이동),
-    /// 오른쪽 = 발사(홀드) + 게이지 활성화 버튼. 상단 우측 = 일시정지.
+    /// 모바일 터치 조작 (원격 플레이). 가상 스틱이 아니라 **손가락 이동량이 그대로 기체
+    /// 이동량이 되는** 방식 — 도돈파치 iOS 계열이 부드럽게 느껴지는 이유가 이것이다.
     ///
-    /// 시뮬은 InputCommand만 받으므로 여기서 8방향 디지털로 변환해 PlayerInputReader에
-    /// 주입한다 — 결정론에는 영향이 없다(입력원만 다름).
-    /// 터치 지원 기기에서만 UI를 표시한다.
+    /// 이전에는 "짚은 지점"을 목표로 두고 8방향 디지털로 추적했다. 시뮬이 항상 최대 속도로만
+    /// 움직였기 때문에 느린 드래그에서는 기체가 먼저 도착해 멈췄다가 다시 출발하는
+    /// stop-go 왕복이 생겼고, 그게 떨림으로 보였다. 이제는 프레임 간 손가락 이동량을 모아
+    /// 정수 서브유닛 델타로 넘긴다 (REQ-045). 손가락이 멈추면 델타가 0이라 기체도 정확히
+    /// 멈추고, 부호가 뒤집힐 여지가 없다. 이동 속도는 Core에서 **델타 클램프 상한**으로
+    /// 쓰이므로 스피드업은 "손가락을 얼마나 빨리 따라오는가"로 체감된다.
+    ///
+    /// - 발사는 오토파이어(모바일 기본 ON)가 처리한다. 끄면 드래그 중 자동 발사.
+    /// - 우상단 버튼: 게이지 활성화. 그 아래 작은 버튼: 오토파이어 토글.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class TouchControls : MonoBehaviour
     {
-        const float StickRadiusPixels = 110f;
-        const float DeadZone = 0.28f;
+        /// <summary>Core의 아날로그 델타 단위 (1 서브유닛 = 1/256 world unit).</summary>
+        const float SubUnitsPerWorldUnit = 256f;
 
+        /// <summary>Pointer 폴백이 쓰는 가상 손가락 번호 (실제 손가락 인덱스와 겹치지 않게).</summary>
+        const int PointerFingerId = -100;
+
+        [SerializeField] BattleDirector _director;
         [SerializeField] Font _font;
-        [SerializeField] bool _forceShow;   // 에디터 확인용
+        [SerializeField] bool _forceShow;
+
+        [Tooltip("입력 경로 진단 오버레이. 조작 문제를 다시 추적할 때만 켠다.")]
+        [SerializeField] bool _showInputDebug;
+
+        Text _debugText;
 
         GameObject _root;
-        Image _stickBase, _stickKnob;
-        Vector2 _stickOrigin;
-        int _stickFingerId = -1;
-        bool _fireHeld;
+        RectTransform _activateButton;
+        [SerializeField] Sprite _selectIcon;   // 캡슐 스프라이트 — 게이지 활성화의 시각 언어
+        Camera _camera;
+
+        int _dragFinger = -1;
+        Vector2 _lastFingerWorld;
+        Vector2 _pendingDeltaWorld;   // 아직 시뮬에 넘기지 않은 손가락 이동량
+        bool _dragging;
         bool _activatePressed;
-        RectTransform _canvasRect;
-        float _scale = 1f;
+        bool _enabledForDevice;
+        readonly System.Collections.Generic.List<RectTransform> _reserved =
+            new System.Collections.Generic.List<RectTransform>(4);
 
         public static TouchControls Instance { get; private set; }
 
-        /// <summary>터치 UI가 켜져 있는가 (PlayerInputReader가 입력원 결정에 쓴다).</summary>
         public bool Active => _root != null && _root.activeSelf;
 
-        public Vector2 Move { get; private set; }
-        public bool Fire => _fireHeld;
+        /// <summary>손가락이 화면에 닿아 끌고 있는 중인지. 이때만 아날로그 경로를 쓴다.</summary>
+        public bool IsDragging => _dragging;
+
+        /// <summary>드래그 중이면 발사 (오토파이어가 꺼져 있을 때의 보조 발사).</summary>
+        public bool Fire => _dragging;
+
+        /// <summary>
+        /// 모아 둔 손가락 이동량을 정수 서브유닛 델타로 꺼낸다 (소비형).
+        ///
+        /// 잔차를 남기는 것이 중요하다 — 느린 드래그는 한 틱 이동량이 1 서브유닛에 못 미치는데,
+        /// 그때마다 버리면 조금씩 끄는 조작이 아예 먹지 않는다.
+        /// </summary>
+        /// <summary>진단용 누적 델타 (한 번이라도 0이 아닌 값이 나갔는지 확인).</summary>
+        int _debugSumDx, _debugSumDy;
+
+        public void ConsumeAnalogDelta(out int deltaX, out int deltaY)
+        {
+            float x = _pendingDeltaWorld.x * SubUnitsPerWorldUnit;
+            float y = _pendingDeltaWorld.y * SubUnitsPerWorldUnit;
+            deltaX = (int)x;   // 0 방향으로 절단
+            deltaY = (int)y;
+            _debugSumDx += deltaX;
+            _debugSumDy += deltaY;
+            _pendingDeltaWorld = new Vector2(
+                (x - deltaX) / SubUnitsPerWorldUnit,
+                (y - deltaY) / SubUnitsPerWorldUnit);
+        }
 
         public bool ConsumeActivate()
         {
@@ -46,151 +90,321 @@ namespace Shmup.Presentation.Battle
             return value;
         }
 
-        void Awake()
+        /// <summary>
+        /// 다른 캔버스에 있는 UI 버튼 영역을 드래그 판정에서 빼 달라고 등록한다.
+        /// 이게 없으면 그 버튼을 누르려는 터치가 기체 드래그로도 해석되고, 반대로
+        /// 기체를 그 근처로 옮기려다 버튼을 눌러 버린다.
+        /// </summary>
+        public void ReserveRect(RectTransform rect)
         {
-            Instance = this;
+            if (rect != null && !_reserved.Contains(rect)) _reserved.Add(rect);
         }
 
-        void Start()
+        bool HitReserved(Vector2 screen)
         {
-            bool touchDevice = _forceShow
-                || Application.isMobilePlatform
-                || (Touchscreen.current != null && !Application.isEditor);
-
-            var canvas = UiKit.CreateCanvas("TouchCanvas", 95);
-            canvas.transform.SetParent(transform, false);
-            _root = canvas.gameObject;
-            _canvasRect = canvas.GetComponent<RectTransform>();
-            var scaler = canvas.GetComponent<CanvasScaler>();
-            if (scaler != null) _scale = Mathf.Max(1f, scaler.scaleFactor);
-
-            _stickBase = CreateCircle(canvas.transform, "StickBase", 128f,
-                new Color(0.5f, 0.7f, 1f, 0.16f));
-            _stickKnob = CreateCircle(canvas.transform, "StickKnob", 56f,
-                new Color(0.7f, 0.85f, 1f, 0.4f));
-            _stickBase.enabled = false;
-            _stickKnob.enabled = false;
-
-            CreateHint(canvas.transform, "MOVE", new Vector2(0f, 0f), new Vector2(96f, 60f));
-            CreateHint(canvas.transform, "FIRE", new Vector2(1f, 0f), new Vector2(-120f, 60f));
-            CreateHint(canvas.transform, "X", new Vector2(1f, 0f), new Vector2(-44f, 132f));
-
-            _root.SetActive(touchDevice);
-            if (touchDevice) EnhancedTouchSupport.Enable();
+            for (int i = 0; i < _reserved.Count; i++)
+                if (HitButton(_reserved[i], screen)) return true;
+            return false;
         }
+
+        void Awake() => Instance = this;
 
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
         }
 
+        void Start()
+        {
+            if (_forceShow) UiPlatform.ForceTouch = true;
+            bool touchDevice = UiPlatform.TouchMode;
+
+            var canvas = UiKit.CreateCanvas("TouchCanvas", 95);
+            canvas.transform.SetParent(transform, false);
+            _root = canvas.gameObject;
+            _camera = Camera.main;
+
+            // SELECT = 게이지 활성화. "X"라는 정체불명 글자 대신 캡슐 아이콘 + 라벨
+            // ("Bomb, Select을 이쁘게 누르기 편한 아이콘으로", 2026-07-31).
+            // 오토샷 토글은 없앴다 — 발사는 항상 자동이다 ("늘 쏴야하니까").
+            _activateButton = CreateIconButton(canvas.transform, "Select", "SELECT",
+                _selectIcon, new Vector2(1f, 1f), new Vector2(-56f, -56f), 72f);
+
+            // 진단 오버레이 (REQ-045 조작 회귀 추적용 — 원인 확정 후 제거한다).
+            // 폰에서 무엇이 들어오는지 눈으로 확인할 방법이 없어서 화면에 직접 찍는다.
+            if (touchDevice && _showInputDebug)
+            {
+                _debugText = UiKit.CreateCornerText(canvas.transform, _font, "", 9,
+                    new Color(0.6f, 1f, 0.7f, 0.95f), new Vector2(0f, 0f),
+                    new Vector2(6f, 6f), TextAnchor.LowerLeft, "InputDebug");
+                _debugText.rectTransform.sizeDelta = new Vector2(620f, 60f);
+            }
+
+            // 조작 안내는 OnboardingHints가 기기에 맞는 문면으로 띄운다 — 여기서 또 적지 않는다.
+            _enabledForDevice = touchDevice;
+            _root.SetActive(touchDevice);
+            if (touchDevice) EnhancedTouchSupport.Enable();
+        }
+
+        /// <summary>
+        /// 메뉴(일시정지·보상·경로·게임오버)가 떠 있는 동안은 조작 오버레이를 걷는다.
+        /// 그러지 않으면 메뉴 버튼을 누르려는 터치가 기체 드래그로 해석되고,
+        /// X/AUTO 버튼이 메뉴 위에 겹쳐 눌린다.
+        ///
+        /// BombButton도 이 기준을 따른다 — 조작 오버레이는 걷혔는데 폭탄 버튼만 남으면
+        /// 메뉴 위에 떠서 오폭한다.
+        /// </summary>
+        public bool GameplayActive =>
+            Time.timeScale > 0f
+            && !OptionsScreen.IsOpen
+            && (_director == null
+                || (!_director.AwaitingReward && !_director.AwaitingRoute
+                    && !_director.AwaitingContract && !_director.IsRunFinished));
+
         void Update()
         {
-            if (_root == null || !_root.activeSelf) return;
+            if (_root == null || !_enabledForDevice) return;
 
-            Move = Vector2.zero;
-            _fireHeld = false;
-            bool stickActive = false;
+            bool shouldShow = GameplayActive;
+            if (_root.activeSelf != shouldShow)
+            {
+                _root.SetActive(shouldShow);
+                if (!shouldShow)
+                {
+                    // 메뉴로 넘어가는 순간의 입력이 남아 기체가 계속 움직이지 않도록 정리한다.
+                    _dragging = false;
+                    _dragFinger = -1;
+                    _pendingDeltaWorld = Vector2.zero;
+                    _activatePressed = false;
+                }
+            }
+            if (!shouldShow) return;
+            if (_camera == null) _camera = Camera.main;
 
             var touches = UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches;
+            bool dragActive = false;
+            bool sawAnyTouch = touches.Count > 0;
+
             for (int i = 0; i < touches.Count; i++)
             {
                 var touch = touches[i];
-                Vector2 position = touch.screenPosition;
-                bool leftHalf = position.x < Screen.width * 0.5f;
+                Vector2 screen = touch.screenPosition;
 
-                if (leftHalf)
+                // 버튼 영역 처리 (탭)
+                if (touch.began)
                 {
-                    // 가상 스틱: 처음 닿은 지점이 중심
-                    if (_stickFingerId == -1 || _stickFingerId == touch.finger.index)
-                    {
-                        if (_stickFingerId == -1) _stickOrigin = position;
-                        _stickFingerId = touch.finger.index;
-                        stickActive = true;
-                        Vector2 delta = position - _stickOrigin;
-                        float radius = StickRadiusPixels * _scale;
-                        Move = Vector2.ClampMagnitude(delta / radius, 1f);
-                        UpdateStickVisual(_stickOrigin, position, radius);
-                    }
+                    if (HitButton(_activateButton, screen)) { _activatePressed = true; continue; }
                 }
-                else
+                else if (HitButton(_activateButton, screen))
                 {
-                    // 오른쪽: 상단 1/4은 활성화, 나머지는 발사 홀드
-                    if (position.y > Screen.height * 0.72f)
-                    {
-                        if (touch.began) _activatePressed = true;
-                    }
-                    else
-                    {
-                        _fireHeld = true;
-                    }
+                    continue;   // 버튼 위에서 끌어도 기체가 끌려가지 않게
                 }
+
+                // 다른 캔버스의 버튼(일시정지 등)은 UGUI가 처리한다 — 드래그로 겹쳐 읽지 않는다.
+                if (HitReserved(screen)) continue;
+
+                if (AccumulateDrag(screen, touch.finger.index)) dragActive = true;
             }
 
-            if (!stickActive)
+            // EnhancedTouch가 비었을 때의 폴백.
+            //
+            // EnhancedTouch는 WebGL에서 Touchscreen 디바이스가 늦게 붙으면 조용히 빈다.
+            // 그리고 `Pointer.current`는 "가장 최근에 쓰인" 포인터를 가리키므로, 터치
+            // 디바이스가 존재하기만 해도 마우스 대신 그쪽을 가리켜 position이 갱신되지
+            // 않는다 (실제로 이 어긋남 때문에 델타가 계속 0이었다). 그래서 어느 디바이스가
+            // 눌려 있는지 저수준 API로 직접 확인한다.
+            if (!sawAnyTouch)
             {
-                _stickFingerId = -1;
-                _stickBase.enabled = false;
-                _stickKnob.enabled = false;
+                Vector2 screen = Vector2.zero;
+                bool pressed = false;
+                bool justPressed = false;
+
+                var screenDevice = Touchscreen.current;
+                if (screenDevice != null)
+                {
+                    var primary = screenDevice.primaryTouch;
+                    if (primary.press.isPressed)
+                    {
+                        screen = primary.position.ReadValue();
+                        pressed = true;
+                        justPressed = primary.press.wasPressedThisFrame;
+                    }
+                }
+                if (!pressed)
+                {
+                    var mouse = Mouse.current;
+                    if (mouse != null && mouse.leftButton.isPressed)
+                    {
+                        screen = mouse.position.ReadValue();
+                        pressed = true;
+                        justPressed = mouse.leftButton.wasPressedThisFrame;
+                    }
+                }
+
+                if (pressed)
+                {
+                    bool onOwnButton = HitButton(_activateButton, screen);
+                    if (justPressed && onOwnButton) _activatePressed = true;
+                    if (!onOwnButton && !HitReserved(screen)
+                        && AccumulateDrag(screen, PointerFingerId))
+                        dragActive = true;
+                }
+            }
+
+            if (_debugText != null)
+            {
+                var ts = Touchscreen.current;
+                var ms = Mouse.current;
+                string ptrState =
+                    (ts != null && ts.primaryTouch.press.isPressed) ? "TOUCH"
+                    : (ms != null && ms.leftButton.isPressed) ? "MOUSE" : "up";
+                var ship = _director != null ? _director.PlayerWorldPosition : Vector2.zero;
+                Vector2 rawPos = ms != null ? ms.position.ReadValue() : new Vector2(-1f, -1f);
+                if (ts != null && ts.primaryTouch.press.isPressed)
+                    rawPos = ts.primaryTouch.position.ReadValue();
+                Vector2 rawWorld = ScreenToWorld(rawPos);
+                _debugText.text =
+                    $"ptr={ptrState} drag={dragActive} touches={touches.Count} "
+                    + $"raw=({rawPos.x:0},{rawPos.y:0}) w=({rawWorld.x:0.0},{rawWorld.y:0.0}) "
+                    + $"last=({_lastFingerWorld.x:0.0},{_lastFingerWorld.y:0.0}) "
+                    + $"scr={Screen.width}x{Screen.height}\n"
+                    + $"ship=({ship.x:0.0},{ship.y:0.0}) sum=({_debugSumDx},{_debugSumDy}) "
+                    + PlayerInputReader.DebugState;
+            }
+
+            _dragging = dragActive;
+            if (!dragActive)
+            {
+                _dragFinger = -1;
+                // 손을 떼면 남은 잔차도 버린다 — 놓은 뒤에 기체가 조금 더 미끄러지면
+                // "놓았는데 움직인다"로 읽힌다.
+                _pendingDeltaWorld = Vector2.zero;
             }
         }
 
-        void UpdateStickVisual(Vector2 origin, Vector2 current, float radius)
+        /// <summary>
+        /// 한 입력원의 화면 좌표를 받아 이동량을 누적한다. 짚은 위치가 아니라 **움직인 양**이
+        /// 시뮬에 전달되므로, 처음 닿은 프레임은 기준점만 잡고 0을 남긴다 (기체가 손가락
+        /// 쪽으로 순간이동하지 않게).
+        /// </summary>
+        bool AccumulateDrag(Vector2 screen, int fingerId)
         {
-            _stickBase.enabled = true;
-            _stickKnob.enabled = true;
-            _stickBase.rectTransform.anchoredPosition = origin / _scale;
-            Vector2 knob = origin + Vector2.ClampMagnitude(current - origin, radius);
-            _stickKnob.rectTransform.anchoredPosition = knob / _scale;
+            if (_dragFinger != -1 && _dragFinger != fingerId) return false;
+
+            Vector2 world = ScreenToWorld(screen);
+            if (_dragFinger == -1) _dragFinger = fingerId;
+            else _pendingDeltaWorld += world - _lastFingerWorld;
+            _lastFingerWorld = world;
+            return true;
         }
 
-        Image CreateCircle(Transform parent, string name, float size, Color color)
+        Vector2 ScreenToWorld(Vector2 screen)
+        {
+            if (_camera == null) return Vector2.zero;
+            var world = _camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, 0f));
+            return new Vector2(world.x, world.y);
+        }
+
+        bool HitButton(RectTransform button, Vector2 screen)
+        {
+            if (button == null) return false;
+            // 캔버스가 ScreenSpaceOverlay + 정수 배율이므로 화면 좌표로 직접 판정
+            var corners = new Vector3[4];
+            button.GetWorldCorners(corners);
+            return screen.x >= corners[0].x && screen.x <= corners[2].x
+                && screen.y >= corners[0].y && screen.y <= corners[2].y;
+        }
+
+
+        /// <summary>
+        /// 아이콘 + 라벨의 원형 느낌 버튼. 글자 한 칸짜리 반투명 사각형보다 "누르는
+        /// 것"으로 읽히고, 아이콘이 게임 내 오브젝트(캡슐/폭탄)와 같은 그림이라
+        /// 기능 연결이 설명 없이 된다.
+        /// </summary>
+        RectTransform CreateIconButton(
+            Transform parent, string name, string label, Sprite icon,
+            Vector2 anchor, Vector2 offset, float size)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var image = go.AddComponent<Image>();
-            image.color = color;
+            image.color = new Color(0.16f, 0.24f, 0.45f, 0.66f);
             image.raycastTarget = false;
-            image.sprite = CircleSprite();
             var rect = image.rectTransform;
-            rect.anchorMin = rect.anchorMax = Vector2.zero;
+            rect.anchorMin = rect.anchorMax = anchor;
             rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = offset;
             rect.sizeDelta = new Vector2(size, size);
-            return image;
-        }
 
-        void CreateHint(Transform parent, string label, Vector2 anchor, Vector2 offset)
-        {
-            var text = UiKit.CreateCornerText(parent, _font, label, 11,
-                new Color(0.7f, 0.85f, 1f, 0.45f), anchor, offset,
-                TextAnchor.MiddleCenter, $"Hint_{label}");
-            text.rectTransform.sizeDelta = new Vector2(90f, 20f);
-        }
+            // 테두리 — 활성 버튼임을 알리는 밝은 링
+            var border = new GameObject("Border");
+            border.transform.SetParent(rect, false);
+            var borderImage = border.AddComponent<Image>();
+            borderImage.color = new Color(0.55f, 0.75f, 1f, 0.5f);
+            borderImage.raycastTarget = false;
+            var borderRect = borderImage.rectTransform;
+            borderRect.anchorMin = Vector2.zero;
+            borderRect.anchorMax = Vector2.one;
+            borderRect.offsetMin = Vector2.zero;
+            borderRect.offsetMax = Vector2.zero;
+            // 안쪽 채움을 다시 덮어 링만 남긴다
+            var inner = new GameObject("Inner");
+            inner.transform.SetParent(borderRect, false);
+            var innerImage = inner.AddComponent<Image>();
+            innerImage.color = new Color(0.10f, 0.15f, 0.30f, 0.85f);
+            innerImage.raycastTarget = false;
+            var innerRect = innerImage.rectTransform;
+            innerRect.anchorMin = Vector2.zero;
+            innerRect.anchorMax = Vector2.one;
+            innerRect.offsetMin = new Vector2(2f, 2f);
+            innerRect.offsetMax = new Vector2(-2f, -2f);
 
-        static Sprite _circle;
-
-        static Sprite CircleSprite()
-        {
-            if (_circle != null) return _circle;
-            const int size = 64;
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            if (icon != null)
             {
-                filterMode = FilterMode.Bilinear
-            };
-            float r = size / 2f;
-            for (int y = 0; y < size; y++)
-            for (int x = 0; x < size; x++)
-            {
-                float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(r, r));
-                float a = Mathf.Clamp01((r - d) / 2f);
-                // 링 형태로: 가장자리만 진하게
-                float ring = Mathf.Clamp01(1f - Mathf.Abs(d - (r - 4f)) / 5f);
-                texture.SetPixel(x, y, new Color(1f, 1f, 1f, Mathf.Max(a * 0.25f, ring)));
+                var iconGo = new GameObject("Icon");
+                iconGo.transform.SetParent(rect, false);
+                var iconImage = iconGo.AddComponent<Image>();
+                iconImage.sprite = icon;
+                iconImage.preserveAspect = true;
+                iconImage.raycastTarget = false;
+                var iconRect = iconImage.rectTransform;
+                iconRect.anchorMin = iconRect.anchorMax = new Vector2(0.5f, 0.58f);
+                iconRect.sizeDelta = new Vector2(size * 0.42f, size * 0.42f);
             }
-            texture.Apply();
-            _circle = Sprite.Create(
-                texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 16f);
-            return _circle;
+
+            var text = UiKit.CreateText(rect, _font, label, 9,
+                UiKit.TextDim, TextAnchor.LowerCenter, "Label");
+            var textRect = text.rectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(0f, 5f);
+            textRect.offsetMax = Vector2.zero;
+            return rect;
+        }
+
+        RectTransform CreateButton(
+            Transform parent, string name, string label,
+            Vector2 anchor, Vector2 offset, float size)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var image = go.AddComponent<Image>();
+            image.color = new Color(0.35f, 0.55f, 0.95f, 0.22f);
+            image.raycastTarget = false;
+            var rect = image.rectTransform;
+            rect.anchorMin = rect.anchorMax = anchor;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = offset;
+            rect.sizeDelta = new Vector2(size, size);
+
+            var text = UiKit.CreateText(rect, _font, label, 11,
+                UiKit.TextMain, TextAnchor.MiddleCenter, "Label");
+            var textRect = text.rectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+            return rect;
         }
     }
 }

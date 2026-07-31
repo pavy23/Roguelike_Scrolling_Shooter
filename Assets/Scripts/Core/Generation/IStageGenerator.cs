@@ -36,6 +36,33 @@ namespace Shmup.Core.Generation
             EncounterType encounterType);
     }
 
+    public enum StageRouteSection
+    {
+        Default = 0,
+        Closing = 1
+    }
+
+    /// <summary>
+    /// Optional route extension for section-specific data knobs. Legacy route
+    /// generators keep using IRouteStageGenerator unchanged.
+    /// </summary>
+    public interface ISectionRouteStageGenerator
+    {
+        bool CanGenerateRouteForSection(
+            string themeId,
+            int stageIndex,
+            int difficulty,
+            EncounterType encounterType,
+            StageRouteSection section);
+        StagePlan GenerateRouteForSection(
+            ulong seed,
+            int stageIndex,
+            int difficulty,
+            string themeId,
+            EncounterType encounterType,
+            StageRouteSection section);
+    }
+
     public enum ColossalBossKind
     {
         None = 0,
@@ -66,6 +93,36 @@ namespace Shmup.Core.Generation
         Rare = 4
     }
 
+    public enum BossMovementPattern
+    {
+        /// <summary>Preserves the pre-REQ-054 fixed hover behavior.</summary>
+        LegacyHover = 0,
+        Stationary = 1,
+        VerticalSine = 2
+    }
+
+    public enum BossFirePattern
+    {
+        /// <summary>Player-aimed N-way volley. Legacy default.</summary>
+        Aimed = 0,
+        /// <summary>Evenly spaced full-circle ring.</summary>
+        Radial = 1,
+        /// <summary>Rotating arms advanced once per volley.</summary>
+        Spiral = 2,
+        /// <summary>Vertical wall with one deterministically selected gap.</summary>
+        Wall = 3,
+        /// <summary>Telegraphed player-aimed N-way volley.</summary>
+        Burst = 4
+    }
+
+    public enum BossPartVulnerability
+    {
+        /// <summary>Preserves core-gate behavior from older boss data.</summary>
+        Legacy = 0,
+        CoreOnly = 1,
+        All = 2
+    }
+
     /// <summary>
     /// 보스 페이즈 하나의 발사 파라미터 (REQ-007). 속도는 서브유닛/틱 유리수.
     /// Ways는 홀짝 모두 조준축을 중심으로 대칭 배치된다.
@@ -73,6 +130,32 @@ namespace Shmup.Core.Generation
     public sealed class BossPhase
     {
         public BossPhase(int fireIntervalTicks, int ways, int bulletSpeedNumerator, int bulletSpeedDenominator)
+            : this(
+                fireIntervalTicks,
+                ways,
+                bulletSpeedNumerator,
+                bulletSpeedDenominator,
+                BossMovementPattern.LegacyHover,
+                0,
+                1,
+                1,
+                BossPartVulnerability.Legacy)
+        {
+        }
+
+        public BossPhase(
+            int fireIntervalTicks,
+            int ways,
+            int bulletSpeedNumerator,
+            int bulletSpeedDenominator,
+            BossMovementPattern movementPattern,
+            int movementAmplitudeNumerator,
+            int movementAmplitudeDenominator,
+            int movementPeriodTicks,
+            BossPartVulnerability partVulnerability,
+            int durationTicks = 0,
+            int telegraphTicks = 0,
+            BossFirePattern firePattern = BossFirePattern.Aimed)
         {
             if (fireIntervalTicks < 1)
                 throw new ArgumentOutOfRangeException(nameof(fireIntervalTicks));
@@ -82,16 +165,86 @@ namespace Shmup.Core.Generation
                 throw new ArgumentOutOfRangeException(nameof(bulletSpeedNumerator));
             if (bulletSpeedDenominator < 1)
                 throw new ArgumentOutOfRangeException(nameof(bulletSpeedDenominator));
+            if (!Enum.IsDefined(
+                    typeof(BossMovementPattern),
+                    movementPattern))
+                throw new ArgumentOutOfRangeException(
+                    nameof(movementPattern));
+            if (movementAmplitudeNumerator < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(movementAmplitudeNumerator));
+            if (movementAmplitudeDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(movementAmplitudeDenominator));
+            if (movementPeriodTicks < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(movementPeriodTicks));
+            if (movementPattern == BossMovementPattern.VerticalSine
+                && movementAmplitudeNumerator < 1)
+                throw new ArgumentException(
+                    "Vertical sine movement requires positive amplitude.",
+                    nameof(movementAmplitudeNumerator));
+            if (!Enum.IsDefined(
+                    typeof(BossPartVulnerability),
+                    partVulnerability))
+                throw new ArgumentOutOfRangeException(
+                    nameof(partVulnerability));
+            if (durationTicks < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(durationTicks));
+            if (telegraphTicks < 0
+                || (durationTicks > 0
+                    && telegraphTicks >= durationTicks))
+                throw new ArgumentOutOfRangeException(
+                    nameof(telegraphTicks));
+            if (!Enum.IsDefined(
+                    typeof(BossFirePattern),
+                    firePattern))
+                throw new ArgumentOutOfRangeException(
+                    nameof(firePattern));
+            if (firePattern == BossFirePattern.Wall && ways < 2)
+                throw new ArgumentException(
+                    "Wall fire patterns require at least two ways.",
+                    nameof(ways));
+            if (firePattern == BossFirePattern.Burst
+                && telegraphTicks < 1)
+                throw new ArgumentException(
+                    "Burst fire patterns require positive telegraphTicks.",
+                    nameof(telegraphTicks));
             FireIntervalTicks = fireIntervalTicks;
             Ways = ways;
             BulletSpeedNumerator = bulletSpeedNumerator;
             BulletSpeedDenominator = bulletSpeedDenominator;
+            MovementPattern = movementPattern;
+            MovementAmplitudeNumerator = movementAmplitudeNumerator;
+            MovementAmplitudeDenominator = movementAmplitudeDenominator;
+            MovementPeriodTicks = movementPeriodTicks;
+            PartVulnerability = partVulnerability;
+            DurationTicks = durationTicks;
+            TelegraphTicks = telegraphTicks;
+            FirePattern = firePattern;
         }
 
         public int FireIntervalTicks { get; }
         public int Ways { get; }
         public int BulletSpeedNumerator { get; }
         public int BulletSpeedDenominator { get; }
+        public BossMovementPattern MovementPattern { get; }
+        public int MovementAmplitudeNumerator { get; }
+        public int MovementAmplitudeDenominator { get; }
+        public int MovementPeriodTicks { get; }
+        public BossPartVulnerability PartVulnerability { get; }
+        /// <summary>
+        /// Positive values opt the whole phase list into deterministic time
+        /// cycling. Zero preserves legacy HP-threshold phase progression.
+        /// </summary>
+        public int DurationTicks { get; }
+        /// <summary>
+        /// Delay before this phase's first volley. A telegraph event is emitted
+        /// before the delay starts.
+        /// </summary>
+        public int TelegraphTicks { get; }
+        public BossFirePattern FirePattern { get; }
     }
 
     public enum BossPartAttackType
@@ -295,6 +448,118 @@ namespace Shmup.Core.Generation
     }
 
     /// <summary>Ordered segments followed by a boss. Pure data — no Unity types.</summary>
+    /// <summary>
+    /// Theme-wide stage gimmicks. Vision obstruction is presentation-only.
+    /// A positive time limit is a hard, unshieldable deadline in BattleSim.
+    /// </summary>
+    public sealed class StageGimmickDefinition
+    {
+        public static readonly StageGimmickDefinition None =
+            new StageGimmickDefinition(null, false, 0, true);
+
+        public StageGimmickDefinition(
+            string themeId,
+            bool visionObscured,
+            int timeLimitTicks)
+            : this(themeId, visionObscured, timeLimitTicks, false)
+        {
+        }
+
+        StageGimmickDefinition(
+            string themeId,
+            bool visionObscured,
+            int timeLimitTicks,
+            bool allowNullTheme)
+        {
+            if (!allowNullTheme && string.IsNullOrEmpty(themeId))
+                throw new ArgumentException(
+                    "A stage gimmick requires a theme id.",
+                    nameof(themeId));
+            if (timeLimitTicks < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(timeLimitTicks));
+            ThemeId = themeId;
+            VisionObscured = visionObscured;
+            TimeLimitTicks = timeLimitTicks;
+        }
+
+        public string ThemeId { get; }
+        public bool VisionObscured { get; }
+        /// <summary>Zero disables the deadline.</summary>
+        public int TimeLimitTicks { get; }
+    }
+
+    /// <summary>
+    /// Segment-local deterministic environment. Corridor bounds interpolate
+    /// linearly over the segment. Drift is an exact subunit fraction per tick.
+    /// </summary>
+    public sealed class SegmentEnvironmentDefinition
+    {
+        public static readonly SegmentEnvironmentDefinition None =
+            new SegmentEnvironmentDefinition(
+                false, 0, 0, 0, 0, 0, 0, 1, 0, 1);
+
+        public SegmentEnvironmentDefinition(
+            bool hasCorridor,
+            int startMinY,
+            int startMaxY,
+            int endMinY,
+            int endMaxY,
+            int corridorContactDamage,
+            int driftXNumerator,
+            int driftXDenominator,
+            int driftYNumerator,
+            int driftYDenominator)
+        {
+            if (driftXDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(driftXDenominator));
+            if (driftYDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(driftYDenominator));
+            if (corridorContactDamage < 0
+                || (hasCorridor && corridorContactDamage < 1))
+                throw new ArgumentOutOfRangeException(
+                    nameof(corridorContactDamage));
+            if (hasCorridor
+                && (startMinY >= startMaxY || endMinY >= endMaxY))
+                throw new ArgumentException(
+                    "Corridor minimum Y must remain below maximum Y.");
+            if (!hasCorridor
+                && (startMinY != 0
+                    || startMaxY != 0
+                    || endMinY != 0
+                    || endMaxY != 0
+                    || corridorContactDamage != 0))
+                throw new ArgumentException(
+                    "A disabled corridor cannot carry bounds or damage.");
+
+            HasCorridor = hasCorridor;
+            StartMinY = startMinY;
+            StartMaxY = startMaxY;
+            EndMinY = endMinY;
+            EndMaxY = endMaxY;
+            CorridorContactDamage = corridorContactDamage;
+            DriftXNumerator = driftXNumerator;
+            DriftXDenominator = driftXDenominator;
+            DriftYNumerator = driftYNumerator;
+            DriftYDenominator = driftYDenominator;
+        }
+
+        public bool HasCorridor { get; }
+        public int StartMinY { get; }
+        public int StartMaxY { get; }
+        public int EndMinY { get; }
+        public int EndMaxY { get; }
+        public int CorridorContactDamage { get; }
+        public int DriftXNumerator { get; }
+        public int DriftXDenominator { get; }
+        public int DriftYNumerator { get; }
+        public int DriftYDenominator { get; }
+        public bool HasDrift =>
+            DriftXNumerator != 0 || DriftYNumerator != 0;
+    }
+
     public sealed class StagePlan
     {
         public StagePlan(IReadOnlyList<StageSegment> segments, string bossId)
@@ -443,7 +708,8 @@ namespace Shmup.Core.Generation
             string themeId,
             string requestedThemeId,
             EncounterType encounterType,
-            IReadOnlyList<BossPartDefinition> bossParts)
+            IReadOnlyList<BossPartDefinition> bossParts,
+            StageGimmickDefinition gimmick = null)
         {
             if (bossMaxHp < 0)
                 throw new ArgumentOutOfRangeException(nameof(bossMaxHp));
@@ -474,6 +740,15 @@ namespace Shmup.Core.Generation
             ThemeId = themeId;
             RequestedThemeId = requestedThemeId;
             EncounterType = encounterType;
+            Gimmick = gimmick ?? StageGimmickDefinition.None;
+            if (Gimmick.ThemeId != null
+                && !string.Equals(
+                    Gimmick.ThemeId,
+                    ThemeId,
+                    StringComparison.Ordinal))
+                throw new ArgumentException(
+                    "Stage gimmick theme must match the generated theme.",
+                    nameof(gimmick));
             SegmentReuseCount = CountSegmentReuses(Segments);
         }
 
@@ -505,6 +780,7 @@ namespace Shmup.Core.Generation
         public string RequestedThemeId { get; }
         /// <summary>The route encounter rules applied to this generated plan.</summary>
         public EncounterType EncounterType { get; }
+        public StageGimmickDefinition Gimmick { get; }
         /// <summary>Provisional per-encounter enemy HP scaling.</summary>
         public int EncounterEnemyHpMultiplierNumerator =>
             EncounterType == EncounterType.Rare
@@ -683,7 +959,8 @@ namespace Shmup.Core.Generation
             int entryLaneMask,
             int exitLaneMask,
             IReadOnlyList<int> traversableLaneMasks,
-            IReadOnlyList<ObstacleSpawn> obstacles)
+            IReadOnlyList<ObstacleSpawn> obstacles,
+            SegmentEnvironmentDefinition environment = null)
         {
             SegmentId = segmentId ?? throw new ArgumentNullException(nameof(segmentId));
             LengthTicks = lengthTicks;
@@ -692,6 +969,8 @@ namespace Shmup.Core.Generation
             ExitLaneMask = exitLaneMask;
             TraversableLaneMasks = CopyMasks(traversableLaneMasks);
             Obstacles = CopyObstacles(obstacles);
+            Environment =
+                environment ?? SegmentEnvironmentDefinition.None;
         }
 
         public string SegmentId { get; }
@@ -701,6 +980,7 @@ namespace Shmup.Core.Generation
         public int ExitLaneMask { get; }
         public IReadOnlyList<int> TraversableLaneMasks { get; }
         public IReadOnlyList<ObstacleSpawn> Obstacles { get; }
+        public SegmentEnvironmentDefinition Environment { get; }
 
         static IReadOnlyList<SpawnEvent> CopySpawns(IReadOnlyList<SpawnEvent> source)
         {
@@ -754,7 +1034,8 @@ namespace Shmup.Core.Generation
     public enum ObstacleType
     {
         Solid = 0,
-        Breakable = 1
+        Breakable = 1,
+        LaserEmitter = 2
     }
 
     /// <summary>
@@ -764,6 +1045,16 @@ namespace Shmup.Core.Generation
     public sealed class ObstacleSpawn
     {
         public ObstacleSpawn(ObstacleType type, int x, int y, int hp)
+            : this(type, x, y, hp, null)
+        {
+        }
+
+        public ObstacleSpawn(
+            ObstacleType type,
+            int x,
+            int y,
+            int hp,
+            Simulation.LaserAttackDefinition laserAttack)
         {
             if (!Enum.IsDefined(typeof(ObstacleType), type))
                 throw new ArgumentOutOfRangeException(nameof(type));
@@ -773,16 +1064,26 @@ namespace Shmup.Core.Generation
             if (type == ObstacleType.Breakable && hp < 1)
                 throw new ArgumentOutOfRangeException(
                     nameof(hp), "Breakable obstacle HP must be positive.");
+            if (type == ObstacleType.LaserEmitter
+                && (hp != 0 || laserAttack == null))
+                throw new ArgumentException(
+                    "Laser emitters require zero HP and a laser profile.");
+            if (type != ObstacleType.LaserEmitter && laserAttack != null)
+                throw new ArgumentException(
+                    "Only laser emitters can carry a laser profile.",
+                    nameof(laserAttack));
 
             Type = type;
             X = x;
             Y = y;
             Hp = hp;
+            LaserAttack = laserAttack;
         }
 
         public ObstacleType Type { get; }
         public int X { get; }
         public int Y { get; }
         public int Hp { get; }
+        public Simulation.LaserAttackDefinition LaserAttack { get; }
     }
 }

@@ -22,6 +22,8 @@ namespace Shmup.Core.Content
     {
         [DataMember]
         public int? noDropWeight;
+        [DataMember]
+        public int? bombNoDropWeight;
     }
 
     [DataContract]
@@ -46,6 +48,8 @@ namespace Shmup.Core.Content
         [DataMember]
         public int? dropWeight;
         [DataMember]
+        public int? bombDropWeight;
+        [DataMember]
         public decimal? halfWidth;
         [DataMember]
         public decimal? halfHeight;
@@ -55,6 +59,25 @@ namespace Shmup.Core.Content
         public int? periodTicks;
         [DataMember]
         public EnemyMovementDto movement;
+        [DataMember]
+        public LaserAttackDto laser;
+        [DataMember]
+        public MidBossProfileDto midBoss;
+    }
+
+    [DataContract]
+    internal sealed class MidBossProfileDto
+    {
+        [DataMember]
+        public string themeId;
+        [DataMember]
+        public int? weight;
+        [DataMember]
+        public int? stageIndexMin;
+        [DataMember]
+        public int? stageIndexMax;
+        [DataMember]
+        public BossPhaseDto[] phases;
     }
 
     [DataContract]
@@ -77,6 +100,35 @@ namespace Shmup.Core.Content
     }
 
     [DataContract]
+    internal sealed class LaserAttackDto
+    {
+        [DataMember]
+        public int? cycleIntervalTicks;
+        [DataMember]
+        public int? telegraphTicks;
+        [DataMember]
+        public int? firingTicks;
+        [DataMember]
+        public int? sustainTicks;
+        [DataMember]
+        public int? dissipateTicks;
+        [DataMember]
+        public decimal? startOffsetX;
+        [DataMember]
+        public decimal? startOffsetY;
+        [DataMember]
+        public decimal? endOffsetX;
+        [DataMember]
+        public decimal? endOffsetY;
+        [DataMember]
+        public decimal? thinHalfWidth;
+        [DataMember]
+        public decimal? fullHalfWidth;
+        [DataMember]
+        public int? damage;
+    }
+
+    [DataContract]
     internal sealed class WeaponsDto
     {
         [DataMember]
@@ -91,6 +143,45 @@ namespace Shmup.Core.Content
         public OptionFormationDto[] optionFormations;
         [DataMember]
         public string defaultOptionFormation;
+        [DataMember]
+        public PrimaryWeaponFamilyDto[] primaryWeaponFamilies;
+        [DataMember]
+        public PowerUpCostCurveDto powerUpCostCurve;
+        [DataMember]
+        public PowerUpGaugeDto powerUpGauge;
+    }
+
+    [DataContract]
+    internal sealed class PowerUpGaugeDto
+    {
+        [DataMember]
+        public PowerUpGaugeSlotDto[] slots;
+    }
+
+    [DataContract]
+    internal sealed class PowerUpGaugeSlotDto
+    {
+        [DataMember]
+        public string slot;
+        [DataMember]
+        public string nameKey;
+        [DataMember]
+        public int? maxLevel;
+        [DataMember]
+        public PowerUpCostCurveDto costCurve;
+        [DataMember]
+        public decimal? speedBonusPerLevel;
+    }
+
+    [DataContract]
+    internal sealed class PowerUpCostCurveDto
+    {
+        [DataMember]
+        public int? baseCost;
+        [DataMember]
+        public int? linearGrowth;
+        [DataMember]
+        public int? quadraticGrowth;
     }
 
     [DataContract]
@@ -114,6 +205,8 @@ namespace Shmup.Core.Content
         public decimal? projectileHalfHeight;
         [DataMember]
         public int? maxLevel;
+        [DataMember]
+        public int? effectSoftCapLevel;
     }
 
     [DataContract]
@@ -130,9 +223,15 @@ namespace Shmup.Core.Content
         [DataMember]
         public int? segmentsPerStage;
         [DataMember]
+        public int? closingSegmentsPerStage;
+        [DataMember]
         public int? startLaneMask;
         [DataMember]
         public string[] themes;
+        [DataMember]
+        public StageGimmickDto[] gimmicks;
+        [DataMember]
+        public ContractCatalogDto contracts;
         [DataMember]
         public SegmentDto[] segments;
         [DataMember]
@@ -164,6 +263,94 @@ namespace Shmup.Core.Content
         public SpawnDto[] spawns;
         [DataMember]
         public ObstacleDto[] obstacles;
+        [DataMember]
+        public SegmentEnvironmentDto environment;
+    }
+
+    [DataContract]
+    internal sealed class ContractCatalogDto
+    {
+        [DataMember]
+        public string standardContractId;
+        [DataMember]
+        public int? minimumOptionCount;
+        [DataMember]
+        public int? maximumOptionCount;
+        [DataMember]
+        public ContractDto[] entries;
+    }
+
+    [DataContract]
+    internal sealed class ContractDto
+    {
+        [DataMember]
+        public string id;
+        [DataMember]
+        public int? weight;
+        [DataMember]
+        public string riskTier;
+        [DataMember]
+        public string destinationKind;
+        [DataMember]
+        public string eligibility;
+        [DataMember]
+        public decimal? enemyDensityMultiplier;
+        [DataMember]
+        public decimal? capsuleDropMultiplier;
+        [DataMember]
+        public decimal? bombDropMultiplier;
+        [DataMember]
+        public bool? guaranteedBombDrop;
+        [DataMember]
+        public decimal? gimmickIntensityMultiplier;
+        [DataMember]
+        public int? rewardOptionCountDelta;
+        [DataMember]
+        public decimal? scoreMultiplier;
+    }
+
+    [DataContract]
+    internal sealed class StageGimmickDto
+    {
+        [DataMember]
+        public string theme;
+        [DataMember]
+        public bool? visionObscured;
+        [DataMember]
+        public int? timeLimitTicks;
+    }
+
+    [DataContract]
+    internal sealed class SegmentEnvironmentDto
+    {
+        [DataMember]
+        public CorridorDto corridor;
+        [DataMember]
+        public DriftDto drift;
+    }
+
+    [DataContract]
+    internal sealed class CorridorDto
+    {
+        [DataMember]
+        public decimal? startMinY;
+        [DataMember]
+        public decimal? startMaxY;
+        [DataMember]
+        public decimal? endMinY;
+        [DataMember]
+        public decimal? endMaxY;
+        [DataMember]
+        public int? contactDamage;
+    }
+
+    [DataContract]
+    internal sealed class DriftDto
+    {
+        [DataMember]
+        public decimal? xPerSecond;
+        [DataMember]
+        public decimal? yPerSecond;
     }
 
     [DataContract]
@@ -205,6 +392,41 @@ namespace Shmup.Core.Content
     }
 
     [DataContract]
+    internal sealed class PrimaryWeaponFamilyDto
+    {
+        [DataMember]
+        public string id;
+        [DataMember]
+        public string displayName;
+        [DataMember]
+        public string description;
+        [DataMember]
+        public string weaponType;
+        [DataMember]
+        public int? baseDamage;
+        [DataMember]
+        public int? fireIntervalTicks;
+        [DataMember]
+        public int? minimumFireIntervalTicks;
+        [DataMember]
+        public int? rapidFireStartLevel;
+        [DataMember]
+        public int? fireIntervalReductionPerLevel;
+        [DataMember]
+        public decimal? projectileSpeed;
+        [DataMember]
+        public decimal? projectileHalfWidth;
+        [DataMember]
+        public decimal? projectileHalfHeight;
+        [DataMember]
+        public int? pierceEnemyCount;
+        [DataMember]
+        public int? spreadWays;
+        [DataMember]
+        public int? spreadStepLutSlots;
+    }
+
+    [DataContract]
     internal sealed class OptionFormationDto
     {
         [DataMember]
@@ -241,6 +463,8 @@ namespace Shmup.Core.Content
         public decimal? y;
         [DataMember]
         public int? hp;
+        [DataMember]
+        public LaserAttackDto laser;
     }
 
     [DataContract]
@@ -280,11 +504,25 @@ namespace Shmup.Core.Content
     internal sealed class BossPhaseDto
     {
         [DataMember]
+        public string pattern;
+        [DataMember]
         public int? fireIntervalTicks;
         [DataMember]
         public int? ways;
         [DataMember]
         public decimal? bulletSpeed;
+        [DataMember]
+        public string movementPattern;
+        [DataMember]
+        public decimal? movementAmplitude;
+        [DataMember]
+        public int? movementPeriodTicks;
+        [DataMember]
+        public string partVulnerability;
+        [DataMember]
+        public int? durationTicks;
+        [DataMember]
+        public int? telegraphTicks;
     }
 
     [DataContract]
@@ -340,6 +578,10 @@ namespace Shmup.Core.Content
         public int? optionCount;
         [DataMember]
         public RewardDto[] rewards;
+        [DataMember]
+        public int? maxCombinedModifierCost;
+        [DataMember]
+        public int? rerollCost;
     }
 
     [DataContract]
@@ -364,9 +606,34 @@ namespace Shmup.Core.Content
         [DataMember]
         public string modifierId;
         [DataMember]
+        public string modifierEffect;
+        [DataMember]
+        public bool? stackable;
+        [DataMember]
+        public int? maxStacks;
+        [DataMember]
+        public int? stackStrength;
+        [DataMember]
+        public int? interactionCost;
+        [DataMember]
         public string familyId;
         [DataMember]
         public string formationId;
+        [DataMember]
+        public string primaryFamilyId;
+        [DataMember]
+        public string pool;
+        [DataMember]
+        public RewardCostDto[] costs;
+    }
+
+    [DataContract]
+    internal sealed class RewardCostDto
+    {
+        [DataMember]
+        public string type;
+        [DataMember]
+        public int? amount;
     }
 
     [DataContract]
@@ -397,6 +664,12 @@ namespace Shmup.Core.Content
         public string weaponType;
         [DataMember]
         public int? maxHp;
+        [DataMember]
+        public int? startingShieldStock;
+        [DataMember]
+        public string gaugeWeaponFamily;
+        [DataMember]
+        public string[] powerUpGaugeSlots;
     }
 
     [DataContract]

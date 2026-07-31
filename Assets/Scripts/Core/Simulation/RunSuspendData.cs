@@ -41,6 +41,40 @@ namespace Shmup.Core.Simulation
         public int roomIndex;
     }
 
+    [Serializable]
+    [DataContract]
+    public sealed class ContractChoiceData
+    {
+        [DataMember(Order = 0)]
+        public int targetBiomeIndex;
+
+        [DataMember(Order = 1)]
+        public int optionIndex;
+
+        [DataMember(Order = 2)]
+        public string contractId;
+
+        [DataMember(Order = 3)]
+        public int destinationKind;
+    }
+
+    [Serializable]
+    [DataContract]
+    public sealed class RewardDecisionData
+    {
+        [DataMember(Order = 0)]
+        public int rewardSequence;
+
+        [DataMember(Order = 1)]
+        public int selectionKind;
+
+        [DataMember(Order = 2)]
+        public int decisionKind;
+
+        [DataMember(Order = 3)]
+        public int optionIndex;
+    }
+
     /// <summary>
     /// Serializer-facing checkpoint for the beginning of a room or biome boss.
     /// Presentation owns file persistence. Exporting during a stage deliberately
@@ -50,7 +84,11 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class RunSuspendData
     {
-        public const int CurrentSchemaVersion = 7;
+        /// <summary>
+        /// Schema 16 stores eight stable power axes and a ship-specific gauge
+        /// cursor. Schema 15 is rejected because its cursor assumed seven slots.
+        /// </summary>
+        public const int CurrentSchemaVersion = 16;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -180,5 +218,68 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 41)]
         public int lastColossalBossAtRunStart;
+
+        /// <summary>
+        /// Authoritative REQ-040 durability. playerHp and shieldRemaining remain
+        /// serialized compatibility mirrors for older Presentation builds.
+        /// </summary>
+        [DataMember(Order = 42)]
+        public int shieldStock;
+
+        [DataMember(Order = 43)]
+        public int maxShieldStock;
+
+        [DataMember(Order = 44)]
+        public int bombStock;
+
+        [DataMember(Order = 45)]
+        public int maxBombStock;
+
+        /// <summary>
+        /// Selected runtime primary family. -1 is accepted only as the v1-v9
+        /// migration sentinel and resolves from shipId during resume.
+        /// </summary>
+        [DataMember(Order = 46)]
+        public int primaryWeaponFamily;
+
+        /// <summary>
+        /// Partial capsule investments ordered by PowerUpSlot. Schema v1-v10
+        /// migrate to zero because those versions had no partial progress.
+        /// </summary>
+        [DataMember(Order = 47)]
+        public int[] powerUpProgress;
+
+        [DataMember(Order = 48)]
+        public bool hasStageStartContinuity;
+
+        [DataMember(Order = 49)]
+        public int stageStartPlayerX;
+
+        [DataMember(Order = 50)]
+        public int stageStartPlayerY;
+
+        [DataMember(Order = 51)]
+        public int stageStartMultiplierLevel;
+
+        [DataMember(Order = 52)]
+        public int stageStartComboGauge;
+
+        [DataMember(Order = 53)]
+        public int stageStartTicksSinceLastKill;
+
+        [DataMember(Order = 54)]
+        public string activeContractId;
+
+        [DataMember(Order = 55)]
+        public ContractChoiceData[] contractChoices;
+
+        [DataMember(Order = 56)]
+        public int capsuleDropWeightReduction;
+
+        [DataMember(Order = 57)]
+        public int capsuleBalance;
+
+        [DataMember(Order = 58)]
+        public RewardDecisionData[] rewardDecisions;
     }
 }

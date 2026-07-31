@@ -27,11 +27,11 @@ namespace Shmup.Presentation.Battle
 
         enum Item
         {
-            Resolution = 0, Fullscreen, RebindFire, RebindActivate,
+            Resolution = 0, Fullscreen, AutoFire, RebindFire, RebindActivate,
             RebindUp, RebindDown, RebindLeft, RebindRight,
             ResetBindings, ScreenShake, ReduceFlash, Close
         }
-        const int ItemCount = 12;
+        const int ItemCount = 13;
 
         /// <summary>PauseScreen이 입력 충돌(볼륨 화살표 등)을 피하기 위한 상태 공유.</summary>
         public static bool IsOpen { get; private set; }
@@ -41,6 +41,15 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Font _font;
         [SerializeField] Font _fontBold;
 
+        /// <summary>
+        /// 터치 기기에서 의미가 있는 항목만. 해상도·전체화면은 웹/폰에서 캔버스 크기를 건드려
+        /// 레이아웃을 깨뜨리고, 리바인딩은 물리 키가 없으면 쓸 수 없다.
+        /// </summary>
+        static readonly Item[] TouchItems =
+        {
+            Item.ScreenShake, Item.ReduceFlash, Item.Close
+        };
+
         bool _open;
         int _cursor;
         int _resolutionIndex;
@@ -49,27 +58,85 @@ namespace Shmup.Presentation.Battle
         GameObject _root;
         Text _bodyText;
         string _panelText;
+        Text[] _touchLabels;
+        GameObject _openButtonRoot;
 
         void Start()
         {
             _resolutionIndex = Mathf.Clamp(
                 PlayerPrefs.GetInt(ResolutionPrefKey, 0), 0, Resolutions.Length - 1);
             bool fullscreen = PlayerPrefs.GetInt(FullscreenPrefKey, 0) == 1;
-            // 에디터에서는 해상도 강제 변경을 건너뛴다 (게임 뷰가 관리)
-            if (!Application.isEditor)
-                Apply(fullscreen);
+            // 에디터·웹·모바일에서는 창 크기를 여기서 건드리지 않는다 (CanSetResolution 참고)
+            Apply(fullscreen);
             LoadBindings();
 
+            bool touch = UiPlatform.TouchMode;
             var canvas = UiKit.CreateCanvas("OptionsCanvas", 85);
             canvas.transform.SetParent(transform, false);
             _root = canvas.gameObject;
             UiKit.CreateDim(canvas.transform, new Color(0f, 0.01f, 0.05f, 0.7f));
-            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(360f, 210f));
-            UiKit.CreateCornerText(panel, _fontBold, "OPTIONS", 16, UiKit.TextMain,
+            var panel = UiKit.CreatePanel(canvas.transform,
+                touch ? new Vector2(300f, 200f) : new Vector2(360f, 210f));
+            UiKit.CreateCornerText(panel, _fontBold, UiText.OptionsTitle, 16, UiKit.TextMain,
                 new Vector2(0.5f, 1f), new Vector2(0f, -10f), TextAnchor.UpperCenter, "Title");
             _bodyText = UiKit.CreateTextStretch(panel, _font, "", 11,
                 UiKit.TextMain, TextAnchor.MiddleCenter, 10f, "Body");
+
+            if (touch)
+            {
+                // 항목 하나가 텍스트 한 줄이던 것을 각각 눌리는 행으로 바꾼다.
+                _bodyText.gameObject.SetActive(false);
+                _touchLabels = new Text[TouchItems.Length];
+                for (int i = 0; i < TouchItems.Length; i++)
+                {
+                    var item = TouchItems[i];
+                    bool isClose = item == Item.Close;
+                    var button = UiKit.CreateTouchButton(panel, _font, "", 11,
+                        new Vector2(0.5f, 1f), new Vector2(0f, -40f - i * 40f),
+                        new Vector2(260f, 36f), () => ActivateItem(item),
+                        $"Option{item}", accent: isClose);
+                    _touchLabels[i] = button.GetComponentInChildren<Text>();
+                }
+
+                // 일시정지 화면에서 옵션으로 들어갈 입구. 옵션 캔버스는 열렸을 때만 켜지므로
+                // 입구는 별도 캔버스에 둔다 (일시정지 패널 위, 옵션 패널 아래).
+                var openCanvas = UiKit.CreateCanvas("OptionsOpenCanvas", 84);
+                openCanvas.transform.SetParent(transform, false);
+                _openButtonRoot = openCanvas.gameObject;
+                UiKit.CreateTouchButton(openCanvas.transform, _font, "OPTIONS", 11,
+                    new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(120f, 34f),
+                    () => _open = true, "OpenOptions");
+                _openButtonRoot.SetActive(false);
+            }
+
             _root.SetActive(false);
+        }
+
+        void RefreshTouchLabels()
+        {
+            if (_touchLabels == null) return;
+            bool shakeOn = PlayerPrefs.GetInt(JuiceDirector.ShakePrefKey, 1) == 1;
+            bool flashReduce = PlayerPrefs.GetInt(JuiceDirector.FlashReducePrefKey, 0) == 1;
+            for (int i = 0; i < TouchItems.Length; i++)
+            {
+                var label = _touchLabels[i];
+                if (label == null) continue;
+                switch (TouchItems[i])
+                {
+                    case Item.AutoFire:
+                        label.text = $"AUTO FIRE          {(PlayerInputReader.AutoFire ? "ON" : "OFF")}";
+                        break;
+                    case Item.ScreenShake:
+                        label.text = $"SCREEN SHAKE   {(shakeOn ? "ON" : "OFF")}";
+                        break;
+                    case Item.ReduceFlash:
+                        label.text = $"REDUCE FLASH   {(flashReduce ? "ON" : "OFF")}";
+                        break;
+                    case Item.Close:
+                        label.text = "CLOSE";
+                        break;
+                }
+            }
         }
 
         void OnDestroy()
@@ -80,14 +147,14 @@ namespace Shmup.Presentation.Battle
         void Update()
         {
             var keyboard = Keyboard.current;
+            // 폰에는 키보드도 패드도 없다 — 여기서 일찍 리턴하면 터치 입구가 아예 안 뜬다.
             var gamepad = Gamepad.current;
-            if (keyboard == null && gamepad == null) return;
 
             // 리바인딩 대기 중에는 다른 입력 처리를 멈춘다
             if (_rebind != null)
             {
                 if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) CancelRebind();
-                SetVisible(true, "PRESS ANY KEY\n\n(ESC cancel)");
+                SetVisible(true, UiText.RebindPrompt);
                 return;
             }
 
@@ -97,10 +164,26 @@ namespace Shmup.Presentation.Battle
                 _open = !_open;
             if (Time.timeScale != 0f) _open = false;   // 일시정지 해제 시 자동 닫힘
             IsOpen = _open;
+
+            // 옵션 입구는 일시정지 중, 옵션이 닫혀 있을 때만 보인다.
+            if (_openButtonRoot != null)
+            {
+                bool showOpenButton = Time.timeScale == 0f && !_open;
+                if (_openButtonRoot.activeSelf != showOpenButton)
+                    _openButtonRoot.SetActive(showOpenButton);
+            }
+
             if (!_open)
             {
                 SetVisible(false, null);
                 return;
+            }
+
+            if (_touchLabels != null)
+            {
+                RefreshTouchLabels();
+                SetVisible(true, null);
+                return;   // 터치 모드는 행 버튼이 전부 처리한다
             }
 
             // 커서 이동
@@ -176,6 +259,9 @@ namespace Shmup.Presentation.Battle
                 case Item.Fullscreen:
                     Apply(!Screen.fullScreen);
                     break;
+                case Item.AutoFire:
+                    PlayerInputReader.SetAutoFire(!PlayerInputReader.AutoFire);
+                    break;
                 case Item.RebindFire: StartRebindFire(); break;
                 case Item.RebindActivate: StartRebindActivate(); break;
                 case Item.RebindUp: StartRebindMovePart("up"); break;
@@ -227,6 +313,8 @@ namespace Shmup.Presentation.Battle
                     activate.bindings[0].effectivePath,
                     InputControlPath.HumanReadableStringOptions.OmitDevice)
                 : "?";
+            AppendItem(sb, Item.AutoFire,
+                $"AUTO FIRE   {(PlayerInputReader.AutoFire ? "ON" : "OFF")}");
             AppendItem(sb, Item.RebindFire, $"REBIND FIRE  (now: {fireBinding})");
             AppendItem(sb, Item.RebindActivate, $"REBIND ACTIVATE  (now: {activateBinding})");
             AppendItem(sb, Item.RebindUp, "REBIND MOVE UP");
@@ -247,10 +335,20 @@ namespace Shmup.Presentation.Battle
             if (item != Item.Close) sb.Append('\n');
         }
 
+        /// <summary>
+        /// 창 해상도를 이쪽에서 정할 수 있는 플랫폼인지. WebGL에서 SetResolution은 곧
+        /// 캔버스 크기 변경이라, 페이지가 잡아 놓은 렌더 타겟(640×360)을 덮어써서
+        /// 종횡비가 어긋나고 HUD가 화면 밖으로 밀려난다. 모바일도 창 개념이 없다.
+        /// </summary>
+        static bool CanSetResolution =>
+            !Application.isEditor
+            && Application.platform != RuntimePlatform.WebGLPlayer
+            && !Application.isMobilePlatform;
+
         void Apply(bool fullscreen)
         {
             var resolution = Resolutions[_resolutionIndex];
-            if (!Application.isEditor)
+            if (CanSetResolution)
                 Screen.SetResolution(resolution.x, resolution.y, fullscreen);
             PlayerPrefs.SetInt(ResolutionPrefKey, _resolutionIndex);
             PlayerPrefs.SetInt(FullscreenPrefKey, fullscreen ? 1 : 0);

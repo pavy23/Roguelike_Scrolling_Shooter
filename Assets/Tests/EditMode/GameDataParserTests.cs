@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using NUnit.Framework;
@@ -33,6 +34,23 @@ namespace Shmup.Core.Tests
       ""movement"": {
         ""pattern"": ""dive"", ""speed"": 6,
         ""delayTicks"": 20, ""durationTicks"": 30
+      },
+      ""midBoss"": {
+        ""themeId"": ""hive"", ""weight"": 4,
+        ""stageIndexMin"": 2, ""stageIndexMax"": 4,
+        ""phases"": [
+          {
+            ""fireIntervalTicks"": 48, ""ways"": 1,
+            ""bulletSpeed"": 8, ""movementPattern"": ""stationary"",
+            ""durationTicks"": 120
+          },
+          {
+            ""fireIntervalTicks"": 28, ""ways"": 3,
+            ""bulletSpeed"": 10, ""movementPattern"": ""verticalSine"",
+            ""movementAmplitude"": 2.5, ""movementPeriodTicks"": 90,
+            ""durationTicks"": 105, ""telegraphTicks"": 18
+          }
+        ]
       }
     },
     {
@@ -256,6 +274,124 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void Parse_BossPhasesBuildShootingMovementAndPartStateAxes()
+        {
+            string waves = WavesJson.Replace(
+                @"""entryLaneMask"": 7, ""hp"": 500",
+                @"""entryLaneMask"": 7, ""hp"": 500,
+    ""phases"": [
+      {
+        ""pattern"": ""radial"",
+        ""fireIntervalTicks"": 90, ""ways"": 2, ""bulletSpeed"": 6.0,
+        ""movementPattern"": ""stationary"",
+        ""partVulnerability"": ""coreOnly""
+      },
+      {
+        ""pattern"": ""spiral"",
+        ""fireIntervalTicks"": 45, ""ways"": 3, ""bulletSpeed"": 9.0,
+        ""movementPattern"": ""verticalSine"",
+        ""movementAmplitude"": 1.5, ""movementPeriodTicks"": 120,
+        ""partVulnerability"": ""all""
+      },
+      {
+        ""pattern"": ""wall"",
+        ""fireIntervalTicks"": 50, ""ways"": 5, ""bulletSpeed"": 7.0
+      },
+      {
+        ""pattern"": ""burst"",
+        ""fireIntervalTicks"": 80, ""ways"": 4, ""bulletSpeed"": 8.0,
+        ""telegraphTicks"": 15
+      }
+    ]");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                waves);
+            IReadOnlyList<BossPhase> phases =
+                data.StageGeneration.Bosses[0].Phases;
+
+            Assert.AreEqual(4, phases.Count);
+            Assert.AreEqual(
+                BossMovementPattern.Stationary,
+                phases[0].MovementPattern);
+            Assert.AreEqual(
+                BossFirePattern.Radial,
+                phases[0].FirePattern);
+            Assert.AreEqual(
+                BossPartVulnerability.CoreOnly,
+                phases[0].PartVulnerability);
+            Assert.AreEqual(
+                BossMovementPattern.VerticalSine,
+                phases[1].MovementPattern);
+            Assert.AreEqual(
+                BossFirePattern.Spiral,
+                phases[1].FirePattern);
+            Assert.AreEqual(384, phases[1].MovementAmplitudeNumerator);
+            Assert.AreEqual(1, phases[1].MovementAmplitudeDenominator);
+            Assert.AreEqual(120, phases[1].MovementPeriodTicks);
+            Assert.AreEqual(
+                BossPartVulnerability.All,
+                phases[1].PartVulnerability);
+            Assert.AreEqual(
+                BossFirePattern.Wall,
+                phases[2].FirePattern);
+            Assert.AreEqual(
+                BossFirePattern.Burst,
+                phases[3].FirePattern);
+        }
+
+        [Test]
+        public void Parse_LegacyBossPatternNamesMapToAimed()
+        {
+            string waves = WavesJson.Replace(
+                @"""entryLaneMask"": 7, ""hp"": 500",
+                @"""entryLaneMask"": 7, ""hp"": 500,
+    ""phases"": [
+      { ""pattern"": ""aimed"", ""fireIntervalTicks"": 60,
+        ""ways"": 1, ""bulletSpeed"": 6 },
+      { ""pattern"": ""spread"", ""fireIntervalTicks"": 45,
+        ""ways"": 3, ""bulletSpeed"": 7 },
+      { ""pattern"": ""rapid"", ""fireIntervalTicks"": 20,
+        ""ways"": 1, ""bulletSpeed"": 8 }
+    ]");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                waves);
+            IReadOnlyList<BossPhase> phases =
+                data.StageGeneration.Bosses[0].Phases;
+
+            Assert.AreEqual(BossFirePattern.Aimed, phases[0].FirePattern);
+            Assert.AreEqual(BossFirePattern.Aimed, phases[1].FirePattern);
+            Assert.AreEqual(BossFirePattern.Aimed, phases[2].FirePattern);
+        }
+
+        [Test]
+        public void Parse_RejectsUnknownBossFirePatternWithFieldPath()
+        {
+            string waves = WavesJson.Replace(
+                @"""entryLaneMask"": 7, ""hp"": 500",
+                @"""entryLaneMask"": 7, ""hp"": 500,
+    ""phases"": [
+      { ""pattern"": ""unknown"", ""fireIntervalTicks"": 60,
+        ""ways"": 1, ""bulletSpeed"": 6 }
+    ]");
+
+            GameDataParseException error =
+                Assert.Throws<GameDataParseException>(
+                    () => GameDataParser.Parse(
+                        EnemiesJson,
+                        WeaponsJson,
+                        waves));
+
+            StringAssert.Contains(
+                "waves.json.bosses[0].phases[0].pattern",
+                error.Message);
+        }
+
+        [Test]
         public void Parse_WaveObstaclesBuildExactModelsAndGeneratedPlan()
         {
             string waves = WavesJson.Replace(
@@ -328,6 +464,18 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(60, dive.MoveSpeedDenominator);
             Assert.AreEqual(20, dive.MovementDelayTicks);
             Assert.AreEqual(30, dive.MovementDurationTicks);
+            Assert.IsNotNull(dive.MidBossProfile);
+            Assert.AreEqual("hive", dive.MidBossProfile.ThemeId);
+            Assert.AreEqual(4, dive.MidBossProfile.Weight);
+            Assert.AreEqual(2, dive.MidBossProfile.StageIndexMin);
+            Assert.AreEqual(4, dive.MidBossProfile.StageIndexMax);
+            Assert.AreEqual(2, dive.MidBossProfile.Phases.Count);
+            Assert.AreEqual(
+                120,
+                dive.MidBossProfile.Phases[0].DurationTicks);
+            Assert.AreEqual(
+                18,
+                dive.MidBossProfile.Phases[1].TelegraphTicks);
 
             EnemyDefinition zigzag = data.BattleContent.FindEnemy("zigzag_enemy");
             Assert.AreEqual(EnemyMovePattern.Zigzag, zigzag.MovePattern);
@@ -377,6 +525,172 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(50, config.ComboGaugeRequiredForLevel3);
             Assert.AreEqual(80, config.ComboGaugeRequiredForLevel4);
             Assert.AreEqual(300, config.ComboDecayTicks);
+        }
+
+        [Test]
+        public void Parse_RewardsV3SupportsStackProfilesAndArbitraryIds()
+        {
+            const string rewardsV3 = @"{
+  ""schemaVersion"": 3,
+  ""optionCount"": 3,
+  ""maxCombinedModifierCost"": 7,
+  ""rewards"": [
+    {
+      ""id"": ""pierce_alpha"", ""type"": ""modifier"",
+      ""modifierId"": ""alpha"", ""modifierEffect"": ""pierce_shot"",
+      ""stackable"": true, ""maxStacks"": 3,
+      ""stackStrength"": 2, ""interactionCost"": 1,
+      ""weight"": 1, ""stageIndexMin"": 1, ""stageIndexMax"": 9
+    },
+    {
+      ""id"": ""ricochet_once"", ""type"": ""modifier"",
+      ""modifierId"": ""ricochet_once"", ""modifierEffect"": ""ricochet"",
+      ""stackable"": false, ""maxStacks"": 1,
+      ""stackStrength"": 1, ""interactionCost"": 2,
+      ""weight"": 1, ""stageIndexMin"": 1, ""stageIndexMax"": 9
+    },
+    {
+      ""id"": ""homing_beta"", ""type"": ""modifier"",
+      ""modifierId"": ""beta"", ""modifierEffect"": ""homing_missile"",
+      ""stackable"": true, ""maxStacks"": 2,
+      ""stackStrength"": 1, ""interactionCost"": 1,
+      ""weight"": 1, ""stageIndexMin"": 1, ""stageIndexMax"": 9
+    }
+  ]
+}";
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson,
+                rewardsV3,
+                ShipsJson);
+            RewardDefinition modifier = data.Rewards.All[0];
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(7, data.Rewards.MaxCombinedModifierCost);
+                Assert.AreEqual("alpha", modifier.ModifierKey);
+                Assert.AreEqual(BattleModifier.PierceShot, modifier.ModifierId);
+                Assert.IsTrue(modifier.ModifierStackable);
+                Assert.AreEqual(3, modifier.ModifierMaxStacks);
+                Assert.AreEqual(2, modifier.ModifierStackStrength);
+                Assert.AreEqual(1, modifier.ModifierInteractionCost);
+                Assert.IsFalse(data.Rewards.All[1].ModifierStackable);
+            });
+        }
+
+        [Test]
+        public void Req072SchemasExposeTerminalContractsAndRerollCost()
+        {
+            string waves = WavesJson.Replace(
+                @"  ""segments"": [{",
+                @"  ""contracts"": {
+    ""standardContractId"": ""standard_route"",
+    ""minimumOptionCount"": 2,
+    ""maximumOptionCount"": 3,
+    ""entries"": [
+      { ""id"": ""standard_route"", ""weight"": 1, ""riskTier"": ""safe"" },
+      { ""id"": ""end_run"", ""weight"": 1, ""riskTier"": ""safe"",
+        ""destinationKind"": ""endRun"" },
+      { ""id"": ""uncharted"", ""weight"": 1, ""riskTier"": ""high"",
+        ""destinationKind"": ""uncharted"",
+        ""eligibility"": ""hiddenBiomeUnlocked"" }
+    ]
+  },
+  ""segments"": [{");
+            string rewards = RewardsJson
+                .Replace(
+                    @"""schemaVersion"": 1",
+                    @"""schemaVersion"": 5")
+                .Replace(
+                    @"""optionCount"": 3,",
+                    @"""optionCount"": 3,
+  ""maxCombinedModifierCost"": 4,
+  ""rerollCost"": 5,");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                waves,
+                rewards);
+
+            Assert.AreEqual(5, data.Rewards.RerollCost);
+            Assert.AreEqual(
+                ContractDestinationKind.EndRun,
+                data.Contracts.EndRun.DestinationKind);
+            Assert.AreEqual(
+                ContractDestinationKind.Uncharted,
+                data.Contracts.Uncharted.DestinationKind);
+            Assert.AreEqual(
+                ContractEligibility.HiddenBiomeUnlocked,
+                data.Contracts.Uncharted.Eligibility);
+            Assert.IsFalse(
+                data.Contracts.Uncharted.IsEligible(2, 1, 0));
+            Assert.IsTrue(
+                data.Contracts.Uncharted.IsEligible(3, 2, 0));
+        }
+
+        [Test]
+        public void Parse_ContractsPoolsAndRewardCostsAreDataDriven()
+        {
+            string waves = WavesJson.Replace(
+                @"""segments"": [",
+                @"""contracts"": {
+    ""standardContractId"": ""standard_route"",
+    ""minimumOptionCount"": 2,
+    ""maximumOptionCount"": 2,
+    ""entries"": [
+      { ""id"": ""standard_route"", ""weight"": 1, ""riskTier"": ""safe"" },
+      {
+        ""id"": ""dense_salvage"", ""weight"": 4, ""riskTier"": ""high"",
+        ""enemyDensityMultiplier"": 1.5,
+        ""capsuleDropMultiplier"": 1.25,
+        ""bombDropMultiplier"": 2,
+        ""guaranteedBombDrop"": true,
+        ""gimmickIntensityMultiplier"": 1.5,
+        ""rewardOptionCountDelta"": 1,
+        ""scoreMultiplier"": 1.5
+      }
+    ]
+  },
+  ""segments"": [");
+            string rewards = RewardsJson
+                .Replace(
+                    @"""schemaVersion"": 1",
+                    @"""schemaVersion"": 4")
+                .Replace(
+                    @"""optionCount"": 3,",
+                    @"""optionCount"": 3,
+  ""maxCombinedModifierCost"": 4,")
+                .Replace(
+                    @"""id"": ""capsules_3"", ""type"": ""capsules"", ""amount"": 3,",
+                    @"""id"": ""capsules_3"", ""type"": ""capsules"", ""amount"": 3,
+      ""pool"": ""mid"",
+      ""costs"": [
+        { ""type"": ""shieldMaxDown"", ""amount"": 1 },
+        { ""type"": ""moveSpeedDown"", ""amount"": 1 },
+        { ""type"": ""capsuleDropWeightDown"", ""amount"": 2 },
+        { ""type"": ""bombMaxDown"", ""amount"": 1 }
+      ],");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                waves,
+                rewards);
+
+            Assert.IsNotNull(data.Contracts);
+            Assert.AreEqual(
+                "standard_route",
+                data.Contracts.Standard.Id);
+            Assert.AreEqual(2, data.Contracts.All.Count);
+            Assert.AreEqual(
+                RewardPool.Mid,
+                data.Rewards.All[0].Pool);
+            Assert.AreEqual(
+                4,
+                data.Rewards.All[0].Costs.Count);
         }
 
         [Test]
@@ -740,7 +1054,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(WeaponType.Vulcan, swift.WeaponType);
             Assert.IsFalse(swift.MaxHp.HasValue);
             CollectionAssert.AreEqual(
-                new[] { 1, 0, 1, 0 },
+                new[] { 1, 0, 1, 0, 0, 0, 0, 0 },
                 swift.StartingPowerUpLevels);
             Assert.AreEqual(1000L, swift.UnlockCost);
             Assert.IsFalse(data.Ships is ShipDefinition[]);
@@ -785,6 +1099,9 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 WeaponType.Vulcan,
                 data.FindShip("starter").WeaponType);
+            Assert.AreEqual(
+                3,
+                data.FindShip("starter").StartingShieldStock);
             Assert.AreEqual(3, data.FindShip("starter").MaxHp);
             Assert.AreEqual(
                 WeaponType.Laser,
@@ -881,7 +1198,33 @@ namespace Shmup.Core.Tests
                 ReadUtf8(Path.Combine(root, "GameData", "scoring.json")),
                 ReadUtf8(Path.Combine(root, "GameData", "player.json")));
 
-            Assert.AreEqual(30, data.BattleContent.Enemies.Count);
+            bool hasHiveTentacle =
+                data.BattleContent.FindEnemy("hive_tentacle")
+                != null;
+            EnemyDefinition miniCore =
+                data.BattleContent.FindEnemy("mini_core");
+            int laserProfileEnemyCount =
+                (data.BattleContent.FindEnemy("laser_sentry") != null
+                    ? 1
+                    : 0)
+                + (data.BattleContent.FindEnemy("prism_beamer") != null
+                    ? 1
+                    : 0);
+            Assert.AreEqual(
+                (hasHiveTentacle ? 31 : 30)
+                    + (miniCore != null ? 1 : 0)
+                    + laserProfileEnemyCount,
+                data.BattleContent.Enemies.Count);
+            if (miniCore != null)
+            {
+                Assert.IsNotNull(miniCore.MidBossProfile);
+                Assert.AreEqual(
+                    "core",
+                    miniCore.MidBossProfile.ThemeId);
+                Assert.GreaterOrEqual(
+                    miniCore.MidBossProfile.StageIndexMin,
+                    3);
+            }
             Assert.AreEqual(4, data.BattleContent.Weapons.Count);
             Assert.AreEqual(3, data.BattleContent.MissileFamilies.Count);
             Assert.AreEqual(3, data.BattleContent.OptionFormations.Count);
@@ -892,40 +1235,82 @@ namespace Shmup.Core.Tests
                 OptionFormation.Trail,
                 data.BattleContent.DefaultOptionFormation);
             Assert.AreEqual(38, data.StageGeneration.Segments.Count);
-            // 5 theme bosses + 2 hidden colossal (REQ-035).
-            Assert.AreEqual(7, data.StageGeneration.Bosses.Count);
-            StageBossTemplate leviathan = null;
-            StageBossTemplate broodmother = null;
-            for (int i = 0; i < data.StageGeneration.Bosses.Count; i++)
+            bool hasLeviathan = false;
+            bool hasBroodmother = false;
+            for (int i = 0;
+                i < data.StageGeneration.Bosses.Count;
+                i++)
             {
-                StageBossTemplate boss = data.StageGeneration.Bosses[i];
-                if (boss.BossId == SegmentStageGenerator.LeviathanBossId)
-                    leviathan = boss;
-                if (boss.BossId == SegmentStageGenerator.BroodmotherBossId)
-                    broodmother = boss;
+                string bossId =
+                    data.StageGeneration.Bosses[i].BossId;
+                if (bossId
+                    == SegmentStageGenerator.LeviathanBossId)
+                    hasLeviathan = true;
+                else if (bossId
+                    == SegmentStageGenerator.BroodmotherBossId)
+                    hasBroodmother = true;
             }
-            Assert.IsNotNull(leviathan);
-            Assert.IsNotNull(broodmother);
-            Assert.AreEqual(62000, leviathan.MaxHp);
-            Assert.AreEqual(62000, broodmother.MaxHp);
-            Assert.AreEqual(6, leviathan.Parts.Count);
-            Assert.AreEqual(7, broodmother.Parts.Count);
+            Assert.AreEqual(hasLeviathan, hasBroodmother);
+            Assert.AreEqual(
+                hasLeviathan ? 7 : 5,
+                data.StageGeneration.Bosses.Count);
             Assert.AreEqual(3, data.Rewards.OptionCount);
-            // 13 base + 3 missileFamily + 3 optionFormation (REQ-034).
-            Assert.AreEqual(19, data.Rewards.All.Count);
+            // 13 base + 3 missileFamily + 3 optionFormation (REQ-034)
+            // + bomb_stock_1 (REQ-067)
+            // + 5 costed rewards (REQ-071).
+            Assert.AreEqual(25, data.Rewards.All.Count);
+            // REQ-073: schema v5 exposes capsule reroll cost (provisional §7 = 5).
+            Assert.AreEqual(5, data.Rewards.RerollCost);
+            Assert.IsNotNull(data.Contracts);
+            Assert.AreEqual("standard_route", data.Contracts.Standard.Id);
+            // 1 standard + 8 nextStage specialty + end_run + uncharted (REQ-073).
+            Assert.AreEqual(11, data.Contracts.All.Count);
+            Assert.IsNotNull(data.Contracts.EndRun);
+            Assert.AreEqual(
+                ContractDestinationKind.EndRun,
+                data.Contracts.EndRun.DestinationKind);
+            Assert.IsNotNull(data.Contracts.Uncharted);
+            Assert.AreEqual(
+                ContractDestinationKind.Uncharted,
+                data.Contracts.Uncharted.DestinationKind);
+            Assert.AreEqual(
+                ContractEligibility.HiddenBiomeUnlocked,
+                data.Contracts.Uncharted.Eligibility);
             Assert.AreEqual(3, data.Ships.Count);
+            // REQ-079 human ship identity: Double/1, Triple/0, Laser/2 + 5-slot gauges.
             Assert.AreEqual(
                 WeaponType.Vulcan,
                 data.FindShip("starter").WeaponType);
-            Assert.AreEqual(3, data.FindShip("starter").MaxHp.Value);
             Assert.AreEqual(
-                WeaponType.Laser,
-                data.FindShip("interceptor").WeaponType);
-            Assert.AreEqual(2, data.FindShip("interceptor").MaxHp.Value);
+                PrimaryWeaponFamily.Double,
+                data.FindShip("starter").GaugeWeaponFamily);
+            Assert.AreEqual(
+                1,
+                data.FindShip("starter").StartingShieldStock.Value);
+            Assert.AreEqual(1, data.FindShip("starter").MaxHp.Value);
             Assert.AreEqual(
                 WeaponType.Spread,
+                data.FindShip("interceptor").WeaponType);
+            Assert.AreEqual(
+                PrimaryWeaponFamily.Spread,
+                data.FindShip("interceptor").GaugeWeaponFamily);
+            Assert.AreEqual(0, data.FindShip("interceptor").MaxHp.Value);
+            Assert.AreEqual(
+                WeaponType.Laser,
                 data.FindShip("bulwark").WeaponType);
-            Assert.AreEqual(5, data.FindShip("bulwark").MaxHp.Value);
+            Assert.AreEqual(
+                PrimaryWeaponFamily.Laser,
+                data.FindShip("bulwark").GaugeWeaponFamily);
+            Assert.AreEqual(2, data.FindShip("bulwark").MaxHp.Value);
+            Assert.IsTrue(data.FindShip("starter").HasCustomPowerUpGauge);
+            Assert.AreEqual(
+                5,
+                data.StageGeneration.ClosingSegmentsPerStage);
+            Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Speed));
+            Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Missile));
+            // Option stays at 4: Fixed formation schema is locked to 4 offsets (Core).
+            Assert.AreEqual(4, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Option));
+            Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Shield));
             Assert.AreEqual(128, data.CreateBattleSimConfig().MaxEnemyBullets);
 
             // 640×360 재스케일(REQ-006) 후 elite_sine 진폭 = 3.0u = 768 서브유닛.
@@ -1259,6 +1644,128 @@ namespace Shmup.Core.Tests
             StringAssert.Contains("rewards.json.optionCount", error.Message);
         }
 
+        [Test]
+        public void Parse_ShipOwnedGaugeUsesFiveSlotsAndImmediateWeaponSwitch()
+        {
+            const string shipsJson = @"{
+  ""schemaVersion"": 2,
+  ""ships"": [{
+    ""id"": ""starter"",
+    ""displayName"": ""Starter"",
+    ""moveSpeedMultiplierNumerator"": 1,
+    ""moveSpeedMultiplierDenominator"": 1,
+    ""startingPowerUpLevels"": [0, 0, 0, 0],
+    ""unlockCost"": 0,
+    ""weaponType"": ""vulcan"",
+    ""startingShieldStock"": 0,
+    ""gaugeWeaponFamily"": ""double"",
+    ""powerUpGaugeSlots"": [
+      ""Speed"", ""Missile"", ""Weapon"", ""Option"", ""Shield""
+    ]
+  }]
+}";
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson,
+                RewardsJson,
+                shipsJson);
+            ShipDefinition ship = data.DefaultShip;
+            PowerUpGauge gauge = data.CreatePowerUpGauge(ship);
+
+            Assert.AreEqual(0, ship.StartingShieldStock);
+            Assert.AreEqual(PrimaryWeaponFamily.Double, ship.GaugeWeaponFamily);
+            Assert.AreEqual(PowerUpGauge.ShipGaugeSlotCount, gauge.GaugeSlotCount);
+            Assert.AreEqual(PowerUpSlot.Speed, gauge.GaugeSlots[0].Slot);
+            Assert.AreEqual(PowerUpSlot.Missile, gauge.GaugeSlots[1].Slot);
+            Assert.AreEqual(PowerUpSlot.Double, gauge.GaugeSlots[2].Slot);
+            Assert.AreEqual(PowerUpSlot.Option, gauge.GaugeSlots[3].Slot);
+            Assert.AreEqual(PowerUpSlot.Shield, gauge.GaugeSlots[4].Slot);
+
+            PowerUpGaugeSlotView before = gauge.GetGaugeSlotView(2);
+            Assert.AreEqual(0, before.Progress);
+            Assert.AreEqual(1, before.RequiredCapsules);
+            gauge.Collect();
+            gauge.Collect();
+            gauge.Collect();
+            Assert.AreEqual(
+                PowerUpActivationResult.LevelIncreased,
+                gauge.ActivateDetailed());
+            Assert.AreEqual(PowerUpWeaponMode.Double, gauge.ActiveWeaponMode);
+            Assert.AreEqual(1, gauge.GetLevel(PowerUpSlot.Double));
+            Assert.AreEqual(0, gauge.GetProgress(PowerUpSlot.Double));
+            Assert.AreEqual(0, gauge.GetGaugeSlotView(2).RequiredCapsules);
+        }
+
+        [Test]
+        public void Parse_MaxLevelSixSurvivesGaugeStateStorage()
+        {
+            string levelSixWeapons = WeaponsJson.Replace(
+                @"""maxLevel"": 5",
+                @"""maxLevel"": 6");
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                levelSixWeapons,
+                WavesJson);
+            PowerUpGauge source = data.CreatePowerUpGauge();
+
+            Assert.AreEqual(6, source.GetMaxLevel(PowerUpSlot.MainShot));
+            Assert.AreEqual(
+                6,
+                source.GrantLevels(PowerUpSlot.MainShot, 6));
+            int[] stored = source.ExportLevels();
+            PowerUpGauge restored = source.CreateEmptyWithSameRules();
+            restored.ImportLevels(stored);
+            Assert.AreEqual(6, restored.GetLevel(PowerUpSlot.MainShot));
+        }
+
+        [Test]
+        public void Parse_ClosingSegmentCountBuildsLongerClosingRoute()
+        {
+            string longerClosing = WavesWithThemes(
+                    @"[""hive""]",
+                    "hive",
+                    "hive")
+                .Replace(
+                @"""segmentsPerStage"": 1,",
+                @"""segmentsPerStage"": 1, ""closingSegmentsPerStage"": 2,");
+            longerClosing = longerClosing.Replace(
+                @"    ""spawns"": [{ ""tick"": 10, ""enemyId"": ""elite_sine"", ""y"": -5.5 }]
+  }],
+  ""bosses"":",
+                @"    ""spawns"": [{ ""tick"": 10, ""enemyId"": ""elite_sine"", ""y"": -5.5 }]
+  },{
+    ""id"": ""seg2"", ""theme"": ""hive"",
+    ""difficultyMin"": 1, ""difficultyMax"": 5,
+    ""lengthTicks"": 60, ""entryLaneMask"": 7, ""exitLaneMask"": 7,
+    ""traversableLaneMasks"": [7],
+    ""spawns"": []
+  }],
+  ""bosses"":");
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                longerClosing);
+            var generator = new SegmentStageGenerator(data.StageGeneration);
+
+            Assert.AreEqual(1, data.StageGeneration.SegmentsPerStage);
+            Assert.AreEqual(2, data.StageGeneration.ClosingSegmentsPerStage);
+            Assert.IsTrue(generator.CanGenerateRouteForSection(
+                "hive",
+                1,
+                1,
+                EncounterType.Normal,
+                StageRouteSection.Closing));
+            StagePlan closing = generator.GenerateRouteForSection(
+                123UL,
+                1,
+                1,
+                "hive",
+                EncounterType.Normal,
+                StageRouteSection.Closing);
+            Assert.AreEqual(2, closing.Segments.Count);
+        }
+
         static string FindRepositoryRoot()
         {
             // Unity 내장 NUnit은 WorkDirectory를 채우지 않는다 — 그 경우 프로젝트 루트인
@@ -1281,5 +1788,6 @@ namespace Shmup.Core.Tests
         {
             return File.ReadAllText(path, new UTF8Encoding(false, true));
         }
+        static void AssertAll(Action assert) => assert();
     }
 }

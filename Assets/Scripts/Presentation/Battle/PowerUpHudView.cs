@@ -1,54 +1,213 @@
 using Shmup.Core;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Shmup.Presentation.Battle
 {
     /// <summary>
-    /// 그라디우스식 파워업 게이지 HUD. 화면 하단에 슬롯 4개(기본탄/미사일/옵션/실드)와
-    /// 슬롯별 레벨 핍을 그린다. Core의 PowerUpGauge 상태를 읽어 색만 바꾼다 —
-    /// 게이지 조작은 어디서도 하지 않는다 (Presentation은 그리기만, CLAUDE.md).
+    /// 그라디우스식 파워업 게이지 HUD (REQ-074 7슬롯 대응 재작성).
+    ///
+    /// 슬롯 수·이름·순서가 GameData 주도가 되면서 씬에 박아 둔 스프라이트 4칸으로는
+    /// 감당할 수 없어, 게이지 관측 API(GaugeSlots)를 순회하며 **런타임에 직접 조립**한다.
+    /// 데이터가 슬롯을 바꿔도 HUD는 따라온다.
+    ///
+    /// 알파벳 한 글자와 작은 핍만으로는 레벨 식별이 어렵다는 피드백(2026-07-31)에 따라
+    /// 풀네임 + "LV n"/"MAX"를 쓰고, 실드 잔량 숫자를 함께 띄운다.
+    /// 여전히 Core 상태를 읽기만 한다 — 게이지 조작은 어디서도 하지 않는다 (CLAUDE.md).
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PowerUpHudView : MonoBehaviour
     {
-        public const int SlotCount = PowerUpGauge.SlotCount;
-        public const int MaxPipsPerSlot = 5;
-
         [SerializeField] BattleDirector _director;
-        [SerializeField] SpriteRenderer[] _slotFrames;   // SlotCount개
-        [SerializeField] SpriteRenderer[] _pips;         // SlotCount * MaxPipsPerSlot, 슬롯 우선 평탄화
+        [SerializeField] Font _font;
 
-        static readonly Color32 FrameNormal = new Color32(0x4A, 0x5A, 0x7A, 0xFF);
-        static readonly Color32 FrameHighlight = new Color32(0xFF, 0xE0, 0x8C, 0xFF);
-        static readonly Color32 FrameMaxed = new Color32(0x7A, 0xE0, 0x9C, 0xFF);
+        const float SlotWidth = 76f;
+        const float SlotHeight = 34f;
+        const float SlotGap = 4f;
+        const int MaxPips = 6;
+
+        static readonly Color FrameNormal = new Color(0.18f, 0.24f, 0.40f, 0.85f);
+        static readonly Color FrameCursor = new Color(0.55f, 0.42f, 0.12f, 0.95f);
+        static readonly Color FrameMaxed = new Color(0.14f, 0.36f, 0.24f, 0.9f);
+        static readonly Color FrameActiveMode = new Color(0.42f, 0.16f, 0.38f, 0.9f);
         static readonly Color32 PipFilled = new Color32(0x9C, 0xD4, 0xFF, 0xFF);
         static readonly Color32 PipEmpty = new Color32(0x22, 0x2C, 0x44, 0xFF);
+        static readonly Color32 PipBanking = new Color32(0x4E, 0x7A, 0xB8, 0xFF);
+        static readonly Color32 PipBankingNear = new Color32(0x86, 0xB6, 0xF0, 0xFF);
+
+        Canvas _canvas;
+        Image[] _frames;
+        Text[] _labels;
+        Image[][] _pips;
+        Text _shieldText;
+        int _builtCount = -1;
+        int _shownShield = int.MinValue;
+
+        void Start()
+        {
+            _canvas = UiKit.CreateCanvas("GaugeCanvas", 42);
+            _canvas.transform.SetParent(transform, false);
+
+            // 실드 잔량 — 좌하단. "몇 대를 맞아야 죽는지"가 항상 읽혀야 한다.
+            _shieldText = UiKit.CreateCornerText(_canvas.transform, _font, "", 12,
+                UiKit.TextMain, new Vector2(0f, 0f), new Vector2(8f, 46f),
+                TextAnchor.LowerLeft, "ShieldCount");
+            UiKit.AddShadow(_shieldText);
+        }
+
+        void Build(int count)
+        {
+            if (_builtCount == count) return;
+            _builtCount = count;
+
+            // 재구성 (스테이지 전환 등으로 슬롯 구성이 바뀔 가능성에 대비해 전부 새로)
+            for (int i = _canvas.transform.childCount - 1; i >= 0; i--)
+            {
+                var child = _canvas.transform.GetChild(i);
+                if (child.name.StartsWith("GaugeSlot"))
+                    Destroy(child.gameObject);
+            }
+
+            _frames = new Image[count];
+            _labels = new Text[count];
+            _pips = new Image[count][];
+
+            float total = count * SlotWidth + (count - 1) * SlotGap;
+            for (int i = 0; i < count; i++)
+            {
+                var go = new GameObject($"GaugeSlot{i}");
+                go.transform.SetParent(_canvas.transform, false);
+                var frame = go.AddComponent<Image>();
+                frame.color = FrameNormal;
+                frame.raycastTarget = false;
+                var rect = frame.rectTransform;
+                rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0f);
+                rect.pivot = new Vector2(0.5f, 0f);
+                rect.anchoredPosition = new Vector2(
+                    -total / 2f + SlotWidth / 2f + i * (SlotWidth + SlotGap), 4f);
+                rect.sizeDelta = new Vector2(SlotWidth, SlotHeight);
+                _frames[i] = frame;
+
+                var label = UiKit.CreateText(rect, _font, "", 9,
+                    UiKit.TextMain, TextAnchor.UpperCenter, "Label");
+                var labelRect = label.rectTransform;
+                labelRect.anchorMin = new Vector2(0f, 0.35f);
+                labelRect.anchorMax = Vector2.one;
+                labelRect.offsetMin = Vector2.zero;
+                labelRect.offsetMax = new Vector2(0f, -2f);
+                _labels[i] = label;
+
+                _pips[i] = new Image[MaxPips];
+                float pipTotal = MaxPips * 9f - 3f;
+                for (int p = 0; p < MaxPips; p++)
+                {
+                    var pipGo = new GameObject($"Pip{p}");
+                    pipGo.transform.SetParent(rect, false);
+                    var pip = pipGo.AddComponent<Image>();
+                    pip.raycastTarget = false;
+                    var pipRect = pip.rectTransform;
+                    pipRect.anchorMin = pipRect.anchorMax = new Vector2(0.5f, 0f);
+                    pipRect.pivot = new Vector2(0.5f, 0f);
+                    pipRect.anchoredPosition = new Vector2(
+                        -pipTotal / 2f + 3f + p * 9f, 4f);
+                    pipRect.sizeDelta = new Vector2(6f, 6f);
+                    _pips[i][p] = pip;
+                }
+            }
+        }
+
+        /// <summary>데이터의 nameKey를 HUD 표기로. 모르는 키는 대문자로 그대로 쓴다.</summary>
+        static string DisplayName(string nameKey)
+        {
+            switch (nameKey)
+            {
+                case "speed": return "SPEED";
+                case "missile": return "MISSILE";
+                case "double": return "DOUBLE";
+                case "laser": return "LASER";
+                case "triple": return "TRIPLE";
+                case "option": return "OPTION";
+                case "shield": return "SHIELD";
+                default:
+                    return string.IsNullOrEmpty(nameKey)
+                        ? "?" : nameKey.ToUpperInvariant();
+            }
+        }
 
         void LateUpdate()
         {
             var gauge = _director != null ? _director.Gauge : null;
-            if (gauge == null || _slotFrames == null || _pips == null) return;
+            if (gauge == null || _canvas == null) return;
 
-            for (int slot = 0; slot < SlotCount && slot < _slotFrames.Length; slot++)
+            UpdateShieldCount();
+
+            int count = gauge.GaugeSlotCount;
+            if (count <= 0) return;
+            Build(count);
+
+            for (int i = 0; i < count; i++)
             {
-                int level = gauge.GetLevel((PowerUpSlot)slot);
-                int maxLevel = gauge.GetMaxLevel((PowerUpSlot)slot);
+                var view = gauge.GetGaugeSlotView(i);
+                bool isCursor = gauge.Cursor == i;
+                bool maxed = view.Level >= view.MaxLevel;
 
-                _slotFrames[slot].color =
-                    gauge.Cursor == slot ? FrameHighlight :
-                    level >= maxLevel ? FrameMaxed : FrameNormal;
+                _frames[i].color =
+                    isCursor ? FrameCursor :
+                    view.IsActiveWeaponMode ? FrameActiveMode :
+                    maxed ? FrameMaxed : FrameNormal;
 
-                for (int pip = 0; pip < MaxPipsPerSlot; pip++)
+                string name = DisplayName(view.NameKey);
+                // 무기 모드는 레벨이 아니라 켜짐/꺼짐이 정체다
+                _labels[i].text = view.IsActiveWeaponMode ? $"{name}\nON"
+                    : view.MaxLevel <= 1 ? name
+                    : maxed ? $"{name}\nMAX"
+                    : $"{name}\nLV{view.Level}";
+                _labels[i].color =
+                    isCursor ? new Color(1f, 0.88f, 0.55f, 1f) :
+                    view.IsActiveWeaponMode ? new Color(1f, 0.6f, 0.9f, 1f) :
+                    maxed ? new Color(0.48f, 0.88f, 0.61f, 1f) : UiKit.TextMain;
+
+                float banked = view.RequiredCapsules > 0
+                    ? view.Progress / (float)view.RequiredCapsules : 0f;
+                if (view.MaxLevel <= 1)
                 {
-                    int index = slot * MaxPipsPerSlot + pip;
-                    if (index >= _pips.Length) break;
-
-                    bool withinMax = pip < maxLevel;
-                    _pips[index].enabled = withinMax;
-                    if (withinMax)
-                        _pips[index].color = pip < level ? PipFilled : PipEmpty;
+                    // 무기 모드: 핍 = 필요 캡슐 수, 채움 = 적립량
+                    int need = Mathf.Clamp(view.RequiredCapsules, 0, MaxPips);
+                    for (int p = 0; p < MaxPips; p++)
+                    {
+                        bool within = p < need && !view.IsActiveWeaponMode;
+                        _pips[i][p].enabled = within;
+                        if (!within) continue;
+                        _pips[i][p].color = p < view.Progress ? PipBankingNear : PipEmpty;
+                    }
+                }
+                else
+                {
+                    for (int p = 0; p < MaxPips; p++)
+                    {
+                        bool within = p < view.MaxLevel;
+                        _pips[i][p].enabled = within;
+                        if (!within) continue;
+                        if (p < view.Level) _pips[i][p].color = PipFilled;
+                        else if (p == view.Level && banked > 0.001f)
+                            _pips[i][p].color = banked >= 0.5f ? PipBankingNear : PipBanking;
+                        else _pips[i][p].color = PipEmpty;
+                    }
                 }
             }
+        }
+
+        void UpdateShieldCount()
+        {
+            if (_shieldText == null || _director == null) return;
+            int shield = _director.ShieldRemaining;
+            if (shield == _shownShield) return;
+            _shownShield = shield;
+            _shieldText.text = $"SHIELD x{shield}";
+            // 0 = 다음 피격이 죽음. 숫자만 슬쩍 바꾸면 못 보고 지나간다.
+            _shieldText.color = shield <= 0
+                ? UiKit.TextDanger
+                : shield == 1 ? new Color(1f, 0.75f, 0.35f, 1f) : UiKit.TextMain;
         }
     }
 }

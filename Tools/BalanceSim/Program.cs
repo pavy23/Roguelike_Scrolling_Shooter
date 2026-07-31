@@ -12,7 +12,7 @@
 // 10) Segment weights: catalog bias for common vs spectacle segments (REQ-029).
 // 11) Encounter types: Normal/Elite/Supply/Hazard/Rare risk-reward sketch (REQ-028/029).
 // 12) Capsule drops after magnet: expected recovery band (REQ-029).
-// 13) Boss redesign: TTK 35–45s @ biome DPS, full-power ≥12s, 3 phases, threat mono (REQ-033).
+// 13) Boss redesign: TTK 22–32s @ 4-room avg biome DPS, full-power ≥6s, 3 phases, threat mono.
 // 14) REQ-034: missile families + option formations ST DPS / situation roles / combo gates.
 // 15) REQ-035: colossal bosses (parts sum/core TTK 100–120s, full ≥40s, brood spawn cap, parity).
 using System;
@@ -88,37 +88,56 @@ static class Program
 
     // Capsule magnet recovery band (REQ-029, provisional §7).
     // Magnet makes near-full pickup realistic; stage = 3 segments weight-biased mean.
+    // REQ-060: 1+L+L² growth needs more early capsules; magnet ≈ full recovery.
     const double MinStageCapsuleExpectation = 10.0;
-    const double MaxStageCapsuleExpectation = 16.0;
-    const double MaxSupplyNodeCapsuleExpectation = 18.0;
+    const double MaxStageCapsuleExpectation = 20.0;
+    const double MaxSupplyNodeCapsuleExpectation = 22.0;
 
-    // Boss redesign TTK / phase gates (REQ-033, provisional §7).
-    // Biome path: 6 rooms then boss event — expected DPS at reach, not theoretical max.
+    // Boss redesign TTK / phase gates (playtest 2026-07-30: first boss tutorial-short).
+    // Biome path: 4 rooms then boss — average build DPS at reach, not full-power max.
+    // First boss is a short "learn the boss fight" beat (~18s @ mid DPS);
+    // later bosses stay in the 22–32s mid band and lengthen toward the finale.
     const double BossFullPowerDps = 1880.0;
-    const double BossTtkExpectedMin = 35.0;
-    const double BossTtkExpectedMax = 45.0;
-    const double BossTtkFullMin = 12.0;
+    const double BossTtkExpectedMin = 16.0;
+    const double BossTtkExpectedMax = 32.0;
+    const double BossTtkFullMin = 4.5;
     const int BossRequiredPhaseCount = 3;
     // Equal-split remaining-HP ratios for phase 1 / phase 2 (Core N-way equal split).
     const double BossPhaseThreshold0 = 2.0 / 3.0; // enter phase 1
     const double BossPhaseThreshold1 = 1.0 / 3.0; // enter phase 2
-    // Expected biome-reach DPS anchors (see analyze_stage_hp.py).
+    // Expected biome-reach DPS anchors (see analyze_stage_hp.py) — 4-room average.
     static readonly (string Id, double ExpectedDps)[] BossExpectedDps =
     {
-        ("boss_stage1", 550.0),
-        ("boss_hive", 650.0),
-        ("boss_fortress", 750.0),
-        ("boss_storm", 900.0),
+        // REQ-060: first boss tutorial-short; mid anchor assumes Main2 start + light growth.
+        ("boss_stage1", 450.0),
+        ("boss_hive", 600.0),
+        ("boss_fortress", 720.0),
+        ("boss_storm", 880.0),
         ("boss_core", 1050.0),
     };
 
+    // REQ-060 stage-1 / curve clearability (provisional §7).
+    // Mid-skill hit uptime on large hitboxes; not god-run, not death spiral.
+    const double MidSkillHitUptime = 0.70;
+    // Midboss must melt within this wall-clock at starter effective DPS.
+    const double MaxMidBossTtkStarterSeconds = 18.0;
+    // Full stage (open+mid+close+boss) budget at expected reach DPS.
+    const double MaxStage1FullTtkSeconds = 140.0;
+    // Soft hit budget vs starter shield stocks (maxHp→stock=3).
+    // Mid skill may spend ~all stocks; repair reward is available as safety.
+    const double MaxStage1ExpectedHits = 3.25;
+    // Tutorial→real jump is intentional (stage1 gentle); stage2 must not 4×+ spike.
+    const double MaxStage1To2HpJump = 4.0;
+
     // REQ-034 missile family / option formation gates (provisional §7).
+    // Playtest 2026-07-30: missile fire rate lowered (support weapon, less screen fill).
+    // ST DPS bands rebased around longer base intervals (straight 42t / bomb 54t / lance 70t).
     const int MissileRapidFireStartLevel = 2;
     const int MissileFamilyStSimTicks = 300;
-    const double MissileFamilyL1StMin = 32.0;
-    const double MissileFamilyL1StMax = 52.0;
-    const double MissileFamilyL3StMin = 95.0;
-    const double MissileFamilyL3StMax = 130.0;
+    const double MissileFamilyL1StMin = 26.0;
+    const double MissileFamilyL1StMax = 40.0;
+    const double MissileFamilyL3StMin = 70.0;
+    const double MissileFamilyL3StMax = 100.0;
     const double MissileFamilyStMaxMinRatio = 1.25; // three lineages stay in same ST band
     const double LancePierceShotClearRatioMax = 1.05; // missile-only: pierce_shot must not buff lance
     const double BombKillExpClearRatioMax = 1.40; // bomb splash kills never reseed kill_explosion
@@ -164,6 +183,8 @@ static class Program
 
         Console.WriteLine("ThemeIds (ordinal): " + string.Join(", ", catalog.ThemeIds));
         Console.WriteLine("SegmentsPerStage: " + catalog.SegmentsPerStage);
+        Console.WriteLine(
+            "ClosingSegmentsPerStage: " + catalog.ClosingSegmentsPerStage);
         Console.WriteLine();
 
         Console.WriteLine("Segments:");
@@ -209,7 +230,21 @@ static class Program
         Console.WriteLine();
         failures += CheckWeaponExpansion(data);
         Console.WriteLine();
+        failures += CheckPowerUpGaugeSevenSlots(data);
+        Console.WriteLine();
+        failures += CheckPrimaryWeaponFamilyDps(data);
+        Console.WriteLine();
+        failures += CheckEnemyLaserProfiles(data);
+        Console.WriteLine();
         failures += CheckColossalBosses(data, generator);
+        Console.WriteLine();
+        failures += CheckStageClearability(data);
+        Console.WriteLine();
+        failures += CheckSectorContractsAndCostedRewards(data);
+        Console.WriteLine();
+        failures += CheckTerminalContractsAndReroll(data);
+        Console.WriteLine();
+        failures += CheckStageShuffleClearability(data);
 
         Console.WriteLine();
         if (failures == 0)
@@ -526,6 +561,11 @@ static class Program
 
         foreach (RewardDefinition def in rewards.All)
         {
+            // REQ-071: modifiers live in main; estimate E[mods] against main/both only.
+            bool inMainOffer = def.Pool == RewardPool.Main || def.Pool == RewardPool.Both;
+            if (!inMainOffer)
+                continue;
+
             bool stage1 = def.StageIndexMin <= 1 && def.StageIndexMax >= 1;
             bool stage2 = def.StageIndexMin <= 2 && def.StageIndexMax >= 2;
             if (stage1) totalWeightStage1 += def.Weight;
@@ -552,10 +592,23 @@ static class Program
                 failures++;
             }
 
-            if (!def.MaxPerRun.HasValue || def.MaxPerRun.Value != 1)
+            // REQ-071: open stacks 2–3 so molbbang builds exist without full monopoly.
+            if (!def.MaxPerRun.HasValue
+                || def.MaxPerRun.Value < 2
+                || def.MaxPerRun.Value > 3)
             {
                 Console.WriteLine(
-                    $"FAIL rewards: {def.Id} maxPerRun must be 1 (got {def.MaxPerRun}).");
+                    $"FAIL rewards: {def.Id} maxPerRun must be 2..3 (got {def.MaxPerRun}).");
+                failures++;
+            }
+
+            if (!def.ModifierStackable
+                || def.ModifierMaxStacks < 2
+                || def.ModifierMaxStacks > 3)
+            {
+                Console.WriteLine(
+                    $"FAIL rewards: {def.Id} must be stackable with maxStacks 2..3 "
+                    + $"(stackable={def.ModifierStackable}, maxStacks={def.ModifierMaxStacks}).");
                 failures++;
             }
 
@@ -569,7 +622,9 @@ static class Program
             Console.WriteLine(
                 $"  {def.Id,-22} modifier={def.ModifierId,-14} " +
                 $"weight={def.Weight} stage={def.StageIndexMin}-{def.StageIndexMax} " +
-                $"maxPerRun={def.MaxPerRun}");
+                $"maxPerRun={def.MaxPerRun} stacks={def.ModifierMaxStacks} " +
+                $"str={def.ModifierStackStrength} cost={def.ModifierInteractionCost} " +
+                $"pool={def.Pool}");
             expected.Remove(def.Id);
         }
 
@@ -580,7 +635,7 @@ static class Program
         }
 
         // With-replacement approximation of expected modifiers in a 3-pick.
-        // Guide: ~1 modifier per 3-choice offer (REQ-014).
+        // REQ-071: weight against main/both pool only (mid is tactical).
         double expectedStage1 = totalWeightStage1 == 0
             ? 0
             : 3.0 * modifierWeightStage1 / totalWeightStage1;
@@ -589,11 +644,13 @@ static class Program
             : 3.0 * modifierWeightStage2 / totalWeightStage2;
 
         Console.WriteLine(
-            $"  weight stage1: modifiers={modifierWeightStage1}/{totalWeightStage1} " +
+            $"  main-pool stage1: modifiers={modifierWeightStage1}/{totalWeightStage1} " +
             $"E[mods in 3-pick]≈{expectedStage1:F2}");
         Console.WriteLine(
-            $"  weight stage2+: modifiers={modifierWeightStage2}/{totalWeightStage2} " +
+            $"  main-pool stage2+: modifiers={modifierWeightStage2}/{totalWeightStage2} " +
             $"E[mods in 3-pick]≈{expectedStage2:F2}");
+        Console.WriteLine(
+            $"  maxCombinedModifierCost={rewards.MaxCombinedModifierCost}");
 
         if (foundModifiers != 4)
         {
@@ -602,15 +659,16 @@ static class Program
         }
 
         // Soft band around guide (~1). Provisional — warn-only outside band.
-        if (expectedStage1 < 0.5 || expectedStage1 > 1.8)
+        // Main pool is denser in build picks; allow a slightly higher ceiling.
+        if (expectedStage1 < 0.5 || expectedStage1 > 2.2)
         {
             Console.WriteLine(
-                $"WARN rewards: stage1 E[mods]≈{expectedStage1:F2} outside guide band [0.5, 1.8] (§7).");
+                $"WARN rewards: stage1 E[mods]≈{expectedStage1:F2} outside guide band [0.5, 2.2] (§7).");
         }
-        if (expectedStage2 < 0.5 || expectedStage2 > 1.8)
+        if (expectedStage2 < 0.5 || expectedStage2 > 2.2)
         {
             Console.WriteLine(
-                $"WARN rewards: stage2 E[mods]≈{expectedStage2:F2} outside guide band [0.5, 1.8] (§7).");
+                $"WARN rewards: stage2 E[mods]≈{expectedStage2:F2} outside guide band [0.5, 2.2] (§7).");
         }
 
         if (failures == 0)
@@ -2300,7 +2358,7 @@ static class Program
     }
 
     /// <summary>
-    /// REQ-021: schema v3 roster must include dive/zigzag/dash on 8–12 of 30 enemies.
+    /// REQ-021/055/063/075: schema v3 roster must include dive/zigzag/dash on 8–12 of 34 enemies.
     /// </summary>
     static int CheckEnemyMovementRoster(GameDataSet data)
     {
@@ -2336,10 +2394,11 @@ static class Program
         Console.WriteLine(
             $"  new patterns (dive|zigzag|dash) = {newPatternCount} / {data.BattleContent.Enemies.Count}");
 
-        if (data.BattleContent.Enemies.Count != 30)
+        // REQ-063 mini_core → 32; REQ-075 laser_sentry + prism_beamer → 34.
+        if (data.BattleContent.Enemies.Count != 34)
         {
             Console.WriteLine(
-                $"FAIL movement: expected 30 enemies, got {data.BattleContent.Enemies.Count}.");
+                $"FAIL movement: expected 34 enemies, got {data.BattleContent.Enemies.Count}.");
             failures++;
         }
 
@@ -2364,9 +2423,11 @@ static class Program
     }
 
     /// <summary>
-    /// REQ-023: stage-1 segments empty of obstacles; progressive density; solid corridors.
-    /// Lane-mask clearability remains authoritative for stage assembly; this check is
-    /// spatial corridor sanity for solid blocks at the same X (plus plan spawn counts).
+    /// REQ-023 + REQ-055: obstacle density, solid corridor gaps, scrapyard debris.
+    /// Shared intro (theme-null) stage-1 segments stay empty. Themed scrapyard may place
+    /// breakable debris on difficultyMin≤1 so stage 1 teaches cover/clear (REQ-055).
+    /// Solids remain banned on stage-1-capable rows (unfair walls in the tutorial band).
+    /// Laser emitters (enum value 2 on sim Core) use HP 0 and count toward MaxObstacles.
     /// </summary>
     static int CheckObstacleLayouts(GameDataSet data, SegmentStageGenerator generator)
     {
@@ -2375,9 +2436,12 @@ static class Program
         int halfH = defaults.ObstacleHalfHeight;
         int maxObstacles = defaults.MaxObstacles;
         var catalog = data.StageGeneration;
+        // LaserEmitter = 2 when sim REQ-055 Core is present; absent on older content Core.
+        const int LaserEmitterTypeValue = 2;
+        const int MaxStage1Breakables = 8;
 
         Console.WriteLine(
-            "Obstacle layouts (waves.json segments, provisional §7):");
+            "Obstacle layouts (waves.json segments, provisional §7 + REQ-055):");
         Console.WriteLine(
             $"  config halfH={halfH}su ({halfH / (double)SimSpace.SubUnitsPerWorldUnit:F2}u) " +
             $"MaxObstacles={maxObstacles} minCorridorGap={MinSolidCorridorGapSubUnits}su");
@@ -2395,17 +2459,9 @@ static class Program
                 totalWithObstacles++;
 
             bool stage1Capable = seg.DifficultyMin <= 1;
-            if (stage1Capable && count > 0)
-            {
-                Console.WriteLine(
-                    $"FAIL obstacles: stage-1-capable segment '{seg.SegmentId}' " +
-                    $"has {count} obstacles (must be empty).");
-                failures++;
-                stage1WithObstacles++;
-            }
-
             int solids = 0;
             int breakables = 0;
+            int lasers = 0;
             foreach (ObstacleSpawn o in seg.Obstacles)
             {
                 if (o.Type == ObstacleType.Solid)
@@ -2418,6 +2474,16 @@ static class Program
                         failures++;
                     }
                 }
+                else if ((int)o.Type == LaserEmitterTypeValue)
+                {
+                    lasers++;
+                    if (o.Hp != 0)
+                    {
+                        Console.WriteLine(
+                            $"FAIL obstacles: laserEmitter in '{seg.SegmentId}' has hp={o.Hp} (must 0).");
+                        failures++;
+                    }
+                }
                 else
                 {
                     breakables++;
@@ -2427,6 +2493,33 @@ static class Program
                             $"FAIL obstacles: breakable in '{seg.SegmentId}' has hp={o.Hp}.");
                         failures++;
                     }
+                }
+            }
+
+            if (stage1Capable && count > 0)
+            {
+                stage1WithObstacles++;
+                // Shared intro pool must stay empty; scrapyard debris is intentional.
+                if (seg.ThemeId == null)
+                {
+                    Console.WriteLine(
+                        $"FAIL obstacles: shared stage-1 segment '{seg.SegmentId}' " +
+                        $"has {count} obstacles (must be empty).");
+                    failures++;
+                }
+                else if (solids > 0 || lasers > 0)
+                {
+                    Console.WriteLine(
+                        $"FAIL obstacles: stage-1-capable '{seg.SegmentId}' may only use " +
+                        $"breakable debris (solids={solids} lasers={lasers}).");
+                    failures++;
+                }
+                else if (breakables > MaxStage1Breakables)
+                {
+                    Console.WriteLine(
+                        $"FAIL obstacles: stage-1-capable '{seg.SegmentId}' has " +
+                        $"{breakables} breakables > {MaxStage1Breakables}.");
+                    failures++;
                 }
             }
 
@@ -2482,7 +2575,7 @@ static class Program
             string theme = NullLabel(seg.ThemeId);
             Console.WriteLine(
                 $"  {seg.SegmentId,-36} theme={theme,-10} " +
-                $"n={count,2} solid={solids} break={breakables} " +
+                $"n={count,2} solid={solids} break={breakables} laser={lasers} " +
                 $"stage1={(stage1Capable ? "Y" : "n")} " +
                 $"corridor={(count == 0 || corridorOk ? "ok" : "FAIL")}");
         }
@@ -2557,11 +2650,20 @@ static class Program
                 $"  plan stage={stage} theme={plan.ThemeId} obstacles={planObstacles} " +
                 $"segs=[{string.Join(",", SegmentIds(plan))}]");
 
-            if (stage == 1 && planObstacles != 0)
+            // REQ-055: stage 1 scrapyard may include breakable debris.
+            // Soft bound only — hard zero is no longer required.
+            if (stage == 1 && planObstacles > MaxStage1Breakables * 3)
             {
                 Console.WriteLine(
-                    $"FAIL obstacles: stage 1 plan has {planObstacles} obstacles (must 0).");
+                    $"FAIL obstacles: stage 1 plan has {planObstacles} obstacles " +
+                    $"(>{MaxStage1Breakables * 3} across 3 segments).");
                 failures++;
+            }
+            else if (stage == 1 && planObstacles > 0)
+            {
+                Console.WriteLine(
+                    $"  note: stage 1 plan obstacles={planObstacles} " +
+                    "(REQ-055 scrapyard debris — expected).");
             }
             if (stage >= 4 && planObstacles < 1)
             {
@@ -2591,14 +2693,15 @@ static class Program
     }
 
     /// <summary>
-    /// REQ-022: three ship primaries (vulcan/laser/spread) single-target DPS balance.
-    /// Level-0 main shot only; missiles/options off. Soft FAIL if max/min &gt; band.
+    /// REQ-079: three ships with human-assigned weapon families, starting shield,
+    /// speed roles, and five-slot gauges. Baseline weaponType ST DPS is report-only
+    /// for pre-activation loadout; identity is gaugeWeaponFamily.
     /// </summary>
     static int CheckShipPrimaryDpsBalance(GameDataSet data)
     {
         int failures = 0;
         Console.WriteLine(
-            "Ship primary DPS balance (single target, level 0, provisional §7):");
+            "REQ-079 ship identity (gauge weapon / shield / speed, provisional §7):");
 
         if (data.Ships.Count < 3)
         {
@@ -2615,23 +2718,44 @@ static class Program
             return 1;
         }
 
-        // Concept fields
-        if (starter.WeaponType != WeaponType.Vulcan || starter.MaxHp != 3)
+        failures += CheckOneShipIdentity(
+            data,
+            starter,
+            expectedFamily: PrimaryWeaponFamily.Double,
+            expectedShield: 1,
+            speedNum: 1,
+            speedDen: 1,
+            role: "balanced");
+        failures += CheckOneShipIdentity(
+            data,
+            interceptor,
+            expectedFamily: PrimaryWeaponFamily.Spread,
+            expectedShield: 0,
+            speedNum: 5,
+            speedDen: 4,
+            role: "fast/fragile");
+        failures += CheckOneShipIdentity(
+            data,
+            bulwark,
+            expectedFamily: PrimaryWeaponFamily.Laser,
+            expectedShield: 2,
+            speedNum: 4,
+            speedDen: 5,
+            role: "slow/tank");
+
+        // Interceptor must outrun starter; bulwark must lag starter (exact fractions).
+        double starterMove = starter.MoveSpeedMultiplierNumerator
+            / (double)starter.MoveSpeedMultiplierDenominator;
+        double interMove = interceptor.MoveSpeedMultiplierNumerator
+            / (double)interceptor.MoveSpeedMultiplierDenominator;
+        double bulwarkMove = bulwark.MoveSpeedMultiplierNumerator
+            / (double)bulwark.MoveSpeedMultiplierDenominator;
+        if (!(interMove > starterMove && bulwarkMove < starterMove))
         {
             Console.WriteLine(
-                $"FAIL ships: starter expected vulcan/HP3 got {starter.WeaponType}/{starter.MaxHp}.");
-            failures++;
-        }
-        if (interceptor.WeaponType != WeaponType.Laser || interceptor.MaxHp != 2)
-        {
-            Console.WriteLine(
-                $"FAIL ships: interceptor expected laser/HP2 got {interceptor.WeaponType}/{interceptor.MaxHp}.");
-            failures++;
-        }
-        if (bulwark.WeaponType != WeaponType.Spread || bulwark.MaxHp != 5)
-        {
-            Console.WriteLine(
-                $"FAIL ships: bulwark expected spread/HP5 got {bulwark.WeaponType}/{bulwark.MaxHp}.");
+                $"FAIL ships: speed roles broken "
+                + $"(starter={starterMove:F2}, interceptor={interMove:F2}, "
+                + $"bulwark={bulwarkMove:F2}).");
             failures++;
         }
 
@@ -2644,9 +2768,12 @@ static class Program
                 double dps = damage * (double)SimSpace.TicksPerSecond / ShipDpsSimTicks;
                 results.Add((ship.Id, ship.WeaponType, damage, dps));
                 Console.WriteLine(
-                    $"  {ship.Id,-14} weapon={ship.WeaponType,-7} maxHp={ship.MaxHp} " +
-                    $"move={ship.MoveSpeedMultiplierNumerator}/{ship.MoveSpeedMultiplierDenominator} " +
-                    $"dmg@{ShipDpsSimTicks}t={damage} dps≈{dps:F1}");
+                    $"  {ship.Id,-14} baselineWeapon={ship.WeaponType,-7} "
+                    + $"family={ship.GaugeWeaponFamily} "
+                    + $"shield={ship.StartingShieldStock} "
+                    + $"move={ship.MoveSpeedMultiplierNumerator}/"
+                    + $"{ship.MoveSpeedMultiplierDenominator} "
+                    + $"dmg@{ShipDpsSimTicks}t={damage} dps≈{dps:F1}");
             }
             catch (Exception ex)
             {
@@ -2660,44 +2787,124 @@ static class Program
             double min = results.Min(r => r.dps);
             double max = results.Max(r => r.dps);
             double ratio = min <= 0 ? double.PositiveInfinity : max / min;
+            // Coverage-first interceptor trails ST; band is softer than pre-REQ-079.
+            const double MaxBaselineRatio = 2.25;
             Console.WriteLine(
-                $"  single-target DPS ratio max/min = {ratio:F2} " +
-                $"(band ≤{MaxShipSingleTargetDpsRatio:F2})");
+                $"  baseline single-target DPS ratio max/min = {ratio:F2} "
+                + $"(band ≤{MaxBaselineRatio:F2})");
 
-            if (ratio > MaxShipSingleTargetDpsRatio)
+            if (ratio > MaxBaselineRatio)
             {
                 Console.WriteLine(
-                    $"FAIL ships: DPS ratio {ratio:F2} > {MaxShipSingleTargetDpsRatio:F2} " +
-                    "(one primary dominates single-target).");
+                    $"FAIL ships: DPS ratio {ratio:F2} > {MaxBaselineRatio:F2} "
+                    + "(one baseline primary dominates single-target).");
                 failures++;
-            }
-
-            // Soft role checks: laser should not be far below vulcan; spread may trail
-            // single-target but must deal damage.
-            double vulcan = results.First(r => r.weapon == WeaponType.Vulcan).dps;
-            double laser = results.First(r => r.weapon == WeaponType.Laser).dps;
-            double spread = results.First(r => r.weapon == WeaponType.Spread).dps;
-            if (laser < vulcan * 0.5)
-            {
-                Console.WriteLine(
-                    $"FAIL ships: laser dps {laser:F1} < 50% of vulcan {vulcan:F1}.");
-                failures++;
-            }
-            if (spread <= 0)
-            {
-                Console.WriteLine("FAIL ships: spread dealt no damage.");
-                failures++;
-            }
-            else if (spread > vulcan * 1.5)
-            {
-                Console.WriteLine(
-                    $"WARN ships: spread single-target dps {spread:F1} > 1.5× vulcan " +
-                    $"{vulcan:F1} (coverage weapon unexpectedly strong on 1 target, §7).");
             }
         }
 
         if (failures == 0)
-            Console.WriteLine("PASS: ship primary concept + single-target DPS band.");
+            Console.WriteLine("PASS: REQ-079 ship identity + five-slot gauges.");
+        return failures;
+    }
+
+    static int CheckOneShipIdentity(
+        GameDataSet data,
+        ShipDefinition ship,
+        PrimaryWeaponFamily expectedFamily,
+        int expectedShield,
+        int speedNum,
+        int speedDen,
+        string role)
+    {
+        int failures = 0;
+        if (!ship.HasCustomPowerUpGauge
+            || ship.GaugeWeaponFamily != expectedFamily)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} expected gauge family {expectedFamily}, "
+                + $"got {ship.GaugeWeaponFamily} (custom={ship.HasCustomPowerUpGauge}).");
+            failures++;
+        }
+        if (ship.StartingShieldStock != expectedShield)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} expected startingShield={expectedShield}, "
+                + $"got {ship.StartingShieldStock}.");
+            failures++;
+        }
+        if (ship.MoveSpeedMultiplierNumerator != speedNum
+            || ship.MoveSpeedMultiplierDenominator != speedDen)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} expected move {speedNum}/{speedDen}, "
+                + $"got {ship.MoveSpeedMultiplierNumerator}/"
+                + $"{ship.MoveSpeedMultiplierDenominator} ({role}).");
+            failures++;
+        }
+
+        PowerUpGauge gauge = data.CreatePowerUpGauge(ship);
+        if (gauge.GaugeSlotCount != PowerUpGauge.ShipGaugeSlotCount)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} gauge slots {gauge.GaugeSlotCount} "
+                + $"(expected {PowerUpGauge.ShipGaugeSlotCount}).");
+            failures++;
+            return failures;
+        }
+
+        PowerUpSlot weaponSlot = ShipDefinition.GaugeSlotForFamily(expectedFamily);
+        PowerUpSlot[] expected =
+        {
+            PowerUpSlot.Speed,
+            PowerUpSlot.Missile,
+            weaponSlot,
+            PowerUpSlot.Option,
+            PowerUpSlot.Shield,
+        };
+        for (int i = 0; i < expected.Length; i++)
+        {
+            if (gauge.GaugeSlots[i].Slot != expected[i])
+            {
+                Console.WriteLine(
+                    $"FAIL ships: {ship.Id} slot[{i}] expected {expected[i]}, "
+                    + $"got {gauge.GaugeSlots[i].Slot}.");
+                failures++;
+            }
+        }
+
+        PowerUpSlotDefinition weaponDef = gauge.GaugeSlots[2];
+        if (!weaponDef.ActivatesImmediately || weaponDef.MaxLevel != 1)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} weapon slot must be immediate maxLevel 1 "
+                + $"(immediate={weaponDef.ActivatesImmediately}, "
+                + $"max={weaponDef.MaxLevel}).");
+            failures++;
+        }
+        if (weaponDef.CostCurve.BaseCost != 1
+            || weaponDef.CostCurve.LinearGrowth != 0
+            || weaponDef.CostCurve.QuadraticGrowth != 0)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} weapon slot cost should be flat 1 "
+                + $"(got {weaponDef.CostCurve.BaseCost}+"
+                + $"{weaponDef.CostCurve.LinearGrowth}L+"
+                + $"{weaponDef.CostCurve.QuadraticGrowth}L²).");
+            failures++;
+        }
+
+        // One Collect cycle onto weapon index 2 then Activate → family switches.
+        gauge.Collect();
+        gauge.Collect();
+        gauge.Collect();
+        if (gauge.ActivateDetailed() != PowerUpActivationResult.LevelIncreased
+            || gauge.GetLevel(weaponSlot) != 1)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} weapon slot did not activate in one shot.");
+            failures++;
+        }
+
         return failures;
     }
 
@@ -2866,10 +3073,10 @@ static class Program
             return failures + 1;
         }
 
-        // Catalog numeric anchors from design doc.
+        // Catalog numeric anchors (playtest retune: longer missile intervals).
         if (straight.BaseDamage != 20
-            || straight.FireIntervalTicks != 30
-            || straight.MinimumFireIntervalTicks != 15
+            || straight.FireIntervalTicks != 42
+            || straight.MinimumFireIntervalTicks != 20
             || straight.FireIntervalReductionPerLevel != 5
             || straight.PierceEnemyCount != 0
             || straight.ExplosionDamage != 0)
@@ -2879,8 +3086,8 @@ static class Program
         }
         if (bomb.BaseDamage != 12
             || bomb.ExplosionDamage != 16
-            || bomb.FireIntervalTicks != 42
-            || bomb.MinimumFireIntervalTicks != 28
+            || bomb.FireIntervalTicks != 54
+            || bomb.MinimumFireIntervalTicks != 36
             || bomb.FireIntervalReductionPerLevel != 5
             || bomb.ExplosionMaxTargets != 5
             || bomb.ExplosionRadiusSubUnits
@@ -2892,8 +3099,8 @@ static class Program
             failures++;
         }
         if (lance.BaseDamage != 40
-            || lance.FireIntervalTicks != 54
-            || lance.MinimumFireIntervalTicks != 36
+            || lance.FireIntervalTicks != 70
+            || lance.MinimumFireIntervalTicks != 44
             || lance.FireIntervalReductionPerLevel != 6
             || lance.PierceEnemyCount != 2
             || lance.ExplosionDamage != 0)
@@ -4295,17 +4502,24 @@ static class Program
                 double speedWu = phase.BulletSpeedNumerator / (double)phase.BulletSpeedDenominator
                     * SimSpace.TicksPerSecond / SimSpace.SubUnitsPerWorldUnit;
                 double threat = phase.Ways * speedWu / phase.FireIntervalTicks;
-                string personality = p == 0 ? "aimed" : p == 1 ? "spread" : "rapid";
+                // REQ-069: report real FirePattern (aimed|radial|spiral|wall|burst).
+                // Legacy index labels (aimed/spread/rapid) are obsolete for logging.
+                string fireLabel = phase.FirePattern.ToString().ToLowerInvariant();
+                double bps = phase.Ways * (double)SimSpace.TicksPerSecond / phase.FireIntervalTicks;
+                string telNote = phase.TelegraphTicks > 0
+                    ? $" tel={phase.TelegraphTicks}t"
+                    : "";
                 Console.WriteLine(
-                    $"    p{p} {personality,-6} int={phase.FireIntervalTicks,3}t " +
-                    $"ways={phase.Ways} spd≈{speedWu:F1}u/s threat={threat:F3}" +
+                    $"    p{p} {fireLabel,-6} int={phase.FireIntervalTicks,3}t " +
+                    $"ways={phase.Ways} spd≈{speedWu:F1}u/s bps≈{bps:F2}/s " +
+                    $"threat={threat:F3}{telNote}" +
                     (prevThreat < 0 ? "" : threat > prevThreat ? " monoOK" : " MONO FAIL"));
 
-                // Personality soft check: aimed low ways, spread high ways, rapid high speed.
+                // Structural ways/speed ladder (pattern-agnostic density curve).
                 if (p == 0 && phase.Ways > 4)
                 {
                     Console.WriteLine(
-                        $"WARN boss: '{id}' p0 ways={phase.Ways} high for aimed (expected ≤4).");
+                        $"WARN boss: '{id}' p0 ways={phase.Ways} high for opener (expected ≤4).");
                 }
 
                 if (p == 1)
@@ -4314,7 +4528,7 @@ static class Program
                     if (phase.Ways <= waysP0)
                     {
                         Console.WriteLine(
-                            $"FAIL boss: '{id}' spread ways {phase.Ways} must exceed aimed {waysP0}.");
+                            $"FAIL boss: '{id}' p1 ways {phase.Ways} must exceed p0 {waysP0}.");
                         failures++;
                     }
                 }
@@ -4327,16 +4541,16 @@ static class Program
                     if (speedWu <= speedP1)
                     {
                         Console.WriteLine(
-                            $"FAIL boss: '{id}' rapid speed {speedWu:F1} must exceed " +
-                            $"spread {speedP1:F1}.");
+                            $"FAIL boss: '{id}' p2 speed {speedWu:F1} must exceed " +
+                            $"p1 {speedP1:F1}.");
                         failures++;
                     }
 
                     if (phase.Ways >= boss.Phases[1].Ways)
                     {
                         Console.WriteLine(
-                            $"FAIL boss: '{id}' rapid ways {phase.Ways} must be fewer " +
-                            $"than spread {boss.Phases[1].Ways}.");
+                            $"FAIL boss: '{id}' p2 ways {phase.Ways} must be fewer " +
+                            $"than p1 {boss.Phases[1].Ways}.");
                         failures++;
                     }
                 }
@@ -4353,12 +4567,13 @@ static class Program
             }
         }
 
-        // Movement personality is not data-driven (Core: single sine hover).
+        // REQ-054: phases may declare movementPattern / partVulnerability in JSON.
+        // content-branch Core may still ignore unknown DTO fields until sim merge.
         Console.WriteLine(
-            "  movement: Core uses single sine hover for all phases — " +
-            "phase-specific movement NOT supported in data. " +
-            "Recommendation for CODEX: optional per-phase move profile " +
-            "(hover / vertical sweep / dash) keyed by phase index.");
+            "  movement/part axes (REQ-054 JSON): " +
+            "movementPattern, movementAmplitude, movementPeriodTicks, " +
+            "partVulnerability on bosses[].phases[] — " +
+            "consumed by sim-branch BossPhase parser when merged.");
 
         if (failures == 0)
             Console.WriteLine("PASS: boss redesign TTK / phases / threat mono.");
@@ -4878,6 +5093,1559 @@ static class Program
     }
 
     static string NullLabel(string value) => value ?? "<null>";
+
+    /// <summary>
+    /// REQ-060: stage-1 must be learnable with starter ship + mid dodge skill.
+    /// Models Opening(3seg)+MidBoss+Closing(3seg)+StageBoss under Main2-start
+    /// firepower and 1+L+L² growth (capsule EV from rooms only). Late stages
+    /// are reported for the difficulty table; only stage-1 has hard gates.
+    /// </summary>
+    static int CheckStageClearability(GameDataSet data)
+    {
+        int failures = 0;
+        StageGenerationCatalog catalog = data.StageGeneration;
+        BattleContent content = data.BattleContent;
+
+        Console.WriteLine(
+            "REQ-060 stage clearability (starter / mid-skill, provisional §7):");
+
+        ShipDefinition starter = data.FindShip("starter");
+        if (starter == null)
+        {
+            Console.WriteLine("FAIL clear: missing ships.json starter.");
+            return 1;
+        }
+
+        int[] startLevels = starter.ExportStartingPowerUpLevels();
+        int mainStart = startLevels[(int)PowerUpSlot.MainShot];
+        int shieldStocks = starter.MaxHp ?? 1;
+        WeaponDefinition mainWeapon = content.FindWeapon(PowerUpSlot.MainShot);
+        if (mainWeapon == null)
+        {
+            Console.WriteLine("FAIL clear: missing MainShot weapon definition.");
+            return 1;
+        }
+
+        double starterDps = TheoreticalMainShotDps(mainWeapon, mainStart);
+        double starterEff = starterDps * MidSkillHitUptime;
+
+        Console.WriteLine(
+            $"  starter Main L{mainStart} DPS={starterDps:F1} " +
+            $"eff@{MidSkillHitUptime:P0}={starterEff:F1} · " +
+            $"shieldStocks={shieldStocks}");
+
+        // Midboss pool (sim CreateMidBossPlan: all mini_* equal weight).
+        var midBosses = new List<EnemyDefinition>();
+        for (int i = 0; i < content.Enemies.Count; i++)
+        {
+            EnemyDefinition e = content.Enemies[i];
+            if (e.Id.StartsWith("mini_", StringComparison.Ordinal))
+                midBosses.Add(e);
+        }
+
+        if (midBosses.Count == 0)
+        {
+            Console.WriteLine("FAIL clear: no mini_* midboss candidates.");
+            return 1;
+        }
+
+        midBosses.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
+        int midSum = 0;
+        int midWorst = 0;
+        EnemyDefinition worstMid = midBosses[0];
+        Console.WriteLine("  midboss pool (stage-agnostic):");
+        for (int i = 0; i < midBosses.Count; i++)
+        {
+            EnemyDefinition m = midBosses[i];
+            midSum += m.MaxHp;
+            if (m.MaxHp > midWorst)
+            {
+                midWorst = m.MaxHp;
+                worstMid = m;
+            }
+
+            double ttk = m.MaxHp / starterEff;
+            Console.WriteLine(
+                $"    {m.Id,-18} hp={m.MaxHp,5} " +
+                $"TTK@starterEff={ttk:F1}s fire={m.FireIntervalTicks}t");
+        }
+
+        double midAvg = midSum / (double)midBosses.Count;
+        double midWorstTtk = midWorst / starterEff;
+        Console.WriteLine(
+            $"  mid avgHP={midAvg:F0} worst={worstMid.Id} hp={midWorst} " +
+            $"TTK={midWorstTtk:F1}s (max {MaxMidBossTtkStarterSeconds:F0}s)");
+        if (midWorstTtk > MaxMidBossTtkStarterSeconds)
+        {
+            Console.WriteLine(
+                $"FAIL clear: worst midboss TTK {midWorstTtk:F1}s > " +
+                $"{MaxMidBossTtkStarterSeconds:F0}s at starter effective DPS. " +
+                "Stage 1 can roll any mini_* — lower HP or stage-weight selection.");
+            failures++;
+        }
+
+        // Per-stage table: open+close (2 × SegmentsPerStage weight-mean) + mid + boss.
+        string[] bossIds =
+        {
+            "boss_stage1", "boss_hive", "boss_fortress", "boss_storm", "boss_core"
+        };
+        // Reach DPS: stage1 uses starter+light growth; later use BossExpectedDps anchors.
+        double[] reachDps =
+        {
+            Math.Max(starterDps * 1.15, BossExpectedDps[0].ExpectedDps * 0.85),
+            BossExpectedDps[1].ExpectedDps,
+            BossExpectedDps[2].ExpectedDps,
+            BossExpectedDps[3].ExpectedDps,
+            BossExpectedDps[4].ExpectedDps,
+        };
+
+        double prevAvgPoolHp = -1.0;
+        Console.WriteLine(
+            "  stage table: enemies≈ · poolHP · open+close · midAvg · boss · " +
+            "total · needDPS@120s · reachDPS · fullTTK · hits≈ · clear?");
+        for (int stage = 1; stage <= 5; stage++)
+        {
+            string theme = catalog.ThemeIds[(stage - 1) % catalog.ThemeIds.Count];
+            int difficulty = stage;
+            long poolHpWeighted = 0;
+            long poolNWeighted = 0;
+            int poolWeight = 0;
+            int poolCount = 0;
+            foreach (StageSegmentTemplate seg in catalog.Segments)
+            {
+                if (!seg.SupportsDifficulty(difficulty) || !seg.SupportsTheme(theme))
+                    continue;
+                int hp = SegmentSpawnHp(seg, content);
+                int n = seg.Spawns.Count;
+                int w = Math.Max(1, seg.Weight);
+                poolHpWeighted += (long)hp * w;
+                poolNWeighted += (long)n * w;
+                poolWeight += w;
+                poolCount++;
+            }
+
+            if (poolCount == 0 || poolWeight == 0)
+            {
+                Console.WriteLine($"FAIL clear: stage {stage} empty pool.");
+                failures++;
+                continue;
+            }
+
+            double avgSegHp = poolHpWeighted / (double)poolWeight;
+            double avgSegN = poolNWeighted / (double)poolWeight;
+            int segsPerRoom = catalog.SegmentsPerStage;
+            double openCloseHp = avgSegHp * segsPerRoom * 2.0;
+            double openCloseN = avgSegN * segsPerRoom * 2.0;
+            StageBossTemplate boss = null;
+            for (int b = 0; b < catalog.Bosses.Count; b++)
+            {
+                if (string.Equals(
+                        catalog.Bosses[b].BossId,
+                        bossIds[stage - 1],
+                        StringComparison.Ordinal))
+                {
+                    boss = catalog.Bosses[b];
+                    break;
+                }
+            }
+
+            if (boss == null)
+            {
+                Console.WriteLine(
+                    $"FAIL clear: missing boss id {bossIds[stage - 1]}.");
+                failures++;
+                continue;
+            }
+
+            double totalAvg = openCloseHp + midAvg + boss.MaxHp;
+            double totalWorst = openCloseHp + midWorst + boss.MaxHp;
+            double dps = reachDps[stage - 1];
+            double effDps = dps * MidSkillHitUptime;
+            double fullTtk = totalAvg / effDps;
+            double needDps120 = totalAvg / 120.0;
+            // Hit proxy: room scrapes + midboss pressure + boss phases.
+            // Hit proxy (mid skill): sparse scrapes + pressure time on large targets.
+            // Large mid/boss hitboxes raise player DPS uptime; dodge window is wider
+            // than dense zako packs (invuln frames after each stock consume help).
+            double midTtk = midAvg / Math.Max(1.0, starterEff);
+            double bossTtk = boss.MaxHp / Math.Max(1.0, effDps);
+            double expectedHits =
+                0.30 * 2.0 // open+close scrapes
+                + midTtk / 14.0
+                + bossTtk / 20.0;
+
+            bool stage1Clear = stage != 1
+                || (fullTtk <= MaxStage1FullTtkSeconds
+                    && expectedHits <= MaxStage1ExpectedHits
+                    && midWorstTtk <= MaxMidBossTtkStarterSeconds);
+
+            string clearLabel = stage == 1
+                ? (stage1Clear ? "CLEAR" : "WALL")
+                : "report";
+
+            Console.WriteLine(
+                $"  S{stage} {theme,-10} nSeg={poolCount,2} " +
+                $"avgSegHP={avgSegHp,6:F0} E≈{openCloseN,5:F0} " +
+                $"OC={openCloseHp,6:F0} mid={midAvg,5:F0} boss={boss.MaxHp,5} " +
+                $"tot={totalAvg,6:F0} needDPS={needDps120,5:F0} " +
+                $"reach={dps,5:F0} TTK={fullTtk,5:F0}s hits≈{expectedHits:F2} " +
+                $"[{clearLabel}]");
+            Console.WriteLine(
+                $"       worst-path tot={totalWorst:F0} " +
+                $"(mid={midWorst}) midBossTTK@starter={midWorstTtk:F1}s " +
+                $"bossTTK@reachEff={bossTtk:F1}s");
+
+            if (stage == 1 && !stage1Clear)
+            {
+                Console.WriteLine(
+                    $"FAIL clear: stage1 not clearable under starter/mid-skill " +
+                    $"(TTK {fullTtk:F0}s / hits {expectedHits:F2} / " +
+                    $"midWorst {midWorstTtk:F1}s).");
+                failures++;
+            }
+
+            if (prevAvgPoolHp > 0.0)
+            {
+                double jump = avgSegHp / prevAvgPoolHp;
+                if (stage == 2 && jump > MaxStage1To2HpJump)
+                {
+                    Console.WriteLine(
+                        $"FAIL clear: stage1→2 pool HP jump {jump:F2}× > " +
+                        $"{MaxStage1To2HpJump:F1}× (wall moved to stage2).");
+                    failures++;
+                }
+            }
+
+            prevAvgPoolHp = avgSegHp;
+        }
+
+        // Capsule growth note: cost 1+L+L² Main2→Main3 = 7 pure.
+        double eStage = EstimateStageCapsuleEv(data, stage: 1);
+        Console.WriteLine(
+            $"  stage1 capsule EV (3-seg room)≈{eStage:F2} · " +
+            "Main2→3 pure cost=7 (1+L+L²) · open+close≈2 rooms → " +
+            $"{eStage * 2:F1} caps before mid reward/boss");
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-060 stage-1 clearability + curve report.");
+        else
+            Console.WriteLine($"FAIL: REQ-060 clearability ({failures} failure(s)).");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-071: sector contract catalog integrity + costed rewards +
+    /// worst-case density clearability gate (escort_run 1.5× HP load).
+    /// </summary>
+    static int CheckSectorContractsAndCostedRewards(GameDataSet data)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "REQ-071 sector contracts + costed rewards (provisional §7):");
+
+        ContractCatalog contracts = data.Contracts;
+        if (contracts == null)
+        {
+            Console.WriteLine("FAIL contracts: waves.json.contracts missing.");
+            return 1;
+        }
+
+        if (contracts.Standard == null
+            || contracts.Standard.Id != "standard_route"
+            || !contracts.Standard.IsNeutral
+            || contracts.Standard.RiskTier != ContractRiskTier.Safe)
+        {
+            Console.WriteLine(
+                "FAIL contracts: standard_route must be safe + fully neutral.");
+            failures++;
+        }
+
+        int specialty = 0;
+        double maxDensity = 1.0;
+        string densestId = contracts.Standard.Id;
+        Console.WriteLine(
+            $"  catalog: standard={contracts.Standard.Id} "
+            + $"options={contracts.MinimumOptionCount}.."
+            + $"{contracts.MaximumOptionCount} "
+            + $"entries={contracts.All.Count}");
+
+        for (int i = 0; i < contracts.All.Count; i++)
+        {
+            ContractDefinition c = contracts.All[i];
+            double density = c.EnemyDensityDenominator == 0
+                ? 1.0
+                : c.EnemyDensityNumerator
+                    / (double)c.EnemyDensityDenominator;
+            double capsules = c.CapsuleDropDenominator == 0
+                ? 1.0
+                : c.CapsuleDropNumerator
+                    / (double)c.CapsuleDropDenominator;
+            double score = c.ScoreMultiplierDenominator == 0
+                ? 1.0
+                : c.ScoreMultiplierNumerator
+                    / (double)c.ScoreMultiplierDenominator;
+            double gimmick = c.GimmickIntensityDenominator == 0
+                ? 1.0
+                : c.GimmickIntensityNumerator
+                    / (double)c.GimmickIntensityDenominator;
+
+            if (!ReferenceEquals(c, contracts.Standard)
+                && c.DestinationKind == ContractDestinationKind.NextStage)
+                specialty++;
+
+            // Density pressure only applies to mid-run nextStage routes.
+            if (c.DestinationKind == ContractDestinationKind.NextStage
+                && density > maxDensity)
+            {
+                maxDensity = density;
+                densestId = c.Id;
+            }
+
+            // Low-risk specialty contracts must still carry a cost.
+            if (!ReferenceEquals(c, contracts.Standard)
+                && c.DestinationKind == ContractDestinationKind.NextStage
+                && c.RiskTier == ContractRiskTier.Low
+                && c.IsNeutral)
+            {
+                Console.WriteLine(
+                    $"FAIL contracts: low-risk '{c.Id}' is neutral "
+                    + "(free safety kills the standard route).");
+                failures++;
+            }
+
+            string dest = c.DestinationKind == ContractDestinationKind.NextStage
+                ? ""
+                : $" dest={c.DestinationKind}";
+            Console.WriteLine(
+                $"  {c.Id,-16} tier={c.RiskTier,-8} dens×{density:F2} "
+                + $"cap×{capsules:F2} gim×{gimmick:F2} "
+                + $"score×{score:F2} Δcards={c.RewardOptionCountDelta:+#;-#;0} "
+                + $"bombG={(c.GuaranteedBombDrop ? 1 : 0)} w={c.Weight}{dest}");
+        }
+
+        if (specialty < 6 || specialty > 10)
+        {
+            Console.WriteLine(
+                $"FAIL contracts: nextStage specialty count {specialty} outside 6..10.");
+            failures++;
+        }
+
+        // Pool split + costed rewards.
+        int mid = 0, main = 0, both = 0, costed = 0;
+        RewardCatalog rewards = data.Rewards;
+        for (int i = 0; i < rewards.All.Count; i++)
+        {
+            RewardDefinition r = rewards.All[i];
+            if (r.Pool == RewardPool.Mid) mid++;
+            else if (r.Pool == RewardPool.Main) main++;
+            else both++;
+            if (r.Costs != null && r.Costs.Count > 0)
+                costed++;
+        }
+
+        Console.WriteLine(
+            $"  rewards pool: mid={mid} main={main} both={both} "
+            + $"costed={costed} total={rewards.All.Count}");
+
+        if (mid < 4)
+        {
+            Console.WriteLine(
+                $"FAIL rewards: mid pool too thin ({mid} < 4).");
+            failures++;
+        }
+
+        if (main < 12)
+        {
+            Console.WriteLine(
+                $"FAIL rewards: main pool too thin ({main} < 12).");
+            failures++;
+        }
+
+        if (costed < 4 || costed > 6)
+        {
+            Console.WriteLine(
+                $"FAIL rewards: costed count {costed} outside 4..6.");
+            failures++;
+        }
+
+        // Stage-1 worst density: scale open+close HP by max contract density.
+        // Midboss/boss are not density-scaled (spawn tables only).
+        StageGenerationCatalog catalog = data.StageGeneration;
+        BattleContent content = data.BattleContent;
+        string theme = catalog.ThemeIds[0];
+        int difficulty = 1;
+        long poolHpWeighted = 0;
+        int poolWeight = 0;
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            if (!seg.SupportsDifficulty(difficulty) || !seg.SupportsTheme(theme))
+                continue;
+            int hp = SegmentSpawnHp(seg, content);
+            int w = Math.Max(1, seg.Weight);
+            poolHpWeighted += (long)hp * w;
+            poolWeight += w;
+        }
+
+        if (poolWeight == 0)
+        {
+            Console.WriteLine("FAIL contracts: empty stage-1 segment pool.");
+            return failures + 1;
+        }
+
+        double avgSegHp = poolHpWeighted / (double)poolWeight;
+        double openCloseHp = avgSegHp * catalog.SegmentsPerStage * 2.0;
+
+        // Mid avg (same as REQ-060).
+        var midBosses = new List<EnemyDefinition>();
+        for (int i = 0; i < content.Enemies.Count; i++)
+        {
+            EnemyDefinition e = content.Enemies[i];
+            if (e.Id.StartsWith("mini_", StringComparison.Ordinal))
+                midBosses.Add(e);
+        }
+
+        double midAvg = 0;
+        for (int i = 0; i < midBosses.Count; i++)
+            midAvg += midBosses[i].MaxHp;
+        if (midBosses.Count > 0)
+            midAvg /= midBosses.Count;
+
+        StageBossTemplate boss = null;
+        for (int b = 0; b < catalog.Bosses.Count; b++)
+        {
+            if (string.Equals(
+                    catalog.Bosses[b].BossId,
+                    "boss_stage1",
+                    StringComparison.Ordinal))
+            {
+                boss = catalog.Bosses[b];
+                break;
+            }
+        }
+
+        if (boss == null)
+        {
+            Console.WriteLine("FAIL contracts: missing boss_stage1.");
+            return failures + 1;
+        }
+
+        ShipDefinition starter = data.FindShip("starter");
+        WeaponDefinition mainWeapon = content.FindWeapon(PowerUpSlot.MainShot);
+        int mainStart = starter.ExportStartingPowerUpLevels()[(int)PowerUpSlot.MainShot];
+        double starterDps = TheoreticalMainShotDps(mainWeapon, mainStart);
+        double reachDps = Math.Max(
+            starterDps * 1.15,
+            BossExpectedDps[0].ExpectedDps * 0.85);
+        double effDps = reachDps * MidSkillHitUptime;
+
+        double baselineTot = openCloseHp + midAvg + boss.MaxHp;
+        double worstOpenClose = openCloseHp * maxDensity;
+        double worstTot = worstOpenClose + midAvg + boss.MaxHp;
+        double worstTtk = worstTot / effDps;
+        double baselineTtk = baselineTot / effDps;
+
+        // Costed-reward worst: glass_cannon path is late-stage; for stage-1
+        // the densest contract is the primary clearability pressure.
+        // Allow a modest stretch over the baseline stage-1 budget.
+        const double MaxWorstContractTtkSeconds = MaxStage1FullTtkSeconds * 1.35;
+
+        Console.WriteLine(
+            $"  densest contract={densestId} dens×{maxDensity:F2}");
+        Console.WriteLine(
+            $"  S1 baseline totHP={baselineTot:F0} TTK@reachEff={baselineTtk:F0}s");
+        Console.WriteLine(
+            $"  S1 worst dens× OC={worstOpenClose:F0} tot={worstTot:F0} "
+            + $"TTK={worstTtk:F0}s (gate≤{MaxWorstContractTtkSeconds:F0}s)");
+
+        if (worstTtk > MaxWorstContractTtkSeconds)
+        {
+            Console.WriteLine(
+                $"FAIL contracts: worst density TTK {worstTtk:F0}s > "
+                + $"{MaxWorstContractTtkSeconds:F0}s — density/score trades too harsh.");
+            failures++;
+        }
+
+        // Costed reward net strength check: gain amount should exceed free peer.
+        // overclock_core damage 2 vs passive_damage_1 amount 1; light_frame 6 vs 3.
+        bool hasOverclock = false;
+        bool hasLight = false;
+        bool hasAmmo = false;
+        for (int i = 0; i < rewards.All.Count; i++)
+        {
+            RewardDefinition r = rewards.All[i];
+            if (r.Id == "overclock_core"
+                && r.Type == RewardType.DamageUp
+                && r.Amount >= 2
+                && r.Costs.Count > 0)
+                hasOverclock = true;
+            // REQ-075: light_frame is SlotLevel+Speed (not moveSpeedUp dual economy).
+            if (r.Id == "light_frame"
+                && r.Type == RewardType.SlotLevel
+                && r.Slot == PowerUpSlot.Speed
+                && r.Amount >= 2
+                && r.Costs.Count > 0)
+                hasLight = true;
+            if (r.Id == "ammo_mod"
+                && r.Type == RewardType.FireRateUp
+                && r.Amount >= 2
+                && r.Costs.Count > 0)
+                hasAmmo = true;
+        }
+
+        if (!hasOverclock || !hasLight || !hasAmmo)
+        {
+            Console.WriteLine(
+                "FAIL rewards: missing signature costed rewards "
+                + $"(overclock={hasOverclock} light={hasLight} ammo={hasAmmo}).");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine(
+                "  costed signature: overclock_core dmg+2/shield-1 · "
+                + "light_frame Speed+2/bombCap-1 · ammo_mod fire+2/capsule-2");
+        }
+
+        // REQ-077: free mid SlotLevel Speed (slot_speed_1) + costed light_frame.
+        // Dual moveSpeedUp economy retired after rhythm harness fix (REQ-076).
+        bool hasFreeMidSpeedSlot = false;
+        int residualMoveSpeedUp = 0;
+        for (int i = 0; i < rewards.All.Count; i++)
+        {
+            RewardDefinition r = rewards.All[i];
+            if (r.Type == RewardType.SlotLevel
+                && r.Slot == PowerUpSlot.Speed
+                && r.Amount >= 1
+                && (r.Costs == null || r.Costs.Count == 0)
+                && r.Pool == RewardPool.Mid)
+                hasFreeMidSpeedSlot = true;
+            if (r.Type == RewardType.MoveSpeedUp)
+                residualMoveSpeedUp++;
+        }
+
+        if (!hasFreeMidSpeedSlot)
+        {
+            Console.WriteLine(
+                "FAIL rewards: missing free mid SlotLevel Speed "
+                + "(REQ-077 slot_speed_1).");
+            failures++;
+        }
+        else if (residualMoveSpeedUp > 0)
+        {
+            Console.WriteLine(
+                $"FAIL rewards: {residualMoveSpeedUp} residual moveSpeedUp "
+                + "card(s) (dual economy retired in REQ-077).");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine(
+                "  REQ-077 speed economy: free mid slot_speed_1 + "
+                + "costed light_frame Speed+2; no moveSpeedUp dual path.");
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-071 contracts + costed rewards.");
+        else
+            Console.WriteLine($"FAIL: REQ-071 ({failures} failure(s)).");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-073: final-run contracts (endRun / uncharted) + capsule reroll cost
+    /// exchange ratio vs 1+L+L² gauge growth and stage capsule EV.
+    /// </summary>
+    static int CheckTerminalContractsAndReroll(GameDataSet data)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "REQ-073 terminal contracts + reroll cost (provisional §7):");
+
+        ContractCatalog contracts = data.Contracts;
+        if (contracts == null)
+        {
+            Console.WriteLine("FAIL terminal: waves.json.contracts missing.");
+            return 1;
+        }
+
+        ContractDefinition endRun = contracts.EndRun;
+        ContractDefinition uncharted = contracts.Uncharted;
+        if (endRun == null)
+        {
+            Console.WriteLine(
+                "FAIL terminal: missing endRun destination (id end_run).");
+            failures++;
+        }
+        else
+        {
+            bool ok = endRun.DestinationKind == ContractDestinationKind.EndRun
+                && endRun.RiskTier == ContractRiskTier.Safe
+                && endRun.Eligibility == ContractEligibility.Always
+                && endRun.IsNeutral;
+            Console.WriteLine(
+                $"  end_run: tier={endRun.RiskTier} dest={endRun.DestinationKind} "
+                + $"elig={endRun.Eligibility} neutral={endRun.IsNeutral} "
+                + $"[{(ok ? "ok" : "BAD")}]");
+            if (!ok)
+            {
+                Console.WriteLine(
+                    "FAIL terminal: end_run must be safe + always + neutral endRun.");
+                failures++;
+            }
+        }
+
+        if (uncharted == null)
+        {
+            Console.WriteLine(
+                "FAIL terminal: missing uncharted destination (id uncharted).");
+            failures++;
+        }
+        else
+        {
+            double score = uncharted.ScoreMultiplierDenominator == 0
+                ? 1.0
+                : uncharted.ScoreMultiplierNumerator
+                    / (double)uncharted.ScoreMultiplierDenominator;
+            bool ok =
+                uncharted.DestinationKind == ContractDestinationKind.Uncharted
+                && uncharted.RiskTier == ContractRiskTier.Extreme
+                && uncharted.Eligibility
+                    == ContractEligibility.HiddenBiomeUnlocked
+                && score >= 1.1
+                && score <= 1.5
+                && uncharted.IsEligible(3, 2, 0)
+                && !uncharted.IsEligible(2, 1, 0);
+            Console.WriteLine(
+                $"  uncharted: tier={uncharted.RiskTier} "
+                + $"dest={uncharted.DestinationKind} "
+                + $"elig={uncharted.Eligibility} score×{score:F2} "
+                + $"[{(ok ? "ok" : "BAD")}]");
+            if (!ok)
+            {
+                Console.WriteLine(
+                    "FAIL terminal: uncharted must be extreme + "
+                    + "hiddenBiomeUnlocked + modest score mult (1.1..1.5).");
+                failures++;
+            }
+        }
+
+        // Reroll cost band 4..6 (AGENTS.md §7 provisional).
+        int reroll = data.Rewards.RerollCost;
+        Console.WriteLine($"  rewards.rerollCost={reroll} (want 4..6)");
+        if (reroll < 4 || reroll > 6)
+        {
+            Console.WriteLine(
+                $"FAIL terminal: rerollCost {reroll} outside provisional 4..6.");
+            failures++;
+        }
+
+        // Exchange ratio: stage capsule EV vs cost curve 1+L+L² and one reroll.
+        double eStage1 = EstimateStageCapsuleEv(data, stage: 1);
+        double eStage2 = EstimateStageCapsuleEv(data, stage: 2);
+        double eStageAvg = (eStage1 + eStage2) / 2.0;
+        // Pure costs for L→L+1 under provisional 1+L+L².
+        int Cost(int level) => 1 + level + level * level;
+        int main2to3 = Cost(2); // 7
+        int main1to2 = Cost(1); // 3
+        int main0to1 = Cost(0); // 1
+        double rerollsPerStage = eStageAvg / Math.Max(1, reroll);
+        double levelShare = reroll / (double)main2to3;
+        double earlyLevelShare = reroll / (double)(main0to1 + main1to2); // 4
+
+        Console.WriteLine(
+            $"  capsule EV S1≈{eStage1:F2} S2≈{eStage2:F2} avg≈{eStageAvg:F2}");
+        Console.WriteLine(
+            $"  gauge cost 1+L+L²: L0→1={main0to1} L1→2={main1to2} "
+            + $"L2→3={main2to3}");
+        Console.WriteLine(
+            $"  exchange: 1 reroll = {reroll} caps "
+            + $"≈ {levelShare:P0} of Main2→3 ({main2to3}) "
+            + $"≈ {earlyLevelShare:P0} of early climb L0→2 ({main0to1 + main1to2})");
+        Console.WriteLine(
+            $"  stage budget: ≈{rerollsPerStage:F1} rerolls/stage if all caps spent on reroll "
+            + $"(target 1.5..3.5 — not free spam, not dead button)");
+
+        if (rerollsPerStage < 1.5 || rerollsPerStage > 3.5)
+        {
+            Console.WriteLine(
+                $"FAIL terminal: reroll/stage budget {rerollsPerStage:F1} "
+                + "outside 1.5..3.5 — retune cost or capsule EV.");
+            failures++;
+        }
+
+        if (levelShare < 0.45 || levelShare > 1.0)
+        {
+            Console.WriteLine(
+                $"FAIL terminal: reroll vs Main2→3 share {levelShare:P0} "
+                + "outside 45%..100%.");
+            failures++;
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-073 terminal contracts + reroll exchange.");
+        else
+            Console.WriteLine($"FAIL: REQ-073 terminal ({failures} failure(s)).");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-073: stage 2–4 theme shuffle must keep difficulty ordered by stage
+    /// index, and nebula-as-stage-2 (vision + drift early) must remain clearable.
+    /// </summary>
+    static int CheckStageShuffleClearability(GameDataSet data)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "REQ-073 stage shuffle clearability (provisional §7):");
+
+        StageGenerationCatalog catalog = data.StageGeneration;
+        BattleContent content = data.BattleContent;
+        if (catalog.ThemeIds.Count < 5)
+        {
+            Console.WriteLine(
+                $"FAIL shuffle: need ≥5 themes, have {catalog.ThemeIds.Count}.");
+            return 1;
+        }
+
+        string fixedFirst = catalog.ThemeIds[0];
+        string fixedLast = catalog.ThemeIds[4];
+        string[] middle =
+        {
+            catalog.ThemeIds[1],
+            catalog.ThemeIds[2],
+            catalog.ThemeIds[3]
+        };
+        Console.WriteLine(
+            $"  fixed ends: S1={fixedFirst} · S5={fixedLast} · "
+            + $"shuffle pool=[{string.Join(",", middle)}]");
+
+        // Midboss average (stage-agnostic pool).
+        var midBosses = new List<EnemyDefinition>();
+        for (int i = 0; i < content.Enemies.Count; i++)
+        {
+            EnemyDefinition e = content.Enemies[i];
+            if (e.Id.StartsWith("mini_", StringComparison.Ordinal))
+                midBosses.Add(e);
+        }
+
+        if (midBosses.Count == 0)
+        {
+            Console.WriteLine("FAIL shuffle: no mini_* midbosses.");
+            return 1;
+        }
+
+        double midAvg = 0;
+        int midWorst = 0;
+        for (int i = 0; i < midBosses.Count; i++)
+        {
+            midAvg += midBosses[i].MaxHp;
+            if (midBosses[i].MaxHp > midWorst)
+                midWorst = midBosses[i].MaxHp;
+        }
+
+        midAvg /= midBosses.Count;
+
+        // Reach DPS by stage ordinal (growth through the run, not by theme).
+        double[] reachDpsByStage =
+        {
+            Math.Max(
+                TheoreticalMainShotDps(
+                    content.FindWeapon(PowerUpSlot.MainShot),
+                    data.FindShip("starter")
+                        .ExportStartingPowerUpLevels()[(int)PowerUpSlot.MainShot])
+                    * 1.15,
+                BossExpectedDps[0].ExpectedDps * 0.85),
+            BossExpectedDps[1].ExpectedDps,
+            BossExpectedDps[2].ExpectedDps,
+            BossExpectedDps[3].ExpectedDps,
+            BossExpectedDps[4].ExpectedDps,
+        };
+
+        // Soft gate: S2 full TTK at mid skill must stay learnable even with
+        // nebula early (vision + drift tax). Later stages report only.
+        const double MaxStage2FullTtkSeconds = 160.0;
+        const double MaxStage2ExpectedHits = 3.75;
+        // Nebula vision+drift mid-skill uptime tax (presentation vision; drift is real).
+        const double NebulaUptimeFactor = 0.88;
+
+        var perms = new List<string[]>();
+        PermuteThemes(middle, 0, perms);
+
+        Console.WriteLine(
+            "  order table: S2/S3/S4 themes · S2 poolHP · S2 TTK · S2 hits · "
+            + "S2→S3 HP jump · verdict");
+
+        double worstS2Ttk = 0;
+        string worstOrder = "";
+        int nebulaSecondClear = 0;
+        int nebulaSecondTotal = 0;
+
+        foreach (string[] mid in perms)
+        {
+            string[] order =
+            {
+                fixedFirst,
+                mid[0],
+                mid[1],
+                mid[2],
+                fixedLast
+            };
+
+            double prevPoolHp = -1;
+            double s2Ttk = 0;
+            double s2Hits = 0;
+            double s2Pool = 0;
+            double jump23 = 0;
+            bool s2Clear = true;
+            var row = new System.Text.StringBuilder();
+            row.Append($"  [{mid[0],-8}/{mid[1],-8}/{mid[2],-8}]");
+
+            for (int stage = 1; stage <= 5; stage++)
+            {
+                string theme = order[stage - 1];
+                int difficulty = stage;
+                long poolHpWeighted = 0;
+                int poolWeight = 0;
+                int poolCount = 0;
+                int driftSegs = 0;
+                foreach (StageSegmentTemplate seg in catalog.Segments)
+                {
+                    if (!seg.SupportsDifficulty(difficulty)
+                        || !seg.SupportsTheme(theme))
+                        continue;
+                    int hp = SegmentSpawnHp(seg, content);
+                    int w = Math.Max(1, seg.Weight);
+                    poolHpWeighted += (long)hp * w;
+                    poolWeight += w;
+                    poolCount++;
+                    if (seg.Environment != null && seg.Environment.HasDrift)
+                        driftSegs++;
+                }
+
+                if (poolCount == 0 || poolWeight == 0)
+                {
+                    Console.WriteLine(
+                        $"FAIL shuffle: empty pool theme={theme} "
+                        + $"stage={stage} diff={difficulty}.");
+                    failures++;
+                    s2Clear = false;
+                    break;
+                }
+
+                double avgSegHp = poolHpWeighted / (double)poolWeight;
+                double openCloseHp = avgSegHp * catalog.SegmentsPerStage * 2.0;
+
+                StageBossTemplate boss = FindBossForTheme(catalog, theme);
+                if (boss == null)
+                {
+                    Console.WriteLine(
+                        $"FAIL shuffle: no boss for theme '{theme}'.");
+                    failures++;
+                    s2Clear = false;
+                    break;
+                }
+
+                double totalAvg = openCloseHp + midAvg + boss.MaxHp;
+                double dps = reachDpsByStage[stage - 1];
+                double uptime = MidSkillHitUptime;
+                if (string.Equals(theme, "nebula", StringComparison.Ordinal))
+                    uptime *= NebulaUptimeFactor;
+                double effDps = dps * uptime;
+                double fullTtk = totalAvg / effDps;
+                double midTtk = midAvg / Math.Max(1.0, dps * MidSkillHitUptime);
+                double bossTtk = boss.MaxHp / Math.Max(1.0, effDps);
+                double expectedHits =
+                    0.30 * 2.0
+                    + midTtk / 14.0
+                    + bossTtk / 20.0
+                    + (driftSegs > 0 ? 0.15 : 0.0);
+
+                if (stage == 2)
+                {
+                    s2Ttk = fullTtk;
+                    s2Hits = expectedHits;
+                    s2Pool = avgSegHp;
+                    s2Clear = fullTtk <= MaxStage2FullTtkSeconds
+                        && expectedHits <= MaxStage2ExpectedHits;
+                    if (fullTtk > worstS2Ttk)
+                    {
+                        worstS2Ttk = fullTtk;
+                        worstOrder = string.Join(">", mid);
+                    }
+                }
+
+                if (stage == 3 && prevPoolHp > 0)
+                    jump23 = avgSegHp / prevPoolHp;
+
+                if (stage >= 2)
+                    prevPoolHp = avgSegHp;
+            }
+
+            bool nebulaSecond = string.Equals(
+                mid[0],
+                "nebula",
+                StringComparison.Ordinal);
+            if (nebulaSecond)
+            {
+                nebulaSecondTotal++;
+                if (s2Clear)
+                    nebulaSecondClear++;
+            }
+
+            string verdict = s2Clear ? "CLEAR" : "WALL";
+            if (nebulaSecond)
+                verdict += " nebula@S2";
+            Console.WriteLine(
+                $"{row} S2pool={s2Pool,5:F0} TTK={s2Ttk,5:F0}s "
+                + $"hits≈{s2Hits:F2} jump23={jump23:F2}× [{verdict}]");
+
+            if (!s2Clear)
+            {
+                Console.WriteLine(
+                    $"FAIL shuffle: S2 not clearable for order "
+                    + $"{string.Join(">", mid)} "
+                    + $"(TTK {s2Ttk:F0}s / hits {s2Hits:F2}).");
+                failures++;
+            }
+        }
+
+        Console.WriteLine(
+            $"  permutations={perms.Count} · nebula@S2 clear "
+            + $"{nebulaSecondClear}/{nebulaSecondTotal} · "
+            + $"worst S2 TTK={worstS2Ttk:F0}s ({worstOrder})");
+
+        // Difficulty must not invert inside a run: S2 pool HP < S4 pool HP
+        // for every shuffle order (including nebula early vs light late theme).
+        foreach (string[] mid in perms)
+        {
+            double s2 = WeightedThemePoolHp(catalog, content, mid[0], 2);
+            double s4 = WeightedThemePoolHp(catalog, content, mid[2], 4);
+            if (s2 <= 0 || s4 <= 0)
+                continue;
+            double ratio = s2 / s4;
+            bool nebulaSecond = string.Equals(
+                mid[0],
+                "nebula",
+                StringComparison.Ordinal);
+            Console.WriteLine(
+                $"  order {mid[0]}>{mid[1]}>{mid[2]}: "
+                + $"S2pool/S4pool {s2:F0}/{s4:F0} = {ratio:F2}× "
+                + (nebulaSecond ? "(nebula@S2) " : "")
+                + (ratio < 1.0 ? "[monoOK]" : "[INVERT]"));
+            if (ratio >= 1.0)
+            {
+                Console.WriteLine(
+                    "FAIL shuffle: S2 pool ≥ S4 pool "
+                    + $"(ratio {ratio:F2}) — stage ordinal difficulty inverted.");
+                failures++;
+            }
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-073 stage shuffle clearability.");
+        else
+            Console.WriteLine($"FAIL: REQ-073 shuffle ({failures} failure(s)).");
+        return failures;
+    }
+
+    static void PermuteThemes(
+        string[] items,
+        int start,
+        List<string[]> results)
+    {
+        if (start >= items.Length - 1)
+        {
+            var copy = new string[items.Length];
+            Array.Copy(items, copy, items.Length);
+            results.Add(copy);
+            return;
+        }
+
+        for (int i = start; i < items.Length; i++)
+        {
+            string tmp = items[start];
+            items[start] = items[i];
+            items[i] = tmp;
+            PermuteThemes(items, start + 1, results);
+            items[i] = items[start];
+            items[start] = tmp;
+        }
+    }
+
+    static StageBossTemplate FindBossForTheme(
+        StageGenerationCatalog catalog,
+        string theme)
+    {
+        for (int b = 0; b < catalog.Bosses.Count; b++)
+        {
+            StageBossTemplate boss = catalog.Bosses[b];
+            if (boss.BossId.StartsWith("boss_leviathan", StringComparison.Ordinal)
+                || boss.BossId.StartsWith("boss_brood", StringComparison.Ordinal))
+                continue;
+            if (string.Equals(boss.ThemeId, theme, StringComparison.Ordinal))
+                return boss;
+        }
+
+        return null;
+    }
+
+    static double WeightedThemePoolHp(
+        StageGenerationCatalog catalog,
+        BattleContent content,
+        string theme,
+        int difficulty)
+    {
+        long poolHpWeighted = 0;
+        int poolWeight = 0;
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            if (!seg.SupportsDifficulty(difficulty) || !seg.SupportsTheme(theme))
+                continue;
+            int hp = SegmentSpawnHp(seg, content);
+            int w = Math.Max(1, seg.Weight);
+            poolHpWeighted += (long)hp * w;
+            poolWeight += w;
+        }
+
+        return poolWeight == 0 ? 0.0 : poolHpWeighted / (double)poolWeight;
+    }
+
+    static double TheoreticalMainShotDps(WeaponDefinition main, int gaugeLevel)
+    {
+        int weaponLevel = Math.Max(1, gaugeLevel);
+        int damage = Damage.Compute(main.BaseDamage, weaponLevel);
+        // Mirror BattleSim ResolveFireInterval: rapidStart default 2, reduction 1.
+        int rapidStart = 2;
+        int reductionPerLevel = 1;
+        int minimumInterval = Math.Max(1, main.MinimumFireIntervalTicks);
+        if (minimumInterval < 1) minimumInterval = 4;
+        int reductions = Math.Max(0, gaugeLevel - rapidStart + 1);
+        int interval = Math.Max(
+            Math.Min(main.FireIntervalTicks, minimumInterval),
+            main.FireIntervalTicks - reductions * reductionPerLevel);
+        if (interval < 1) interval = 1;
+        return damage * (double)SimSpace.TicksPerSecond / interval;
+    }
+
+    /// <summary>
+    /// REQ-075/079: seven-slot catalog ownership — maxLevel 6 level slots,
+    /// weapon modes maxLevel 1 flat cost 1, front-cheap rear-expensive,
+    /// all-in L6 ≈ run capsule EV (~50), exclusive full impossible in one run.
+    /// </summary>
+    static int CheckPowerUpGaugeSevenSlots(GameDataSet data)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "REQ-079 power-up gauge (maxLevel 6 + closing EV, provisional §7):");
+
+        PowerUpGauge gauge = data.CreatePowerUpGauge();
+        if (gauge.GaugeSlotCount != PowerUpGauge.DefaultGaugeSlotCount)
+        {
+            Console.WriteLine(
+                $"FAIL gauge: expected {PowerUpGauge.DefaultGaugeSlotCount} "
+                + $"visible slots, got {gauge.GaugeSlotCount}.");
+            return 1;
+        }
+
+        PowerUpSlot[] expectedOrder =
+        {
+            PowerUpSlot.Speed,
+            PowerUpSlot.Missile,
+            PowerUpSlot.Double,
+            PowerUpSlot.Laser,
+            PowerUpSlot.Triple,
+            PowerUpSlot.Option,
+            PowerUpSlot.Shield,
+        };
+
+        // REQ-079: Speed/Missile/Shield max 6; Option stays 4 (Fixed offsets lock + density).
+        // Weapon modes stay one-shot max 1.
+        int[] expectedMax =
+        {
+            6, 6, 1, 1, 1, 4, 6,
+        };
+
+        int totalMaxCost = 0;
+        var levelSlotCosts = new List<(string name, int cost)>();
+        Console.WriteLine(
+            "  slot order + cost-to-max (capsules, pure activation):");
+        for (int i = 0; i < expectedOrder.Length; i++)
+        {
+            PowerUpSlotDefinition def = gauge.GaugeSlots[i];
+            if (def.Slot != expectedOrder[i])
+            {
+                Console.WriteLine(
+                    $"FAIL gauge: slot[{i}] expected {expectedOrder[i]}, "
+                    + $"got {def.Slot}.");
+                failures++;
+            }
+
+            if (string.IsNullOrWhiteSpace(def.NameKey))
+            {
+                Console.WriteLine(
+                    $"FAIL gauge: {def.Slot} nameKey blank.");
+                failures++;
+            }
+
+            bool isMode = PowerUpSlotDefinition.IsWeaponModeSlot(def.Slot);
+            if (def.MaxLevel != expectedMax[i])
+            {
+                Console.WriteLine(
+                    $"FAIL gauge: {def.Slot} maxLevel expected {expectedMax[i]}, "
+                    + $"got {def.MaxLevel}.");
+                failures++;
+            }
+
+            if (isMode
+                && (def.CostCurve.BaseCost != 1
+                    || def.CostCurve.LinearGrowth != 0
+                    || def.CostCurve.QuadraticGrowth != 0))
+            {
+                Console.WriteLine(
+                    $"FAIL gauge: weapon mode {def.Slot} cost must be flat 1 "
+                    + $"(got {def.CostCurve.BaseCost}+"
+                    + $"{def.CostCurve.LinearGrowth}L+"
+                    + $"{def.CostCurve.QuadraticGrowth}L²).");
+                failures++;
+            }
+
+            int slotCost = 0;
+            for (int level = 0; level < def.MaxLevel; level++)
+                slotCost += def.CostCurve.GetCostForCurrentLevel(level);
+            totalMaxCost += slotCost;
+            if (!isMode)
+                levelSlotCosts.Add((def.NameKey, slotCost));
+
+            string modeTag = isMode ? "MODE" : "LVL ";
+            string speedNote = def.Slot == PowerUpSlot.Speed
+                ? $" speed+={def.SpeedBonusNumerator}/{def.SpeedBonusDenominator}/tick"
+                : "";
+            Console.WriteLine(
+                $"    [{i}] {def.NameKey,-12} {modeTag} max={def.MaxLevel} "
+                + $"curve={def.CostCurve.BaseCost}+{def.CostCurve.LinearGrowth}L"
+                + $"+{def.CostCurve.QuadraticGrowth}L² "
+                + $"costToMax={slotCost}{speedNote}");
+        }
+
+        PowerUpSlotDefinition speed = gauge.GaugeSlots[0];
+        PowerUpSlotDefinition shield = gauge.GaugeSlots[6];
+        int speedL0 = speed.CostCurve.GetCostForCurrentLevel(0);
+        int shieldL0 = shield.CostCurve.GetCostForCurrentLevel(0);
+        if (speedL0 > shieldL0)
+        {
+            Console.WriteLine(
+                $"FAIL gauge: Speed L0 cost {speedL0} > Shield L0 {shieldL0} "
+                + "(front should be cheaper).");
+            failures++;
+        }
+
+        if (speed.Slot != PowerUpSlot.Speed
+            || speed.SpeedBonusNumerator < 1)
+        {
+            Console.WriteLine(
+                "FAIL gauge: Speed slot must define positive speedBonusPerLevel.");
+            failures++;
+        }
+
+        int modeMin = int.MaxValue;
+        int modeMax = 0;
+        int modeSum = 0;
+        for (int i = 0; i < gauge.GaugeSlotCount; i++)
+        {
+            PowerUpSlotDefinition def = gauge.GaugeSlots[i];
+            if (!def.IsWeaponMode)
+                continue;
+            int c = def.CostCurve.GetCostForCurrentLevel(0);
+            modeSum += c;
+            if (c < modeMin) modeMin = c;
+            if (c > modeMax) modeMax = c;
+        }
+        int exclusiveFull = totalMaxCost - modeSum + modeMax;
+
+        // Opening-only EV (legacy) + open+closing EV after REQ-079 extension.
+        double openEv = EstimateStageCapsuleEv(data, stage: 1);
+        double fullRoomEv = EstimateOpenCloseCapsuleEv(data, stage: 1);
+        StageGenerationCatalog catalog = data.StageGeneration;
+        int openSegs = catalog.SegmentsPerStage;
+        int closeSegs = catalog.ClosingSegmentsPerStage;
+        Console.WriteLine(
+            $"  closing: open segs={openSegs} close segs={closeSegs} "
+            + $"(×{closeSegs / (double)openSegs:F2} vs open)");
+        Console.WriteLine(
+            $"  capsule EV open-only≈{openEv:F2} · open+close≈{fullRoomEv:F2}");
+
+        // Run budget: 5 biomes × open+close rooms (boss/mid not counted here).
+        const int RunBiomes = 5;
+        double runEv = fullRoomEv * RunBiomes;
+        Console.WriteLine(
+            $"  pure cost all-max (3 modes summed)={totalMaxCost}; "
+            + $"exclusive-mode full≈{exclusiveFull} "
+            + $"(mode one-shot {modeMin}..{modeMax})");
+        Console.WriteLine(
+            $"  @ run capsule EV≈{runEv:F0} (5× open+close) → "
+            + $"exclusive full needs ~{exclusiveFull / Math.Max(1.0, fullRoomEv):F1} "
+            + "stages (all-in L6 only)");
+
+        // Closing must be 1.5×..2.0× opening segment count.
+        double closeRatio = closeSegs / (double)openSegs;
+        if (closeRatio < 1.5 || closeRatio > 2.0)
+        {
+            Console.WriteLine(
+                $"FAIL gauge: closing/open segment ratio {closeRatio:F2} "
+                + "outside [1.5, 2.0].");
+            failures++;
+        }
+
+        // Cost-to-max bands vs run capsule EV (~50 open-only historical; ~100 open+close).
+        foreach ((string name, int cost) in levelSlotCosts)
+        {
+            if (name.Equals("Speed", StringComparison.Ordinal))
+            {
+                if (cost < 15 || cost > 40)
+                {
+                    Console.WriteLine(
+                        $"FAIL gauge: Speed costToMax {cost} outside [15,40] "
+                        + "(front-cheap but not free).");
+                    failures++;
+                }
+                continue;
+            }
+
+            if (name.Equals("Option", StringComparison.Ordinal))
+            {
+                // maxLevel 4 (Fixed offset lock): still rear-expensive, not free.
+                if (cost < 20 || cost > 50)
+                {
+                    Console.WriteLine(
+                        $"FAIL gauge: Option costToMax {cost} outside [20,50] "
+                        + "(maxLevel 4 rear slot).");
+                    failures++;
+                }
+                continue;
+            }
+
+            // Missile / Shield L6 all-in band.
+            if (cost < 40 || cost > 90)
+            {
+                Console.WriteLine(
+                    $"FAIL gauge: {name} costToMax {cost} outside [40,90] "
+                    + "(L6 should require ~all-in vs run EV≈50).");
+                failures++;
+            }
+        }
+
+        // Exclusive full must exceed one run EV — cannot max everything.
+        if (exclusiveFull <= runEv * 1.2)
+        {
+            Console.WriteLine(
+                $"FAIL gauge: exclusive full {exclusiveFull} ≤ 1.2× run EV "
+                + $"{runEv:F0} (full power too cheap).");
+            failures++;
+        }
+
+        // REQ-077: free mid SlotLevel Speed required; moveSpeedUp dual path gone.
+        RewardCatalog rewards = data.Rewards;
+        bool hasFreeMidSpeedSlot = false;
+        int moveSpeedUpCount = 0;
+        for (int i = 0; i < rewards.All.Count; i++)
+        {
+            RewardDefinition r = rewards.All[i];
+            if (r.Type == RewardType.SlotLevel
+                && r.Slot == PowerUpSlot.Speed
+                && (r.Costs == null || r.Costs.Count == 0)
+                && r.Pool == RewardPool.Mid)
+                hasFreeMidSpeedSlot = true;
+            if (r.Type == RewardType.MoveSpeedUp)
+                moveSpeedUpCount++;
+        }
+        if (!hasFreeMidSpeedSlot)
+        {
+            Console.WriteLine(
+                "FAIL rewards: missing free mid SlotLevel Speed (REQ-077).");
+            failures++;
+        }
+        else if (moveSpeedUpCount > 0)
+        {
+            Console.WriteLine(
+                $"FAIL rewards: {moveSpeedUpCount} residual moveSpeedUp "
+                + "card(s) (dual economy retired in REQ-077).");
+            failures++;
+        }
+
+        if (failures == 0)
+            Console.WriteLine(
+                "PASS: REQ-079 maxLevel-6 gauge + closing EV consistency.");
+        return failures;
+    }
+
+    static double EstimateOpenCloseCapsuleEv(GameDataSet data, int stage)
+    {
+        double openOnly = EstimateStageCapsuleEv(data, stage);
+        StageGenerationCatalog catalog = data.StageGeneration;
+        if (catalog.SegmentsPerStage < 1)
+            return openOnly;
+        double perSeg = openOnly / catalog.SegmentsPerStage;
+        return perSeg
+            * (catalog.SegmentsPerStage + catalog.ClosingSegmentsPerStage);
+    }
+
+    /// <summary>
+    /// REQ-075: vulcan / double / laser / triple(spread) ST DPS comparison table.
+    /// Soft FAIL if ST DPS max/min exceeds ship band (shared MainShot axis).
+    /// </summary>
+    static int CheckPrimaryWeaponFamilyDps(GameDataSet data)
+    {
+        int failures = 0;
+        const double MaxFamilyStRatio = 2.25; // coverage families trail ST
+        Console.WriteLine(
+            "REQ-075 primary weapon families ST DPS (level 0, provisional §7):");
+
+        IReadOnlyList<PrimaryWeaponFamilyDefinition> families =
+            data.BattleContent.PrimaryWeaponFamilies;
+        if (families == null || families.Count < 4)
+        {
+            Console.WriteLine(
+                $"FAIL primary: expected ≥4 families, got {families?.Count ?? 0}.");
+            return 1;
+        }
+
+        bool hasDouble = false, hasLaser = false, hasVulcan = false, hasSpread = false;
+        var rows = new List<(string id, string name, int dmg, int interval, int ways, int pierce, double stDps, double volleyDps)>();
+        for (int i = 0; i < families.Count; i++)
+        {
+            PrimaryWeaponFamilyDefinition f = families[i];
+            if (f.Family == PrimaryWeaponFamily.Vulcan) hasVulcan = true;
+            if (f.Family == PrimaryWeaponFamily.Double) hasDouble = true;
+            if (f.Family == PrimaryWeaponFamily.Laser) hasLaser = true;
+            if (f.Family == PrimaryWeaponFamily.Spread) hasSpread = true;
+
+            // L0: weaponLevel for Damage.Compute is max(1, gaugeLevel) in main path
+            // but level-0 main uses base damage directly in many sims — use base.
+            int dmg = f.BaseDamage;
+            int interval = Math.Max(1, f.FireIntervalTicks);
+            double stDps = dmg * (double)SimSpace.TicksPerSecond / interval;
+            double volleyDps = stDps * Math.Max(1, f.SpreadWays);
+            rows.Add((
+                f.Id,
+                f.DisplayName,
+                dmg,
+                interval,
+                f.SpreadWays,
+                f.PierceEnemyCount,
+                stDps,
+                volleyDps));
+        }
+
+        if (!hasVulcan || !hasDouble || !hasLaser || !hasSpread)
+        {
+            Console.WriteLine(
+                "FAIL primary: catalog must include vulcan+double+laser+spread.");
+            failures++;
+        }
+
+        Console.WriteLine(
+            "  family            dmg int ways pierce   ST DPS  volleyDPS");
+        double minSt = double.MaxValue;
+        double maxSt = 0;
+        foreach (var r in rows.OrderBy(x => x.id, StringComparer.Ordinal))
+        {
+            Console.WriteLine(
+                $"  {r.name,-16} {r.dmg,3} {r.interval,3} {r.ways,4} "
+                + $"{r.pierce,6} {r.stDps,8:F1} {r.volleyDps,9:F1}");
+            if (r.stDps < minSt) minSt = r.stDps;
+            if (r.stDps > maxSt) maxSt = r.stDps;
+        }
+
+        double ratio = minSt <= 0 ? double.PositiveInfinity : maxSt / minSt;
+        Console.WriteLine(
+            $"  ST DPS max/min = {ratio:F2} (band ≤{MaxFamilyStRatio:F2})");
+        if (ratio > MaxFamilyStRatio)
+        {
+            Console.WriteLine(
+                $"FAIL primary: ST ratio {ratio:F2} > {MaxFamilyStRatio:F2}.");
+            failures++;
+        }
+
+        // Role: double uses 2 ways; triple/spread uses ≥3; laser pierces.
+        PrimaryWeaponFamilyDefinition dbl =
+            data.BattleContent.FindPrimaryWeaponFamily(PrimaryWeaponFamily.Double);
+        PrimaryWeaponFamilyDefinition tri =
+            data.BattleContent.FindPrimaryWeaponFamily(PrimaryWeaponFamily.Spread);
+        PrimaryWeaponFamilyDefinition las =
+            data.BattleContent.FindPrimaryWeaponFamily(PrimaryWeaponFamily.Laser);
+        if (dbl == null || dbl.SpreadWays != 2)
+        {
+            Console.WriteLine("FAIL primary: Double must be spreadWays=2.");
+            failures++;
+        }
+        else if (dbl.SpreadStepLutSlots < 8)
+        {
+            // 8 lut slots ≈ ±22.5°; 16 ≈ ±45° (1/64-turn LUT).
+            Console.WriteLine(
+                $"WARN primary: Double step={dbl.SpreadStepLutSlots} "
+                + "(want ≥8 for noticeable V / ~45° feel).");
+        }
+
+        if (tri == null || tri.SpreadWays < 3)
+        {
+            Console.WriteLine("FAIL primary: Triple/Spread must be spreadWays≥3.");
+            failures++;
+        }
+
+        if (las == null || las.PierceEnemyCount < 1)
+        {
+            Console.WriteLine("FAIL primary: Laser must pierce ≥1 extra enemy.");
+            failures++;
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-075 primary family DPS table.");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-075: ≥2 laser-profile enemies; non-fortress placement; laser budget note.
+    /// </summary>
+    static int CheckEnemyLaserProfiles(GameDataSet data)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "REQ-075 enemy laser profiles (provisional §7):");
+
+        var laserEnemies = new List<EnemyDefinition>();
+        foreach (EnemyDefinition e in data.BattleContent.Enemies)
+        {
+            if (e.LaserAttack != null)
+                laserEnemies.Add(e);
+        }
+
+        Console.WriteLine($"  laser enemies: {laserEnemies.Count}");
+        for (int i = 0; i < laserEnemies.Count; i++)
+        {
+            EnemyDefinition e = laserEnemies[i];
+            LaserAttackDefinition L = e.LaserAttack;
+            int life = L.TelegraphTicks + L.FiringTicks
+                + L.SustainTicks + L.DissipateTicks;
+            Console.WriteLine(
+                $"    {e.Id,-18} hp={e.MaxHp,4} cycle={L.CycleIntervalTicks}t "
+                + $"life={life}t dmg={L.Damage} "
+                + $"beam=({L.StartOffsetX},{L.StartOffsetY})→"
+                + $"({L.EndOffsetX},{L.EndOffsetY})");
+            if (life > L.CycleIntervalTicks)
+            {
+                Console.WriteLine(
+                    $"FAIL laser: '{e.Id}' lifetime {life} > cycle "
+                    + $"{L.CycleIntervalTicks}.");
+                failures++;
+            }
+        }
+
+        if (laserEnemies.Count < 1 || laserEnemies.Count > 4)
+        {
+            Console.WriteLine(
+                $"FAIL laser: enemy laser count {laserEnemies.Count} "
+                + "outside [1,4].");
+            failures++;
+        }
+
+        // Non-fortress placement: at least one scrapyard/hive/nebula segment
+        // spawns a laser enemy (terrain laser gates live mainly on fortress).
+        var laserIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < laserEnemies.Count; i++)
+            laserIds.Add(laserEnemies[i].Id);
+
+        int nonFortressHits = 0;
+        int fortressHits = 0;
+        int peakLaserSourcesInSegment = 0;
+        foreach (StageSegmentTemplate seg in data.StageGeneration.Segments)
+        {
+            int enemyLaserSpawns = 0;
+            int emitterCount = 0;
+            for (int s = 0; s < seg.Spawns.Count; s++)
+            {
+                if (laserIds.Contains(seg.Spawns[s].EnemyId))
+                    enemyLaserSpawns++;
+            }
+
+            for (int o = 0; o < seg.Obstacles.Count; o++)
+            {
+                if (seg.Obstacles[o].Type == ObstacleType.LaserEmitter)
+                    emitterCount++;
+            }
+
+            int sources = enemyLaserSpawns + emitterCount;
+            if (sources > peakLaserSourcesInSegment)
+                peakLaserSourcesInSegment = sources;
+
+            if (enemyLaserSpawns == 0)
+                continue;
+
+            string theme = seg.ThemeId ?? "";
+            if (string.Equals(theme, "fortress", StringComparison.Ordinal))
+                fortressHits++;
+            else
+                nonFortressHits++;
+        }
+
+        Console.WriteLine(
+            $"  segments with laser enemies: fortress={fortressHits} "
+            + $"other={nonFortressHits}");
+        Console.WriteLine(
+            $"  peak laser sources in one segment template "
+            + $"(enemies+emitters, not concurrent)={peakLaserSourcesInSegment} "
+            + $"(MaxLasers={BattleSimConfig.CreateDefault().MaxLasers})");
+
+        if (nonFortressHits < 1)
+        {
+            Console.WriteLine(
+                "FAIL laser: no non-fortress segment spawns a laser enemy "
+                + "(must appear outside terrain laser gates).");
+            failures++;
+        }
+
+        // Soft: concurrent cap is runtime; warn if template sources > MaxLasers.
+        int maxLasers = BattleSimConfig.CreateDefault().MaxLasers;
+        if (peakLaserSourcesInSegment > maxLasers)
+        {
+            Console.WriteLine(
+                $"WARN laser: segment template sources "
+                + $"{peakLaserSourcesInSegment} > MaxLasers {maxLasers} "
+                + "(overlap risk if cycles align; stagger ages mitigate).");
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-075 enemy laser profiles.");
+        return failures;
+    }
+
+    static double EstimateStageCapsuleEv(GameDataSet data, int stage)
+    {
+        StageGenerationCatalog catalog = data.StageGeneration;
+        BattleContent content = data.BattleContent;
+        string theme = catalog.ThemeIds[(stage - 1) % catalog.ThemeIds.Count];
+        int noDrop = data.CapsuleNoDropWeight;
+        double sum = 0.0;
+        int weight = 0;
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            if (!seg.SupportsDifficulty(stage) || !seg.SupportsTheme(theme))
+                continue;
+            int w = Math.Max(1, seg.Weight);
+            double segEv = 0.0;
+            for (int i = 0; i < seg.Spawns.Count; i++)
+            {
+                EnemyDefinition e = content.FindEnemy(seg.Spawns[i].EnemyId);
+                if (e == null) continue;
+                segEv += e.DropWeight / (double)(noDrop + e.DropWeight);
+            }
+
+            sum += segEv * w;
+            weight += w;
+        }
+
+        if (weight == 0) return 0.0;
+        return sum / weight * catalog.SegmentsPerStage;
+    }
 
     static string FindRepoRoot()
     {

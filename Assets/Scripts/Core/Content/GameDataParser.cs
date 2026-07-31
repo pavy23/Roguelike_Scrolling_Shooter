@@ -4,12 +4,13 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Xml;
+using Shmup.Core.Generation;
 using Shmup.Core.Simulation;
 
 namespace Shmup.Core.Content
 {
     /// <summary>
-    /// Unity-free parser for enemies.json schema v2/v3, weapons.json schema v2/v3,
+    /// Unity-free parser for enemies.json schema v2/v3, weapons.json schema v2-v6,
     /// waves.json schema v2,
     /// rewards.json schema v1, optional ships.json schema v1, optional
     /// scoring.json schema v1, and optional player.json schema v1 tuning.
@@ -20,6 +21,9 @@ namespace Shmup.Core.Content
         public const int SupportedSchemaVersion = 2;
         public const int SupportedEnemiesSchemaVersion = 3;
         public const int SupportedWeaponsSchemaVersion = 3;
+        public const int SupportedPrimaryWeaponsSchemaVersion = 4;
+        public const int SupportedPowerUpCurveSchemaVersion = 5;
+        public const int SupportedPowerUpGaugeSchemaVersion = 6;
 
         public static GameDataSet Parse(
             string enemiesJson,
@@ -96,6 +100,7 @@ namespace Shmup.Core.Content
                     enemies.Definitions,
                     weapons.Definitions,
                     weapons.MainShot.Id,
+                    weapons.PrimaryWeaponFamilies,
                     weapons.MissileFamilies,
                     weapons.DefaultMissileFamily,
                     weapons.OptionFormations,
@@ -128,12 +133,16 @@ namespace Shmup.Core.Content
                     content,
                     waves.Catalog,
                     enemies.NoDropWeight,
+                    enemies.BombNoDropWeight,
                     waves.ScrollSpeed.Numerator,
                     waves.ScrollSpeed.Denominator,
-                    maxEnemyBullets,
+                maxEnemyBullets,
                     weapons.MaxLevels,
+                    weapons.CostCurve,
+                    weapons.GaugeSlots,
                     weapons.Missile,
                     rewards,
+                    waves.Contracts,
                     ships,
                     scoring);
             }
@@ -219,6 +228,12 @@ namespace Shmup.Core.Content
                 "enemies.json.dropTable.noDropWeight");
             if (noDropWeight < 0)
                 throw Error("enemies.json.dropTable.noDropWeight", "cannot be negative.");
+            int bombNoDropWeight =
+                root.dropTable.bombNoDropWeight ?? 100;
+            if (bombNoDropWeight < 0)
+                throw Error(
+                    "enemies.json.dropTable.bombNoDropWeight",
+                    "cannot be negative.");
 
             EnemyDto[] source = RequireArray(root.enemies, "enemies.json.enemies");
             var definitions = new EnemyDefinition[source.Length];
@@ -229,8 +244,16 @@ namespace Shmup.Core.Content
                     throw Error(
                         $"enemies.json.enemies[{i}].dropWeight",
                         "makes the drop-table total exceed the integer range.");
+                if ((long)bombNoDropWeight
+                    + definitions[i].BombDropWeight > int.MaxValue)
+                    throw Error(
+                        $"enemies.json.enemies[{i}].bombDropWeight",
+                        "makes the bomb drop-table total exceed the integer range.");
             }
-            return new EnemiesParseResult(definitions, noDropWeight);
+            return new EnemiesParseResult(
+                definitions,
+                noDropWeight,
+                bombNoDropWeight);
         }
 
         static EnemyDefinition ParseEnemy(EnemyDto source, int index, int schemaVersion)
@@ -261,7 +284,98 @@ namespace Shmup.Core.Content
                 movement.PeriodTicks,
                 movement.DelayTicks,
                 movement.DurationTicks,
-                movement.PauseTicks);
+                movement.PauseTicks,
+                source.bombDropWeight ?? 0,
+                ParseLaser(
+                    source.laser,
+                    path + ".laser"),
+                ParseMidBossProfile(
+                    source.midBoss,
+                    path + ".midBoss"));
+        }
+
+        static MidBossProfile ParseMidBossProfile(
+            MidBossProfileDto source,
+            string path)
+        {
+            if (source == null)
+                return null;
+            if (source.phases == null
+                || source.phases.Length < 2
+                || source.phases.Length > 3)
+            {
+                throw Error(
+                    path + ".phases",
+                    "must contain two or three phases.");
+            }
+            var phases = new BossPhase[source.phases.Length];
+            for (int i = 0; i < phases.Length; i++)
+            {
+                string phasePath = $"{path}.phases[{i}]";
+                phases[i] = ParseBossPhase(
+                    source.phases[i],
+                    phasePath);
+                if (phases[i].DurationTicks < 1)
+                    throw Error(
+                        phasePath + ".durationTicks",
+                        "must be positive for a mid-boss pattern.");
+            }
+            try
+            {
+                return new MidBossProfile(
+                    RequireText(source.themeId, path + ".themeId"),
+                    source.weight ?? 1,
+                    source.stageIndexMin ?? 1,
+                    source.stageIndexMax ?? int.MaxValue,
+                    phases);
+            }
+            catch (ArgumentException error)
+            {
+                throw Error(path, error.Message);
+            }
+        }
+
+        static LaserAttackDefinition ParseLaser(
+            LaserAttackDto source,
+            string path)
+        {
+            if (source == null)
+                return null;
+            return new LaserAttackDefinition(
+                Require(
+                    source.cycleIntervalTicks,
+                    path + ".cycleIntervalTicks"),
+                Require(
+                    source.telegraphTicks,
+                    path + ".telegraphTicks"),
+                Require(
+                    source.firingTicks,
+                    path + ".firingTicks"),
+                Require(
+                    source.sustainTicks,
+                    path + ".sustainTicks"),
+                Require(
+                    source.dissipateTicks,
+                    path + ".dissipateTicks"),
+                ToSubUnits(
+                    Require(source.startOffsetX, path + ".startOffsetX"),
+                    path + ".startOffsetX"),
+                ToSubUnits(
+                    Require(source.startOffsetY, path + ".startOffsetY"),
+                    path + ".startOffsetY"),
+                ToSubUnits(
+                    Require(source.endOffsetX, path + ".endOffsetX"),
+                    path + ".endOffsetX"),
+                ToSubUnits(
+                    Require(source.endOffsetY, path + ".endOffsetY"),
+                    path + ".endOffsetY"),
+                ToSubUnits(
+                    Require(source.thinHalfWidth, path + ".thinHalfWidth"),
+                    path + ".thinHalfWidth"),
+                ToSubUnits(
+                    Require(source.fullHalfWidth, path + ".fullHalfWidth"),
+                    path + ".fullHalfWidth"),
+                Require(source.damage, path + ".damage"));
         }
 
         static EnemyMovementParseResult ParseLegacyMovement(EnemyDto source, string path)
@@ -372,14 +486,16 @@ namespace Shmup.Core.Content
             RewardsDto root,
             BattleContent content)
         {
-            const int supportedRewardsSchemaVersion = 1;
+            const int supportedRewardsSchemaVersion = 5;
             int schemaVersion = Require(
                 root.schemaVersion,
                 "rewards.json.schemaVersion");
-            if (schemaVersion != supportedRewardsSchemaVersion)
+            if (schemaVersion < 1
+                || schemaVersion > supportedRewardsSchemaVersion)
                 throw Error(
                     "rewards.json.schemaVersion",
-                    $"must be {supportedRewardsSchemaVersion}, but was {schemaVersion}.");
+                    $"must be 1..{supportedRewardsSchemaVersion}, "
+                    + $"but was {schemaVersion}.");
 
             int optionCount = Require(root.optionCount, "rewards.json.optionCount");
             if (optionCount != RunManager.RewardOptionCount)
@@ -396,7 +512,10 @@ namespace Shmup.Core.Content
             var definitions = new RewardDefinition[source.Length];
             for (int i = 0; i < source.Length; i++)
             {
-                definitions[i] = ParseReward(source[i], i);
+                definitions[i] = ParseReward(
+                    source[i],
+                    i,
+                    schemaVersion);
                 if (definitions[i].Type
                         == RewardType.MissileFamily
                     && content.FindMissileFamily(
@@ -415,6 +534,15 @@ namespace Shmup.Core.Content
                         $"rewards.json.rewards[{i}].formationId",
                         "references an option formation missing from weapons.json.");
                 }
+                if (definitions[i].Type
+                        == RewardType.PrimaryWeaponFamily
+                    && content.FindPrimaryWeaponFamily(
+                        definitions[i].PrimaryWeaponFamily) == null)
+                {
+                    throw Error(
+                        $"rewards.json.rewards[{i}].primaryFamilyId",
+                        "references a primary weapon family missing from weapons.json.");
+                }
                 for (int previous = 0; previous < i; previous++)
                 {
                     if (definitions[previous].Id == definitions[i].Id)
@@ -423,7 +551,31 @@ namespace Shmup.Core.Content
                             $"duplicates id '{definitions[i].Id}'.");
                 }
             }
-            return new RewardCatalog(optionCount, definitions);
+            int maxCombinedModifierCost =
+                schemaVersion >= 3
+                    ? Require(
+                        root.maxCombinedModifierCost,
+                        "rewards.json.maxCombinedModifierCost")
+                    : 4;
+            if (maxCombinedModifierCost < 1)
+                throw Error(
+                    "rewards.json.maxCombinedModifierCost",
+                    "must be positive.");
+            int rerollCost =
+                schemaVersion >= 5
+                    ? Require(
+                        root.rerollCost,
+                        "rewards.json.rerollCost")
+                    : 5;
+            if (rerollCost < 1)
+                throw Error(
+                    "rewards.json.rerollCost",
+                    "must be positive.");
+            return new RewardCatalog(
+                optionCount,
+                definitions,
+                maxCombinedModifierCost,
+                rerollCost);
         }
 
         static ScoringDefinition ParseScoring(ScoringDto root)
@@ -490,7 +642,10 @@ namespace Shmup.Core.Content
                 multiplierDecayTicks);
         }
 
-        static RewardDefinition ParseReward(RewardDto source, int index)
+        static RewardDefinition ParseReward(
+            RewardDto source,
+            int index,
+            int schemaVersion)
         {
             string path = $"rewards.json.rewards[{index}]";
             if (source == null)
@@ -499,10 +654,23 @@ namespace Shmup.Core.Content
             RewardType type = ParseRewardType(source.type, path + ".type");
             PowerUpSlot slot = PowerUpSlot.MainShot;
             BattleModifier modifierId = BattleModifier.None;
+            string modifierKey = null;
+            bool modifierStackable = false;
+            int modifierMaxStacks = 1;
+            int modifierStackStrength = 1;
+            int modifierInteractionCost = 1;
             MissileFamily missileFamily =
                 MissileFamily.Straight;
             OptionFormation optionFormation =
                 OptionFormation.Trail;
+            PrimaryWeaponFamily primaryWeaponFamily =
+                PrimaryWeaponFamily.Vulcan;
+            RewardPool pool = schemaVersion >= 4
+                ? ParseRewardPool(source.pool, path + ".pool")
+                : RewardPool.Both;
+            RewardCostDefinition[] costs = schemaVersion >= 4
+                ? ParseRewardCosts(source.costs, path + ".costs")
+                : Array.Empty<RewardCostDefinition>();
             if (type == RewardType.SlotLevel)
             {
                 slot = ParsePowerUpSlot(source.slot, path + ".slot");
@@ -514,9 +682,50 @@ namespace Shmup.Core.Content
 
             if (type == RewardType.Modifier)
             {
-                modifierId = ParseModifierId(
+                modifierKey = RequireText(
                     source.modifierId,
                     path + ".modifierId");
+                modifierId = schemaVersion >= 3
+                    && source.modifierEffect != null
+                        ? ParseModifierId(
+                            source.modifierEffect,
+                            path + ".modifierEffect")
+                        : ParseModifierId(
+                            modifierKey,
+                            path + ".modifierId");
+                if (schemaVersion >= 3)
+                {
+                    if (!source.stackable.HasValue)
+                        throw Error(
+                            path + ".stackable",
+                            "is required.");
+                    modifierStackable = source.stackable.Value;
+                    modifierMaxStacks = Require(
+                        source.maxStacks,
+                        path + ".maxStacks");
+                    modifierStackStrength = Require(
+                        source.stackStrength,
+                        path + ".stackStrength");
+                    modifierInteractionCost = Require(
+                        source.interactionCost,
+                        path + ".interactionCost");
+                    if (modifierMaxStacks < 1)
+                        throw Error(
+                            path + ".maxStacks",
+                            "must be positive.");
+                    if (!modifierStackable && modifierMaxStacks != 1)
+                        throw Error(
+                            path + ".maxStacks",
+                            "must be 1 when stackable is false.");
+                    if (modifierStackStrength < 1)
+                        throw Error(
+                            path + ".stackStrength",
+                            "must be positive.");
+                    if (modifierInteractionCost < 1)
+                        throw Error(
+                            path + ".interactionCost",
+                            "must be positive.");
+                }
             }
             else if (source.modifierId != null)
             {
@@ -549,11 +758,24 @@ namespace Shmup.Core.Content
                     path + ".formationId",
                     "is only valid for optionFormation rewards.");
             }
+            if (type == RewardType.PrimaryWeaponFamily)
+            {
+                primaryWeaponFamily = ParsePrimaryWeaponFamily(
+                    source.primaryFamilyId,
+                    path + ".primaryFamilyId");
+            }
+            else if (source.primaryFamilyId != null)
+            {
+                throw Error(
+                    path + ".primaryFamilyId",
+                    "is only valid for primaryWeaponFamily rewards.");
+            }
 
             bool amountOptional =
                 type == RewardType.Modifier
                 || type == RewardType.MissileFamily
-                || type == RewardType.OptionFormation;
+                || type == RewardType.OptionFormation
+                || type == RewardType.PrimaryWeaponFamily;
             int amount = amountOptional && !source.amount.HasValue
                 ? 1
                 : Require(source.amount, path + ".amount");
@@ -588,7 +810,73 @@ namespace Shmup.Core.Content
                 source.maxPerRun,
                 modifierId,
                 missileFamily,
-                optionFormation);
+                optionFormation,
+                primaryWeaponFamily,
+                modifierKey,
+                modifierStackable,
+                modifierMaxStacks,
+                modifierStackStrength,
+                modifierInteractionCost,
+                pool,
+                costs);
+        }
+
+        static RewardPool ParseRewardPool(string value, string path)
+        {
+            if (value == null || value == "both")
+                return RewardPool.Both;
+            switch (RequireText(value, path))
+            {
+                case "mid": return RewardPool.Mid;
+                case "main": return RewardPool.Main;
+                default:
+                    throw Error(
+                        path,
+                        "must be 'mid', 'main', or 'both'.");
+            }
+        }
+
+        static RewardCostDefinition[] ParseRewardCosts(
+            RewardCostDto[] source,
+            string path)
+        {
+            if (source == null || source.Length == 0)
+                return Array.Empty<RewardCostDefinition>();
+            var result = new RewardCostDefinition[source.Length];
+            for (int i = 0; i < result.Length; i++)
+            {
+                string itemPath = $"{path}[{i}]";
+                RewardCostDto item = source[i];
+                if (item == null)
+                    throw Error(itemPath, "cannot be null.");
+                RewardEffectType type;
+                switch (RequireText(item.type, itemPath + ".type"))
+                {
+                    case "shieldMaxDown":
+                        type = RewardEffectType.ShieldMaxDown;
+                        break;
+                    case "moveSpeedDown":
+                        type = RewardEffectType.MoveSpeedDown;
+                        break;
+                    case "capsuleDropWeightDown":
+                        type = RewardEffectType.CapsuleDropWeightDown;
+                        break;
+                    case "bombMaxDown":
+                        type = RewardEffectType.BombMaxDown;
+                        break;
+                    default:
+                        throw Error(
+                            itemPath + ".type",
+                            "has an unknown reward cost type.");
+                }
+                int amount = Require(item.amount, itemPath + ".amount");
+                if (amount < 1)
+                    throw Error(
+                        itemPath + ".amount",
+                        "must be positive.");
+                result[i] = new RewardCostDefinition(type, amount);
+            }
+            return result;
         }
 
         static RewardType ParseRewardType(string value, string path)
@@ -597,7 +885,9 @@ namespace Shmup.Core.Content
             {
                 case "capsules": return RewardType.Capsules;
                 case "slotLevel": return RewardType.SlotLevel;
-                case "repairHp": return RewardType.RepairHp;
+                case "repairHp":
+                case "shieldStock":
+                    return RewardType.ShieldStock;
                 case "fireRateUp": return RewardType.FireRateUp;
                 case "damageUp": return RewardType.DamageUp;
                 case "moveSpeedUp": return RewardType.MoveSpeedUp;
@@ -606,6 +896,9 @@ namespace Shmup.Core.Content
                     return RewardType.MissileFamily;
                 case "optionFormation":
                     return RewardType.OptionFormation;
+                case "bombStock": return RewardType.BombStock;
+                case "primaryWeaponFamily":
+                    return RewardType.PrimaryWeaponFamily;
                 default: throw Error(path, $"has unknown value '{value}'.");
             }
         }
@@ -653,14 +946,19 @@ namespace Shmup.Core.Content
 
         internal readonly struct EnemiesParseResult
         {
-            public EnemiesParseResult(EnemyDefinition[] definitions, int noDropWeight)
+            public EnemiesParseResult(
+                EnemyDefinition[] definitions,
+                int noDropWeight,
+                int bombNoDropWeight)
             {
                 Definitions = definitions;
                 NoDropWeight = noDropWeight;
+                BombNoDropWeight = bombNoDropWeight;
             }
 
             public EnemyDefinition[] Definitions { get; }
             public int NoDropWeight { get; }
+            public int BombNoDropWeight { get; }
         }
     }
 }

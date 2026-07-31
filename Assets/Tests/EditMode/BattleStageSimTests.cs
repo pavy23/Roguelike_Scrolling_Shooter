@@ -245,7 +245,8 @@ namespace Shmup.Core.Tests
 
             sim.Step(in none);
 
-            Assert.AreEqual(3, sim.PlayerHp);
+            Assert.AreEqual(1, sim.PlayerHp);
+            Assert.AreEqual(2, sim.ShieldStock);
             Assert.AreEqual(0, sim.Enemies.Count);
         }
 
@@ -560,12 +561,13 @@ namespace Shmup.Core.Tests
             sim.Step(in none);
 
             Assert.AreEqual(1, sim.PlayerHp);
+            Assert.AreEqual(2, sim.ShieldStock);
             Assert.AreEqual(1, sim.Obstacles.Count);
             SimEvent hit = FindEvent(
                 sim.EventsThisTick,
                 SimEventType.PlayerHit);
             Assert.AreEqual(0, hit.EntityId);
-            Assert.AreEqual(2, hit.Arg);
+            Assert.AreEqual(0, hit.Arg);
         }
 
         [Test]

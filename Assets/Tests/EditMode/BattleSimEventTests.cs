@@ -122,13 +122,13 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void PlayerContact_EmitsPlayerHitAndPlayerKilledAtZeroHp()
+        public void PlayerContact_AtZeroShieldStockKillsImmediately()
         {
             EnemyDefinition enemy = Enemy("rammer", EnemyMovePattern.Static, contactDamage: 2);
             BattleContent content = Content(enemy);
             StagePlan plan = Plan(Segment("contact", 10, new SpawnEvent(1, enemy.Id, 0, 0)));
             BattleSimConfig config = CreateConfig();
-            config.PlayerMaxHp = 2;
+            config.StartingShieldStock = 0;
             var sim = CreateSim(plan, content, config, 4UL);
             InputCommand none = InputCommand.None;
 
@@ -162,7 +162,7 @@ namespace Shmup.Core.Tests
             SimEvent[] events = sim.EventsThisTick.ToArray();
             Assert.AreEqual(1, events.Length);
             Assert.AreEqual(SimEventType.PowerUpLevelChanged, events[0].Type);
-            Assert.AreEqual((int)PowerUpSlot.MainShot, events[0].EntityId);
+            Assert.AreEqual((int)PowerUpSlot.Speed, events[0].EntityId);
             Assert.AreEqual(1, events[0].Arg);
         }
 

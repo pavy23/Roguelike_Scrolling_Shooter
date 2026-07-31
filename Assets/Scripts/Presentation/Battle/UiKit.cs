@@ -1,8 +1,28 @@
 using UnityEngine;
+using UnityEngine.Events;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 namespace Shmup.Presentation.Battle
 {
+    /// <summary>
+    /// 터치 조작으로 동작해야 하는 환경인지 한 곳에서 판정한다.
+    /// WebGL은 <c>isMobilePlatform</c>이 false이고 Touchscreen도 첫 터치 전에는 없어서,
+    /// 폰 브라우저에서 UI가 안 보이면 조작이 아예 불가능해진다 — 그래서 WebGL은 항상 참으로 본다.
+    /// </summary>
+    public static class UiPlatform
+    {
+        public static bool TouchMode =>
+            ForceTouch
+            || Application.isMobilePlatform
+            || Application.platform == RuntimePlatform.WebGLPlayer
+            || (Touchscreen.current != null && !Application.isEditor);
+
+        /// <summary>에디터에서 터치 UI를 확인하기 위한 강제 플래그.</summary>
+        public static bool ForceTouch { get; set; }
+    }
     /// <summary>
     /// 코드 주도 UGUI 생성 헬퍼 (M4+ UI 픽셀 아트 전환).
     /// 프리팹 대신 각 화면이 Start에서 자기 패널을 조립한다 — 씬 빌더를 얇게 유지하고
@@ -22,6 +42,12 @@ namespace Shmup.Presentation.Battle
         public static readonly Color TextAccent = new Color(1f, 0.85f, 0.4f, 1f);
         public static readonly Color TextDanger = new Color(1f, 0.3f, 0.25f, 1f);
 
+        /// <summary>터치 버튼 최소 변; 640×360 좌표 기준이라 실기기에서는 배율만큼 커진다.</summary>
+        public const float MinTouchSize = 40f;
+
+        public static readonly Color ButtonBg = new Color(0.16f, 0.26f, 0.48f, 0.92f);
+        public static readonly Color ButtonBgAccent = new Color(0.26f, 0.42f, 0.72f, 0.95f);
+
         public static Canvas CreateCanvas(string name, int sortingOrder)
         {
             var go = new GameObject(name);
@@ -33,7 +59,81 @@ namespace Shmup.Presentation.Battle
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
             go.AddComponent<GraphicRaycaster>();
             go.AddComponent<PixelUiScaler>();
+            EnsureEventSystem();
             return canvas;
+        }
+
+        /// <summary>
+        /// UGUI 버튼은 EventSystem 없이는 클릭이 전달되지 않는다. 이 프로젝트는 씬을 코드로
+        /// 조립하고 EventSystem을 두지 않았으므로, 캔버스를 만들 때 없으면 여기서 만든다.
+        /// (씬 빌더에 의존하지 않아 Title/Battle 양쪽 모두 자동으로 갖춘다.)
+        /// </summary>
+        public static void EnsureEventSystem()
+        {
+            if (EventSystem.current != null) return;
+            var go = new GameObject("EventSystem");
+            go.AddComponent<EventSystem>();
+            // 프로젝트가 Input System을 쓰므로 레거시 StandaloneInputModule이 아니라 이쪽이다.
+            go.AddComponent<InputSystemUIInputModule>();
+        }
+
+        /// <summary>
+        /// 탭 가능한 버튼 (배경 + 라벨). 라벨은 <c>GetComponentInChildren&lt;Text&gt;()</c>로 갱신한다.
+        /// </summary>
+        public static Button CreateTouchButton(
+            Transform parent, Font font, string label, int fontSize,
+            Vector2 anchor, Vector2 offset, Vector2 size,
+            UnityAction onClick, string name = "Button", bool accent = false)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var image = go.AddComponent<Image>();
+            image.color = accent ? ButtonBgAccent : ButtonBg;
+            image.raycastTarget = true;
+
+            var rect = image.rectTransform;
+            rect.anchorMin = rect.anchorMax = anchor;
+            rect.pivot = anchor;
+            rect.anchoredPosition = offset;
+            rect.sizeDelta = new Vector2(
+                Mathf.Max(size.x, MinTouchSize), Mathf.Max(size.y, MinTouchSize));
+
+            var text = CreateText(rect, font, label, fontSize,
+                accent ? TextAccent : TextMain, TextAnchor.MiddleCenter, "Label");
+            var textRect = text.rectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(2f, 2f);
+            textRect.offsetMax = new Vector2(-2f, -2f);
+
+            var button = go.AddComponent<Button>();
+            button.targetGraphic = image;
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1.18f, 1.18f, 1.18f, 1f);
+            colors.pressedColor = new Color(0.72f, 0.78f, 0.9f, 1f);
+            colors.selectedColor = Color.white;
+            colors.fadeDuration = 0.06f;
+            button.colors = colors;
+            if (onClick != null) button.onClick.AddListener(onClick);
+            return button;
+        }
+
+        /// <summary>
+        /// 이미 만들어진 패널/이미지를 그대로 탭 대상으로 만든다 (보상·경로 선택 박스).
+        /// 색 전환은 화면 쪽이 커서 표시로 직접 관리하므로 Transition은 끈다.
+        /// </summary>
+        public static Button MakeTappable(Image target, UnityAction onClick)
+        {
+            if (target == null) return null;
+            target.raycastTarget = true;
+            var button = target.GetComponent<Button>();
+            if (button == null) button = target.gameObject.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.targetGraphic = target;
+            button.onClick.RemoveAllListeners();
+            if (onClick != null) button.onClick.AddListener(onClick);
+            return button;
         }
 
         /// <summary>부모 전체를 덮는 스트레치 이미지 (딤/배경).</summary>

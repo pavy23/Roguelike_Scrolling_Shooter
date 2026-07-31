@@ -48,6 +48,67 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void PhaseCanOpenPartsAndMultipartDamageEmitsBothHpPhaseEvents()
+        {
+            BossPartDefinition wing = Part(
+                "wing", 0, 400, 10, false, null);
+            BossPartDefinition core = Part(
+                "core", 0, 0, 20, true, null);
+            var phases = new[]
+            {
+                new BossPhase(
+                    9999,
+                    1,
+                    1,
+                    1,
+                    BossMovementPattern.Stationary,
+                    0,
+                    1,
+                    1,
+                    BossPartVulnerability.CoreOnly),
+                new BossPhase(
+                    9999,
+                    2,
+                    2,
+                    1,
+                    BossMovementPattern.VerticalSine,
+                    100,
+                    1,
+                    8,
+                    BossPartVulnerability.All),
+                new BossPhase(
+                    9999,
+                    4,
+                    4,
+                    1,
+                    BossMovementPattern.VerticalSine,
+                    200,
+                    1,
+                    4,
+                    BossPartVulnerability.All)
+            };
+            BattleSim sim = CreateBattleWithPhases(
+                new[] { wing, core },
+                phases,
+                10);
+            AdvanceBossEntry(sim);
+
+            Assert.IsTrue(sim.BossParts[0].Invulnerable);
+            FireUntilPartChanges(sim, 1);
+            Assert.AreEqual(1, FindPhaseChangedArg(sim));
+            Assert.AreEqual(1, sim.Boss.Phase);
+            Assert.AreEqual(
+                BossMovementPattern.VerticalSine,
+                sim.Boss.MovementPattern);
+            Assert.IsFalse(sim.BossParts[0].Invulnerable);
+
+            FireUntilDestroyed(sim, 1);
+            Assert.AreEqual(2, FindPhaseChangedArg(sim));
+            Assert.AreEqual(2, sim.Boss.Phase);
+            Assert.IsTrue(sim.BossDefeated);
+        }
+
+        [Test]
         public void DestroyedPartStopsAttackAndRegeneratesAtExactTick()
         {
             BossPartAttackProfile attack =
@@ -142,6 +203,10 @@ namespace Shmup.Core.Tests
                 config);
             InputCommand none = InputCommand.None;
 
+            for (int tick = 0;
+                tick < 200 && (!sim.BossActive || sim.BossEntering);
+                tick++)
+                sim.Step(in none);
             for (int tick = 0; tick < 20; tick++)
                 sim.Step(in none);
 
@@ -235,16 +300,16 @@ namespace Shmup.Core.Tests
             AdvanceBossEntry(sim);
             InputCommand none = InputCommand.None;
 
-            int startingHp = sim.PlayerHp;
+            int startingStock = sim.ShieldStock;
             for (int tick = 0; tick < 8; tick++)
                 sim.Step(in none);
-            Assert.AreEqual(startingHp - 3, sim.PlayerHp);
+            Assert.AreEqual(startingStock - 1, sim.ShieldStock);
 
             FireUntilDestroyed(sim, 0);
-            int hpAfterDestruction = sim.PlayerHp;
+            int stockAfterDestruction = sim.ShieldStock;
             for (int tick = 0; tick < 16; tick++)
                 sim.Step(in none);
-            Assert.AreEqual(hpAfterDestruction, sim.PlayerHp);
+            Assert.AreEqual(stockAfterDestruction, sim.ShieldStock);
         }
 
         [Test]
@@ -393,6 +458,59 @@ namespace Shmup.Core.Tests
                 PowerUpGauge.CreateDefault());
         }
 
+        static BattleSim CreateBattleWithPhases(
+            BossPartDefinition[] parts,
+            IReadOnlyList<BossPhase> phases,
+            int weaponDamage)
+        {
+            BattleSimConfig config = Config();
+            var weapon = new WeaponDefinition(
+                "phase_part_test_shot",
+                weaponDamage,
+                1,
+                100,
+                1,
+                10,
+                10);
+            var content = new BattleContent(
+                Array.Empty<EnemyDefinition>(),
+                new[] { weapon },
+                weapon.Id);
+            int totalHp = 0;
+            for (int i = 0; i < parts.Length; i++)
+                totalHp += parts[i].MaxHp;
+            var plan = new StagePlan(
+                new[]
+                {
+                    new StageSegment(
+                        "entry",
+                        1,
+                        Array.Empty<SpawnEvent>(),
+                        1,
+                        1,
+                        new[] { 1 })
+                },
+                "phase_multipart_test",
+                1,
+                1,
+                1,
+                totalHp,
+                200,
+                600,
+                300,
+                phases,
+                null,
+                null,
+                EncounterType.Normal,
+                parts);
+            return new BattleSim(
+                config,
+                new Rng(124UL),
+                plan,
+                content,
+                PowerUpGauge.CreateDefault());
+        }
+
         static BattleSimConfig Config()
         {
             BattleSimConfig config =
@@ -495,6 +613,16 @@ namespace Shmup.Core.Tests
                     && events[i].PartId == partId)
                     count++;
             return count;
+        }
+
+        static int FindPhaseChangedArg(BattleSim sim)
+        {
+            ReadOnlySpan<SimEvent> events = sim.EventsThisTick;
+            for (int i = 0; i < events.Length; i++)
+                if (events[i].Type == SimEventType.BossPhaseChanged)
+                    return events[i].Arg;
+            Assert.Fail("Expected BossPhaseChanged in the current tick.");
+            return -1;
         }
     }
 }

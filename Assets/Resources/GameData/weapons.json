@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 6,
   "weapons": [
     {
       "id": "main_shot",
@@ -9,18 +9,20 @@
       "projectileSpeed": 20,
       "projectileHalfWidth": 0.375,
       "projectileHalfHeight": 0.140625,
-      "maxLevel": 5
+      "maxLevel": 5,
+      "effectSoftCapLevel": 5
     },
     {
       "id": "missile",
       "slot": "Missile",
       "baseDamage": 20,
-      "fireIntervalTicks": 30,
-      "minimumFireIntervalTicks": 15,
+      "fireIntervalTicks": 42,
+      "minimumFireIntervalTicks": 20,
       "projectileSpeed": 10,
       "projectileHalfWidth": 0.46875,
       "projectileHalfHeight": 0.28125,
-      "maxLevel": 3
+      "maxLevel": 6,
+      "effectSoftCapLevel": 6
     },
     {
       "id": "option",
@@ -30,7 +32,8 @@
       "projectileSpeed": 0,
       "projectileHalfWidth": 0.0,
       "projectileHalfHeight": 0.0,
-      "maxLevel": 4
+      "maxLevel": 4,
+      "effectSoftCapLevel": 4
     },
     {
       "id": "shield",
@@ -40,15 +43,86 @@
       "projectileSpeed": 0,
       "projectileHalfWidth": 0.0,
       "projectileHalfHeight": 0.0,
-      "maxLevel": 3
+      "maxLevel": 6,
+      "effectSoftCapLevel": 3
+    }
+  ],
+  "primaryWeaponFamilies": [
+    {
+      "id": "vulcan",
+      "displayName": "Vulcan",
+      "description": "Rapid straight main shot. Baseline single-target DPS.",
+      "weaponType": "vulcan",
+      "baseDamage": 10,
+      "fireIntervalTicks": 8,
+      "minimumFireIntervalTicks": 4,
+      "rapidFireStartLevel": 2,
+      "fireIntervalReductionPerLevel": 1,
+      "projectileSpeed": 20,
+      "projectileHalfWidth": 0.375,
+      "projectileHalfHeight": 0.140625,
+      "pierceEnemyCount": 0,
+      "spreadWays": 1,
+      "spreadStepLutSlots": 0
+    },
+    {
+      "id": "double",
+      "displayName": "Double Shot",
+      "description": "Two-way coverage: forward pair at ~\u00b145\u00b0 (Gradius Double grammar). Shares MainShot power axis.",
+      "weaponType": "spread",
+      "baseDamage": 7,
+      "fireIntervalTicks": 10,
+      "minimumFireIntervalTicks": 5,
+      "rapidFireStartLevel": 3,
+      "fireIntervalReductionPerLevel": 1,
+      "projectileSpeed": 20,
+      "projectileHalfWidth": 0.375,
+      "projectileHalfHeight": 0.140625,
+      "pierceEnemyCount": 0,
+      "spreadWays": 2,
+      "spreadStepLutSlots": 16
+    },
+    {
+      "id": "laser",
+      "displayName": "Laser",
+      "description": "Slower piercing beam. Strong vs columns and large targets.",
+      "weaponType": "laser",
+      "baseDamage": 16,
+      "fireIntervalTicks": 14,
+      "minimumFireIntervalTicks": 8,
+      "rapidFireStartLevel": 2,
+      "fireIntervalReductionPerLevel": 2,
+      "projectileSpeed": 28,
+      "projectileHalfWidth": 0.1875,
+      "projectileHalfHeight": 0.0703125,
+      "pierceEnemyCount": 2,
+      "spreadWays": 1,
+      "spreadStepLutSlots": 0
+    },
+    {
+      "id": "spread",
+      "displayName": "Triple Shot",
+      "description": "Three-way coverage fire. Weakest single-target, strongest screen fill.",
+      "weaponType": "spread",
+      "baseDamage": 6,
+      "fireIntervalTicks": 10,
+      "minimumFireIntervalTicks": 5,
+      "rapidFireStartLevel": 3,
+      "fireIntervalReductionPerLevel": 1,
+      "projectileSpeed": 20,
+      "projectileHalfWidth": 0.375,
+      "projectileHalfHeight": 0.140625,
+      "pierceEnemyCount": 0,
+      "spreadWays": 3,
+      "spreadStepLutSlots": 4
     }
   ],
   "missileFamilies": [
     {
       "id": "straight",
       "baseDamage": 20,
-      "fireIntervalTicks": 30,
-      "minimumFireIntervalTicks": 15,
+      "fireIntervalTicks": 42,
+      "minimumFireIntervalTicks": 20,
       "fireIntervalReductionPerLevel": 5,
       "projectileSpeed": 10,
       "fallSpeedY": 1.5,
@@ -60,8 +134,8 @@
     {
       "id": "spread_bomb",
       "baseDamage": 12,
-      "fireIntervalTicks": 42,
-      "minimumFireIntervalTicks": 28,
+      "fireIntervalTicks": 54,
+      "minimumFireIntervalTicks": 36,
       "fireIntervalReductionPerLevel": 5,
       "projectileSpeed": 6,
       "fallSpeedY": 9,
@@ -73,8 +147,8 @@
     {
       "id": "piercing_lance",
       "baseDamage": 40,
-      "fireIntervalTicks": 54,
-      "minimumFireIntervalTicks": 36,
+      "fireIntervalTicks": 70,
+      "minimumFireIntervalTicks": 44,
       "fireIntervalReductionPerLevel": 6,
       "projectileSpeed": 16,
       "fallSpeedY": 0,
@@ -93,10 +167,22 @@
     {
       "id": "fixed",
       "offsets": [
-        { "x": 0.75, "y": 1.5 },
-        { "x": 0.75, "y": -1.5 },
-        { "x": 0.75, "y": 2.75 },
-        { "x": 0.75, "y": -2.75 }
+        {
+          "x": 0.75,
+          "y": 1.5
+        },
+        {
+          "x": 0.75,
+          "y": -1.5
+        },
+        {
+          "x": 0.75,
+          "y": 2.75
+        },
+        {
+          "x": 0.75,
+          "y": -2.75
+        }
       ]
     },
     {
@@ -106,5 +192,85 @@
       "angularLutSlotsDenominator": 2
     }
   ],
-  "defaultOptionFormation": "trail"
+  "defaultOptionFormation": "trail",
+  "powerUpCostCurve": {
+    "baseCost": 1,
+    "linearGrowth": 1,
+    "quadraticGrowth": 1
+  },
+  "powerUpGauge": {
+    "slots": [
+      {
+        "slot": "Speed",
+        "nameKey": "Speed",
+        "maxLevel": 6,
+        "speedBonusPerLevel": 1.0,
+        "costCurve": {
+          "baseCost": 1,
+          "linearGrowth": 1,
+          "quadraticGrowth": 0
+        }
+      },
+      {
+        "slot": "Missile",
+        "nameKey": "Missile",
+        "maxLevel": 6,
+        "costCurve": {
+          "baseCost": 1,
+          "linearGrowth": 0,
+          "quadraticGrowth": 1
+        }
+      },
+      {
+        "slot": "Double",
+        "nameKey": "Double Shot",
+        "maxLevel": 1,
+        "costCurve": {
+          "baseCost": 1,
+          "linearGrowth": 0,
+          "quadraticGrowth": 0
+        }
+      },
+      {
+        "slot": "Laser",
+        "nameKey": "Laser",
+        "maxLevel": 1,
+        "costCurve": {
+          "baseCost": 1,
+          "linearGrowth": 0,
+          "quadraticGrowth": 0
+        }
+      },
+      {
+        "slot": "Triple",
+        "nameKey": "Triple Shot",
+        "maxLevel": 1,
+        "costCurve": {
+          "baseCost": 1,
+          "linearGrowth": 0,
+          "quadraticGrowth": 0
+        }
+      },
+      {
+        "slot": "Option",
+        "nameKey": "Option",
+        "maxLevel": 4,
+        "costCurve": {
+          "baseCost": 2,
+          "linearGrowth": 1,
+          "quadraticGrowth": 1
+        }
+      },
+      {
+        "slot": "Shield",
+        "nameKey": "Shield",
+        "maxLevel": 6,
+        "costCurve": {
+          "baseCost": 2,
+          "linearGrowth": 0,
+          "quadraticGrowth": 1
+        }
+      }
+    ]
+  }
 }

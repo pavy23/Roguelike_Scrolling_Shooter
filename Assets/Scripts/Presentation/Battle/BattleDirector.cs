@@ -30,6 +30,8 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Transform _enemyRoot;
         [SerializeField] GameObject _capsulePrefab;
         [SerializeField] Transform _capsuleRoot;
+        [SerializeField] GameObject _bombPickupPrefab;
+        [SerializeField] Transform _bombPickupRoot;
         [SerializeField] GameObject _explosionPrefab;
         [SerializeField] Transform _fxRoot;
         [SerializeField] SpriteRenderer _damageFlash;
@@ -79,11 +81,15 @@ namespace Shmup.Presentation.Battle
         SpritePool _bulletPool;
         SpritePool _enemyPool;
         SpritePool _capsulePool;
+        SpritePool _bombPickupPool;
 
         // Id → 뷰 인스턴스. Core가 주는 Id는 스폰~소멸까지 불변이라 매칭 키로 쓸 수 있다.
         readonly Dictionary<int, Transform> _bulletViews = new Dictionary<int, Transform>(64);
         readonly Dictionary<int, Transform> _enemyViews = new Dictionary<int, Transform>(32);
         readonly Dictionary<int, Transform> _capsuleViews = new Dictionary<int, Transform>(16);
+        readonly Dictionary<int, Transform> _bombPickupViews = new Dictionary<int, Transform>(16);
+        readonly Dictionary<int, float> _obstacleFadeAges = new Dictionary<int, float>(32);
+        const float ObstacleFadeSeconds = 0.35f;
         readonly Dictionary<int, Transform> _optionViews = new Dictionary<int, Transform>(4);
         readonly Dictionary<int, SpriteRenderer> _enemyRenderers = new Dictionary<int, SpriteRenderer>(32);
         readonly Dictionary<int, Color> _enemyDeathTints = new Dictionary<int, Color>(32);   // 테마별 폭발 틴트
@@ -170,23 +176,28 @@ namespace Shmup.Presentation.Battle
 
         [SerializeField] ScorePopups _scorePopups;
         [SerializeField] SpawnTelegraph _spawnTelegraph;
+
+        /// <summary>스테이지 기믹 시각화 (REQ-055) — 통로 벽 접촉 번쩍임에 필요하다.</summary>
+        [SerializeField] StageGimmickView _gimmickView;
         int _lastBossHp = -1;
         float _bossFlashAge = float.MaxValue;
+
+        // 페이즈 전환 발광 (REQ-054). 남은 시간과 최대 세기를 따로 둔다 —
+        // 33% 광폭화는 66%보다 강하게 번쩍여야 한다.
+        float _bossPhaseFlash;
+        float _bossPhaseFlashPeak;
+        float _bombFlashAge = float.MaxValue;
+        const float BombFlashDuration = 0.5f;
+        [SerializeField] BombButton _bombButton;
         const float BossFlashDuration = 0.09f;
 
-        // 경로 선택 (REQ-028): RouteScreen이 읽고 고르는 얇은 어댑터
-        public bool AwaitingRoute => _run != null && _run.State == RunState.AwaitingRoute;
-        public IReadOnlyList<RouteOption> RouteOptions => _run != null ? _run.RouteOptions : null;
+        /// <summary>
+        /// 경로 선택은 폐지됐다 (REQ-054) — 새 런은 이 상태에 들어가지 않고
+        /// `RunManager.ChooseRoute`는 `NotSupportedException`을 던진다. 다른 화면이
+        /// "메뉴가 떠 있는지" 판단할 때 쓰던 자리라 상수 false로 남겨 둔다.
+        /// </summary>
+        public bool AwaitingRoute => false;
 
-        public void ChooseRoute(int index)
-        {
-            if (!AwaitingRoute) return;
-            if (_replayMode) return;              // 리플레이는 기록된 경로를 자동 재현
-            if (_recordingActive) _recordedRoutes.Add(index);
-            _run.ChooseRoute(index);
-            RefreshBattle();
-            SyncViews();
-        }
 
         readonly List<int> _recordedRoutes = new List<int>(8);
         int _replayRouteCursor;
@@ -200,6 +211,10 @@ namespace Shmup.Presentation.Battle
         /// <summary>초대형 보스 파츠 상태 (REQ-035) — BossPartsView가 읽는다.</summary>
         public IReadOnlyList<BossPartState> BossParts =>
             _sim != null ? _sim.BossParts : null;
+
+        /// <summary>플레이어 기체의 월드 좌표 (터치 드래그 조작이 목표 방향을 계산할 때 쓴다).</summary>
+        public Vector2 PlayerWorldPosition =>
+            _sim != null ? (Vector2)SimView.ToWorld(_sim.PlayerX, _sim.PlayerY) : Vector2.zero;
 
         /// <summary>보스 본체의 월드 좌표 (파츠 오버레이 기준점).</summary>
         public Vector3 BossWorldPosition =>
@@ -225,6 +240,8 @@ namespace Shmup.Presentation.Battle
         InputRecorder _recorder;
         bool _recordingActive;
         readonly List<int> _recordedChoices = new List<int>(8);
+        readonly List<int> _recordedContractChoices = new List<int>(8);
+        int _replayContractCursor;
         bool _replayMode;
         InputPlayback.Enumerator _playback;
         int _replayChoiceCursor;
@@ -320,6 +337,9 @@ namespace Shmup.Presentation.Battle
                 TryLoadGameDataText("ships"),      // 없으면 기본 함선 1척
                 TryLoadGameDataText("scoring"));   // 없으면 Core 기본 그레이즈/콤보 수치 (REQ-016)
 
+            // 적 티어별 히트박스 크기를 캐시해 스프라이트 스케일에 쓴다.
+            CacheEnemyExtents(data);
+
             // 격납고 선택 함선 (저장이 채널 — Title 씬 HangarScreen이 기록)
             _meta = MetaSave.Load(data);
             var selectedShip = data.FindShip(_meta.SelectedShipId) ?? data.DefaultShip;
@@ -338,6 +358,10 @@ namespace Shmup.Presentation.Battle
                 _recordedRoutes.Clear();
                 if (pendingReplay.routeChoices != null)
                     _recordedRoutes.AddRange(pendingReplay.routeChoices);
+                _recordedContractChoices.Clear();
+                if (pendingReplay.contractChoices != null)
+                    _recordedContractChoices.AddRange(pendingReplay.contractChoices);
+                _replayContractCursor = 0;
             }
 
             var config = data.CreateBattleSimConfig();
@@ -364,7 +388,9 @@ namespace Shmup.Presentation.Battle
                         new SegmentStageGenerator(data.StageGeneration),
                         config,
                         data.BattleContent,
-                        data.CreatePowerUpGauge(),
+                        // 기체 인식 게이지 (REQ-078) — 인자 없는 구버전은 7칸을
+                        // 만들어 5칸 기체 검증에서 예외가 난다 (실측 재현).
+                        data.CreatePowerUpGauge(resumeShip),
                         data.Rewards,
                         resumeShip);
                 }
@@ -395,7 +421,7 @@ namespace Shmup.Presentation.Battle
                     new SegmentStageGenerator(data.StageGeneration),
                     config,
                     data.BattleContent,
-                    data.CreatePowerUpGauge(),
+                    data.CreatePowerUpGauge(selectedShip),
                     data.Rewards,
                     selectedShip,
                     diffNum,
@@ -414,6 +440,7 @@ namespace Shmup.Presentation.Battle
                 _recordingActive = true;
                 _recordedChoices.Clear();
                 _recordedRoutes.Clear();
+                _recordedContractChoices.Clear();
                 _recordShipId = selectedShip != null ? selectedShip.Id : null;
             }
 
@@ -423,6 +450,11 @@ namespace Shmup.Presentation.Battle
                 _bulletPrefab, _bulletRoot, config.MaxBullets + config.MaxEnemyBullets, "Bullet");
             _enemyPool = new SpritePool(_enemyPrefab, _enemyRoot, 32, "Enemy");
             _capsulePool = new SpritePool(_capsulePrefab, _capsuleRoot, 16, "Capsule");
+            if (_bombPickupPrefab != null && _bombPickupRoot != null)
+            {
+                _bombPickupPool = new SpritePool(
+                    _bombPickupPrefab, _bombPickupRoot, config.MaxBombPickups, "BombPickup");
+            }
             _fxPool = new SpritePool(_explosionPrefab, _fxRoot, 16, "Explosion");
             _optionPool = new SpritePool(_optionPrefab, _optionRoot, 4, "Option");
             if (_obstaclePrefab != null && _obstacleRoot != null)
@@ -484,14 +516,23 @@ namespace Shmup.Presentation.Battle
                     {
                         int choice = _replayChoiceCursor < _recordedChoices.Count
                             ? _recordedChoices[_replayChoiceCursor++] : 0;
-                        _run.ChooseReward(choice);
+                        // -1 = 리롤 (REQ-072). 리롤은 대기 상태를 유지하므로 다음
+                        // 틱에 이어지는 기록(다음 리롤 또는 실제 선택)을 소비한다.
+                        if (choice == RerollChoiceSentinel)
+                            _run.RerollRewardOptions();
+                        else
+                            _run.ChooseReward(choice);
                     }
-                    else if (_run.State == RunState.AwaitingRoute)
+                    // 계약 대기: 기록된 계약 선택을 재현. 기록이 모자라면 0(표준 항로) —
+                    // Core가 표준 항로를 항상 0번에 두므로 안전한 기본값이다.
+                    else if (_run.State == RunState.AwaitingContract)
                     {
-                        int route = _replayRouteCursor < _recordedRoutes.Count
-                            ? _recordedRoutes[_replayRouteCursor++] : 0;
-                        _run.ChooseRoute(route);
+                        int choice = _replayContractCursor < _recordedContractChoices.Count
+                            ? _recordedContractChoices[_replayContractCursor++] : 0;
+                        _run.ChooseContract(choice);
                     }
+                    // 경로 선택 재현은 없어졌다 (REQ-054). 구버전 리플레이의 route
+                    // payload는 열리기만 하고, 재생은 현 빌드 규칙을 따른다.
                 }
             }
             else
@@ -499,7 +540,26 @@ namespace Shmup.Presentation.Battle
                 command = _input.ConsumeCommand();
             }
             if (_recordingActive && playingBefore)
-                _recorder.Record(in command);
+            {
+                // 용량 방어 (스테이지 1 크래시, 2026-07-30 폰 스크린샷). 녹화는 같은
+                // 입력이 이어지면 한 칸으로 압축하는데, 터치 아날로그 입력은 매 틱
+                // 델타가 달라 압축이 전혀 안 되고 4096칸이 ~68초 만에 찬다. 가득 찬
+                // 뒤의 Record는 예외를 던져 Update가 매 프레임 죽는다.
+                //
+                // 잘린 리플레이는 재생 시 어차피 어긋나므로, 차기 직전에 녹화를 접고
+                // 리플레이 저장을 포기한다 — 게임은 계속된다. 근본(용량/아날로그 압축)은
+                // Core 몫이라 REQ로 넘겼다.
+                if (_recorder.RunCount >= _recorder.Capacity - 1)
+                {
+                    _recordingActive = false;
+                    Debug.LogWarning(
+                        "[replay] 입력 녹화 용량 도달 — 이번 런은 리플레이 저장 없이 진행한다.");
+                }
+                else
+                {
+                    _recorder.Record(in command);
+                }
+            }
             _run.Step(command);
 
             // 런 종료(사망 또는 완주) 시 점수를 메타 재화로 1회 적립. 리플레이는 비적립.
@@ -525,6 +585,7 @@ namespace Shmup.Presentation.Battle
                         difficultyNumerator = _run.DifficultyMultiplierNumerator,
                         difficultyDenominator = _run.DifficultyMultiplierDenominator,
                         rewardChoices = _recordedChoices.ToArray(),
+                        contractChoices = _recordedContractChoices.ToArray(),
                         routeChoices = _recordedRoutes.ToArray(),
                         recording = _recorder.Export()
                     });
@@ -571,15 +632,76 @@ namespace Shmup.Presentation.Battle
                         }
                         break;
                     case SimEventType.BossSpawned:
-                        if (_bossIntro != null) _bossIntro.Trigger();
+                        // WARNING 배너는 스테이지 최종 보스(와 숨은 보스)에게만 띄운다
+                        // ("중간보스 나올때 Warning 뜨는것도 이상함", 2026-07-30).
+                        // 중간보스는 스테이지마다 나오는 통과 의례라 매번 배너가 뜨면
+                        // 경고의 무게가 사라진다 — 흔들림만 남긴다.
+                        if (_bossIntro != null
+                            && StageSection != RunStageSection.MidBoss)
+                            _bossIntro.Trigger();
                         if (_juice != null) _juice.Shake(0.3f);
                         break;
                     case SimEventType.BossPhaseChanged:
+                        // 페이즈가 넘어간 것이 명백해야 한다 — 예전에는 탄종만 바뀌어
+                        // 플레이어가 눈치채지 못했다 (REQ-054). 33% 광폭화는 66%보다
+                        // 확실히 크게 알린다. Arg는 0-based 페이즈 index(1 또는 2).
+                        bool enraged = e.Arg >= 2;
                         if (_juice != null)
                         {
-                            _juice.Shake(0.22f);
-                            _juice.Hitstop(0.07f);
+                            _juice.Shake(enraged ? 0.55f : 0.3f);
+                            _juice.Hitstop(enraged ? 0.14f : 0.08f);
                         }
+                        _bossPhaseFlash = enraged ? 0.75f : 0.45f;
+                        _bossPhaseFlashPeak = enraged ? 1f : 0.6f;
+                        // WARNING 배너를 여기서 다시 틀지 않는다 ("보스 HP가 내려갈때마다
+                        // Warning이 또 뜨는건 이상해", 2026-07-30). 배너는 "보스가 왔다"는
+                        // 등장 신호인데 페이즈마다 반복되면 의미가 섞인다 — 페이즈 전환은
+                        // 흔들림·히트스톱·보스 글로우만으로 알린다.
+                        break;
+                    case SimEventType.CorridorContact:
+                        // 벽에 닿았다 — 어디가 벽인지 번쩍여 알린다 (실제 피해는 PlayerHit).
+                        if (_gimmickView != null) _gimmickView.FlashCorridorContact();
+                        if (_juice != null) _juice.Shake(0.12f);
+                        break;
+                    case SimEventType.TimeLimitExpired:
+                        // 제한 시간 초과는 방어막·무적을 무시하는 즉사다. 사망 연출과
+                        // 구분되게 크게 알린다.
+                        if (_juice != null)
+                        {
+                            _juice.Shake(0.7f);
+                            _juice.Hitstop(0.2f);
+                        }
+                        break;
+                    case SimEventType.BossAttackTelegraphed:
+                        // 위험 패턴 예고 (REQ-059). 이벤트만 있고 그리지 않으면 예고가
+                        // 없는 것과 같다 — 회피가 실력이 되려면 눈에 보여야 한다.
+                        // 보스 본체를 잠깐 밝히는 기존 페이즈 플래시를 약하게 재사용한다.
+                        _bossPhaseFlash = Mathf.Max(_bossPhaseFlash, 0.3f);
+                        _bossPhaseFlashPeak = Mathf.Max(_bossPhaseFlashPeak, 0.5f);
+                        break;
+                    case SimEventType.BombActivated:
+                        // 화면을 지우는 사건이므로 가장 크게 알린다. 무적 시간이 함께
+                        // 붙으므로(45틱) 플레이어가 "지금 안전하다"를 읽을 수 있어야 한다.
+                        _bombFlashAge = 0f;
+                        if (_juice != null)
+                        {
+                            _juice.Shake(0.6f);
+                            _juice.Hitstop(0.12f);
+                        }
+                        break;
+                    case SimEventType.BombActivationRejectedEmpty:
+                        // 눌렀는데 아무 일도 없으면 버튼이 고장난 것처럼 느껴진다.
+                        // 재고가 없다는 것을 짧게 알린다.
+                        if (_bombButton != null) _bombButton.FlashEmpty();
+                        break;
+                    case SimEventType.LaserCapacityExceeded:
+                    case SimEventType.EnemyCapacityExceeded:
+                    case SimEventType.ObstacleCapacityExceeded:
+                        // 상한 초과를 조용히 넘기지 않는다 — 과거에 적 탄이 상한에 걸려
+                        // 조용히 발사되지 않던 버그를 놓친 전례가 있다.
+                        if (Debug.isDebugBuild || Application.isEditor)
+                            Debug.LogWarning(
+                                $"[capacity] {e.Type} cap={e.Arg} at ({e.X},{e.Y})");
                         break;
                     case SimEventType.StageCleared:
                         TriggerBossDeathSequence();
@@ -624,6 +746,7 @@ namespace Shmup.Presentation.Battle
             ReleaseAll(_bulletViews, _bulletPool);
             ReleaseAll(_enemyViews, _enemyPool);
             ReleaseAll(_capsuleViews, _capsulePool);
+            if (_bombPickupPool != null) ReleaseAll(_bombPickupViews, _bombPickupPool);
             ReleaseAll(_optionViews, _optionPool);
             if (_obstaclePool != null) ReleaseAll(_obstacleViews, _obstaclePool);
             _enemyRenderers.Clear();
@@ -706,6 +829,7 @@ namespace Shmup.Presentation.Battle
             SyncOptions();
             SyncEnemies();
             SyncCapsules();
+            SyncBombPickups();
             SyncObstacles();
             SyncShield();
             SyncBoss();
@@ -731,10 +855,29 @@ namespace Shmup.Presentation.Battle
                     {
                         var sprite = SpriteForObstacle(obstacle.Type);
                         if (sprite != null) renderer.sprite = sprite;
-                        renderer.color = Color.white;
+                        // 장애물은 예약 틱에 자기 좌표(화면 안 포함)에서 즉시 생겨난다 —
+                        // 그대로 그리면 끊기듯 나타난다 ("장애물이 끊기듯 등장", 2026-07-31).
+                        // 시뮬 판정은 스폰 즉시 유효하지만, 페이드는 짧아(0.35s) 판정과
+                        // 표시의 어긋남이 문제되기 전에 끝난다.
+                        renderer.color = new Color(1f, 1f, 1f, 0f);
                     }
+                    _obstacleFadeAges[obstacle.Id] = 0f;
                 }
                 view.localPosition = SimView.ToWorld(obstacle.X, obstacle.Y);
+
+                if (_obstacleFadeAges.TryGetValue(obstacle.Id, out float age)
+                    && age < ObstacleFadeSeconds)
+                {
+                    age += Time.deltaTime;
+                    _obstacleFadeAges[obstacle.Id] = age;
+                    var fadeRenderer = view.GetComponent<SpriteRenderer>();
+                    if (fadeRenderer != null)
+                    {
+                        var c = fadeRenderer.color;
+                        c.a = Mathf.Clamp01(age / ObstacleFadeSeconds);
+                        fadeRenderer.color = c;
+                    }
+                }
             }
 
             _retiredIds.Clear();
@@ -746,6 +889,7 @@ namespace Shmup.Presentation.Battle
                 int id = _retiredIds[i];
                 _obstaclePool.Release(_obstacleViews[id]);
                 _obstacleViews.Remove(id);
+                _obstacleFadeAges.Remove(id);
             }
         }
 
@@ -822,6 +966,23 @@ namespace Shmup.Presentation.Battle
                 float pulse = (Mathf.Sin(Time.time * 7f) + 1f) * 0.5f * amplitude;
                 bossColor = new Color(1f, 1f - pulse, 1f - pulse);
             }
+            // 페이즈 전환 발광은 피격 플래시보다 우선한다 — 전환은 드물고 중요한 사건이라
+            // 피격에 묻히면 안 된다. 흰빛으로 크게 번쩍이며 감쇠한다.
+            if (_bossPhaseFlash > 0f)
+            {
+                _bossPhaseFlash -= Time.deltaTime;
+                float glow = Mathf.Clamp01(_bossPhaseFlash) * _bossPhaseFlashPeak;
+                if (_juice != null && _juice.FlashReduced) glow *= 0.4f;
+                bossColor = Color.Lerp(bossColor, Color.white, glow);
+                // 발광 중에는 살짝 부풀려 존재감을 준다.
+                float swell = 1f + glow * 0.12f;
+                _bossRenderer.transform.localScale = new Vector3(swell, swell, 1f);
+            }
+            else if (_bossRenderer.transform.localScale != Vector3.one)
+            {
+                _bossRenderer.transform.localScale = Vector3.one;
+            }
+
             if (_bossRenderer.color != bossColor)
                 _bossRenderer.color = bossColor;
 
@@ -840,6 +1001,52 @@ namespace Shmup.Presentation.Battle
         // ── 보상 선택 (RunManager AwaitingReward — RewardScreen이 소비) ─────────
 
         public bool AwaitingReward => _run != null && _run.State == RunState.AwaitingReward;
+
+        // ── 섹터 계약 (REQ-070 — ContractScreen이 소비) ─────────────────────────
+
+        public bool AwaitingContract =>
+            _run != null && _run.State == RunState.AwaitingContract;
+
+        public System.Collections.Generic.IReadOnlyList<ContractDefinition> ContractOptions
+            => _run?.ContractOptions;
+
+        /// <summary>현재 스테이지에 적용 중인 계약. 스테이지 1과 런 종료 후에는 null.</summary>
+        public ContractDefinition ActiveContract => _run?.ActiveContract;
+
+        public void ChooseContract(int index)
+        {
+            if (!AwaitingContract) return;
+            if (_replayMode) return;   // 리플레이 중 수동 선택 금지 (자동 재현)
+            if (!_run.ChooseContract(index)) return;   // 잘못된 인덱스는 Core가 안전 거부
+            // 기록은 성공 후에만 — 거부된 선택이 기록되면 리플레이가 어긋난다.
+            if (_recordingActive) _recordedContractChoices.Add(index);
+            RefreshBattle();
+            SyncViews();
+        }
+
+        /// <summary>
+        /// 지금 고르는 보상이 중간보스 직후의 짧은 2택인지, 스테이지 보스 후의 주 3택인지.
+        /// 화면 제목과 배치를 나누는 데 쓴다 (REQ-054).
+        /// </summary>
+        public RewardSelectionKind RewardKind =>
+            _run != null ? _run.RewardSelectionKind : RewardSelectionKind.None;
+
+        /// <summary>스테이지 내부 진행 구간 — 전반/중간보스/후반/보스 연출을 가른다.</summary>
+        public RunStageSection StageSection =>
+            _run != null ? _run.StageSection : RunStageSection.Opening;
+
+        /// <summary>지속 레이저 상태 (REQ-042) — LaserBeamView가 선분으로 그린다.</summary>
+        public IReadOnlyList<LaserState> Lasers => _sim?.Lasers;
+
+        // ── 스테이지 기믹 관측값 (REQ-055) — StageGimmickView가 그린다 ─────────
+        public StageEnvironmentState Environment =>
+            _sim != null ? _sim.Environment : default;
+
+        /// <summary>네뷸라 시야 제한. 표현 전용 플래그로, 판정에는 영향이 없다.</summary>
+        public bool VisionObscured => _sim != null && _sim.VisionObscured;
+
+        /// <summary>코어 스테이지 제한 시간. 0이면 제한이 없다. 초과는 즉사다.</summary>
+        public int RemainingTimeTicks => _sim != null ? _sim.RemainingTimeTicks : 0;
         public System.Collections.Generic.IReadOnlyList<RewardOption> RewardOptions
             => _run?.RewardOptions;
 
@@ -852,6 +1059,27 @@ namespace Shmup.Presentation.Battle
             RefreshBattle();
             SyncViews();
         }
+
+        // ── 보상 리롤 (REQ-072 — 캡슐 화폐) ─────────────────────────────────────
+
+        public int CapsuleBalance => _run?.CapsuleBalance ?? 0;
+        public int RewardRerollCost => _run?.RewardRerollCost ?? 0;
+        public bool CanRerollRewards => _run != null && _run.CanRerollRewardOptions;
+
+        /// <summary>리롤 성공 여부. 리플레이 기록에는 선택 -1이 리롤을 뜻한다.</summary>
+        public bool RerollRewards()
+        {
+            if (!AwaitingReward || _replayMode) return false;
+            if (!_run.RerollRewardOptions()) return false;
+            if (_recordingActive) _recordedChoices.Add(RerollChoiceSentinel);
+            return true;
+        }
+
+        /// <summary>
+        /// 리플레이 선택 기록에서 리롤을 뜻하는 센티널. 실제 카드 인덱스는 0 이상이므로
+        /// 충돌하지 않고, 구버전 리플레이는 스키마 버전(v13)에서 이미 거부된다.
+        /// </summary>
+        public const int RerollChoiceSentinel = -1;
 
         /// <summary>
         /// 개발용 빨리감기 (DevCheats F11): 무입력 틱을 일괄 진행한다. 이벤트 FX/SFX는
@@ -869,6 +1097,9 @@ namespace Shmup.Presentation.Battle
 
         /// <summary>DevCheats 오버레이용.</summary>
         public int ShieldRemaining => _sim?.ShieldRemaining ?? 0;
+
+        /// <summary>보유한 전멸 폭탄 수 — HUD와 폭탄 버튼의 활성 여부를 정한다.</summary>
+        public int BombStock => _sim?.BombStock ?? 0;
 
         /// <summary>선택적 GameData — 없으면 null (Core가 폴백 처리).</summary>
         static string TryLoadGameDataText(string name)
@@ -930,6 +1161,9 @@ namespace Shmup.Presentation.Battle
                     view = _optionPool.Acquire();
                     if (view == null) continue;
                     _optionViews.Add(option.Index, view);
+                    // 옵션 8×8은 너무 작아 눈에 안 띈다 ("크기를 두배정도", 2026-07-31).
+                    // 순수 표현 스케일 — 옵션은 피격 판정이 없어 크기가 커져도 안전하다.
+                    view.localScale = Vector3.one * 2f;
                 }
 
                 view.localPosition = SimView.ToWorld(option.X, option.Y);
@@ -938,17 +1172,46 @@ namespace Shmup.Presentation.Battle
             ReleaseDeadViews(_optionViews, _optionPool);
         }
 
+        /// <summary>
+        /// 스톡 단계별 실드 색. 쌓일수록 차가운 청색에서 뜨거운 쪽으로 옮겨가서,
+        /// 숫자를 읽지 않아도 남은 양이 보인다.
+        /// </summary>
+        static readonly Color[] ShieldTierColors =
+        {
+            new Color(0.35f, 0.70f, 1.00f, 0.55f),   // 1: 청색
+            new Color(0.35f, 1.00f, 0.85f, 0.62f),   // 2: 청록
+            new Color(0.70f, 1.00f, 0.55f, 0.70f),   // 3: 연녹
+            new Color(1.00f, 0.90f, 0.45f, 0.78f),   // 4: 금색
+            new Color(1.00f, 0.55f, 0.95f, 0.86f)    // 5+: 자홍 (현재 상한)
+        };
+
         void SyncShield()
         {
             if (_shieldView == null) return;
             int remaining = _sim.ShieldRemaining;
             _shieldView.enabled = remaining > 0;
-            if (remaining > 0)
+            if (remaining <= 0) return;
+
+            // 실드는 기체 모양이어야 와닿는다 — 원형 링은 가로로 긴 함선과 겹치지 않아
+            // "내가 감싸여 있다"는 느낌을 주지 못했다. 기체 스프라이트를 그대로 빌려
+            // 기체 뒤에 조금 크게 깔면 외곽이 테두리처럼 보인다. 스프라이트를 매 프레임
+            // 따라가므로 함선 교체와 애니메이션 프레임에 자동으로 맞는다.
+            var ship = _playerTransform != null
+                ? _playerTransform.GetComponent<SpriteRenderer>() : null;
+            if (ship != null)
             {
-                var c = _shieldView.color;
-                c.a = 0.25f + 0.15f * Mathf.Min(remaining, 3);
-                _shieldView.color = c;
+                if (!ReferenceEquals(_shieldView.sprite, ship.sprite))
+                    _shieldView.sprite = ship.sprite;
+                _shieldView.sortingOrder = ship.sortingOrder - 1;
+                _shieldView.flipX = ship.flipX;
             }
+
+            int tier = Mathf.Clamp(remaining, 1, ShieldTierColors.Length);
+            // 스톡이 쌓이면 테두리가 두꺼워진다 (기체와의 크기 차이가 곧 두께다).
+            // 상한(5)에서도 기체 실루엣을 알아볼 수 있는 범위로 계수를 잡았다.
+            float thickness = 1f + 0.08f * tier;
+            _shieldView.transform.localScale = new Vector3(thickness, thickness, 1f);
+            _shieldView.color = ShieldTierColors[tier - 1];
         }
 
         void SyncEnemies()
@@ -986,6 +1249,7 @@ namespace Shmup.Presentation.Battle
                         {
                             renderer.color = TintFor(enemy.DefinitionId);
                         }
+                        ApplyEnemyScale(view, renderer, enemy.DefinitionId);
                     }
                 }
 
@@ -1234,10 +1498,25 @@ namespace Shmup.Presentation.Battle
                 _damageFlashAge = 0f;
             _lastHp = hp;
 
-            if (_damageFlash == null || _damageFlashAge >= DamageFlashDuration) return;
+            if (_damageFlash == null) return;
+
+            bool flashReduced = _juice != null && _juice.FlashReduced;
+
+            // 폭탄이 피격보다 우선한다 — 화면을 지우는 사건이 더 크고, 폭탄 직후 피격이
+            // 겹칠 때(무적 만료 직전) 약한 쪽이 이기면 연출이 뒤바뀐다.
+            if (_bombFlashAge < BombFlashDuration)
+            {
+                _bombFlashAge += Time.deltaTime;
+                float t = Mathf.Clamp01(1f - _bombFlashAge / BombFlashDuration);
+                // 폭탄 아이콘과 같은 자홍 계열 — 무엇이 터졌는지 색으로 연결된다.
+                _damageFlash.color = new Color(1f, 0.55f, 1f, t * (flashReduced ? 0.3f : 0.7f));
+                return;
+            }
+
+            if (_damageFlashAge >= DamageFlashDuration) return;
 
             _damageFlashAge += Time.deltaTime;
-            float intensity = _juice != null && _juice.FlashReduced ? 0.15f : 0.35f;
+            float intensity = flashReduced ? 0.15f : 0.35f;
             float alpha = Mathf.Clamp01(1f - _damageFlashAge / DamageFlashDuration) * intensity;
             _damageFlash.color = new Color(1f, 0.2f, 0.2f, alpha);
         }
@@ -1260,9 +1539,53 @@ namespace Shmup.Presentation.Battle
                 }
 
                 view.localPosition = SimView.ToWorld(capsule.X, capsule.Y);
+
+                // 캡슐만 맥동시켜 "먹어야 하는 것"임을 알린다. 적·옵션은 맥동하지 않으므로
+                // 움직임 자체가 구분 신호가 된다. 표현 전용이라 시뮬에는 영향이 없다.
+                var pulseRenderer = view.GetComponent<SpriteRenderer>();
+                if (pulseRenderer != null)
+                {
+                    // id를 위상에 섞어 여러 캡슐이 한꺼번에 깜빡이지 않게 한다.
+                    float phase = Time.time * 6f + capsule.Id * 0.7f;
+                    float t = (Mathf.Sin(phase) + 1f) * 0.5f;
+                    pulseRenderer.color = Color.Lerp(
+                        new Color(0.72f, 0.92f, 1f, 1f), Color.white, t);
+                }
             }
 
             ReleaseDeadViews(_capsuleViews, _capsulePool);
+        }
+
+        /// <summary>
+        /// 전멸 폭탄 픽업. 캡슐과 달리 회전으로 알린다 — 둘이 같이 떨어졌을 때
+        /// 맥동만으로는 구분이 안 되므로 움직임의 종류 자체를 다르게 둔다.
+        /// </summary>
+        void SyncBombPickups()
+        {
+            if (_bombPickupPool == null) return;
+
+            var pickups = _sim.BombPickups;
+            _aliveIds.Clear();
+
+            for (int i = 0; i < pickups.Count; i++)
+            {
+                var pickup = pickups[i];
+                _aliveIds.Add(pickup.Id);
+
+                if (!_bombPickupViews.TryGetValue(pickup.Id, out var view))
+                {
+                    view = _bombPickupPool.Acquire();
+                    if (view == null) continue;
+                    _bombPickupViews.Add(pickup.Id, view);
+                }
+
+                view.localPosition = SimView.ToWorld(pickup.X, pickup.Y);
+                // 표현 전용 회전 — 시뮬 판정은 축 정렬 박스라 영향이 없다.
+                view.localRotation = Quaternion.Euler(
+                    0f, 0f, (Time.time * 90f + pickup.Id * 37f) % 360f);
+            }
+
+            ReleaseDeadViews(_bombPickupViews, _bombPickupPool);
         }
 
         /// <summary>
@@ -1302,6 +1625,50 @@ namespace Shmup.Presentation.Battle
         }
 
         /// <summary>가장 긴 접두어 매칭 — zako_sine_slow가 zako_sine보다 구체적 매칭을 이기게.</summary>
+        /// <summary>
+        /// 적 정의의 히트박스 반폭 (서브유닛). 적 티어가 생기면서 판정 크기가 5.7배까지
+        /// 벌어졌는데, 스프라이트를 그대로 두면 "안 맞았는데 맞는" 판정이 생겨 크기가
+        /// 알려주는 정보가 거짓이 된다.
+        /// </summary>
+        readonly Dictionary<string, int> _enemyHalfWidths = new Dictionary<string, int>(64);
+
+        void CacheEnemyExtents(GameDataSet data)
+        {
+            _enemyHalfWidths.Clear();
+            var definitions = data.BattleContent.Enemies;
+            for (int i = 0; i < definitions.Count; i++)
+                _enemyHalfWidths[definitions[i].Id] = definitions[i].HalfWidth;
+        }
+
+        /// <summary>
+        /// 스프라이트를 히트박스 폭에 맞춘다. 균일 스케일이라 원본 종횡비는 유지된다 —
+        /// 축별로 늘리면 픽셀아트가 찌그러진다. 티어별 전용 스프라이트가 준비되면
+        /// 스케일 배율이 1에 가까워지므로 이 코드는 그대로 두면 된다.
+        /// </summary>
+        void ApplyEnemyScale(Transform view, SpriteRenderer renderer, string definitionId)
+        {
+            if (view == null) return;
+            if (renderer == null || renderer.sprite == null
+                || !_enemyHalfWidths.TryGetValue(definitionId, out int halfWidthSubUnits))
+            {
+                view.localScale = Vector3.one;
+                return;
+            }
+
+            var sprite = renderer.sprite;
+            float spriteWorldWidth = sprite.rect.width / sprite.pixelsPerUnit;
+            if (spriteWorldWidth <= 0.0001f)
+            {
+                view.localScale = Vector3.one;
+                return;
+            }
+
+            float targetWorldWidth =
+                2f * halfWidthSubUnits / SimSpace.SubUnitsPerWorldUnit;
+            float scale = targetWorldWidth / spriteWorldWidth;
+            view.localScale = new Vector3(scale, scale, 1f);
+        }
+
         Sprite SpriteForEnemy(string definitionId)
         {
             if (_enemySpritePrefixes == null || _enemySprites == null) return null;

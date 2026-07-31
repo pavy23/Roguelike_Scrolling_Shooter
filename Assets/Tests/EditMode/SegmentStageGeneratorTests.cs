@@ -25,6 +25,60 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void NormalGenerationNeverSelectsHiddenOnlyColossalBosses()
+        {
+            var catalog = new StageGenerationCatalog(
+                3,
+                1,
+                Center,
+                new[]
+                {
+                    Segment(
+                        "core_segment",
+                        Center,
+                        Center,
+                        Center,
+                        "core")
+                },
+                new[]
+                {
+                    Boss("normal_core_boss", Center, "core"),
+                    Boss(
+                        SegmentStageGenerator.LeviathanBossId,
+                        Center,
+                        null),
+                    Boss(
+                        SegmentStageGenerator.BroodmotherBossId,
+                        Center,
+                        null)
+                },
+                new[] { "core" });
+            var generator = new SegmentStageGenerator(catalog);
+
+            for (ulong seed = 0; seed < 128; seed++)
+            {
+                StagePlan plan = generator.Generate(
+                    seed,
+                    5,
+                    1);
+                Assert.AreEqual("normal_core_boss", plan.BossId);
+            }
+            Assert.IsTrue(
+                generator.CanGenerateColossalBoss(
+                    ColossalBossKind.Leviathan));
+            Assert.IsTrue(
+                generator.CanGenerateColossalBoss(
+                    ColossalBossKind.Broodmother));
+            Assert.AreEqual(
+                SegmentStageGenerator.LeviathanBossId,
+                generator.GenerateColossalBoss(
+                    1UL,
+                    5,
+                    1,
+                    ColossalBossKind.Leviathan).BossId);
+        }
+
+        [Test]
         public void ThemePermutation_UsesExplicitOrderAndFiltersTemplates()
         {
             var catalog = new StageGenerationCatalog(
@@ -167,15 +221,20 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual("scrapyard", stageOne.ThemeId);
                 Assert.AreEqual("scrapyard", stageOne.RequestedThemeId);
                 Assert.IsFalse(stageOne.ThemeFallbackApplied);
+                StagePlan stageFive =
+                    generator.Generate(seed, 5, 1);
+                Assert.AreEqual("core", stageFive.ThemeId);
+                Assert.AreEqual("core", stageFive.RequestedThemeId);
+                Assert.IsFalse(stageFive.ThemeFallbackApplied);
 
                 string permutation = ThemeSequence(
                     generator,
                     seed,
                     2,
-                    5);
+                    4);
                 Assert.AreEqual(
                     permutation,
-                    ThemeSequence(generator, seed, 2, 5));
+                    ThemeSequence(generator, seed, 2, 4));
 
                 if (firstPermutation == null)
                     firstPermutation = permutation;
@@ -644,6 +703,15 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual(
                     expected.BossPhases[i].BulletSpeedDenominator,
                     actual.BossPhases[i].BulletSpeedDenominator);
+                Assert.AreEqual(
+                    expected.BossPhases[i].DurationTicks,
+                    actual.BossPhases[i].DurationTicks);
+                Assert.AreEqual(
+                    expected.BossPhases[i].TelegraphTicks,
+                    actual.BossPhases[i].TelegraphTicks);
+                Assert.AreEqual(
+                    expected.BossPhases[i].FirePattern,
+                    actual.BossPhases[i].FirePattern);
             }
             Assert.AreEqual(expected.Segments.Count, actual.Segments.Count);
 

@@ -4,6 +4,7 @@
   "spawnX": 21.0,
   "laneCount": 3,
   "segmentsPerStage": 3,
+  "closingSegmentsPerStage": 5,
   "startLaneMask": 2,
   "themes": [
     "scrapyard",
@@ -12,6 +13,97 @@
     "nebula",
     "core"
   ],
+  "contracts": {
+    "standardContractId": "standard_route",
+    "minimumOptionCount": 2,
+    "maximumOptionCount": 3,
+    "entries": [
+      {
+        "id": "standard_route",
+        "weight": 1,
+        "riskTier": "safe"
+      },
+      {
+        "id": "risk_lane",
+        "weight": 4,
+        "riskTier": "high",
+        "enemyDensityMultiplier": 1.4,
+        "capsuleDropMultiplier": 1.5,
+        "scoreMultiplier": 1.3
+      },
+      {
+        "id": "lockdown_zone",
+        "weight": 3,
+        "riskTier": "high",
+        "gimmickIntensityMultiplier": 1.5,
+        "bombDropMultiplier": 1.5,
+        "guaranteedBombDrop": true,
+        "scoreMultiplier": 1.15
+      },
+      {
+        "id": "supply_line",
+        "weight": 4,
+        "riskTier": "low",
+        "capsuleDropMultiplier": 1.3,
+        "rewardOptionCountDelta": -1
+      },
+      {
+        "id": "drydock_route",
+        "weight": 3,
+        "riskTier": "low",
+        "enemyDensityMultiplier": 0.75,
+        "rewardOptionCountDelta": -1,
+        "scoreMultiplier": 0.8
+      },
+      {
+        "id": "high_stakes",
+        "weight": 4,
+        "riskTier": "high",
+        "enemyDensityMultiplier": 1.25,
+        "rewardOptionCountDelta": 1
+      },
+      {
+        "id": "scrap_bounty",
+        "weight": 3,
+        "riskTier": "high",
+        "enemyDensityMultiplier": 1.2,
+        "capsuleDropMultiplier": 0.7,
+        "scoreMultiplier": 1.5
+      },
+      {
+        "id": "soft_landing",
+        "weight": 3,
+        "riskTier": "low",
+        "enemyDensityMultiplier": 0.9,
+        "bombDropMultiplier": 2.0,
+        "scoreMultiplier": 0.85
+      },
+      {
+        "id": "escort_run",
+        "weight": 2,
+        "riskTier": "high",
+        "enemyDensityMultiplier": 1.5,
+        "capsuleDropMultiplier": 1.25,
+        "guaranteedBombDrop": true,
+        "scoreMultiplier": 1.4
+      },
+      {
+        "id": "end_run",
+        "weight": 1,
+        "riskTier": "safe",
+        "destinationKind": "endRun",
+        "eligibility": "always"
+      },
+      {
+        "id": "uncharted",
+        "weight": 1,
+        "riskTier": "extreme",
+        "destinationKind": "uncharted",
+        "eligibility": "hiddenBiomeUnlocked",
+        "scoreMultiplier": 1.25
+      }
+    ]
+  },
   "segments": [
     {
       "id": "seg_intro_line",
@@ -75,7 +167,8 @@
           "enemyId": "zako_straight",
           "y": -4
         }
-      ]
+      ],
+      "intent": "잡몹 라인 리듬 — 스치듯 처리하며 레인 감각"
     },
     {
       "id": "seg_sine_pair",
@@ -112,34 +205,35 @@
         {
           "tick": 200,
           "enemyId": "junk_roller",
-          "y": 4
+          "y": 4.0
         },
         {
           "tick": 200,
           "enemyId": "junk_roller",
-          "y": -4
+          "y": -4.0
         },
         {
           "tick": 300,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "zako_sine",
           "y": 5.5
         },
         {
           "tick": 300,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "zako_sine",
           "y": -5.5
         },
         {
           "tick": 420,
-          "enemyId": "junk_roller",
+          "enemyId": "zako_sine",
           "y": 4.75
         },
         {
           "tick": 420,
-          "enemyId": "junk_roller",
+          "enemyId": "zako_sine",
           "y": -4.75
         }
-      ]
+      ],
+      "intent": "상하 사인 회피 — 중앙 통로 위치 선정"
     },
     {
       "id": "seg_turret_floor",
@@ -154,59 +248,59 @@
       ],
       "spawns": [
         {
-          "tick": 30,
+          "tick": 60,
           "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 90,
-          "enemyId": "zako_straight",
-          "y": 2.5
-        },
-        {
-          "tick": 120,
-          "enemyId": "zako_straight",
-          "y": 4
+          "y": -5.5
         },
         {
           "tick": 180,
-          "enemyId": "zako_fast",
-          "y": 0.75
-        },
-        {
-          "tick": 210,
-          "enemyId": "zako_fast",
-          "y": 3.25
-        },
-        {
-          "tick": 300,
           "enemyId": "turret_ground",
-          "y": -9.75
+          "y": -5.5
         },
         {
           "tick": 360,
-          "enemyId": "zako_sine",
-          "y": 3.25
-        },
-        {
-          "tick": 390,
-          "enemyId": "zako_sine",
-          "y": 4.75
-        },
-        {
-          "tick": 480,
-          "enemyId": "zako_straight",
-          "y": 1.5
-        },
-        {
-          "tick": 540,
           "enemyId": "turret_ground",
-          "y": -9.75
+          "y": -5.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "zako_straight",
+          "y": 3.0
+        },
+        {
+          "tick": 160,
+          "enemyId": "zako_straight",
+          "y": 4.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "zako_fast",
+          "y": 2.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "zako_sine",
+          "y": 3.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "zako_fast",
+          "y": 1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "zako_sine",
+          "y": 4.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "zako_straight",
+          "y": 2.5
         },
         {
           "tick": 600,
           "enemyId": "zako_tank",
-          "y": 2.5
+          "y": 2.0
         }
       ],
       "obstacles": [
@@ -222,7 +316,8 @@
           "y": 4.0,
           "hp": 20
         }
-      ]
+      ],
+      "intent": "바닥 강화형 포탑 회피 + 상부 잡몹 정리"
     },
     {
       "id": "seg_swarm_fast",
@@ -239,92 +334,92 @@
         {
           "tick": 30,
           "enemyId": "zako_fast",
-          "y": 4.75
-        },
-        {
-          "tick": 40,
-          "enemyId": "zako_fast",
-          "y": 1.5
-        },
-        {
-          "tick": 50,
-          "enemyId": "zako_fast",
-          "y": -1.5
-        },
-        {
-          "tick": 60,
-          "enemyId": "zako_fast",
-          "y": -4.75
-        },
-        {
-          "tick": 100,
-          "enemyId": "zako_fast",
           "y": 4
         },
         {
-          "tick": 110,
+          "tick": 58,
+          "enemyId": "zako_fast",
+          "y": 2
+        },
+        {
+          "tick": 86,
           "enemyId": "zako_fast",
           "y": 0
         },
         {
-          "tick": 120,
+          "tick": 114,
+          "enemyId": "zako_fast",
+          "y": -2
+        },
+        {
+          "tick": 142,
           "enemyId": "zako_fast",
           "y": -4
         },
         {
-          "tick": 180,
+          "tick": 170,
           "enemyId": "zako_fast",
-          "y": 5.5
+          "y": 3
         },
         {
-          "tick": 190,
+          "tick": 198,
+          "enemyId": "zako_fast",
+          "y": 1
+        },
+        {
+          "tick": 226,
+          "enemyId": "zako_fast",
+          "y": -1
+        },
+        {
+          "tick": 254,
+          "enemyId": "zako_fast",
+          "y": -3
+        },
+        {
+          "tick": 282,
+          "enemyId": "zako_fast",
+          "y": 4.5
+        },
+        {
+          "tick": 310,
+          "enemyId": "zako_fast",
+          "y": -4.5
+        },
+        {
+          "tick": 338,
           "enemyId": "zako_fast",
           "y": 2.5
         },
         {
-          "tick": 200,
+          "tick": 366,
           "enemyId": "zako_fast",
           "y": -2.5
         },
         {
-          "tick": 210,
+          "tick": 394,
           "enemyId": "zako_fast",
-          "y": -5.5
+          "y": 0.5
         },
         {
-          "tick": 280,
+          "tick": 422,
           "enemyId": "zako_fast",
-          "y": 3.25
-        },
-        {
-          "tick": 290,
-          "enemyId": "zako_fast",
-          "y": 0
-        },
-        {
-          "tick": 300,
-          "enemyId": "zako_fast",
-          "y": -3.25
-        },
-        {
-          "tick": 380,
-          "enemyId": "zako_straight",
-          "y": 1.5
-        },
-        {
-          "tick": 400,
-          "enemyId": "zako_straight",
-          "y": -1.5
+          "y": -0.5
         },
         {
           "tick": 450,
           "enemyId": "zako_fast",
-          "y": 4.75
+          "y": 3.5
         },
         {
-          "tick": 460,
+          "tick": 478,
           "enemyId": "zako_fast",
-          "y": -4.75
+          "y": -3.5
+        },
+        {
+          "tick": 506,
+          "enemyId": "zako_fast",
+          "y": 0
         }
       ],
       "obstacles": [
@@ -343,10 +438,11 @@
         {
           "type": "breakable",
           "x": 18.0,
-          "y": 0.0,
+          "y": 1.5,
           "hp": 15
         }
-      ]
+      ],
+      "intent": "고속 잡몹 폭주 — 순수 회피 리듬"
     },
     {
       "id": "seg_mixed_mid",
@@ -363,72 +459,72 @@
         {
           "tick": 40,
           "enemyId": "zako_straight",
-          "y": 3.25
-        },
-        {
-          "tick": 40,
-          "enemyId": "zako_straight",
-          "y": -3.25
-        },
-        {
-          "tick": 90,
-          "enemyId": "zako_sine",
-          "y": 0
-        },
-        {
-          "tick": 140,
-          "enemyId": "zako_fast",
-          "y": 4.75
-        },
-        {
-          "tick": 150,
-          "enemyId": "zako_fast",
-          "y": -4.75
-        },
-        {
-          "tick": 220,
-          "enemyId": "zako_tank",
-          "y": 0
-        },
-        {
-          "tick": 280,
-          "enemyId": "zako_sine",
-          "y": 4
-        },
-        {
-          "tick": 280,
-          "enemyId": "zako_sine",
-          "y": -4
-        },
-        {
-          "tick": 360,
-          "enemyId": "zako_straight",
           "y": 2.5
         },
         {
-          "tick": 380,
+          "tick": 70,
           "enemyId": "zako_straight",
           "y": -2.5
         },
         {
-          "tick": 450,
-          "enemyId": "scrap_tumbler",
-          "y": 4.75
+          "tick": 100,
+          "enemyId": "zako_sine",
+          "y": 4.0
         },
         {
-          "tick": 480,
+          "tick": 130,
           "enemyId": "zako_fast",
-          "y": -1.5
-        },
-        {
-          "tick": 520,
-          "enemyId": "scrap_tumbler",
           "y": 0
         },
         {
-          "tick": 580,
+          "tick": 180,
+          "enemyId": "scrap_tumbler",
+          "y": 3.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "scrap_tumbler",
+          "y": -3.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "zako_fast",
+          "y": 2.0
+        },
+        {
+          "tick": 320,
+          "enemyId": "zako_sine",
+          "y": -4.0
+        },
+        {
+          "tick": 380,
           "enemyId": "zako_tank",
+          "y": 0
+        },
+        {
+          "tick": 440,
+          "enemyId": "zako_straight",
+          "y": 3.5
+        },
+        {
+          "tick": 480,
+          "enemyId": "zako_straight",
+          "y": -3.5
+        },
+        {
+          "tick": 540,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 600,
+          "enemyId": "zako_fast",
           "y": 1.5
+        },
+        {
+          "tick": 640,
+          "enemyId": "zako_fast",
+          "y": -1.5
         }
       ],
       "obstacles": [
@@ -450,7 +546,8 @@
           "y": 2.5,
           "hp": 25
         }
-      ]
+      ],
+      "intent": "잡몹 리듬 속 중형 앵커 화력 집중"
     },
     {
       "id": "seg_turret_ceiling",
@@ -465,59 +562,59 @@
       ],
       "spawns": [
         {
-          "tick": 30,
+          "tick": 60,
           "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 90,
-          "enemyId": "zako_straight",
-          "y": -2.5
-        },
-        {
-          "tick": 120,
-          "enemyId": "zako_straight",
-          "y": -4
+          "y": 5.5
         },
         {
           "tick": 180,
-          "enemyId": "zako_fast",
-          "y": -0.75
-        },
-        {
-          "tick": 210,
-          "enemyId": "zako_fast",
-          "y": -3.25
-        },
-        {
-          "tick": 300,
           "enemyId": "turret_ceiling",
-          "y": 9.75
+          "y": 5.5
         },
         {
           "tick": 360,
-          "enemyId": "zako_sine",
-          "y": -3.25
-        },
-        {
-          "tick": 390,
-          "enemyId": "zako_sine",
-          "y": -4.75
-        },
-        {
-          "tick": 480,
-          "enemyId": "zako_straight",
-          "y": -1.5
-        },
-        {
-          "tick": 540,
           "enemyId": "turret_ceiling",
-          "y": 9.75
+          "y": 5.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "zako_straight",
+          "y": -3.0
+        },
+        {
+          "tick": 160,
+          "enemyId": "zako_straight",
+          "y": -4.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "zako_fast",
+          "y": -2.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "zako_sine",
+          "y": -3.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "zako_fast",
+          "y": -1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "zako_sine",
+          "y": -4.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "zako_straight",
+          "y": -2.5
         },
         {
           "tick": 600,
           "enemyId": "zako_tank",
-          "y": -2.5
+          "y": -2.0
         }
       ],
       "obstacles": [
@@ -536,10 +633,11 @@
         {
           "type": "breakable",
           "x": 19.0,
-          "y": 0.0,
+          "y": -1.5,
           "hp": 15
         }
-      ]
+      ],
+      "intent": "천장 강화형 포탑 회피 + 하부 잡몹"
     },
     {
       "id": "seg_sandwich",
@@ -554,87 +652,87 @@
       ],
       "spawns": [
         {
-          "tick": 20,
+          "tick": 50,
           "enemyId": "turret_ground",
-          "y": -9.75
+          "y": -5.5
         },
         {
-          "tick": 20,
+          "tick": 50,
           "enemyId": "turret_ceiling",
-          "y": 9.75
+          "y": 5.5
         },
         {
-          "tick": 80,
+          "tick": 140,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 230,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 230,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 90,
           "enemyId": "zako_sine",
-          "y": 3.25
+          "y": 2.0
         },
         {
-          "tick": 80,
+          "tick": 90,
           "enemyId": "zako_sine",
-          "y": -3.25
+          "y": -2.0
         },
         {
-          "tick": 160,
+          "tick": 180,
+          "enemyId": "zako_sine",
+          "y": 3.0
+        },
+        {
+          "tick": 180,
+          "enemyId": "zako_sine",
+          "y": -3.0
+        },
+        {
+          "tick": 280,
           "enemyId": "zako_fast",
           "y": 0
         },
         {
-          "tick": 200,
-          "enemyId": "zako_straight",
-          "y": 1.5
-        },
-        {
-          "tick": 200,
-          "enemyId": "zako_straight",
-          "y": -1.5
-        },
-        {
-          "tick": 280,
-          "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 280,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
+          "tick": 340,
+          "enemyId": "zako_sine_slow",
+          "y": 2.5
         },
         {
           "tick": 340,
           "enemyId": "zako_sine_slow",
-          "y": 4
-        },
-        {
-          "tick": 340,
-          "enemyId": "zako_sine_slow",
-          "y": -4
+          "y": -2.5
         },
         {
           "tick": 420,
+          "enemyId": "zako_straight",
+          "y": 1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "zako_straight",
+          "y": -1.0
+        },
+        {
+          "tick": 520,
           "enemyId": "zako_tank",
           "y": 0
         },
         {
-          "tick": 500,
-          "enemyId": "zako_sine",
-          "y": 2.5
-        },
-        {
-          "tick": 500,
-          "enemyId": "zako_sine",
-          "y": -2.5
-        },
-        {
-          "tick": 580,
-          "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 580,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 650,
+          "tick": 620,
           "enemyId": "elite_sine",
           "y": 0
         }
@@ -664,7 +762,8 @@
           "y": 3.25,
           "hp": 30
         }
-      ]
+      ],
+      "intent": "상하 사격 압박 속 중형 격파 (위치+화력)"
     },
     {
       "id": "seg_sine_rush",
@@ -679,76 +778,77 @@
       ],
       "spawns": [
         {
-          "tick": 30,
+          "tick": 40,
           "enemyId": "zako_sine",
-          "y": 3.25
-        },
-        {
-          "tick": 50,
-          "enemyId": "zako_sine",
-          "y": 0
+          "y": 3.5
         },
         {
           "tick": 70,
           "enemyId": "zako_sine",
-          "y": 4.75
+          "y": -3.5
         },
         {
-          "tick": 120,
-          "enemyId": "zako_sine_slow",
-          "y": 2.5
-        },
-        {
-          "tick": 140,
+          "tick": 100,
           "enemyId": "zako_sine",
-          "y": 5.5
+          "y": 4.5
         },
         {
-          "tick": 200,
-          "enemyId": "junk_roller",
-          "y": 4
+          "tick": 130,
+          "enemyId": "zako_sine",
+          "y": -4.5
         },
         {
-          "tick": 200,
-          "enemyId": "junk_roller",
-          "y": 0.75
-        },
-        {
-          "tick": 280,
+          "tick": 180,
           "enemyId": "zako_sine_slow",
-          "y": 4.75
+          "y": 2.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "zako_sine_slow",
+          "y": -2.0
+        },
+        {
+          "tick": 260,
+          "enemyId": "junk_roller",
+          "y": 3.0
         },
         {
           "tick": 300,
+          "enemyId": "junk_roller",
+          "y": -3.0
+        },
+        {
+          "tick": 340,
           "enemyId": "pipe_rat",
           "y": 1.5
         },
         {
-          "tick": 360,
-          "enemyId": "elite_sine",
-          "y": 3.25
+          "tick": 380,
+          "enemyId": "pipe_rat",
+          "y": -1.5
         },
         {
           "tick": 420,
-          "enemyId": "pipe_rat",
+          "enemyId": "zako_sine_slow",
           "y": 0
         },
         {
-          "tick": 440,
+          "tick": 480,
           "enemyId": "junk_roller",
-          "y": 4.75
+          "y": 4.0
         },
         {
-          "tick": 500,
+          "tick": 520,
+          "enemyId": "junk_roller",
+          "y": -4.0
+        },
+        {
+          "tick": 580,
           "enemyId": "zako_sine_slow",
-          "y": 2.5
-        },
-        {
-          "tick": 540,
-          "enemyId": "junk_roller",
-          "y": 4
+          "y": 0
         }
-      ]
+      ],
+      "intent": "사인 잡몹 러시 — 초반 친화(중형 앵커 제거, 리듬 학습)"
     },
     {
       "id": "seg_hive_spore_cloud",
@@ -764,34 +864,39 @@
       "theme": "hive",
       "spawns": [
         {
-          "tick": 30,
+          "tick": 40,
           "enemyId": "spore_drifter",
-          "y": 4.75
-        },
-        {
-          "tick": 30,
-          "enemyId": "spore_drifter",
-          "y": -4.75
+          "y": 3
         },
         {
           "tick": 80,
-          "enemyId": "spore_drifter",
-          "y": 2.5
+          "enemyId": "hive_tentacle",
+          "y": -5.5
         },
         {
           "tick": 80,
+          "enemyId": "hive_tentacle",
+          "y": 5.5
+        },
+        {
+          "tick": 85,
           "enemyId": "spore_drifter",
-          "y": -2.5
+          "y": -2
         },
         {
-          "tick": 140,
-          "enemyId": "zako_sine",
-          "y": 0
-        },
-        {
-          "tick": 180,
+          "tick": 120,
           "enemyId": "sting_hornet",
           "y": 4
+        },
+        {
+          "tick": 130,
+          "enemyId": "spore_drifter",
+          "y": 1
+        },
+        {
+          "tick": 175,
+          "enemyId": "spore_drifter",
+          "y": -4
         },
         {
           "tick": 180,
@@ -799,68 +904,63 @@
           "y": -4
         },
         {
-          "tick": 240,
-          "enemyId": "brood_spitter",
-          "y": 1.5
+          "tick": 220,
+          "enemyId": "spore_drifter",
+          "y": 2.5
         },
         {
           "tick": 240,
-          "enemyId": "brood_spitter",
+          "enemyId": "sting_hornet",
+          "y": 2
+        },
+        {
+          "tick": 265,
+          "enemyId": "spore_drifter",
           "y": -1.5
         },
         {
           "tick": 300,
-          "enemyId": "spore_drifter",
-          "y": 5.5
+          "enemyId": "sting_hornet",
+          "y": -2
         },
         {
-          "tick": 300,
+          "tick": 310,
           "enemyId": "spore_drifter",
-          "y": -5.5
+          "y": 4
+        },
+        {
+          "tick": 355,
+          "enemyId": "spore_drifter",
+          "y": -3.5
         },
         {
           "tick": 360,
-          "enemyId": "sting_hornet",
+          "enemyId": "brood_spitter",
+          "y": 3
+        },
+        {
+          "tick": 360,
+          "enemyId": "hive_tentacle",
+          "y": 4.5
+        },
+        {
+          "tick": 400,
+          "enemyId": "spore_drifter",
           "y": 0
         },
         {
           "tick": 420,
           "enemyId": "brood_spitter",
-          "y": 3.25
+          "y": -3
         },
         {
-          "tick": 420,
-          "enemyId": "brood_spitter",
-          "y": -3.25
-        },
-        {
-          "tick": 500,
-          "enemyId": "sting_hornet",
-          "y": 4.75
-        },
-        {
-          "tick": 500,
-          "enemyId": "sting_hornet",
-          "y": -4.75
-        },
-        {
-          "tick": 560,
-          "enemyId": "spore_drifter",
-          "y": 1.5
-        },
-        {
-          "tick": 560,
-          "enemyId": "spore_drifter",
-          "y": -1.5
-        },
-        {
-          "tick": 620,
+          "tick": 480,
           "enemyId": "brood_spitter",
           "y": 0
         },
         {
-          "tick": 680,
-          "enemyId": "mini_horror",
+          "tick": 640,
+          "enemyId": "brood_spitter",
           "y": 0
         }
       ],
@@ -880,7 +980,7 @@
         {
           "type": "breakable",
           "x": 13.0,
-          "y": 0.0,
+          "y": -1.5,
           "hp": 20
         },
         {
@@ -889,7 +989,8 @@
           "y": 3.25,
           "hp": 25
         }
-      ]
+      ],
+      "intent": "잡몹 점유 후 중형 앵커 피날레"
     },
     {
       "id": "seg_hive_lancer_rush",
@@ -905,124 +1006,124 @@
       "theme": "hive",
       "spawns": [
         {
-          "tick": 30,
+          "tick": 25,
           "enemyId": "lancer_dart",
-          "y": 4.75
+          "y": 4
         },
         {
-          "tick": 40,
+          "tick": 57,
           "enemyId": "lancer_dart",
-          "y": 1.5
-        },
-        {
-          "tick": 50,
-          "enemyId": "lancer_dart",
-          "y": -1.5
+          "y": -3
         },
         {
           "tick": 60,
+          "enemyId": "hive_tentacle",
+          "y": -5.75
+        },
+        {
+          "tick": 60,
+          "enemyId": "hive_tentacle",
+          "y": 5.75
+        },
+        {
+          "tick": 89,
           "enemyId": "lancer_dart",
-          "y": -4.75
+          "y": 2
         },
         {
-          "tick": 100,
-          "enemyId": "sting_hornet",
-          "y": 0
-        },
-        {
-          "tick": 130,
+          "tick": 121,
           "enemyId": "lancer_dart",
-          "y": 3.25
-        },
-        {
-          "tick": 140,
-          "enemyId": "lancer_dart",
-          "y": 0
-        },
-        {
-          "tick": 150,
-          "enemyId": "lancer_dart",
-          "y": -3.25
-        },
-        {
-          "tick": 200,
-          "enemyId": "brood_spitter",
-          "y": 2.5
-        },
-        {
-          "tick": 210,
-          "enemyId": "brood_spitter",
-          "y": -2.5
-        },
-        {
-          "tick": 260,
-          "enemyId": "lancer_dart",
-          "y": 5.5
-        },
-        {
-          "tick": 270,
-          "enemyId": "lancer_dart",
-          "y": 2.5
-        },
-        {
-          "tick": 280,
-          "enemyId": "lancer_dart",
-          "y": -2.5
-        },
-        {
-          "tick": 290,
-          "enemyId": "lancer_dart",
-          "y": -5.5
-        },
-        {
-          "tick": 340,
-          "enemyId": "sting_hornet",
-          "y": 4
-        },
-        {
-          "tick": 340,
-          "enemyId": "sting_hornet",
           "y": -4
         },
         {
-          "tick": 400,
+          "tick": 153,
           "enemyId": "lancer_dart",
-          "y": 1.5
+          "y": 0
         },
         {
-          "tick": 410,
+          "tick": 185,
+          "enemyId": "lancer_dart",
+          "y": 3.5
+        },
+        {
+          "tick": 200,
+          "enemyId": "sting_hornet",
+          "y": 3
+        },
+        {
+          "tick": 217,
           "enemyId": "lancer_dart",
           "y": -1.5
         },
         {
-          "tick": 460,
-          "enemyId": "brood_spitter",
-          "y": 3.25
+          "tick": 249,
+          "enemyId": "lancer_dart",
+          "y": 1
         },
         {
-          "tick": 460,
-          "enemyId": "brood_spitter",
-          "y": -3.25
+          "tick": 280,
+          "enemyId": "sting_hornet",
+          "y": -3
+        },
+        {
+          "tick": 281,
+          "enemyId": "lancer_dart",
+          "y": -2.5
+        },
+        {
+          "tick": 313,
+          "enemyId": "lancer_dart",
+          "y": 4.5
+        },
+        {
+          "tick": 345,
+          "enemyId": "lancer_dart",
+          "y": -4.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "sting_hornet",
+          "y": 1
+        },
+        {
+          "tick": 377,
+          "enemyId": "lancer_dart",
+          "y": 2.5
+        },
+        {
+          "tick": 409,
+          "enemyId": "lancer_dart",
+          "y": -0.5
+        },
+        {
+          "tick": 440,
+          "enemyId": "sting_hornet",
+          "y": -1
+        },
+        {
+          "tick": 441,
+          "enemyId": "lancer_dart",
+          "y": 3
+        },
+        {
+          "tick": 473,
+          "enemyId": "lancer_dart",
+          "y": -3.5
+        },
+        {
+          "tick": 505,
+          "enemyId": "lancer_dart",
+          "y": 0.5
         },
         {
           "tick": 520,
-          "enemyId": "lancer_dart",
-          "y": 4
+          "enemyId": "brood_spitter",
+          "y": 2
         },
         {
-          "tick": 530,
-          "enemyId": "lancer_dart",
-          "y": 0
-        },
-        {
-          "tick": 540,
-          "enemyId": "lancer_dart",
-          "y": -4
-        },
-        {
-          "tick": 580,
-          "enemyId": "sting_hornet",
-          "y": 0
+          "tick": 560,
+          "enemyId": "brood_spitter",
+          "y": -2
         }
       ],
       "obstacles": [
@@ -1050,7 +1151,8 @@
           "y": -2.5,
           "hp": 20
         }
-      ]
+      ],
+      "intent": "랜서 잡몹 러시 순수 회피"
     },
     {
       "id": "seg_fortress_sentry_grid",
@@ -1066,133 +1168,103 @@
       "theme": "fortress",
       "spawns": [
         {
-          "tick": 30,
+          "tick": 40,
+          "enemyId": "sentry_drone",
+          "y": 3
+        },
+        {
+          "tick": 40,
+          "enemyId": "sentry_drone",
+          "y": -3
+        },
+        {
+          "tick": 120,
+          "enemyId": "sentry_drone",
+          "y": 4.5
+        },
+        {
+          "tick": 120,
+          "enemyId": "sentry_drone",
+          "y": -4.5
+        },
+        {
+          "tick": 80,
           "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 40,
-          "enemyId": "sentry_drone",
-          "y": 4
-        },
-        {
-          "tick": 40,
-          "enemyId": "sentry_drone",
-          "y": 0
-        },
-        {
-          "tick": 90,
-          "enemyId": "interceptor_rush",
-          "y": 3.25
-        },
-        {
-          "tick": 100,
-          "enemyId": "interceptor_rush",
-          "y": -1.5
-        },
-        {
-          "tick": 160,
-          "enemyId": "mortar_drone",
-          "y": 5.5
-        },
-        {
-          "tick": 160,
-          "enemyId": "mortar_drone",
-          "y": 1.5
+          "y": -5.5
         },
         {
           "tick": 200,
           "enemyId": "turret_ceiling",
-          "y": 9.75
+          "y": 5.5
         },
         {
-          "tick": 240,
+          "tick": 100,
           "enemyId": "interceptor_rush",
-          "y": 4.75
+          "y": 1
         },
         {
-          "tick": 250,
+          "tick": 140,
           "enemyId": "interceptor_rush",
-          "y": 0
+          "y": -1
         },
         {
-          "tick": 260,
+          "tick": 180,
           "enemyId": "interceptor_rush",
-          "y": -3.25
-        },
-        {
-          "tick": 320,
-          "enemyId": "sentry_drone",
           "y": 2.5
         },
         {
-          "tick": 320,
-          "enemyId": "sentry_drone",
+          "tick": 220,
+          "enemyId": "interceptor_rush",
           "y": -2.5
         },
         {
+          "tick": 260,
+          "enemyId": "mortar_drone",
+          "y": 2
+        },
+        {
+          "tick": 320,
+          "enemyId": "mortar_drone",
+          "y": -2
+        },
+        {
           "tick": 380,
-          "enemyId": "turret_ground",
-          "y": -9.75
+          "enemyId": "mortar_drone",
+          "y": 0
+        },
+        {
+          "tick": 360,
+          "enemyId": "laser_sentry",
+          "y": 4.5
+        },
+        {
+          "tick": 280,
+          "enemyId": "interceptor_rush",
+          "y": 3.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "interceptor_rush",
+          "y": -3.5
         },
         {
           "tick": 420,
           "enemyId": "scrap_tumbler",
-          "y": 4
-        },
-        {
-          "tick": 440,
-          "enemyId": "scrap_tumbler",
           "y": 1.5
         },
         {
-          "tick": 500,
-          "enemyId": "mortar_drone",
-          "y": 4.75
-        },
-        {
-          "tick": 500,
-          "enemyId": "mortar_drone",
-          "y": 0.75
-        },
-        {
-          "tick": 560,
-          "enemyId": "interceptor_rush",
-          "y": 3.25
-        },
-        {
-          "tick": 570,
-          "enemyId": "interceptor_rush",
-          "y": -1.5
-        },
-        {
-          "tick": 640,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 680,
-          "enemyId": "mortar_drone",
-          "y": 3.25
-        },
-        {
-          "tick": 720,
-          "enemyId": "elite_sine",
-          "y": 2.5
-        },
-        {
-          "tick": 780,
-          "enemyId": "interceptor_rush",
-          "y": 5.5
-        },
-        {
-          "tick": 790,
-          "enemyId": "interceptor_rush",
+          "tick": 480,
+          "enemyId": "sentry_drone",
           "y": 0
         },
         {
-          "tick": 850,
-          "enemyId": "mini_destroyer",
+          "tick": 540,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 820,
+          "enemyId": "zako_tank",
           "y": 0
         }
       ],
@@ -1200,34 +1272,69 @@
         {
           "type": "solid",
           "x": 10.0,
-          "y": 5.5,
+          "y": 6.5,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
-          "y": -5.5,
+          "y": -6.5,
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 18.0,
-          "y": 7.5,
-          "hp": 0
+          "type": "laserEmitter",
+          "x": 16.0,
+          "y": 4.0,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 16.0,
+          "y": -4.0,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 180,
+            "telegraphTicks": 42,
+            "firingTicks": 6,
+            "sustainTicks": 30,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         },
         {
           "type": "breakable",
           "x": 12.5,
-          "y": 0.0,
+          "y": 1.75,
           "hp": 30
         },
         {
           "type": "breakable",
-          "x": 16.5,
-          "y": 3.25,
+          "x": 18.5,
+          "y": -1.75,
           "hp": 35
         }
-      ]
+      ],
+      "intent": "강화형 격자 사격 회피 + 중형"
     },
     {
       "id": "seg_fortress_interceptor_assault",
@@ -1243,162 +1350,122 @@
       "theme": "fortress",
       "spawns": [
         {
-          "tick": 20,
-          "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 20,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 40,
+          "tick": 25,
           "enemyId": "interceptor_rush",
-          "y": 4.75
-        },
-        {
-          "tick": 50,
-          "enemyId": "interceptor_rush",
-          "y": 1.5
+          "y": 4
         },
         {
           "tick": 60,
           "enemyId": "interceptor_rush",
-          "y": -1.5
+          "y": -3
         },
         {
-          "tick": 70,
+          "tick": 95,
           "enemyId": "interceptor_rush",
-          "y": -4.75
+          "y": 2
         },
         {
-          "tick": 120,
-          "enemyId": "sentry_drone",
-          "y": 3.25
-        },
-        {
-          "tick": 120,
-          "enemyId": "sentry_drone",
-          "y": -3.25
-        },
-        {
-          "tick": 170,
-          "enemyId": "interceptor_rush",
-          "y": 4
-        },
-        {
-          "tick": 180,
-          "enemyId": "interceptor_rush",
-          "y": 0
-        },
-        {
-          "tick": 190,
+          "tick": 130,
           "enemyId": "interceptor_rush",
           "y": -4
         },
         {
-          "tick": 250,
-          "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 250,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 280,
-          "enemyId": "mortar_drone",
+          "tick": 165,
+          "enemyId": "interceptor_rush",
           "y": 0
         },
         {
-          "tick": 320,
+          "tick": 200,
           "enemyId": "interceptor_rush",
-          "y": 5.5
+          "y": 3.5
         },
         {
-          "tick": 330,
+          "tick": 235,
           "enemyId": "interceptor_rush",
-          "y": 2.5
+          "y": -1.5
+        },
+        {
+          "tick": 270,
+          "enemyId": "interceptor_rush",
+          "y": 1
+        },
+        {
+          "tick": 305,
+          "enemyId": "interceptor_rush",
+          "y": -2.5
         },
         {
           "tick": 340,
           "enemyId": "interceptor_rush",
-          "y": -2.5
+          "y": 4.5
         },
         {
-          "tick": 350,
+          "tick": 375,
           "enemyId": "interceptor_rush",
+          "y": -4.5
+        },
+        {
+          "tick": 410,
+          "enemyId": "interceptor_rush",
+          "y": 2.5
+        },
+        {
+          "tick": 445,
+          "enemyId": "interceptor_rush",
+          "y": -0.5
+        },
+        {
+          "tick": 480,
+          "enemyId": "interceptor_rush",
+          "y": 3
+        },
+        {
+          "tick": 515,
+          "enemyId": "interceptor_rush",
+          "y": -3.5
+        },
+        {
+          "tick": 550,
+          "enemyId": "interceptor_rush",
+          "y": 0.5
+        },
+        {
+          "tick": 200,
+          "enemyId": "sentry_drone",
+          "y": 3
+        },
+        {
+          "tick": 280,
+          "enemyId": "sentry_drone",
+          "y": -3
+        },
+        {
+          "tick": 360,
+          "enemyId": "turret_ground",
           "y": -5.5
         },
         {
           "tick": 400,
-          "enemyId": "zako_fast",
-          "y": 1.5
-        },
-        {
-          "tick": 410,
-          "enemyId": "zako_fast",
-          "y": -1.5
+          "enemyId": "turret_ceiling",
+          "y": 5.5
         },
         {
           "tick": 460,
           "enemyId": "mortar_drone",
-          "y": 4
-        },
-        {
-          "tick": 460,
-          "enemyId": "mortar_drone",
-          "y": -4
-        },
-        {
-          "tick": 510,
-          "enemyId": "interceptor_rush",
-          "y": 3.25
-        },
-        {
-          "tick": 520,
-          "enemyId": "interceptor_rush",
           "y": 0
         },
         {
-          "tick": 530,
-          "enemyId": "interceptor_rush",
-          "y": -3.25
+          "tick": 520,
+          "enemyId": "zako_fast",
+          "y": 2
         },
         {
-          "tick": 580,
-          "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 580,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
+          "tick": 560,
+          "enemyId": "zako_fast",
+          "y": -2
         },
         {
           "tick": 620,
-          "enemyId": "sentry_drone",
-          "y": 2.5
-        },
-        {
-          "tick": 620,
-          "enemyId": "sentry_drone",
-          "y": -2.5
-        },
-        {
-          "tick": 680,
-          "enemyId": "interceptor_rush",
-          "y": 4.75
-        },
-        {
-          "tick": 690,
-          "enemyId": "interceptor_rush",
-          "y": -4.75
-        },
-        {
-          "tick": 720,
           "enemyId": "elite_sine",
           "y": 0
         }
@@ -1406,35 +1473,56 @@
       "obstacles": [
         {
           "type": "solid",
-          "x": 11.0,
+          "x": 10.0,
           "y": 6.5,
           "hp": 0
         },
         {
           "type": "solid",
-          "x": 11.0,
+          "x": 14.0,
           "y": -6.5,
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 17.0,
-          "y": 4.0,
-          "hp": 0
+          "type": "laserEmitter",
+          "x": 15.0,
+          "y": 2.75,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 120,
+            "telegraphTicks": 30,
+            "firingTicks": 5,
+            "sustainTicks": 20,
+            "dissipateTicks": 10,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         },
         {
           "type": "breakable",
-          "x": 14.0,
-          "y": -1.5,
-          "hp": 30
+          "x": 12.0,
+          "y": 3.0,
+          "hp": 28
         },
         {
           "type": "breakable",
-          "x": 19.5,
-          "y": 0.0,
+          "x": 12.0,
+          "y": -3.0,
+          "hp": 28
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": -1.75,
           "hp": 40
         }
-      ]
+      ],
+      "intent": "잡몹 러시 폭주 — 회피 우선"
     },
     {
       "id": "seg_nebula_wisp_storm",
@@ -1451,157 +1539,97 @@
       "spawns": [
         {
           "tick": 30,
-          "enemyId": "echo_wisp",
-          "y": 4.75
-        },
-        {
-          "tick": 30,
-          "enemyId": "echo_wisp",
-          "y": -4.75
-        },
-        {
-          "tick": 60,
           "enemyId": "wisp_spark",
-          "y": 2.5
+          "y": 3
         },
         {
-          "tick": 60,
-          "enemyId": "wisp_spark",
-          "y": -2.5
+          "tick": 70,
+          "enemyId": "void_moth",
+          "y": -2
         },
         {
-          "tick": 100,
-          "enemyId": "zako_sine_slow",
-          "y": 0
-        },
-        {
-          "tick": 140,
-          "enemyId": "echo_wisp",
-          "y": 5.5
-        },
-        {
-          "tick": 140,
-          "enemyId": "elite_sine",
-          "y": 0
-        },
-        {
-          "tick": 140,
-          "enemyId": "echo_wisp",
-          "y": -5.5
-        },
-        {
-          "tick": 200,
-          "enemyId": "zako_sine",
-          "y": 3.25
-        },
-        {
-          "tick": 200,
-          "enemyId": "zako_sine",
-          "y": -3.25
-        },
-        {
-          "tick": 250,
+          "tick": 110,
           "enemyId": "void_moth",
           "y": 4
         },
         {
-          "tick": 260,
-          "enemyId": "void_moth",
-          "y": 1.5
-        },
-        {
-          "tick": 270,
-          "enemyId": "void_moth",
-          "y": -1.5
-        },
-        {
-          "tick": 280,
-          "enemyId": "void_moth",
+          "tick": 150,
+          "enemyId": "wisp_spark",
           "y": -4
         },
         {
-          "tick": 340,
-          "enemyId": "zako_sine_slow",
-          "y": 4.75
+          "tick": 190,
+          "enemyId": "void_moth",
+          "y": 1
         },
         {
-          "tick": 340,
-          "enemyId": "zako_sine_slow",
-          "y": -4.75
+          "tick": 230,
+          "enemyId": "void_moth",
+          "y": -1
         },
         {
-          "tick": 380,
-          "enemyId": "guardian_sphere",
+          "tick": 270,
+          "enemyId": "wisp_spark",
           "y": 2.5
         },
         {
-          "tick": 380,
-          "enemyId": "guardian_sphere",
-          "y": -2.5
-        },
-        {
-          "tick": 400,
+          "tick": 310,
           "enemyId": "void_moth",
-          "y": 3.25
+          "y": -3.5
         },
         {
-          "tick": 400,
+          "tick": 350,
           "enemyId": "void_moth",
-          "y": -3.25
-        },
-        {
-          "tick": 450,
-          "enemyId": "zako_tank",
           "y": 0
         },
         {
-          "tick": 500,
-          "enemyId": "zako_sine",
-          "y": 4.75
+          "tick": 390,
+          "enemyId": "wisp_spark",
+          "y": 3.5
         },
         {
-          "tick": 500,
-          "enemyId": "zako_sine",
-          "y": -4.75
-        },
-        {
-          "tick": 560,
+          "tick": 430,
           "enemyId": "void_moth",
-          "y": 5.5
+          "y": -0.5
         },
         {
-          "tick": 560,
+          "tick": 470,
           "enemyId": "void_moth",
-          "y": 2.5
+          "y": 4.5
         },
         {
-          "tick": 560,
-          "enemyId": "void_moth",
-          "y": -2.5
+          "tick": 150,
+          "enemyId": "echo_wisp",
+          "y": 2
         },
         {
-          "tick": 560,
-          "enemyId": "void_moth",
-          "y": -5.5
+          "tick": 230,
+          "enemyId": "echo_wisp",
+          "y": -2
         },
         {
-          "tick": 640,
+          "tick": 310,
+          "enemyId": "zako_sine_slow",
+          "y": 3
+        },
+        {
+          "tick": 390,
+          "enemyId": "zako_sine_slow",
+          "y": -3
+        },
+        {
+          "tick": 470,
+          "enemyId": "guardian_sphere",
+          "y": 0
+        },
+        {
+          "tick": 550,
           "enemyId": "elite_sine",
-          "y": 0
+          "y": 2
         },
         {
           "tick": 700,
-          "enemyId": "void_moth",
-          "y": 1.5
-        },
-        {
-          "tick": 700,
-          "enemyId": "void_moth",
-          "y": -1.5
-        },
-        {
-          "tick": 740,
-          "enemyId": "mini_crystal",
+          "enemyId": "elite_sine",
           "y": 0
         }
       ],
@@ -1627,7 +1655,7 @@
         {
           "type": "breakable",
           "x": 11.5,
-          "y": 0.0,
+          "y": -1.5,
           "hp": 25
         },
         {
@@ -1642,7 +1670,14 @@
           "y": -3.25,
           "hp": 35
         }
-      ]
+      ],
+      "intent": "잡몹 폭풍 회피 후 중형·중형",
+      "environment": {
+        "drift": {
+          "xPerSecond": 0.35,
+          "yPerSecond": 0.15
+        }
+      }
     },
     {
       "id": "seg_nebula_wisp_ribbon",
@@ -1658,138 +1693,93 @@
       "theme": "nebula",
       "spawns": [
         {
-          "tick": 30,
-          "enemyId": "echo_wisp",
-          "y": 3.25
-        },
-        {
           "tick": 40,
-          "enemyId": "echo_wisp",
-          "y": 0
-        },
-        {
-          "tick": 50,
-          "enemyId": "echo_wisp",
-          "y": -3.25
-        },
-        {
-          "tick": 100,
-          "enemyId": "zako_sine",
-          "y": 4.75
-        },
-        {
-          "tick": 100,
-          "enemyId": "zako_sine",
-          "y": -4.75
-        },
-        {
-          "tick": 150,
-          "enemyId": "echo_wisp",
-          "y": 5.5
-        },
-        {
-          "tick": 160,
-          "enemyId": "zako_tank",
+          "enemyId": "void_moth",
           "y": 2.5
         },
         {
-          "tick": 170,
+          "tick": 85,
           "enemyId": "echo_wisp",
           "y": -2.5
         },
         {
-          "tick": 180,
-          "enemyId": "echo_wisp",
-          "y": -5.5
-        },
-        {
-          "tick": 240,
-          "enemyId": "zako_sine_slow",
-          "y": 0
-        },
-        {
-          "tick": 280,
+          "tick": 130,
           "enemyId": "void_moth",
           "y": 4
         },
         {
-          "tick": 290,
-          "enemyId": "elite_sine",
-          "y": 0
-        },
-        {
-          "tick": 300,
-          "enemyId": "void_moth",
+          "tick": 175,
+          "enemyId": "echo_wisp",
           "y": -4
         },
         {
-          "tick": 360,
-          "enemyId": "zako_sine",
-          "y": 3.25
+          "tick": 240,
+          "enemyId": "prism_beamer",
+          "y": 4.5
         },
         {
-          "tick": 360,
-          "enemyId": "zako_sine",
-          "y": -3.25
-        },
-        {
-          "tick": 400,
-          "enemyId": "guardian_sphere",
+          "tick": 220,
+          "enemyId": "void_moth",
           "y": 0
         },
         {
-          "tick": 420,
+          "tick": 265,
+          "enemyId": "echo_wisp",
+          "y": 3
+        },
+        {
+          "tick": 310,
           "enemyId": "void_moth",
+          "y": -3
+        },
+        {
+          "tick": 355,
+          "enemyId": "echo_wisp",
           "y": 1.5
         },
         {
-          "tick": 420,
+          "tick": 400,
           "enemyId": "void_moth",
           "y": -1.5
         },
         {
-          "tick": 480,
-          "enemyId": "void_moth",
-          "y": 4.75
+          "tick": 100,
+          "enemyId": "zako_sine",
+          "y": 3.5
         },
         {
-          "tick": 490,
+          "tick": 180,
+          "enemyId": "zako_sine",
+          "y": -3.5
+        },
+        {
+          "tick": 260,
+          "enemyId": "zako_sine",
+          "y": 0
+        },
+        {
+          "tick": 340,
           "enemyId": "zako_tank",
           "y": 0
         },
         {
+          "tick": 420,
+          "enemyId": "zako_sine_slow",
+          "y": 2
+        },
+        {
           "tick": 500,
-          "enemyId": "void_moth",
-          "y": -4.75
-        },
-        {
-          "tick": 560,
-          "enemyId": "zako_sine_slow",
-          "y": 2.5
-        },
-        {
-          "tick": 560,
-          "enemyId": "zako_sine_slow",
-          "y": -2.5
-        },
-        {
-          "tick": 620,
-          "enemyId": "void_moth",
-          "y": 3.25
-        },
-        {
-          "tick": 630,
-          "enemyId": "void_moth",
-          "y": -3.25
-        },
-        {
-          "tick": 680,
           "enemyId": "elite_sine",
           "y": 0
         },
         {
-          "tick": 700,
-          "enemyId": "mini_crystal",
+          "tick": 580,
+          "enemyId": "guardian_sphere",
+          "y": 0
+        },
+        {
+          "tick": 640,
+          "enemyId": "elite_sine",
           "y": 0
         }
       ],
@@ -1827,10 +1817,17 @@
         {
           "type": "breakable",
           "x": 20.0,
-          "y": 0.0,
+          "y": 1.5,
           "hp": 40
         }
-      ]
+      ],
+      "intent": "리본 회피 동선 + 중형 앵커",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.28,
+          "yPerSecond": 0.32
+        }
+      }
     },
     {
       "id": "seg_core_guardian_wall",
@@ -1846,173 +1843,83 @@
       "theme": "core",
       "spawns": [
         {
-          "tick": 20,
+          "tick": 40,
           "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 20,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 50,
-          "enemyId": "guardian_sphere",
-          "y": 3.25
-        },
-        {
-          "tick": 50,
-          "enemyId": "guardian_sphere",
-          "y": -3.25
-        },
-        {
-          "tick": 100,
-          "enemyId": "rift_blade",
-          "y": 4.75
-        },
-        {
-          "tick": 110,
-          "enemyId": "rift_blade",
-          "y": 1.5
-        },
-        {
-          "tick": 120,
-          "enemyId": "rift_blade",
-          "y": -1.5
-        },
-        {
-          "tick": 130,
-          "enemyId": "rift_blade",
-          "y": -4.75
-        },
-        {
-          "tick": 180,
-          "enemyId": "phase_disc",
-          "y": 0
-        },
-        {
-          "tick": 220,
-          "enemyId": "guardian_sphere",
-          "y": 0
-        },
-        {
-          "tick": 260,
-          "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 280,
-          "enemyId": "interceptor_rush",
-          "y": 5.5
-        },
-        {
-          "tick": 290,
-          "enemyId": "interceptor_rush",
-          "y": 2.5
-        },
-        {
-          "tick": 300,
-          "enemyId": "interceptor_rush",
-          "y": -2.5
-        },
-        {
-          "tick": 310,
-          "enemyId": "interceptor_rush",
           "y": -5.5
         },
         {
-          "tick": 360,
-          "enemyId": "shard_prism",
-          "y": 4
-        },
-        {
-          "tick": 360,
-          "enemyId": "shard_prism",
-          "y": -4
-        },
-        {
-          "tick": 420,
+          "tick": 40,
           "enemyId": "turret_ceiling",
-          "y": 9.75
+          "y": 5.5
         },
         {
-          "tick": 450,
+          "tick": 100,
+          "enemyId": "guardian_sphere",
+          "y": 2
+        },
+        {
+          "tick": 160,
+          "enemyId": "guardian_sphere",
+          "y": -2
+        },
+        {
+          "tick": 220,
           "enemyId": "rift_blade",
-          "y": 3.25
+          "y": 3
+        },
+        {
+          "tick": 250,
+          "enemyId": "rift_blade",
+          "y": -3
+        },
+        {
+          "tick": 280,
+          "enemyId": "rift_blade",
+          "y": 1
+        },
+        {
+          "tick": 310,
+          "enemyId": "rift_blade",
+          "y": -1
+        },
+        {
+          "tick": 340,
+          "enemyId": "phase_disc",
+          "y": 3.5
+        },
+        {
+          "tick": 400,
+          "enemyId": "phase_disc",
+          "y": -3.5
         },
         {
           "tick": 460,
-          "enemyId": "rift_blade",
+          "enemyId": "shard_prism",
           "y": 0
         },
         {
-          "tick": 470,
-          "enemyId": "rift_blade",
-          "y": -3.25
-        },
-        {
           "tick": 520,
-          "enemyId": "phase_disc",
-          "y": 4.75
-        },
-        {
-          "tick": 520,
-          "enemyId": "phase_disc",
-          "y": -4.75
-        },
-        {
-          "tick": 580,
-          "enemyId": "shard_prism",
-          "y": 1.5
-        },
-        {
-          "tick": 580,
-          "enemyId": "shard_prism",
-          "y": -1.5
-        },
-        {
-          "tick": 640,
-          "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 640,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 680,
-          "enemyId": "interceptor_rush",
-          "y": 4
-        },
-        {
-          "tick": 690,
-          "enemyId": "interceptor_rush",
+          "enemyId": "guardian_sphere",
           "y": 0
         },
         {
-          "tick": 700,
-          "enemyId": "interceptor_rush",
-          "y": -4
+          "tick": 580,
+          "enemyId": "rift_blade",
+          "y": 2.5
         },
         {
-          "tick": 760,
-          "enemyId": "shard_prism",
+          "tick": 610,
+          "enemyId": "rift_blade",
+          "y": -2.5
+        },
+        {
+          "tick": 640,
+          "enemyId": "elite_sine",
           "y": 0
         },
         {
           "tick": 820,
-          "enemyId": "elite_sine",
-          "y": 2.5
-        },
-        {
-          "tick": 840,
-          "enemyId": "rift_blade",
-          "y": -2.5
-        },
-        {
-          "tick": 860,
-          "enemyId": "mini_walker",
+          "enemyId": "guardian_sphere",
           "y": 0
         }
       ],
@@ -2036,30 +1943,37 @@
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 18.0,
-          "y": -7.5,
-          "hp": 0
-        },
-        {
           "type": "breakable",
-          "x": 11.0,
-          "y": 0.0,
-          "hp": 40
-        },
-        {
-          "type": "breakable",
-          "x": 14.5,
-          "y": 3.25,
+          "x": 12.0,
+          "y": 2.0,
           "hp": 45
         },
         {
           "type": "breakable",
-          "x": 19.5,
-          "y": -1.5,
+          "x": 14.5,
+          "y": -2.5,
           "hp": 50
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": 1.75,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": 3.0,
+          "hp": 48
         }
-      ]
+      ],
+      "intent": "중형 벽 돌파 + 중형",
+      "environment": {
+        "drift": {
+          "xPerSecond": 0.3,
+          "yPerSecond": -0.2
+        }
+      }
     },
     {
       "id": "seg_core_final_gauntlet",
@@ -2075,197 +1989,112 @@
       "theme": "core",
       "spawns": [
         {
-          "tick": 20,
-          "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 20,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 40,
+          "tick": 30,
           "enemyId": "rift_blade",
-          "y": 4.75
-        },
-        {
-          "tick": 50,
-          "enemyId": "rift_blade",
-          "y": 1.5
-        },
-        {
-          "tick": 60,
-          "enemyId": "rift_blade",
-          "y": -1.5
+          "y": 4
         },
         {
           "tick": 70,
           "enemyId": "rift_blade",
-          "y": -4.75
+          "y": -3
         },
         {
           "tick": 110,
-          "enemyId": "shard_prism",
-          "y": 3.25
+          "enemyId": "rift_blade",
+          "y": 2
         },
         {
-          "tick": 110,
-          "enemyId": "shard_prism",
-          "y": -3.25
-        },
-        {
-          "tick": 160,
-          "enemyId": "interceptor_rush",
-          "y": 5.5
-        },
-        {
-          "tick": 170,
-          "enemyId": "interceptor_rush",
-          "y": 2.5
-        },
-        {
-          "tick": 180,
-          "enemyId": "interceptor_rush",
-          "y": 0
-        },
-        {
-          "tick": 190,
-          "enemyId": "interceptor_rush",
-          "y": -2.5
-        },
-        {
-          "tick": 200,
-          "enemyId": "interceptor_rush",
-          "y": -5.5
-        },
-        {
-          "tick": 250,
-          "enemyId": "phase_disc",
-          "y": 4
-        },
-        {
-          "tick": 250,
-          "enemyId": "phase_disc",
+          "tick": 150,
+          "enemyId": "rift_blade",
           "y": -4
         },
         {
-          "tick": 300,
-          "enemyId": "shard_prism",
+          "tick": 190,
+          "enemyId": "rift_blade",
           "y": 0
         },
         {
-          "tick": 340,
-          "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 340,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 370,
+          "tick": 230,
           "enemyId": "rift_blade",
-          "y": 4
+          "y": 3.5
         },
         {
-          "tick": 380,
+          "tick": 270,
           "enemyId": "rift_blade",
-          "y": 1.5
+          "y": -1.5
+        },
+        {
+          "tick": 310,
+          "enemyId": "rift_blade",
+          "y": 1
+        },
+        {
+          "tick": 350,
+          "enemyId": "rift_blade",
+          "y": -2.5
         },
         {
           "tick": 390,
           "enemyId": "rift_blade",
-          "y": -1.5
+          "y": 4.5
         },
         {
-          "tick": 400,
+          "tick": 430,
           "enemyId": "rift_blade",
-          "y": -4
+          "y": -4.5
         },
         {
-          "tick": 450,
-          "enemyId": "shard_prism",
-          "y": 4.75
+          "tick": 470,
+          "enemyId": "rift_blade",
+          "y": 0.5
         },
         {
-          "tick": 450,
-          "enemyId": "shard_prism",
-          "y": -4.75
-        },
-        {
-          "tick": 500,
-          "enemyId": "interceptor_rush",
-          "y": 3.25
-        },
-        {
-          "tick": 510,
-          "enemyId": "interceptor_rush",
-          "y": 0
-        },
-        {
-          "tick": 520,
-          "enemyId": "interceptor_rush",
-          "y": -3.25
-        },
-        {
-          "tick": 560,
-          "enemyId": "phase_disc",
-          "y": 2.5
-        },
-        {
-          "tick": 560,
-          "enemyId": "phase_disc",
-          "y": -2.5
-        },
-        {
-          "tick": 600,
-          "enemyId": "shard_prism",
-          "y": 1.5
-        },
-        {
-          "tick": 600,
-          "enemyId": "shard_prism",
-          "y": -1.5
-        },
-        {
-          "tick": 650,
+          "tick": 100,
           "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 650,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 680,
-          "enemyId": "rift_blade",
-          "y": 5.5
-        },
-        {
-          "tick": 690,
-          "enemyId": "rift_blade",
-          "y": 2.5
-        },
-        {
-          "tick": 700,
-          "enemyId": "rift_blade",
-          "y": -2.5
-        },
-        {
-          "tick": 710,
-          "enemyId": "rift_blade",
           "y": -5.5
         },
         {
-          "tick": 760,
+          "tick": 200,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 280,
+          "enemyId": "shard_prism",
+          "y": 2
+        },
+        {
+          "tick": 360,
+          "enemyId": "shard_prism",
+          "y": -2
+        },
+        {
+          "tick": 440,
+          "enemyId": "phase_disc",
+          "y": 0
+        },
+        {
+          "tick": 500,
+          "enemyId": "phase_disc",
+          "y": 3
+        },
+        {
+          "tick": 560,
+          "enemyId": "interceptor_rush",
+          "y": 1
+        },
+        {
+          "tick": 600,
+          "enemyId": "interceptor_rush",
+          "y": -1
+        },
+        {
+          "tick": 660,
           "enemyId": "shard_prism",
           "y": 0
         },
         {
-          "tick": 800,
+          "tick": 720,
           "enemyId": "elite_sine",
           "y": 0
         }
@@ -2290,30 +2119,59 @@
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 17.5,
-          "y": -5.5,
-          "hp": 0
+          "type": "laserEmitter",
+          "x": 15.0,
+          "y": 3.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 18.0,
+          "y": -3.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 180,
+            "telegraphTicks": 42,
+            "firingTicks": 6,
+            "sustainTicks": 28,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         },
         {
           "type": "breakable",
           "x": 12.0,
-          "y": 0.0,
-          "hp": 40
-        },
-        {
-          "type": "breakable",
-          "x": 15.5,
-          "y": 2.5,
-          "hp": 45
-        },
-        {
-          "type": "breakable",
-          "x": 19.0,
-          "y": -3.0,
+          "y": 1.75,
           "hp": 50
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": -1.75,
+          "hp": 55
         }
-      ]
+      ],
+      "intent": "잡몹 가틀릿 속 중형 연속 처리"
     },
     {
       "id": "seg_scrap_debris_line",
@@ -2331,65 +2189,97 @@
         {
           "tick": 40,
           "enemyId": "junk_roller",
-          "y": 3.25
+          "y": 3
         },
         {
-          "tick": 70,
-          "enemyId": "junk_roller",
-          "y": -3.25
-        },
-        {
-          "tick": 110,
+          "tick": 80,
           "enemyId": "rust_skimmer",
-          "y": 0
+          "y": -2
+        },
+        {
+          "tick": 120,
+          "enemyId": "pipe_rat",
+          "y": 1
         },
         {
           "tick": 160,
-          "enemyId": "pipe_rat",
-          "y": 4
-        },
-        {
-          "tick": 190,
-          "enemyId": "pipe_rat",
+          "enemyId": "junk_roller",
           "y": -4
         },
         {
-          "tick": 250,
-          "enemyId": "scrap_tumbler",
+          "tick": 200,
+          "enemyId": "rust_skimmer",
           "y": 2.5
         },
         {
+          "tick": 240,
+          "enemyId": "pipe_rat",
+          "y": -1
+        },
+        {
           "tick": 280,
-          "enemyId": "scrap_tumbler",
-          "y": -2.5
+          "enemyId": "junk_roller",
+          "y": 4
         },
         {
-          "tick": 340,
-          "enemyId": "junk_roller",
-          "y": 1.5
+          "tick": 320,
+          "enemyId": "rust_skimmer",
+          "y": -3
         },
         {
-          "tick": 370,
+          "tick": 360,
+          "enemyId": "pipe_rat",
+          "y": 0
+        },
+        {
+          "tick": 400,
           "enemyId": "junk_roller",
-          "y": -1.5
+          "y": 3.5
         },
         {
           "tick": 440,
           "enemyId": "rust_skimmer",
-          "y": 4.75
+          "y": -2.5
         },
         {
-          "tick": 470,
-          "enemyId": "rust_skimmer",
-          "y": -4.75
-        },
-        {
-          "tick": 530,
+          "tick": 480,
           "enemyId": "pipe_rat",
-          "y": 0
+          "y": 1.5
         }
       ],
-      "obstacles": []
+      "obstacles": [
+        {
+          "type": "breakable",
+          "x": 11.0,
+          "y": 2.5,
+          "hp": 25
+        },
+        {
+          "type": "breakable",
+          "x": 13.5,
+          "y": -1.75,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": 3.5,
+          "hp": 28
+        },
+        {
+          "type": "breakable",
+          "x": 18.5,
+          "y": -3.0,
+          "hp": 32
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": 1.75,
+          "hp": 35
+        }
+      ],
+      "intent": "스크랩 잡몹 직선 리듬"
     },
     {
       "id": "seg_scrap_pipe_dash",
@@ -2405,77 +2295,115 @@
       "theme": "scrapyard",
       "spawns": [
         {
-          "tick": 30,
+          "tick": 35,
           "enemyId": "pipe_rat",
-          "y": 4.75
+          "y": 2
         },
         {
-          "tick": 50,
+          "tick": 70,
+          "enemyId": "rust_skimmer",
+          "y": -2
+        },
+        {
+          "tick": 105,
           "enemyId": "pipe_rat",
-          "y": -4.75
+          "y": 4
         },
         {
-          "tick": 90,
+          "tick": 140,
           "enemyId": "rust_skimmer",
-          "y": 1.5
+          "y": -4
         },
         {
-          "tick": 110,
-          "enemyId": "rust_skimmer",
-          "y": -1.5
-        },
-        {
-          "tick": 160,
-          "enemyId": "junk_roller",
-          "y": 3.25
-        },
-        {
-          "tick": 190,
-          "enemyId": "junk_roller",
-          "y": -3.25
-        },
-        {
-          "tick": 240,
+          "tick": 175,
           "enemyId": "pipe_rat",
           "y": 0
+        },
+        {
+          "tick": 210,
+          "enemyId": "rust_skimmer",
+          "y": 3
+        },
+        {
+          "tick": 245,
+          "enemyId": "pipe_rat",
+          "y": -3
         },
         {
           "tick": 280,
           "enemyId": "rust_skimmer",
-          "y": 5.5
+          "y": 1.5
         },
         {
-          "tick": 300,
+          "tick": 315,
+          "enemyId": "pipe_rat",
+          "y": -1.5
+        },
+        {
+          "tick": 350,
           "enemyId": "rust_skimmer",
-          "y": -5.5
+          "y": 4.5
         },
         {
-          "tick": 360,
-          "enemyId": "scrap_tumbler",
-          "y": 0
+          "tick": 385,
+          "enemyId": "pipe_rat",
+          "y": -4.5
         },
         {
           "tick": 420,
+          "enemyId": "rust_skimmer",
+          "y": 0
+        },
+        {
+          "tick": 455,
           "enemyId": "pipe_rat",
           "y": 2.5
         },
         {
-          "tick": 440,
-          "enemyId": "pipe_rat",
+          "tick": 490,
+          "enemyId": "rust_skimmer",
           "y": -2.5
-        },
-        {
-          "tick": 500,
-          "enemyId": "junk_roller",
-          "y": 4
-        },
-        {
-          "tick": 520,
-          "enemyId": "junk_roller",
-          "y": -4
         }
       ],
-      "obstacles": []
+      "obstacles": [
+        {
+          "type": "breakable",
+          "x": 12.0,
+          "y": 4.0,
+          "hp": 22
+        },
+        {
+          "type": "breakable",
+          "x": 14.5,
+          "y": -3.5,
+          "hp": 26
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": 1.75,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 19.5,
+          "y": -2.0,
+          "hp": 28
+        },
+        {
+          "type": "breakable",
+          "x": 15.5,
+          "y": 3.0,
+          "hp": 24
+        },
+        {
+          "type": "breakable",
+          "x": 13.0,
+          "y": -1.75,
+          "hp": 34
+        }
+      ],
+      "intent": "대시 잡몹 회피 — 반응 속도"
     },
     {
       "id": "seg_scrap_skimmer_weave",
@@ -2491,82 +2419,120 @@
       "theme": "scrapyard",
       "spawns": [
         {
-          "tick": 40,
+          "tick": 35,
           "enemyId": "rust_skimmer",
           "y": 4
         },
         {
-          "tick": 40,
+          "tick": 73,
+          "enemyId": "rust_skimmer",
+          "y": -3
+        },
+        {
+          "tick": 111,
+          "enemyId": "junk_roller",
+          "y": 2
+        },
+        {
+          "tick": 149,
           "enemyId": "rust_skimmer",
           "y": -4
         },
         {
-          "tick": 100,
-          "enemyId": "scrap_tumbler",
+          "tick": 187,
+          "enemyId": "rust_skimmer",
+          "y": 1
+        },
+        {
+          "tick": 225,
+          "enemyId": "junk_roller",
+          "y": -2
+        },
+        {
+          "tick": 263,
+          "enemyId": "rust_skimmer",
+          "y": 3.5
+        },
+        {
+          "tick": 301,
+          "enemyId": "rust_skimmer",
+          "y": -1
+        },
+        {
+          "tick": 339,
+          "enemyId": "junk_roller",
           "y": 0
         },
         {
-          "tick": 150,
-          "enemyId": "pipe_rat",
-          "y": 3.25
-        },
-        {
-          "tick": 170,
-          "enemyId": "pipe_rat",
-          "y": -3.25
-        },
-        {
-          "tick": 230,
-          "enemyId": "junk_roller",
-          "y": 5.5
-        },
-        {
-          "tick": 230,
-          "enemyId": "junk_roller",
-          "y": -5.5
-        },
-        {
-          "tick": 300,
+          "tick": 377,
           "enemyId": "rust_skimmer",
-          "y": 1.5
+          "y": 4.5
         },
         {
-          "tick": 320,
+          "tick": 415,
           "enemyId": "rust_skimmer",
-          "y": -1.5
+          "y": -3.5
         },
         {
-          "tick": 380,
-          "enemyId": "scrap_tumbler",
-          "y": 4.75
-        },
-        {
-          "tick": 400,
-          "enemyId": "scrap_tumbler",
-          "y": -4.75
-        },
-        {
-          "tick": 470,
-          "enemyId": "pipe_rat",
-          "y": 0
-        },
-        {
-          "tick": 530,
+          "tick": 453,
           "enemyId": "junk_roller",
           "y": 2.5
         },
         {
-          "tick": 550,
-          "enemyId": "junk_roller",
-          "y": -2.5
+          "tick": 491,
+          "enemyId": "rust_skimmer",
+          "y": -0.5
         },
         {
-          "tick": 600,
+          "tick": 529,
           "enemyId": "rust_skimmer",
-          "y": 0
+          "y": 3
+        },
+        {
+          "tick": 567,
+          "enemyId": "junk_roller",
+          "y": -4.5
         }
       ],
-      "obstacles": []
+      "obstacles": [
+        {
+          "type": "breakable",
+          "x": 11.5,
+          "y": 3.25,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": -3.25,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": 1.75,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": 4.0,
+          "hp": 28
+        },
+        {
+          "type": "breakable",
+          "x": 12.5,
+          "y": -1.75,
+          "hp": 32
+        },
+        {
+          "type": "breakable",
+          "x": 17.5,
+          "y": -4.0,
+          "hp": 26
+        }
+      ],
+      "intent": "스킴 잡몹 직조 회피 동선"
     },
     {
       "id": "seg_scrap_junk_corridor",
@@ -2582,94 +2548,84 @@
       "theme": "scrapyard",
       "spawns": [
         {
-          "tick": 30,
+          "tick": 40,
           "enemyId": "junk_roller",
-          "y": 4.75
+          "y": 2
         },
         {
-          "tick": 30,
+          "tick": 70,
           "enemyId": "junk_roller",
-          "y": -4.75
+          "y": -2
         },
         {
-          "tick": 80,
+          "tick": 100,
           "enemyId": "scrap_tumbler",
-          "y": 2.5
-        },
-        {
-          "tick": 80,
-          "enemyId": "scrap_tumbler",
-          "y": -2.5
+          "y": 3
         },
         {
           "tick": 140,
+          "enemyId": "scrap_tumbler",
+          "y": -3
+        },
+        {
+          "tick": 180,
           "enemyId": "pipe_rat",
           "y": 0
         },
         {
-          "tick": 180,
+          "tick": 210,
           "enemyId": "rust_skimmer",
-          "y": 5.5
-        },
-        {
-          "tick": 200,
-          "enemyId": "rust_skimmer",
-          "y": -5.5
-        },
-        {
-          "tick": 260,
-          "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 300,
-          "enemyId": "junk_roller",
-          "y": 1.5
-        },
-        {
-          "tick": 320,
-          "enemyId": "junk_roller",
-          "y": -1.5
-        },
-        {
-          "tick": 380,
-          "enemyId": "scrap_tumbler",
           "y": 4
         },
         {
-          "tick": 400,
+          "tick": 250,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 300,
           "enemyId": "scrap_tumbler",
+          "y": 2.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "scrap_tumbler",
+          "y": -2.5
+        },
+        {
+          "tick": 380,
+          "enemyId": "junk_roller",
+          "y": 1
+        },
+        {
+          "tick": 420,
+          "enemyId": "pipe_rat",
           "y": -4
         },
         {
           "tick": 460,
-          "enemyId": "pipe_rat",
-          "y": 3.25
-        },
-        {
-          "tick": 480,
-          "enemyId": "pipe_rat",
-          "y": -3.25
-        },
-        {
-          "tick": 540,
           "enemyId": "rust_skimmer",
-          "y": 0
+          "y": 3
         },
         {
-          "tick": 600,
+          "tick": 520,
           "enemyId": "zako_tank",
           "y": 0
         },
         {
-          "tick": 660,
-          "enemyId": "junk_roller",
-          "y": 2.5
+          "tick": 580,
+          "enemyId": "scrap_tumbler",
+          "y": 3.5
         },
         {
-          "tick": 680,
+          "tick": 620,
+          "enemyId": "scrap_tumbler",
+          "y": -3.5
+        },
+        {
+          "tick": 660,
           "enemyId": "junk_roller",
-          "y": -2.5
+          "y": 0
         }
       ],
       "obstacles": [
@@ -2687,17 +2643,36 @@
         },
         {
           "type": "breakable",
-          "x": 13.0,
-          "y": 0.0,
-          "hp": 15
+          "x": 12.5,
+          "y": 1.75,
+          "hp": 35
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": -2.0,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": 3.0,
+          "hp": 38
         },
         {
           "type": "breakable",
           "x": 18.0,
-          "y": 3.25,
-          "hp": 20
+          "y": -1.75,
+          "hp": 45
+        },
+        {
+          "type": "breakable",
+          "x": 19.5,
+          "y": 2.5,
+          "hp": 42
         }
-      ]
+      ],
+      "intent": "강화형 조준 + 통로 압박"
     },
     {
       "id": "seg_scrap_tumbler_pack",
@@ -2713,99 +2688,99 @@
       "theme": "scrapyard",
       "spawns": [
         {
-          "tick": 40,
+          "tick": 50,
           "enemyId": "scrap_tumbler",
-          "y": 4.75
+          "y": 3
         },
         {
-          "tick": 40,
+          "tick": 100,
           "enemyId": "scrap_tumbler",
-          "y": -4.75
+          "y": -3
         },
         {
-          "tick": 90,
-          "enemyId": "scrap_tumbler",
-          "y": 0
-        },
-        {
-          "tick": 140,
-          "enemyId": "pipe_rat",
-          "y": 3.25
-        },
-        {
-          "tick": 160,
-          "enemyId": "pipe_rat",
-          "y": -3.25
-        },
-        {
-          "tick": 210,
-          "enemyId": "junk_roller",
-          "y": 5.5
-        },
-        {
-          "tick": 210,
-          "enemyId": "junk_roller",
-          "y": -5.5
-        },
-        {
-          "tick": 270,
-          "enemyId": "rust_skimmer",
-          "y": 1.5
-        },
-        {
-          "tick": 290,
-          "enemyId": "rust_skimmer",
-          "y": -1.5
-        },
-        {
-          "tick": 350,
+          "tick": 150,
           "enemyId": "scrap_tumbler",
           "y": 4
         },
         {
-          "tick": 350,
+          "tick": 200,
           "enemyId": "scrap_tumbler",
           "y": -4
         },
         {
-          "tick": 410,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 450,
-          "enemyId": "junk_roller",
-          "y": 0
-        },
-        {
-          "tick": 500,
-          "enemyId": "pipe_rat",
-          "y": 2.5
-        },
-        {
-          "tick": 520,
-          "enemyId": "pipe_rat",
-          "y": -2.5
-        },
-        {
-          "tick": 580,
+          "tick": 250,
           "enemyId": "scrap_tumbler",
           "y": 1.5
         },
         {
-          "tick": 580,
+          "tick": 300,
           "enemyId": "scrap_tumbler",
           "y": -1.5
         },
         {
-          "tick": 640,
-          "enemyId": "zako_tank",
+          "tick": 350,
+          "enemyId": "scrap_tumbler",
           "y": 0
         },
         {
-          "tick": 680,
+          "tick": 400,
+          "enemyId": "scrap_tumbler",
+          "y": 2.5
+        },
+        {
+          "tick": 450,
+          "enemyId": "scrap_tumbler",
+          "y": -2.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "scrap_tumbler",
+          "y": 3.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "pipe_rat",
+          "y": 4.5
+        },
+        {
+          "tick": 220,
+          "enemyId": "pipe_rat",
+          "y": -4.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "junk_roller",
+          "y": 2
+        },
+        {
+          "tick": 340,
+          "enemyId": "junk_roller",
+          "y": -2
+        },
+        {
+          "tick": 400,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 480,
           "enemyId": "rust_skimmer",
-          "y": 4.75
+          "y": 0
+        },
+        {
+          "tick": 520,
+          "enemyId": "rust_skimmer",
+          "y": 3
+        },
+        {
+          "tick": 400,
+          "enemyId": "prism_beamer",
+          "y": 4.25
+        },
+        {
+          "tick": 580,
+          "enemyId": "zako_tank",
+          "y": 0
         }
       ],
       "obstacles": [
@@ -2823,17 +2798,42 @@
         },
         {
           "type": "breakable",
-          "x": 16.0,
-          "y": 0.0,
-          "hp": 20
+          "x": 12.0,
+          "y": 1.75,
+          "hp": 45
+        },
+        {
+          "type": "breakable",
+          "x": 14.5,
+          "y": 3.5,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 14.5,
+          "y": -3.5,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": 2.0,
+          "hp": 50
         },
         {
           "type": "breakable",
           "x": 19.0,
-          "y": 2.5,
-          "hp": 25
+          "y": -2.5,
+          "hp": 48
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": -1.75,
+          "hp": 55
         }
-      ]
+      ],
+      "intent": "강화형 텀블러 팩 조준 강요"
     },
     {
       "id": "seg_scrap_rust_gauntlet",
@@ -2849,109 +2849,99 @@
       "theme": "scrapyard",
       "spawns": [
         {
-          "tick": 30,
-          "enemyId": "rust_skimmer",
-          "y": 4.75
-        },
-        {
           "tick": 40,
           "enemyId": "rust_skimmer",
-          "y": 1.5
+          "y": 3
         },
         {
-          "tick": 50,
+          "tick": 70,
           "enemyId": "rust_skimmer",
-          "y": -1.5
+          "y": -3
         },
         {
-          "tick": 60,
+          "tick": 100,
           "enemyId": "rust_skimmer",
-          "y": -4.75
-        },
-        {
-          "tick": 120,
-          "enemyId": "scrap_tumbler",
-          "y": 3.25
-        },
-        {
-          "tick": 120,
-          "enemyId": "scrap_tumbler",
-          "y": -3.25
-        },
-        {
-          "tick": 180,
-          "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 180,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 220,
-          "enemyId": "pipe_rat",
           "y": 0
         },
         {
-          "tick": 260,
-          "enemyId": "junk_roller",
-          "y": 5.5
-        },
-        {
-          "tick": 280,
-          "enemyId": "junk_roller",
-          "y": -5.5
-        },
-        {
-          "tick": 340,
-          "enemyId": "rust_skimmer",
-          "y": 2.5
-        },
-        {
-          "tick": 360,
-          "enemyId": "rust_skimmer",
-          "y": -2.5
-        },
-        {
-          "tick": 420,
-          "enemyId": "scrap_tumbler",
-          "y": 0
-        },
-        {
-          "tick": 480,
-          "enemyId": "zako_tank",
-          "y": 1.5
-        },
-        {
-          "tick": 500,
-          "enemyId": "zako_tank",
-          "y": -1.5
-        },
-        {
-          "tick": 560,
+          "tick": 130,
           "enemyId": "pipe_rat",
           "y": 4
         },
         {
-          "tick": 580,
+          "tick": 160,
           "enemyId": "pipe_rat",
           "y": -4
         },
         {
-          "tick": 640,
+          "tick": 200,
+          "enemyId": "scrap_tumbler",
+          "y": 2
+        },
+        {
+          "tick": 240,
+          "enemyId": "scrap_tumbler",
+          "y": -2
+        },
+        {
+          "tick": 280,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 280,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "junk_roller",
+          "y": 1.5
+        },
+        {
+          "tick": 380,
+          "enemyId": "junk_roller",
+          "y": -1.5
+        },
+        {
+          "tick": 440,
+          "enemyId": "zako_tank",
+          "y": 2.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "zako_tank",
+          "y": -2.5
+        },
+        {
+          "tick": 560,
+          "enemyId": "rust_skimmer",
+          "y": 3.5
+        },
+        {
+          "tick": 600,
+          "enemyId": "rust_skimmer",
+          "y": -3.5
+        },
+        {
+          "tick": 660,
           "enemyId": "elite_sine",
           "y": 0
         },
         {
-          "tick": 700,
-          "enemyId": "rust_skimmer",
-          "y": 3.25
-        },
-        {
           "tick": 720,
           "enemyId": "rust_skimmer",
-          "y": -3.25
+          "y": 0
+        },
+        {
+          "tick": 740,
+          "enemyId": "pipe_rat",
+          "y": 2
+        },
+        {
+          "tick": 760,
+          "enemyId": "pipe_rat",
+          "y": -2
         }
       ],
       "obstacles": [
@@ -2975,17 +2965,48 @@
         },
         {
           "type": "breakable",
-          "x": 12.5,
-          "y": 0.0,
-          "hp": 25
+          "x": 11.5,
+          "y": 2.0,
+          "hp": 50
         },
         {
           "type": "breakable",
-          "x": 16.5,
+          "x": 13.0,
           "y": -2.5,
-          "hp": 30
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 15.5,
+          "y": 1.75,
+          "hp": 60
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": 3.5,
+          "hp": 48
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": -3.5,
+          "hp": 48
+        },
+        {
+          "type": "breakable",
+          "x": 19.5,
+          "y": -1.75,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 12.5,
+          "y": -4.0,
+          "hp": 42
         }
-      ]
+      ],
+      "intent": "중형 앵커 가틀릿 — 화력 집중"
     },
     {
       "id": "seg_hive_brood_wave",
@@ -3001,104 +3022,109 @@
       "theme": "hive",
       "spawns": [
         {
-          "tick": 30,
-          "enemyId": "spore_drifter",
-          "y": 4.75
-        },
-        {
-          "tick": 30,
-          "enemyId": "spore_drifter",
-          "y": -4.75
+          "tick": 50,
+          "enemyId": "brood_spitter",
+          "y": 3
         },
         {
           "tick": 80,
+          "enemyId": "spore_drifter",
+          "y": 2
+        },
+        {
+          "tick": 100,
+          "enemyId": "hive_tentacle",
+          "y": -5.25
+        },
+        {
+          "tick": 100,
+          "enemyId": "hive_tentacle",
+          "y": 5.25
+        },
+        {
+          "tick": 120,
+          "enemyId": "brood_spitter",
+          "y": -3
+        },
+        {
+          "tick": 140,
+          "enemyId": "spore_drifter",
+          "y": -2
+        },
+        {
+          "tick": 190,
           "enemyId": "brood_spitter",
           "y": 0
         },
         {
-          "tick": 130,
+          "tick": 200,
           "enemyId": "spore_drifter",
-          "y": 2.5
+          "y": 3.5
         },
         {
-          "tick": 130,
+          "tick": 260,
           "enemyId": "spore_drifter",
-          "y": -2.5
+          "y": -3.5
         },
         {
-          "tick": 190,
+          "tick": 260,
+          "enemyId": "brood_spitter",
+          "y": 4
+        },
+        {
+          "tick": 320,
+          "enemyId": "sting_hornet",
+          "y": 0
+        },
+        {
+          "tick": 330,
+          "enemyId": "brood_spitter",
+          "y": -4
+        },
+        {
+          "tick": 380,
           "enemyId": "sting_hornet",
           "y": 4
         },
         {
-          "tick": 190,
-          "enemyId": "sting_hornet",
-          "y": -4
-        },
-        {
-          "tick": 250,
+          "tick": 400,
           "enemyId": "brood_spitter",
           "y": 1.5
         },
         {
-          "tick": 250,
-          "enemyId": "brood_spitter",
-          "y": -1.5
+          "tick": 400,
+          "enemyId": "hive_tentacle",
+          "y": 3.5
         },
         {
-          "tick": 310,
-          "enemyId": "spore_drifter",
-          "y": 5.5
-        },
-        {
-          "tick": 310,
-          "enemyId": "spore_drifter",
-          "y": -5.5
-        },
-        {
-          "tick": 370,
+          "tick": 440,
           "enemyId": "lancer_dart",
-          "y": 3.25
+          "y": -2
         },
         {
-          "tick": 380,
+          "tick": 480,
           "enemyId": "lancer_dart",
-          "y": 0
+          "y": 2
         },
         {
-          "tick": 390,
-          "enemyId": "lancer_dart",
-          "y": -3.25
-        },
-        {
-          "tick": 450,
+          "tick": 540,
           "enemyId": "brood_spitter",
           "y": 0
         },
         {
-          "tick": 510,
-          "enemyId": "sting_hornet",
+          "tick": 600,
+          "enemyId": "brood_spitter",
           "y": 2.5
         },
         {
-          "tick": 530,
-          "enemyId": "sting_hornet",
-          "y": -2.5
-        },
-        {
-          "tick": 590,
+          "tick": 640,
           "enemyId": "spore_drifter",
-          "y": 0
+          "y": -1
         },
         {
-          "tick": 650,
-          "enemyId": "brood_spitter",
-          "y": 4.75
-        },
-        {
-          "tick": 670,
-          "enemyId": "brood_spitter",
-          "y": -4.75
+          "tick": 680,
+          "enemyId": "sting_hornet",
+          "y": -4
         }
       ],
       "obstacles": [
@@ -3111,7 +3137,7 @@
         {
           "type": "breakable",
           "x": 15.0,
-          "y": 0.0,
+          "y": -1.5,
           "hp": 20
         },
         {
@@ -3120,7 +3146,8 @@
           "y": -3.25,
           "hp": 25
         }
-      ]
+      ],
+      "intent": "강화형 브루드 사격 조준"
     },
     {
       "id": "seg_hive_hornet_dive",
@@ -3136,104 +3163,104 @@
       "theme": "hive",
       "spawns": [
         {
-          "tick": 30,
+          "tick": 35,
           "enemyId": "sting_hornet",
-          "y": 4.75
+          "y": 3
         },
         {
-          "tick": 50,
-          "enemyId": "sting_hornet",
-          "y": -4.75
+          "tick": 75,
+          "enemyId": "lancer_dart",
+          "y": -2
         },
         {
           "tick": 90,
-          "enemyId": "sting_hornet",
-          "y": 0
-        },
-        {
-          "tick": 130,
-          "enemyId": "lancer_dart",
-          "y": 3.25
-        },
-        {
-          "tick": 140,
-          "enemyId": "lancer_dart",
-          "y": -3.25
-        },
-        {
-          "tick": 190,
-          "enemyId": "spore_drifter",
-          "y": 5.5
-        },
-        {
-          "tick": 190,
-          "enemyId": "spore_drifter",
+          "enemyId": "hive_tentacle",
           "y": -5.5
         },
         {
-          "tick": 240,
-          "enemyId": "sting_hornet",
-          "y": 1.5
+          "tick": 90,
+          "enemyId": "hive_tentacle",
+          "y": 5.5
         },
         {
-          "tick": 260,
-          "enemyId": "sting_hornet",
-          "y": -1.5
-        },
-        {
-          "tick": 310,
-          "enemyId": "brood_spitter",
-          "y": 0
-        },
-        {
-          "tick": 360,
+          "tick": 115,
           "enemyId": "sting_hornet",
           "y": 4
         },
         {
-          "tick": 380,
-          "enemyId": "sting_hornet",
+          "tick": 155,
+          "enemyId": "lancer_dart",
           "y": -4
         },
         {
-          "tick": 430,
+          "tick": 195,
+          "enemyId": "sting_hornet",
+          "y": 1
+        },
+        {
+          "tick": 200,
+          "enemyId": "spore_drifter",
+          "y": 2
+        },
+        {
+          "tick": 235,
           "enemyId": "lancer_dart",
+          "y": -1
+        },
+        {
+          "tick": 275,
+          "enemyId": "sting_hornet",
           "y": 2.5
         },
         {
-          "tick": 440,
+          "tick": 280,
+          "enemyId": "spore_drifter",
+          "y": -2
+        },
+        {
+          "tick": 315,
           "enemyId": "lancer_dart",
+          "y": -3.5
+        },
+        {
+          "tick": 355,
+          "enemyId": "sting_hornet",
           "y": 0
         },
         {
-          "tick": 450,
-          "enemyId": "lancer_dart",
-          "y": -2.5
+          "tick": 360,
+          "enemyId": "brood_spitter",
+          "y": 0
         },
         {
-          "tick": 500,
-          "enemyId": "spore_drifter",
-          "y": 3.25
+          "tick": 395,
+          "enemyId": "lancer_dart",
+          "y": 3.5
+        },
+        {
+          "tick": 435,
+          "enemyId": "sting_hornet",
+          "y": -0.5
+        },
+        {
+          "tick": 440,
+          "enemyId": "brood_spitter",
+          "y": 3
+        },
+        {
+          "tick": 475,
+          "enemyId": "lancer_dart",
+          "y": 4.5
         },
         {
           "tick": 520,
           "enemyId": "spore_drifter",
-          "y": -3.25
+          "y": -3
         },
         {
-          "tick": 560,
+          "tick": 580,
           "enemyId": "sting_hornet",
-          "y": 0
-        },
-        {
-          "tick": 600,
-          "enemyId": "brood_spitter",
-          "y": 2.5
-        },
-        {
-          "tick": 620,
-          "enemyId": "brood_spitter",
-          "y": -2.5
+          "y": 1
         }
       ],
       "obstacles": [
@@ -3261,7 +3288,8 @@
           "y": -1.5,
           "hp": 20
         }
-      ]
+      ],
+      "intent": "다이브 잡몹 회피 리듬"
     },
     {
       "id": "seg_hive_organic_pulse",
@@ -3277,108 +3305,83 @@
       "theme": "hive",
       "spawns": [
         {
-          "tick": 30,
-          "enemyId": "spore_drifter",
-          "y": 4.75
+          "tick": 40,
+          "enemyId": "hive_tentacle",
+          "y": -6.5
         },
         {
-          "tick": 30,
+          "tick": 40,
           "enemyId": "spore_drifter",
-          "y": 0
+          "y": 3
         },
         {
-          "tick": 30,
-          "enemyId": "spore_drifter",
-          "y": -4.75
+          "tick": 40,
+          "enemyId": "hive_tentacle",
+          "y": 6.5
         },
         {
-          "tick": 90,
+          "tick": 80,
+          "enemyId": "spore_drifter",
+          "y": -3
+        },
+        {
+          "tick": 120,
           "enemyId": "brood_spitter",
-          "y": 2.5
-        },
-        {
-          "tick": 90,
-          "enemyId": "brood_spitter",
-          "y": -2.5
-        },
-        {
-          "tick": 150,
-          "enemyId": "lancer_dart",
-          "y": 5.5
-        },
-        {
-          "tick": 160,
-          "enemyId": "lancer_dart",
-          "y": 1.5
-        },
-        {
-          "tick": 170,
-          "enemyId": "lancer_dart",
-          "y": -1.5
+          "y": 2
         },
         {
           "tick": 180,
-          "enemyId": "lancer_dart",
-          "y": -5.5
+          "enemyId": "brood_spitter",
+          "y": -2
         },
         {
           "tick": 240,
-          "enemyId": "sting_hornet",
-          "y": 0
-        },
-        {
-          "tick": 290,
-          "enemyId": "brood_spitter",
+          "enemyId": "lancer_dart",
           "y": 4
         },
         {
-          "tick": 290,
-          "enemyId": "brood_spitter",
+          "tick": 280,
+          "enemyId": "lancer_dart",
           "y": -4
         },
         {
-          "tick": 350,
-          "enemyId": "spore_drifter",
-          "y": 3.25
+          "tick": 300,
+          "enemyId": "hive_tentacle",
+          "y": 4.0
         },
         {
-          "tick": 350,
-          "enemyId": "spore_drifter",
-          "y": -3.25
-        },
-        {
-          "tick": 410,
+          "tick": 320,
           "enemyId": "sting_hornet",
-          "y": 5.5
-        },
-        {
-          "tick": 430,
-          "enemyId": "sting_hornet",
-          "y": -5.5
-        },
-        {
-          "tick": 490,
-          "enemyId": "lancer_dart",
-          "y": 2.5
-        },
-        {
-          "tick": 500,
-          "enemyId": "lancer_dart",
-          "y": -2.5
-        },
-        {
-          "tick": 560,
-          "enemyId": "brood_spitter",
           "y": 0
         },
         {
-          "tick": 620,
+          "tick": 360,
           "enemyId": "elite_sine",
           "y": 0
         },
         {
-          "tick": 680,
-          "enemyId": "mini_horror",
+          "tick": 420,
+          "enemyId": "brood_spitter",
+          "y": 3
+        },
+        {
+          "tick": 460,
+          "enemyId": "spore_drifter",
+          "y": -1
+        },
+        {
+          "tick": 500,
+          "enemyId": "lancer_dart",
+          "y": 2
+        },
+        {
+          "tick": 540,
+          "enemyId": "sting_hornet",
+          "y": -3
+        },
+        {
+          "tick": 700,
+          "enemyId": "brood_spitter",
           "y": 0
         }
       ],
@@ -3396,15 +3399,9 @@
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 18.0,
-          "y": 4.0,
-          "hp": 0
-        },
-        {
           "type": "breakable",
           "x": 12.5,
-          "y": 0.0,
+          "y": 1.5,
           "hp": 25
         },
         {
@@ -3413,7 +3410,17 @@
           "y": 2.5,
           "hp": 30
         }
-      ]
+      ],
+      "intent": "중형 위협 + 중형 화력 집중",
+      "environment": {
+        "corridor": {
+          "startMinY": -9.0,
+          "startMaxY": 9.0,
+          "endMinY": -5.0,
+          "endMaxY": 5.0,
+          "contactDamage": 1
+        }
+      }
     },
     {
       "id": "seg_hive_nest_choke",
@@ -3429,103 +3436,73 @@
       "theme": "hive",
       "spawns": [
         {
-          "tick": 40,
+          "tick": 30,
+          "enemyId": "hive_tentacle",
+          "y": -5.75
+        },
+        {
+          "tick": 30,
+          "enemyId": "hive_tentacle",
+          "y": 5.75
+        },
+        {
+          "tick": 50,
           "enemyId": "brood_spitter",
-          "y": 4.75
-        },
-        {
-          "tick": 40,
-          "enemyId": "brood_spitter",
-          "y": -4.75
-        },
-        {
-          "tick": 100,
-          "enemyId": "spore_drifter",
-          "y": 1.5
-        },
-        {
-          "tick": 100,
-          "enemyId": "spore_drifter",
-          "y": -1.5
-        },
-        {
-          "tick": 160,
-          "enemyId": "sting_hornet",
-          "y": 3.25
-        },
-        {
-          "tick": 180,
-          "enemyId": "sting_hornet",
-          "y": -3.25
-        },
-        {
-          "tick": 230,
-          "enemyId": "lancer_dart",
-          "y": 0
-        },
-        {
-          "tick": 280,
-          "enemyId": "brood_spitter",
-          "y": 0
-        },
-        {
-          "tick": 340,
-          "enemyId": "spore_drifter",
-          "y": 5.5
-        },
-        {
-          "tick": 340,
-          "enemyId": "spore_drifter",
-          "y": 0
-        },
-        {
-          "tick": 340,
-          "enemyId": "spore_drifter",
-          "y": -5.5
-        },
-        {
-          "tick": 400,
-          "enemyId": "sting_hornet",
           "y": 2.5
         },
         {
-          "tick": 420,
-          "enemyId": "sting_hornet",
+          "tick": 100,
+          "enemyId": "brood_spitter",
           "y": -2.5
         },
         {
-          "tick": 480,
-          "enemyId": "lancer_dart",
-          "y": 4.75
-        },
-        {
-          "tick": 490,
-          "enemyId": "lancer_dart",
-          "y": -4.75
-        },
-        {
-          "tick": 550,
-          "enemyId": "brood_spitter",
-          "y": 1.5
-        },
-        {
-          "tick": 550,
-          "enemyId": "brood_spitter",
-          "y": -1.5
-        },
-        {
-          "tick": 610,
-          "enemyId": "elite_sine",
-          "y": 2.5
-        },
-        {
-          "tick": 670,
-          "enemyId": "sting_hornet",
+          "tick": 150,
+          "enemyId": "spore_drifter",
           "y": 0
         },
         {
-          "tick": 720,
-          "enemyId": "mini_horror",
+          "tick": 200,
+          "enemyId": "sting_hornet",
+          "y": 3.5
+        },
+        {
+          "tick": 250,
+          "enemyId": "sting_hornet",
+          "y": -3.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "brood_spitter",
+          "y": 0
+        },
+        {
+          "tick": 360,
+          "enemyId": "lancer_dart",
+          "y": 2
+        },
+        {
+          "tick": 400,
+          "enemyId": "lancer_dart",
+          "y": -2
+        },
+        {
+          "tick": 450,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 520,
+          "enemyId": "spore_drifter",
+          "y": 3
+        },
+        {
+          "tick": 560,
+          "enemyId": "sting_hornet",
+          "y": -3
+        },
+        {
+          "tick": 700,
+          "enemyId": "brood_spitter",
           "y": 0
         }
       ],
@@ -3543,15 +3520,9 @@
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 19.0,
-          "y": 5.5,
-          "hp": 0
-        },
-        {
           "type": "breakable",
           "x": 13.0,
-          "y": 0.0,
+          "y": -1.5,
           "hp": 25
         },
         {
@@ -3560,7 +3531,17 @@
           "y": -2.5,
           "hp": 30
         }
-      ]
+      ],
+      "intent": "좁은 구간 중형 격파 목표",
+      "environment": {
+        "corridor": {
+          "startMinY": -8.5,
+          "startMaxY": 8.5,
+          "endMinY": -3.75,
+          "endMaxY": 3.75,
+          "contactDamage": 1
+        }
+      }
     },
     {
       "id": "seg_fortress_mortar_line",
@@ -3576,132 +3557,168 @@
       "theme": "fortress",
       "spawns": [
         {
-          "tick": 30,
+          "tick": 50,
           "enemyId": "mortar_drone",
-          "y": 4.75
+          "y": 3
         },
         {
-          "tick": 30,
+          "tick": 130,
           "enemyId": "mortar_drone",
-          "y": -4.75
-        },
-        {
-          "tick": 90,
-          "enemyId": "sentry_drone",
-          "y": 0
-        },
-        {
-          "tick": 140,
-          "enemyId": "interceptor_rush",
-          "y": 3.25
-        },
-        {
-          "tick": 150,
-          "enemyId": "interceptor_rush",
-          "y": -3.25
+          "y": -3
         },
         {
           "tick": 210,
+          "enemyId": "mortar_drone",
+          "y": 0
+        },
+        {
+          "tick": 290,
+          "enemyId": "mortar_drone",
+          "y": 4
+        },
+        {
+          "tick": 370,
+          "enemyId": "mortar_drone",
+          "y": -4
+        },
+        {
+          "tick": 450,
           "enemyId": "mortar_drone",
           "y": 1.5
         },
         {
-          "tick": 210,
-          "enemyId": "mortar_drone",
-          "y": -1.5
+          "tick": 80,
+          "enemyId": "sentry_drone",
+          "y": 2
         },
         {
-          "tick": 270,
-          "enemyId": "turret_ground",
-          "y": -9.75
+          "tick": 160,
+          "enemyId": "sentry_drone",
+          "y": -2
+        },
+        {
+          "tick": 240,
+          "enemyId": "sentry_drone",
+          "y": 3.5
         },
         {
           "tick": 320,
-          "enemyId": "interceptor_rush",
-          "y": 5.5
+          "enemyId": "sentry_drone",
+          "y": -3.5
         },
         {
-          "tick": 330,
+          "tick": 100,
+          "enemyId": "interceptor_rush",
+          "y": 1
+        },
+        {
+          "tick": 180,
+          "enemyId": "interceptor_rush",
+          "y": -1
+        },
+        {
+          "tick": 260,
           "enemyId": "interceptor_rush",
           "y": 0
         },
         {
           "tick": 340,
           "enemyId": "interceptor_rush",
-          "y": -5.5
-        },
-        {
-          "tick": 400,
-          "enemyId": "sentry_drone",
-          "y": 2.5
-        },
-        {
-          "tick": 400,
-          "enemyId": "sentry_drone",
-          "y": -2.5
-        },
-        {
-          "tick": 460,
-          "enemyId": "mortar_drone",
-          "y": 0
-        },
-        {
-          "tick": 520,
-          "enemyId": "interceptor_rush",
           "y": 4
         },
         {
-          "tick": 530,
+          "tick": 420,
           "enemyId": "interceptor_rush",
           "y": -4
         },
         {
-          "tick": 590,
-          "enemyId": "sentry_drone",
-          "y": 4.75
+          "tick": 480,
+          "enemyId": "turret_ground",
+          "y": -5.5
         },
         {
-          "tick": 610,
-          "enemyId": "sentry_drone",
-          "y": -4.75
-        },
-        {
-          "tick": 670,
-          "enemyId": "mortar_drone",
-          "y": 2.5
-        },
-        {
-          "tick": 720,
+          "tick": 560,
           "enemyId": "elite_sine",
           "y": 0
+        },
+        {
+          "tick": 640,
+          "enemyId": "sentry_drone",
+          "y": 0
+        },
+        {
+          "tick": 700,
+          "enemyId": "mortar_drone",
+          "y": 2
         }
       ],
       "obstacles": [
         {
           "type": "solid",
           "x": 11.0,
-          "y": 5.5,
+          "y": 6.0,
           "hp": 0
         },
         {
           "type": "solid",
-          "x": 15.0,
-          "y": -5.5,
+          "x": 16.0,
+          "y": -6.0,
           "hp": 0
         },
         {
-          "type": "breakable",
-          "x": 13.5,
-          "y": 0.0,
-          "hp": 25
+          "type": "laserEmitter",
+          "x": 17.0,
+          "y": 3.25,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 17.0,
+          "y": -3.25,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 180,
+            "telegraphTicks": 42,
+            "firingTicks": 6,
+            "sustainTicks": 30,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         },
         {
           "type": "breakable",
-          "x": 18.0,
-          "y": 3.25,
-          "hp": 30
+          "x": 13.0,
+          "y": 1.75,
+          "hp": 35
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": -2.0,
+          "hp": 40
         }
-      ]
+      ],
+      "intent": "강화형 박격 라인 조준"
     },
     {
       "id": "seg_fortress_turret_cross",
@@ -3717,128 +3734,98 @@
       "theme": "fortress",
       "spawns": [
         {
-          "tick": 20,
+          "tick": 50,
           "enemyId": "turret_ground",
-          "y": -9.75
+          "y": -5.5
         },
         {
-          "tick": 20,
+          "tick": 50,
           "enemyId": "turret_ceiling",
-          "y": 9.75
+          "y": 5.5
         },
         {
-          "tick": 60,
+          "tick": 180,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 90,
           "enemyId": "sentry_drone",
-          "y": 3.25
-        },
-        {
-          "tick": 60,
-          "enemyId": "sentry_drone",
-          "y": -3.25
-        },
-        {
-          "tick": 120,
-          "enemyId": "interceptor_rush",
-          "y": 4.75
+          "y": 2.5
         },
         {
           "tick": 130,
-          "enemyId": "interceptor_rush",
+          "enemyId": "sentry_drone",
+          "y": -2.5
+        },
+        {
+          "tick": 220,
+          "enemyId": "sentry_drone",
           "y": 0
         },
         {
-          "tick": 140,
+          "tick": 280,
+          "enemyId": "sentry_drone",
+          "y": 3.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "sentry_drone",
+          "y": -3.5
+        },
+        {
+          "tick": 100,
           "enemyId": "interceptor_rush",
-          "y": -4.75
+          "y": 1
         },
         {
-          "tick": 200,
-          "enemyId": "mortar_drone",
-          "y": 1.5
+          "tick": 160,
+          "enemyId": "interceptor_rush",
+          "y": -1
         },
         {
-          "tick": 200,
-          "enemyId": "mortar_drone",
-          "y": -1.5
-        },
-        {
-          "tick": 260,
-          "enemyId": "turret_ground",
-          "y": -9.75
+          "tick": 240,
+          "enemyId": "interceptor_rush",
+          "y": 2
         },
         {
           "tick": 300,
           "enemyId": "interceptor_rush",
-          "y": 5.5
+          "y": -2
         },
         {
-          "tick": 310,
+          "tick": 360,
           "enemyId": "interceptor_rush",
-          "y": 2.5
-        },
-        {
-          "tick": 320,
-          "enemyId": "interceptor_rush",
-          "y": -2.5
-        },
-        {
-          "tick": 330,
-          "enemyId": "interceptor_rush",
-          "y": -5.5
-        },
-        {
-          "tick": 390,
-          "enemyId": "sentry_drone",
           "y": 0
         },
         {
-          "tick": 450,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 490,
+          "tick": 400,
           "enemyId": "mortar_drone",
-          "y": 4
+          "y": 2
         },
         {
-          "tick": 490,
+          "tick": 460,
           "enemyId": "mortar_drone",
-          "y": -4
+          "y": -2
         },
         {
-          "tick": 550,
-          "enemyId": "interceptor_rush",
-          "y": 1.5
-        },
-        {
-          "tick": 560,
-          "enemyId": "interceptor_rush",
-          "y": -1.5
-        },
-        {
-          "tick": 620,
-          "enemyId": "sentry_drone",
-          "y": 2.5
-        },
-        {
-          "tick": 620,
-          "enemyId": "sentry_drone",
-          "y": -2.5
-        },
-        {
-          "tick": 680,
+          "tick": 520,
           "enemyId": "mortar_drone",
           "y": 0
         },
         {
-          "tick": 740,
+          "tick": 580,
           "enemyId": "elite_sine",
           "y": 0
         },
         {
-          "tick": 800,
-          "enemyId": "mini_destroyer",
+          "tick": 760,
+          "enemyId": "zako_tank",
           "y": 0
         }
       ],
@@ -3858,22 +3845,63 @@
         {
           "type": "solid",
           "x": 18.0,
-          "y": 4.0,
+          "y": 5.5,
           "hp": 0
+        },
+        {
+          "type": "laserEmitter",
+          "x": 15.5,
+          "y": 2.75,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 120,
+            "telegraphTicks": 30,
+            "firingTicks": 5,
+            "sustainTicks": 20,
+            "dissipateTicks": 10,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 15.5,
+          "y": -2.75,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         },
         {
           "type": "breakable",
           "x": 12.0,
-          "y": 0.0,
-          "hp": 30
+          "y": 1.75,
+          "hp": 35
         },
         {
           "type": "breakable",
-          "x": 16.5,
-          "y": -1.5,
-          "hp": 35
+          "x": 19.0,
+          "y": -1.75,
+          "hp": 40
         }
-      ]
+      ],
+      "intent": "교차 포탑 위치 선정 + 중형"
     },
     {
       "id": "seg_fortress_drone_lattice",
@@ -3889,49 +3917,69 @@
       "theme": "fortress",
       "spawns": [
         {
-          "tick": 30,
+          "tick": 40,
           "enemyId": "sentry_drone",
-          "y": 4.75
+          "y": 4
         },
         {
-          "tick": 30,
+          "tick": 95,
+          "enemyId": "sentry_drone",
+          "y": -4
+        },
+        {
+          "tick": 150,
+          "enemyId": "sentry_drone",
+          "y": 2
+        },
+        {
+          "tick": 205,
+          "enemyId": "sentry_drone",
+          "y": -2
+        },
+        {
+          "tick": 260,
           "enemyId": "sentry_drone",
           "y": 0
         },
         {
-          "tick": 30,
+          "tick": 315,
           "enemyId": "sentry_drone",
-          "y": -4.75
+          "y": 3
         },
         {
-          "tick": 90,
-          "enemyId": "interceptor_rush",
-          "y": 3.25
+          "tick": 370,
+          "enemyId": "sentry_drone",
+          "y": -3
         },
         {
-          "tick": 100,
-          "enemyId": "interceptor_rush",
-          "y": -3.25
-        },
-        {
-          "tick": 150,
-          "enemyId": "mortar_drone",
-          "y": 5.5
-        },
-        {
-          "tick": 150,
-          "enemyId": "mortar_drone",
-          "y": -5.5
-        },
-        {
-          "tick": 210,
+          "tick": 425,
           "enemyId": "sentry_drone",
           "y": 1.5
         },
         {
-          "tick": 210,
-          "enemyId": "sentry_drone",
-          "y": -1.5
+          "tick": 70,
+          "enemyId": "interceptor_rush",
+          "y": 1
+        },
+        {
+          "tick": 110,
+          "enemyId": "interceptor_rush",
+          "y": -1
+        },
+        {
+          "tick": 150,
+          "enemyId": "interceptor_rush",
+          "y": 3
+        },
+        {
+          "tick": 190,
+          "enemyId": "interceptor_rush",
+          "y": -3
+        },
+        {
+          "tick": 230,
+          "enemyId": "interceptor_rush",
+          "y": 0
         },
         {
           "tick": 270,
@@ -3939,271 +3987,58 @@
           "y": 4
         },
         {
-          "tick": 280,
-          "enemyId": "interceptor_rush",
-          "y": 0
-        },
-        {
-          "tick": 290,
-          "enemyId": "interceptor_rush",
-          "y": -4
-        },
-        {
-          "tick": 350,
-          "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 350,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 400,
-          "enemyId": "mortar_drone",
-          "y": 0
-        },
-        {
-          "tick": 460,
-          "enemyId": "sentry_drone",
-          "y": 4.75
-        },
-        {
-          "tick": 460,
-          "enemyId": "sentry_drone",
-          "y": -4.75
-        },
-        {
-          "tick": 520,
-          "enemyId": "interceptor_rush",
-          "y": 2.5
-        },
-        {
-          "tick": 530,
-          "enemyId": "interceptor_rush",
-          "y": -2.5
-        },
-        {
-          "tick": 590,
-          "enemyId": "mortar_drone",
-          "y": 3.25
-        },
-        {
-          "tick": 590,
-          "enemyId": "mortar_drone",
-          "y": -3.25
-        },
-        {
-          "tick": 650,
-          "enemyId": "sentry_drone",
-          "y": 0
-        },
-        {
-          "tick": 710,
-          "enemyId": "elite_sine",
-          "y": 2.5
-        },
-        {
-          "tick": 760,
-          "enemyId": "interceptor_rush",
-          "y": 5.5
-        },
-        {
-          "tick": 770,
-          "enemyId": "interceptor_rush",
-          "y": -5.5
-        },
-        {
-          "tick": 800,
-          "enemyId": "mini_destroyer",
-          "y": 0
-        }
-      ],
-      "obstacles": [
-        {
-          "type": "solid",
-          "x": 11.0,
-          "y": 5.5,
-          "hp": 0
-        },
-        {
-          "type": "solid",
-          "x": 11.0,
-          "y": -5.5,
-          "hp": 0
-        },
-        {
-          "type": "solid",
-          "x": 17.0,
-          "y": 7.5,
-          "hp": 0
-        },
-        {
-          "type": "solid",
-          "x": 17.0,
-          "y": -7.5,
-          "hp": 0
-        },
-        {
-          "type": "breakable",
-          "x": 14.0,
-          "y": 0.0,
-          "hp": 35
-        },
-        {
-          "type": "breakable",
-          "x": 19.5,
-          "y": 2.5,
-          "hp": 40
-        }
-      ]
-    },
-    {
-      "id": "seg_fortress_armored_gate",
-      "difficultyMin": 3,
-      "difficultyMax": 5,
-      "weight": 3,
-      "lengthTicks": 900,
-      "entryLaneMask": 7,
-      "exitLaneMask": 7,
-      "traversableLaneMasks": [
-        2
-      ],
-      "theme": "fortress",
-      "spawns": [
-        {
-          "tick": 20,
-          "enemyId": "turret_ground",
-          "y": -9.75
-        },
-        {
-          "tick": 20,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 50,
-          "enemyId": "sentry_drone",
-          "y": 4
-        },
-        {
-          "tick": 50,
-          "enemyId": "sentry_drone",
-          "y": -4
-        },
-        {
-          "tick": 110,
-          "enemyId": "mortar_drone",
-          "y": 0
-        },
-        {
-          "tick": 160,
-          "enemyId": "interceptor_rush",
-          "y": 5.5
-        },
-        {
-          "tick": 170,
-          "enemyId": "interceptor_rush",
-          "y": 1.5
-        },
-        {
-          "tick": 180,
-          "enemyId": "interceptor_rush",
-          "y": -1.5
-        },
-        {
-          "tick": 190,
-          "enemyId": "interceptor_rush",
-          "y": -5.5
-        },
-        {
-          "tick": 250,
-          "enemyId": "sentry_drone",
-          "y": 2.5
-        },
-        {
-          "tick": 250,
-          "enemyId": "sentry_drone",
-          "y": -2.5
-        },
-        {
           "tick": 310,
+          "enemyId": "interceptor_rush",
+          "y": -4
+        },
+        {
+          "tick": 350,
+          "enemyId": "interceptor_rush",
+          "y": 2
+        },
+        {
+          "tick": 390,
+          "enemyId": "interceptor_rush",
+          "y": -2
+        },
+        {
+          "tick": 280,
+          "enemyId": "mortar_drone",
+          "y": 2.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "mortar_drone",
+          "y": -2.5
+        },
+        {
+          "tick": 440,
+          "enemyId": "mortar_drone",
+          "y": 0
+        },
+        {
+          "tick": 500,
+          "enemyId": "mortar_drone",
+          "y": 3
+        },
+        {
+          "tick": 560,
           "enemyId": "turret_ground",
-          "y": -9.75
+          "y": -5.5
         },
         {
-          "tick": 350,
-          "enemyId": "mortar_drone",
-          "y": 4.75
-        },
-        {
-          "tick": 350,
-          "enemyId": "mortar_drone",
-          "y": -4.75
-        },
-        {
-          "tick": 410,
-          "enemyId": "interceptor_rush",
-          "y": 3.25
-        },
-        {
-          "tick": 420,
-          "enemyId": "interceptor_rush",
-          "y": 0
-        },
-        {
-          "tick": 430,
-          "enemyId": "interceptor_rush",
-          "y": -3.25
-        },
-        {
-          "tick": 490,
-          "enemyId": "sentry_drone",
-          "y": 0
-        },
-        {
-          "tick": 550,
-          "enemyId": "mortar_drone",
-          "y": 1.5
-        },
-        {
-          "tick": 550,
-          "enemyId": "mortar_drone",
-          "y": -1.5
-        },
-        {
-          "tick": 610,
-          "enemyId": "interceptor_rush",
-          "y": 4.75
+          "tick": 560,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
         },
         {
           "tick": 620,
-          "enemyId": "interceptor_rush",
-          "y": -4.75
-        },
-        {
-          "tick": 680,
-          "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 720,
           "enemyId": "elite_sine",
           "y": 0
         },
         {
-          "tick": 780,
+          "tick": 760,
           "enemyId": "zako_tank",
-          "y": 2.5
-        },
-        {
-          "tick": 800,
-          "enemyId": "zako_tank",
-          "y": -2.5
-        },
-        {
-          "tick": 850,
-          "enemyId": "mini_destroyer",
           "y": 0
         }
       ],
@@ -4233,18 +4068,303 @@
           "hp": 0
         },
         {
-          "type": "breakable",
-          "x": 12.5,
-          "y": 0.0,
-          "hp": 35
+          "type": "laserEmitter",
+          "x": 13.0,
+          "y": 4.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 16.0,
+          "y": 2.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 120,
+            "telegraphTicks": 30,
+            "firingTicks": 5,
+            "sustainTicks": 20,
+            "dissipateTicks": 10,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 19.0,
+          "y": -4.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 180,
+            "telegraphTicks": 42,
+            "firingTicks": 6,
+            "sustainTicks": 30,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         },
         {
           "type": "breakable",
-          "x": 16.5,
-          "y": 3.25,
+          "x": 14.5,
+          "y": 2.0,
           "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 17.5,
+          "y": -2.0,
+          "hp": 45
         }
-      ]
+      ],
+      "intent": "강화형 드론 격자 압박"
+    },
+    {
+      "id": "seg_fortress_armored_gate",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 3,
+      "lengthTicks": 900,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        2
+      ],
+      "theme": "fortress",
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 40,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 120,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 120,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 80,
+          "enemyId": "sentry_drone",
+          "y": 2
+        },
+        {
+          "tick": 160,
+          "enemyId": "sentry_drone",
+          "y": -2
+        },
+        {
+          "tick": 200,
+          "enemyId": "sentry_drone",
+          "y": 3.5
+        },
+        {
+          "tick": 240,
+          "enemyId": "sentry_drone",
+          "y": -3.5
+        },
+        {
+          "tick": 280,
+          "enemyId": "sentry_drone",
+          "y": 0
+        },
+        {
+          "tick": 100,
+          "enemyId": "mortar_drone",
+          "y": 1.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "mortar_drone",
+          "y": -1.5
+        },
+        {
+          "tick": 260,
+          "enemyId": "mortar_drone",
+          "y": 0
+        },
+        {
+          "tick": 340,
+          "enemyId": "mortar_drone",
+          "y": 2.5
+        },
+        {
+          "tick": 400,
+          "enemyId": "mortar_drone",
+          "y": -2.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "interceptor_rush",
+          "y": 4
+        },
+        {
+          "tick": 220,
+          "enemyId": "interceptor_rush",
+          "y": -4
+        },
+        {
+          "tick": 300,
+          "enemyId": "interceptor_rush",
+          "y": 1
+        },
+        {
+          "tick": 380,
+          "enemyId": "interceptor_rush",
+          "y": -1
+        },
+        {
+          "tick": 450,
+          "enemyId": "zako_tank",
+          "y": 2
+        },
+        {
+          "tick": 510,
+          "enemyId": "zako_tank",
+          "y": -2
+        },
+        {
+          "tick": 580,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 820,
+          "enemyId": "zako_tank",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "laserEmitter",
+          "x": 12.0,
+          "y": 3.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 15.5,
+          "y": -2.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 160,
+            "telegraphTicks": 40,
+            "firingTicks": 6,
+            "sustainTicks": 28,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -30.0,
+            "endOffsetY": -4.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 19.0,
+          "y": -3.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 180,
+            "telegraphTicks": 42,
+            "firingTicks": 6,
+            "sustainTicks": 30,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": 1.75,
+          "hp": 45
+        },
+        {
+          "type": "breakable",
+          "x": 17.5,
+          "y": -1.75,
+          "hp": 50
+        }
+      ],
+      "intent": "중형·중형 화력 집중 관문"
     },
     {
       "id": "seg_nebula_echo_ribbon",
@@ -4260,107 +4380,92 @@
       "theme": "nebula",
       "spawns": [
         {
-          "tick": 30,
+          "tick": 50,
           "enemyId": "echo_wisp",
-          "y": 4.75
+          "y": 3
         },
         {
-          "tick": 30,
+          "tick": 110,
           "enemyId": "echo_wisp",
-          "y": -4.75
+          "y": -3
         },
         {
-          "tick": 80,
-          "enemyId": "wisp_spark",
+          "tick": 170,
+          "enemyId": "echo_wisp",
+          "y": 1.5
+        },
+        {
+          "tick": 230,
+          "enemyId": "echo_wisp",
+          "y": -1.5
+        },
+        {
+          "tick": 290,
+          "enemyId": "echo_wisp",
+          "y": 4
+        },
+        {
+          "tick": 350,
+          "enemyId": "echo_wisp",
+          "y": -4
+        },
+        {
+          "tick": 410,
+          "enemyId": "echo_wisp",
           "y": 0
         },
         {
           "tick": 80,
           "enemyId": "wisp_spark",
-          "y": 2.5
+          "y": 2
         },
         {
-          "tick": 80,
+          "tick": 140,
           "enemyId": "wisp_spark",
-          "y": -2.5
-        },
-        {
-          "tick": 140,
-          "enemyId": "void_moth",
-          "y": 1.5
-        },
-        {
-          "tick": 140,
-          "enemyId": "void_moth",
-          "y": -1.5
+          "y": -2
         },
         {
           "tick": 200,
-          "enemyId": "echo_wisp",
-          "y": 5.5
-        },
-        {
-          "tick": 200,
-          "enemyId": "echo_wisp",
-          "y": -5.5
+          "enemyId": "wisp_spark",
+          "y": 3.5
         },
         {
           "tick": 260,
           "enemyId": "wisp_spark",
-          "y": 3.25
+          "y": -3.5
         },
         {
-          "tick": 270,
+          "tick": 320,
           "enemyId": "wisp_spark",
           "y": 0
         },
         {
-          "tick": 280,
+          "tick": 380,
           "enemyId": "wisp_spark",
-          "y": -3.25
+          "y": 4
         },
         {
-          "tick": 340,
+          "tick": 440,
           "enemyId": "void_moth",
-          "y": 0
+          "y": 1
         },
         {
-          "tick": 400,
-          "enemyId": "echo_wisp",
+          "tick": 500,
+          "enemyId": "void_moth",
+          "y": -1
+        },
+        {
+          "tick": 560,
+          "enemyId": "void_moth",
           "y": 2.5
         },
         {
-          "tick": 400,
-          "enemyId": "echo_wisp",
+          "tick": 620,
+          "enemyId": "void_moth",
           "y": -2.5
         },
         {
-          "tick": 460,
-          "enemyId": "wisp_spark",
-          "y": 4.75
-        },
-        {
-          "tick": 470,
-          "enemyId": "wisp_spark",
-          "y": -4.75
-        },
-        {
-          "tick": 530,
-          "enemyId": "void_moth",
-          "y": 3.25
-        },
-        {
-          "tick": 550,
-          "enemyId": "void_moth",
-          "y": -3.25
-        },
-        {
-          "tick": 610,
-          "enemyId": "echo_wisp",
-          "y": 0
-        },
-        {
-          "tick": 670,
+          "tick": 680,
           "enemyId": "elite_sine",
           "y": 0
         }
@@ -4381,7 +4486,7 @@
         {
           "type": "breakable",
           "x": 14.0,
-          "y": 0.0,
+          "y": 1.5,
           "hp": 25
         },
         {
@@ -4390,7 +4495,14 @@
           "y": 2.5,
           "hp": 30
         }
-      ]
+      ],
+      "intent": "강화형 에코 조준 리본",
+      "environment": {
+        "drift": {
+          "xPerSecond": 0.12,
+          "yPerSecond": -0.42
+        }
+      }
     },
     {
       "id": "seg_nebula_void_moth_swarm",
@@ -4406,108 +4518,83 @@
       "theme": "nebula",
       "spawns": [
         {
-          "tick": 30,
+          "tick": 40,
           "enemyId": "void_moth",
-          "y": 4.75
-        },
-        {
-          "tick": 30,
-          "enemyId": "void_moth",
-          "y": -4.75
-        },
-        {
-          "tick": 80,
-          "enemyId": "wisp_spark",
-          "y": 1.5
+          "y": 3
         },
         {
           "tick": 90,
-          "enemyId": "wisp_spark",
-          "y": -1.5
+          "enemyId": "void_moth",
+          "y": -2
         },
         {
           "tick": 140,
-          "enemyId": "echo_wisp",
+          "enemyId": "void_moth",
+          "y": 4
+        },
+        {
+          "tick": 190,
+          "enemyId": "void_moth",
+          "y": -4
+        },
+        {
+          "tick": 240,
+          "enemyId": "void_moth",
+          "y": 1
+        },
+        {
+          "tick": 290,
+          "enemyId": "void_moth",
+          "y": -1
+        },
+        {
+          "tick": 340,
+          "enemyId": "void_moth",
+          "y": 2.5
+        },
+        {
+          "tick": 70,
+          "enemyId": "wisp_spark",
           "y": 0
         },
         {
-          "tick": 190,
-          "enemyId": "void_moth",
-          "y": 3.25
+          "tick": 130,
+          "enemyId": "wisp_spark",
+          "y": 3
         },
         {
           "tick": 190,
-          "enemyId": "void_moth",
-          "y": -3.25
+          "enemyId": "wisp_spark",
+          "y": -3
         },
         {
           "tick": 250,
           "enemyId": "wisp_spark",
-          "y": 5.5
-        },
-        {
-          "tick": 260,
-          "enemyId": "wisp_spark",
-          "y": 0
-        },
-        {
-          "tick": 270,
-          "enemyId": "wisp_spark",
-          "y": -5.5
-        },
-        {
-          "tick": 330,
-          "enemyId": "echo_wisp",
-          "y": 2.5
-        },
-        {
-          "tick": 330,
-          "enemyId": "echo_wisp",
-          "y": -2.5
-        },
-        {
-          "tick": 390,
-          "enemyId": "void_moth",
-          "y": 0
-        },
-        {
-          "tick": 440,
-          "enemyId": "wisp_spark",
-          "y": 4
-        },
-        {
-          "tick": 450,
-          "enemyId": "wisp_spark",
-          "y": -4
-        },
-        {
-          "tick": 510,
-          "enemyId": "echo_wisp",
-          "y": 5.5
-        },
-        {
-          "tick": 510,
-          "enemyId": "echo_wisp",
-          "y": -5.5
-        },
-        {
-          "tick": 570,
-          "enemyId": "void_moth",
           "y": 1.5
         },
         {
-          "tick": 590,
-          "enemyId": "void_moth",
-          "y": -1.5
+          "tick": 310,
+          "enemyId": "echo_wisp",
+          "y": 2
         },
         {
-          "tick": 640,
+          "tick": 370,
+          "enemyId": "echo_wisp",
+          "y": -2
+        },
+        {
+          "tick": 430,
+          "enemyId": "echo_wisp",
+          "y": 0
+        },
+        {
+          "tick": 490,
           "enemyId": "elite_sine",
           "y": 0
         },
         {
-          "tick": 680,
-          "enemyId": "mini_crystal",
+          "tick": 640,
+          "enemyId": "elite_sine",
           "y": 0
         }
       ],
@@ -4533,7 +4620,7 @@
         {
           "type": "breakable",
           "x": 13.0,
-          "y": 0.0,
+          "y": -1.5,
           "hp": 30
         },
         {
@@ -4542,7 +4629,14 @@
           "y": -2.5,
           "hp": 30
         }
-      ]
+      ],
+      "intent": "잡몹·강화 혼합 + 중형",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.42,
+          "yPerSecond": -0.2
+        }
+      }
     },
     {
       "id": "seg_nebula_crystal_drift",
@@ -4558,108 +4652,63 @@
       "theme": "nebula",
       "spawns": [
         {
-          "tick": 30,
+          "tick": 40,
           "enemyId": "wisp_spark",
-          "y": 4.75
+          "y": 3
         },
         {
-          "tick": 30,
+          "tick": 80,
+          "enemyId": "wisp_spark",
+          "y": -3
+        },
+        {
+          "tick": 120,
+          "enemyId": "echo_wisp",
+          "y": 2
+        },
+        {
+          "tick": 180,
+          "enemyId": "void_moth",
+          "y": -2
+        },
+        {
+          "tick": 240,
           "enemyId": "wisp_spark",
           "y": 0
         },
         {
-          "tick": 30,
-          "enemyId": "wisp_spark",
-          "y": -4.75
-        },
-        {
-          "tick": 90,
-          "enemyId": "echo_wisp",
-          "y": 2.5
-        },
-        {
-          "tick": 90,
-          "enemyId": "echo_wisp",
-          "y": -2.5
-        },
-        {
-          "tick": 150,
-          "enemyId": "void_moth",
-          "y": 5.5
-        },
-        {
-          "tick": 150,
-          "enemyId": "void_moth",
-          "y": -5.5
-        },
-        {
-          "tick": 210,
-          "enemyId": "wisp_spark",
-          "y": 1.5
-        },
-        {
-          "tick": 220,
-          "enemyId": "wisp_spark",
-          "y": -1.5
-        },
-        {
-          "tick": 280,
-          "enemyId": "echo_wisp",
-          "y": 0
-        },
-        {
-          "tick": 340,
-          "enemyId": "void_moth",
-          "y": 3.25
-        },
-        {
-          "tick": 340,
-          "enemyId": "void_moth",
-          "y": -3.25
-        },
-        {
-          "tick": 400,
-          "enemyId": "wisp_spark",
-          "y": 4.75
-        },
-        {
-          "tick": 410,
-          "enemyId": "wisp_spark",
-          "y": 0
-        },
-        {
-          "tick": 420,
-          "enemyId": "wisp_spark",
-          "y": -4.75
-        },
-        {
-          "tick": 480,
-          "enemyId": "echo_wisp",
-          "y": 5.5
-        },
-        {
-          "tick": 480,
-          "enemyId": "echo_wisp",
-          "y": -5.5
-        },
-        {
-          "tick": 540,
-          "enemyId": "void_moth",
-          "y": 0
-        },
-        {
-          "tick": 600,
-          "enemyId": "elite_sine",
-          "y": 2.5
-        },
-        {
-          "tick": 650,
+          "tick": 300,
           "enemyId": "guardian_sphere",
           "y": 0
         },
         {
-          "tick": 720,
-          "enemyId": "mini_crystal",
+          "tick": 360,
+          "enemyId": "echo_wisp",
+          "y": 3.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "void_moth",
+          "y": -3.5
+        },
+        {
+          "tick": 480,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 540,
+          "enemyId": "wisp_spark",
+          "y": 2
+        },
+        {
+          "tick": 600,
+          "enemyId": "wisp_spark",
+          "y": -2
+        },
+        {
+          "tick": 700,
+          "enemyId": "elite_sine",
           "y": 0
         }
       ],
@@ -4691,7 +4740,7 @@
         {
           "type": "breakable",
           "x": 12.5,
-          "y": 0.0,
+          "y": 1.5,
           "hp": 35
         },
         {
@@ -4700,7 +4749,14 @@
           "y": 3.25,
           "hp": 35
         }
-      ]
+      ],
+      "intent": "중형 드리프트 화력 집중",
+      "environment": {
+        "drift": {
+          "xPerSecond": 0.7,
+          "yPerSecond": 0.35
+        }
+      }
     },
     {
       "id": "seg_nebula_prism_haze",
@@ -4718,106 +4774,61 @@
         {
           "tick": 40,
           "enemyId": "echo_wisp",
-          "y": 4.75
-        },
-        {
-          "tick": 40,
-          "enemyId": "echo_wisp",
-          "y": -4.75
-        },
-        {
-          "tick": 100,
-          "enemyId": "void_moth",
-          "y": 0
-        },
-        {
-          "tick": 150,
-          "enemyId": "wisp_spark",
-          "y": 3.25
-        },
-        {
-          "tick": 160,
-          "enemyId": "wisp_spark",
-          "y": 0
-        },
-        {
-          "tick": 170,
-          "enemyId": "wisp_spark",
-          "y": -3.25
-        },
-        {
-          "tick": 230,
-          "enemyId": "echo_wisp",
-          "y": 5.5
-        },
-        {
-          "tick": 230,
-          "enemyId": "echo_wisp",
-          "y": -5.5
-        },
-        {
-          "tick": 290,
-          "enemyId": "void_moth",
           "y": 2.5
         },
         {
-          "tick": 290,
+          "tick": 90,
           "enemyId": "void_moth",
           "y": -2.5
         },
         {
-          "tick": 350,
+          "tick": 140,
           "enemyId": "wisp_spark",
           "y": 4
         },
         {
-          "tick": 360,
+          "tick": 190,
           "enemyId": "wisp_spark",
           "y": -4
         },
         {
-          "tick": 420,
-          "enemyId": "echo_wisp",
+          "tick": 240,
+          "enemyId": "shard_prism",
           "y": 0
         },
         {
-          "tick": 480,
+          "tick": 320,
+          "enemyId": "echo_wisp",
+          "y": 1
+        },
+        {
+          "tick": 380,
           "enemyId": "void_moth",
-          "y": 4.75
+          "y": -1
+        },
+        {
+          "tick": 440,
+          "enemyId": "shard_prism",
+          "y": 2
         },
         {
           "tick": 500,
-          "enemyId": "void_moth",
-          "y": -4.75
-        },
-        {
-          "tick": 560,
-          "enemyId": "wisp_spark",
-          "y": 1.5
-        },
-        {
-          "tick": 570,
-          "enemyId": "wisp_spark",
-          "y": -1.5
-        },
-        {
-          "tick": 630,
           "enemyId": "elite_sine",
           "y": 0
         },
         {
-          "tick": 680,
-          "enemyId": "shard_prism",
-          "y": 2.5
+          "tick": 560,
+          "enemyId": "wisp_spark",
+          "y": 3
+        },
+        {
+          "tick": 620,
+          "enemyId": "wisp_spark",
+          "y": -3
         },
         {
           "tick": 700,
-          "enemyId": "shard_prism",
-          "y": -2.5
-        },
-        {
-          "tick": 740,
-          "enemyId": "mini_crystal",
+          "enemyId": "elite_sine",
           "y": 0
         }
       ],
@@ -4843,7 +4854,7 @@
         {
           "type": "breakable",
           "x": 13.0,
-          "y": 0.0,
+          "y": -1.5,
           "hp": 35
         },
         {
@@ -4858,7 +4869,14 @@
           "y": 2.5,
           "hp": 40
         }
-      ]
+      ],
+      "intent": "중형 프리즘 + 중형 목표",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.4,
+          "yPerSecond": 0.8
+        }
+      }
     },
     {
       "id": "seg_core_rift_blades",
@@ -4876,102 +4894,92 @@
         {
           "tick": 30,
           "enemyId": "rift_blade",
-          "y": 4.75
+          "y": 3
         },
         {
-          "tick": 40,
+          "tick": 68,
           "enemyId": "rift_blade",
-          "y": 1.5
+          "y": -2
         },
         {
-          "tick": 50,
+          "tick": 106,
           "enemyId": "rift_blade",
-          "y": -1.5
-        },
-        {
-          "tick": 60,
-          "enemyId": "rift_blade",
-          "y": -4.75
-        },
-        {
-          "tick": 120,
-          "enemyId": "phase_disc",
-          "y": 0
-        },
-        {
-          "tick": 170,
-          "enemyId": "rift_blade",
-          "y": 3.25
-        },
-        {
-          "tick": 180,
-          "enemyId": "rift_blade",
-          "y": 0
-        },
-        {
-          "tick": 190,
-          "enemyId": "rift_blade",
-          "y": -3.25
-        },
-        {
-          "tick": 250,
-          "enemyId": "guardian_sphere",
-          "y": 2.5
-        },
-        {
-          "tick": 250,
-          "enemyId": "guardian_sphere",
-          "y": -2.5
-        },
-        {
-          "tick": 310,
-          "enemyId": "rift_blade",
-          "y": 5.5
-        },
-        {
-          "tick": 320,
-          "enemyId": "rift_blade",
-          "y": -5.5
-        },
-        {
-          "tick": 380,
-          "enemyId": "phase_disc",
           "y": 4
         },
         {
-          "tick": 380,
-          "enemyId": "phase_disc",
+          "tick": 144,
+          "enemyId": "rift_blade",
           "y": -4
         },
         {
-          "tick": 440,
-          "enemyId": "interceptor_rush",
-          "y": 1.5
+          "tick": 182,
+          "enemyId": "rift_blade",
+          "y": 1
         },
         {
-          "tick": 450,
-          "enemyId": "interceptor_rush",
-          "y": -1.5
+          "tick": 220,
+          "enemyId": "rift_blade",
+          "y": -1
         },
         {
-          "tick": 510,
+          "tick": 258,
           "enemyId": "rift_blade",
           "y": 2.5
         },
         {
-          "tick": 520,
+          "tick": 296,
+          "enemyId": "rift_blade",
+          "y": -3.5
+        },
+        {
+          "tick": 334,
           "enemyId": "rift_blade",
           "y": 0
         },
         {
-          "tick": 530,
+          "tick": 372,
           "enemyId": "rift_blade",
-          "y": -2.5
+          "y": 3.5
+        },
+        {
+          "tick": 410,
+          "enemyId": "rift_blade",
+          "y": -0.5
+        },
+        {
+          "tick": 448,
+          "enemyId": "rift_blade",
+          "y": 4.5
+        },
+        {
+          "tick": 150,
+          "enemyId": "phase_disc",
+          "y": 2
+        },
+        {
+          "tick": 250,
+          "enemyId": "phase_disc",
+          "y": -2
+        },
+        {
+          "tick": 350,
+          "enemyId": "phase_disc",
+          "y": 0
+        },
+        {
+          "tick": 450,
+          "enemyId": "guardian_sphere",
+          "y": 0
+        },
+        {
+          "tick": 550,
+          "enemyId": "interceptor_rush",
+          "y": 3
         },
         {
           "tick": 590,
-          "enemyId": "guardian_sphere",
-          "y": 0
+          "enemyId": "interceptor_rush",
+          "y": -3
         },
         {
           "tick": 650,
@@ -4994,17 +5002,30 @@
         },
         {
           "type": "breakable",
-          "x": 14.0,
-          "y": 0.0,
-          "hp": 35
+          "x": 13.0,
+          "y": 2.5,
+          "hp": 40
         },
         {
           "type": "breakable",
-          "x": 18.5,
-          "y": 3.25,
+          "x": 16.0,
+          "y": -2.5,
           "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": 1.75,
+          "hp": 45
         }
-      ]
+      ],
+      "intent": "잡몹 칼날 회피 + 강화형 사격",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.35,
+          "yPerSecond": 0.25
+        }
+      }
     },
     {
       "id": "seg_core_phase_discs",
@@ -5020,113 +5041,93 @@
       "theme": "core",
       "spawns": [
         {
-          "tick": 30,
+          "tick": 50,
           "enemyId": "phase_disc",
-          "y": 4.75
+          "y": 3
         },
         {
-          "tick": 30,
+          "tick": 115,
           "enemyId": "phase_disc",
-          "y": -4.75
+          "y": -3
         },
         {
-          "tick": 90,
-          "enemyId": "rift_blade",
+          "tick": 180,
+          "enemyId": "phase_disc",
           "y": 0
         },
         {
-          "tick": 90,
-          "enemyId": "rift_blade",
-          "y": 2.5
+          "tick": 245,
+          "enemyId": "phase_disc",
+          "y": 4
         },
         {
-          "tick": 90,
-          "enemyId": "rift_blade",
-          "y": -2.5
+          "tick": 310,
+          "enemyId": "phase_disc",
+          "y": -4
         },
         {
-          "tick": 150,
-          "enemyId": "shard_prism",
-          "y": 0
-        },
-        {
-          "tick": 210,
+          "tick": 375,
           "enemyId": "phase_disc",
           "y": 1.5
         },
         {
-          "tick": 210,
+          "tick": 440,
           "enemyId": "phase_disc",
           "y": -1.5
         },
         {
+          "tick": 90,
+          "enemyId": "rift_blade",
+          "y": 2
+        },
+        {
+          "tick": 150,
+          "enemyId": "rift_blade",
+          "y": -2
+        },
+        {
+          "tick": 210,
+          "enemyId": "rift_blade",
+          "y": 0
+        },
+        {
           "tick": 270,
           "enemyId": "rift_blade",
-          "y": 5.5
+          "y": 3.5
         },
         {
-          "tick": 280,
+          "tick": 330,
           "enemyId": "rift_blade",
+          "y": -3.5
+        },
+        {
+          "tick": 390,
+          "enemyId": "rift_blade",
+          "y": 1
+        },
+        {
+          "tick": 300,
+          "enemyId": "shard_prism",
           "y": 0
         },
         {
-          "tick": 290,
-          "enemyId": "rift_blade",
-          "y": -5.5
-        },
-        {
-          "tick": 350,
+          "tick": 420,
           "enemyId": "guardian_sphere",
-          "y": 3.25
+          "y": 2
         },
         {
-          "tick": 350,
+          "tick": 500,
           "enemyId": "guardian_sphere",
-          "y": -3.25
+          "y": -2
         },
         {
-          "tick": 410,
-          "enemyId": "phase_disc",
-          "y": 0
-        },
-        {
-          "tick": 470,
-          "enemyId": "interceptor_rush",
-          "y": 4
-        },
-        {
-          "tick": 480,
-          "enemyId": "interceptor_rush",
-          "y": -4
-        },
-        {
-          "tick": 540,
-          "enemyId": "shard_prism",
-          "y": 2.5
-        },
-        {
-          "tick": 540,
-          "enemyId": "shard_prism",
-          "y": -2.5
-        },
-        {
-          "tick": 600,
-          "enemyId": "phase_disc",
-          "y": 5.5
-        },
-        {
-          "tick": 600,
-          "enemyId": "phase_disc",
-          "y": -5.5
-        },
-        {
-          "tick": 660,
+          "tick": 580,
           "enemyId": "elite_sine",
           "y": 0
         },
         {
-          "tick": 720,
-          "enemyId": "mini_walker",
+          "tick": 700,
+          "enemyId": "guardian_sphere",
           "y": 0
         }
       ],
@@ -5144,24 +5145,48 @@
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 19.0,
-          "y": 4.0,
-          "hp": 0
+          "type": "laserEmitter",
+          "x": 17.0,
+          "y": 2.75,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         },
         {
           "type": "breakable",
           "x": 13.0,
-          "y": 0.0,
-          "hp": 40
+          "y": 2.0,
+          "hp": 45
         },
         {
           "type": "breakable",
-          "x": 17.0,
-          "y": -2.5,
+          "x": 13.0,
+          "y": -2.0,
           "hp": 45
         }
-      ]
+      ],
+      "intent": "강화형 원반 조준 + 중형",
+      "environment": {
+        "corridor": {
+          "startMinY": -9.0,
+          "startMaxY": 9.0,
+          "endMinY": -5.5,
+          "endMaxY": 5.5,
+          "contactDamage": 1
+        }
+      }
     },
     {
       "id": "seg_core_shard_battery",
@@ -5177,123 +5202,83 @@
       "theme": "core",
       "spawns": [
         {
-          "tick": 20,
+          "tick": 40,
           "enemyId": "turret_ground",
-          "y": -9.75
+          "y": -5.5
         },
         {
-          "tick": 20,
+          "tick": 40,
           "enemyId": "turret_ceiling",
-          "y": 9.75
-        },
-        {
-          "tick": 50,
-          "enemyId": "shard_prism",
-          "y": 4
-        },
-        {
-          "tick": 50,
-          "enemyId": "shard_prism",
-          "y": -4
-        },
-        {
-          "tick": 110,
-          "enemyId": "rift_blade",
-          "y": 1.5
-        },
-        {
-          "tick": 120,
-          "enemyId": "rift_blade",
-          "y": -1.5
-        },
-        {
-          "tick": 180,
-          "enemyId": "phase_disc",
-          "y": 0
-        },
-        {
-          "tick": 240,
-          "enemyId": "guardian_sphere",
-          "y": 2.5
-        },
-        {
-          "tick": 240,
-          "enemyId": "guardian_sphere",
-          "y": -2.5
-        },
-        {
-          "tick": 300,
-          "enemyId": "rift_blade",
           "y": 5.5
         },
         {
-          "tick": 310,
-          "enemyId": "rift_blade",
+          "tick": 80,
+          "enemyId": "shard_prism",
+          "y": 2
+        },
+        {
+          "tick": 160,
+          "enemyId": "shard_prism",
+          "y": -2
+        },
+        {
+          "tick": 240,
+          "enemyId": "shard_prism",
           "y": 0
         },
         {
           "tick": 320,
-          "enemyId": "rift_blade",
-          "y": -5.5
-        },
-        {
-          "tick": 380,
           "enemyId": "shard_prism",
-          "y": 0
+          "y": 3
+        },
+        {
+          "tick": 400,
+          "enemyId": "shard_prism",
+          "y": -3
+        },
+        {
+          "tick": 120,
+          "enemyId": "rift_blade",
+          "y": 1
+        },
+        {
+          "tick": 200,
+          "enemyId": "rift_blade",
+          "y": -1
+        },
+        {
+          "tick": 280,
+          "enemyId": "rift_blade",
+          "y": 4
+        },
+        {
+          "tick": 360,
+          "enemyId": "rift_blade",
+          "y": -4
         },
         {
           "tick": 440,
           "enemyId": "phase_disc",
-          "y": 4.75
-        },
-        {
-          "tick": 440,
-          "enemyId": "phase_disc",
-          "y": -4.75
+          "y": 2.5
         },
         {
           "tick": 500,
-          "enemyId": "interceptor_rush",
-          "y": 3.25
+          "enemyId": "phase_disc",
+          "y": -2.5
         },
         {
-          "tick": 510,
-          "enemyId": "interceptor_rush",
-          "y": -3.25
-        },
-        {
-          "tick": 570,
+          "tick": 560,
           "enemyId": "guardian_sphere",
           "y": 0
         },
         {
-          "tick": 630,
-          "enemyId": "shard_prism",
-          "y": 1.5
-        },
-        {
-          "tick": 630,
-          "enemyId": "shard_prism",
-          "y": -1.5
-        },
-        {
-          "tick": 690,
+          "tick": 620,
           "enemyId": "elite_sine",
           "y": 0
         },
         {
-          "tick": 750,
-          "enemyId": "rift_blade",
-          "y": 2.5
-        },
-        {
           "tick": 760,
-          "enemyId": "rift_blade",
-          "y": -2.5
-        },
-        {
-          "tick": 800,
-          "enemyId": "mini_walker",
+          "enemyId": "guardian_sphere",
           "y": 0
         }
       ],
@@ -5324,23 +5309,50 @@
         },
         {
           "type": "breakable",
-          "x": 12.0,
-          "y": 0.0,
-          "hp": 40
+          "x": 12.5,
+          "y": 1.75,
+          "hp": 55
         },
         {
           "type": "breakable",
+          "x": 15.0,
+          "y": -2.0,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": 2.5,
+          "hp": 60
+        },
+        {
+          "type": "laserEmitter",
           "x": 16.0,
-          "y": 3.25,
-          "hp": 45
-        },
-        {
-          "type": "breakable",
-          "x": 20.0,
-          "y": -1.5,
-          "hp": 50
+          "y": -4.0,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 180,
+            "telegraphTicks": 42,
+            "firingTicks": 6,
+            "sustainTicks": 28,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
         }
-      ]
+      ],
+      "intent": "중형 배터리 화력 집중",
+      "environment": {
+        "drift": {
+          "xPerSecond": 0.5,
+          "yPerSecond": 0.3
+        }
+      }
     },
     {
       "id": "seg_core_void_mix",
@@ -5356,123 +5368,78 @@
       "theme": "core",
       "spawns": [
         {
-          "tick": 30,
+          "tick": 40,
           "enemyId": "guardian_sphere",
-          "y": 3.25
-        },
-        {
-          "tick": 30,
-          "enemyId": "guardian_sphere",
-          "y": -3.25
-        },
-        {
-          "tick": 90,
-          "enemyId": "rift_blade",
-          "y": 4.75
+          "y": 2
         },
         {
           "tick": 100,
           "enemyId": "rift_blade",
-          "y": 0
+          "y": 3
         },
         {
-          "tick": 110,
+          "tick": 130,
           "enemyId": "rift_blade",
-          "y": -4.75
+          "y": -3
         },
         {
-          "tick": 170,
+          "tick": 160,
           "enemyId": "phase_disc",
-          "y": 1.5
-        },
-        {
-          "tick": 170,
-          "enemyId": "phase_disc",
-          "y": -1.5
-        },
-        {
-          "tick": 230,
-          "enemyId": "shard_prism",
           "y": 0
         },
         {
-          "tick": 290,
-          "enemyId": "interceptor_rush",
-          "y": 5.5
+          "tick": 220,
+          "enemyId": "shard_prism",
+          "y": -2
         },
         {
-          "tick": 300,
-          "enemyId": "interceptor_rush",
-          "y": 2.5
-        },
-        {
-          "tick": 310,
-          "enemyId": "interceptor_rush",
-          "y": -2.5
+          "tick": 280,
+          "enemyId": "void_moth",
+          "y": 3.5
         },
         {
           "tick": 320,
-          "enemyId": "interceptor_rush",
-          "y": -5.5
+          "enemyId": "void_moth",
+          "y": -3.5
         },
         {
           "tick": 380,
+          "enemyId": "interceptor_rush",
+          "y": 1
+        },
+        {
+          "tick": 420,
+          "enemyId": "interceptor_rush",
+          "y": -1
+        },
+        {
+          "tick": 460,
           "enemyId": "guardian_sphere",
           "y": 0
         },
         {
-          "tick": 440,
+          "tick": 520,
           "enemyId": "phase_disc",
-          "y": 4
-        },
-        {
-          "tick": 440,
-          "enemyId": "phase_disc",
-          "y": -4
-        },
-        {
-          "tick": 500,
-          "enemyId": "rift_blade",
-          "y": 1.5
-        },
-        {
-          "tick": 510,
-          "enemyId": "rift_blade",
-          "y": -1.5
-        },
-        {
-          "tick": 570,
-          "enemyId": "shard_prism",
           "y": 2.5
         },
         {
-          "tick": 570,
+          "tick": 580,
           "enemyId": "shard_prism",
           "y": -2.5
         },
         {
-          "tick": 630,
+          "tick": 640,
           "enemyId": "elite_sine",
           "y": 0
         },
         {
-          "tick": 690,
-          "enemyId": "void_moth",
-          "y": 3.25
-        },
-        {
-          "tick": 690,
-          "enemyId": "void_moth",
-          "y": -3.25
-        },
-        {
-          "tick": 750,
-          "enemyId": "guardian_sphere",
+          "tick": 700,
+          "enemyId": "rift_blade",
           "y": 0
         },
         {
-          "tick": 800,
-          "enemyId": "mini_walker",
+          "tick": 760,
+          "enemyId": "guardian_sphere",
           "y": 0
         }
       ],
@@ -5496,30 +5463,44 @@
           "hp": 0
         },
         {
-          "type": "solid",
-          "x": 17.0,
-          "y": -5.5,
-          "hp": 0
-        },
-        {
           "type": "breakable",
-          "x": 11.0,
-          "y": 0.0,
-          "hp": 40
-        },
-        {
-          "type": "breakable",
-          "x": 15.0,
-          "y": 2.5,
-          "hp": 45
-        },
-        {
-          "type": "breakable",
-          "x": 19.5,
-          "y": -3.0,
+          "x": 12.0,
+          "y": 1.75,
           "hp": 50
+        },
+        {
+          "type": "breakable",
+          "x": 15.5,
+          "y": 2.5,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 18.5,
+          "y": -2.0,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": -3.0,
+          "hp": 48
         }
-      ]
+      ],
+      "intent": "전 티어 혼합 최종 가틀릿",
+      "environment": {
+        "corridor": {
+          "startMinY": -8.5,
+          "startMaxY": 8.5,
+          "endMinY": -4.5,
+          "endMaxY": 4.5,
+          "contactDamage": 1
+        },
+        "drift": {
+          "xPerSecond": -0.4,
+          "yPerSecond": 0.45
+        }
+      }
     }
   ],
   "bosses": [
@@ -5531,32 +5512,47 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 24000,
+      "hp": 8500,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
-      "phaseHpThresholds": [0.667, 0.333],
+      "phaseHpThresholds": [
+        0.667,
+        0.333
+      ],
       "phases": [
         {
           "pattern": "aimed",
           "hpEnterRatio": 1.0,
-          "fireIntervalTicks": 55,
+          "fireIntervalTicks": 64,
           "ways": 3,
-          "bulletSpeed": 9.0
+          "bulletSpeed": 9.0,
+          "movementPattern": "stationary",
+          "movementAmplitude": 0,
+          "movementPeriodTicks": 1,
+          "partVulnerability": "coreOnly"
         },
         {
-          "pattern": "spread",
+          "pattern": "aimed",
           "hpEnterRatio": 0.667,
-          "fireIntervalTicks": 48,
-          "ways": 6,
-          "bulletSpeed": 8.0
+          "fireIntervalTicks": 56,
+          "ways": 4,
+          "bulletSpeed": 8.0,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 1.75,
+          "movementPeriodTicks": 150,
+          "partVulnerability": "all"
         },
         {
-          "pattern": "rapid",
+          "pattern": "aimed",
           "hpEnterRatio": 0.333,
-          "fireIntervalTicks": 28,
+          "fireIntervalTicks": 30,
           "ways": 2,
-          "bulletSpeed": 14.5
+          "bulletSpeed": 13.5,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 2.0,
+          "movementPeriodTicks": 100,
+          "partVulnerability": "all"
         }
       ]
     },
@@ -5568,32 +5564,47 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 28000,
+      "hp": 14500,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
-      "phaseHpThresholds": [0.667, 0.333],
+      "phaseHpThresholds": [
+        0.667,
+        0.333
+      ],
       "phases": [
         {
-          "pattern": "aimed",
+          "pattern": "radial",
           "hpEnterRatio": 1.0,
           "fireIntervalTicks": 50,
           "ways": 3,
-          "bulletSpeed": 9.5
+          "bulletSpeed": 9.5,
+          "movementPattern": "stationary",
+          "movementAmplitude": 0,
+          "movementPeriodTicks": 1,
+          "partVulnerability": "coreOnly"
         },
         {
-          "pattern": "spread",
+          "pattern": "spiral",
           "hpEnterRatio": 0.667,
-          "fireIntervalTicks": 44,
+          "fireIntervalTicks": 42,
           "ways": 7,
-          "bulletSpeed": 8.5
+          "bulletSpeed": 8.5,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 3.25,
+          "movementPeriodTicks": 96,
+          "partVulnerability": "all"
         },
         {
-          "pattern": "rapid",
+          "pattern": "radial",
           "hpEnterRatio": 0.333,
-          "fireIntervalTicks": 24,
+          "fireIntervalTicks": 16,
           "ways": 3,
-          "bulletSpeed": 14.0
+          "bulletSpeed": 14.5,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 3.5,
+          "movementPeriodTicks": 72,
+          "partVulnerability": "all"
         }
       ]
     },
@@ -5605,32 +5616,48 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 32000,
+      "hp": 18000,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
-      "phaseHpThresholds": [0.667, 0.333],
+      "phaseHpThresholds": [
+        0.667,
+        0.333
+      ],
       "phases": [
         {
-          "pattern": "aimed",
+          "pattern": "wall",
           "hpEnterRatio": 1.0,
           "fireIntervalTicks": 46,
           "ways": 4,
-          "bulletSpeed": 10.0
+          "bulletSpeed": 10.0,
+          "movementPattern": "stationary",
+          "movementAmplitude": 0,
+          "movementPeriodTicks": 1,
+          "partVulnerability": "coreOnly"
         },
         {
-          "pattern": "spread",
+          "pattern": "burst",
           "hpEnterRatio": 0.667,
           "fireIntervalTicks": 40,
           "ways": 8,
-          "bulletSpeed": 9.0
+          "bulletSpeed": 9.0,
+          "telegraphTicks": 24,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 0.875,
+          "movementPeriodTicks": 210,
+          "partVulnerability": "all"
         },
         {
-          "pattern": "rapid",
+          "pattern": "wall",
           "hpEnterRatio": 0.333,
-          "fireIntervalTicks": 22,
-          "ways": 3,
-          "bulletSpeed": 15.0
+          "fireIntervalTicks": 14,
+          "ways": 5,
+          "bulletSpeed": 15.5,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 1.25,
+          "movementPeriodTicks": 150,
+          "partVulnerability": "all"
         }
       ]
     },
@@ -5642,32 +5669,47 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 38000,
+      "hp": 20000,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
-      "phaseHpThresholds": [0.667, 0.333],
+      "phaseHpThresholds": [
+        0.667,
+        0.333
+      ],
       "phases": [
         {
-          "pattern": "aimed",
+          "pattern": "spiral",
           "hpEnterRatio": 1.0,
           "fireIntervalTicks": 42,
           "ways": 4,
-          "bulletSpeed": 10.5
+          "bulletSpeed": 10.5,
+          "movementPattern": "stationary",
+          "movementAmplitude": 0,
+          "movementPeriodTicks": 1,
+          "partVulnerability": "coreOnly"
         },
         {
-          "pattern": "spread",
+          "pattern": "spiral",
           "hpEnterRatio": 0.667,
-          "fireIntervalTicks": 38,
+          "fireIntervalTicks": 36,
           "ways": 8,
-          "bulletSpeed": 9.5
+          "bulletSpeed": 9.5,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 2.75,
+          "movementPeriodTicks": 84,
+          "partVulnerability": "all"
         },
         {
-          "pattern": "rapid",
+          "pattern": "aimed",
           "hpEnterRatio": 0.333,
-          "fireIntervalTicks": 20,
+          "fireIntervalTicks": 12,
           "ways": 3,
-          "bulletSpeed": 15.5
+          "bulletSpeed": 16.5,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 3.25,
+          "movementPeriodTicks": 60,
+          "partVulnerability": "all"
         }
       ]
     },
@@ -5679,32 +5721,48 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 45000,
+      "hp": 28000,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
-      "phaseHpThresholds": [0.667, 0.333],
+      "phaseHpThresholds": [
+        0.667,
+        0.333
+      ],
       "phases": [
         {
-          "pattern": "aimed",
+          "pattern": "radial",
           "hpEnterRatio": 1.0,
           "fireIntervalTicks": 40,
           "ways": 4,
-          "bulletSpeed": 11.0
+          "bulletSpeed": 11.0,
+          "movementPattern": "stationary",
+          "movementAmplitude": 0,
+          "movementPeriodTicks": 1,
+          "partVulnerability": "coreOnly"
         },
         {
-          "pattern": "spread",
+          "pattern": "wall",
           "hpEnterRatio": 0.667,
-          "fireIntervalTicks": 36,
+          "fireIntervalTicks": 34,
           "ways": 7,
-          "bulletSpeed": 10.0
+          "bulletSpeed": 10.5,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 2.25,
+          "movementPeriodTicks": 100,
+          "partVulnerability": "all"
         },
         {
-          "pattern": "rapid",
+          "pattern": "burst",
           "hpEnterRatio": 0.333,
-          "fireIntervalTicks": 16,
+          "fireIntervalTicks": 12,
           "ways": 3,
-          "bulletSpeed": 16.0
+          "bulletSpeed": 17.0,
+          "telegraphTicks": 18,
+          "movementPattern": "verticalSine",
+          "movementAmplitude": 2.75,
+          "movementPeriodTicks": 66,
+          "partVulnerability": "all"
         }
       ]
     },
@@ -5913,6 +5971,33 @@
           }
         }
       ]
+    }
+  ],
+  "gimmicks": [
+    {
+      "theme": "scrapyard",
+      "visionObscured": false,
+      "timeLimitTicks": 0
+    },
+    {
+      "theme": "hive",
+      "visionObscured": false,
+      "timeLimitTicks": 0
+    },
+    {
+      "theme": "fortress",
+      "visionObscured": false,
+      "timeLimitTicks": 0
+    },
+    {
+      "theme": "nebula",
+      "visionObscured": true,
+      "timeLimitTicks": 0
+    },
+    {
+      "theme": "core",
+      "visionObscured": false,
+      "timeLimitTicks": 9000
     }
   ]
 }

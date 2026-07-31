@@ -45,14 +45,14 @@ namespace Shmup.Presentation.Battle
             var director = FindAnyObjectByType<BattleDirector>();
             if (director == null) return;
 
-            // 보상/경로 화면은 잠깐 보여준 뒤 자동 선택 (영상에 UI가 담기도록)
-            if (director.AwaitingReward || director.AwaitingRoute)
+            // 보상 화면은 잠깐 보여준 뒤 자동 선택 (영상에 UI가 담기도록).
+            // 경로 선택은 폐지됐다 (REQ-054).
+            if (director.AwaitingReward)
             {
                 _decisionTimer += Time.unscaledDeltaTime;
                 if (_decisionTimer < _decisionDelay) return;
                 _decisionTimer = 0f;
-                if (director.AwaitingReward) director.ChooseReward(0);
-                else director.ChooseRoute(0);
+                director.ChooseReward(0);
                 return;
             }
             _decisionTimer = 0f;

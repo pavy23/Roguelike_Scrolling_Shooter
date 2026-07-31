@@ -79,17 +79,21 @@ namespace Shmup.DeterminismAudit
                     RewardChoiceStrategy.Rotating),
                 new AuditScenario(
                     "seed-max-prefer-capped", ulong.MaxValue, 5, tickBudget,
-                    RewardChoiceStrategy.PreferCapped)
+                    RewardChoiceStrategy.PreferCapped),
+                new AuditScenario(
+                    "seed-7-hidden", 7UL, 5, tickBudget,
+                    RewardChoiceStrategy.Rotating)
             };
 
             Console.WriteLine(
-                "suite=determinism-audit-05 "
+                "suite=determinism-audit-06 "
                 + $"scenarios={scenarios.Length} state=full-observable "
                 + "hiddenPath=required "
                 + $"tickBudget={tickBudget} "
                 + $"expectedRunTicks={ExpectedRunTicks()} "
                 + $"marginPercent={TickBudgetMarginPercent} "
                 + $"bossHitRatePercent={AuditBossHitRatePercent}");
+            bool hiddenPathCompleted = false;
             for (int i = 0; i < scenarios.Length; i++)
             {
                 ScenarioResult first = RunScenario(data, scenarios[i]);
@@ -112,7 +116,10 @@ namespace Shmup.DeterminismAudit
                     scenarios[i].StageCount
                     * RunProgressionConfig.DefaultRoomsPerBiome;
                 if (first.CompletionGrade == RunCompletionGrade.PerfectClear)
+                {
                     expectedRooms += RunProgressionConfig.HiddenRooms;
+                    hiddenPathCompleted = true;
+                }
                 if (first.CompletedRooms != expectedRooms)
                     throw new InvalidOperationException(
                         $"Scenario '{scenarios[i].Name}' completed only "
@@ -120,8 +127,7 @@ namespace Shmup.DeterminismAudit
 
                 Console.WriteLine("PASS " + first.Format());
             }
-            if (RunScenario(data, scenarios[0]).CompletionGrade
-                != RunCompletionGrade.PerfectClear)
+            if (!hiddenPathCompleted)
                 throw new InvalidOperationException(
                     "The required hidden-biome audit path was not completed.");
 
@@ -147,20 +153,29 @@ namespace Shmup.DeterminismAudit
             // Audit traversal must not depend on current balance survivability.
             // Hit events and HP changes are still folded into the state hash.
             config.PlayerMaxHp = 1_000_000;
+            PowerUpGauge legacyGauge = data.CreatePowerUpGauge();
+            ShipDefinition auditShip = CreateAuditShip(
+                data.DefaultShip,
+                legacyGauge.GetMaxLevel(PowerUpSlot.MainShot));
+            PowerUpGauge gauge =
+                data.CreatePowerUpGauge(auditShip);
             var run = new RunManager(
                 scenario.Seed,
                 new AuditStageGenerator(data),
                 config,
                 data.BattleContent,
-                data.CreatePowerUpGauge(),
+                gauge,
                 data.Rewards,
-                CreateAuditShip(data.DefaultShip));
+                data.Contracts,
+                auditShip);
             var hasher = new DeterminismAuditHasher();
             int[] rewardCounts = new int[data.Rewards.All.Count];
             int executedTicks = 0;
             int rewardChoices = 0;
             int routeChoices = 0;
             int cappedChoices = 0;
+            int previousBossTargetY = 0;
+            bool hasPreviousBossTarget = false;
 
             hasher.FoldRunState(run);
             while (executedTicks < scenario.TickCount
@@ -199,32 +214,26 @@ namespace Shmup.DeterminismAudit
                     continue;
                 }
 
-                if (run.State == RunState.AwaitingRoute)
+                if (run.State == RunState.AwaitingContract)
                 {
-                    int optionIndex = SelectRoute(
+                    int optionIndex = SelectContract(
                         scenario.Strategy,
                         run,
                         executedTicks);
-                    RouteOption option = run.RouteOptions[optionIndex];
-                    bool nextBiome =
-                        run.RoomIndex >= run.RoomsPerBiome;
-                    hasher.FoldRouteChoice(
-                        nextBiome
-                            ? run.BiomeIndex + 1
-                            : run.BiomeIndex,
-                        nextBiome ? 1 : run.RoomIndex + 1,
-                        optionIndex,
-                        in option);
-                    run.ChooseRoute(optionIndex);
-                    routeChoices++;
+                    if (!run.ChooseContract(optionIndex))
+                        throw new InvalidOperationException(
+                            "Audit contract choice was rejected.");
                     hasher.FoldRunState(run);
                     continue;
                 }
 
+                RefillAuditShield(run);
                 InputCommand input = CreateInput(
                     scenario.Seed,
                     executedTicks,
-                    run.Battle);
+                    run,
+                    ref previousBossTargetY,
+                    ref hasPreviousBossTarget);
                 run.Step(in input);
                 hasher.FoldRunState(run);
                 executedTicks++;
@@ -246,7 +255,11 @@ namespace Shmup.DeterminismAudit
                 run.Battle.Tick,
                 run.Battle.Boss.Hp,
                 run.Battle.Boss.MaxHp,
-                run.CompletionGrade);
+                run.CompletionGrade,
+                RunManager.CountHiddenBiomeConditions(
+                    run.EliteRoomsCleared,
+                    run.NoHitBiomesCleared,
+                    run.RareEncountersCleared));
         }
 
         static int ComputeSuiteTickBudget(GameDataSet data)
@@ -312,6 +325,33 @@ namespace Shmup.DeterminismAudit
                 return run.RouteOptions.Count - 1;
             return (run.StageIndex + executedTicks)
                 % run.RouteOptions.Count;
+        }
+
+        static int SelectContract(
+            RewardChoiceStrategy strategy,
+            RunManager run,
+            int executedTicks)
+        {
+            for (int i = 0; i < run.ContractOptions.Count; i++)
+                if (run.ContractOptions[i].DestinationKind
+                    == ContractDestinationKind.Uncharted)
+                    return i;
+            if (strategy == RewardChoiceStrategy.Last)
+                return run.ContractOptions.Count - 1;
+            if (strategy == RewardChoiceStrategy.Rotating
+                || strategy == RewardChoiceStrategy.PreferCapped)
+                return (run.BiomeIndex + executedTicks)
+                    % run.ContractOptions.Count;
+            return 0;
+        }
+
+        static void RefillAuditShield(RunManager run)
+        {
+            if (!(run.Battle is BattleSim battle))
+                throw new InvalidOperationException(
+                    "Audit survival compensation requires BattleSim.");
+            battle.RecoverShieldStock(
+                run.MaxShieldStock);
         }
 
         static int SelectReward(
@@ -484,6 +524,8 @@ namespace Shmup.DeterminismAudit
             config.PlayerMaxX = 10_000;
             config.PlayerMinY = -10_000;
             config.PlayerMaxY = 10_000;
+            config.PlayerSpawnX = 0;
+            config.PlayerSpawnY = 0;
             config.BulletDespawnX = 20_000;
             config.EnemyDespawnX = -20_000;
             config.EnemyBulletDamage = 0;
@@ -496,7 +538,13 @@ namespace Shmup.DeterminismAudit
                 config,
                 content,
                 PowerUpGauge.CreateDefault(),
-                rewards);
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                ShipDefinition.CreateDefault(),
+                1,
+                1,
+                new RunProgressionConfig(4, 1));
         }
 
         static RewardDefinition BoundaryReward(
@@ -519,6 +567,10 @@ namespace Shmup.DeterminismAudit
             RunManager run,
             DeterminismAuditHasher battleHasher)
         {
+            if (run.State == RunState.AwaitingContract
+                && !run.ChooseContract(0))
+                throw new InvalidOperationException(
+                    "Audit boundary contract choice was rejected.");
             if (battleHasher != null)
                 battleHasher.FoldBattleState(run.Battle);
             var fire = new InputCommand(0, 0, true);
@@ -579,40 +631,48 @@ namespace Shmup.DeterminismAudit
         static InputCommand CreateInput(
             ulong seed,
             int tick,
-            IBattleSim battle)
+            RunManager run,
+            ref int previousBossTargetY,
+            ref bool hasPreviousBossTarget)
         {
+            IBattleSim battle = run.Battle;
             int phaseOffset = (int)(seed % 360UL);
             int verticalPhase = (tick + phaseOffset * 3) % 360;
-            int leftAuditLane = -18 * SimSpace.SubUnitsPerWorldUnit;
-            int moveX = battle.PlayerX > leftAuditLane ? -1 : 0;
+            int leftAuditLane = -6 * SimSpace.SubUnitsPerWorldUnit;
+            int moveX = battle.PlayerX < leftAuditLane
+                ? 1
+                : battle.PlayerX > leftAuditLane
+                    ? -1
+                    : 0;
             int moveY;
             BossState boss = battle.Boss;
             if (battle.BossActive)
             {
-                int targetY = boss.Y;
-                for (int i = 0; i < battle.BossParts.Count; i++)
+                int rawTargetY = SelectBossTargetY(
+                    run.StagePlan,
+                    battle);
+                int targetY = rawTargetY;
+                if (hasPreviousBossTarget)
                 {
-                    BossPartState part = battle.BossParts[i];
-                    if (!part.Destroyed
-                        && part.IsCore
-                        && !part.CoreGated)
-                    {
-                        targetY = part.Y;
-                        break;
-                    }
+                    long predicted =
+                        (long)rawTargetY
+                        + (rawTargetY - previousBossTargetY)
+                            * 60L;
+                    int leadLimit =
+                        4 * SimSpace.SubUnitsPerWorldUnit;
+                    predicted = Math.Max(
+                        (long)rawTargetY - leadLimit,
+                        Math.Min(
+                            (long)rawTargetY + leadLimit,
+                            predicted));
+                    targetY = predicted < int.MinValue
+                        ? int.MinValue
+                        : predicted > int.MaxValue
+                            ? int.MaxValue
+                            : (int)predicted;
                 }
-                if (targetY == boss.Y)
-                {
-                    for (int i = 0; i < battle.BossParts.Count; i++)
-                    {
-                        BossPartState part = battle.BossParts[i];
-                        if (!part.Destroyed && !part.IsCore)
-                        {
-                            targetY = part.Y;
-                            break;
-                        }
-                    }
-                }
+                previousBossTargetY = rawTargetY;
+                hasPreviousBossTarget = true;
                 int aimTolerance = SimSpace.SubUnitsPerWorldUnit / 8;
                 if (battle.PlayerY < targetY - aimTolerance)
                     moveY = 1;
@@ -623,10 +683,168 @@ namespace Shmup.DeterminismAudit
             }
             else
             {
-                moveY = verticalPhase < 180 ? 1 : -1;
+                hasPreviousBossTarget = false;
+                if (TrySelectPickupTargetY(
+                        battle,
+                        out int pickupTargetY))
+                {
+                    int pickupTolerance =
+                        SimSpace.SubUnitsPerWorldUnit / 4;
+                    moveY = battle.PlayerY
+                        < pickupTargetY - pickupTolerance
+                            ? 1
+                            : battle.PlayerY
+                                > pickupTargetY + pickupTolerance
+                                    ? -1
+                                    : 0;
+                }
+                else
+                    moveY = verticalPhase < 180 ? 1 : -1;
             }
-            bool fire = (tick + phaseOffset) % 5 != 4;
-            return new InputCommand(moveX, moveY, fire);
+            bool fire = true;
+            bool activate =
+                ShouldActivatePowerUp(run.PowerUpGauge);
+            bool activateBomb =
+                battle.BossActive
+                && battle.BombStock > 0
+                && battle.Tick % 600 == 1;
+            return new InputCommand(
+                moveX,
+                moveY,
+                fire,
+                activate,
+                activateBomb);
+        }
+
+        static bool ShouldActivatePowerUp(PowerUpGauge gauge)
+        {
+            if (gauge == null
+                || gauge.Cursor == PowerUpGauge.NoSelection
+                || !gauge.CanActivate)
+                return false;
+            PowerUpGaugeSlotView selected =
+                gauge.GetGaugeSlotView(gauge.Cursor);
+            if (selected.GaugeIndex != gauge.Cursor)
+                throw new InvalidOperationException(
+                    "Gauge observation index does not match its cursor.");
+            if (selected.Level >= selected.MaxLevel)
+                return false;
+
+            // Invest in Missile/Option only. Coverage weapon modes (Double/Triple)
+            // fire off the boss centerline and stall PreferCapped ST melts after
+            // ClosingSegmentsPerStage lengthens capsule-rich routes (REQ-079).
+            // Ship weapon-switch coverage lives in unit tests + BalanceSim.
+            return selected.Slot == PowerUpSlot.Missile
+                || selected.Slot == PowerUpSlot.Option;
+        }
+
+        static bool TrySelectPickupTargetY(
+            IBattleSim battle,
+            out int targetY)
+        {
+            long bestDistance = long.MaxValue;
+            targetY = 0;
+            for (int i = 0; i < battle.Capsules.Count; i++)
+            {
+                CapsuleState pickup = battle.Capsules[i];
+                long distance = Math.Abs(
+                    (long)pickup.X - battle.PlayerX);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    targetY = pickup.Y;
+                }
+            }
+            for (int i = 0; i < battle.BombPickups.Count; i++)
+            {
+                BombPickupState pickup = battle.BombPickups[i];
+                long distance = Math.Abs(
+                    (long)pickup.X - battle.PlayerX);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    targetY = pickup.Y;
+                }
+            }
+            return bestDistance != long.MaxValue;
+        }
+
+        static int SelectBossTargetY(
+            StagePlan stage,
+            IBattleSim battle)
+        {
+            BossState boss = battle.Boss;
+            for (int i = 0; i < battle.BossParts.Count; i++)
+            {
+                BossPartState part = battle.BossParts[i];
+                if (!part.Destroyed
+                    && part.IsCore
+                    && !part.Invulnerable)
+                    return part.Y;
+            }
+
+            for (int definitionIndex = 0;
+                definitionIndex < stage.BossParts.Count;
+                definitionIndex++)
+            {
+                BossPartDefinition definition =
+                    stage.BossParts[definitionIndex];
+                if (!definition.IsCore)
+                    continue;
+                for (int gate = 0;
+                    gate < definition.CoreGatePartIds.Count;
+                    gate++)
+                {
+                    string gateId =
+                        definition.CoreGatePartIds[gate];
+                    for (int stateIndex = 0;
+                        stateIndex < battle.BossParts.Count;
+                        stateIndex++)
+                    {
+                        BossPartState state =
+                            battle.BossParts[stateIndex];
+                        if (!state.Destroyed
+                            && !state.Invulnerable
+                            && string.Equals(
+                                state.PartId,
+                                gateId,
+                                StringComparison.Ordinal))
+                            return state.Y;
+                    }
+                }
+            }
+
+            for (int definitionIndex = 0;
+                definitionIndex < stage.BossParts.Count;
+                definitionIndex++)
+            {
+                BossPartDefinition definition =
+                    stage.BossParts[definitionIndex];
+                if (definition.RegenerationTicks != 0)
+                    continue;
+                for (int stateIndex = 0;
+                    stateIndex < battle.BossParts.Count;
+                    stateIndex++)
+                {
+                    BossPartState state =
+                        battle.BossParts[stateIndex];
+                    if (!state.Destroyed
+                        && !state.Invulnerable
+                        && string.Equals(
+                            state.PartId,
+                            definition.PartId,
+                            StringComparison.Ordinal))
+                        return state.Y;
+                }
+            }
+
+            for (int i = 0; i < battle.BossParts.Count; i++)
+            {
+                BossPartState part = battle.BossParts[i];
+                if (!part.Destroyed && !part.Invulnerable)
+                    return part.Y;
+            }
+            return boss.Y;
         }
 
         static GameDataSet LoadGameData()
@@ -647,19 +865,39 @@ namespace Shmup.DeterminismAudit
                     : null);
         }
 
-        static ShipDefinition CreateAuditShip(ShipDefinition source)
+        static ShipDefinition CreateAuditShip(
+            ShipDefinition source,
+            int mainShotLevel)
         {
             if (source == null)
-                return ShipDefinition.CreateDefault();
+                source = ShipDefinition.CreateDefault();
+            int[] startingLevels =
+                source.ExportStartingPowerUpLevels();
+            startingLevels[(int)PowerUpSlot.MainShot] =
+                mainShotLevel;
+            PrimaryWeaponFamily family =
+                source.GaugeWeaponFamily
+                ?? PrimaryWeaponFamily.Double;
+            PowerUpSlot weaponSlot =
+                ShipDefinition.GaugeSlotForFamily(family);
             return new ShipDefinition(
                 source.Id,
                 source.DisplayName,
                 source.MoveSpeedMultiplierNumerator,
                 source.MoveSpeedMultiplierDenominator,
-                source.ExportStartingPowerUpLevels(),
+                startingLevels,
                 source.UnlockCost,
                 source.WeaponType,
-                null);
+                null,
+                family,
+                new[]
+                {
+                    PowerUpSlot.Speed,
+                    PowerUpSlot.Missile,
+                    weaponSlot,
+                    PowerUpSlot.Option,
+                    PowerUpSlot.Shield
+                });
         }
 
         static bool TryParseSeed(string value, out ulong seed)
@@ -780,7 +1018,8 @@ namespace Shmup.DeterminismAudit
                 int battleTick,
                 int bossHp,
                 int bossMaxHp,
-                RunCompletionGrade completionGrade)
+                RunCompletionGrade completionGrade,
+                int hiddenConditions)
             {
                 Scenario = scenario;
                 Hash = hash;
@@ -798,6 +1037,7 @@ namespace Shmup.DeterminismAudit
                 BossHp = bossHp;
                 BossMaxHp = bossMaxHp;
                 CompletionGrade = completionGrade;
+                HiddenConditions = hiddenConditions;
             }
 
             public AuditScenario Scenario { get; }
@@ -816,6 +1056,7 @@ namespace Shmup.DeterminismAudit
             public int BossHp { get; }
             public int BossMaxHp { get; }
             public RunCompletionGrade CompletionGrade { get; }
+            public int HiddenConditions { get; }
 
             public bool Matches(ScenarioResult other)
             {
@@ -834,7 +1075,8 @@ namespace Shmup.DeterminismAudit
                     && BattleTick == other.BattleTick
                     && BossHp == other.BossHp
                     && BossMaxHp == other.BossMaxHp
-                    && CompletionGrade == other.CompletionGrade;
+                    && CompletionGrade == other.CompletionGrade
+                    && HiddenConditions == other.HiddenConditions;
             }
 
             public string Format()
@@ -851,7 +1093,8 @@ namespace Shmup.DeterminismAudit
                     + $"biome={BiomeIndex} room={RoomIndex} "
                     + $"battleTick={BattleTick} "
                     + $"bossHp={BossHp}/{BossMaxHp} "
-                    + $"grade={CompletionGrade}";
+                    + $"grade={CompletionGrade} "
+                    + $"hiddenConditions={HiddenConditions}";
             }
         }
 
@@ -934,6 +1177,7 @@ namespace Shmup.DeterminismAudit
         /// </summary>
         sealed class AuditStageGenerator :
             IRouteStageGenerator,
+            ISectionRouteStageGenerator,
             IColossalBossStageGenerator
         {
             const int U = SimSpace.SubUnitsPerWorldUnit;
@@ -996,6 +1240,38 @@ namespace Shmup.DeterminismAudit
                     difficulty,
                     themeId,
                     encounterType);
+            }
+
+            public bool CanGenerateRouteForSection(
+                string themeId,
+                int stageIndex,
+                int difficulty,
+                EncounterType encounterType,
+                StageRouteSection section)
+            {
+                return _inner.CanGenerateRouteForSection(
+                    themeId,
+                    stageIndex,
+                    difficulty,
+                    encounterType,
+                    section);
+            }
+
+            public StagePlan GenerateRouteForSection(
+                ulong seed,
+                int stageIndex,
+                int difficulty,
+                string themeId,
+                EncounterType encounterType,
+                StageRouteSection section)
+            {
+                return _inner.GenerateRouteForSection(
+                    seed,
+                    stageIndex,
+                    difficulty,
+                    themeId,
+                    encounterType,
+                    section);
             }
 
             public bool CanGenerateColossalBoss(ColossalBossKind kind)

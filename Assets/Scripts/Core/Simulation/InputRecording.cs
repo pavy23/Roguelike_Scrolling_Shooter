@@ -24,7 +24,19 @@ namespace Shmup.Core.Simulation
         public bool activate;
 
         [DataMember(Order = 4)]
+        public bool activateBomb;
+
+        [DataMember(Order = 5)]
         public int tickCount;
+
+        [DataMember(Order = 6)]
+        public bool useAnalogMovement;
+
+        [DataMember(Order = 7)]
+        public int analogDeltaXSubUnits;
+
+        [DataMember(Order = 8)]
+        public int analogDeltaYSubUnits;
     }
 
     /// <summary>
@@ -34,7 +46,13 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class InputRecordingData
     {
-        public const int CurrentSchemaVersion = 8;
+        /// <summary>
+        /// Schema 15 records commands against the ship-owned five-slot or
+        /// backward-compatible seven-slot gauge order. Older recordings are
+        /// rejected because identical capsule/activate input can select a
+        /// different slot.
+        /// </summary>
+        public const int CurrentSchemaVersion = 15;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -74,6 +92,12 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 12)]
         public int lastColossalBossAtRunStart;
+
+        [DataMember(Order = 13)]
+        public ContractChoiceData[] contractChoices;
+
+        [DataMember(Order = 14)]
+        public RewardDecisionData[] rewardDecisions;
     }
 
     /// <summary>
@@ -84,7 +108,16 @@ namespace Shmup.Core.Simulation
     /// </summary>
     public sealed class InputRecorder
     {
-        const int DefaultRunCapacity = 4096;
+        /// <summary>
+        /// Lossless worst case: touch analog deltas can differ every tick and
+        /// therefore produce one run per tick. Sixty minutes is the supported
+        /// default replay envelope at the fixed simulation rate.
+        /// </summary>
+        public const int DefaultMaximumRecordingMinutes = 60;
+        public const int DefaultRunCapacity =
+            SimSpace.TicksPerSecond
+            * 60
+            * DefaultMaximumRecordingMinutes;
 
         readonly InputRun[] _runs;
         readonly int _difficultyMultiplierNumerator;
@@ -298,7 +331,13 @@ namespace Shmup.Core.Simulation
                     moveY = run.MoveY,
                     fire = run.Fire,
                     activate = run.Activate,
-                    tickCount = run.TickCount
+                    activateBomb = run.ActivateBomb,
+                    tickCount = run.TickCount,
+                    useAnalogMovement = run.UseAnalogMovement,
+                    analogDeltaXSubUnits =
+                        run.AnalogDeltaXSubUnits,
+                    analogDeltaYSubUnits =
+                        run.AnalogDeltaYSubUnits
                 };
             }
 
@@ -321,6 +360,48 @@ namespace Shmup.Core.Simulation
                     encounterType = (int)choice.EncounterType
                 };
             }
+            IReadOnlyList<ContractChoice> contractChoices =
+                _routeSource != null
+                    ? _routeSource.ContractChoiceHistory
+                    : Array.Empty<ContractChoice>();
+            var exportedContractChoices =
+                new ContractChoiceData[contractChoices.Count];
+            for (int i = 0; i < contractChoices.Count; i++)
+            {
+                ContractChoice choice = contractChoices[i];
+                exportedContractChoices[i] =
+                    new ContractChoiceData
+                    {
+                        targetBiomeIndex =
+                            choice.TargetBiomeIndex,
+                        optionIndex = choice.OptionIndex,
+                        contractId = choice.ContractId,
+                        destinationKind =
+                            (int)choice.DestinationKind
+                    };
+            }
+            IReadOnlyList<RewardDecision> rewardDecisions =
+                _routeSource != null
+                    ? _routeSource.RewardDecisionHistory
+                    : Array.Empty<RewardDecision>();
+            var exportedRewardDecisions =
+                new RewardDecisionData[rewardDecisions.Count];
+            for (int i = 0; i < rewardDecisions.Count; i++)
+            {
+                RewardDecision decision = rewardDecisions[i];
+                exportedRewardDecisions[i] =
+                    new RewardDecisionData
+                    {
+                        rewardSequence =
+                            decision.RewardSequence,
+                        selectionKind =
+                            (int)decision.SelectionKind,
+                        decisionKind =
+                            (int)decision.DecisionKind,
+                        optionIndex =
+                            decision.OptionIndex
+                    };
+            }
 
             var data = new InputRecordingData
             {
@@ -338,7 +419,9 @@ namespace Shmup.Core.Simulation
                 missileFamily = (int)_missileFamily,
                 optionFormation = (int)_optionFormation,
                 lastColossalBossAtRunStart =
-                    (int)_lastColossalBossAtRunStart
+                    (int)_lastColossalBossAtRunStart,
+                contractChoices = exportedContractChoices,
+                rewardDecisions = exportedRewardDecisions
             };
             SaveDataIntegrity.Seal(data);
             return data;
@@ -400,7 +483,14 @@ namespace Shmup.Core.Simulation
             return run.MoveX == command.MoveX
                 && run.MoveY == command.MoveY
                 && run.Fire == command.Fire
-                && run.Activate == command.Activate;
+                && run.Activate == command.Activate
+                && run.ActivateBomb == command.ActivateBomb
+                && run.UseAnalogMovement
+                    == command.UseAnalogMovement
+                && run.AnalogDeltaXSubUnits
+                    == command.AnalogDeltaXSubUnits
+                && run.AnalogDeltaYSubUnits
+                    == command.AnalogDeltaYSubUnits;
         }
 
         struct InputRun
@@ -411,6 +501,12 @@ namespace Shmup.Core.Simulation
                 MoveY = command.MoveY;
                 Fire = command.Fire;
                 Activate = command.Activate;
+                ActivateBomb = command.ActivateBomb;
+                UseAnalogMovement = command.UseAnalogMovement;
+                AnalogDeltaXSubUnits =
+                    command.AnalogDeltaXSubUnits;
+                AnalogDeltaYSubUnits =
+                    command.AnalogDeltaYSubUnits;
                 TickCount = tickCount;
             }
 
@@ -418,6 +514,10 @@ namespace Shmup.Core.Simulation
             public int MoveY;
             public bool Fire;
             public bool Activate;
+            public bool ActivateBomb;
+            public bool UseAnalogMovement;
+            public int AnalogDeltaXSubUnits;
+            public int AnalogDeltaYSubUnits;
             public int TickCount;
         }
     }
@@ -431,9 +531,25 @@ namespace Shmup.Core.Simulation
         readonly PlaybackRun[] _runs;
         readonly RouteChoice[] _routeChoices;
         readonly IReadOnlyList<RouteChoice> _routeChoiceView;
+        readonly ContractChoice[] _contractChoices;
+        readonly IReadOnlyList<ContractChoice>
+            _contractChoiceView;
+        readonly RewardDecision[] _rewardDecisions;
+        readonly IReadOnlyList<RewardDecision>
+            _rewardDecisionView;
 
         public InputPlayback(InputRecordingData data)
         {
+            if (data == null)
+                throw new ArgumentNullException(nameof(data));
+            if (data.schemaVersion
+                != InputRecordingData.CurrentSchemaVersion)
+            {
+                throw new ArgumentException(
+                    "The input recording was captured by an incompatible "
+                    + "simulation version.",
+                    nameof(data));
+            }
             data = SaveDataIntegrity.MigrateAndValidate(data);
             Validate(data);
 
@@ -457,12 +573,23 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < data.runs.Length; i++)
             {
                 InputRunData run = data.runs[i];
-                _runs[i] = new PlaybackRun(
-                    new InputCommand(
+                InputCommand command = run.useAnalogMovement
+                    ? new InputCommand(
                         run.moveX,
                         run.moveY,
                         run.fire,
-                        run.activate),
+                        run.activate,
+                        run.activateBomb,
+                        run.analogDeltaXSubUnits,
+                        run.analogDeltaYSubUnits)
+                    : new InputCommand(
+                        run.moveX,
+                        run.moveY,
+                        run.fire,
+                        run.activate,
+                        run.activateBomb);
+                _runs[i] = new PlaybackRun(
+                    command,
                     run.tickCount);
             }
             RouteChoiceData[] serializedChoices =
@@ -479,6 +606,43 @@ namespace Shmup.Core.Simulation
                     (EncounterType)choice.encounterType);
             }
             _routeChoiceView = Array.AsReadOnly(_routeChoices);
+            ContractChoiceData[] serializedContracts =
+                data.contractChoices
+                ?? Array.Empty<ContractChoiceData>();
+            _contractChoices =
+                new ContractChoice[serializedContracts.Length];
+            for (int i = 0; i < _contractChoices.Length; i++)
+            {
+                ContractChoiceData choice =
+                    serializedContracts[i];
+                _contractChoices[i] = new ContractChoice(
+                    choice.targetBiomeIndex,
+                    choice.optionIndex,
+                    choice.contractId,
+                    (ContractDestinationKind)
+                        choice.destinationKind);
+            }
+            _contractChoiceView =
+                Array.AsReadOnly(_contractChoices);
+            RewardDecisionData[] serializedDecisions =
+                data.rewardDecisions
+                ?? Array.Empty<RewardDecisionData>();
+            _rewardDecisions =
+                new RewardDecision[serializedDecisions.Length];
+            for (int i = 0; i < _rewardDecisions.Length; i++)
+            {
+                RewardDecisionData decision =
+                    serializedDecisions[i];
+                _rewardDecisions[i] = new RewardDecision(
+                    decision.rewardSequence,
+                    (RewardSelectionKind)
+                        decision.selectionKind,
+                    (RewardDecisionKind)
+                        decision.decisionKind,
+                    decision.optionIndex);
+            }
+            _rewardDecisionView =
+                Array.AsReadOnly(_rewardDecisions);
         }
 
         public int TotalTicks { get; }
@@ -493,6 +657,10 @@ namespace Shmup.Core.Simulation
         public ColossalBossKind LastColossalBossAtRunStart { get; }
         public IReadOnlyList<RouteChoice> RouteChoices =>
             _routeChoiceView;
+        public IReadOnlyList<ContractChoice> ContractChoices =>
+            _contractChoiceView;
+        public IReadOnlyList<RewardDecision> RewardDecisions =>
+            _rewardDecisionView;
 
         public Enumerator GetEnumerator()
         {
@@ -567,6 +735,13 @@ namespace Shmup.Core.Simulation
                     throw Corrupted(
                         "Input recording movement must be digital.");
                 }
+                if (!run.useAnalogMovement
+                    && (run.analogDeltaXSubUnits != 0
+                        || run.analogDeltaYSubUnits != 0))
+                {
+                    throw Corrupted(
+                        "Input recording analog deltas require analog mode.");
+                }
                 if (run.tickCount < 1)
                     throw Corrupted(
                         "Input recording run lengths must be positive.");
@@ -574,7 +749,14 @@ namespace Shmup.Core.Simulation
                     && previous.moveX == run.moveX
                     && previous.moveY == run.moveY
                     && previous.fire == run.fire
-                    && previous.activate == run.activate)
+                    && previous.activate == run.activate
+                    && previous.activateBomb == run.activateBomb
+                    && previous.useAnalogMovement
+                        == run.useAnalogMovement
+                    && previous.analogDeltaXSubUnits
+                        == run.analogDeltaXSubUnits
+                    && previous.analogDeltaYSubUnits
+                        == run.analogDeltaYSubUnits)
                 {
                     throw Corrupted(
                         "Adjacent identical input runs are not canonical.");
@@ -625,6 +807,95 @@ namespace Shmup.Core.Simulation
                 }
                 previousBiomeIndex = choice.biomeIndex;
                 previousRoomIndex = choice.roomIndex;
+            }
+            if (data.contractChoices == null)
+                throw Corrupted(
+                    "Input recording contractChoices cannot be null.");
+            int previousContractBiome = 1;
+            for (int i = 0;
+                i < data.contractChoices.Length;
+                i++)
+            {
+                ContractChoiceData choice =
+                    data.contractChoices[i];
+                if (choice == null
+                    || choice.targetBiomeIndex
+                        <= previousContractBiome
+                    || choice.targetBiomeIndex
+                        > data.biomeCount + 1
+                    || choice.optionIndex < 0
+                    || choice.optionIndex
+                        >= RunManager.MaximumContractOptionCount
+                    || string.IsNullOrEmpty(choice.contractId)
+                    || !Enum.IsDefined(
+                        typeof(ContractDestinationKind),
+                        choice.destinationKind)
+                    || (choice.targetBiomeIndex
+                            == data.biomeCount + 1
+                        && choice.destinationKind
+                            == (int)ContractDestinationKind.NextStage)
+                    || (choice.targetBiomeIndex
+                            <= data.biomeCount
+                        && choice.destinationKind
+                            != (int)ContractDestinationKind.NextStage))
+                {
+                    throw Corrupted(
+                        "Input recording contract choice history is invalid.");
+                }
+                previousContractBiome =
+                    choice.targetBiomeIndex;
+            }
+            if (data.rewardDecisions == null)
+                throw Corrupted(
+                    "Input recording rewardDecisions cannot be null.");
+            int previousRewardSequence = 0;
+            bool sequenceSelected = false;
+            for (int i = 0;
+                i < data.rewardDecisions.Length;
+                i++)
+            {
+                RewardDecisionData decision =
+                    data.rewardDecisions[i];
+                if (decision == null
+                    || decision.rewardSequence < 1
+                    || decision.rewardSequence
+                        < previousRewardSequence
+                    || !Enum.IsDefined(
+                        typeof(RewardSelectionKind),
+                        decision.selectionKind)
+                    || decision.selectionKind
+                        == (int)RewardSelectionKind.None
+                    || !Enum.IsDefined(
+                        typeof(RewardDecisionKind),
+                        decision.decisionKind))
+                    throw Corrupted(
+                        "Input recording reward decision history is invalid.");
+                if (decision.rewardSequence
+                    != previousRewardSequence)
+                {
+                    sequenceSelected = false;
+                    previousRewardSequence =
+                        decision.rewardSequence;
+                }
+                if (sequenceSelected)
+                    throw Corrupted(
+                        "Input recording reward decisions occur after selection.");
+                if (decision.decisionKind
+                    == (int)RewardDecisionKind.Reroll)
+                {
+                    if (decision.optionIndex != -1)
+                        throw Corrupted(
+                            "Input recording reroll option index is invalid.");
+                }
+                else
+                {
+                    if (decision.optionIndex < 0
+                        || decision.optionIndex
+                            >= RunManager.MainRewardOptionCount)
+                        throw Corrupted(
+                            "Input recording reward option index is invalid.");
+                    sequenceSelected = true;
+                }
             }
         }
 

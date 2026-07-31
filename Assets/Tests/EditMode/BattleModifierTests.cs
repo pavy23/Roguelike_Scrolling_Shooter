@@ -216,6 +216,70 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void StackedPierce_AddsOneTargetPerStrengthUnit()
+        {
+            BattleModifierStackSet stacks =
+                BattleModifierStackSet.CreateSingle(
+                    BattleModifier.PierceShot,
+                    2,
+                    1,
+                    1,
+                    4);
+            BattleSim sim = CreateSim(
+                stacks,
+                Config(),
+                Gauge(),
+                new[]
+                {
+                    Enemy("a", 1),
+                    Enemy("b", 1),
+                    Enemy("c", 1)
+                },
+                new[]
+                {
+                    Spawn(0, "a", 100, 0),
+                    Spawn(0, "b", 200, 0),
+                    Spawn(0, "c", 300, 0)
+                });
+
+            FireOnceThenStep(sim, 3);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(0, sim.Enemies.Count);
+                Assert.AreEqual(3L, sim.Statistics.ShotsHit);
+                Assert.AreEqual(2, stacks.GetStackCount(BattleModifier.PierceShot));
+                Assert.AreEqual(2, stacks.GetStrength(BattleModifier.PierceShot));
+            });
+        }
+
+        [Test]
+        public void ModifierCombinationBudget_RejectsFurtherStacks()
+        {
+            BattleModifierStackSet stacks =
+                BattleModifierStackSet.CreateSingle(
+                    BattleModifier.KillExplosion,
+                    2,
+                    1,
+                    2,
+                    4);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(4, stacks.CombinationUsed);
+                Assert.IsFalse(
+                    stacks.CanAdd(
+                        BattleModifier.Ricochet,
+                        1,
+                        1,
+                        1));
+                Assert.AreEqual(
+                    BattleModifier.KillExplosion,
+                    stacks.ActiveModifiers);
+            });
+        }
+
+        [Test]
         public void ModifierCollisionScanDoesNotAllocateAfterConstruction()
         {
             // Warm all code paths before taking a per-thread allocation sample.
@@ -249,12 +313,13 @@ namespace Shmup.Core.Tests
                 });
             BattleSimConfig config = Config();
             config.BulletDespawnX = 100;
+            config.StartingShieldStock = 0;
             var weapon = new WeaponDefinition("shot", 1, 1, 100, 1, 0, 0);
             EnemyDefinition lethal = new EnemyDefinition(
                 "lethal",
                 "lethal",
                 1,
-                config.PlayerMaxHp,
+                1,
                 0,
                 EnemyMovePattern.Static,
                 0,
@@ -276,17 +341,34 @@ namespace Shmup.Core.Tests
                 config,
                 content,
                 Gauge(),
-                modifierRewards);
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                modifierRewards,
+                null,
+                1,
+                1,
+                new RunProgressionConfig(
+                    RunProgressionConfig.DefaultBiomeCount,
+                    1));
 
             var fire = new InputCommand(0, 0, true);
-            for (int i = 0; i < 2000 && run.State == RunState.Playing; i++)
+            for (int i = 0;
+                i < 2000 && run.State == RunState.Playing;
+                i++)
                 run.Step(in fire);
             Assert.AreEqual(RunState.AwaitingReward, run.State);
+            Assert.AreEqual(
+                RewardSelectionKind.Main,
+                run.RewardSelectionKind);
 
             run.ChooseReward(0);
             Assert.AreEqual(BattleModifier.PierceShot, run.ActiveModifiers);
+            Assert.IsTrue(run.ChooseContract(0));
             InputCommand none = InputCommand.None;
-            run.Step(in none);
+            for (int i = 0;
+                i < 100 && run.State != RunState.RunOver;
+                i++)
+                run.Step(in none);
             Assert.AreEqual(RunState.RunOver, run.State);
 
             run.Restart(78UL);
@@ -301,7 +383,15 @@ namespace Shmup.Core.Tests
                 config,
                 content,
                 Gauge(),
-                modifierRewards);
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                modifierRewards,
+                null,
+                1,
+                1,
+                new RunProgressionConfig(
+                    RunProgressionConfig.DefaultBiomeCount,
+                    1));
             Assert.AreEqual(BattleModifier.None, fresh.ActiveModifiers);
         }
 
@@ -390,6 +480,35 @@ namespace Shmup.Core.Tests
                 123UL,
                 new[] { first, second },
                 spawns);
+        }
+
+        static BattleSim CreateSim(
+            BattleModifierStackSet modifiers,
+            BattleSimConfig config,
+            PowerUpGauge gauge,
+            EnemyDefinition[] enemies,
+            SpawnEvent[] spawns)
+        {
+            var weapon =
+                new WeaponDefinition("shot", 1, 100, 100, 1, 0, 0);
+            var content =
+                new BattleContent(enemies, new[] { weapon }, weapon.Id);
+            var segment = new StageSegment(
+                "modifier_stack_test",
+                100,
+                spawns,
+                1,
+                1,
+                new[] { 1 });
+            var plan =
+                new StagePlan(new[] { segment }, "legacy", 1, 1, 1);
+            return new BattleSim(
+                config,
+                new Rng(123UL),
+                plan,
+                content,
+                gauge,
+                modifiers);
         }
 
         static BattleSim CreateSim(
@@ -594,6 +713,8 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual(firstEvents[i].Arg, secondEvents[i].Arg);
             }
         }
+
+        static void AssertAll(Action assert) => assert();
 
         sealed class ModifierRunGenerator : IStageGenerator
         {

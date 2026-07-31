@@ -125,23 +125,28 @@ namespace Shmup.EditorTools
         const string CapsuleSpritePath = SpriteDir + "/capsule.png";
         const string CapsulePrefabPath = PrefabDir + "/Capsule.prefab";
 
+        // 파워업 캡슐 10×8. 옵션 드론과 **형태도 색도 겹치지 않아야** 한다 —
+        // 예전에는 둘 다 주황 둥근 사각이라 화면에서 구분이 되지 않았다
+        // ("옵션 파츠외 파워업 아이템 아이콘이 너무 비슷한거 같아", 2026-07-30).
+        // 캡슐은 먹어야 하는 것이므로 다이아몬드 실루엣 + 기체/옵션의 보색인
+        // 청록 계열로 두고, 중앙을 밝게 비워 "빛나는 획득물"로 읽히게 한다.
         static readonly string[] CapsulePixels =
         {
-            "..OOOOOO..",
-            ".OWWWWWWO.",
-            "OWWCCCCWWO",
-            "OWCCWWCCWO",
-            "OWCCWWCCWO",
-            "OWWCCCCWWO",
-            ".OWWWWWWO.",
-            "..OOOOOO.."
+            "....CC....",
+            "..CCWWCC..",
+            ".CWWPPWWC.",
+            "CWWPCCPWWC",
+            "CWWPCCPWWC",
+            ".CWWPPWWC.",
+            "..CCWWCC..",
+            "....CC...."
         };
 
         static readonly Dictionary<char, Color32> CapsulePalette = new Dictionary<char, Color32>
         {
-            ['O'] = new Color32(0x8C, 0x3A, 0x0A, 0xFF),
-            ['W'] = new Color32(0xFF, 0x9C, 0x28, 0xFF),
-            ['C'] = new Color32(0xFF, 0xE8, 0xB0, 0xFF)
+            ['C'] = new Color32(0xB4, 0xF4, 0xFF, 0xFF),   // 밝은 시안 (외곽·중심)
+            ['W'] = new Color32(0x3C, 0xC8, 0xE8, 0xFF),   // 청록 본체
+            ['P'] = new Color32(0x14, 0x5C, 0x9C, 0xFF)    // 진청 음영
         };
 
         // 폭발 12×12 스타버스트 (런타임에 확대+페이드)
@@ -211,6 +216,146 @@ namespace Shmup.EditorTools
             ['O'] = new Color32(0x8C, 0x2A, 0x0A, 0xFF),
             ['W'] = new Color32(0xFF, 0x78, 0x20, 0xFF),
             ['C'] = new Color32(0xFF, 0xD0, 0x80, 0xFF)
+        };
+
+        // 스크랩야드 고철 잔해 32×32 (REQ-055). 스크랩야드의 기믹은 "떠다니는 잔해를
+        // 엄폐물로 쓰거나 부순다"인데 크리스탈 스프라이트를 쓰고 있어서 고철 폐기장에
+        // 청록 결정이 떠 있었다 — 기믹 의도가 전달되지 않는다.
+        //
+        // 크리스탈의 규칙적 기하와 대비되는 **불규칙한 파편**이어야 "부술 것"으로 읽힌다.
+        const string ScrapDebrisSpritePath = SpriteDir + "/obstacle_scrap_debris.png";
+
+        static string[] BuildScrapDebrisPixels()
+        {
+            const int size = 32;
+            const int spokes = 16;
+
+            // 각도별 반지름을 고정 시드 의사난수로 흔들어 울퉁불퉁한 실루엣을 만든다.
+            // 시드를 박아 두어 빌드마다 같은 모양이 나온다.
+            var radii = new float[spokes];
+            uint h = 0x9E3779B9u;
+            for (int i = 0; i < spokes; i++)
+            {
+                h = h * 1664525u + 1013904223u;
+                radii[i] = 9.5f + (h >> 24) / 255f * 5f;
+            }
+
+            var rows = new string[size];
+            float centre = size / 2f - 0.5f;
+            for (int y = 0; y < size; y++)
+            {
+                var row = new char[size];
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = x - centre, dy = y - centre;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+
+                    float ang = Mathf.Atan2(dy, dx) / (Mathf.PI * 2f);
+                    if (ang < 0f) ang += 1f;
+                    float s = ang * spokes;
+                    int i0 = (int)s % spokes;
+                    float r = Mathf.Lerp(radii[i0], radii[(i0 + 1) % spokes], s - (int)s);
+
+                    if (dist > r) { row[x] = '.'; continue; }
+                    if (dist > r - 1.6f) { row[x] = 'O'; continue; }
+
+                    // 내부를 대각 띠로 갈라 찌그러진 판이 겹친 것처럼 보이게 한다.
+                    float band = Mathf.Repeat(x + y * 0.6f, 7f);
+                    row[x] = band < 2f ? 'H' : band < 4.5f ? 'M' : 'D';
+                }
+                rows[y] = new string(row);
+            }
+            return rows;
+        }
+
+        // 녹슨 고철 — 크리스탈(청록)·포자(자주)와 색으로도 갈린다.
+        static readonly Dictionary<char, Color32> ScrapDebrisPalette = new Dictionary<char, Color32>
+        {
+            ['O'] = new Color32(0x2C, 0x22, 0x1C, 0xFF),   // 외곽
+            ['D'] = new Color32(0x4E, 0x3C, 0x2E, 0xFF),   // 그늘진 면
+            ['M'] = new Color32(0x78, 0x60, 0x48, 0xFF),   // 중간 면
+            ['H'] = new Color32(0xAC, 0x92, 0x70, 0xFF)    // 빛 받는 면
+        };
+
+        // 전멸 폭탄 픽업 10×10 방사 별. 캡슐(시안 다이아몬드)·옵션(주황 구체)과 한눈에
+        // 구분되어야 해서 시안의 보색인 자홍으로 두고, 방사형 실루엣으로 "터지는 것"임을
+        // 알린다. 대각선 점은 반짝임이다.
+        const string BombPickupSpritePath = SpriteDir + "/bomb_pickup.png";
+        const string BombPickupPrefabPath = PrefabDir + "/BombPickup.prefab";
+
+        static readonly string[] BombPickupPixels =
+        {
+            "....WW....",
+            "...WMMW...",
+            ".W.WMMW.W.",
+            "..WMMMMW..",
+            "WWMMCCMMWW",
+            "WWMMCCMMWW",
+            "..WMMMMW..",
+            ".W.WMMW.W.",
+            "...WMMW...",
+            "....WW...."
+        };
+
+        static readonly Dictionary<char, Color32> BombPickupPalette = new Dictionary<char, Color32>
+        {
+            ['W'] = new Color32(0xFF, 0xD8, 0xFF, 0xFF),   // 바깥 섬광
+            ['M'] = new Color32(0xE0, 0x40, 0xC0, 0xFF),   // 자홍 본체
+            ['C'] = new Color32(0xFF, 0xFF, 0xFF, 0xFF)    // 흰 중심
+        };
+
+        // 하이브 촉수 20×40 (REQ-055). 히트박스 1.25×2.5 유닛 × PPU 16 = 정확히 20×40이라
+        // 런타임 스케일이 1.0으로 떨어진다 — 다른 적처럼 확대되어 뭉개지지 않는다.
+        //
+        // 통로 **위아래 어느 벽**에도 배치될 수 있고 Core는 방향을 주지 않으므로,
+        // 한쪽 끝만 굵은 형태는 절반의 경우 거꾸로 보인다. 가운데가 굵은 방추형으로 두면
+        // 어느 쪽에서 뻗어 나와도 자연스럽다.
+        const string HiveTentacleSpritePath = SpriteDir + "/enemy_hive_tentacle.png";
+
+        static string[] BuildHiveTentaclePixels()
+        {
+            const int width = 20, height = 40;
+            var rows = new string[height];
+            for (int y = 0; y < height; y++)
+            {
+                float t = y / (float)(height - 1);
+                // 방추형: 중앙보다 살짝 위(0.42)에서 최대 굵기 — 완전 대칭은 무기물처럼 보인다.
+                float taper = 1f - Mathf.Pow(Mathf.Abs(t - 0.42f) / 0.58f, 1.7f);
+                float halfThick = Mathf.Lerp(1.2f, 7.2f, Mathf.Clamp01(taper));
+                // S자로 굽어 살아있는 것으로 읽히게. 양 끝은 덜 흔들려 벽에 붙은 느낌을 남긴다.
+                float sway = Mathf.Sin(t * 5.4f) * 3.2f * Mathf.Sin(t * Mathf.PI);
+                float centre = width * 0.5f - 0.5f + sway;
+
+                var row = new char[width];
+                for (int x = 0; x < width; x++)
+                {
+                    float d = x - centre;
+                    float ad = Mathf.Abs(d);
+                    if (ad > halfThick) { row[x] = '.'; continue; }
+                    if (ad > halfThick - 1.1f) { row[x] = 'O'; continue; }
+
+                    // 빨판: 굽은 안쪽에 4px 간격으로. 촉수의 방향감을 만든다.
+                    bool suckerRow = y % 4 == 2 && halfThick > 3.4f;
+                    if (suckerRow && d < -halfThick * 0.25f && d > -halfThick * 0.72f)
+                    {
+                        row[x] = 'S';
+                        continue;
+                    }
+                    // 광원은 오른쪽 위 — 기체·옵션과 같은 방향으로 통일한다.
+                    row[x] = d > halfThick * 0.3f ? 'H' : 'B';
+                }
+                rows[y] = new string(row);
+            }
+            return rows;
+        }
+
+        // 하이브 생체 = 자주/분홍. 기존 적이 회색·주황 계열이라 한눈에 구분된다.
+        static readonly Dictionary<char, Color32> HiveTentaclePalette = new Dictionary<char, Color32>
+        {
+            ['O'] = new Color32(0x40, 0x10, 0x38, 0xFF),   // 외곽 (짙은 자주)
+            ['B'] = new Color32(0x8C, 0x24, 0x6C, 0xFF),   // 본체
+            ['H'] = new Color32(0xD8, 0x5C, 0xA4, 0xFF),   // 하이라이트 (분홍)
+            ['S'] = new Color32(0xFF, 0xC8, 0xE4, 0xFF)    // 빨판
         };
 
         // 실드 링 20×20 (플레이어 자식, 알파는 런타임 조절)
@@ -347,6 +492,9 @@ namespace Shmup.EditorTools
                 var enemyPrefab = WriteSpritePrefab(EnemyPrefabPath, "Enemy", enemySprite, 8);
                 var capsuleSprite = WriteExternalOrPixelSprite(CapsuleSpritePath, "capsule.png", CapsulePixels, CapsulePalette);
                 var capsulePrefab = WriteSpritePrefab(CapsulePrefabPath, "Capsule", capsuleSprite, 7);
+                var bombPickupSprite = WriteExternalOrPixelSprite(
+                    BombPickupSpritePath, "bomb_pickup.png", BombPickupPixels, BombPickupPalette);
+                WriteSpritePrefab(BombPickupPrefabPath, "BombPickup", bombPickupSprite, 7);
                 var explosionFrames = LoadExplosionFrames();
                 var explosionSprite = explosionFrames.Length > 0
                     ? explosionFrames[0]
@@ -356,6 +504,10 @@ namespace Shmup.EditorTools
                 var missileSprite = WritePixelSprite(MissileSpritePath, MissilePixels, MissilePalette);
                 var enemyShotSprite = WritePixelSprite(EnemyShotSpritePath, EnemyShotPixels, EnemyShotPalette);
                 var optionSprite = WritePixelSprite(OptionSpritePath, OptionPixels, OptionPalette);
+                // art-input에 손으로 그린 촉수가 들어오면 그쪽이 우선된다.
+                WriteExternalOrPixelSprite(
+                    HiveTentacleSpritePath, "enemy_hive_tentacle.png",
+                    BuildHiveTentaclePixels(), HiveTentaclePalette);
                 var optionPrefab = WriteSpritePrefab(OptionPrefabPath, "Option", optionSprite, 9);
                 var shieldSprite = WritePixelSprite(ShieldSpritePath, BuildShieldPixels(), ShieldPalette);
 
@@ -605,6 +757,9 @@ namespace Shmup.EditorTools
             var capsuleRoot = new GameObject("Capsules");
             capsuleRoot.transform.SetParent(battleRoot.transform, false);
 
+            var bombPickupRoot = new GameObject("BombPickups");
+            bombPickupRoot.transform.SetParent(battleRoot.transform, false);
+
             var fxRoot = new GameObject("Fx");
             fxRoot.transform.SetParent(battleRoot.transform, false);
 
@@ -647,6 +802,9 @@ namespace Shmup.EditorTools
             SetReference(director, "_enemyRoot", enemyRoot.transform);
             SetReference(director, "_capsulePrefab", capsulePrefab);
             SetReference(director, "_capsuleRoot", capsuleRoot.transform);
+            SetReference(director, "_bombPickupPrefab",
+                AssetDatabase.LoadAssetAtPath<GameObject>(BombPickupPrefabPath));
+            SetReference(director, "_bombPickupRoot", bombPickupRoot.transform);
             SetReference(director, "_explosionPrefab", explosionPrefab);
             SetReference(director, "_fxRoot", fxRoot.transform);
             SetReference(director, "_damageFlash", damageFlashRenderer);
@@ -743,6 +901,7 @@ namespace Shmup.EditorTools
             AddEnemySprite("mini_horror", LoadExternalSprite("enemy_mini_horror.png", "enemy_mini_horror"));
             AddEnemySprite("mini_walker", LoadExternalSprite("enemy_mini_walker.png", "enemy_mini_walker"));
             AddEnemySprite("mini_crystal", LoadExternalSprite("enemy_mini_crystal.png", "enemy_mini_crystal"));
+            AddEnemySprite("mini_core", LoadExternalSprite("enemy_mini_core.png", "enemy_mini_core"));
             AddEnemySprite("scrap_tumbler", LoadExternalSprite("enemy_scrap_tumbler.png", "enemy_scrap_tumbler"));
             AddEnemySprite("brood_spitter", LoadExternalSprite("enemy_brood_spitter.png", "enemy_brood_spitter"));
             AddEnemySprite("mortar_drone", LoadExternalSprite("enemy_mortar_drone.png", "enemy_mortar_drone"));
@@ -755,6 +914,12 @@ namespace Shmup.EditorTools
             AddEnemySprite("pipe_rat", LoadExternalSprite("enemy_pipe_rat.png", "enemy_pipe_rat"));
             AddEnemySprite("phase_disc", LoadExternalSprite("enemy_phase_disc.png", "enemy_phase_disc"));
             AddEnemySprite("rift_blade", LoadExternalSprite("enemy_rift_blade.png", "enemy_rift_blade"));
+            // 레이저 적 2종 (REQ-075). PixelLab 500으로 아트 생성이 막혀 지금은
+            // 폴백(기본+틴트)이다 — art-input에 파일이 생기면 자동 반영된다.
+            AddEnemySprite("laser_sentry", LoadExternalSprite("enemy_laser_sentry.png", "enemy_laser_sentry"));
+            AddEnemySprite("prism_beamer", LoadExternalSprite("enemy_prism_beamer.png", "enemy_prism_beamer"));
+            AddEnemySprite("hive_tentacle",
+                AssetDatabase.LoadAssetAtPath<Sprite>(HiveTentacleSpritePath));
             SetStringArray(director, "_enemySpritePrefixes", enemyTypePrefixes.ToArray());
             SetReferenceArray(director, "_enemySprites", enemyTypeSprites.ToArray());
 
@@ -777,7 +942,7 @@ namespace Shmup.EditorTools
                 "scrap_tumbler", "brood_spitter", "mortar_drone", "echo_wisp",
                 "rust_skimmer", "junk_roller", "void_moth", "shard_prism",
                 "sting_hornet", "pipe_rat", "phase_disc", "rift_blade",
-                "mini_destroyer", "mini_horror", "mini_walker", "mini_crystal",
+                "mini_destroyer", "mini_horror", "mini_walker", "mini_crystal", "mini_core",
                 "boss_stage1", "boss_hive", "boss_fortress", "boss_storm", "boss_core"
             })
                 AddAnim(prefix);
@@ -823,8 +988,19 @@ namespace Shmup.EditorTools
             SetReference(director, "_obstaclePrefab", obstaclePrefab);
             SetReferenceArray(director, "_obstacleSolidSprites", new[]
                 { armorSprite, armorSprite, armorSprite, armorSprite, coreBlockSprite });
+            // 파괴 가능 장애물은 스테이지 테마를 따라야 한다 (REQ-055). 예전에는 스크랩야드와
+            // 포트리스까지 크리스탈이라 고철 폐기장·금속 요새에 청록 결정이 떠 있었다.
+            var scrapDebrisSprite = WriteExternalOrPixelSprite(
+                ScrapDebrisSpritePath, "obstacle_scrap_debris.png",
+                BuildScrapDebrisPixels(), ScrapDebrisPalette);
             SetReferenceArray(director, "_obstacleBreakableSprites", new[]
-                { crystalSprite, sporeSprite, crystalSprite, crystalSprite, crystalSprite });
+            {
+                scrapDebrisSprite,   // 1 스크랩야드 — 고철
+                sporeSprite,         // 2 바이오 하이브 — 포자
+                scrapDebrisSprite,   // 3 포트리스 — 금속 파편
+                crystalSprite,       // 4 네뷸라 — 결정
+                crystalSprite        // 5 코어 — 결정
+            });
 
             // UI 픽셀 폰트 (Galmuri, OFL — Assets/Fonts/Galmuri-LICENSE-OFL.txt)
             var uiFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Galmuri9.ttf");
@@ -836,6 +1012,12 @@ namespace Shmup.EditorTools
             SetReference(rewardScreen, "_director", director);
             SetReference(rewardScreen, "_font", uiFont);
             SetReference(rewardScreen, "_fontBold", uiFontBold);
+
+            // 섹터 계약 선택 (REQ-070) — 스테이지 경계에서 다음 구간 조건을 보고 고른다
+            var contractScreen = battleRoot.AddComponent<ContractScreen>();
+            SetReference(contractScreen, "_director", director);
+            SetReference(contractScreen, "_font", uiFont);
+            SetReference(contractScreen, "_fontBold", uiFontBold);
             var pause = battleRoot.AddComponent<PauseScreen>();
             SetReference(pause, "_font", uiFont);
             SetReference(pause, "_fontBold", uiFontBold);
@@ -844,22 +1026,9 @@ namespace Shmup.EditorTools
             SetReference(options, "_input", inputReader);
             SetReference(options, "_font", uiFont);
             SetReference(options, "_fontBold", uiFontBold);
-            // 경로 선택 화면 (REQ-028)
-            var routeScreen = battleRoot.AddComponent<RouteScreen>();
-            SetReference(routeScreen, "_director", director);
-            SetReference(routeScreen, "_font", uiFont);
-            SetReference(routeScreen, "_fontBold", uiFontBold);
-            SetStringArray(routeScreen, "_encounterNames", UiText.EncounterNames);
-            SetReferenceArray(routeScreen, "_encounterIcons", new[]
-            {
-                LoadExternalSprite("icon_node_battle.png", "icon_node_battle"),
-                LoadExternalSprite("icon_node_elite.png", "icon_node_elite"),
-                LoadExternalSprite("icon_node_supply.png", "icon_node_supply"),
-                LoadExternalSprite("icon_node_hazard.png", "icon_node_hazard")
-            });
-            SetStringArray(routeScreen, "_themeIds",
-                new[] { "scrapyard", "hive", "fortress", "nebula", "core" });
-            SetStringArray(routeScreen, "_themeNames", UiText.ThemeNames);
+            // 경로 선택 화면(REQ-028)은 제거했다 — 분기 대신 스테이지 안에서
+            // 중간보스 → 중간 보상으로 리듬을 만든다 (REQ-054). 조우 아이콘과 테마
+            // 이름은 구간 표시에 재활용하므로 UiText에 남겨 둔다.
 
             var gameOver = battleRoot.AddComponent<GameOverScreen>();
             SetReference(gameOver, "_director", director);
@@ -872,6 +1041,25 @@ namespace Shmup.EditorTools
             // 모바일 터치 조작 (원격 플레이) — 터치 기기에서만 표시된다
             var touchControls = battleRoot.AddComponent<TouchControls>();
             SetReference(touchControls, "_font", uiFont);
+            SetReference(touchControls, "_director", director);
+            // SELECT 버튼 아이콘 = 캡슐 — 게이지 활성화가 소비하는 그 아이템 (2026-07-31 UIUX)
+            SetReference(touchControls, "_selectIcon",
+                AssetDatabase.LoadAssetAtPath<Sprite>(CapsuleSpritePath));
+
+            // 오류 오버레이: 원격 플레이(폰)에서는 콘솔을 볼 수 없다. C# 예외가 화면에
+            // 보이지 않으면 "게임이 멈춘다"는 보고만 남고 원인을 추측할 수밖에 없다.
+            var errorOverlay = battleRoot.AddComponent<ErrorOverlay>();
+            SetReference(errorOverlay, "_font", uiFont);
+
+            // 전멸 폭탄 버튼 (REQ-046). Core는 폭탄을 완전히 지원했지만 이 버튼이 없어서
+            // 발동할 방법이 아예 없었다. TouchControls보다 뒤에 추가해 Start 순서상
+            // ReserveRect가 이미 만들어진 드래그 영역에 등록되게 한다.
+            var bombButton = battleRoot.AddComponent<BombButton>();
+            SetReference(bombButton, "_font", uiFont);
+            SetReference(bombButton, "_director", director);
+            SetReference(bombButton, "_icon",
+                AssetDatabase.LoadAssetAtPath<Sprite>(BombPickupSpritePath));
+            SetReference(director, "_bombButton", bombButton);
 
             // 초대형 보스 파츠 오버레이 (REQ-035)
             var partsRoot = new GameObject("BossParts");
@@ -879,6 +1067,25 @@ namespace Shmup.EditorTools
             var partsView = battleRoot.AddComponent<BossPartsView>();
             SetReference(partsView, "_director", director);
             SetReference(partsView, "_root", partsRoot.transform);
+
+            // 적·지형 지속 레이저 (REQ-042). Core가 선분과 4단계를 노출하고 여기서 그린다.
+            var laserRoot = new GameObject("Lasers");
+            laserRoot.transform.SetParent(battleRoot.transform, false);
+            var laserView = battleRoot.AddComponent<LaserBeamView>();
+            SetReference(laserView, "_director", director);
+            SetReference(laserView, "_pixelSprite", whiteSprite);
+            SetReference(laserView, "_root", laserRoot.transform);
+
+            // 스테이지 기믹 시각화 (REQ-055): 통로 벽·시야 구름·제한 시간.
+            // 벽과 카운트다운은 보이지 않으면 불공정하므로 반드시 그린다.
+            var gimmickRoot = new GameObject("StageGimmicks");
+            gimmickRoot.transform.SetParent(battleRoot.transform, false);
+            var gimmickView = battleRoot.AddComponent<StageGimmickView>();
+            SetReference(gimmickView, "_director", director);
+            SetReference(gimmickView, "_pixelSprite", whiteSprite);
+            SetReference(gimmickView, "_font", uiFont);
+            SetReference(gimmickView, "_root", gimmickRoot.transform);
+            SetReference(director, "_gimmickView", gimmickView);
 
             // 바이옴/룸 진행도 HUD + 바이옴 진입 배너 (REQ-032)
             var progress = battleRoot.AddComponent<ProgressHud>();
@@ -940,9 +1147,35 @@ namespace Shmup.EditorTools
             CreateSfx(director);
             CreateBgm(director);
 
+            VerifyEssentialComponents("Battle");
+
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
+        }
+
+        /// <summary>
+        /// 코드로 만든 씬에 빠지기 쉬운 기반 컴포넌트를 저장 전에 확인한다.
+        ///
+        /// 에디터 GUI로 오브젝트를 추가하면 Unity가 자동으로 붙여 주지만 코드 경로에서는
+        /// 빠지고, **예외 없이 조용히 기능만 죽는다.** 실제로 두 번 물렸다 —
+        /// EventSystem이 없어 버튼이 하나도 안 눌렸고, AudioListener가 없어 무음이었다.
+        /// 둘 다 배선을 한참 뒤진 뒤에야 씬을 의심했다. 여기서 걸러 그 낭비를 없앤다.
+        ///
+        /// EventSystem은 여기서 보지 않는다 — <see cref="UiKit.EnsureEventSystem"/>이
+        /// 런타임에 만들므로 씬에 없는 것이 정상이다.
+        /// </summary>
+        static void VerifyEssentialComponents(string sceneLabel)
+        {
+            int listeners = UnityEngine.Object
+                .FindObjectsByType<AudioListener>(FindObjectsSortMode.None).Length;
+            if (listeners != 1)
+            {
+                // 0개면 완전 무음, 2개 이상이면 Unity가 경고를 내고 한쪽을 무시한다.
+                Debug.LogError(
+                    $"[SceneBuilder] {sceneLabel}: AudioListener가 {listeners}개다 (1개여야 한다). " +
+                    "0개면 AudioSource가 재생돼도 소리가 전혀 나지 않는다.");
+            }
         }
 
         static void CreateCamera()
@@ -959,6 +1192,13 @@ namespace Shmup.EditorTools
             camera.farClipPlane = 100f;
 
             go.AddComponent<UniversalAdditionalCameraData>();
+
+            // AudioListener가 없으면 Unity는 **어떤 소리도 출력하지 않는다** — AudioSource가
+            // 재생을 시작해도 듣는 귀가 없어 오디오 노드조차 만들어지지 않는다. 에디터에서
+            // 카메라를 GUI로 추가하면 자동으로 따라붙지만 코드로 만들면 빠지고,
+            // AudioListener.volume은 리스너가 없어도 예외 없이 설정되는 전역 정적 속성이라
+            // 조용히 무음이 된다 (EventSystem 누락과 같은 함정).
+            go.AddComponent<AudioListener>();
 
             var ppc = go.AddComponent<PixelPerfectCamera>();
             ppc.assetsPPU = AssetsPPU;
@@ -1133,6 +1373,7 @@ namespace Shmup.EditorTools
             SetReference(player, "_powerup", LoadClip("sfx_powerup"));
             SetReference(player, "_laserBeam", LoadClip("sfx_laser_beam"));
             SetReference(player, "_spreadShot", LoadClip("sfx_laser_spread"));
+            SetReference(player, "_warning", LoadClip("sfx_warning"));
             SetReference(director, "_sfx", player);
         }
 
@@ -1237,6 +1478,8 @@ namespace Shmup.EditorTools
                 bgmSource.spatialBlend = 0f;
             }
 
+            VerifyEssentialComponents("Title");
+
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, TitleScenePath);
         }
@@ -1290,61 +1533,19 @@ namespace Shmup.EditorTools
         // ── HUD ───────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// 파워업 게이지 HUD: 하단 중앙 슬롯 4개 + 슬롯당 레벨 핍 5개, 그리고 DevCheats 오버레이.
-        /// 좌표는 640×360 뷰(월드 40×22.5u) 안에서 픽셀(1/16u) 정렬로 배치한다.
+        /// 파워업 게이지 HUD (REQ-074에서 재작성). 슬롯 수·이름이 GameData 주도가 되어
+        /// 씬에 스프라이트를 박지 않는다 — PowerUpHudView가 게이지 관측 API를 순회하며
+        /// 런타임에 UGUI로 조립한다. 여기서는 컴포넌트와 폰트만 배선한다.
         /// </summary>
         static void CreateHud(BattleDirector director, Sprite slotSprite, Sprite pipSprite)
         {
-            const float px = 1f / AssetsPPU;
-            const float slotSpacing = 24 * px;       // 슬롯 중심 간격 1.5u
-            const float frameCenterY = -(RefResolutionY / 2f / AssetsPPU) + 10 * px; // 화면 하단 + 여백 4px + 프레임 절반 6px
-            const float pipRowY = frameCenterY + 9 * px;
-            const float pipSpacing = 4 * px;
-
             var hudRoot = new GameObject("Hud");
-
-            var slotFrames = new SpriteRenderer[PowerUpHudView.SlotCount];
-            var pips = new SpriteRenderer[PowerUpHudView.SlotCount * PowerUpHudView.MaxPipsPerSlot];
-
-            for (int slot = 0; slot < PowerUpHudView.SlotCount; slot++)
-            {
-                float x = (slot - (PowerUpHudView.SlotCount - 1) / 2f) * slotSpacing;
-
-                var frame = new GameObject($"Slot{slot}");
-                frame.transform.SetParent(hudRoot.transform, false);
-                frame.transform.localPosition = new Vector3(x, frameCenterY, 0f);
-                var frameRenderer = frame.AddComponent<SpriteRenderer>();
-                frameRenderer.sprite = slotSprite;
-                frameRenderer.sortingOrder = 100;
-                slotFrames[slot] = frameRenderer;
-
-                // 슬롯 글자 아이콘 (S/M/O/B) — 프레임 중앙, 상태와 무관한 정적 표시
-                var icon = new GameObject($"Slot{slot}Icon");
-                icon.transform.SetParent(frame.transform, false);
-                var iconRenderer = icon.AddComponent<SpriteRenderer>();
-                iconRenderer.sprite = WritePixelSprite(
-                    $"{SpriteDir}/hud_icon_{slot}.png", HudIconPixels[slot], HudPalette);
-                iconRenderer.sortingOrder = 102;
-                iconRenderer.color = new Color32(0xC8, 0xD4, 0xE8, 0xFF);
-
-                for (int pip = 0; pip < PowerUpHudView.MaxPipsPerSlot; pip++)
-                {
-                    float pipX = x + (pip - (PowerUpHudView.MaxPipsPerSlot - 1) / 2f) * pipSpacing;
-
-                    var pipGo = new GameObject($"Slot{slot}Pip{pip}");
-                    pipGo.transform.SetParent(hudRoot.transform, false);
-                    pipGo.transform.localPosition = new Vector3(pipX, pipRowY, 0f);
-                    var pipRenderer = pipGo.AddComponent<SpriteRenderer>();
-                    pipRenderer.sprite = pipSprite;
-                    pipRenderer.sortingOrder = 101;
-                    pips[slot * PowerUpHudView.MaxPipsPerSlot + pip] = pipRenderer;
-                }
-            }
 
             var hudView = hudRoot.AddComponent<PowerUpHudView>();
             SetReference(hudView, "_director", director);
-            SetReferenceArray(hudView, "_slotFrames", slotFrames);
-            SetReferenceArray(hudView, "_pips", pips);
+            // 슬롯 풀네임 + LV/MAX 라벨과 실드 잔량 숫자용 (2026-07-31 피드백 1·3)
+            SetReference(hudView, "_font",
+                AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Galmuri9.ttf"));
 
             var cheats = hudRoot.AddComponent<DevCheats>();
             SetReference(cheats, "_director", director);

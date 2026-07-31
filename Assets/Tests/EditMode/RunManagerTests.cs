@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Shmup.Core.Generation;
@@ -32,6 +33,95 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void ShieldOneToZeroSurvivesThenNextEffectiveHitEndsRun()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.StartingShieldStock = 1;
+            config.PlayerHitInvulnerabilityTicks =
+                BattleSimConfig.DefaultPlayerHitInvulnerabilityTicks;
+            var manager = new RunManager(
+                12UL,
+                new ShieldHitStageGenerator(),
+                config,
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
+            InputCommand none = InputCommand.None;
+
+            manager.Step(in none);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(0, manager.Battle.ShieldStock);
+                Assert.IsTrue(manager.Battle.IsPlayerAlive);
+                Assert.AreEqual(1, manager.Battle.PlayerHp);
+                Assert.AreEqual(
+                    BattleSimConfig.DefaultPlayerHitInvulnerabilityTicks,
+                    manager.Battle.PlayerInvulnerabilityTicksRemaining);
+                Assert.AreEqual(RunState.Playing, manager.State);
+            });
+
+            manager.Step(in none);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(0, manager.Battle.ShieldStock);
+                Assert.IsTrue(manager.Battle.IsPlayerAlive);
+                Assert.AreEqual(
+                    BattleSimConfig.DefaultPlayerHitInvulnerabilityTicks - 1,
+                    manager.Battle.PlayerInvulnerabilityTicksRemaining);
+                Assert.AreEqual(RunState.Playing, manager.State);
+            });
+
+            Step(
+                manager,
+                BattleSimConfig.DefaultPlayerHitInvulnerabilityTicks - 2,
+                in none);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(0, manager.Battle.ShieldStock);
+                Assert.IsTrue(manager.Battle.IsPlayerAlive);
+                Assert.AreEqual(
+                    1,
+                    manager.Battle.PlayerInvulnerabilityTicksRemaining);
+                Assert.AreEqual(RunState.Playing, manager.State);
+            });
+
+            manager.Step(in none);
+
+            AssertAll(() =>
+            {
+                Assert.IsFalse(manager.Battle.IsPlayerAlive);
+                Assert.AreEqual(0, manager.Battle.PlayerHp);
+                Assert.AreEqual(RunState.RunOver, manager.State);
+            });
+        }
+
+        [Test]
+        public void PlayerDeathWinsWhenRoomClearOccursOnSameTick()
+        {
+            var manager = CreateManager(
+                13UL,
+                new LethalBoundaryStageGenerator(),
+                PowerUpGauge.CreateDefault());
+            InputCommand none = InputCommand.None;
+
+            manager.Step(in none);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(1, manager.Battle.Tick);
+                Assert.IsFalse(manager.Battle.IsPlayerAlive);
+                Assert.AreEqual(RunState.RunOver, manager.State);
+                Assert.AreEqual(1, manager.BiomeIndex);
+                Assert.AreEqual(1, manager.RoomIndex);
+                Assert.IsFalse(manager.IsBiomeBoss);
+                Assert.AreEqual(0, manager.Statistics.RoomsCleared);
+                Assert.AreEqual(0, manager.Statistics.StagesCleared);
+            });
+        }
+
+        [Test]
         public void CompletedRoomsKeepDifficultyAtCurrentBiome()
         {
             var generator = new TestStageGenerator(false, 1, 2);
@@ -56,6 +146,9 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(2, generator.Calls[1].Difficulty);
 
             Step(manager, 3, in none);
+            Assert.AreEqual(RunState.AwaitingReward, manager.State);
+            Assert.AreEqual(2, manager.RewardOptions.Count);
+            manager.ChooseReward(0);
             Assert.AreEqual(1, manager.BiomeIndex);
             Assert.AreEqual(3, manager.RoomIndex);
             Assert.AreEqual(2, manager.Difficulty);
@@ -64,7 +157,8 @@ namespace Shmup.Core.Tests
 
             Step(manager, 3, in none);
             Assert.AreEqual(1, manager.BiomeIndex);
-            Assert.AreEqual(4, manager.RoomIndex);
+            Assert.AreEqual(3, manager.RoomIndex);
+            Assert.IsTrue(manager.IsBiomeBoss);
             Assert.AreEqual(2, manager.Difficulty);
         }
 
@@ -93,6 +187,8 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(1, manager.Statistics.RoomsCleared);
 
             Step(manager, 2, in fire);
+            Assert.AreEqual(RunState.AwaitingReward, manager.State);
+            manager.ChooseReward(0);
 
             Assert.AreEqual(1, manager.BiomeIndex);
             Assert.AreEqual(3, manager.RoomIndex);
@@ -152,7 +248,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(RunState.Playing, manager.State);
             Assert.AreNotSame(initialGauge, manager.PowerUpGauge);
             CollectionAssert.AreEqual(
-                new[] { 2, 1, 2, 1 },
+                new[] { 2, 1, 2, 1, 0, 0, 0, 0 },
                 manager.PowerUpGauge.ExportLevels());
             AssertCall(generator.Calls[1], 44UL, 1, 1);
         }
@@ -204,7 +300,7 @@ namespace Shmup.Core.Tests
             manager.Restart(56UL);
 
             CollectionAssert.AreEqual(
-                new[] { 3, 2, 1, 2 },
+                new[] { 3, 2, 1, 2, 0, 0, 0, 0 },
                 manager.PowerUpGauge.ExportLevels());
         }
 
@@ -291,8 +387,118 @@ namespace Shmup.Core.Tests
             Assert.AreSame(ship, manager.Ship);
             Assert.AreEqual(2, manager.Battle.PlayerX);
             CollectionAssert.AreEqual(
-                new[] { 2, 1, 0, 0 },
+                new[] { 2, 1, 0, 0, 0, 0, 0, 0 },
                 manager.PowerUpGauge.ExportLevels());
+        }
+
+        [Test]
+        public void AnalogInputMovesPlayerThroughRunManager()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpeedPerTick = 10;
+            var manager = new RunManager(
+                0x4601UL,
+                new TestStageGenerator(false, 5),
+                config,
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
+            InputCommand input =
+                InputCommand.Analog(3, -4, false);
+
+            manager.Step(in input);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(3, manager.Battle.PlayerX);
+                Assert.AreEqual(-4, manager.Battle.PlayerY);
+            });
+        }
+
+        [Test]
+        public void AnalogInputClampsAtPlayerSpeedThroughRunManager()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpeedPerTick = 5;
+            var manager = new RunManager(
+                0x4602UL,
+                new TestStageGenerator(false, 5),
+                config,
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
+            InputCommand input =
+                InputCommand.Analog(30, 40, false);
+
+            manager.Step(in input);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(3, manager.Battle.PlayerX);
+                Assert.AreEqual(4, manager.Battle.PlayerY);
+                Assert.LessOrEqual(
+                    (long)manager.Battle.PlayerX
+                        * manager.Battle.PlayerX
+                    + (long)manager.Battle.PlayerY
+                        * manager.Battle.PlayerY,
+                    25L);
+            });
+        }
+
+        [Test]
+        public void AnalogZeroDeltaStopsAndOverridesDigitalThroughRunManager()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpeedPerTick = 10;
+            var manager = new RunManager(
+                0x4603UL,
+                new TestStageGenerator(false, 5),
+                config,
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
+            var input = new InputCommand(
+                1,
+                -1,
+                false,
+                false,
+                false,
+                0,
+                0);
+
+            manager.Step(in input);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(0, manager.Battle.PlayerX);
+                Assert.AreEqual(0, manager.Battle.PlayerY);
+            });
+        }
+
+        [Test]
+        public void AnalogInputPreservesBombActivationThroughRunManager()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpeedPerTick = 10;
+            config.StartingBombStock = 1;
+            var manager = new RunManager(
+                0x4604UL,
+                new TestStageGenerator(false, 5),
+                config,
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
+            InputCommand input =
+                InputCommand.Analog(
+                    2,
+                    1,
+                    false,
+                    activateBomb: true);
+
+            manager.Step(in input);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(0, manager.Battle.BombStock);
+                Assert.AreEqual(2, manager.Battle.PlayerX);
+                Assert.AreEqual(1, manager.Battle.PlayerY);
+            });
         }
 
         [Test]
@@ -321,7 +527,7 @@ namespace Shmup.Core.Tests
             manager.Restart(93UL);
 
             CollectionAssert.AreEqual(
-                new[] { 2, 1, 0, 0 },
+                new[] { 2, 1, 0, 0, 0, 0, 0, 0 },
                 manager.PowerUpGauge.ExportLevels());
         }
 
@@ -354,7 +560,8 @@ namespace Shmup.Core.Tests
                 EnemyDespawnX = -100,
                 PlayerSpawnX = 0,
                 PlayerSpawnY = 0,
-                PlayerMaxHp = 1,
+                StartingShieldStock = 0,
+                PlayerHitInvulnerabilityTicks = 0,
                 PlayerHalfWidth = 0,
                 PlayerHalfHeight = 0,
                 CapsuleHalfWidth = 0,
@@ -426,6 +633,8 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(stageIndex, call.StageIndex);
             Assert.AreEqual(difficulty, call.Difficulty);
         }
+
+        static void AssertAll(Action assert) => assert();
 
         static void AssertManagersEqual(
             RunManager expected,
@@ -504,6 +713,62 @@ namespace Shmup.Core.Tests
             }
         }
 
+        sealed class ShieldHitStageGenerator : IStageGenerator
+        {
+            public StagePlan Generate(
+                ulong seed,
+                int stageIndex,
+                int difficulty)
+            {
+                var spawns =
+                    new SpawnEvent[
+                        BattleSimConfig
+                            .DefaultPlayerHitInvulnerabilityTicks + 1];
+                for (int tick = 1; tick <= spawns.Length; tick++)
+                    spawns[tick - 1] =
+                        new SpawnEvent(tick, "rammer", 0, 0);
+                var segment = new StageSegment(
+                    "shield_hit_regression",
+                    spawns.Length + 1,
+                    spawns,
+                    1,
+                    1,
+                    new[] { 1 });
+                return new StagePlan(
+                    new[] { segment },
+                    "boss",
+                    1,
+                    1,
+                    1);
+            }
+        }
+
+        sealed class LethalBoundaryStageGenerator : IStageGenerator
+        {
+            public StagePlan Generate(
+                ulong seed,
+                int stageIndex,
+                int difficulty)
+            {
+                var segment = new StageSegment(
+                    "lethal_boundary",
+                    1,
+                    new[]
+                    {
+                        new SpawnEvent(0, "rammer", 0, 0)
+                    },
+                    1,
+                    1,
+                    new[] { 1 });
+                return new StagePlan(
+                    new[] { segment },
+                    "boss",
+                    1,
+                    1,
+                    1);
+            }
+        }
+
         sealed class TestStageGenerator : IStageGenerator
         {
             readonly bool _lethal;
@@ -525,7 +790,13 @@ namespace Shmup.Core.Tests
                 for (int i = 0; i < segments.Length; i++)
                 {
                     SpawnEvent[] spawns = _lethal && i == 0
-                        ? new[] { new SpawnEvent(1, "rammer", 0, 0) }
+                        ? new[]
+                        {
+                            new SpawnEvent(1, "rammer", 0, 0),
+                            new SpawnEvent(1, "rammer", 0, 0),
+                            new SpawnEvent(1, "rammer", 0, 0),
+                            new SpawnEvent(1, "rammer", 0, 0)
+                        }
                         : new SpawnEvent[0];
                     segments[i] = new StageSegment(
                         "segment_" + i + "_" + rng.NextInt(0, 100000),

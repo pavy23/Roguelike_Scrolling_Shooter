@@ -1,19 +1,20 @@
 {
   "schemaVersion": 3,
   "dropTable": {
-    "noDropWeight": 12
+    "noDropWeight": 13,
+    "bombNoDropWeight": 100
   },
   "enemies": [
     {
       "id": "zako_straight",
       "displayName": "Zako (Straight)",
-      "hp": 10,
+      "hp": 12,
       "contactDamage": 1,
       "scoreValue": 100,
       "fireIntervalTicks": 0,
       "dropWeight": 4,
-      "halfWidth": 0.75,
-      "halfHeight": 0.5625,
+      "halfWidth": 0.5625,
+      "halfHeight": 0.4375,
       "movement": {
         "pattern": "straight",
         "speed": 5
@@ -22,13 +23,13 @@
     {
       "id": "zako_sine",
       "displayName": "Zako (Sine Wave)",
-      "hp": 10,
+      "hp": 14,
       "contactDamage": 1,
-      "scoreValue": 150,
+      "scoreValue": 120,
       "fireIntervalTicks": 0,
       "dropWeight": 5,
-      "halfWidth": 0.75,
-      "halfHeight": 0.5625,
+      "halfWidth": 0.5625,
+      "halfHeight": 0.4375,
       "movement": {
         "pattern": "sine",
         "speed": 4.25,
@@ -39,27 +40,28 @@
     {
       "id": "turret_ground",
       "displayName": "Ground Turret",
-      "hp": 30,
+      "hp": 140,
       "contactDamage": 1,
-      "scoreValue": 300,
+      "scoreValue": 380,
       "fireIntervalTicks": 90,
-      "dropWeight": 2,
-      "halfWidth": 0.75,
-      "halfHeight": 0.75,
+      "dropWeight": 4,
+      "halfWidth": 0.9375,
+      "halfHeight": 0.875,
       "movement": {
         "pattern": "static"
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "zako_fast",
       "displayName": "Zako (Fast)",
-      "hp": 6,
+      "hp": 8,
       "contactDamage": 1,
-      "scoreValue": 80,
+      "scoreValue": 70,
       "fireIntervalTicks": 0,
-      "dropWeight": 2,
-      "halfWidth": 0.5625,
-      "halfHeight": 0.46875,
+      "dropWeight": 3,
+      "halfWidth": 0.5,
+      "halfHeight": 0.375,
       "movement": {
         "pattern": "dive",
         "speed": 8.25,
@@ -70,28 +72,29 @@
     {
       "id": "zako_tank",
       "displayName": "Zako (Tank)",
-      "hp": 40,
+      "hp": 500,
       "contactDamage": 2,
-      "scoreValue": 400,
+      "scoreValue": 800,
       "fireIntervalTicks": 0,
-      "dropWeight": 7,
-      "halfWidth": 0.9375,
-      "halfHeight": 0.75,
+      "dropWeight": 13,
+      "halfWidth": 1.25,
+      "halfHeight": 1.0,
       "movement": {
         "pattern": "straight",
         "speed": 2.5
-      }
+      },
+      "bombDropWeight": 25
     },
     {
       "id": "zako_sine_slow",
       "displayName": "Zako (Slow Sine)",
-      "hp": 18,
+      "hp": 100,
       "contactDamage": 1,
-      "scoreValue": 200,
+      "scoreValue": 280,
       "fireIntervalTicks": 0,
       "dropWeight": 6,
-      "halfWidth": 0.75,
-      "halfHeight": 0.65625,
+      "halfWidth": 0.9375,
+      "halfHeight": 0.75,
       "movement": {
         "pattern": "sine",
         "speed": 3,
@@ -102,44 +105,46 @@
     {
       "id": "turret_ceiling",
       "displayName": "Ceiling Turret",
-      "hp": 30,
+      "hp": 140,
       "contactDamage": 1,
-      "scoreValue": 300,
+      "scoreValue": 380,
       "fireIntervalTicks": 90,
-      "dropWeight": 2,
-      "halfWidth": 0.75,
-      "halfHeight": 0.75,
+      "dropWeight": 4,
+      "halfWidth": 0.9375,
+      "halfHeight": 0.875,
       "movement": {
         "pattern": "static"
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "elite_sine",
       "displayName": "Elite (Sine)",
-      "hp": 50,
+      "hp": 620,
       "contactDamage": 2,
-      "scoreValue": 600,
+      "scoreValue": 1000,
       "fireIntervalTicks": 120,
-      "dropWeight": 12,
-      "halfWidth": 0.9375,
-      "halfHeight": 0.75,
+      "dropWeight": 14,
+      "halfWidth": 1.3125,
+      "halfHeight": 1.0625,
       "movement": {
         "pattern": "sine",
         "speed": 3.25,
         "amplitude": 3,
         "periodTicks": 90
-      }
+      },
+      "bombDropWeight": 25
     },
     {
       "id": "spore_drifter",
       "displayName": "Spore Drifter",
-      "hp": 8,
+      "hp": 14,
       "contactDamage": 1,
       "scoreValue": 120,
       "fireIntervalTicks": 0,
-      "dropWeight": 5,
-      "halfWidth": 0.75,
-      "halfHeight": 0.75,
+      "dropWeight": 4,
+      "halfWidth": 0.625,
+      "halfHeight": 0.5625,
       "movement": {
         "pattern": "sine",
         "speed": 2.5,
@@ -150,13 +155,13 @@
     {
       "id": "lancer_dart",
       "displayName": "Lancer Dart",
-      "hp": 4,
+      "hp": 6,
       "contactDamage": 1,
-      "scoreValue": 60,
+      "scoreValue": 50,
       "fireIntervalTicks": 0,
       "dropWeight": 2,
-      "halfWidth": 0.75,
-      "halfHeight": 0.75,
+      "halfWidth": 0.4375,
+      "halfHeight": 0.3125,
       "movement": {
         "pattern": "dash",
         "speed": 9.5,
@@ -165,29 +170,45 @@
       }
     },
     {
+      "id": "hive_tentacle",
+      "displayName": "Hive Tentacle",
+      "hp": 160,
+      "contactDamage": 1,
+      "scoreValue": 280,
+      "fireIntervalTicks": 100,
+      "dropWeight": 7,
+      "halfWidth": 0.625,
+      "halfHeight": 1.25,
+      "movement": {
+        "pattern": "static"
+      },
+      "bombDropWeight": 6
+    },
+    {
       "id": "sentry_drone",
       "displayName": "Sentry Drone",
-      "hp": 22,
+      "hp": 110,
       "contactDamage": 1,
-      "scoreValue": 250,
+      "scoreValue": 300,
       "fireIntervalTicks": 75,
-      "dropWeight": 3,
-      "halfWidth": 0.75,
+      "dropWeight": 5,
+      "halfWidth": 0.9375,
       "halfHeight": 0.75,
       "movement": {
         "pattern": "static"
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "interceptor_rush",
       "displayName": "Interceptor Rush",
-      "hp": 4,
+      "hp": 6,
       "contactDamage": 1,
-      "scoreValue": 70,
+      "scoreValue": 55,
       "fireIntervalTicks": 0,
       "dropWeight": 2,
-      "halfWidth": 0.75,
-      "halfHeight": 0.75,
+      "halfWidth": 0.5,
+      "halfHeight": 0.375,
       "movement": {
         "pattern": "dive",
         "speed": 10.5,
@@ -198,13 +219,13 @@
     {
       "id": "wisp_spark",
       "displayName": "Wisp (Spark)",
-      "hp": 5,
+      "hp": 8,
       "contactDamage": 1,
-      "scoreValue": 90,
+      "scoreValue": 75,
       "fireIntervalTicks": 0,
-      "dropWeight": 3,
-      "halfWidth": 0.75,
-      "halfHeight": 0.75,
+      "dropWeight": 2,
+      "halfWidth": 0.5,
+      "halfHeight": 0.4375,
       "movement": {
         "pattern": "sine",
         "speed": 6.5,
@@ -215,93 +236,127 @@
     {
       "id": "guardian_sphere",
       "displayName": "Guardian Sphere",
-      "hp": 60,
+      "hp": 780,
       "contactDamage": 2,
-      "scoreValue": 550,
+      "scoreValue": 1200,
       "fireIntervalTicks": 70,
-      "dropWeight": 10,
-      "halfWidth": 0.9375,
-      "halfHeight": 0.9375,
+      "dropWeight": 15,
+      "halfWidth": 1.375,
+      "halfHeight": 1.25,
       "movement": {
         "pattern": "straight",
         "speed": 1.75
-      }
+      },
+      "bombDropWeight": 25
     },
     {
       "id": "scrap_tumbler",
       "displayName": "Scrap Tumbler",
-      "hp": 14,
+      "hp": 80,
       "contactDamage": 1,
-      "scoreValue": 160,
+      "scoreValue": 220,
       "fireIntervalTicks": 0,
       "dropWeight": 5,
-      "halfWidth": 0.75,
-      "halfHeight": 0.75,
+      "halfWidth": 0.875,
+      "halfHeight": 0.6875,
       "movement": {
         "pattern": "zigzag",
         "speed": 3.75,
         "amplitude": 2.75,
         "periodTicks": 100
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "brood_spitter",
       "displayName": "Brood Spitter",
-      "hp": 20,
+      "hp": 125,
       "contactDamage": 1,
-      "scoreValue": 280,
+      "scoreValue": 340,
       "fireIntervalTicks": 80,
       "dropWeight": 6,
-      "halfWidth": 0.75,
-      "halfHeight": 0.75,
+      "halfWidth": 0.9375,
+      "halfHeight": 0.8125,
       "movement": {
         "pattern": "zigzag",
         "speed": 3.0,
         "amplitude": 2.0,
         "periodTicks": 90
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "mortar_drone",
       "displayName": "Mortar Drone",
-      "hp": 28,
+      "hp": 135,
       "contactDamage": 1,
-      "scoreValue": 320,
+      "scoreValue": 360,
       "fireIntervalTicks": 100,
-      "dropWeight": 4,
-      "halfWidth": 0.75,
-      "halfHeight": 0.75,
+      "dropWeight": 6,
+      "halfWidth": 0.9375,
+      "halfHeight": 0.8125,
       "movement": {
         "pattern": "static"
+      },
+      "bombDropWeight": 6
+    },
+    {
+      "id": "laser_sentry",
+      "displayName": "Laser Sentry",
+      "hp": 160,
+      "contactDamage": 1,
+      "scoreValue": 420,
+      "fireIntervalTicks": 0,
+      "dropWeight": 7,
+      "halfWidth": 1.0,
+      "halfHeight": 0.875,
+      "movement": {
+        "pattern": "static"
+      },
+      "bombDropWeight": 8,
+      "laser": {
+        "cycleIntervalTicks": 240,
+        "telegraphTicks": 48,
+        "firingTicks": 6,
+        "sustainTicks": 24,
+        "dissipateTicks": 12,
+        "startOffsetX": 0.0,
+        "startOffsetY": 0.0,
+        "endOffsetX": -38.0,
+        "endOffsetY": 0.0,
+        "thinHalfWidth": 0.0625,
+        "fullHalfWidth": 0.375,
+        "damage": 1
       }
     },
     {
       "id": "echo_wisp",
       "displayName": "Echo Wisp",
-      "hp": 16,
+      "hp": 90,
       "contactDamage": 1,
-      "scoreValue": 220,
+      "scoreValue": 250,
       "fireIntervalTicks": 90,
-      "dropWeight": 6,
-      "halfWidth": 0.75,
-      "halfHeight": 0.75,
+      "dropWeight": 5,
+      "halfWidth": 0.875,
+      "halfHeight": 0.6875,
       "movement": {
         "pattern": "zigzag",
         "speed": 4.5,
         "amplitude": 3.25,
         "periodTicks": 80
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "rust_skimmer",
       "displayName": "Rust Skimmer",
-      "hp": 10,
+      "hp": 12,
       "contactDamage": 1,
-      "scoreValue": 110,
+      "scoreValue": 100,
       "fireIntervalTicks": 0,
       "dropWeight": 3,
-      "halfWidth": 0.75,
-      "halfHeight": 0.5625,
+      "halfWidth": 0.5625,
+      "halfHeight": 0.4375,
       "movement": {
         "pattern": "dash",
         "speed": 6.25,
@@ -312,62 +367,65 @@
     {
       "id": "junk_roller",
       "displayName": "Junk Roller",
-      "hp": 10,
+      "hp": 14,
       "contactDamage": 1,
-      "scoreValue": 140,
+      "scoreValue": 110,
       "fireIntervalTicks": 0,
-      "dropWeight": 4,
-      "halfWidth": 0.75,
-      "halfHeight": 0.75,
+      "dropWeight": 5,
+      "halfWidth": 0.625,
+      "halfHeight": 0.5,
       "movement": {
         "pattern": "zigzag",
         "speed": 3.5,
         "amplitude": 2.25,
         "periodTicks": 130
-      }
+      },
+      "bombDropWeight": 4
     },
     {
       "id": "void_moth",
       "displayName": "Void Moth",
-      "hp": 16,
+      "hp": 95,
       "contactDamage": 1,
-      "scoreValue": 200,
+      "scoreValue": 260,
       "fireIntervalTicks": 95,
       "dropWeight": 5,
-      "halfWidth": 0.75,
-      "halfHeight": 0.75,
+      "halfWidth": 0.875,
+      "halfHeight": 0.6875,
       "movement": {
         "pattern": "zigzag",
         "speed": 4.75,
         "amplitude": 3.0,
         "periodTicks": 75
-      }
+      },
+      "bombDropWeight": 6
     },
     {
       "id": "shard_prism",
       "displayName": "Shard Prism",
-      "hp": 60,
+      "hp": 850,
       "contactDamage": 2,
-      "scoreValue": 520,
+      "scoreValue": 1300,
       "fireIntervalTicks": 75,
-      "dropWeight": 10,
-      "halfWidth": 0.9375,
-      "halfHeight": 0.9375,
+      "dropWeight": 15,
+      "halfWidth": 1.375,
+      "halfHeight": 1.25,
       "movement": {
         "pattern": "straight",
         "speed": 1.5
-      }
+      },
+      "bombDropWeight": 25
     },
     {
       "id": "sting_hornet",
       "displayName": "Sting Hornet",
-      "hp": 8,
+      "hp": 10,
       "contactDamage": 1,
-      "scoreValue": 130,
+      "scoreValue": 90,
       "fireIntervalTicks": 0,
       "dropWeight": 3,
-      "halfWidth": 0.75,
-      "halfHeight": 0.5625,
+      "halfWidth": 0.5625,
+      "halfHeight": 0.4375,
       "movement": {
         "pattern": "dive",
         "speed": 6.75,
@@ -380,11 +438,11 @@
       "displayName": "Pipe Rat",
       "hp": 10,
       "contactDamage": 1,
-      "scoreValue": 100,
+      "scoreValue": 80,
       "fireIntervalTicks": 0,
       "dropWeight": 3,
-      "halfWidth": 0.5625,
-      "halfHeight": 0.46875,
+      "halfWidth": 0.5,
+      "halfHeight": 0.375,
       "movement": {
         "pattern": "dash",
         "speed": 7.0,
@@ -395,27 +453,57 @@
     {
       "id": "phase_disc",
       "displayName": "Phase Disc",
-      "hp": 22,
+      "hp": 120,
       "contactDamage": 1,
-      "scoreValue": 260,
+      "scoreValue": 320,
       "fireIntervalTicks": 68,
-      "dropWeight": 4,
-      "halfWidth": 0.75,
+      "dropWeight": 5,
+      "halfWidth": 0.9375,
       "halfHeight": 0.75,
       "movement": {
         "pattern": "static"
+      },
+      "bombDropWeight": 6
+    },
+    {
+      "id": "prism_beamer",
+      "displayName": "Prism Beamer",
+      "hp": 150,
+      "contactDamage": 1,
+      "scoreValue": 400,
+      "fireIntervalTicks": 0,
+      "dropWeight": 7,
+      "halfWidth": 1.0,
+      "halfHeight": 0.875,
+      "movement": {
+        "pattern": "static"
+      },
+      "bombDropWeight": 8,
+      "laser": {
+        "cycleIntervalTicks": 210,
+        "telegraphTicks": 42,
+        "firingTicks": 6,
+        "sustainTicks": 20,
+        "dissipateTicks": 12,
+        "startOffsetX": 0.0,
+        "startOffsetY": 0.0,
+        "endOffsetX": -38.0,
+        "endOffsetY": 0.0,
+        "thinHalfWidth": 0.0625,
+        "fullHalfWidth": 0.3125,
+        "damage": 1
       }
     },
     {
       "id": "rift_blade",
       "displayName": "Rift Blade",
-      "hp": 4,
+      "hp": 6,
       "contactDamage": 1,
-      "scoreValue": 80,
+      "scoreValue": 60,
       "fireIntervalTicks": 0,
       "dropWeight": 2,
-      "halfWidth": 0.75,
-      "halfHeight": 0.46875,
+      "halfWidth": 0.5,
+      "halfHeight": 0.3125,
       "movement": {
         "pattern": "dash",
         "speed": 11.0,
@@ -426,65 +514,276 @@
     {
       "id": "mini_destroyer",
       "displayName": "Mini Destroyer",
-      "hp": 200,
+      "hp": 1100,
       "contactDamage": 2,
-      "scoreValue": 1200,
+      "scoreValue": 2000,
       "fireIntervalTicks": 55,
-      "dropWeight": 14,
-      "halfWidth": 2.0,
-      "halfHeight": 1.5,
+      "dropWeight": 24,
+      "halfWidth": 2.375,
+      "halfHeight": 1.75,
       "movement": {
         "pattern": "straight",
         "speed": 1.5
-      }
+      },
+      "midBoss": {
+        "themeId": "scrapyard",
+        "weight": 1,
+        "stageIndexMin": 1,
+        "phases": [
+          {
+            "fireIntervalTicks": 72,
+            "ways": 1,
+            "bulletSpeed": 7.5,
+            "movementPattern": "stationary",
+            "movementAmplitude": 0,
+            "movementPeriodTicks": 1,
+            "durationTicks": 210,
+            "telegraphTicks": 0
+          },
+          {
+            "fireIntervalTicks": 20,
+            "ways": 3,
+            "bulletSpeed": 13.5,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 1.25,
+            "movementPeriodTicks": 54,
+            "durationTicks": 240,
+            "telegraphTicks": 36
+          },
+          {
+            "fireIntervalTicks": 48,
+            "ways": 1,
+            "bulletSpeed": 8.5,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 1.75,
+            "movementPeriodTicks": 120,
+            "durationTicks": 180,
+            "telegraphTicks": 0
+          }
+        ]
+      },
+      "bombDropWeight": 150
     },
     {
       "id": "mini_horror",
       "displayName": "Mini Horror",
-      "hp": 180,
+      "hp": 800,
       "contactDamage": 2,
-      "scoreValue": 1100,
+      "scoreValue": 1600,
       "fireIntervalTicks": 70,
-      "dropWeight": 14,
-      "halfWidth": 2.0,
-      "halfHeight": 1.5,
+      "dropWeight": 22,
+      "halfWidth": 2.25,
+      "halfHeight": 1.75,
       "movement": {
         "pattern": "sine",
         "speed": 2.5,
         "amplitude": 4.5,
         "periodTicks": 120
-      }
+      },
+      "midBoss": {
+        "themeId": "hive",
+        "weight": 1,
+        "stageIndexMin": 1,
+        "phases": [
+          {
+            "fireIntervalTicks": 58,
+            "ways": 3,
+            "bulletSpeed": 8.0,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 3.5,
+            "movementPeriodTicks": 120,
+            "durationTicks": 240,
+            "telegraphTicks": 0
+          },
+          {
+            "pattern": "radial",
+            "fireIntervalTicks": 38,
+            "ways": 7,
+            "bulletSpeed": 7.5,
+            "movementPattern": "stationary",
+            "movementAmplitude": 0,
+            "movementPeriodTicks": 1,
+            "durationTicks": 210,
+            "telegraphTicks": 30
+          },
+          {
+            "fireIntervalTicks": 64,
+            "ways": 1,
+            "bulletSpeed": 8.0,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 4.0,
+            "movementPeriodTicks": 96,
+            "durationTicks": 180,
+            "telegraphTicks": 0
+          }
+        ]
+      },
+      "bombDropWeight": 150
     },
     {
       "id": "mini_walker",
       "displayName": "Mini Walker",
-      "hp": 250,
+      "hp": 1600,
       "contactDamage": 2,
-      "scoreValue": 1500,
+      "scoreValue": 3000,
       "fireIntervalTicks": 48,
-      "dropWeight": 15,
-      "halfWidth": 2.0,
-      "halfHeight": 1.5,
+      "dropWeight": 26,
+      "halfWidth": 2.5,
+      "halfHeight": 1.875,
       "movement": {
         "pattern": "static"
-      }
+      },
+      "midBoss": {
+        "themeId": "fortress",
+        "weight": 1,
+        "stageIndexMin": 1,
+        "phases": [
+          {
+            "fireIntervalTicks": 52,
+            "ways": 1,
+            "bulletSpeed": 9.0,
+            "movementPattern": "stationary",
+            "movementAmplitude": 0,
+            "movementPeriodTicks": 1,
+            "durationTicks": 210,
+            "telegraphTicks": 0
+          },
+          {
+            "fireIntervalTicks": 16,
+            "ways": 3,
+            "bulletSpeed": 12.0,
+            "movementPattern": "stationary",
+            "movementAmplitude": 0,
+            "movementPeriodTicks": 1,
+            "durationTicks": 240,
+            "telegraphTicks": 42
+          },
+          {
+            "fireIntervalTicks": 70,
+            "ways": 1,
+            "bulletSpeed": 8.0,
+            "movementPattern": "stationary",
+            "movementAmplitude": 0,
+            "movementPeriodTicks": 1,
+            "durationTicks": 180,
+            "telegraphTicks": 0
+          }
+        ]
+      },
+      "bombDropWeight": 150
     },
     {
       "id": "mini_crystal",
       "displayName": "Mini Crystal",
-      "hp": 160,
+      "hp": 1400,
       "contactDamage": 2,
-      "scoreValue": 1000,
+      "scoreValue": 2500,
       "fireIntervalTicks": 40,
-      "dropWeight": 13,
-      "halfWidth": 2.0,
-      "halfHeight": 1.5,
+      "dropWeight": 24,
+      "halfWidth": 2.375,
+      "halfHeight": 1.75,
       "movement": {
         "pattern": "sine",
         "speed": 4.5,
         "amplitude": 3.25,
         "periodTicks": 90
-      }
+      },
+      "midBoss": {
+        "themeId": "nebula",
+        "weight": 1,
+        "stageIndexMin": 1,
+        "phases": [
+          {
+            "fireIntervalTicks": 60,
+            "ways": 1,
+            "bulletSpeed": 8.0,
+            "movementPattern": "stationary",
+            "movementAmplitude": 0,
+            "movementPeriodTicks": 1,
+            "durationTicks": 180,
+            "telegraphTicks": 0
+          },
+          {
+            "fireIntervalTicks": 40,
+            "ways": 3,
+            "bulletSpeed": 9.5,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 4.5,
+            "movementPeriodTicks": 48,
+            "durationTicks": 270,
+            "telegraphTicks": 30
+          },
+          {
+            "pattern": "spiral",
+            "fireIntervalTicks": 28,
+            "ways": 5,
+            "bulletSpeed": 10.0,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 2.0,
+            "movementPeriodTicks": 72,
+            "durationTicks": 210,
+            "telegraphTicks": 36
+          }
+        ]
+      },
+      "bombDropWeight": 150
+    },
+    {
+      "id": "mini_core",
+      "displayName": "Mini Core",
+      "hp": 1550,
+      "contactDamage": 2,
+      "scoreValue": 2800,
+      "fireIntervalTicks": 42,
+      "dropWeight": 25,
+      "halfWidth": 2.375,
+      "halfHeight": 1.8125,
+      "movement": {
+        "pattern": "sine",
+        "speed": 3.0,
+        "amplitude": 3.5,
+        "periodTicks": 100
+      },
+      "midBoss": {
+        "themeId": "core",
+        "weight": 1,
+        "stageIndexMin": 3,
+        "phases": [
+          {
+            "pattern": "radial",
+            "fireIntervalTicks": 52,
+            "ways": 5,
+            "bulletSpeed": 8.0,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 3.0,
+            "movementPeriodTicks": 108,
+            "durationTicks": 240,
+            "telegraphTicks": 0
+          },
+          {
+            "pattern": "burst",
+            "fireIntervalTicks": 18,
+            "ways": 3,
+            "bulletSpeed": 12.0,
+            "movementPattern": "stationary",
+            "movementAmplitude": 0,
+            "movementPeriodTicks": 1,
+            "durationTicks": 240,
+            "telegraphTicks": 36
+          },
+          {
+            "fireIntervalTicks": 20,
+            "ways": 3,
+            "bulletSpeed": 13.5,
+            "movementPattern": "verticalSine",
+            "movementAmplitude": 1.5,
+            "movementPeriodTicks": 48,
+            "durationTicks": 210,
+            "telegraphTicks": 42
+          }
+        ]
+      },
+      "bombDropWeight": 150
     }
   ]
 }

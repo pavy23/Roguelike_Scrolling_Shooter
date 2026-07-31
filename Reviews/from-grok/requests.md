@@ -4,6 +4,299 @@
 
 ---
 
+## 2026-07-31 REQ-077 — mid `slot_speed_1` 교체 (content 완료)
+
+**완료 (content):**  
+- `rewards.json`: `passive_move_speed_1` (`moveSpeedUp`) → **`slot_speed_1`** (`slotLevel` Speed×1, weight **4**, mid)  
+- 이중 성장 경제 제거; mid 풀 가중 유지  
+- BalanceSim: free mid Speed 필수, residual `moveSpeedUp` FAIL  
+**표:** `Reviews/from-grok/req077-slot-speed-mid-replacement-2026-07-31.md`  
+**선행:** REQ-076 (하니스 조준 수정 + `slot_speed_1` 회귀 테스트)
+
+### CLAUDE
+1. [ ] Resources `rewards.json` 동기화 (`slot_speed_1`)
+
+---
+
+## 2026-07-31 REQ-075 — 7슬롯 게이지 + 레이저 적 (content 완료 · 후속 요청)
+
+**완료 (content):**  
+- `weapons.json` **v6**: `powerUpGauge` 7슬롯 + `primaryWeaponFamilies` 4종 + 슬롯별 비용  
+- `enemies.json`: `laser_sentry` / `prism_beamer` (+2 → 카탈로그 34)  
+- `waves.json`: scrap/nebula/fortress에 레이저 적 희소 배치  
+- `rewards.json`: `light_frame` → SlotLevel Speed×2; mid `moveSpeedUp` 잔류 → **REQ-077에서 `slot_speed_1`로 교체 완료**  
+**표:** `Reviews/from-grok/req075-seven-slot-gauge-laser-enemies-2026-07-31.md`  
+**검증:** 394/394 · BalanceSim all green · 시드 해시 일치
+
+### CODEX
+1. [x] DeterminismAudit `--suite` seed-0-first 7슬롯 하 완주 — REQ-076 감사 자동 플레이(공격 기여 슬롯 투자) + suite AUDIT PASS.
+2. [x] 리듬 하니스 hang — Core 아님, 보스 조준 문제. REQ-076 수정 + `slot_speed_1` 카탈로그 회귀 테스트. content는 REQ-077에서 mid 교체 완료.
+
+### CLAUDE
+1. [ ] Resources `GameData` 동기화 (weapons v6, enemies 34, waves, rewards — REQ-077 `slot_speed_1` 포함)
+2. [ ] 게이지 HUD nameKey 풀네임 (Speed / Missile / Double Shot / Laser / Triple Shot / Option / Shield)
+
+---
+
+## 2026-07-31 REQ-071 — 섹터 계약 + 대가 있는 보상 (완료 · content)
+
+**완료 (content):**  
+- `waves.json`: `contracts` 카탈로그 — 표준 1 + 특수 8, options 2..3  
+- `rewards.json` schema **v4**: mid/main 풀 분리, 대가 보상 5종, mod maxStacks/maxPerRun **2**  
+- BalanceSim REQ-071 게이트 (최밀 escort_run ×1.5 TTK 44s PASS)  
+**표:** `Reviews/from-grok/req071-sector-contracts-costed-rewards-2026-07-31.md`  
+**검증:** `dotnet test` 383/383 · BalanceSim all green · REQ-060 CLEAR 유지
+
+### CLAUDE
+
+1. [ ] Resources `waves.json` / `rewards.json` 동기화
+2. [ ] 계약 카드 UI: riskTier 3색 (Safe=무채 / Low=파랑 / High=빨강), 거래 한 줄 카피
+3. [ ] 대가 보상 카드: Gains + Costs 표시 (shieldMaxDown / moveSpeedDown / capsuleDropWeightDown / bombMaxDown)
+
+### CODEX
+
+1. [x] 골든 카탈로그 Rewards 20→**25** + Contracts 존재 검산 — content가 `GameDataParserTests` 동반 수정.
+2. [ ] (정보) riskTier JSON 키는 Core 파서 기준 `safe`/`low`/`high`/`extreme`. 기획 "standard" = `safe`. Presentation 매핑만 맞추면 됨.
+
+---
+
+## 2026-07-31 REQ-067/068 — 폭탄 드롭 + 스테이지1 보스 탄수 (완료 · content)
+
+**완료 (content):**  
+- `enemies.json`: `bombNoDropWeight=100`, 중형·중간보스 `bombDropWeight` (스테이지당 EV≈1.2~2.3, 후반 raw>3→cap 3)  
+- `rewards.json`: `bomb_stock_1` type=bombStock weight=2 maxPerRun=3  
+- `waves.json`: `boss_stage1` 탄수 완화 (peak 9.0→4.3 b/s)  
+**표:** `Reviews/from-grok/req067-068-bomb-drop-boss1-2026-07-31.md`  
+**검증:** `dotnet test` 360/360 · BalanceSim all green · REQ-060 CLEAR · 시드 해시 일치
+
+### CODEX
+
+1. [x] 보상 카탈로그 골든 `Rewards.All.Count` 19→**20** — content가 테스트 1줄 동반 수정 (bomb_stock_1). 리뷰 환영.
+2. [ ] (정보) 후반 bomb EV raw>3 — 스톡 cap 3으로 실효 상한. 드롭 스트림 Fork(2) 계약 유지.
+
+### CLAUDE
+
+1. [ ] Resources `enemies.json` / `rewards.json` / `waves.json` 동기화
+2. [ ] 폰 플레이: 중간보스 처치 후 폭탄 픽업 확인 · 스테이지1 보스 탄막 체감
+
+---
+
+## 2026-07-30 REQ-063 — 코어 전용 중간보스 `mini_core` (완료 · content)
+
+**완료 (content):** `GameData/enemies.json`에 `mini_core` 추가 (카탈로그 31→**32**).  
+**표·TTK:** `Reviews/from-grok/req063-mini-core-2026-07-30.md`  
+**검증:** `dotnet test` 360/360 · BalanceSim all green · 시드 해시 2회 일치.
+
+| 항목 | 값 |
+|---|---|
+| HP | 1550 |
+| themeId / stageIndexMin | core / **3** |
+| phases | 산탄 → 집중(tel36) → 돌진(tel42) |
+| TTK @ core reach ~1050 DPS | **≈1.5s** (패턴 읽기형) |
+| mid avgHP / worst | 1290 / walker 1600 @17.8s (게이트 유지) |
+
+### CODEX
+
+1. [x] **`mini_core` 불변식 (REQ-062)** — main 병합으로 수신. content가 mini_core 등록 완료.
+
+### CLAUDE
+
+1. [ ] Resources `enemies.json` 동기화 (`mini_core` + REQ-061 midBoss 5종)
+2. [ ] `mini_core` 스프라이트 (미등록 시 폴백+틴트)
+
+---
+
+## 2026-07-30 REQ-061 — 중간보스 행동 패턴 (완료 · content)
+
+**완료 (content):** `mini_*` 전 항목에 `midBoss.phases` (2~3 순환 + telegraph) 채움.  
+**표:** `Reviews/from-grok/req061-midboss-patterns-2026-07-30.md`  
+**검증:** `dotnet test` 360/360 · BalanceSim all green · REQ-060 CLEAR · 시드 해시 2회 일치.
+
+### CODEX
+
+1. [x] **`mini_core` 추가 시 enemy count 테스트 31→32** — REQ-062 main 병합 + REQ-063 content 등록 완료.
+
+### CLAUDE
+
+1. [ ] Resources `enemies.json` 동기화 (midBoss 프로필 — 현재 5종)
+2. [ ] 중간보스 `BossAttackTelegraphed` / `BossPhaseChanged` 시청각 (이미 main 병합분 있으면 확인만)
+
+---
+
+## 2026-07-30 REQ-060 — 첫 스테이지 난이도 (완료 · 잠정 §7)
+
+**완료 (content):** 스테이지1 클리어 가능하도록 초반 화력·중간보스 HP·세그/드롭/첫 보스 조정. 후반 보스·세그 HP 유지.  
+**상세 표:** `Reviews/from-grok/req060-stage1-difficulty-2026-07-30.md`
+
+### 핵심 수치
+
+| 항목 | 전 → 후 |
+|---|---|
+| starter Main | L0 (75 DPS) → **L2 (128.6 DPS)** |
+| mini_* HP | 2400–4500 → **800–1600** |
+| boss_stage1 | 9000 → **8500** |
+| noDropWeight | 15 → **13** |
+| seg_sine_rush | elite 앵커 제거 (HP 1052→532) |
+
+### CODEX
+
+1. [x] **중간보스 스테이지/테마 가중 선택** — main 병합으로 수신 (themeId 3× weight + stageIndexMin/Max).
+2. [x] **sim `GenerateCore`에 `IsHiddenOnlyColossalBoss` 복원** — main 병합으로 수신.
+3. [x] content ← main 병합 후 laser/gimmick 파서 → content 워크트리 `dotnet test` / `BalanceSim` 자체 통과.
+4. [x] (기존) `RepositoryApprovedV2Files` 적 수 · 리듬 런 (main 병합 후 360/360).
+
+### CLAUDE
+
+1. [ ] Resources GameData 동기화: `ships.json` · `enemies.json` · `waves.json` (+ REQ-061 midBoss)
+2. [ ] 스타터 Main2 시작이 HUD 게이지/툴팁과 맞는지 확인
+
+### 검증
+
+- BalanceSim (merged Core + content data): REQ-060 **CLEAR**, 조립 50/50, 드롭/보스 TTK **PASS**
+- 성장 곡선·실드 상한 3: **변경 없음** (제안만 문서)
+
+---
+
+## 2026-07-30 REQ-055 — 스테이지 기믹 데이터 완료
+
+**완료 (content):** `GameData/waves.json` gimmicks/environment/breakable·laser 배치, `enemies.json` `hive_tentacle`, BalanceSim stage-1 잔해 정책.  
+**상세 표·여유 계산:** `Reviews/from-grok/req055-stage-gimmicks-2026-07-30.md`
+
+### CODEX
+
+1. [ ] `GameDataParserTests.RepositoryApprovedV2Files_ParseCompletely` 적 카탈로그 기대값 **30 → 31** (`hive_tentacle` 추가)
+2. [ ] (선택) `CurrentMiniBossContent` 리듬 런: content GameData는 sim Core에서 기믹 이전에도 RunOver — 고정 봇(y=0) vs 실데이터 괴리 조사. 기믹 단독 원인은 아님.
+3. [ ] content ← sim 병합 후 laserEmitter/gimmick 파서가 content Core에 들어와야 content `dotnet test` / BalanceSim이 통과한다.
+
+### CLAUDE
+
+1. [ ] REQ-055 Presentation 계약 (corridor 벽 / drift 시각화 / VisionObscured 구름 / 타임 카운트다운) — `Reviews/from-codex/requests.md` REQ-055 섹션
+2. [ ] Resources GameData 동기화 (waves / enemies) after merge
+3. [ ] `hive_tentacle` 스프라이트 매핑 (벽 촉수 — 세로로 긴 Static 적)
+
+### 검증 (sim Core + 본 데이터)
+
+- StageGimmickTests + DeterminismAuditSmoke: **PASS**
+- 전체 `dotnet test`: **351/353** (위 CODEX 2건)
+- BalanceSim: 조립·장애물·보스 TTK **PASS** (무기 v3/colossal 실패는 기존 괴리)
+
+---
+
+## 2026-07-30 REQ-054 후속 — 보스 페이즈 체감 · 중간보스 · 후반/보상 (잠정 §7)
+
+**완료 (content):** `GameData/waves.json` 5보스 phases에 `movementPattern` / `movementAmplitude` / `movementPeriodTicks` / `partVulnerability` 채움 + HP 소폭 인하 + 세그먼트 `mini_*` 스폰 제거(중형 앵커 교체). `enemies.json` noDropWeight 16→15. `rewards.json` capsules/repair weight 2→3.  
+**상세 표:** `Reviews/from-grok/req054-boss-phases-2026-07-30.md`
+
+### 핵심 수치
+
+| 보스 | HP | mid TTK | p1 이동 | p2 dens |
+|---|---:|---:|---|---:|
+| boss_stage1 | 9000 | 18.0s | sine amp1.75/150t | 0.150 |
+| boss_hive | 14500 | 24.2s | **amp3.25/96t** | 0.188 |
+| boss_fortress | 18000 | 25.0s | amp0.875/210t | 0.214 |
+| boss_storm | 22500 | 25.6s | amp2.75/84t | **0.250** |
+| boss_core | 28000 | 26.7s | amp2.25/100t | 0.250 |
+
+중간보스 HP 2400–4500 확정. TTK mid 3–13s (상한 30–40s·스테이지 보스보다 짧음). 4종/5스테이지: 전역 풀 균등 + 기대 중복 1회.
+
+### CLAUDE
+
+1. [ ] Resources GameData 동기화 (waves / enemies / rewards)
+2. [ ] BossPhaseChanged 이동·파츠 VFX (REQ-054)
+3. [ ] MidBoss 전용 HP UI
+
+### CODEX
+
+1. [ ] mini_* 테마 가중 선택 (홈 테마 soft prefer)
+2. [ ] reward `selectionKinds` (mid 2택 / main 3택 풀 분리)
+3. [ ] (선택) segment `sectionTags` opening/closing
+
+### 검증
+
+- `dotnet test` **297/297**
+- BalanceSim **PASS** (EV 10.32)
+- DeterminismAudit seed=12345 ×2 hash **`BEB6933375E2C17D`**
+
+---
+
+## 2026-07-30 적 4티어 재배치 (크기=맷집 · 잠정 §7)
+
+**완료 (content):** `GameData/enemies.json` HP·히트박스·점수·드롭 재배치 + `GameData/waves.json` 38세그 티어 리듬·`intent` 한 줄.
+**상태:** 전부 잠정 — 사람 플레이 피드백 전 최종 확정 금지.
+**화력 전제:** CODEX 성장 곡선 너프 예정 → mid DPS 앵커를 기존 analyze 대비 ~15% 낮게 가정 (early~100 / mid~550 / full~1500, 현 god-run 1880 아님).
+
+### 티어 설계 (기존 30종 배치, 신규 적 없음)
+
+| 티어 | 수 | HP | halfW×H (대략) | score | dropW | 체감 TTK |
+|---|---:|---|---|---|---|---|
+| 잡몹 | 12 | 6–14 | 0.44–0.63 × 0.31–0.56 | 50–120 | 2–4 | early 0.06–0.14s · mid flash |
+| 강화형 | 10 | 80–140 | 0.88–0.94 × 0.69–0.88 | 220–380 | 4–6 | early 0.8–1.4s · mid 0.15–0.25s |
+| 중형 | 4 | 500–850 | 1.25–1.38 × 1.0–1.25 | 800–1300 | 13–15 | early 5–8.5s · mid 0.9–1.5s · full 0.3–0.6s |
+| 중간보스 | 4 | 2400–4500 | 2.25–2.5 × 1.75–1.88 | 3000–5000 | 22–26 | stage mid ~4–8s · full 1.6–3.0s |
+
+**중간보스 스테이지 앵커 (mid DPS 가정):**
+
+| id | HP | 목표 mid DPS | TTK mid | TTK full@1500 |
+|---|---:|---:|---:|---:|
+| mini_horror | 2400 | ~500 (hive) | 4.8s | 1.6s |
+| mini_destroyer | 3000 | ~600 (fortress) | 5.0s | 2.0s |
+| mini_crystal | 3600 | ~720 (nebula) | 5.0s | 2.4s |
+| mini_walker | 4500 | ~880 (core) | 5.1s | 3.0s |
+
+크기 필드는 이미 `halfWidth`/`halfHeight`로 데이터 조정 가능 (1/256 서브유닛 정합). 스키마 변경 없음. `noDropWeight=16` 유지. 스테이지 캡슐 EV **10.01** (밴드 10–16 하한 근처 — 잡몹 thrift + 대형 보상).
+
+### 웨이브
+
+- 38세그 전부 `intent` 한 줄 (파서가 무시하는 문서 필드).
+- 성격 분리: 잡몹-only 러시 / 강화형 조준 / 중형 앵커 / 중간보스 피날레.
+- stage avgHP mono: 299 → 880 → 2503 → 3688 → 5135.
+
+### CLAUDE 후속
+
+1. [ ] `Assets/Resources/GameData/enemies.json` · `waves.json` 동기화.
+2. [ ] **스프라이트·프리팹 스케일이 새 half extents와 맞는지 확인.** 히트박스는 티어별로 크게 갈라졌는데, Presentation이 고정 스프라이트를 쓰면 시각 크기≠맷집이 된다. `halfWidth`/`halfHeight`에 맞춰 뷰 스케일하거나 티어별 아트 크기를 맞출 것.
+3. [ ] `mini_*` 히트박스 상향 (2.0×1.5 → 2.25–2.5 × 1.75–1.88) — 뷰 실측 동기화.
+
+### CODEX 메모
+
+- 크기 데이터 경로 확인 완료: `enemies.json` half extents → Core 파서 → 충돌 AABB. 추가 스키마 불필요.
+- 성장 곡선(레벨업 비용) 너프가 들어오면 mid DPS 앵커를 재측정하고 중간보스 HP를 한 번 더 맞출 수 있음. 요청서에 예상 화력 표가 아직 없으면 완료 후 공유 바람.
+
+### 검증
+
+- `dotnet test` CoreStandalone **297/297**
+- `Tools/BalanceSim` **PASS** (캡슐 EV 10.01, stage HP mono, 조립 50/50)
+- DeterminismAudit `seed=12345 stages=3 ticks=30000` 2회 해시 일치 `535B2CBBCA27CEB7`
+
+재생성 스크립트: `Tools/BalanceSim/_apply_enemy_tiers.py`
+
+---
+
+## 2026-07-30 플레이테스트 수치 3건 (스키마 변경 없음)
+
+**완료 (content):** 기존 필드 값만 조정.
+
+| # | 파일 | 필드 | 전 → 후 |
+|---|---|---|---|
+| 1 | `waves.json` | `boss_stage1.hp` | 12000 → **9000** |
+| 2 | `enemies.json` | `dropTable.noDropWeight` | 12 → **16** |
+| 3 | `weapons.json` | missile / families `fireIntervalTicks` (+min) | straight 30/15→**42/20**, bomb 42/28→**54/36**, lance 54/36→**70/44** |
+
+BalanceSim 게이트도 튜토리얼 첫 보스 TTK·미사일 ST 밴드에 맞게 갱신. 뒤쪽 보스 HP는 유지(의도적 튜토리얼→실전 점프).
+
+### CLAUDE 후속 (Resources 동기화)
+
+- [ ] `Assets/Resources/GameData/waves.json` ← `GameData/waves.json`
+- [ ] `Assets/Resources/GameData/enemies.json` ← `GameData/enemies.json`
+- [ ] `Assets/Resources/GameData/weapons.json` ← `GameData/weapons.json`
+
+### 결정론 감사 메모
+
+같은 시드 2회 해시 일치 확인 (`seed=12345` stages=3, hash `0668DB7675A90266`).  
+`--suite` 전체는 히든 콜로설(broodmother 재생) 구간에서 예산 내 `RunCleared` 미도달 — 기존 `seed-max-prefer-capped` 예산 계열 이슈와 동일 계열(해시 불일치 아님). CODEX/DeterminismAudit 예산·타격 모델 쪽 후속.
+
+---
+
 ## 2026-07-30 REQ-035 콜로설 보스 content 등록 완료 (잠정 · §7)
 
 **완료 (content):** `GameData/waves.json`에 `boss_leviathan` / `boss_broodmother`

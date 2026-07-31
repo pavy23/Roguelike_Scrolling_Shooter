@@ -107,7 +107,197 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 1,
                 replayedRun.PowerUpGauge.GetLevel(
-                    PowerUpSlot.MainShot));
+                    PowerUpSlot.Speed));
+        }
+
+        [Test]
+        public void AnalogCommands_RoundTripAndRemainRunLengthEncoded()
+        {
+            var recorder = new InputRecorder(2);
+            InputCommand analog =
+                InputCommand.Analog(7, -11, true, true, false);
+            recorder.Record(in analog);
+            recorder.Record(in analog);
+
+            InputRecordingData data = recorder.Export();
+            var commands = new List<InputCommand>();
+            foreach (InputCommand command in new InputPlayback(data))
+                commands.Add(command);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(
+                    InputRecordingData.CurrentSchemaVersion,
+                    data.schemaVersion);
+                Assert.AreEqual(1, data.runs.Length);
+                Assert.AreEqual(2, data.runs[0].tickCount);
+                Assert.IsTrue(data.runs[0].useAnalogMovement);
+                Assert.AreEqual(
+                    7,
+                    data.runs[0].analogDeltaXSubUnits);
+                Assert.AreEqual(
+                    -11,
+                    data.runs[0].analogDeltaYSubUnits);
+                Assert.AreEqual(2, commands.Count);
+                Assert.IsTrue(commands[0].UseAnalogMovement);
+                Assert.AreEqual(
+                    7,
+                    commands[0].AnalogDeltaXSubUnits);
+                Assert.AreEqual(
+                    -11,
+                    commands[0].AnalogDeltaYSubUnits);
+            });
+        }
+
+        [Test]
+        public void DefaultCapacityCoversSixMinuteWorstCaseAnalogStage()
+        {
+            const int stageTicks =
+                6 * 60 * SimSpace.TicksPerSecond;
+            var recorder = new InputRecorder();
+
+            for (int tick = 0; tick < stageTicks; tick++)
+            {
+                InputCommand input = InputCommand.Analog(
+                    tick,
+                    -tick,
+                    false);
+                recorder.Record(in input);
+            }
+
+            Assert.GreaterOrEqual(
+                InputRecorder.DefaultRunCapacity,
+                stageTicks);
+            Assert.AreEqual(stageTicks, recorder.RunCount);
+            Assert.AreEqual(stageTicks, recorder.TotalTicks);
+        }
+
+        [Test]
+        public void SchemaNineRecording_MigratesAnalogMovementToZero()
+        {
+            var legacy = new InputRecordingData
+            {
+                schemaVersion = 9,
+                totalTicks = 1,
+                runs = new[]
+                {
+                    new InputRunData
+                    {
+                        moveX = 1,
+                        moveY = 0,
+                        fire = true,
+                        activate = false,
+                        activateBomb = true,
+                        tickCount = 1
+                    }
+                },
+                difficultyMultiplierNumerator = 1,
+                difficultyMultiplierDenominator = 1,
+                routeChoices = Array.Empty<RouteChoiceData>(),
+                finalStageIndex = 5,
+                biomeCount = 5,
+                roomsPerBiome = 4,
+                missileFamily = (int)MissileFamily.Straight,
+                optionFormation = (int)OptionFormation.Trail,
+                lastColossalBossAtRunStart =
+                    (int)ColossalBossKind.None,
+                checksum = "EA9C549FF3889CD2"
+            };
+
+            InputRecordingData migrated =
+                SaveDataIntegrity.MigrateAndValidate(legacy);
+            var commands = new List<InputCommand>();
+            foreach (InputCommand command in
+                new InputPlayback(migrated))
+            {
+                commands.Add(command);
+            }
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(
+                    InputRecordingData.CurrentSchemaVersion,
+                    migrated.schemaVersion);
+                Assert.AreEqual(1, commands.Count);
+                Assert.IsFalse(commands[0].UseAnalogMovement);
+                Assert.AreEqual(
+                    0,
+                    commands[0].AnalogDeltaXSubUnits);
+                Assert.AreEqual(
+                    0,
+                    commands[0].AnalogDeltaYSubUnits);
+                Assert.IsTrue(commands[0].ActivateBomb);
+                Assert.IsTrue(
+                    SaveDataIntegrity.HasValidChecksum(migrated));
+            });
+        }
+
+        [Test]
+        public void SchemaThirteenRecordingIsRejectedAfterGaugeReorder()
+        {
+            InputRecordingData legacy = ValidData();
+            legacy.schemaVersion = 13;
+            legacy.checksum = null;
+
+            Assert.Throws<ArgumentException>(
+                () => SaveDataIntegrity.MigrateAndValidate(legacy));
+        }
+
+        [Test]
+        public void SchemaFourteenRecordingIsRejectedAfterShipGaugeChange()
+        {
+            InputRecordingData legacy = ValidData();
+            legacy.schemaVersion = 14;
+            legacy.checksum = null;
+
+            Assert.Throws<ArgumentException>(
+                () => SaveDataIntegrity.MigrateAndValidate(legacy));
+            Assert.Throws<ArgumentException>(
+                () => new InputPlayback(legacy));
+        }
+
+        [Test]
+        public void AnalogRecordedPlayback_ReproducesDeterminismHash()
+        {
+            BattleSimConfig config =
+                BattleSimConfig.CreateDefault();
+            BattleSim recorded =
+                new BattleSim(config, new Rng(0x45045UL));
+            var recorder = new InputRecorder(128);
+            var recordedHasher = new DeterminismAuditHasher();
+
+            for (int tick = 0; tick < 120; tick++)
+            {
+                InputCommand input = InputCommand.Analog(
+                    (tick % 9 - 4) * 17,
+                    (tick % 7 - 3) * 13,
+                    tick % 5 != 0);
+                recorder.Record(in input);
+                recorded.Step(in input);
+                recordedHasher.FoldBattleState(recorded);
+            }
+
+            BattleSim replayed =
+                new BattleSim(config, new Rng(0x45045UL));
+            var replayedHasher = new DeterminismAuditHasher();
+            int replayedTicks = 0;
+            foreach (InputCommand input in
+                new InputPlayback(recorder.Export()))
+            {
+                replayed.Step(in input);
+                replayedHasher.FoldBattleState(replayed);
+                replayedTicks++;
+            }
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(120, replayedTicks);
+                Assert.AreEqual(recorded.PlayerX, replayed.PlayerX);
+                Assert.AreEqual(recorded.PlayerY, replayed.PlayerY);
+                Assert.AreEqual(
+                    recordedHasher.Hash,
+                    replayedHasher.Hash);
+            });
         }
 
         [Test]
@@ -138,12 +328,12 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 1,
                 recordedRun.PowerUpGauge.GetLevel(
-                    PowerUpSlot.MainShot));
+                    PowerUpSlot.Speed));
             Assert.AreEqual(
                 recordedRun.PowerUpGauge.GetLevel(
-                    PowerUpSlot.MainShot),
+                    PowerUpSlot.Speed),
                 replayedRun.PowerUpGauge.GetLevel(
-                    PowerUpSlot.MainShot));
+                    PowerUpSlot.Speed));
             Assert.AreEqual(
                 recordedRun.PowerUpGauge.Cursor,
                 replayedRun.PowerUpGauge.Cursor);
@@ -162,15 +352,18 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(
                 1,
-                run.PowerUpGauge.GetLevel(PowerUpSlot.MainShot));
+                run.PowerUpGauge.GetLevel(PowerUpSlot.Speed));
             Assert.AreEqual(0, run.PowerUpGauge.Cursor);
 
             run.Step(in released);
             run.Step(in held);
 
             Assert.AreEqual(
-                2,
-                run.PowerUpGauge.GetLevel(PowerUpSlot.MainShot));
+                1,
+                run.PowerUpGauge.GetLevel(PowerUpSlot.Speed));
+            Assert.AreEqual(
+                1,
+                run.PowerUpGauge.GetProgress(PowerUpSlot.Speed));
             Assert.AreEqual(
                 PowerUpGauge.NoSelection,
                 run.PowerUpGauge.Cursor);
@@ -284,7 +477,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void SchemaTwoRecording_DefaultsToNormalDifficulty()
+        public void SchemaTwoRecordingIsRejectedByPlaybackVersionGate()
         {
             InputRecordingData legacy = ValidData();
             legacy.schemaVersion = 2;
@@ -292,10 +485,8 @@ namespace Shmup.Core.Tests
             legacy.difficultyMultiplierNumerator = 0;
             legacy.difficultyMultiplierDenominator = 0;
 
-            var playback = new InputPlayback(legacy);
-
-            Assert.AreEqual(1, playback.DifficultyMultiplierNumerator);
-            Assert.AreEqual(1, playback.DifficultyMultiplierDenominator);
+            Assert.Throws<ArgumentException>(
+                () => new InputPlayback(legacy));
         }
 
         [Test]
@@ -443,6 +634,8 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(fire, command.Fire);
             Assert.AreEqual(activate, command.Activate);
         }
+
+        static void AssertAll(Action assert) => assert();
 
         static void Record(
             InputRecorder recorder,

@@ -1,20 +1,23 @@
 using System;
+using Shmup.Core.Simulation;
 
 namespace Shmup.Core.Content
 {
     public static partial class GameDataParser
     {
-        const int SupportedShipsSchemaVersion = 1;
+        const int SupportedShipsSchemaVersion = 2;
 
         static ShipDefinition[] ParseShips(ShipsDto root, int[] powerUpMaxLevels)
         {
             int schemaVersion = Require(
                 root.schemaVersion,
                 "ships.json.schemaVersion");
-            if (schemaVersion != SupportedShipsSchemaVersion)
+            if (schemaVersion < 1
+                || schemaVersion > SupportedShipsSchemaVersion)
                 throw Error(
                     "ships.json.schemaVersion",
-                    $"must be {SupportedShipsSchemaVersion}, but was {schemaVersion}.");
+                    $"must be between 1 and {SupportedShipsSchemaVersion}, "
+                    + $"but was {schemaVersion}.");
 
             ShipDto[] source = RequireArray(root.ships, "ships.json.ships");
             var definitions = new ShipDefinition[source.Length];
@@ -30,11 +33,18 @@ namespace Shmup.Core.Content
                     item.startingPowerUpLevels,
                     path + ".startingPowerUpLevels",
                     allowEmpty: true);
-                if (startingLevels.Length != PowerUpGauge.SlotCount)
+                if (startingLevels.Length != 4
+                    && startingLevels.Length != PowerUpGauge.SlotCount)
                     throw Error(
                         path + ".startingPowerUpLevels",
-                        $"must contain exactly {PowerUpGauge.SlotCount} entries.");
-                var levelCopy = (int[])startingLevels.Clone();
+                        $"must contain exactly 4 or "
+                        + $"{PowerUpGauge.SlotCount} entries.");
+                var levelCopy =
+                    new int[PowerUpGauge.SlotCount];
+                Array.Copy(
+                    startingLevels,
+                    levelCopy,
+                    startingLevels.Length);
                 for (int slot = 0; slot < levelCopy.Length; slot++)
                 {
                     if (levelCopy[slot] < 0)
@@ -49,6 +59,14 @@ namespace Shmup.Core.Content
                 }
 
                 long unlockCost = Require(item.unlockCost, path + ".unlockCost");
+                PrimaryWeaponFamily? gaugeWeaponFamily =
+                    ParseGaugeWeaponFamily(
+                        item.gaugeWeaponFamily,
+                        path + ".gaugeWeaponFamily");
+                PowerUpSlot[] gaugeSlots = ParseShipGaugeSlots(
+                    item.powerUpGaugeSlots,
+                    gaugeWeaponFamily,
+                    path + ".powerUpGaugeSlots");
                 var definition = new ShipDefinition(
                     RequireText(item.id, path + ".id"),
                     RequireText(item.displayName, path + ".displayName"),
@@ -61,7 +79,16 @@ namespace Shmup.Core.Content
                     levelCopy,
                     unlockCost,
                     ParseWeaponType(item.weaponType, path + ".weaponType"),
-                    ParseShipMaxHp(item.maxHp, path + ".maxHp"));
+                    ParseStartingShieldStock(
+                        item.startingShieldStock,
+                        path + ".startingShieldStock",
+                        allowZero: true)
+                        ?? ParseStartingShieldStock(
+                            item.maxHp,
+                            path + ".maxHp",
+                            allowZero: false),
+                    gaugeWeaponFamily,
+                    gaugeSlots);
                 for (int previous = 0; previous < i; previous++)
                 {
                     if (string.Equals(
@@ -98,12 +125,94 @@ namespace Shmup.Core.Content
             }
         }
 
-        static int? ParseShipMaxHp(int? value, string path)
+        static PrimaryWeaponFamily? ParseGaugeWeaponFamily(
+            string value,
+            string path)
+        {
+            if (value == null)
+                return null;
+            switch (RequireText(value, path))
+            {
+                case "double": return PrimaryWeaponFamily.Double;
+                case "laser": return PrimaryWeaponFamily.Laser;
+                case "triple": return PrimaryWeaponFamily.Spread;
+                default: throw Error(path, $"has unknown value '{value}'.");
+            }
+        }
+
+        static PowerUpSlot[] ParseShipGaugeSlots(
+            string[] values,
+            PrimaryWeaponFamily? family,
+            string path)
+        {
+            if (values == null)
+            {
+                if (!family.HasValue)
+                    return null;
+                return new[]
+                {
+                    PowerUpSlot.Speed,
+                    PowerUpSlot.Missile,
+                    ShipDefinition.GaugeSlotForFamily(family.Value),
+                    PowerUpSlot.Option,
+                    PowerUpSlot.Shield
+                };
+            }
+            if (!family.HasValue)
+                throw Error(
+                    path,
+                    "requires gaugeWeaponFamily.");
+            if (values.Length != PowerUpGauge.ShipGaugeSlotCount)
+                throw Error(
+                    path,
+                    $"must contain exactly "
+                    + $"{PowerUpGauge.ShipGaugeSlotCount} entries.");
+
+            var slots = new PowerUpSlot[values.Length];
+            PowerUpSlot weaponSlot =
+                ShipDefinition.GaugeSlotForFamily(family.Value);
+            for (int i = 0; i < slots.Length; i++)
+            {
+                string itemPath = $"{path}[{i}]";
+                switch (RequireText(values[i], itemPath))
+                {
+                    case "Speed":
+                        slots[i] = PowerUpSlot.Speed;
+                        break;
+                    case "Missile":
+                        slots[i] = PowerUpSlot.Missile;
+                        break;
+                    case "Weapon":
+                        slots[i] = weaponSlot;
+                        break;
+                    case "Option":
+                        slots[i] = PowerUpSlot.Option;
+                        break;
+                    case "Shield":
+                        slots[i] = PowerUpSlot.Shield;
+                        break;
+                    default:
+                        throw Error(
+                            itemPath,
+                            $"has unknown value '{values[i]}'.");
+                }
+            }
+            return slots;
+        }
+
+        static int? ParseStartingShieldStock(
+            int? value,
+            string path,
+            bool allowZero)
         {
             if (!value.HasValue)
                 return null;
-            if (value.Value < 1)
-                throw Error(path, "must be positive.");
+            if (value.Value < (allowZero ? 0 : 1))
+                throw Error(
+                    path,
+                    allowZero
+                        ? "cannot be negative."
+                        : "must be positive.");
             return value.Value;
         }
     }

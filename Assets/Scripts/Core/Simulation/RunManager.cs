@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Shmup.Core.Generation;
@@ -11,10 +12,83 @@ namespace Shmup.Core.Simulation
         RunOver = 1,
         /// <summary>보스 격파 후 보상 선택 대기 (REQ-007 요청 3). ChooseReward로 재개.</summary>
         AwaitingReward = 2,
-        /// <summary>Reward chosen; waiting for the next map node selection.</summary>
+        /// <summary>
+        /// Legacy serialized value only. REQ-054 runtime never enters this state.
+        /// </summary>
+        [Obsolete(
+            "REQ-054 removed runtime route choices. Numeric value is retained "
+            + "only for legacy persistence compatibility.")]
         AwaitingRoute = 3,
         /// <summary>The configured final stage was cleared successfully.</summary>
-        RunCleared = 4
+        RunCleared = 4,
+        /// <summary>
+        /// The next biome's fully disclosed sector contract is waiting for input.
+        /// </summary>
+        AwaitingContract = 5
+    }
+
+    public enum RunStageSection
+    {
+        Opening = 0,
+        MidBoss = 1,
+        Closing = 2,
+        StageBoss = 3,
+        HiddenOpening = 4,
+        HiddenBoss = 5
+    }
+
+    public enum RewardSelectionKind
+    {
+        None = 0,
+        MidStage = 1,
+        Main = 2
+    }
+
+    public enum RewardDecisionKind
+    {
+        Select = 0,
+        Reroll = 1
+    }
+
+    public readonly struct RewardDecision
+    {
+        public RewardDecision(
+            int rewardSequence,
+            RewardSelectionKind selectionKind,
+            RewardDecisionKind decisionKind,
+            int optionIndex)
+        {
+            if (rewardSequence < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(rewardSequence));
+            if (selectionKind != RewardSelectionKind.MidStage
+                && selectionKind != RewardSelectionKind.Main)
+                throw new ArgumentOutOfRangeException(
+                    nameof(selectionKind));
+            if (!Enum.IsDefined(
+                    typeof(RewardDecisionKind),
+                    decisionKind))
+                throw new ArgumentOutOfRangeException(
+                    nameof(decisionKind));
+            if (decisionKind == RewardDecisionKind.Reroll)
+            {
+                if (optionIndex != -1)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(optionIndex));
+            }
+            else if (optionIndex < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(optionIndex));
+            RewardSequence = rewardSequence;
+            SelectionKind = selectionKind;
+            DecisionKind = decisionKind;
+            OptionIndex = optionIndex;
+        }
+
+        public int RewardSequence { get; }
+        public RewardSelectionKind SelectionKind { get; }
+        public RewardDecisionKind DecisionKind { get; }
+        public int OptionIndex { get; }
     }
 
     public enum RunCompletionGrade
@@ -30,14 +104,83 @@ namespace Shmup.Core.Simulation
         Capsules = 0,
         /// <summary>지정 슬롯 레벨 +1 (최대치 클램프).</summary>
         SlotLevel = 1,
-        /// <summary>런 최대 HP +1 — 다음 스테이지부터 적용.</summary>
-        RepairHp = 2,
+        /// <summary>실드 스톡 회복 — 상한까지 즉시 적용.</summary>
+        ShieldStock = 2,
+        /// <summary>
+        /// Legacy API/JSON compatibility alias. "repairHp" now restores shield
+        /// stock and retains numeric value 2.
+        /// </summary>
+        RepairHp = ShieldStock,
         FireRateUp = 3,
         DamageUp = 4,
         MoveSpeedUp = 5,
         Modifier = 6,
         MissileFamily = 7,
-        OptionFormation = 8
+        OptionFormation = 8,
+        /// <summary>전멸 폭탄 스톡을 상한까지 즉시 획득.</summary>
+        BombStock = 9,
+        PrimaryWeaponFamily = 10
+    }
+
+    public enum RewardPool
+    {
+        Both = 0,
+        Mid = 1,
+        Main = 2
+    }
+
+    public enum RewardEffectType
+    {
+        Capsules = 0,
+        SlotLevel = 1,
+        ShieldStock = 2,
+        FireRateUp = 3,
+        DamageUp = 4,
+        MoveSpeedUp = 5,
+        Modifier = 6,
+        MissileFamily = 7,
+        OptionFormation = 8,
+        BombStock = 9,
+        PrimaryWeaponFamily = 10,
+        ShieldMaxDown = 11,
+        MoveSpeedDown = 12,
+        CapsuleDropWeightDown = 13,
+        BombMaxDown = 14
+    }
+
+    public readonly struct RewardEffectView
+    {
+        public RewardEffectView(RewardEffectType type, int amount)
+        {
+            if (!Enum.IsDefined(typeof(RewardEffectType), type))
+                throw new ArgumentOutOfRangeException(nameof(type));
+            if (amount < 1)
+                throw new ArgumentOutOfRangeException(nameof(amount));
+            Type = type;
+            Amount = amount;
+        }
+
+        public RewardEffectType Type { get; }
+        public int Amount { get; }
+    }
+
+    public readonly struct RewardCostDefinition
+    {
+        public RewardCostDefinition(RewardEffectType type, int amount)
+        {
+            if (type != RewardEffectType.ShieldMaxDown
+                && type != RewardEffectType.MoveSpeedDown
+                && type != RewardEffectType.CapsuleDropWeightDown
+                && type != RewardEffectType.BombMaxDown)
+                throw new ArgumentOutOfRangeException(nameof(type));
+            if (amount < 1)
+                throw new ArgumentOutOfRangeException(nameof(amount));
+            Type = type;
+            Amount = amount;
+        }
+
+        public RewardEffectType Type { get; }
+        public int Amount { get; }
     }
 
     /// <summary>보상 후보 하나.</summary>
@@ -66,7 +209,8 @@ namespace Shmup.Core.Simulation
                 amount,
                 modifierId,
                 MissileFamily.Straight,
-                OptionFormation.Trail)
+                OptionFormation.Trail,
+                PrimaryWeaponFamily.Vulcan)
         {
         }
 
@@ -77,15 +221,42 @@ namespace Shmup.Core.Simulation
             int amount,
             BattleModifier modifierId,
             MissileFamily missileFamily,
-            OptionFormation optionFormation)
+            OptionFormation optionFormation,
+            PrimaryWeaponFamily primaryWeaponFamily =
+                PrimaryWeaponFamily.Vulcan,
+            string modifierKey = null,
+            IReadOnlyList<RewardCostDefinition> costs = null,
+            IReadOnlyList<RewardEffectView> gains = null,
+            IReadOnlyList<RewardEffectView> costViews = null)
         {
             Id = id;
             Type = type;
             Slot = slot;
             Amount = amount;
             ModifierId = modifierId;
+            ModifierKey = modifierKey;
             MissileFamily = missileFamily;
             OptionFormation = optionFormation;
+            PrimaryWeaponFamily = primaryWeaponFamily;
+            Gains = gains ?? Array.AsReadOnly(new[]
+            {
+                new RewardEffectView(
+                    (RewardEffectType)type,
+                    amount)
+            });
+            if (costViews != null)
+                Costs = costViews;
+            else if (costs == null || costs.Count == 0)
+                Costs = Array.Empty<RewardEffectView>();
+            else
+            {
+                var copy = new RewardEffectView[costs.Count];
+                for (int i = 0; i < copy.Length; i++)
+                    copy[i] = new RewardEffectView(
+                        costs[i].Type,
+                        costs[i].Amount);
+                Costs = Array.AsReadOnly(copy);
+            }
         }
 
         public string Id { get; }
@@ -93,8 +264,12 @@ namespace Shmup.Core.Simulation
         public PowerUpSlot Slot { get; }
         public int Amount { get; }
         public BattleModifier ModifierId { get; }
+        public string ModifierKey { get; }
         public MissileFamily MissileFamily { get; }
         public OptionFormation OptionFormation { get; }
+        public PrimaryWeaponFamily PrimaryWeaponFamily { get; }
+        public IReadOnlyList<RewardEffectView> Gains { get; }
+        public IReadOnlyList<RewardEffectView> Costs { get; }
     }
 
     public readonly struct RouteOption
@@ -182,7 +357,16 @@ namespace Shmup.Core.Simulation
             int? maxPerRun = null,
             BattleModifier modifierId = BattleModifier.None,
             MissileFamily missileFamily = MissileFamily.Straight,
-            OptionFormation optionFormation = OptionFormation.Trail)
+            OptionFormation optionFormation = OptionFormation.Trail,
+            PrimaryWeaponFamily primaryWeaponFamily =
+                PrimaryWeaponFamily.Vulcan,
+            string modifierKey = null,
+            bool modifierStackable = false,
+            int modifierMaxStacks = 1,
+            int modifierStackStrength = 1,
+            int modifierInteractionCost = 1,
+            RewardPool pool = RewardPool.Both,
+            IReadOnlyList<RewardCostDefinition> costs = null)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Reward id cannot be empty.", nameof(id));
@@ -194,12 +378,29 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(stageIndexMin));
             if (stageIndexMax < stageIndexMin)
                 throw new ArgumentOutOfRangeException(nameof(stageIndexMax));
+            if (!Enum.IsDefined(typeof(RewardPool), pool))
+                throw new ArgumentOutOfRangeException(nameof(pool));
             if (maxPerRun.HasValue && maxPerRun.Value < 1)
                 throw new ArgumentOutOfRangeException(nameof(maxPerRun));
             if (type == RewardType.Modifier)
             {
                 if (!BattleModifierRules.IsSingleKnown(modifierId))
                     throw new ArgumentOutOfRangeException(nameof(modifierId));
+                if (string.IsNullOrEmpty(modifierKey))
+                    modifierKey = modifierId.ToString();
+                if (modifierMaxStacks < 1)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(modifierMaxStacks));
+                if (!modifierStackable && modifierMaxStacks != 1)
+                    throw new ArgumentException(
+                        "One-time modifiers must have maxStacks 1.",
+                        nameof(modifierMaxStacks));
+                if (modifierStackStrength < 1)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(modifierStackStrength));
+                if (modifierInteractionCost < 1)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(modifierInteractionCost));
             }
             else if (modifierId != BattleModifier.None)
             {
@@ -219,6 +420,12 @@ namespace Shmup.Core.Simulation
                     optionFormation))
                 throw new ArgumentOutOfRangeException(
                     nameof(optionFormation));
+            if (type == RewardType.PrimaryWeaponFamily
+                && !Enum.IsDefined(
+                    typeof(PrimaryWeaponFamily),
+                    primaryWeaponFamily))
+                throw new ArgumentOutOfRangeException(
+                    nameof(primaryWeaponFamily));
 
             Id = id;
             Type = type;
@@ -229,8 +436,40 @@ namespace Shmup.Core.Simulation
             StageIndexMax = stageIndexMax;
             MaxPerRun = maxPerRun;
             ModifierId = modifierId;
+            ModifierKey = modifierKey;
+            ModifierStackable = modifierStackable;
+            ModifierMaxStacks = modifierMaxStacks;
+            ModifierStackStrength = modifierStackStrength;
+            ModifierInteractionCost = modifierInteractionCost;
             MissileFamily = missileFamily;
             OptionFormation = optionFormation;
+            PrimaryWeaponFamily = primaryWeaponFamily;
+            Pool = pool;
+            Gains = Array.AsReadOnly(new[]
+            {
+                new RewardEffectView(
+                    (RewardEffectType)type,
+                    amount)
+            });
+            if (costs == null || costs.Count == 0)
+            {
+                Costs = Array.Empty<RewardCostDefinition>();
+                CostViews = Array.Empty<RewardEffectView>();
+            }
+            else
+            {
+                var costCopy = new RewardCostDefinition[costs.Count];
+                var costViewCopy = new RewardEffectView[costs.Count];
+                for (int i = 0; i < costCopy.Length; i++)
+                {
+                    costCopy[i] = costs[i];
+                    costViewCopy[i] = new RewardEffectView(
+                        costs[i].Type,
+                        costs[i].Amount);
+                }
+                Costs = Array.AsReadOnly(costCopy);
+                CostViews = Array.AsReadOnly(costViewCopy);
+            }
         }
 
         public string Id { get; }
@@ -243,8 +482,18 @@ namespace Shmup.Core.Simulation
         /// <summary>Maximum acquisitions in one run; null means unlimited.</summary>
         public int? MaxPerRun { get; }
         public BattleModifier ModifierId { get; }
+        public string ModifierKey { get; }
+        public bool ModifierStackable { get; }
+        public int ModifierMaxStacks { get; }
+        public int ModifierStackStrength { get; }
+        public int ModifierInteractionCost { get; }
         public MissileFamily MissileFamily { get; }
         public OptionFormation OptionFormation { get; }
+        public PrimaryWeaponFamily PrimaryWeaponFamily { get; }
+        public RewardPool Pool { get; }
+        public IReadOnlyList<RewardEffectView> Gains { get; }
+        public IReadOnlyList<RewardCostDefinition> Costs { get; }
+        internal IReadOnlyList<RewardEffectView> CostViews { get; }
     }
 
     /// <summary>Immutable reward pool parsed from rewards.json.</summary>
@@ -254,7 +503,9 @@ namespace Shmup.Core.Simulation
 
         public RewardCatalog(
             int optionCount,
-            IReadOnlyList<RewardDefinition> rewards)
+            IReadOnlyList<RewardDefinition> rewards,
+            int maxCombinedModifierCost = 4,
+            int rerollCost = 5)
         {
             if (optionCount < 1)
                 throw new ArgumentOutOfRangeException(nameof(optionCount));
@@ -264,16 +515,26 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     "The reward pool cannot be smaller than the option count.",
                     nameof(rewards));
+            if (maxCombinedModifierCost < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maxCombinedModifierCost));
+            if (rerollCost < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(rerollCost));
 
             var copy = new RewardDefinition[rewards.Count];
             for (int i = 0; i < copy.Length; i++)
                 copy[i] = rewards[i];
 
             OptionCount = optionCount;
+            MaxCombinedModifierCost = maxCombinedModifierCost;
+            RerollCost = rerollCost;
             _all = Array.AsReadOnly(copy);
         }
 
         public int OptionCount { get; }
+        public int MaxCombinedModifierCost { get; }
+        public int RerollCost { get; }
         public IReadOnlyList<RewardDefinition> All => _all;
 
         public IReadOnlyList<RewardDefinition> EligibleForStage(int stageIndex)
@@ -342,7 +603,7 @@ namespace Shmup.Core.Simulation
     public sealed class RunProgressionConfig
     {
         public const int DefaultBiomeCount = 5;
-        public const int DefaultRoomsPerBiome = 6;
+        public const int DefaultRoomsPerBiome = 3;
         public const int DefaultFinalStageIndex = DefaultBiomeCount;
         public const int HiddenRooms = 2;
 
@@ -427,12 +688,91 @@ namespace Shmup.Core.Simulation
     /// </summary>
     public sealed class RunManager
     {
+        sealed class PrefixReadOnlyList<T> :
+            IReadOnlyList<T>,
+            IList<T>
+        {
+            readonly T[] _items;
+
+            public PrefixReadOnlyList(T[] items)
+            {
+                _items = items ?? throw new ArgumentNullException(
+                    nameof(items));
+            }
+
+            public int Count { get; private set; }
+
+            public T this[int index]
+            {
+                get
+                {
+                    if (index < 0 || index >= Count)
+                        throw new ArgumentOutOfRangeException(nameof(index));
+                    return _items[index];
+                }
+                set => throw new NotSupportedException(
+                    "The reward option view is read-only.");
+            }
+
+            public bool IsReadOnly => true;
+
+            public void SetCount(int count)
+            {
+                if (count < 0 || count > _items.Length)
+                    throw new ArgumentOutOfRangeException(nameof(count));
+                Count = count;
+            }
+
+            public IEnumerator<T> GetEnumerator()
+            {
+                for (int i = 0; i < Count; i++)
+                    yield return _items[i];
+            }
+
+            public int IndexOf(T item)
+            {
+                return Array.IndexOf(_items, item, 0, Count);
+            }
+
+            public bool Contains(T item) => IndexOf(item) >= 0;
+
+            public void CopyTo(T[] array, int arrayIndex)
+            {
+                Array.Copy(_items, 0, array, arrayIndex, Count);
+            }
+
+            public void Add(T item) => throw new NotSupportedException(
+                "The reward option view is read-only.");
+            public void Clear() => throw new NotSupportedException(
+                "The reward option view is read-only.");
+            public void Insert(int index, T item) =>
+                throw new NotSupportedException(
+                    "The reward option view is read-only.");
+            public bool Remove(T item) => throw new NotSupportedException(
+                "The reward option view is read-only.");
+            public void RemoveAt(int index) =>
+                throw new NotSupportedException(
+                    "The reward option view is read-only.");
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
         const int BattleSimulationStream = 1;
         const int RewardSelectionStream = 2;
+        // Stream id 3 is retained so section traits and legacy route migration
+        // preserve the pre-REQ-054 deterministic sequence.
         const int RouteSelectionStream = 3;
         const int RoomGenerationStream = 4;
         const int ColossalBossSelectionStream = 5;
-        public const int RewardOptionCount = 3;
+        const int MidBossSelectionStream = 6;
+        const int ContractSelectionStream = 7;
+        const int StageOrderStream = 8;
+        public const int MidStageRewardOptionCount = 2;
+        public const int MainRewardOptionCount = 3;
+        /// <summary>Legacy alias for the main reward card count.</summary>
+        public const int RewardOptionCount = MainRewardOptionCount;
+        public const int MinimumContractOptionCount = 2;
+        public const int MaximumContractOptionCount = 3;
         public const int MinimumRouteOptionCount = 2;
         public const int MaximumRouteOptionCount = 3;
 
@@ -456,9 +796,59 @@ namespace Shmup.Core.Simulation
                     "slot_shield_1", RewardType.SlotLevel, PowerUpSlot.Shield,
                     1, 1, 1, int.MaxValue),
                 new RewardDefinition(
-                    "repair_hp_1", RewardType.RepairHp, PowerUpSlot.MainShot,
+                    "repair_hp_1", RewardType.ShieldStock, PowerUpSlot.MainShot,
                     1, 1, 1, int.MaxValue)
             });
+        static readonly RewardOption[] FallbackRewardOptions =
+        {
+            new RewardOption(
+                "fallback_capsules_1",
+                RewardType.Capsules,
+                PowerUpSlot.MainShot,
+                1),
+            new RewardOption(
+                "fallback_shield_1",
+                RewardType.ShieldStock,
+                PowerUpSlot.Shield,
+                1),
+            new RewardOption(
+                "fallback_capsules_3",
+                RewardType.Capsules,
+                PowerUpSlot.MainShot,
+                3)
+        };
+        static readonly ContractCatalog BuiltInContracts =
+            new ContractCatalog(
+                "standard_route",
+                MinimumContractOptionCount,
+                MinimumContractOptionCount,
+                new[]
+                {
+                    new ContractDefinition(
+                        "standard_route",
+                        1,
+                        ContractRiskTier.Safe),
+                    new ContractDefinition(
+                        "standard_route_reserve",
+                        1,
+                        ContractRiskTier.Safe)
+                });
+        static readonly ContractDefinition BuiltInEndRunContract =
+            new ContractDefinition(
+                "end_run",
+                1,
+                ContractRiskTier.Safe,
+                destinationKind:
+                    ContractDestinationKind.EndRun);
+        static readonly ContractDefinition BuiltInUnchartedContract =
+            new ContractDefinition(
+                "uncharted",
+                1,
+                ContractRiskTier.High,
+                destinationKind:
+                    ContractDestinationKind.Uncharted,
+                eligibility:
+                    ContractEligibility.HiddenBiomeUnlocked);
 
         readonly IStageGenerator _stageGenerator;
         readonly BattleSimConfig _battleConfig;
@@ -467,11 +857,16 @@ namespace Shmup.Core.Simulation
         readonly StageDifficultyCurve _difficultyCurve;
         readonly RunProgressionConfig _progressionConfig;
         readonly RewardCatalog _rewards;
+        readonly ContractCatalog _contracts;
         readonly ShipDefinition _ship;
         readonly int _difficultyMultiplierNumerator;
         readonly int _difficultyMultiplierDenominator;
         readonly int[] _powerUpMaxLevels;
-        readonly int _initialPlayerMaxHp;
+        readonly int _initialShieldStock;
+        readonly int _initialBombStock;
+        readonly int _initialMaxShieldStock;
+        readonly int _initialMaxBombStock;
+        readonly int _initialCapsuleDropWeightReduction;
         readonly int _initialFireIntervalTicks;
         readonly int _initialMainShotBaseDamage;
         readonly int _initialPlayerSpeedNumerator;
@@ -481,15 +876,25 @@ namespace Shmup.Core.Simulation
         readonly int[] _rewardWeights;
         readonly RewardOption[] _rewardOptionBuffer;
         readonly int[] _rewardOptionCatalogIndices;
-        readonly IReadOnlyList<RewardOption> _rewardOptionView;
+        readonly PrefixReadOnlyList<RewardOption> _rewardOptionView;
         readonly int[] _rewardAcquisitionCounts;
         readonly int[] _stageStartRewardAcquisitionCounts;
         readonly Rng _rewardRng;
         readonly Rng _routeRng;
+        readonly Rng _contractRng;
+        readonly int[] _stageThemeOrder;
+        readonly ReadOnlyCollection<int> _stageThemeOrderView;
         readonly List<RouteChoice> _routeChoiceHistory;
         readonly ReadOnlyCollection<RouteChoice> _routeChoiceHistoryView;
+        readonly List<ContractChoice> _contractChoiceHistory;
+        readonly ReadOnlyCollection<ContractChoice>
+            _contractChoiceHistoryView;
+        readonly List<RewardDecision> _rewardDecisionHistory;
+        readonly ReadOnlyCollection<RewardDecision>
+            _rewardDecisionHistoryView;
         MetaState _metaState;
         ColossalBossKind _lastColossalBossAtRunStart;
+        BattleContinuityState _pendingBattleContinuity;
 
         ulong _runSeed;
         int _stageLengthTicks;
@@ -503,6 +908,7 @@ namespace Shmup.Core.Simulation
         int _roomsCleared;
         bool _activateHeld;
         int[] _stageStartPowerUpLevels;
+        int[] _stageStartPowerUpProgress;
         int _stageStartPowerUpCursor;
         long _stageStartScore;
         long _stageStartShotsFired;
@@ -512,9 +918,11 @@ namespace Shmup.Core.Simulation
         long _stageStartGrazeCount;
         int _stageStartStagesCleared;
         int _stageStartRoomsCleared;
-        int _stageStartPlayerHp;
-        int _stageStartShieldRemaining;
+        int _stageStartPlayerLife;
+        int _stageStartShieldStock;
+        int _stageStartBombStock;
         BattleModifier _stageStartActiveModifiers;
+        PrimaryWeaponFamily _stageStartPrimaryWeaponFamily;
         MissileFamily _stageStartMissileFamily;
         OptionFormation _stageStartOptionFormation;
         int _stageStartEliteRoomsCleared;
@@ -525,10 +933,15 @@ namespace Shmup.Core.Simulation
         int _stageStartMainShotBaseDamage;
         int _stageStartPlayerSpeedNumerator;
         int _stageStartPlayerSpeedDenominator;
+        int _stageStartCapsuleBalance;
+        BattleContinuityState _stageStartContinuity;
         int _rewardSelectionsRemaining;
         int _rewardSelectionRound;
-        bool _rewardFromBiomeBoss;
+        RewardSelectionKind _rewardSelectionKind;
         bool _currentBiomeHit;
+        int _capsuleBalance;
+        IReadOnlyList<ContractDefinition> _contractOptions =
+            Array.Empty<ContractDefinition>();
 
         public RunManager(
             ulong runSeed,
@@ -548,6 +961,59 @@ namespace Shmup.Core.Simulation
                 null,
                 1,
                 1)
+        {
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            RewardCatalog rewards,
+            ContractCatalog contracts)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                null,
+                1,
+                1,
+                null,
+                true,
+                contracts)
+        {
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            RewardCatalog rewards,
+            ContractCatalog contracts,
+            ShipDefinition ship)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                ship,
+                1,
+                1,
+                null,
+                true,
+                contracts)
         {
         }
 
@@ -918,7 +1384,8 @@ namespace Shmup.Core.Simulation
             int difficultyMultiplierNumerator,
             int difficultyMultiplierDenominator,
             RunProgressionConfig progressionConfig,
-            bool buildInitialStage)
+            bool buildInitialStage,
+            ContractCatalog contracts = null)
         {
             _stageGenerator = stageGenerator
                 ?? throw new ArgumentNullException(nameof(stageGenerator));
@@ -935,7 +1402,11 @@ namespace Shmup.Core.Simulation
             _progressionConfig =
                 progressionConfig ?? RunProgressionConfig.CreateDefault();
             _rewards = rewards ?? BuiltInRewards;
+            _contracts = contracts ?? BuiltInContracts;
+            ModifierStacks = new BattleModifierStackSet(
+                _rewards.MaxCombinedModifierCost);
             _ship = ship ?? ShipDefinition.CreateDefault();
+            ValidateShipGauge(_ship, PowerUpGauge);
             NormalizeDifficultyMultiplier(
                 difficultyMultiplierNumerator,
                 difficultyMultiplierDenominator,
@@ -966,22 +1437,49 @@ namespace Shmup.Core.Simulation
                         $"Reward '{reward.Id}' references an unavailable "
                         + "option formation.",
                         nameof(rewards));
+                if (reward.Type == RewardType.PrimaryWeaponFamily
+                    && _battleContent.FindPrimaryWeaponFamily(
+                        reward.PrimaryWeaponFamily) == null)
+                    throw new ArgumentException(
+                        $"Reward '{reward.Id}' references an unavailable "
+                        + "primary weapon family.",
+                        nameof(rewards));
             }
             _rewardPool = new RewardDefinition[_rewards.All.Count];
             _rewardPoolCatalogIndices = new int[_rewards.All.Count];
             _rewardWeights = new int[_rewards.All.Count];
-            _rewardOptionBuffer = new RewardOption[RewardOptionCount];
-            _rewardOptionCatalogIndices = new int[RewardOptionCount];
-            _rewardOptionView = Array.AsReadOnly(_rewardOptionBuffer);
+            _rewardOptionBuffer =
+                new RewardOption[MainRewardOptionCount + 1];
+            _rewardOptionCatalogIndices =
+                new int[MainRewardOptionCount + 1];
+            _rewardOptionView =
+                new PrefixReadOnlyList<RewardOption>(
+                    _rewardOptionBuffer);
             _rewardAcquisitionCounts = new int[_rewards.All.Count];
             _stageStartRewardAcquisitionCounts =
                 new int[_rewards.All.Count];
             _stageStartPowerUpLevels =
                 new int[PowerUpGauge.SlotCount];
+            _stageStartPowerUpProgress =
+                new int[PowerUpGauge.SlotCount];
             _rewardRng = new Rng(0UL);
             _routeRng = new Rng(0UL);
+            _contractRng = new Rng(0UL);
+            _stageThemeOrder = CreateStageThemeOrder(
+                runSeed,
+                _progressionConfig.BiomeCount,
+                _stageGenerator);
+            _stageThemeOrderView =
+                Array.AsReadOnly(_stageThemeOrder);
             _routeChoiceHistory = new List<RouteChoice>();
             _routeChoiceHistoryView = _routeChoiceHistory.AsReadOnly();
+            _contractChoiceHistory = new List<ContractChoice>();
+            _contractChoiceHistoryView =
+                _contractChoiceHistory.AsReadOnly();
+            _rewardDecisionHistory =
+                new List<RewardDecision>();
+            _rewardDecisionHistoryView =
+                _rewardDecisionHistory.AsReadOnly();
             _battleConfig.MainShotBaseDamage =
                 _battleContent.PlayerWeapon.BaseDamage;
             _battleConfig.FireIntervalTicks =
@@ -1001,14 +1499,33 @@ namespace Shmup.Core.Simulation
                 _powerUpMaxLevels[i] = PowerUpGauge.GetMaxLevel((PowerUpSlot)i);
             ApplyShipSpeedMultiplier(_battleConfig, _ship);
             ApplyShipWeaponProfile(_battleConfig, _ship);
-            if (_ship.MaxHp.HasValue)
-                _battleConfig.PlayerMaxHp = _ship.MaxHp.Value;
-            _initialPlayerMaxHp = _battleConfig.PlayerMaxHp;
+            CurrentPrimaryWeaponFamily =
+                PrimaryWeaponFamilyFor(_ship.WeaponType);
+            if (_ship.StartingShieldStock.HasValue)
+            {
+                _battleConfig.StartingShieldStock =
+                    Math.Min(
+                        _ship.StartingShieldStock.Value,
+                        _battleConfig.MaxShieldStock);
+            }
+            _initialShieldStock =
+                Math.Min(
+                    _battleConfig.StartingShieldStock,
+                    _battleConfig.MaxShieldStock);
+            _initialBombStock =
+                _battleConfig.StartingBombStock;
+            _initialMaxShieldStock =
+                _battleConfig.MaxShieldStock;
+            _initialMaxBombStock =
+                _battleConfig.MaxBombStock;
+            _initialCapsuleDropWeightReduction =
+                _battleConfig.CapsuleDropWeightReduction;
             _initialFireIntervalTicks = _battleConfig.FireIntervalTicks;
             _initialMainShotBaseDamage = _battleConfig.MainShotBaseDamage;
             _initialPlayerSpeedNumerator = _battleConfig.PlayerSpeedNumerator;
             _initialPlayerSpeedDenominator = _battleConfig.PlayerSpeedDenominator;
             ApplyShipStartingLevels(PowerUpGauge);
+            ResetShieldStockForNewRun();
             CurrentMissileFamily =
                 _battleContent.DefaultMissileFamily;
             CurrentOptionFormation =
@@ -1028,6 +1545,8 @@ namespace Shmup.Core.Simulation
             NoHitBiomesCleared = 0;
             RareEncountersCleared = 0;
             _currentBiomeHit = false;
+            ActiveContract = null;
+            ResetContractBattleConfig();
             _lastColossalBossAtRunStart =
                 ColossalBossKind.None;
             if (buildInitialStage)
@@ -1038,11 +1557,44 @@ namespace Shmup.Core.Simulation
         /// <summary>Current biome. StageIndex remains a compatibility alias.</summary>
         public int BiomeIndex { get; private set; }
         public int StageIndex => BiomeIndex;
+        /// <summary>
+        /// Theme/content stage currently mapped to this progression position.
+        /// Difficulty continues to follow BiomeIndex.
+        /// </summary>
+        public int ThemeStageIndex =>
+            IsHiddenBiome
+                ? BiomeCount
+                : _stageThemeOrder[BiomeIndex - 1];
+        public IReadOnlyList<int> StageThemeOrder =>
+            _stageThemeOrderView;
         /// <summary>Current regular-room slot (1..RoomsPerBiome).</summary>
         public int RoomIndex { get; private set; }
         /// <summary>True after the final regular room while fighting the biome boss.</summary>
         public bool IsBiomeBoss { get; private set; }
         public bool IsHiddenBiome { get; private set; }
+        public RunStageSection StageSection
+        {
+            get
+            {
+                if (IsHiddenBiome)
+                    return IsBiomeBoss
+                        ? RunStageSection.HiddenBoss
+                        : RunStageSection.HiddenOpening;
+                if (IsBiomeBoss)
+                    return RunStageSection.StageBoss;
+                if (IsMidBossSection)
+                    return RunStageSection.MidBoss;
+                return RoomIndex <= 1
+                    ? RunStageSection.Opening
+                    : RunStageSection.Closing;
+            }
+        }
+        public bool IsMidBossSection =>
+            !IsHiddenBiome
+            && !IsBiomeBoss
+            && RoomsPerBiome >=
+                RunProgressionConfig.DefaultRoomsPerBiome
+            && RoomIndex == 2;
         public RunState State { get; private set; }
         public RunCompletionGrade CompletionGrade { get; private set; }
         public ColossalBossKind SelectedColossalBoss { get; private set; }
@@ -1096,13 +1648,85 @@ namespace Shmup.Core.Simulation
         /// Rule-changing rewards active for this run. They carry through death
         /// restarts, matching power-up carry policy, and start empty on a new manager.
         /// </summary>
-        public BattleModifier ActiveModifiers { get; private set; }
+        public BattleModifier ActiveModifiers =>
+            ModifierStacks.ActiveModifiers;
+        public BattleModifierStackSet ModifierStacks
+        {
+            get;
+            private set;
+        }
+        public PrimaryWeaponFamily CurrentPrimaryWeaponFamily
+        {
+            get;
+            private set;
+        }
+        public PrimaryWeaponFamilyDefinition CurrentPrimaryWeaponDefinition =>
+            _battleContent.FindPrimaryWeaponFamily(
+                CurrentPrimaryWeaponFamily);
         public MissileFamily CurrentMissileFamily { get; private set; }
         public OptionFormation CurrentOptionFormation { get; private set; }
+        public int MaxShieldStock => _battleConfig.MaxShieldStock;
+        public int MaxBombStock => _battleConfig.MaxBombStock;
+        public int CapsuleDropWeightReduction =>
+            _battleConfig.CapsuleDropWeightReduction;
+        public int CapsuleBalance => _capsuleBalance;
+        public int RewardRerollCost => _rewards.RerollCost;
+        public bool CanRerollRewardOptions =>
+            State == RunState.AwaitingReward
+            && _capsuleBalance >= _rewards.RerollCost;
 
-        /// <summary>AwaitingReward 상태에서만 유효. 항상 RewardOptionCount개.</summary>
+        /// <summary>
+        /// Runtime integration point for future max-stock rewards/options.
+        /// Current stock is clamped immediately when the cap is lowered.
+        /// </summary>
+        public void SetMaxShieldStock(int maxShieldStock)
+        {
+            if (maxShieldStock < 1
+                || maxShieldStock
+                    > BattleSimConfig.MaximumShieldStock)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maxShieldStock),
+                    $"Shield cap must be in "
+                    + $"1.."
+                    + $"{BattleSimConfig.MaximumShieldStock}.");
+            if (!(Battle is BattleSim battle))
+                throw new InvalidOperationException(
+                    "Runtime shield cap changes require BattleSim.");
+            battle.SetMaxShieldStock(maxShieldStock);
+            _battleConfig.MaxShieldStock = maxShieldStock;
+            _battleConfig.StartingShieldStock =
+                Math.Min(
+                    _battleConfig.StartingShieldStock,
+                    maxShieldStock);
+            _stageStartShieldStock =
+                Math.Min(_stageStartShieldStock, maxShieldStock);
+        }
+
+        /// <summary>
+        /// AwaitingReward only: two cards for MidStage, three for Main.
+        /// </summary>
         public IReadOnlyList<RewardOption> RewardOptions => _rewardOptions;
         IReadOnlyList<RewardOption> _rewardOptions = Array.Empty<RewardOption>();
+        public RewardSelectionKind RewardSelectionKind =>
+            State == RunState.AwaitingReward
+                ? _rewardSelectionKind
+                : RewardSelectionKind.None;
+        public IReadOnlyList<ContractDefinition> ContractOptions =>
+            State == RunState.AwaitingContract
+                ? _contractOptions
+                : Array.Empty<ContractDefinition>();
+        /// <summary>
+        /// Contract affecting the current biome. Null in biome 1 and after the run.
+        /// </summary>
+        public ContractDefinition ActiveContract
+        {
+            get;
+            private set;
+        }
+        public IReadOnlyList<ContractChoice> ContractChoiceHistory =>
+            _contractChoiceHistoryView;
+        public IReadOnlyList<RewardDecision> RewardDecisionHistory =>
+            _rewardDecisionHistoryView;
         /// <summary>Two or three deterministic map nodes while AwaitingRoute.</summary>
         public IReadOnlyList<RouteOption> RouteOptions => _routeOptions;
         IReadOnlyList<RouteOption> _routeOptions = Array.Empty<RouteOption>();
@@ -1164,6 +1788,48 @@ namespace Shmup.Core.Simulation
                     encounterType = (int)choice.EncounterType
                 };
             }
+            var contractChoices =
+                new ContractChoiceData[
+                    _contractChoiceHistory.Count];
+            for (int i = 0;
+                i < _contractChoiceHistory.Count;
+                i++)
+            {
+                ContractChoice choice =
+                    _contractChoiceHistory[i];
+                contractChoices[i] =
+                    new ContractChoiceData
+                    {
+                        targetBiomeIndex =
+                            choice.TargetBiomeIndex,
+                        optionIndex = choice.OptionIndex,
+                        contractId = choice.ContractId,
+                        destinationKind =
+                            (int)choice.DestinationKind
+                    };
+            }
+            var rewardDecisions =
+                new RewardDecisionData[
+                    _rewardDecisionHistory.Count];
+            for (int i = 0;
+                i < _rewardDecisionHistory.Count;
+                i++)
+            {
+                RewardDecision decision =
+                    _rewardDecisionHistory[i];
+                rewardDecisions[i] =
+                    new RewardDecisionData
+                    {
+                        rewardSequence =
+                            decision.RewardSequence,
+                        selectionKind =
+                            (int)decision.SelectionKind,
+                        decisionKind =
+                            (int)decision.DecisionKind,
+                        optionIndex =
+                            decision.OptionIndex
+                    };
+            }
 
             var data = new RunSuspendData
             {
@@ -1184,11 +1850,19 @@ namespace Shmup.Core.Simulation
                 roomsCleared = _stageStartRoomsCleared,
                 powerUpLevels =
                     (int[])_stageStartPowerUpLevels.Clone(),
+                powerUpProgress =
+                    (int[])_stageStartPowerUpProgress.Clone(),
                 powerUpCursor = _stageStartPowerUpCursor,
-                playerHp = _stageStartPlayerHp,
-                shieldRemaining = _stageStartShieldRemaining,
+                playerHp = _stageStartPlayerLife,
+                shieldRemaining = _stageStartShieldStock,
+                shieldStock = _stageStartShieldStock,
+                maxShieldStock = _battleConfig.MaxShieldStock,
+                bombStock = _stageStartBombStock,
+                maxBombStock = _battleConfig.MaxBombStock,
                 rewardAcquisitions = acquisitions,
                 activeModifiers = (int)_stageStartActiveModifiers,
+                primaryWeaponFamily =
+                    (int)_stageStartPrimaryWeaponFamily,
                 missileFamily = (int)_stageStartMissileFamily,
                 optionFormation = (int)_stageStartOptionFormation,
                 shipId = _ship.Id,
@@ -1218,7 +1892,28 @@ namespace Shmup.Core.Simulation
                 selectedColossalBoss =
                     (int)SelectedColossalBoss,
                 lastColossalBossAtRunStart =
-                    (int)_lastColossalBossAtRunStart
+                    (int)_lastColossalBossAtRunStart,
+                hasStageStartContinuity = true,
+                stageStartPlayerX =
+                    _stageStartContinuity.PlayerX,
+                stageStartPlayerY =
+                    _stageStartContinuity.PlayerY,
+                stageStartMultiplierLevel =
+                    _stageStartContinuity.MultiplierLevel,
+                stageStartComboGauge =
+                    _stageStartContinuity.ComboGauge,
+                stageStartTicksSinceLastKill =
+                    _stageStartContinuity.TicksSinceLastKill,
+                activeContractId =
+                    ActiveContract?.Id,
+                contractChoices = contractChoices,
+                capsuleDropWeightReduction =
+                    _battleConfig
+                        .CapsuleDropWeightReduction,
+                capsuleBalance =
+                    _stageStartCapsuleBalance,
+                rewardDecisions =
+                    rewardDecisions
             };
             SaveDataIntegrity.Seal(data);
             return data;
@@ -1278,7 +1973,8 @@ namespace Shmup.Core.Simulation
             MetaProgression metaProgression,
             StageDifficultyCurve difficultyCurve,
             RewardCatalog rewards,
-            ShipDefinition ship)
+            ShipDefinition ship,
+            ContractCatalog contracts = null)
         {
             data = SaveDataIntegrity.MigrateAndValidate(data);
             if (stageGenerator == null)
@@ -1295,6 +1991,8 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentNullException(nameof(difficultyCurve));
 
             RewardCatalog resolvedRewards = rewards ?? BuiltInRewards;
+            ContractCatalog resolvedContracts =
+                contracts ?? BuiltInContracts;
             ShipDefinition resolvedShip =
                 ship ?? ShipDefinition.CreateDefault();
             ValidateSuspendData(
@@ -1322,11 +2020,14 @@ namespace Shmup.Core.Simulation
                 new RunProgressionConfig(
                     data.biomeCount,
                     data.roomsPerBiome),
-                false);
+                false,
+                resolvedContracts);
 
             manager._runSeed = data.runSeed;
             manager.RunNumber = data.runNumber;
-            manager.BiomeIndex = data.biomeIndex;
+            manager.BiomeIndex = data.isHiddenBiome
+                ? data.biomeCount
+                : data.biomeIndex;
             manager.RoomIndex = data.roomIndex;
             manager.IsBiomeBoss = data.isBiomeBoss;
             manager.IsHiddenBiome = data.isHiddenBiome;
@@ -1353,17 +2054,35 @@ namespace Shmup.Core.Simulation
             manager._completedKills = data.kills;
             manager._completedCapsulesCollected =
                 data.capsulesCollected;
+            manager._capsuleBalance = data.capsuleBalance;
             manager._completedGrazeCount = data.grazeCount;
             manager._stagesCleared = data.stagesCleared;
             manager._roomsCleared = data.roomsCleared;
-            manager.ActiveModifiers =
-                (BattleModifier)data.activeModifiers;
+            manager.CurrentPrimaryWeaponFamily =
+                data.primaryWeaponFamily < 0
+                    ? PrimaryWeaponFamilyFor(
+                        resolvedShip.WeaponType)
+                    : (PrimaryWeaponFamily)
+                        data.primaryWeaponFamily;
             manager.CurrentMissileFamily =
                 (MissileFamily)data.missileFamily;
             manager.CurrentOptionFormation =
                 (OptionFormation)data.optionFormation;
+            manager.ApplyPrimaryWeaponFamilyProfile(
+                manager._battleContent.FindPrimaryWeaponFamily(
+                    manager.CurrentPrimaryWeaponFamily)
+                ?? throw new ArgumentException(
+                    "Suspend primary weapon family is unavailable.",
+                    nameof(data)));
             manager.ApplyCurrentLoadoutProfiles();
-            manager._battleConfig.PlayerMaxHp = data.playerHp;
+            manager._battleConfig.MaxShieldStock =
+                data.maxShieldStock;
+            manager._battleConfig.StartingShieldStock =
+                data.shieldStock;
+            manager._battleConfig.MaxBombStock =
+                data.maxBombStock;
+            manager._battleConfig.StartingBombStock =
+                data.bombStock;
             manager._battleConfig.FireIntervalTicks =
                 data.fireIntervalTicks;
             manager._battleConfig.MainShotBaseDamage =
@@ -1372,25 +2091,46 @@ namespace Shmup.Core.Simulation
                 data.playerSpeedNumerator;
             manager._battleConfig.PlayerSpeedDenominator =
                 data.playerSpeedDenominator;
+            manager._battleConfig.CapsuleDropWeightReduction =
+                data.capsuleDropWeightReduction;
+            manager.RestoreContractState(
+                data.activeContractId,
+                data.contractChoices,
+                resolvedContracts);
+            manager.RestoreRewardDecisionHistory(
+                data.rewardDecisions);
 
             RestoreRewardAcquisitions(
                 data.rewardAcquisitions,
                 resolvedRewards,
                 manager._rewardAcquisitionCounts);
+            manager.RebuildModifierStacksFromAcquisitions(
+                (BattleModifier)data.activeModifiers);
             manager.RestoreRouteChoices(
                 data.routeChoices,
-                true);
+                false);
             manager.PowerUpGauge.RestoreState(
                 data.powerUpLevels,
-                data.powerUpCursor);
+                data.powerUpCursor,
+                data.powerUpProgress);
+            if (data.hasStageStartContinuity)
+            {
+                manager._pendingBattleContinuity =
+                    new BattleContinuityState(
+                        data.stageStartPlayerX,
+                        data.stageStartPlayerY,
+                        data.stageStartMultiplierLevel,
+                        data.stageStartComboGauge,
+                        data.stageStartTicksSinceLastKill);
+            }
             manager.BuildCurrentStage();
 
             if (manager.Battle.PlayerHp != data.playerHp
-                || manager.Battle.ShieldRemaining
-                    != data.shieldRemaining)
+                || manager.Battle.ShieldStock != data.shieldStock
+                || manager.Battle.BombStock != data.bombStock)
             {
                 throw new ArgumentException(
-                    "Suspend player HP or shield does not match "
+                    "Suspend player life, shield stock, or bomb stock does not match "
                     + "the reconstructed stage boundary.",
                     nameof(data));
             }
@@ -1405,14 +2145,20 @@ namespace Shmup.Core.Simulation
             bool activatePressed = input.Activate && !_activateHeld;
             _activateHeld = input.Activate;
 
-            var battleInput = new InputCommand(
-                input.MoveX,
-                input.MoveY,
-                input.Fire,
-                activatePressed);
+            InputCommand battleInput =
+                input.WithActivate(activatePressed);
             Battle.Step(in battleInput);
+            if (Battle is BattleSim weaponBattle
+                && weaponBattle.EquippedPrimaryWeaponFamily
+                    != CurrentPrimaryWeaponFamily)
+            {
+                SwitchPrimaryWeaponFamily(
+                    weaponBattle.EquippedPrimaryWeaponFamily);
+            }
             ObserveBattleEvents();
-            if (Battle.PlayerHp <= 0)
+            // Death is authoritative and wins over every room/boss-clear
+            // transition produced by the same battle tick.
+            if (!Battle.IsPlayerAlive)
             {
                 State = RunState.RunOver;
                 return;
@@ -1433,25 +2179,23 @@ namespace Shmup.Core.Simulation
                     if (IsHiddenBiome)
                         CompleteRun(
                             RunCompletionGrade.PerfectClear);
-                    else if (_progressionConfig.IsFinalBiome(BiomeIndex))
-                    {
-                        RecordNoHitBiomeClear();
-                        if (HiddenConditionCount >= 2)
-                            BeginHiddenBiome();
-                        else
-                            CompleteRun(
-                                RunCompletionGrade.StandardClear);
-                    }
                     else
                     {
                         RecordNoHitBiomeClear();
-                        BeginRewardSelection(true);
+                        BeginRewardSelection(
+                            RewardSelectionKind.Main);
                     }
                 }
                 return;
             }
 
-            if (Battle.Tick >= _stageLengthTicks)
+            bool sectionCleared =
+                IsMidBossSection
+                && Battle is BattleSim midBossBattle
+                && midBossBattle.HasBossBattle
+                    ? midBossBattle.BossDefeated
+                    : Battle.Tick >= _stageLengthTicks;
+            if (sectionCleared)
             {
                 IncrementRoomsCleared();
                 if (IsHiddenBiome)
@@ -1463,25 +2207,48 @@ namespace Shmup.Core.Simulation
                         AdvanceHiddenRoom();
                     return;
                 }
-                if (StagePlan.EncounterType == EncounterType.Elite
+                if (!IsMidBossSection
+                    && StagePlan.EncounterType == EncounterType.Elite
                     && EliteRoomsCleared < int.MaxValue)
                     EliteRoomsCleared++;
                 if (StagePlan.EncounterType == EncounterType.Rare
                     && RareEncountersCleared < int.MaxValue)
                     RareEncountersCleared++;
-                if (StagePlan.EncounterType == EncounterType.Elite)
-                    BeginRewardSelection(false);
+                if (IsMidBossSection)
+                    BeginRewardSelection(
+                        RewardSelectionKind.MidStage);
                 else
-                    BeginRouteSelectionOrAdvance();
+                    AdvanceAfterRegularSection();
             }
         }
 
-        void BeginRewardSelection(bool fromBiomeBoss)
+        void BeginRewardSelection(RewardSelectionKind kind)
         {
-            _rewardFromBiomeBoss = fromBiomeBoss;
+            if (kind != RewardSelectionKind.MidStage
+                && kind != RewardSelectionKind.Main)
+                throw new ArgumentOutOfRangeException(nameof(kind));
+            _rewardSelectionKind = kind;
             _rewardSelectionsRemaining = 1;
             _rewardSelectionRound = 0;
-            _rewardOptions = GenerateRewardOptions();
+            int optionCount =
+                kind == RewardSelectionKind.MidStage
+                    ? MidStageRewardOptionCount
+                    : MainRewardOptionCount;
+            if (ActiveContract != null)
+                optionCount = Math.Max(
+                    1,
+                    Math.Min(
+                        _rewardOptionBuffer.Length,
+                        optionCount
+                            + ActiveContract
+                                .RewardOptionCountDelta));
+            IReadOnlyList<RewardOption> options =
+                GenerateRewardOptions(optionCount);
+            if (options.Count != optionCount)
+                throw new InvalidOperationException(
+                    "Reward selection cannot begin without "
+                    + $"{optionCount} choices.");
+            _rewardOptions = options;
             State = RunState.AwaitingReward;
         }
 
@@ -1492,10 +2259,14 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(grade));
             _rewardSelectionsRemaining = 0;
             _rewardSelectionRound = 0;
-            _rewardFromBiomeBoss = false;
+            _rewardSelectionKind = RewardSelectionKind.None;
+            _rewardOptionView.SetCount(0);
             _rewardOptions = Array.Empty<RewardOption>();
             _routeOptions = Array.Empty<RouteOption>();
             _preparedRouteOptions = Array.Empty<RouteOption>();
+            _contractOptions =
+                Array.Empty<ContractDefinition>();
+            ActiveContract = null;
             CompletionGrade = grade;
             State = RunState.RunCleared;
         }
@@ -1507,11 +2278,21 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < events.Length; i++)
             {
                 if (events[i].Type == SimEventType.PlayerHit)
-                {
                     _currentBiomeHit = true;
-                    return;
-                }
+                else if (events[i].Type
+                    == SimEventType.CapsulePicked)
+                    AddCapsuleCurrency(1);
             }
+        }
+
+        void AddCapsuleCurrency(int amount)
+        {
+            if (amount < 0)
+                throw new ArgumentOutOfRangeException(nameof(amount));
+            long total = (long)_capsuleBalance + amount;
+            _capsuleBalance = total >= int.MaxValue
+                ? int.MaxValue
+                : (int)total;
         }
 
         void RecordNoHitBiomeClear()
@@ -1522,24 +2303,24 @@ namespace Shmup.Core.Simulation
             _currentBiomeHit = false;
         }
 
-        void BeginHiddenBiome()
+        bool TryBeginHiddenBiome()
         {
-            SelectedColossalBoss = SelectColossalBoss(
+            ColossalBossKind selected = SelectColossalBoss(
                 _runSeed,
                 _lastColossalBossAtRunStart);
             if (!(_stageGenerator
                     is IColossalBossStageGenerator colossal)
                 || !colossal.CanGenerateColossalBoss(
-                    SelectedColossalBoss))
-            {
-                throw new InvalidOperationException(
-                    $"Hidden biome selected {SelectedColossalBoss}, "
-                    + "but the stage catalog cannot generate it.");
-            }
+                    selected))
+                return false;
 
+            _pendingBattleContinuity = null;
             AccumulateCompletedBattle();
+            SelectedColossalBoss = selected;
             IsHiddenBiome = true;
-            BiomeIndex = BiomeCount + 1;
+            // Hidden content extends the final biome; it is not a sixth public
+            // campaign biome. Keep the HUD/save-facing progression bounded.
+            BiomeIndex = BiomeCount;
             RoomIndex = 1;
             IsBiomeBoss = false;
             State = RunState.Playing;
@@ -1549,6 +2330,7 @@ namespace Shmup.Core.Simulation
             _metaState?.RecordColossalBossEncounter(
                 SelectedColossalBoss);
             BuildCurrentStage();
+            return true;
         }
 
         public static int CountHiddenBiomeConditions(
@@ -1624,98 +2406,295 @@ namespace Shmup.Core.Simulation
         /// 보상을 확정하고 다음 스테이지를 시작한다. 선택은 플레이어 입력이므로
         /// 리플레이 기록 대상이다 (같은 시드 + 같은 선택 = 같은 런).
         /// </summary>
-        public void ChooseReward(int optionIndex)
+        public bool ChooseReward(int optionIndex)
         {
             if (State != RunState.AwaitingReward)
-                throw new InvalidOperationException("No reward is awaiting selection.");
+                return false;
             if (optionIndex < 0 || optionIndex >= _rewardOptions.Count)
-                throw new ArgumentOutOfRangeException(nameof(optionIndex));
+                return false;
+            _rewardDecisionHistory.Add(new RewardDecision(
+                GetRewardSequence(),
+                _rewardSelectionKind,
+                RewardDecisionKind.Select,
+                optionIndex));
             int catalogIndex = _rewardOptionCatalogIndices[optionIndex];
-            ApplyReward(_rewardOptions[optionIndex]);
-            if (_rewardAcquisitionCounts[catalogIndex] < int.MaxValue)
+            ApplyReward(_rewardOptions[optionIndex], catalogIndex);
+            if (catalogIndex >= 0
+                && _rewardAcquisitionCounts[catalogIndex] < int.MaxValue)
                 _rewardAcquisitionCounts[catalogIndex]++;
             _rewardSelectionsRemaining--;
             if (_rewardSelectionsRemaining > 0)
             {
                 _rewardSelectionRound++;
-                _rewardOptions = GenerateRewardOptions();
-                return;
+                _rewardOptions = GenerateRewardOptions(
+                    _rewardSelectionKind
+                        == RewardSelectionKind.MidStage
+                            ? MidStageRewardOptionCount
+                            : MainRewardOptionCount);
+                return true;
             }
             _rewardOptions = Array.Empty<RewardOption>();
-            if (_rewardFromBiomeBoss)
+            RewardSelectionKind completedKind =
+                _rewardSelectionKind;
+            _rewardSelectionKind = RewardSelectionKind.None;
+            _rewardOptionView.SetCount(0);
+            if (completedKind == RewardSelectionKind.MidStage)
             {
-                _rewardFromBiomeBoss = false;
-                AdvanceBiome();
-                return;
+                AdvanceAfterRegularSection();
+                return true;
             }
-
-            BeginRouteSelectionOrAdvance();
+            if (completedKind != RewardSelectionKind.Main)
+                throw new InvalidOperationException(
+                    "Reward selection kind was lost.");
+            if (_progressionConfig.IsFinalBiome(BiomeIndex))
+            {
+                BeginFinalContractSelection();
+                return true;
+            }
+            BeginContractSelection();
+            return true;
         }
 
+        public bool RerollRewardOptions()
+        {
+            if (!CanRerollRewardOptions)
+                return false;
+            int optionCount = _rewardOptions.Count;
+            _rewardSelectionRound++;
+            IReadOnlyList<RewardOption> options =
+                GenerateRewardOptions(optionCount);
+            if (options.Count != optionCount)
+                throw new InvalidOperationException(
+                    "Reward reroll did not reproduce the current card count.");
+            _capsuleBalance -= _rewards.RerollCost;
+            _rewardOptions = options;
+            _rewardDecisionHistory.Add(new RewardDecision(
+                GetRewardSequence(),
+                _rewardSelectionKind,
+                RewardDecisionKind.Reroll,
+                -1));
+            return true;
+        }
+
+        void BeginContractSelection()
+        {
+            if (BiomeIndex >= BiomeCount)
+                throw new InvalidOperationException(
+                    "The final biome has no outgoing contract.");
+            _contractOptions =
+                GenerateContractOptions(BiomeIndex + 1);
+            if (_contractOptions.Count == 0)
+                _contractOptions = Array.AsReadOnly(new[]
+                {
+                    _contracts.Standard
+                });
+            State = RunState.AwaitingContract;
+        }
+
+        void BeginFinalContractSelection()
+        {
+            ContractDefinition endRun =
+                _contracts.EndRun
+                ?? BuiltInEndRunContract;
+            ContractDefinition uncharted =
+                _contracts.Uncharted
+                ?? BuiltInUnchartedContract;
+            bool canGenerate =
+                _stageGenerator
+                    is IColossalBossStageGenerator colossal
+                && colossal.CanGenerateColossalBoss(
+                    SelectColossalBoss(
+                        _runSeed,
+                        _lastColossalBossAtRunStart));
+            if (canGenerate
+                && uncharted.IsEligible(
+                    EliteRoomsCleared,
+                    NoHitBiomesCleared,
+                    RareEncountersCleared))
+            {
+                _contractOptions = Array.AsReadOnly(new[]
+                {
+                    endRun,
+                    uncharted
+                });
+            }
+            else
+            {
+                _contractOptions = Array.AsReadOnly(new[]
+                {
+                    endRun
+                });
+            }
+            State = RunState.AwaitingContract;
+        }
+
+        public bool ChooseContract(int optionIndex)
+        {
+            if (State != RunState.AwaitingContract)
+                return false;
+            if (optionIndex < 0
+                || optionIndex >= _contractOptions.Count)
+                return false;
+            ContractDefinition selected =
+                _contractOptions[optionIndex]
+                ?? _contracts.Standard;
+            int targetBiome = BiomeIndex + 1;
+            if (!selected.IsEligible(
+                    EliteRoomsCleared,
+                    NoHitBiomesCleared,
+                    RareEncountersCleared))
+                return false;
+            if (selected.DestinationKind
+                    == ContractDestinationKind.NextStage
+                && BiomeIndex >= BiomeCount)
+                return false;
+            if (selected.DestinationKind
+                    != ContractDestinationKind.NextStage
+                && BiomeIndex != BiomeCount)
+                return false;
+            ActiveContract = selected;
+            _battleConfig.ContractCapsuleDropMultiplierNumerator =
+                selected.CapsuleDropNumerator;
+            _battleConfig.ContractCapsuleDropMultiplierDenominator =
+                selected.CapsuleDropDenominator;
+            _battleConfig.ContractBombDropMultiplierNumerator =
+                selected.BombDropNumerator;
+            _battleConfig.ContractBombDropMultiplierDenominator =
+                selected.BombDropDenominator;
+            _battleConfig.ContractGuaranteesBombDrop =
+                selected.GuaranteedBombDrop;
+            _battleConfig.ContractScoreMultiplierNumerator =
+                selected.ScoreMultiplierNumerator;
+            _battleConfig.ContractScoreMultiplierDenominator =
+                selected.ScoreMultiplierDenominator;
+            _contractChoiceHistory.Add(new ContractChoice(
+                targetBiome,
+                optionIndex,
+                selected.Id,
+                selected.DestinationKind));
+            _contractOptions =
+                Array.Empty<ContractDefinition>();
+            if (selected.DestinationKind
+                == ContractDestinationKind.EndRun)
+            {
+                CompleteRun(
+                    RunCompletionGrade.StandardClear);
+                return true;
+            }
+            if (selected.DestinationKind
+                == ContractDestinationKind.Uncharted)
+            {
+                if (!TryBeginHiddenBiome())
+                    throw new InvalidOperationException(
+                        "The selected uncharted destination is unavailable.");
+                return true;
+            }
+            AdvanceBiome();
+            return true;
+        }
+
+        IReadOnlyList<ContractDefinition> GenerateContractOptions(
+            int targetBiomeIndex)
+        {
+            _contractRng.ResetForked(
+                _runSeed,
+                ContractSelectionStream,
+                targetBiomeIndex);
+            int optionCount = _contracts.MinimumOptionCount;
+            if (_contracts.MaximumOptionCount
+                > _contracts.MinimumOptionCount)
+            {
+                optionCount = _contractRng.NextInt(
+                    _contracts.MinimumOptionCount,
+                    _contracts.MaximumOptionCount + 1);
+            }
+
+            var pool = new ContractDefinition[
+                _contracts.All.Count - 1];
+            var weights = new int[pool.Length];
+            int poolCount = 0;
+            for (int i = 0; i < _contracts.All.Count; i++)
+            {
+                ContractDefinition contract = _contracts.All[i];
+                if (ReferenceEquals(contract, _contracts.Standard))
+                    continue;
+                if (contract.DestinationKind
+                    != ContractDestinationKind.NextStage)
+                    continue;
+                if (!contract.IsEligible(
+                        EliteRoomsCleared,
+                        NoHitBiomesCleared,
+                        RareEncountersCleared))
+                    continue;
+                pool[poolCount] = contract;
+                weights[poolCount] = contract.Weight;
+                poolCount++;
+            }
+            optionCount = Math.Min(
+                optionCount,
+                poolCount + 1);
+            var options =
+                new ContractDefinition[optionCount];
+            options[0] = _contracts.Standard;
+            for (int option = 1; option < optionCount; option++)
+            {
+                int pick = _contractRng.PickWeighted(
+                    weights,
+                    poolCount);
+                options[option] = pool[pick];
+                int last = --poolCount;
+                pool[pick] = pool[last];
+                weights[pick] = weights[last];
+            }
+            return Array.AsReadOnly(options);
+        }
+
+        [Obsolete(
+            "REQ-054 removed route selection. Legacy route payloads remain "
+            + "readable but are not actionable.")]
         public void ChooseRoute(int optionIndex)
         {
-            if (State != RunState.AwaitingRoute)
-                throw new InvalidOperationException(
-                    "No route is awaiting selection.");
-            if (optionIndex < 0 || optionIndex >= _routeOptions.Count)
-                throw new ArgumentOutOfRangeException(nameof(optionIndex));
-            RouteOption option = _routeOptions[optionIndex];
-            bool routesToNextBiome = RoomIndex >= RoomsPerBiome;
-            int targetBiomeIndex = routesToNextBiome
-                ? BiomeIndex + 1
-                : BiomeIndex;
-            int targetRoomIndex = routesToNextBiome
-                ? 1
-                : RoomIndex + 1;
-            _routeChoiceHistory.Add(new RouteChoice(
-                targetBiomeIndex,
-                targetRoomIndex,
-                optionIndex,
-                option.ThemeId,
-                option.EncounterType));
-            _routeOptions = Array.Empty<RouteOption>();
-            State = RunState.Playing;
-            if (routesToNextBiome)
-                AdvanceToBiomeBoss();
-            else
-                AdvanceRoom();
+            throw new NotSupportedException(
+                "Route choices were removed by REQ-054.");
         }
 
-        void BeginRouteSelectionOrAdvance()
+        void AdvanceAfterRegularSection()
         {
-            _routeOptions = _preparedRouteOptions;
             _preparedRouteOptions = Array.Empty<RouteOption>();
-            if (_routeOptions.Count >= MinimumRouteOptionCount)
-            {
-                State = RunState.AwaitingRoute;
-                return;
-            }
-
+            _routeOptions = Array.Empty<RouteOption>();
             if (RoomIndex >= RoomsPerBiome)
                 AdvanceToBiomeBoss();
             else
                 AdvanceRoom();
         }
 
-        void ApplyReward(in RewardOption option)
+        void ApplyReward(
+            in RewardOption option,
+            int catalogIndex)
         {
             switch (option.Type)
             {
                 case RewardType.Capsules:
                     for (int i = 0; i < option.Amount; i++)
                         PowerUpGauge.Collect();
+                    AddCapsuleCurrency(option.Amount);
                     break;
                 case RewardType.SlotLevel:
-                {
-                    int[] levels = PowerUpGauge.ExportLevels();
-                    int slot = (int)option.Slot;
-                    levels[slot] = Math.Min(
-                        levels[slot] + option.Amount, _powerUpMaxLevels[slot]);
-                    PowerUpGauge.ImportLevels(levels);
+                    PowerUpGauge.GrantLevels(
+                        option.Slot,
+                        option.Amount);
                     break;
-                }
-                case RewardType.RepairHp:
-                    _battleConfig.PlayerMaxHp += option.Amount;
+                case RewardType.ShieldStock:
+                    if (!(Battle is BattleSim battle))
+                        throw new InvalidOperationException(
+                            "Shield stock recovery requires BattleSim.");
+                    battle.RecoverShieldStock(option.Amount);
+                    break;
+                case RewardType.BombStock:
+                    if (!(Battle is BattleSim bombBattle))
+                        throw new InvalidOperationException(
+                            "Bomb stock acquisition requires BattleSim.");
+                    bombBattle.AcquireBombStock(option.Amount);
                     break;
                 case RewardType.FireRateUp:
                     _battleConfig.FireIntervalTicks = Math.Max(
@@ -1733,8 +2712,21 @@ namespace Shmup.Core.Simulation
                     AddMoveSpeed(_battleConfig, option.Amount);
                     break;
                 case RewardType.Modifier:
-                    ActiveModifiers |= option.ModifierId;
+                {
+                    RewardDefinition definition =
+                        _rewards.All[catalogIndex];
+                    if (!ModifierStacks.TryAdd(
+                            definition.ModifierId,
+                            definition.ModifierStackStrength,
+                            definition.ModifierInteractionCost,
+                            definition.ModifierMaxStacks))
+                    {
+                        throw new InvalidOperationException(
+                            $"Modifier '{definition.ModifierKey}' "
+                            + "exceeds its stack or combination cap.");
+                    }
                     break;
+                }
                 case RewardType.MissileFamily:
                     CurrentMissileFamily = option.MissileFamily;
                     ApplyCurrentLoadoutProfiles();
@@ -1743,24 +2735,92 @@ namespace Shmup.Core.Simulation
                     CurrentOptionFormation = option.OptionFormation;
                     ApplyCurrentLoadoutProfiles();
                     break;
+                case RewardType.PrimaryWeaponFamily:
+                    SwitchPrimaryWeaponFamily(
+                        option.PrimaryWeaponFamily);
+                    break;
                 default:
                     throw new InvalidOperationException($"Unknown reward type {option.Type}.");
+            }
+            ApplyRewardCosts(option.Costs);
+        }
+
+        void ApplyRewardCosts(
+            IReadOnlyList<RewardEffectView> costs)
+        {
+            for (int i = 0; i < costs.Count; i++)
+            {
+                RewardEffectView cost = costs[i];
+                switch (cost.Type)
+                {
+                    case RewardEffectType.ShieldMaxDown:
+                        SetMaxShieldStock(Math.Max(
+                            1,
+                            MaxShieldStock - cost.Amount));
+                        break;
+                    case RewardEffectType.MoveSpeedDown:
+                        RemoveMoveSpeed(_battleConfig, cost.Amount);
+                        break;
+                    case RewardEffectType.CapsuleDropWeightDown:
+                        _battleConfig.CapsuleDropWeightReduction =
+                            SaturatingAdd(
+                                _battleConfig.CapsuleDropWeightReduction,
+                                cost.Amount);
+                        break;
+                    case RewardEffectType.BombMaxDown:
+                        if (!(Battle is BattleSim bombBattle))
+                            throw new InvalidOperationException(
+                                "Bomb cap costs require BattleSim.");
+                        int bombCap = Math.Max(
+                            1,
+                            _battleConfig.MaxBombStock - cost.Amount);
+                        bombBattle.SetMaxBombStock(bombCap);
+                        _battleConfig.MaxBombStock = bombCap;
+                        _battleConfig.StartingBombStock = Math.Min(
+                            _battleConfig.StartingBombStock,
+                            bombCap);
+                        _stageStartBombStock = Math.Min(
+                            _stageStartBombStock,
+                            bombCap);
+                        break;
+                    default:
+                        throw new InvalidOperationException(
+                            $"Unknown reward cost type {cost.Type}.");
+                }
             }
         }
 
         /// <summary>시드·스테이지·주입 카탈로그의 결정론적 가중 비복원 선택.</summary>
-        IReadOnlyList<RewardOption> GenerateRewardOptions()
+        IReadOnlyList<RewardOption> GenerateRewardOptions(
+            int optionCount)
         {
+            if (optionCount < 1
+                || optionCount > _rewardOptionBuffer.Length)
+                throw new ArgumentOutOfRangeException(
+                    nameof(optionCount));
             IReadOnlyList<RewardDefinition> rewards = _rewards.All;
             int eligibleCount = 0;
             for (int i = 0; i < rewards.Count; i++)
             {
                 RewardDefinition reward = rewards[i];
+                if (_rewardSelectionKind == RewardSelectionKind.MidStage
+                    && reward.Pool == RewardPool.Main)
+                    continue;
+                if (_rewardSelectionKind == RewardSelectionKind.Main
+                    && reward.Pool == RewardPool.Mid)
+                    continue;
                 if (BiomeIndex < reward.StageIndexMin
                     || BiomeIndex > reward.StageIndexMax)
                     continue;
                 if (reward.MaxPerRun.HasValue
                     && _rewardAcquisitionCounts[i] >= reward.MaxPerRun.Value)
+                    continue;
+                if (reward.Type == RewardType.Modifier
+                    && !ModifierStacks.CanAdd(
+                        reward.ModifierId,
+                        reward.ModifierStackStrength,
+                        reward.ModifierInteractionCost,
+                        reward.ModifierMaxStacks))
                     continue;
                 if (reward.Type == RewardType.MissileFamily
                     && reward.MissileFamily
@@ -1770,17 +2830,16 @@ namespace Shmup.Core.Simulation
                     && reward.OptionFormation
                         == CurrentOptionFormation)
                     continue;
+                if (reward.Type == RewardType.PrimaryWeaponFamily
+                    && reward.PrimaryWeaponFamily
+                        == CurrentPrimaryWeaponFamily)
+                    continue;
 
                 _rewardPool[eligibleCount] = reward;
                 _rewardPoolCatalogIndices[eligibleCount] = i;
                 _rewardWeights[eligibleCount] = reward.Weight;
                 eligibleCount++;
             }
-
-            if (eligibleCount < RewardOptionCount)
-                throw new InvalidOperationException(
-                    $"Biome {BiomeIndex} has {eligibleCount} eligible rewards; "
-                    + $"{RewardOptionCount} are required.");
 
             _rewardRng.ResetForked(
                 _runSeed,
@@ -1789,9 +2848,13 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < _rewardSelectionRound; i++)
                 _rewardRng.NextULong();
             int poolCount = eligibleCount;
+            int catalogOptionCount = Math.Min(
+                eligibleCount,
+                optionCount);
             int optionStart = 0;
-            if (StagePlan.EncounterType == EncounterType.Elite
-                || StagePlan.EncounterType == EncounterType.Rare)
+            if (catalogOptionCount > 0
+                && (StagePlan.EncounterType == EncounterType.Elite
+                    || StagePlan.EncounterType == EncounterType.Rare))
             {
                 int modifierWeight = 0;
                 for (int i = 0; i < poolCount; i++)
@@ -1827,7 +2890,12 @@ namespace Shmup.Core.Simulation
                         modifier.Amount,
                         modifier.ModifierId,
                         modifier.MissileFamily,
-                        modifier.OptionFormation);
+                        modifier.OptionFormation,
+                        modifier.PrimaryWeaponFamily,
+                        modifier.ModifierKey,
+                        modifier.Costs,
+                        modifier.Gains,
+                        modifier.CostViews);
                     int last = --poolCount;
                     _rewardPool[modifierPick] = _rewardPool[last];
                     _rewardPoolCatalogIndices[modifierPick] =
@@ -1839,7 +2907,7 @@ namespace Shmup.Core.Simulation
             }
 
             for (int i = optionStart;
-                i < _rewardOptionBuffer.Length;
+                i < catalogOptionCount;
                 i++)
             {
                 int pick = _rewardRng.PickWeighted(_rewardWeights, poolCount);
@@ -1853,7 +2921,12 @@ namespace Shmup.Core.Simulation
                     selected.Amount,
                     selected.ModifierId,
                     selected.MissileFamily,
-                    selected.OptionFormation);
+                    selected.OptionFormation,
+                    selected.PrimaryWeaponFamily,
+                    selected.ModifierKey,
+                    selected.Costs,
+                    selected.Gains,
+                    selected.CostViews);
 
                 int last = --poolCount;
                 _rewardPool[pick] = _rewardPool[last];
@@ -1861,6 +2934,16 @@ namespace Shmup.Core.Simulation
                     _rewardPoolCatalogIndices[last];
                 _rewardWeights[pick] = _rewardWeights[last];
             }
+            for (int i = catalogOptionCount; i < optionCount; i++)
+            {
+                int fallbackIndex =
+                    (i - catalogOptionCount)
+                    % FallbackRewardOptions.Length;
+                _rewardOptionCatalogIndices[i] = -1;
+                _rewardOptionBuffer[i] =
+                    FallbackRewardOptions[fallbackIndex];
+            }
+            _rewardOptionView.SetCount(optionCount);
             return _rewardOptionView;
         }
 
@@ -1901,11 +2984,13 @@ namespace Shmup.Core.Simulation
             var options = new RouteOption[desiredCount];
             int optionCount = 0;
             if (rareSlot == 0
-                && routeGenerator.CanGenerateRoute(
+                && CanGenerateRouteForRoom(
+                    routeGenerator,
                     themeId,
                     targetBiomeIndex,
                     targetDifficulty,
-                    EncounterType.Rare))
+                    EncounterType.Rare,
+                    targetRoomIndex))
             {
                 options[optionCount++] =
                     new RouteOption(themeId, EncounterType.Rare);
@@ -1922,20 +3007,24 @@ namespace Shmup.Core.Simulation
                 var encounterType = (EncounterType)(
                     (encounterStart + encounterOffset)
                     % commonEncounterCount);
-                if (!routeGenerator.CanGenerateRoute(
+                if (!CanGenerateRouteForRoom(
+                        routeGenerator,
                         themeId,
                         targetBiomeIndex,
                         targetDifficulty,
-                        encounterType))
+                        encounterType,
+                        targetRoomIndex))
                     continue;
                 options[optionCount++] =
                     new RouteOption(themeId, encounterType);
                 if (optionCount == rareSlot
-                    && routeGenerator.CanGenerateRoute(
+                    && CanGenerateRouteForRoom(
+                        routeGenerator,
                         themeId,
                         targetBiomeIndex,
                         targetDifficulty,
-                        EncounterType.Rare))
+                        EncounterType.Rare,
+                        targetRoomIndex))
                 {
                     options[optionCount++] =
                         new RouteOption(themeId, EncounterType.Rare);
@@ -1950,6 +3039,88 @@ namespace Shmup.Core.Simulation
             var trimmed = new RouteOption[optionCount];
             Array.Copy(options, trimmed, optionCount);
             return Array.AsReadOnly(trimmed);
+        }
+
+        EncounterType SelectSectionEncounterType(
+            int biomeIndex,
+            int roomIndex)
+        {
+            _routeRng.ResetForked(
+                _runSeed,
+                RouteSelectionStream,
+                GetRoomSequence(biomeIndex, roomIndex));
+            if (_battleConfig.RareEncounterChanceNumerator > 0
+                && _routeRng.NextInt(
+                    0,
+                    _battleConfig.RareEncounterChanceDenominator)
+                    < _battleConfig.RareEncounterChanceNumerator)
+                return EncounterType.Rare;
+            const int commonEncounterCount = 4;
+            return (EncounterType)_routeRng.NextInt(
+                0,
+                commonEncounterCount);
+        }
+
+        bool CanGenerateRouteForRoom(
+            IRouteStageGenerator generator,
+            string themeId,
+            int stageIndex,
+            int difficulty,
+            EncounterType encounterType,
+            int roomIndex)
+        {
+            if (generator is ISectionRouteStageGenerator sectionGenerator)
+            {
+                return sectionGenerator.CanGenerateRouteForSection(
+                    themeId,
+                    stageIndex,
+                    difficulty,
+                    encounterType,
+                    GetRouteSection(roomIndex));
+            }
+            return generator.CanGenerateRoute(
+                themeId,
+                stageIndex,
+                difficulty,
+                encounterType);
+        }
+
+        StagePlan GenerateRouteForRoom(
+            IRouteStageGenerator generator,
+            ulong seed,
+            int stageIndex,
+            int difficulty,
+            string themeId,
+            EncounterType encounterType,
+            int roomIndex)
+        {
+            if (generator is ISectionRouteStageGenerator sectionGenerator)
+            {
+                return sectionGenerator.GenerateRouteForSection(
+                    seed,
+                    stageIndex,
+                    difficulty,
+                    themeId,
+                    encounterType,
+                    GetRouteSection(roomIndex));
+            }
+            return generator.GenerateRoute(
+                seed,
+                stageIndex,
+                difficulty,
+                themeId,
+                encounterType);
+        }
+
+        StageRouteSection GetRouteSection(int roomIndex)
+        {
+            bool isMidBossRoom =
+                RoomsPerBiome
+                    >= RunProgressionConfig.DefaultRoomsPerBiome
+                && roomIndex == 2;
+            return roomIndex > 1 && !isMidBossRoom
+                ? StageRouteSection.Closing
+                : StageRouteSection.Default;
         }
 
         public void Restart(ulong newRunSeed)
@@ -1969,10 +3140,11 @@ namespace Shmup.Core.Simulation
                     carriedLevels[i],
                     shipStartingLevels[i]);
             }
-            var nextGauge = new PowerUpGauge(_powerUpMaxLevels);
+            var nextGauge = PowerUpGauge.CreateEmptyWithSameRules();
             nextGauge.ImportLevels(carriedLevels);
 
             _runSeed = newRunSeed;
+            ResetStageThemeOrder(newRunSeed);
             RunNumber++;
             BiomeIndex = 1;
             RoomIndex = 1;
@@ -1992,7 +3164,13 @@ namespace Shmup.Core.Simulation
             _rewardOptions = Array.Empty<RewardOption>();
             _routeOptions = Array.Empty<RouteOption>();
             _preparedRouteOptions = Array.Empty<RouteOption>();
+            _contractOptions =
+                Array.Empty<ContractDefinition>();
             _routeChoiceHistory.Clear();
+            _contractChoiceHistory.Clear();
+            _rewardDecisionHistory.Clear();
+            ActiveContract = null;
+            ResetContractBattleConfig();
             _completedStageScore = 0;
             _completedShotsFired = 0;
             _completedShotsHit = 0;
@@ -2001,16 +3179,28 @@ namespace Shmup.Core.Simulation
             _completedGrazeCount = 0;
             _stagesCleared = 0;
             _roomsCleared = 0;
+            _pendingBattleContinuity = null;
+            _capsuleBalance = 0;
             Array.Clear(
                 _rewardAcquisitionCounts,
                 0,
                 _rewardAcquisitionCounts.Length);
-            _battleConfig.PlayerMaxHp = _initialPlayerMaxHp;
+            _battleConfig.StartingShieldStock = _initialShieldStock;
+            _battleConfig.StartingBombStock = _initialBombStock;
+            _battleConfig.MaxShieldStock = _initialMaxShieldStock;
+            _battleConfig.MaxBombStock = _initialMaxBombStock;
+            _battleConfig.CapsuleDropWeightReduction =
+                _initialCapsuleDropWeightReduction;
             _battleConfig.FireIntervalTicks = _initialFireIntervalTicks;
             _battleConfig.MainShotBaseDamage = _initialMainShotBaseDamage;
+            ApplyPrimaryWeaponFamilyProfile(
+                CurrentPrimaryWeaponDefinition
+                ?? throw new InvalidOperationException(
+                    "The current primary weapon family is unavailable."));
             _battleConfig.PlayerSpeedNumerator = _initialPlayerSpeedNumerator;
             _battleConfig.PlayerSpeedDenominator = _initialPlayerSpeedDenominator;
             PowerUpGauge = nextGauge;
+            ResetShieldStockForNewRun();
             BuildCurrentStage();
         }
 
@@ -2019,6 +3209,7 @@ namespace Shmup.Core.Simulation
             if (RoomIndex >= RoomsPerBiome)
                 throw new InvalidOperationException(
                     "The regular-room counter is already at the biome boundary.");
+            CaptureBattleContinuity();
             AccumulateCompletedBattle();
             RoomIndex++;
             IsBiomeBoss = false;
@@ -2033,6 +3224,7 @@ namespace Shmup.Core.Simulation
                     >= RunProgressionConfig.HiddenRooms)
                 throw new InvalidOperationException(
                     "The hidden-room counter is already at its boundary.");
+            CaptureBattleContinuity();
             AccumulateCompletedBattle();
             RoomIndex++;
             IsBiomeBoss = false;
@@ -2042,6 +3234,7 @@ namespace Shmup.Core.Simulation
 
         void AdvanceToBiomeBoss()
         {
+            CaptureBattleContinuity();
             AccumulateCompletedBattle();
             IsBiomeBoss = true;
             State = RunState.Playing;
@@ -2053,6 +3246,7 @@ namespace Shmup.Core.Simulation
             if (BiomeIndex >= BiomeCount)
                 throw new InvalidOperationException(
                     "The biome counter is already at the campaign boundary.");
+            _pendingBattleContinuity = null;
             AccumulateCompletedBattle();
             BiomeIndex++;
             RoomIndex = 1;
@@ -2061,8 +3255,19 @@ namespace Shmup.Core.Simulation
             BuildCurrentStage();
         }
 
+        void CaptureBattleContinuity()
+        {
+            if (!(Battle is BattleSim battle))
+                throw new InvalidOperationException(
+                    "Room continuity requires BattleSim.");
+            _pendingBattleContinuity =
+                battle.CaptureContinuityState();
+        }
+
         void AccumulateCompletedBattle()
         {
+            _battleConfig.StartingShieldStock = Battle.ShieldStock;
+            _battleConfig.StartingBombStock = Battle.BombStock;
             BattleStatistics battle = Battle.Statistics;
             _completedStageScore = TotalScore;
             _completedShotsFired = AddSaturated(
@@ -2105,6 +3310,14 @@ namespace Shmup.Core.Simulation
         {
             long result = value + amount;
             return result >= int.MaxValue ? int.MaxValue : (int)result;
+        }
+
+        static int SaturatingMultiply(int value, int multiplier)
+        {
+            long result = (long)value * multiplier;
+            return result >= int.MaxValue
+                ? int.MaxValue
+                : (int)result;
         }
 
         static void AddMoveSpeed(BattleSimConfig config, int amount)
@@ -2153,6 +3366,57 @@ namespace Shmup.Core.Simulation
             config.PlayerSpeedDenominator = (int)denominator;
         }
 
+        static void RemoveMoveSpeed(
+            BattleSimConfig config,
+            int amount)
+        {
+            long reductionNumerator =
+                (long)amount * SimSpace.SubUnitsPerWorldUnit;
+            long reductionDenominator = SimSpace.TicksPerSecond;
+            long denominatorDivisor = GreatestCommonDivisor(
+                config.PlayerSpeedDenominator,
+                reductionDenominator);
+            long leftScale =
+                reductionDenominator / denominatorDivisor;
+            long rightScale =
+                config.PlayerSpeedDenominator / denominatorDivisor;
+            long numerator =
+                (long)config.PlayerSpeedNumerator * leftScale
+                - reductionNumerator * rightScale;
+            long denominator =
+                (long)config.PlayerSpeedDenominator * leftScale;
+            if (numerator < 1)
+            {
+                config.PlayerSpeedNumerator = 1;
+                config.PlayerSpeedDenominator = 1;
+                return;
+            }
+            long divisor = GreatestCommonDivisor(
+                numerator,
+                denominator);
+            numerator /= divisor;
+            denominator /= divisor;
+            config.PlayerSpeedNumerator =
+                numerator > int.MaxValue
+                    ? int.MaxValue
+                    : (int)numerator;
+            config.PlayerSpeedDenominator =
+                denominator > int.MaxValue
+                    ? int.MaxValue
+                    : (int)denominator;
+        }
+
+        void ResetContractBattleConfig()
+        {
+            _battleConfig.ContractCapsuleDropMultiplierNumerator = 1;
+            _battleConfig.ContractCapsuleDropMultiplierDenominator = 1;
+            _battleConfig.ContractBombDropMultiplierNumerator = 1;
+            _battleConfig.ContractBombDropMultiplierDenominator = 1;
+            _battleConfig.ContractGuaranteesBombDrop = false;
+            _battleConfig.ContractScoreMultiplierNumerator = 1;
+            _battleConfig.ContractScoreMultiplierDenominator = 1;
+        }
+
         static bool TryMultiply(long left, long right, out long result)
         {
             if (left != 0 && right > long.MaxValue / left)
@@ -2185,7 +3449,11 @@ namespace Shmup.Core.Simulation
                     data.missileFamily)
                 || !Enum.IsDefined(
                     typeof(OptionFormation),
-                    data.optionFormation))
+                    data.optionFormation)
+                || (data.primaryWeaponFamily != -1
+                    && !Enum.IsDefined(
+                        typeof(PrimaryWeaponFamily),
+                        data.primaryWeaponFamily)))
                 throw new ArgumentException(
                     "Suspend weapon loadout is invalid.",
                     nameof(data));
@@ -2203,7 +3471,9 @@ namespace Shmup.Core.Simulation
                     nameof(data));
             bool hiddenBiomePosition =
                 data.isHiddenBiome
-                && data.biomeIndex == data.biomeCount + 1;
+                && (data.biomeIndex == data.biomeCount
+                    // Accept REQ-035 payloads written before REQ-052.
+                    || data.biomeIndex == data.biomeCount + 1);
             if (data.biomeCount < 1
                 || data.finalStageIndex != data.biomeCount
                 || data.biomeIndex < 1
@@ -2224,7 +3494,10 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     "Suspend room progression is invalid.",
                     nameof(data));
-            if (data.stagesCleared != data.biomeIndex - 1)
+            int expectedBiomesCleared = hiddenBiomePosition
+                ? data.biomeCount
+                : data.biomeIndex - 1;
+            if (data.stagesCleared != expectedBiomesCleared)
                 throw new ArgumentException(
                     "Suspend biomesCleared must match the biome boundary.",
                     nameof(data));
@@ -2317,6 +3590,10 @@ namespace Shmup.Core.Simulation
                     "Suspend score and statistics cannot be negative.",
                     nameof(data));
             }
+            if (data.capsuleBalance < 0)
+                throw new ArgumentException(
+                    "Suspend capsule balance cannot be negative.",
+                    nameof(data));
             if (!string.Equals(
                 data.shipId,
                 ship.Id,
@@ -2336,10 +3613,19 @@ namespace Shmup.Core.Simulation
                     nameof(data));
             }
             if (data.powerUpCursor < PowerUpGauge.NoSelection
-                || data.powerUpCursor >= PowerUpGauge.SlotCount)
+                || data.powerUpCursor >= gauge.GaugeSlotCount)
             {
                 throw new ArgumentException(
                     "Suspend powerUpCursor is outside its valid range.",
+                    nameof(data));
+            }
+            if (data.powerUpProgress == null
+                || data.powerUpProgress.Length
+                    != PowerUpGauge.SlotCount)
+            {
+                throw new ArgumentException(
+                    $"Suspend powerUpProgress must have exactly "
+                    + $"{PowerUpGauge.SlotCount} entries.",
                     nameof(data));
             }
 
@@ -2358,18 +3644,51 @@ namespace Shmup.Core.Simulation
                         + $"[{shipStartingLevels[i]}, {maximum}].",
                         nameof(data));
                 }
+                int progress = data.powerUpProgress[i];
+                int required = gauge.GetRequiredCapsulesForLevel(
+                    (PowerUpSlot)i,
+                    level);
+                if (progress < 0
+                    || (required == 0 && progress != 0)
+                    || (required > 0 && progress >= required))
+                {
+                    throw new ArgumentException(
+                        $"Suspend power-up progress {i} is outside "
+                        + "the current level cost.",
+                        nameof(data));
+                }
             }
-            if (data.playerHp < 1)
+            if (data.playerHp != 1)
                 throw new ArgumentException(
-                    "Suspend playerHp must be positive.",
+                    "Suspend playerHp compatibility flag must be one.",
                     nameof(data));
-            int expectedShield =
-                data.powerUpLevels[(int)PowerUpSlot.Shield];
-            if (data.shieldRemaining != expectedShield)
+            if (data.maxShieldStock
+                    < BattleSimConfig.DefaultMaxShieldStock
+                || data.maxShieldStock
+                    > BattleSimConfig.MaximumShieldStock
+                || data.shieldStock < 0
+                || data.shieldStock > data.maxShieldStock
+                || data.shieldRemaining != data.shieldStock)
                 throw new ArgumentException(
-                    "Suspend shield does not match the stage-start "
-                    + "shield level.",
+                    "Suspend shield stock is outside its cap or its "
+                    + "compatibility mirror does not match.",
                     nameof(data));
+            if (data.maxBombStock < 1
+                || data.bombStock < 0
+                || data.bombStock > data.maxBombStock)
+                throw new ArgumentException(
+                    "Suspend bomb stock is outside its cap.",
+                    nameof(data));
+            if (data.hasStageStartContinuity
+                && (data.stageStartMultiplierLevel < 0
+                    || data.stageStartMultiplierLevel > 3
+                    || data.stageStartComboGauge < 0
+                    || data.stageStartTicksSinceLastKill < 0))
+            {
+                throw new ArgumentException(
+                    "Suspend room-continuity state is invalid.",
+                    nameof(data));
+            }
             if (data.fireIntervalTicks < 0
                 || data.mainShotBaseDamage < 0
                 || data.playerSpeedNumerator < 0
@@ -2451,6 +3770,51 @@ namespace Shmup.Core.Simulation
                     FindRewardIndex(rewards, acquisition.rewardId);
                 destination[catalogIndex] = acquisition.count;
             }
+        }
+
+        void RebuildModifierStacksFromAcquisitions(
+            BattleModifier expectedFlags)
+        {
+            var rebuilt = new BattleModifierStackSet(
+                _rewards.MaxCombinedModifierCost);
+            for (int i = 0; i < _rewards.All.Count; i++)
+            {
+                RewardDefinition reward = _rewards.All[i];
+                if (reward.Type != RewardType.Modifier)
+                    continue;
+                int count = _rewardAcquisitionCounts[i];
+                for (int stack = 0; stack < count; stack++)
+                {
+                    if (!rebuilt.TryAdd(
+                            reward.ModifierId,
+                            reward.ModifierStackStrength,
+                            reward.ModifierInteractionCost,
+                            reward.ModifierMaxStacks))
+                    {
+                        throw new ArgumentException(
+                            $"Suspend modifier '{reward.ModifierKey}' "
+                            + "exceeds its stack or combination cap.");
+                    }
+                }
+            }
+            BattleModifier missing =
+                expectedFlags & ~rebuilt.ActiveModifiers;
+            foreach (BattleModifier effect in BattleModifierRules.Ordered)
+            {
+                if ((missing & effect) == 0)
+                    continue;
+                if (!rebuilt.TryAdd(effect, 1, 1, 1))
+                    throw new ArgumentException(
+                        "Suspend legacy modifier flags exceed the "
+                        + "combination cap.");
+            }
+            if (rebuilt.ActiveModifiers != expectedFlags)
+            {
+                throw new ArgumentException(
+                    "Suspend activeModifiers does not match modifier "
+                    + "reward acquisitions.");
+            }
+            ModifierStacks = rebuilt;
         }
 
         void RestoreRouteChoices(
@@ -2559,6 +3923,164 @@ namespace Shmup.Core.Simulation
             }
         }
 
+        void RestoreContractState(
+            string activeContractId,
+            ContractChoiceData[] choices,
+            ContractCatalog catalog)
+        {
+            _contractChoiceHistory.Clear();
+            ContractChoiceData[] source =
+                choices ?? Array.Empty<ContractChoiceData>();
+            int previousBiome = 1;
+            for (int i = 0; i < source.Length; i++)
+            {
+                ContractChoiceData data = source[i];
+                ContractDefinition definition =
+                    data == null
+                        ? null
+                        : FindContractIncludingTerminal(
+                            catalog,
+                            data.contractId);
+                if (data == null
+                    || data.targetBiomeIndex <= previousBiome
+                    || data.targetBiomeIndex > BiomeCount + 1
+                    || definition == null
+                    || !Enum.IsDefined(
+                        typeof(ContractDestinationKind),
+                        data.destinationKind)
+                    || definition.DestinationKind
+                        != (ContractDestinationKind)
+                            data.destinationKind)
+                    throw new ArgumentException(
+                        "Suspend contract choice history is invalid.");
+                _contractChoiceHistory.Add(
+                    new ContractChoice(
+                        data.targetBiomeIndex,
+                        data.optionIndex,
+                        data.contractId,
+                        (ContractDestinationKind)
+                            data.destinationKind));
+                previousBiome = data.targetBiomeIndex;
+            }
+
+            ActiveContract =
+                FindContractIncludingTerminal(
+                    catalog,
+                    activeContractId);
+            if (BiomeIndex == 1)
+            {
+                if (ActiveContract != null
+                    || _contractChoiceHistory.Count != 0)
+                    throw new ArgumentException(
+                        "Biome one cannot have an active contract.");
+                ResetContractBattleConfig();
+                return;
+            }
+            if (ActiveContract == null
+                && _contractChoiceHistory.Count == 0)
+            {
+                ActiveContract = catalog.Standard;
+                for (int biome = 2;
+                    biome <= BiomeIndex;
+                    biome++)
+                    _contractChoiceHistory.Add(
+                        new ContractChoice(
+                            biome,
+                            0,
+                            catalog.Standard.Id));
+            }
+            if (ActiveContract == null
+                || _contractChoiceHistory.Count == 0)
+                throw new ArgumentException(
+                    "Suspend active contract is missing.");
+            ContractChoice latest = _contractChoiceHistory[
+                _contractChoiceHistory.Count - 1];
+            int expectedTargetBiome =
+                IsHiddenBiome
+                    ? BiomeCount + 1
+                    : BiomeIndex;
+            if (latest.TargetBiomeIndex != expectedTargetBiome
+                || !string.Equals(
+                    latest.ContractId,
+                    ActiveContract.Id,
+                    StringComparison.Ordinal))
+                throw new ArgumentException(
+                    "Suspend active contract does not match its history.");
+            _battleConfig.ContractCapsuleDropMultiplierNumerator =
+                ActiveContract.CapsuleDropNumerator;
+            _battleConfig.ContractCapsuleDropMultiplierDenominator =
+                ActiveContract.CapsuleDropDenominator;
+            _battleConfig.ContractBombDropMultiplierNumerator =
+                ActiveContract.BombDropNumerator;
+            _battleConfig.ContractBombDropMultiplierDenominator =
+                ActiveContract.BombDropDenominator;
+            _battleConfig.ContractGuaranteesBombDrop =
+                ActiveContract.GuaranteedBombDrop;
+            _battleConfig.ContractScoreMultiplierNumerator =
+                ActiveContract.ScoreMultiplierNumerator;
+            _battleConfig.ContractScoreMultiplierDenominator =
+                ActiveContract.ScoreMultiplierDenominator;
+        }
+
+        void RestoreRewardDecisionHistory(
+            RewardDecisionData[] decisions)
+        {
+            _rewardDecisionHistory.Clear();
+            RewardDecisionData[] source =
+                decisions
+                ?? Array.Empty<RewardDecisionData>();
+            int previousSequence = 0;
+            bool selected = false;
+            for (int i = 0; i < source.Length; i++)
+            {
+                RewardDecisionData data = source[i];
+                if (data == null
+                    || data.rewardSequence < previousSequence)
+                    throw new ArgumentException(
+                        "Suspend reward decision history is invalid.");
+                if (data.rewardSequence != previousSequence)
+                {
+                    previousSequence =
+                        data.rewardSequence;
+                    selected = false;
+                }
+                var decision = new RewardDecision(
+                    data.rewardSequence,
+                    (RewardSelectionKind)
+                        data.selectionKind,
+                    (RewardDecisionKind)
+                        data.decisionKind,
+                    data.optionIndex);
+                if (selected)
+                    throw new ArgumentException(
+                        "Suspend reward decision history occurs after selection.");
+                if (decision.DecisionKind
+                    == RewardDecisionKind.Select)
+                    selected = true;
+                _rewardDecisionHistory.Add(decision);
+            }
+        }
+
+        static ContractDefinition FindContractIncludingTerminal(
+            ContractCatalog catalog,
+            string id)
+        {
+            ContractDefinition definition = catalog.Find(id);
+            if (definition != null || id == null)
+                return definition;
+            if (string.Equals(
+                    id,
+                    BuiltInEndRunContract.Id,
+                    StringComparison.Ordinal))
+                return BuiltInEndRunContract;
+            if (string.Equals(
+                    id,
+                    BuiltInUnchartedContract.Id,
+                    StringComparison.Ordinal))
+                return BuiltInUnchartedContract;
+            return null;
+        }
+
         static int FindRewardIndex(
             RewardCatalog rewards,
             string rewardId)
@@ -2658,6 +4180,78 @@ namespace Shmup.Core.Simulation
                 option.AngularLutSlotsDenominator;
         }
 
+        void SwitchPrimaryWeaponFamily(
+            PrimaryWeaponFamily family)
+        {
+            PrimaryWeaponFamilyDefinition current =
+                _battleContent.FindPrimaryWeaponFamily(
+                    CurrentPrimaryWeaponFamily);
+            PrimaryWeaponFamilyDefinition next =
+                _battleContent.FindPrimaryWeaponFamily(family);
+            if (next == null)
+                throw new InvalidOperationException(
+                    $"Primary weapon family '{family}' "
+                    + "is not present in BattleContent.");
+
+            int damageBonus = current == null
+                ? 0
+                : Math.Max(
+                    0,
+                    _battleConfig.MainShotBaseDamage
+                        - current.BaseDamage);
+            int intervalReduction = current == null
+                ? 0
+                : Math.Max(
+                    0,
+                    current.FireIntervalTicks
+                        - _battleConfig.FireIntervalTicks);
+            CurrentPrimaryWeaponFamily = family;
+            ApplyPrimaryWeaponFamilyProfile(next);
+            _battleConfig.MainShotBaseDamage = SaturatingAdd(
+                _battleConfig.MainShotBaseDamage,
+                damageBonus);
+            _battleConfig.FireIntervalTicks = Math.Max(
+                _battleConfig.MainShotMinimumFireIntervalTicks,
+                _battleConfig.FireIntervalTicks
+                    - intervalReduction);
+        }
+
+        void ApplyPrimaryWeaponFamilyProfile(
+            PrimaryWeaponFamilyDefinition definition)
+        {
+            if (definition == null)
+                throw new ArgumentNullException(nameof(definition));
+            _battleConfig.PlayerWeaponType =
+                definition.WeaponType;
+            _battleConfig.PlayerWeaponFamily =
+                definition.Family;
+            _battleConfig.MainShotBaseDamage =
+                definition.BaseDamage;
+            _battleConfig.FireIntervalTicks =
+                definition.FireIntervalTicks;
+            _battleConfig.MainShotMinimumFireIntervalTicks =
+                definition.MinimumFireIntervalTicks;
+            _battleConfig.MainShotRapidFireStartLevel =
+                definition.RapidFireStartLevel;
+            _battleConfig.MainShotFireIntervalReductionPerLevel =
+                definition.FireIntervalReductionPerLevel;
+            _battleConfig.PlayerBulletSpeedNumerator =
+                definition.SpeedNumerator;
+            _battleConfig.PlayerBulletSpeedDenominator =
+                definition.SpeedDenominator;
+            _battleConfig.MainShotHalfWidth =
+                definition.HalfWidth;
+            _battleConfig.MainShotHalfHeight =
+                definition.HalfHeight;
+            _battleConfig.LaserPierceEnemyCount =
+                definition.PierceEnemyCount;
+            _battleConfig.SpreadWays =
+                definition.SpreadWays;
+            _battleConfig.SpreadStepLutSlots =
+                definition.SpreadStepLutSlots;
+            _battleConfig.UseConfiguredMainShotStats = true;
+        }
+
         static int[] CopyIntegers(IReadOnlyList<int> source)
         {
             var copy = new int[source.Count];
@@ -2670,11 +4264,15 @@ namespace Shmup.Core.Simulation
         {
             ApplyCurrentLoadoutProfiles();
             int generationBiomeIndex =
-                IsHiddenBiome ? BiomeCount : BiomeIndex;
+                IsHiddenBiome
+                    ? BiomeCount
+                    : _stageThemeOrder[BiomeIndex - 1];
+            int battleSequenceBiomeIndex =
+                IsHiddenBiome ? BiomeCount + 1 : BiomeIndex;
             Difficulty = _difficultyCurve.GetDifficulty(
-                IsHiddenBiome ? BiomeCount + 1 : BiomeIndex);
+                battleSequenceBiomeIndex);
             ulong generationSeed = GetRoomGenerationSeed(
-                BiomeIndex,
+                battleSequenceBiomeIndex,
                 RoomIndex,
                 IsBiomeBoss);
             StagePlan generated;
@@ -2694,40 +4292,55 @@ namespace Shmup.Core.Simulation
             {
                 StagePlan basePlan = _stageGenerator.Generate(
                     _runSeed,
-                    generationBiomeIndex,
+                    battleSequenceBiomeIndex,
                     Difficulty);
                 if (basePlan == null)
                     throw new InvalidOperationException(
                         "The stage generator returned no biome base plan.");
-                if (!IsBiomeBoss
-                    && RoomIndex == 1
-                    && !TryGetRouteChoice(
-                        BiomeIndex,
+                if (TryGetRouteChoice(
+                        battleSequenceBiomeIndex,
                         RoomIndex,
-                        out _))
+                        out RouteChoice routeChoice))
                 {
-                    generated = basePlan;
+                    generated = GenerateRouteForRoom(
+                        routeGenerator,
+                        generationSeed,
+                        battleSequenceBiomeIndex,
+                        Difficulty,
+                        routeChoice.ThemeId,
+                        IsBiomeBoss
+                            ? EncounterType.Normal
+                            : routeChoice.EncounterType,
+                        IsBiomeBoss ? 1 : RoomIndex);
+                }
+                else if (!IsBiomeBoss
+                    && RoomIndex > 1)
+                {
+                    EncounterType encounterType =
+                        IsMidBossSection
+                            ? EncounterType.Elite
+                            : SelectSectionEncounterType(
+                                battleSequenceBiomeIndex,
+                                RoomIndex);
+                    if (!CanGenerateRouteForRoom(
+                            routeGenerator,
+                            basePlan.ThemeId,
+                            generationBiomeIndex,
+                            Difficulty,
+                            encounterType,
+                            RoomIndex))
+                        encounterType = EncounterType.Normal;
+                    generated = GenerateRouteForRoom(
+                        routeGenerator,
+                        generationSeed,
+                        battleSequenceBiomeIndex,
+                        Difficulty,
+                        basePlan.ThemeId,
+                        encounterType,
+                        RoomIndex);
                 }
                 else
-                {
-                    string themeId = basePlan.ThemeId;
-                    EncounterType encounterType = EncounterType.Normal;
-                    if (TryGetRouteChoice(
-                            BiomeIndex,
-                            RoomIndex,
-                            out RouteChoice routeChoice))
-                    {
-                        themeId = routeChoice.ThemeId;
-                        if (!IsBiomeBoss)
-                            encounterType = routeChoice.EncounterType;
-                    }
-                    generated = routeGenerator.GenerateRoute(
-                        generationSeed,
-                        generationBiomeIndex,
-                        Difficulty,
-                        themeId,
-                        encounterType);
-                }
+                    generated = basePlan;
             }
             else
             {
@@ -2739,14 +4352,39 @@ namespace Shmup.Core.Simulation
             if (generated == null)
                 throw new InvalidOperationException(
                     "The stage generator returned no plan.");
+            if (!IsHiddenBiome
+                && generationBiomeIndex != BiomeIndex
+                && _stageGenerator
+                    is IRouteStageGenerator progressionGenerator
+                && BiomeIndex <= progressionGenerator.ThemeIds.Count)
+            {
+                string progressionThemeId =
+                    progressionGenerator.ThemeIds[BiomeIndex - 1];
+                StagePlan progressionReference =
+                    progressionGenerator.GenerateRoute(
+                        _runSeed,
+                        BiomeIndex,
+                        Difficulty,
+                        progressionThemeId,
+                        EncounterType.Normal);
+                generated = ApplyProgressionBossDifficulty(
+                    generated,
+                    progressionReference);
+            }
+            ResetEnemyHpScale();
             StagePlan = IsBiomeBoss
                 ? CreateBiomeBossPlan(generated)
-                : CreateRegularRoomPlan(generated);
+                : IsMidBossSection
+                    ? CreateMidBossPlan(generated)
+                    : CreateRegularRoomPlan(generated);
+            StagePlan = ApplyContractToStagePlan(
+                StagePlan,
+                ActiveContract);
             _stageLengthTicks = GetStageLengthTicks(StagePlan);
 
             Rng battleRng = new Rng(_runSeed)
                 .Fork(BattleSimulationStream)
-                .Fork(BiomeIndex)
+                .Fork(battleSequenceBiomeIndex)
                 .Fork(RoomIndex)
                 .Fork(IsBiomeBoss ? 1 : 0);
             Battle = new BattleSim(
@@ -2755,9 +4393,160 @@ namespace Shmup.Core.Simulation
                 StagePlan,
                 _battleContent,
                 PowerUpGauge,
-                ActiveModifiers);
-            _preparedRouteOptions = GenerateExitRouteOptions();
+                ModifierStacks,
+                _pendingBattleContinuity);
+            _pendingBattleContinuity = null;
+            _preparedRouteOptions = Array.Empty<RouteOption>();
             CaptureStageStart();
+        }
+
+        void ResetEnemyHpScale()
+        {
+            _battleConfig.EnemyHpMultiplierNumerator =
+                _difficultyMultiplierNumerator;
+            _battleConfig.EnemyHpMultiplierDenominator =
+                _difficultyMultiplierDenominator;
+        }
+
+        static StagePlan ApplyProgressionBossDifficulty(
+            StagePlan source,
+            StagePlan progressionReference)
+        {
+            var phases =
+                new BossPhase[source.BossPhases.Count];
+            for (int i = 0; i < phases.Length; i++)
+            {
+                BossPhase phase = source.BossPhases[i];
+                BossPhase reference =
+                    progressionReference.BossPhases.Count == 0
+                        ? phase
+                        : progressionReference.BossPhases[
+                            Math.Min(
+                                i,
+                                progressionReference.BossPhases.Count - 1)];
+                phases[i] = new BossPhase(
+                    reference.FireIntervalTicks,
+                    reference.Ways,
+                    reference.BulletSpeedNumerator,
+                    reference.BulletSpeedDenominator,
+                    phase.MovementPattern,
+                    phase.MovementAmplitudeNumerator,
+                    phase.MovementAmplitudeDenominator,
+                    phase.MovementPeriodTicks,
+                    phase.PartVulnerability,
+                    phase.DurationTicks,
+                    phase.TelegraphTicks,
+                    phase.FirePattern);
+            }
+
+            return new StagePlan(
+                source.Segments,
+                source.BossId,
+                source.LaneCount,
+                source.StartLaneMask,
+                source.BossEntryLaneMask,
+                progressionReference.BossMaxHp,
+                source.BossHalfWidth,
+                source.BossHalfHeight,
+                source.BossHoldX,
+                phases,
+                source.ThemeId,
+                source.RequestedThemeId,
+                source.EncounterType,
+                source.BossParts,
+                source.Gimmick);
+        }
+
+        static StagePlan ApplyContractToStagePlan(
+            StagePlan source,
+            ContractDefinition contract)
+        {
+            if (contract == null || contract.IsNeutral)
+                return source;
+            var segments =
+                new StageSegment[source.Segments.Count];
+            for (int i = 0; i < segments.Length; i++)
+            {
+                StageSegment segment = source.Segments[i];
+                int spawnCount = ScaleCount(
+                    segment.Spawns.Count,
+                    contract.EnemyDensityNumerator,
+                    contract.EnemyDensityDenominator);
+                var spawns = new SpawnEvent[spawnCount];
+                for (int spawn = 0; spawn < spawnCount; spawn++)
+                {
+                    int sourceIndex =
+                        spawn * segment.Spawns.Count
+                        / Math.Max(1, spawnCount);
+                    spawns[spawn] =
+                        segment.Spawns[sourceIndex];
+                }
+                segments[i] = new StageSegment(
+                    segment.SegmentId,
+                    segment.LengthTicks,
+                    spawns,
+                    segment.EntryLaneMask,
+                    segment.ExitLaneMask,
+                    segment.TraversableLaneMasks,
+                    segment.Obstacles,
+                    segment.Environment);
+            }
+
+            StageGimmickDefinition gimmick = source.Gimmick;
+            if (gimmick != StageGimmickDefinition.None
+                && contract.GimmickIntensityNumerator
+                    != contract.GimmickIntensityDenominator)
+            {
+                if (contract.GimmickIntensityNumerator == 0)
+                {
+                    gimmick = new StageGimmickDefinition(
+                        gimmick.ThemeId,
+                        false,
+                        0);
+                }
+                else
+                {
+                    long scaled = (long)gimmick.TimeLimitTicks
+                        * contract.GimmickIntensityDenominator
+                        / contract.GimmickIntensityNumerator;
+                    gimmick = new StageGimmickDefinition(
+                        gimmick.ThemeId,
+                        gimmick.VisionObscured,
+                        scaled >= int.MaxValue
+                            ? int.MaxValue
+                            : (int)scaled);
+                }
+            }
+            return new StagePlan(
+                segments,
+                source.BossId,
+                source.LaneCount,
+                source.StartLaneMask,
+                source.BossEntryLaneMask,
+                source.BossMaxHp,
+                source.BossHalfWidth,
+                source.BossHalfHeight,
+                source.BossHoldX,
+                source.BossPhases,
+                source.ThemeId,
+                source.RequestedThemeId,
+                source.EncounterType,
+                source.BossParts,
+                gimmick);
+        }
+
+        static int ScaleCount(
+            int count,
+            int numerator,
+            int denominator)
+        {
+            if (count == 0 || numerator == 0)
+                return 0;
+            long scaled = (long)count * numerator;
+            scaled /= denominator;
+            return scaled >= int.MaxValue
+                ? int.MaxValue
+                : (int)scaled;
         }
 
         IReadOnlyList<RouteOption> GenerateExitRouteOptions()
@@ -2800,14 +4589,83 @@ namespace Shmup.Core.Simulation
 
         string GetBiomeThemeId(int biomeIndex)
         {
-            StagePlan basePlan = _stageGenerator.Generate(
+            StagePlan plan = _stageGenerator.Generate(
                 _runSeed,
                 biomeIndex,
                 _difficultyCurve.GetDifficulty(biomeIndex));
-            if (basePlan == null)
+            if (plan == null)
                 throw new InvalidOperationException(
                     "The stage generator returned no biome base plan.");
-            return basePlan.ThemeId;
+            return plan.ThemeId;
+        }
+
+        static int[] CreateStageThemeOrder(
+            ulong runSeed,
+            int biomeCount,
+            IStageGenerator stageGenerator)
+        {
+            var order = new int[biomeCount];
+            for (int i = 0; i < order.Length; i++)
+                order[i] = i + 1;
+            if (stageGenerator
+                    is IRouteStageGenerator routeGenerator
+                && routeGenerator.ThemeIds.Count >= biomeCount)
+            {
+                IReadOnlyList<string> themeOrder =
+                    routeGenerator.GetThemeOrder(runSeed);
+                if (themeOrder.Count >= biomeCount)
+                {
+                    for (int position = 0;
+                        position < biomeCount;
+                        position++)
+                    {
+                        int themeIndex = -1;
+                        for (int candidate = 0;
+                            candidate < routeGenerator.ThemeIds.Count;
+                            candidate++)
+                        {
+                            if (string.Equals(
+                                    themeOrder[position],
+                                    routeGenerator.ThemeIds[candidate],
+                                    StringComparison.Ordinal))
+                            {
+                                themeIndex = candidate;
+                                break;
+                            }
+                        }
+                        if (themeIndex < 0)
+                            throw new InvalidOperationException(
+                                "The route generator returned an unknown "
+                                + $"theme '{themeOrder[position]}'.");
+                        order[position] = themeIndex + 1;
+                    }
+                    return order;
+                }
+            }
+            if (biomeCount < 5)
+                return order;
+
+            Rng rng = new Rng(runSeed).Fork(StageOrderStream);
+            for (int i = 3; i > 1; i--)
+            {
+                int swap = rng.NextInt(1, i + 1);
+                int value = order[i];
+                order[i] = order[swap];
+                order[swap] = value;
+            }
+            return order;
+        }
+
+        void ResetStageThemeOrder(ulong runSeed)
+        {
+            int[] order = CreateStageThemeOrder(
+                runSeed,
+                BiomeCount,
+                _stageGenerator);
+            Array.Copy(
+                order,
+                _stageThemeOrder,
+                order.Length);
         }
 
         ulong GetRoomGenerationSeed(
@@ -2848,6 +4706,190 @@ namespace Shmup.Core.Simulation
             return (int)bossSequence;
         }
 
+        StagePlan CreateMidBossPlan(StagePlan source)
+        {
+            var candidates = new List<EnemyDefinition>();
+            for (int i = 0; i < _battleContent.Enemies.Count; i++)
+            {
+                EnemyDefinition enemy = _battleContent.Enemies[i];
+                if (!enemy.Id.StartsWith(
+                        "mini_",
+                        StringComparison.Ordinal))
+                    continue;
+                MidBossProfile profile = enemy.MidBossProfile;
+                if (profile != null
+                    && (BiomeIndex < profile.StageIndexMin
+                        || BiomeIndex > profile.StageIndexMax))
+                    continue;
+                candidates.Add(enemy);
+            }
+            candidates.Sort(
+                (left, right) => string.CompareOrdinal(
+                    left.Id,
+                    right.Id));
+            if (candidates.Count == 0)
+            {
+                return source.BossMaxHp > 0
+                    ? CreateBossOnlyPlan(
+                        source,
+                        EncounterType.Elite)
+                    : CreateRegularRoomPlan(source);
+            }
+
+            var selection = new Rng(_runSeed)
+                .Fork(MidBossSelectionStream)
+                .Fork(BiomeIndex);
+            var candidateWeights = new int[candidates.Count];
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                MidBossProfile profile =
+                    candidates[i].MidBossProfile;
+                int weight = profile?.Weight ?? 1;
+                if (profile != null
+                    && string.Equals(
+                        profile.ThemeId,
+                        source.ThemeId,
+                        StringComparison.Ordinal))
+                    weight = SaturatingMultiply(weight, 3);
+                candidateWeights[i] = weight;
+            }
+            int selectedIndex = selection.PickWeighted(
+                candidateWeights,
+                candidateWeights.Length);
+            EnemyDefinition midBoss =
+                candidates[selectedIndex];
+            IReadOnlyList<BossPhase> phases =
+                midBoss.MidBossProfile?.Phases
+                ?? CreateDefaultMidBossPattern(
+                    midBoss,
+                    selectedIndex);
+            int laneMask = source.BossEntryLaneMask != 0
+                ? source.BossEntryLaneMask
+                : source.StartLaneMask != 0
+                    ? source.StartLaneMask
+                    : 1;
+            var entry = new StageSegment(
+                "__mid_boss_entry__",
+                1,
+                Array.Empty<SpawnEvent>(),
+                laneMask,
+                laneMask,
+                new[] { laneMask });
+            return new StagePlan(
+                new[] { entry },
+                midBoss.Id,
+                source.LaneCount,
+                laneMask,
+                laneMask,
+                midBoss.MaxHp,
+                midBoss.HalfWidth,
+                midBoss.HalfHeight,
+                source.BossHoldX,
+                phases,
+                source.ThemeId,
+                source.RequestedThemeId,
+                EncounterType.Elite,
+                Array.Empty<BossPartDefinition>(),
+                source.Gimmick);
+        }
+
+        IReadOnlyList<BossPhase> CreateDefaultMidBossPattern(
+            EnemyDefinition midBoss,
+            int patternVariant)
+        {
+            BossMovementPattern movementPattern;
+            int movementAmplitudeNumerator = 0;
+            int movementAmplitudeDenominator = 1;
+            int movementPeriodTicks = 1;
+            switch (midBoss.MovePattern)
+            {
+                case EnemyMovePattern.Static:
+                    movementPattern =
+                        BossMovementPattern.Stationary;
+                    break;
+                case EnemyMovePattern.Sine:
+                    movementPattern =
+                        BossMovementPattern.VerticalSine;
+                    movementAmplitudeNumerator =
+                        midBoss.MovementAmplitudeNumerator;
+                    movementAmplitudeDenominator =
+                        midBoss.MovementAmplitudeDenominator;
+                    movementPeriodTicks =
+                        midBoss.MovementPeriodTicks;
+                    break;
+                default:
+                    movementPattern =
+                        BossMovementPattern.LegacyHover;
+                    break;
+            }
+
+            int baseInterval = Math.Max(
+                24,
+                midBoss.FireIntervalTicks);
+            int fastInterval = Math.Max(
+                12,
+                baseInterval * 2 / 3);
+            int dangerousWays = 3 + 2 * (patternVariant & 1);
+            BossMovementPattern alternateMovement =
+                movementPattern == BossMovementPattern.Stationary
+                    ? BossMovementPattern.VerticalSine
+                    : BossMovementPattern.Stationary;
+            int alternateAmplitude =
+                alternateMovement == BossMovementPattern.VerticalSine
+                    ? 2 * SimSpace.SubUnitsPerWorldUnit
+                    : 0;
+            int alternatePeriod =
+                alternateMovement == BossMovementPattern.VerticalSine
+                    ? 90 + 15 * (patternVariant % 4)
+                    : 1;
+            var opening = new BossPhase(
+                baseInterval,
+                1,
+                _battleConfig.EnemyBulletSpeedNumerator,
+                _battleConfig.EnemyBulletSpeedDenominator,
+                movementPattern,
+                movementAmplitudeNumerator,
+                movementAmplitudeDenominator,
+                movementPeriodTicks,
+                BossPartVulnerability.Legacy,
+                120 + 15 * (patternVariant % 3),
+                0);
+            var pressure = new BossPhase(
+                fastInterval,
+                dangerousWays,
+                _battleConfig.EnemyBulletSpeedNumerator,
+                _battleConfig.EnemyBulletSpeedDenominator,
+                alternateMovement,
+                alternateAmplitude,
+                1,
+                alternatePeriod,
+                BossPartVulnerability.Legacy,
+                105 + 15 * ((patternVariant + 1) % 3),
+                18 + 3 * (patternVariant % 3));
+            if ((patternVariant & 1) == 0)
+                return Array.AsReadOnly(
+                    new[] { opening, pressure });
+
+            var burst = new BossPhase(
+                Math.Max(10, fastInterval - 4),
+                3,
+                SaturatingMultiply(
+                    _battleConfig.EnemyBulletSpeedNumerator,
+                    5),
+                SaturatingMultiply(
+                    _battleConfig.EnemyBulletSpeedDenominator,
+                    4),
+                movementPattern,
+                movementAmplitudeNumerator,
+                movementAmplitudeDenominator,
+                movementPeriodTicks,
+                BossPartVulnerability.Legacy,
+                90 + 15 * (patternVariant % 3),
+                24);
+            return Array.AsReadOnly(
+                new[] { opening, pressure, burst });
+        }
+
         static StagePlan CreateRegularRoomPlan(StagePlan source)
         {
             return new StagePlan(
@@ -2864,10 +4906,20 @@ namespace Shmup.Core.Simulation
                 source.ThemeId,
                 source.RequestedThemeId,
                 source.EncounterType,
-                Array.Empty<BossPartDefinition>());
+                Array.Empty<BossPartDefinition>(),
+                source.Gimmick);
         }
 
         static StagePlan CreateBiomeBossPlan(StagePlan source)
+        {
+            return CreateBossOnlyPlan(
+                source,
+                EncounterType.Normal);
+        }
+
+        static StagePlan CreateBossOnlyPlan(
+            StagePlan source,
+            EncounterType encounterType)
         {
             int laneMask = source.BossEntryLaneMask != 0
                 ? source.BossEntryLaneMask
@@ -2892,8 +4944,9 @@ namespace Shmup.Core.Simulation
                 source.BossPhases,
                 source.ThemeId,
                 source.RequestedThemeId,
-                EncounterType.Normal,
-                source.BossParts);
+                encounterType,
+                source.BossParts,
+                source.Gimmick);
         }
 
         void CaptureStageStart()
@@ -2902,6 +4955,8 @@ namespace Shmup.Core.Simulation
             {
                 _stageStartPowerUpLevels[i] =
                     PowerUpGauge.GetLevel((PowerUpSlot)i);
+                _stageStartPowerUpProgress[i] =
+                    PowerUpGauge.GetProgress((PowerUpSlot)i);
             }
             _stageStartPowerUpCursor = PowerUpGauge.Cursor;
             _stageStartScore = _completedStageScore;
@@ -2910,13 +4965,17 @@ namespace Shmup.Core.Simulation
             _stageStartKills = _completedKills;
             _stageStartCapsulesCollected =
                 _completedCapsulesCollected;
+            _stageStartCapsuleBalance =
+                _capsuleBalance;
             _stageStartGrazeCount = _completedGrazeCount;
             _stageStartStagesCleared = _stagesCleared;
             _stageStartRoomsCleared = _roomsCleared;
-            _stageStartPlayerHp = Battle.PlayerHp;
-            _stageStartShieldRemaining =
-                Battle.ShieldRemaining;
+            _stageStartPlayerLife = Battle.PlayerHp;
+            _stageStartShieldStock = Battle.ShieldStock;
+            _stageStartBombStock = Battle.BombStock;
             _stageStartActiveModifiers = ActiveModifiers;
+            _stageStartPrimaryWeaponFamily =
+                CurrentPrimaryWeaponFamily;
             _stageStartMissileFamily = CurrentMissileFamily;
             _stageStartOptionFormation = CurrentOptionFormation;
             _stageStartEliteRoomsCleared =
@@ -2935,6 +4994,8 @@ namespace Shmup.Core.Simulation
                 _battleConfig.PlayerSpeedNumerator;
             _stageStartPlayerSpeedDenominator =
                 _battleConfig.PlayerSpeedDenominator;
+            _stageStartContinuity =
+                ((BattleSim)Battle).CaptureContinuityState();
             Array.Copy(
                 _rewardAcquisitionCounts,
                 _stageStartRewardAcquisitionCounts,
@@ -2955,6 +5016,36 @@ namespace Shmup.Core.Simulation
                 levels[i] = Math.Max(levels[i], startingLevels[i]);
             }
             gauge.ImportLevels(levels);
+        }
+
+        static void ValidateShipGauge(
+            ShipDefinition ship,
+            PowerUpGauge gauge)
+        {
+            if (!ship.HasCustomPowerUpGauge)
+                return;
+            if (gauge.GaugeSlotCount != ship.GaugeSlots.Count)
+                throw new ArgumentException(
+                    $"Ship '{ship.Id}' requires a "
+                    + $"{ship.GaugeSlots.Count}-slot gauge.",
+                    nameof(gauge));
+            for (int i = 0; i < ship.GaugeSlots.Count; i++)
+            {
+                if (gauge.GaugeSlots[i].Slot != ship.GaugeSlots[i])
+                    throw new ArgumentException(
+                        $"Ship '{ship.Id}' gauge slot {i} must be "
+                        + $"'{ship.GaugeSlots[i]}'.",
+                        nameof(gauge));
+            }
+        }
+
+        void ResetShieldStockForNewRun()
+        {
+            long stock = (long)_initialShieldStock
+                + PowerUpGauge.GetLevel(PowerUpSlot.Shield);
+            _battleConfig.StartingShieldStock = (int)Math.Min(
+                stock,
+                _battleConfig.MaxShieldStock);
         }
 
         static void ApplyShipSpeedMultiplier(
@@ -3044,6 +5135,23 @@ namespace Shmup.Core.Simulation
                     throw new ArgumentOutOfRangeException(
                         nameof(ship),
                         $"Ship '{ship.Id}' has an unsupported weapon type.");
+            }
+        }
+
+        static PrimaryWeaponFamily PrimaryWeaponFamilyFor(
+            WeaponType weaponType)
+        {
+            switch (weaponType)
+            {
+                case WeaponType.Vulcan:
+                    return PrimaryWeaponFamily.Vulcan;
+                case WeaponType.Laser:
+                    return PrimaryWeaponFamily.Laser;
+                case WeaponType.Spread:
+                    return PrimaryWeaponFamily.Spread;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(weaponType));
             }
         }
 

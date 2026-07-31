@@ -40,14 +40,194 @@ namespace Shmup.Core.Content
             }
 
             string[] themes = ParseThemes(root.themes, segments, bosses);
+            StageGimmickDefinition[] gimmicks =
+                ParseStageGimmicks(root.gimmicks, themes);
             var catalog = new StageGenerationCatalog(
                 Require(root.laneCount, "waves.json.laneCount"),
                 Require(root.segmentsPerStage, "waves.json.segmentsPerStage"),
                 Require(root.startLaneMask, "waves.json.startLaneMask"),
                 segments,
                 bosses,
-                themes);
-            return new WavesParseResult(catalog, scrollSpeed);
+                themes,
+                gimmicks,
+                root.closingSegmentsPerStage);
+            ContractCatalog contracts =
+                ParseContracts(root.contracts);
+            return new WavesParseResult(
+                catalog,
+                scrollSpeed,
+                contracts);
+        }
+
+        static ContractCatalog ParseContracts(
+            ContractCatalogDto root)
+        {
+            if (root == null)
+                return null;
+            ContractDto[] source = RequireArray(
+                root.entries,
+                "waves.json.contracts.entries");
+            var definitions =
+                new ContractDefinition[source.Length];
+            for (int i = 0; i < definitions.Length; i++)
+            {
+                string path =
+                    $"waves.json.contracts.entries[{i}]";
+                ContractDto item = source[i];
+                if (item == null)
+                    throw Error(path, "cannot be null.");
+                ExactFraction density = ParseContractMultiplier(
+                    item.enemyDensityMultiplier,
+                    path + ".enemyDensityMultiplier");
+                ExactFraction capsules = ParseContractMultiplier(
+                    item.capsuleDropMultiplier,
+                    path + ".capsuleDropMultiplier");
+                ExactFraction bombs = ParseContractMultiplier(
+                    item.bombDropMultiplier,
+                    path + ".bombDropMultiplier");
+                ExactFraction gimmick = ParseContractMultiplier(
+                    item.gimmickIntensityMultiplier,
+                    path + ".gimmickIntensityMultiplier");
+                ExactFraction score = ParseContractMultiplier(
+                    item.scoreMultiplier,
+                    path + ".scoreMultiplier");
+                definitions[i] = new ContractDefinition(
+                    RequireText(item.id, path + ".id"),
+                    Require(item.weight, path + ".weight"),
+                    ParseContractRisk(
+                        item.riskTier,
+                        path + ".riskTier"),
+                    density.Numerator,
+                    density.Denominator,
+                    capsules.Numerator,
+                    capsules.Denominator,
+                    bombs.Numerator,
+                    bombs.Denominator,
+                    item.guaranteedBombDrop ?? false,
+                    gimmick.Numerator,
+                    gimmick.Denominator,
+                    item.rewardOptionCountDelta ?? 0,
+                    score.Numerator,
+                    score.Denominator,
+                    ParseContractDestination(
+                        item.destinationKind,
+                        path + ".destinationKind"),
+                    ParseContractEligibility(
+                        item.eligibility,
+                        path + ".eligibility"));
+            }
+            return new ContractCatalog(
+                RequireText(
+                    root.standardContractId,
+                    "waves.json.contracts.standardContractId"),
+                Require(
+                    root.minimumOptionCount,
+                    "waves.json.contracts.minimumOptionCount"),
+                Require(
+                    root.maximumOptionCount,
+                    "waves.json.contracts.maximumOptionCount"),
+                definitions);
+        }
+
+        static ExactFraction ParseContractMultiplier(
+            decimal? value,
+            string path)
+        {
+            decimal multiplier = value ?? 1m;
+            if (multiplier < 0m)
+                throw Error(path, "cannot be negative.");
+            return DecimalToFraction(multiplier, path);
+        }
+
+        static ContractRiskTier ParseContractRisk(
+            string value,
+            string path)
+        {
+            switch (RequireText(value, path))
+            {
+                case "safe": return ContractRiskTier.Safe;
+                case "low": return ContractRiskTier.Low;
+                case "high": return ContractRiskTier.High;
+                case "extreme": return ContractRiskTier.Extreme;
+                default:
+                    throw Error(
+                        path,
+                        "must be 'safe', 'low', 'high', or 'extreme'.");
+            }
+        }
+
+        static ContractDestinationKind ParseContractDestination(
+            string value,
+            string path)
+        {
+            if (value == null || value == "nextStage")
+                return ContractDestinationKind.NextStage;
+            switch (RequireText(value, path))
+            {
+                case "endRun":
+                    return ContractDestinationKind.EndRun;
+                case "uncharted":
+                    return ContractDestinationKind.Uncharted;
+                default:
+                    throw Error(
+                        path,
+                        "must be 'nextStage', 'endRun', or 'uncharted'.");
+            }
+        }
+
+        static ContractEligibility ParseContractEligibility(
+            string value,
+            string path)
+        {
+            if (value == null || value == "always")
+                return ContractEligibility.Always;
+            switch (RequireText(value, path))
+            {
+                case "hiddenBiomeUnlocked":
+                    return ContractEligibility.HiddenBiomeUnlocked;
+                default:
+                    throw Error(
+                        path,
+                        "must be 'always' or 'hiddenBiomeUnlocked'.");
+            }
+        }
+
+        static StageGimmickDefinition[] ParseStageGimmicks(
+            StageGimmickDto[] source,
+            string[] themes)
+        {
+            if (source == null || source.Length == 0)
+                return Array.Empty<StageGimmickDefinition>();
+            if (themes == null)
+                throw Error(
+                    "waves.json.gimmicks",
+                    "requires waves.json.themes.");
+            var result = new StageGimmickDefinition[source.Length];
+            for (int i = 0; i < result.Length; i++)
+            {
+                string path = $"waves.json.gimmicks[{i}]";
+                StageGimmickDto dto = source[i];
+                if (dto == null)
+                    throw Error(path, "cannot be null.");
+                string theme = RequireText(dto.theme, path + ".theme");
+                EnsureThemeIsListed(theme, path + ".theme", themes);
+                for (int earlier = 0; earlier < i; earlier++)
+                    if (string.Equals(
+                            result[earlier].ThemeId,
+                            theme,
+                            StringComparison.Ordinal))
+                        throw Error(path + ".theme", $"duplicates theme '{theme}'.");
+                int timeLimitTicks = dto.timeLimitTicks ?? 0;
+                if (timeLimitTicks < 0)
+                    throw Error(
+                        path + ".timeLimitTicks",
+                        "cannot be negative.");
+                result[i] = new StageGimmickDefinition(
+                    theme,
+                    dto.visionObscured ?? false,
+                    timeLimitTicks);
+            }
+            return result;
         }
 
         static string[] ParseThemes(
@@ -174,10 +354,15 @@ namespace Shmup.Core.Content
                     "breakable",
                     StringComparison.Ordinal))
                     type = ObstacleType.Breakable;
+                else if (string.Equals(
+                    typeText,
+                    "laserEmitter",
+                    StringComparison.Ordinal))
+                    type = ObstacleType.LaserEmitter;
                 else
                     throw Error(
                         obstaclePath + ".type",
-                        "must be 'solid' or 'breakable'.");
+                        "must be 'solid', 'breakable', or 'laserEmitter'.");
 
                 int hp = Require(obstacle.hp, obstaclePath + ".hp");
                 if (type == ObstacleType.Solid && hp != 0)
@@ -188,6 +373,11 @@ namespace Shmup.Core.Content
                     throw Error(
                         obstaclePath + ".hp",
                         "must be positive for a breakable obstacle.");
+                if (type == ObstacleType.LaserEmitter
+                    && hp != 0)
+                    throw Error(
+                        obstaclePath + ".hp",
+                        "must be zero for a laser emitter.");
 
                 obstacles[i] = new ObstacleSpawn(
                     type,
@@ -197,7 +387,10 @@ namespace Shmup.Core.Content
                     ToSubUnits(
                         Require(obstacle.y, obstaclePath + ".y"),
                         obstaclePath + ".y"),
-                    hp);
+                    hp,
+                    ParseLaser(
+                        obstacle.laser,
+                        obstaclePath + ".laser"));
             }
 
             return new StageSegmentTemplate(
@@ -213,7 +406,102 @@ namespace Shmup.Core.Content
                 spawns,
                 obstacles,
                 OptionalText(source.theme, path + ".theme"),
-                ParseSegmentWeight(source.weight, path + ".weight"));
+                ParseSegmentWeight(source.weight, path + ".weight"),
+                ParseSegmentEnvironment(
+                    source.environment,
+                    path + ".environment"));
+        }
+
+        static SegmentEnvironmentDefinition ParseSegmentEnvironment(
+            SegmentEnvironmentDto source,
+            string path)
+        {
+            if (source == null)
+                return SegmentEnvironmentDefinition.None;
+
+            bool hasCorridor = source.corridor != null;
+            int startMinY = 0;
+            int startMaxY = 0;
+            int endMinY = 0;
+            int endMaxY = 0;
+            int contactDamage = 0;
+            if (hasCorridor)
+            {
+                startMinY = ToSubUnits(
+                    Require(
+                        source.corridor.startMinY,
+                        path + ".corridor.startMinY"),
+                    path + ".corridor.startMinY");
+                startMaxY = ToSubUnits(
+                    Require(
+                        source.corridor.startMaxY,
+                        path + ".corridor.startMaxY"),
+                    path + ".corridor.startMaxY");
+                endMinY = ToSubUnits(
+                    Require(
+                        source.corridor.endMinY,
+                        path + ".corridor.endMinY"),
+                    path + ".corridor.endMinY");
+                endMaxY = ToSubUnits(
+                    Require(
+                        source.corridor.endMaxY,
+                        path + ".corridor.endMaxY"),
+                    path + ".corridor.endMaxY");
+                contactDamage = Require(
+                    source.corridor.contactDamage,
+                    path + ".corridor.contactDamage");
+                if (contactDamage < 1)
+                    throw Error(
+                        path + ".corridor.contactDamage",
+                        "must be positive.");
+            }
+
+            ExactFraction driftX = new ExactFraction(0, 1);
+            ExactFraction driftY = new ExactFraction(0, 1);
+            if (source.drift != null)
+            {
+                driftX = ToSignedPerTickVelocity(
+                    source.drift.xPerSecond ?? 0m,
+                    path + ".drift.xPerSecond");
+                driftY = ToSignedPerTickVelocity(
+                    source.drift.yPerSecond ?? 0m,
+                    path + ".drift.yPerSecond");
+            }
+            try
+            {
+                return new SegmentEnvironmentDefinition(
+                    hasCorridor,
+                    startMinY,
+                    startMaxY,
+                    endMinY,
+                    endMaxY,
+                    contactDamage,
+                    driftX.Numerator,
+                    driftX.Denominator,
+                    driftY.Numerator,
+                    driftY.Denominator);
+            }
+            catch (ArgumentException error)
+            {
+                throw Error(path, error.Message);
+            }
+        }
+
+        static ExactFraction ToSignedPerTickVelocity(
+            decimal worldUnitsPerSecond,
+            string path)
+        {
+            ExactFraction perSecond =
+                ToSubUnitFraction(worldUnitsPerSecond, path);
+            long denominator =
+                (long)perSecond.Denominator * SimSpace.TicksPerSecond;
+            if (denominator > int.MaxValue)
+                throw Error(
+                    path,
+                    "needs a denominator larger than the simulation supports.");
+            return new ExactFraction(
+                perSecond.Numerator,
+                (int)denominator);
         }
 
         static int ParseSegmentWeight(int? source, string path)
@@ -255,17 +543,9 @@ namespace Shmup.Core.Content
                 for (int i = 0; i < source.phases.Length; i++)
                 {
                     string phasePath = $"{path}.phases[{i}]";
-                    BossPhaseDto phase = source.phases[i];
-                    if (phase == null)
-                        throw Error(phasePath, "cannot be null.");
-                    ExactFraction speed = ToPerTickSpeed(
-                        Require(phase.bulletSpeed, phasePath + ".bulletSpeed"),
-                        phasePath + ".bulletSpeed");
-                    phases[i] = new BossPhase(
-                        Require(phase.fireIntervalTicks, phasePath + ".fireIntervalTicks"),
-                        Require(phase.ways, phasePath + ".ways"),
-                        speed.Numerator,
-                        speed.Denominator);
+                    phases[i] = ParseBossPhase(
+                        source.phases[i],
+                        phasePath);
                 }
             }
 
@@ -294,6 +574,126 @@ namespace Shmup.Core.Content
                 phases,
                 OptionalText(source.theme, path + ".theme"),
                 parts);
+        }
+
+        static BossPhase ParseBossPhase(
+            BossPhaseDto phase,
+            string phasePath)
+        {
+            if (phase == null)
+                throw Error(phasePath, "cannot be null.");
+            ExactFraction speed = ToPerTickSpeed(
+                Require(
+                    phase.bulletSpeed,
+                    phasePath + ".bulletSpeed"),
+                phasePath + ".bulletSpeed");
+            BossMovementPattern movementPattern =
+                ParseBossMovementPattern(
+                    phase.movementPattern,
+                    phasePath + ".movementPattern");
+            BossFirePattern firePattern =
+                ParseBossFirePattern(
+                    phase.pattern,
+                    phasePath + ".pattern");
+            ExactFraction movementAmplitude =
+                phase.movementAmplitude.HasValue
+                    ? ToSubUnitFraction(
+                        phase.movementAmplitude.Value,
+                        phasePath + ".movementAmplitude")
+                    : new ExactFraction(0, 1);
+            int movementPeriodTicks =
+                phase.movementPeriodTicks ?? 1;
+            if (movementAmplitude.Numerator < 0)
+                throw Error(
+                    phasePath + ".movementAmplitude",
+                    "must be non-negative.");
+            if (movementPeriodTicks < 1)
+                throw Error(
+                    phasePath + ".movementPeriodTicks",
+                    "must be positive.");
+            if (movementPattern
+                    == BossMovementPattern.VerticalSine
+                && movementAmplitude.Numerator < 1)
+            {
+                throw Error(
+                    phasePath + ".movementAmplitude",
+                    "must be positive for verticalSine.");
+            }
+            int durationTicks = phase.durationTicks ?? 0;
+            int telegraphTicks = phase.telegraphTicks ?? 0;
+            if (durationTicks < 0)
+                throw Error(
+                    phasePath + ".durationTicks",
+                    "must be non-negative.");
+            if (telegraphTicks < 0
+                || (durationTicks > 0
+                    && telegraphTicks >= durationTicks))
+            {
+                throw Error(
+                    phasePath + ".telegraphTicks",
+                    "must be non-negative and shorter than durationTicks.");
+            }
+            BossPartVulnerability partVulnerability =
+                ParseBossPartVulnerability(
+                    phase.partVulnerability,
+                    phasePath + ".partVulnerability");
+            int fireIntervalTicks = Require(
+                phase.fireIntervalTicks,
+                phasePath + ".fireIntervalTicks");
+            int ways = Require(
+                phase.ways,
+                phasePath + ".ways");
+            if (firePattern == BossFirePattern.Wall && ways < 2)
+                throw Error(
+                    phasePath + ".ways",
+                    "must be at least two for wall.");
+            if (firePattern == BossFirePattern.Burst
+                && telegraphTicks < 1)
+            {
+                throw Error(
+                    phasePath + ".telegraphTicks",
+                    "must be positive for burst.");
+            }
+            return new BossPhase(
+                fireIntervalTicks,
+                ways,
+                speed.Numerator,
+                speed.Denominator,
+                movementPattern,
+                movementAmplitude.Numerator,
+                movementAmplitude.Denominator,
+                movementPeriodTicks,
+                partVulnerability,
+                durationTicks,
+                telegraphTicks,
+                firePattern);
+        }
+
+        static BossFirePattern ParseBossFirePattern(
+            string value,
+            string path)
+        {
+            if (value == null)
+                return BossFirePattern.Aimed;
+            switch (RequireText(value, path))
+            {
+                case "aimed":
+                case "spread":
+                case "rapid":
+                    return BossFirePattern.Aimed;
+                case "radial":
+                    return BossFirePattern.Radial;
+                case "spiral":
+                    return BossFirePattern.Spiral;
+                case "wall":
+                    return BossFirePattern.Wall;
+                case "burst":
+                    return BossFirePattern.Burst;
+                default:
+                    throw Error(
+                        path,
+                        $"has unknown boss fire pattern '{value}'.");
+            }
         }
 
         static BossPartDefinition ParseBossPart(
@@ -409,6 +809,48 @@ namespace Shmup.Core.Content
             }
         }
 
+        static BossMovementPattern ParseBossMovementPattern(
+            string value,
+            string path)
+        {
+            if (value == null)
+                return BossMovementPattern.LegacyHover;
+            switch (RequireText(value, path))
+            {
+                case "legacyHover":
+                    return BossMovementPattern.LegacyHover;
+                case "stationary":
+                    return BossMovementPattern.Stationary;
+                case "verticalSine":
+                    return BossMovementPattern.VerticalSine;
+                default:
+                    throw Error(
+                        path,
+                        $"has unknown boss movement pattern '{value}'.");
+            }
+        }
+
+        static BossPartVulnerability ParseBossPartVulnerability(
+            string value,
+            string path)
+        {
+            if (value == null)
+                return BossPartVulnerability.Legacy;
+            switch (RequireText(value, path))
+            {
+                case "legacy":
+                    return BossPartVulnerability.Legacy;
+                case "coreOnly":
+                    return BossPartVulnerability.CoreOnly;
+                case "all":
+                    return BossPartVulnerability.All;
+                default:
+                    throw Error(
+                        path,
+                        $"has unknown boss part vulnerability '{value}'.");
+            }
+        }
+
         static void EnsureUniqueSegmentId(StageSegmentTemplate[] items, int index)
         {
             for (int i = 0; i < index; i++)
@@ -431,14 +873,17 @@ namespace Shmup.Core.Content
         {
             public WavesParseResult(
                 StageGenerationCatalog catalog,
-                ExactFraction scrollSpeed)
+                ExactFraction scrollSpeed,
+                ContractCatalog contracts)
             {
                 Catalog = catalog;
                 ScrollSpeed = scrollSpeed;
+                Contracts = contracts;
             }
 
             public StageGenerationCatalog Catalog { get; }
             public ExactFraction ScrollSpeed { get; }
+            public ContractCatalog Contracts { get; }
         }
     }
 }

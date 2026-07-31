@@ -57,7 +57,43 @@ namespace Shmup.Core.Simulation
         /// <summary>EntityId = boss id, PartId = destroyed part id.</summary>
         BossPartDestroyed = 17,
         /// <summary>EntityId = boss id, PartId = regenerated part id.</summary>
-        BossPartRegenerated = 18
+        BossPartRegenerated = 18,
+        /// <summary>EntityId = pickup id, Arg = stock after acquisition.</summary>
+        BombAcquired = 19,
+        /// <summary>EntityId = 0, Arg = stock after the change.</summary>
+        BombStockChanged = 20,
+        /// <summary>X/Y = activation center, Arg = visual effect radius.</summary>
+        BombActivated = 21,
+        /// <summary>X/Y = attempted activation position.</summary>
+        BombActivationRejectedEmpty = 22,
+        /// <summary>EntityId = laser id, Arg = (int)LaserSourceKind.</summary>
+        LaserTelegraphStarted = 23,
+        /// <summary>EntityId = laser id, Arg = full beam half-width.</summary>
+        LaserFired = 24,
+        /// <summary>EntityId = laser id.</summary>
+        LaserEnded = 25,
+        /// <summary>
+        /// EntityId = rejected source entity id, Arg = configured laser cap.
+        /// </summary>
+        LaserCapacityExceeded = 26,
+        /// <summary>X/Y = rejected spawn point, Arg = configured enemy cap.</summary>
+        EnemyCapacityExceeded = 27,
+        /// <summary>X/Y = rejected spawn point, Arg = configured obstacle cap.</summary>
+        ObstacleCapacityExceeded = 28,
+        /// <summary>EntityId = segment index, X/Y = clamped player point, Arg = damage.</summary>
+        CorridorContact = 29,
+        /// <summary>Arg = configured hard deadline tick.</summary>
+        TimeLimitExpired = 30,
+        /// <summary>
+        /// EntityId = boss id, Arg = zero-based action phase. The phase's first
+        /// volley is delayed by its configured telegraphTicks.
+        /// </summary>
+        BossAttackTelegraphed = 31,
+        /// <summary>
+        /// EntityId = boss id, Arg = configured enemy-bullet capacity.
+        /// One event is emitted for a boss volley truncated by the hard cap.
+        /// </summary>
+        EnemyBulletCapacityExceeded = 32
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -149,6 +185,14 @@ namespace Shmup.Core.Simulation
             | BattleModifier.HomingMissile
             | BattleModifier.KillExplosion;
 
+        internal static readonly BattleModifier[] Ordered =
+        {
+            BattleModifier.PierceShot,
+            BattleModifier.Ricochet,
+            BattleModifier.HomingMissile,
+            BattleModifier.KillExplosion
+        };
+
         internal static bool IsSingleKnown(BattleModifier modifier)
         {
             int value = (int)modifier;
@@ -162,6 +206,27 @@ namespace Shmup.Core.Simulation
     public readonly struct BossState
     {
         public BossState(int id, int x, int y, int hp, int maxHp, int phase)
+            : this(
+                id,
+                x,
+                y,
+                hp,
+                maxHp,
+                phase,
+                BossMovementPattern.LegacyHover,
+                BossPartVulnerability.Legacy)
+        {
+        }
+
+        public BossState(
+            int id,
+            int x,
+            int y,
+            int hp,
+            int maxHp,
+            int phase,
+            BossMovementPattern movementPattern,
+            BossPartVulnerability partVulnerability)
         {
             Id = id;
             X = x;
@@ -169,6 +234,8 @@ namespace Shmup.Core.Simulation
             Hp = hp;
             MaxHp = maxHp;
             Phase = phase;
+            MovementPattern = movementPattern;
+            PartVulnerability = partVulnerability;
         }
 
         public int Id { get; }
@@ -177,9 +244,16 @@ namespace Shmup.Core.Simulation
         public int Hp { get; }
         public int MaxHp { get; }
         public int Phase { get; }
+        public BossMovementPattern MovementPattern { get; }
+        public BossPartVulnerability PartVulnerability { get; }
     }
 
-    /// <summary>One tick of digital input. Movement is clamped to -1, 0, or 1 per axis.</summary>
+    /// <summary>
+    /// One tick of player input. The legacy digital axes are clamped to
+    /// -1, 0, or 1. Commands created with the analog overload or
+    /// <see cref="Analog"/> use integer SimSpace subunit deltas instead;
+    /// analog movement wins over digital movement even when both deltas are zero.
+    /// </summary>
     public readonly struct InputCommand
     {
         public InputCommand(int moveX, int moveY, bool fire)
@@ -192,18 +266,122 @@ namespace Shmup.Core.Simulation
             int moveY,
             bool fire,
             bool activate)
+            : this(moveX, moveY, fire, activate, false)
+        {
+        }
+
+        public InputCommand(
+            int moveX,
+            int moveY,
+            bool fire,
+            bool activate,
+            bool activateBomb)
+            : this(
+                moveX,
+                moveY,
+                fire,
+                activate,
+                activateBomb,
+                0,
+                0,
+                false)
+        {
+        }
+
+        /// <summary>
+        /// Creates a command carrying both legacy digital axes and an analog
+        /// movement delta. The analog delta is expressed in SimSpace subunits
+        /// for this simulation tick and takes precedence over the digital axes.
+        /// </summary>
+        public InputCommand(
+            int moveX,
+            int moveY,
+            bool fire,
+            bool activate,
+            bool activateBomb,
+            int analogDeltaXSubUnits,
+            int analogDeltaYSubUnits)
+            : this(
+                moveX,
+                moveY,
+                fire,
+                activate,
+                activateBomb,
+                analogDeltaXSubUnits,
+                analogDeltaYSubUnits,
+                true)
+        {
+        }
+
+        InputCommand(
+            int moveX,
+            int moveY,
+            bool fire,
+            bool activate,
+            bool activateBomb,
+            int analogDeltaXSubUnits,
+            int analogDeltaYSubUnits,
+            bool useAnalogMovement)
         {
             MoveX = Clamp(moveX);
             MoveY = Clamp(moveY);
             Fire = fire;
             Activate = activate;
+            ActivateBomb = activateBomb;
+            AnalogDeltaXSubUnits = analogDeltaXSubUnits;
+            AnalogDeltaYSubUnits = analogDeltaYSubUnits;
+            UseAnalogMovement = useAnalogMovement;
         }
 
         public int MoveX { get; }
         public int MoveY { get; }
         public bool Fire { get; }
         public bool Activate { get; }
+        public bool ActivateBomb { get; }
+        public int AnalogDeltaXSubUnits { get; }
+        public int AnalogDeltaYSubUnits { get; }
+        public bool UseAnalogMovement { get; }
         public static InputCommand None => default;
+
+        /// <summary>
+        /// Creates an analog-only movement command. Deltas use
+        /// SimSpace.SubUnitsPerWorldUnit and represent movement during one tick.
+        /// </summary>
+        public static InputCommand Analog(
+            int deltaXSubUnits,
+            int deltaYSubUnits,
+            bool fire,
+            bool activate = false,
+            bool activateBomb = false)
+        {
+            return new InputCommand(
+                0,
+                0,
+                fire,
+                activate,
+                activateBomb,
+                deltaXSubUnits,
+                deltaYSubUnits,
+                true);
+        }
+
+        /// <summary>
+        /// Returns this command with only the activate bit replaced.
+        /// All movement modes and payload fields are preserved.
+        /// </summary>
+        public InputCommand WithActivate(bool activate)
+        {
+            return new InputCommand(
+                MoveX,
+                MoveY,
+                Fire,
+                activate,
+                ActivateBomb,
+                AnalogDeltaXSubUnits,
+                AnalogDeltaYSubUnits,
+                UseAnalogMovement);
+        }
+
         static int Clamp(int value) => value < 0 ? -1 : value > 0 ? 1 : 0;
     }
 
@@ -226,7 +404,7 @@ namespace Shmup.Core.Simulation
             MaxHp = maxHp;
             Destroyed = destroyed;
             IsCore = isCore;
-            CoreGated = coreGated;
+            Invulnerable = coreGated;
         }
 
         public string PartId { get; }
@@ -236,7 +414,15 @@ namespace Shmup.Core.Simulation
         public int MaxHp { get; }
         public bool Destroyed { get; }
         public bool IsCore { get; }
-        public bool CoreGated { get; }
+        /// <summary>
+        /// True while the current boss phase prevents damage to this part.
+        /// </summary>
+        public bool Invulnerable { get; }
+        /// <summary>
+        /// Legacy compatibility alias. Phase rules may now cause invulnerability
+        /// even when no predecessor core gate exists.
+        /// </summary>
+        public bool CoreGated => Invulnerable;
     }
 
     /// <summary>Observable bullet state in integer simulation subunits.</summary>
@@ -318,6 +504,211 @@ namespace Shmup.Core.Simulation
         public int Hp { get; }
     }
 
+    /// <summary>
+    /// Observable segment environment in integer simulation subunits.
+    /// SegmentIndex is -1 outside a stage segment (for example, in a boss arena).
+    /// </summary>
+    public readonly struct StageEnvironmentState
+    {
+        public StageEnvironmentState(
+            int segmentIndex,
+            string segmentId,
+            bool hasCorridor,
+            int corridorMinY,
+            int corridorMaxY,
+            int corridorContactDamage,
+            int driftXNumerator,
+            int driftXDenominator,
+            int driftYNumerator,
+            int driftYDenominator)
+        {
+            SegmentIndex = segmentIndex;
+            SegmentId = segmentId;
+            HasCorridor = hasCorridor;
+            CorridorMinY = corridorMinY;
+            CorridorMaxY = corridorMaxY;
+            CorridorContactDamage = corridorContactDamage;
+            DriftXNumerator = driftXNumerator;
+            DriftXDenominator = driftXDenominator;
+            DriftYNumerator = driftYNumerator;
+            DriftYDenominator = driftYDenominator;
+        }
+
+        public int SegmentIndex { get; }
+        public string SegmentId { get; }
+        public bool HasCorridor { get; }
+        public int CorridorMinY { get; }
+        public int CorridorMaxY { get; }
+        public int CorridorContactDamage { get; }
+        public int DriftXNumerator { get; }
+        public int DriftXDenominator { get; }
+        public int DriftYNumerator { get; }
+        public int DriftYDenominator { get; }
+        public bool HasDrift =>
+            DriftXNumerator != 0 || DriftYNumerator != 0;
+    }
+
+    public enum LaserSourceKind
+    {
+        Enemy = 0,
+        Terrain = 1
+    }
+
+    public enum LaserPhase
+    {
+        Telegraph = 0,
+        Firing = 1,
+        Sustaining = 2,
+        Dissipating = 3
+    }
+
+    public enum LaserThicknessStage
+    {
+        Telegraph = 0,
+        Thin = 1,
+        Full = 2
+    }
+
+    /// <summary>
+    /// Observable hostile laser segment. Firing and Sustaining phases damage;
+    /// Telegraph and Dissipating phases are presentation-only warnings/fades.
+    /// </summary>
+    public readonly struct LaserState
+    {
+        public LaserState(
+            int id,
+            LaserSourceKind sourceKind,
+            int sourceEntityId,
+            int startX,
+            int startY,
+            int endX,
+            int endY,
+            LaserPhase phase,
+            LaserThicknessStage thicknessStage,
+            int halfWidth,
+            int phaseTicksRemaining,
+            int damage)
+        {
+            Id = id;
+            SourceKind = sourceKind;
+            SourceEntityId = sourceEntityId;
+            StartX = startX;
+            StartY = startY;
+            EndX = endX;
+            EndY = endY;
+            Phase = phase;
+            ThicknessStage = thicknessStage;
+            HalfWidth = halfWidth;
+            PhaseTicksRemaining = phaseTicksRemaining;
+            Damage = damage;
+        }
+
+        public int Id { get; }
+        public LaserSourceKind SourceKind { get; }
+        public int SourceEntityId { get; }
+        public int StartX { get; }
+        public int StartY { get; }
+        public int EndX { get; }
+        public int EndY { get; }
+        public LaserPhase Phase { get; }
+        public LaserThicknessStage ThicknessStage { get; }
+        public int HalfWidth { get; }
+        public int PhaseTicksRemaining { get; }
+        public int Damage { get; }
+        public bool IsDamaging =>
+            Phase == LaserPhase.Firing
+            || Phase == LaserPhase.Sustaining;
+    }
+
+    public readonly struct BombPickupState
+    {
+        public BombPickupState(int id, int x, int y)
+        {
+            Id = id;
+            X = x;
+            Y = y;
+        }
+
+        public int Id { get; }
+        public int X { get; }
+        public int Y { get; }
+    }
+
+    public static class LaserGeometry
+    {
+        /// <summary>
+        /// Division-free segment-versus-circle test. Very large inputs are
+        /// deterministically scaled by powers of two before squared products;
+        /// the radius rounds outward so overflow protection never shrinks the
+        /// hazardous beam.
+        /// </summary>
+        public static bool IntersectsSegmentCircle(
+            int startX,
+            int startY,
+            int endX,
+            int endY,
+            int circleX,
+            int circleY,
+            int radius)
+        {
+            if (radius < 0)
+                throw new ArgumentOutOfRangeException(nameof(radius));
+            long vx = (long)endX - startX;
+            long vy = (long)endY - startY;
+            long wx = (long)circleX - startX;
+            long wy = (long)circleY - startY;
+            long scaledRadius = radius;
+            while (MaxAbs(vx, vy, wx, wy, scaledRadius) > 16_384)
+            {
+                vx /= 2;
+                vy /= 2;
+                wx /= 2;
+                wy /= 2;
+                scaledRadius = (scaledRadius + 1) / 2;
+            }
+
+            long radiusSquared =
+                scaledRadius * scaledRadius;
+            long segmentLengthSquared =
+                vx * vx + vy * vy;
+            if (segmentLengthSquared == 0)
+                return wx * wx + wy * wy <= radiusSquared;
+
+            long projection = wx * vx + wy * vy;
+            if (projection <= 0)
+                return wx * wx + wy * wy <= radiusSquared;
+            if (projection >= segmentLengthSquared)
+            {
+                long ex = wx - vx;
+                long ey = wy - vy;
+                return ex * ex + ey * ey <= radiusSquared;
+            }
+
+            long cross = vx * wy - vy * wx;
+            return cross * cross
+                <= radiusSquared * segmentLengthSquared;
+        }
+
+        static long MaxAbs(
+            long a,
+            long b,
+            long c,
+            long d,
+            long e)
+        {
+            long max = Abs(a);
+            max = Math.Max(max, Abs(b));
+            max = Math.Max(max, Abs(c));
+            max = Math.Max(max, Abs(d));
+            return Math.Max(max, e);
+        }
+
+        static long Abs(long value)
+        {
+            return value < 0 ? -value : value;
+        }
+    }
+
     /// <summary>Observable capsule state in integer simulation subunits.</summary>
     public readonly struct CapsuleState
     {
@@ -337,9 +728,27 @@ namespace Shmup.Core.Simulation
     public sealed class BattleSimConfig
     {
         internal const int DefaultMaxEnemyBullets = 128;
+        /// <summary>
+        /// Human-approved REQ-049 default and upgrade ceiling.
+        /// </summary>
+        public const int DefaultMaxShieldStock = 3;
+        public const int MaximumShieldStock = 5;
+        public const int ProvisionalMaxShieldStock = DefaultMaxShieldStock;
+        /// <summary>
+        /// Provisional REQ-041 cap pending explicit human balance approval.
+        /// </summary>
+        public const int ProvisionalMaxBombStock = 3;
+        /// <summary>
+        /// Matches Presentation's existing 0.3 second damage flash at 60 Hz.
+        /// </summary>
+        public const int DefaultPlayerHitInvulnerabilityTicks =
+            3 * SimSpace.TicksPerSecond / 10;
+        public const int DefaultBombInvulnerabilityTicks =
+            3 * SimSpace.TicksPerSecond / 4;
 
         int _playerSpeedNumerator, _bulletSpeedNumerator;
         int _playerSpeedDenominator = 1, _bulletSpeedDenominator = 1;
+        int _startingShieldStock = 1;
 
         /// <summary>Whole subunits/tick shorthand. Setting it resets the denominator to 1.</summary>
         public int PlayerSpeedPerTick
@@ -361,11 +770,16 @@ namespace Shmup.Core.Simulation
         public int PlayerBulletSpeedNumerator { get => _bulletSpeedNumerator; set => _bulletSpeedNumerator = value; }
         public int PlayerBulletSpeedDenominator { get => _bulletSpeedDenominator; set => _bulletSpeedDenominator = value; }
         public WeaponType PlayerWeaponType { get; set; } = WeaponType.Vulcan;
+        /// <summary>
+        /// Optional exact family identity. This distinguishes Double from
+        /// Triple/Spread even though both use WeaponType.Spread.
+        /// </summary>
+        public PrimaryWeaponFamily? PlayerWeaponFamily { get; set; }
         public int MainShotBaseDamage { get; set; }
         public int FireIntervalTicks { get; set; }
         public int MainShotHalfWidth { get; set; }
         public int MainShotHalfHeight { get; set; }
-        internal bool UseConfiguredMainShotStats { get; set; }
+        public bool UseConfiguredMainShotStats { get; set; }
         public int MaxBullets { get; set; }
         /// <summary>
         /// Shared regular-enemy population cap. Scheduled and boss-spawned enemies
@@ -380,12 +794,56 @@ namespace Shmup.Core.Simulation
         public int EnemyDespawnX { get; set; } = int.MinValue;
         public int PlayerSpawnX { get; set; }
         public int PlayerSpawnY { get; set; }
-        public int PlayerMaxHp { get; set; } = 1;
+        /// <summary>Shield stocks available at battle tick zero.</summary>
+        public int StartingShieldStock
+        {
+            get => _startingShieldStock;
+            set => _startingShieldStock = value;
+        }
+        /// <summary>
+        /// Compatibility alias for callers that still populate ship HP. REQ-040
+        /// interprets the old value as starting shield stock; it is not hull HP.
+        /// </summary>
+        public int PlayerMaxHp
+        {
+            get => _startingShieldStock;
+            set => _startingShieldStock = value;
+        }
+        /// <summary>
+        /// Provisional cap pending the human balance decision requested by REQ-040.
+        /// </summary>
+        public int MaxShieldStock { get; set; } =
+            ProvisionalMaxShieldStock;
+        public int PlayerHitInvulnerabilityTicks { get; set; } =
+            DefaultPlayerHitInvulnerabilityTicks;
+        public int StartingBombStock { get; set; }
+        public int MaxBombStock { get; set; } = ProvisionalMaxBombStock;
+        public int BombInvulnerabilityTicks { get; set; } =
+            DefaultBombInvulnerabilityTicks;
+        public int BombEffectRadiusSubUnits { get; set; } =
+            48 * SimSpace.SubUnitsPerWorldUnit;
+        public int BombRegularEnemyDamage { get; set; } = 1_000;
+        public int BombBossDamageCap { get; set; } = 250;
+        public int BombBossPartDamageCap { get; set; } = 250;
+        public int BombNoDropWeight { get; set; } = 100;
+        public int MaxBombPickups { get; set; } = 16;
+        public int MaxLasers { get; set; } = 8;
         public int PlayerHalfWidth { get; set; }
         public int PlayerHalfHeight { get; set; }
         public int CapsuleHalfWidth { get; set; }
         public int CapsuleHalfHeight { get; set; }
         public int CapsuleNoDropWeight { get; set; }
+        /// <summary>
+        /// Persistent reward cost subtracted from each enemy capsule weight.
+        /// </summary>
+        public int CapsuleDropWeightReduction { get; set; }
+        public int ContractBombDropMultiplierNumerator { get; set; } = 1;
+        public int ContractBombDropMultiplierDenominator { get; set; } = 1;
+        public bool ContractGuaranteesBombDrop { get; set; }
+        public int ContractCapsuleDropMultiplierNumerator { get; set; } = 1;
+        public int ContractCapsuleDropMultiplierDenominator { get; set; } = 1;
+        public int ContractScoreMultiplierNumerator { get; set; } = 1;
+        public int ContractScoreMultiplierDenominator { get; set; } = 1;
         public int ScrollSpeedNumerator { get; set; }
         public int ScrollSpeedDenominator { get; set; } = 1;
         /// <summary>
@@ -559,7 +1017,14 @@ namespace Shmup.Core.Simulation
                 EnemyDespawnX = -(SimSpace.PlayfieldHalfWidthSubUnits + SimSpace.DespawnMarginSubUnits),
                 PlayerSpawnX = -13 * u,
                 PlayerSpawnY = 0,
-                PlayerMaxHp = 1,
+                StartingShieldStock = 1,
+                MaxShieldStock = ProvisionalMaxShieldStock,
+                PlayerHitInvulnerabilityTicks =
+                    DefaultPlayerHitInvulnerabilityTicks,
+                StartingBombStock = 0,
+                MaxBombStock = ProvisionalMaxBombStock,
+                BombInvulnerabilityTicks =
+                    DefaultBombInvulnerabilityTicks,
                 PlayerHalfWidth = 3 * u / 8,
                 PlayerHalfHeight = 3 * u / 8,
                 CapsuleMagnetRadiusSubUnits = 3 * u,
@@ -590,11 +1055,21 @@ namespace Shmup.Core.Simulation
         int MultiplierLevel { get; }
         int ScoreMultiplier { get; }
         int ComboGauge { get; }
+        int TicksSinceLastKill { get; }
         BattleStatistics Statistics { get; }
         long ScrollX { get; }
         int PlayerX { get; }
         int PlayerY { get; }
+        bool IsPlayerAlive { get; }
+        int ShieldStock { get; }
+        int BombStock { get; }
+        int PlayerInvulnerabilityTicksRemaining { get; }
+        /// <summary>
+        /// Compatibility health flag: one while alive, zero after the lethal
+        /// unshielded hit. It is no longer a multi-point hull resource.
+        /// </summary>
         int PlayerHp { get; }
+        /// <summary>Compatibility alias for ShieldStock.</summary>
         int ShieldRemaining { get; }
         WeaponType PlayerWeaponType { get; }
         IReadOnlyList<BulletState> Bullets { get; }
@@ -606,20 +1081,70 @@ namespace Shmup.Core.Simulation
         /// </summary>
         IReadOnlyList<ObstacleState> Obstacles { get; }
         IReadOnlyList<CapsuleState> Capsules { get; }
+        IReadOnlyList<BombPickupState> BombPickups { get; }
+        IReadOnlyList<LaserState> Lasers { get; }
+        StageEnvironmentState Environment { get; }
+        bool VisionObscured { get; }
+        int TimeLimitTicks { get; }
+        int RemainingTimeTicks { get; }
+        bool TimeLimitExpired { get; }
         /// <summary>Events emitted by the most recent Step. Cleared at the start of each Step.</summary>
         ReadOnlySpan<SimEvent> EventsThisTick { get; }
         /// <summary>보스전 진행 중 여부. false면 Boss 값은 무의미하다.</summary>
         bool BossActive { get; }
+        /// <summary>
+        /// True while the boss is gliding from fully off-screen to its combat
+        /// hold point. Entry is non-firing and invulnerable.
+        /// </summary>
+        bool BossEntering { get; }
         BossState Boss { get; }
         /// <summary>Stable allocation-free view of multipart boss state.</summary>
         IReadOnlyList<BossPartState> BossParts { get; }
         void Step(in InputCommand input);
     }
 
+    /// <summary>
+    /// Deterministic state intentionally carried across combat-room boundaries
+    /// within one biome. Transient entities and attack cooldowns are excluded.
+    /// </summary>
+    public sealed class BattleContinuityState
+    {
+        public BattleContinuityState(
+            int playerX,
+            int playerY,
+            int multiplierLevel,
+            int comboGauge,
+            int ticksSinceLastKill)
+        {
+            if (multiplierLevel < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(multiplierLevel));
+            if (comboGauge < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(comboGauge));
+            if (ticksSinceLastKill < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(ticksSinceLastKill));
+            PlayerX = playerX;
+            PlayerY = playerY;
+            MultiplierLevel = multiplierLevel;
+            ComboGauge = comboGauge;
+            TicksSinceLastKill = ticksSinceLastKill;
+        }
+
+        public int PlayerX { get; }
+        public int PlayerY { get; }
+        public int MultiplierLevel { get; }
+        public int ComboGauge { get; }
+        public int TicksSinceLastKill { get; }
+    }
+
     /// <summary>Deterministic integer-only combat and generated-stage simulation.</summary>
     public sealed class BattleSim : IBattleSim
     {
         const int DropRngStream = 1;
+        const int BombDropRngStream = 2;
+        const int BossPatternRngStream = 3;
         const int SineScale = 1024;
         const int CapsuleMagnetDirectionScale = 1024;
         const long MaxSquareRoot = 3037000499L;
@@ -638,16 +1163,21 @@ namespace Shmup.Core.Simulation
             -1024, -1019, -1004, -980, -946, -903, -851, -790,
             -724, -650, -569, -483, -392, -297, -200, -100
         };
-        readonly int _playerSpeedNumerator, _playerSpeedDenominator;
-        readonly int _bulletSpeedNumerator, _bulletSpeedDenominator;
-        readonly int _fireIntervalTicks, _maxBullets, _maxEnemies;
+        int _playerSpeedNumerator, _playerSpeedDenominator;
+        int _bulletSpeedNumerator, _bulletSpeedDenominator;
+        int _fireIntervalTicks;
+        readonly int _maxBullets, _maxEnemies;
         readonly BattleContent _battleContent;
-        readonly WeaponType _playerWeaponType;
-        readonly int _mainShotBasePierceEnemyCount;
-        readonly int _spreadWays, _spreadStepLutSlots;
-        readonly int _mainShotRapidFireStartLevel;
-        readonly int _mainShotFireIntervalReductionPerLevel;
-        readonly int _mainShotMinimumFireIntervalTicks;
+        readonly int _mainShotEffectSoftCap;
+        readonly int _missileEffectSoftCap;
+        readonly int _optionEffectSoftCap;
+        readonly int _shieldEffectSoftCap;
+        WeaponType _playerWeaponType;
+        int _mainShotBasePierceEnemyCount;
+        int _spreadWays, _spreadStepLutSlots;
+        int _mainShotRapidFireStartLevel;
+        int _mainShotFireIntervalReductionPerLevel;
+        int _mainShotMinimumFireIntervalTicks;
         readonly int _missileBaseDamage, _missileFireIntervalTicks, _missileRapidFireStartLevel;
         readonly int _missileFireIntervalReductionPerLevel, _missileMinimumFireIntervalTicks;
         readonly int _missileSpeedXNumerator, _missileSpeedXDenominator;
@@ -669,6 +1199,7 @@ namespace Shmup.Core.Simulation
         readonly int _playerHalfWidth, _playerHalfHeight;
         readonly int _capsuleHalfWidth, _capsuleHalfHeight;
         readonly int _capsuleNoDropWeight;
+        readonly int _capsuleDropWeightReduction;
         readonly int _capsuleMagnetRadiusSubUnits;
         readonly int _capsuleMagnetSpeedNumerator;
         readonly int _capsuleMagnetSpeedDenominator;
@@ -681,11 +1212,18 @@ namespace Shmup.Core.Simulation
         readonly int _encounterEnemyHpMultiplierDenominator;
         readonly int _capsuleDropMultiplierNumerator;
         readonly int _capsuleDropMultiplierDenominator;
+        readonly int _contractCapsuleDropMultiplierNumerator;
+        readonly int _contractCapsuleDropMultiplierDenominator;
         readonly int _encounterScoreMultiplierNumerator;
         readonly int _encounterScoreMultiplierDenominator;
-        readonly int _playerBulletDamage, _playerBulletHalfWidth, _playerBulletHalfHeight;
+        readonly int _contractScoreMultiplierNumerator;
+        readonly int _contractScoreMultiplierDenominator;
+        int _playerBulletDamage;
+        int _playerBulletHalfWidth, _playerBulletHalfHeight;
         readonly PowerUpGauge _powerUpGauge;
         readonly Rng _dropRng;
+        readonly Rng _bombDropRng;
+        readonly Rng _bossPatternRng;
         readonly List<BulletState> _bullets;
         readonly List<int> _bulletXRemainders;
         readonly List<int> _bulletYRemainders;
@@ -713,20 +1251,46 @@ namespace Shmup.Core.Simulation
         readonly List<byte> _enemyMovementFlags;
         readonly ReadOnlyCollection<EnemyState> _readOnlyEnemies;
         readonly List<ObstacleState> _obstacles;
+        readonly List<int> _obstacleAges;
+        readonly List<LaserAttackDefinition> _obstacleLaserAttacks;
         readonly ReadOnlyCollection<ObstacleState> _readOnlyObstacles;
         readonly List<CapsuleState> _capsules;
         readonly List<long> _capsuleMagnetXRemainders;
         readonly List<long> _capsuleMagnetYRemainders;
         readonly ReadOnlyCollection<CapsuleState> _readOnlyCapsules;
+        readonly List<BombPickupState> _bombPickups;
+        readonly List<long> _bombPickupMagnetXRemainders;
+        readonly List<long> _bombPickupMagnetYRemainders;
+        readonly ReadOnlyCollection<BombPickupState> _readOnlyBombPickups;
+        readonly List<LaserState> _lasers;
+        readonly List<LaserAttackDefinition> _laserDefinitions;
+        readonly List<int> _laserAges;
+        readonly ReadOnlyCollection<LaserState> _readOnlyLasers;
         readonly ScheduledSpawn[] _scheduledSpawns;
         readonly ScheduledObstacle[] _scheduledObstacles;
+        readonly IReadOnlyList<StageSegment> _stageSegments;
+        readonly int[] _segmentStartTicks;
+        readonly bool _visionObscured;
+        readonly int _timeLimitTicks;
 
         // 적탄 설정 (config 스냅숏)
         readonly int _enemyBulletSpeedNumerator, _enemyBulletSpeedDenominator;
         readonly int _enemyBulletHalfWidth, _enemyBulletHalfHeight;
         readonly int _enemyBulletDamage, _maxEnemyBullets;
+        int _maxShieldStock;
+        readonly int _playerHitInvulnerabilityTicks;
+        int _maxBombStock;
+        readonly int _bombInvulnerabilityTicks;
+        readonly int _bombEffectRadiusSubUnits;
+        readonly int _bombRegularEnemyDamage;
+        readonly int _bombBossDamageCap, _bombBossPartDamageCap;
+        readonly int _bombNoDropWeight, _maxBombPickups, _maxLasers;
+        readonly int _bombDropMultiplierNumerator;
+        readonly int _bombDropMultiplierDenominator;
+        readonly bool _contractGuaranteesBombDrop;
         readonly BattleModifier _activeModifiers;
         readonly int _pierceShotEnemyCount, _ricochetRangeSubUnits;
+        readonly int _ricochetCount;
         readonly int _homingMissileTurnLutSlotsPerTick;
         readonly int _killExplosionRadiusSubUnits, _killExplosionDamage;
         readonly int _killExplosionMaxTargets;
@@ -739,6 +1303,7 @@ namespace Shmup.Core.Simulation
         // 보스 (REQ-007). _bossMaxHp == 0 이면 이 스테이지에 보스전 없음.
         readonly int _bossMaxHp, _bossRuntimeMaxHp;
         readonly int _bossHalfWidth, _bossHalfHeight, _bossHoldX;
+        readonly int _bossSpawnX, _bossEntryStartTick;
         readonly IReadOnlyList<Generation.BossPhase> _bossPhases;
         readonly IReadOnlyList<BossPartDefinition> _bossPartDefinitions;
         readonly BossPartState[] _bossPartStates;
@@ -750,12 +1315,21 @@ namespace Shmup.Core.Simulation
         readonly int _stageTotalTicks;
         bool _bossSpawned, _bossDefeated;
         int _bossId, _bossX, _bossY, _bossHp, _bossPhase, _bossAge, _bossFireCooldown;
+        int _bossPhaseAge;
+        int _bossMovementAnchorY;
+        int _bossMovementPhaseOffsetTicks;
+        int _bossVelocityY;
+        bool _bossPhaseTelegraphPending;
+        bool _bossBurstAwaitingVolley;
+        int _bossPatternVolleyIndex;
+        readonly bool _bossUsesTimedPattern;
         int _bossSuctionXRemainder, _bossSuctionYRemainder;
 
-        const int BossEntrySpeedPerTick = 16;                          // 서브유닛/틱
         const int BossHoverAmplitude = 3 * SimSpace.SubUnitsPerWorldUnit;
+        const int BossGlideSpeedPerTick = 64;
         const int BossHoverPeriodShift = 2;                            // age >> 2 → 약 4.3초 주기
         const int SpreadStepLutSlots = 2;                              // n-way 간격 = 11.25°
+        const int SpiralStepLutSlots = 2;
 
         readonly SimEvent[] _events;
         readonly int[] _enemyScanIds;
@@ -763,19 +1337,29 @@ namespace Shmup.Core.Simulation
         int _eventCount;
         long _shotsFired, _shotsHit, _kills, _capsulesCollected, _grazeCount;
 
-        int _playerXRemainder, _playerYRemainder, _cooldown, _missileCooldown;
+        long _playerXRemainder, _playerYRemainder;
+        long _driftXRemainder, _driftYRemainder;
+        StageEnvironmentState _environment;
+        int _currentEnvironmentSegmentIndex = -1;
+        bool _timeLimitExpired;
+        int _cooldown, _missileCooldown;
         int _mainShotLevel, _missileLevel, _optionLevel, _shieldGaugeLevel;
+        int _speedGaugeLevel;
+        PrimaryWeaponFamily _equippedPrimaryWeaponFamily;
         int _nextBulletId = 1;
         int _nextEnemyId = 1;
         int _nextObstacleId = 1;
         int _nextCapsuleId = 1;
+        int _nextBombPickupId = 1;
+        int _nextLaserId = 1;
         int _nextScheduledSpawn;
         int _nextScheduledObstacle;
         int _playerHistoryHead;
         int _playerHistoryCount;
         int _bulletHitRecordCount;
         int _multiplierLevel, _comboGauge, _ticksSinceLastKill;
-        bool _killScoredThisTick, _activateHeld;
+        bool _killScoredThisTick, _activateHeld, _bombHeld, _playerAlive;
+        int _playerInvulnerabilityTicksRemaining;
 
         /// <summary>Backward-compatible stage-less player movement and basic-shot simulation.</summary>
         public BattleSim(BattleSimConfig config, Rng rng)
@@ -785,8 +1369,11 @@ namespace Shmup.Core.Simulation
                 null,
                 null,
                 null,
-                BattleModifier.None,
-                false)
+                BattleModifierStackSet.FromFlags(
+                    BattleModifier.None,
+                    4),
+                false,
+                null)
         {
         }
 
@@ -803,8 +1390,11 @@ namespace Shmup.Core.Simulation
                 stagePlan,
                 content,
                 powerUpGauge,
-                BattleModifier.None,
-                true)
+                BattleModifierStackSet.FromFlags(
+                    BattleModifier.None,
+                    4),
+                true,
+                null)
         {
         }
 
@@ -821,8 +1411,50 @@ namespace Shmup.Core.Simulation
                 stagePlan,
                 content,
                 powerUpGauge,
-                activeModifiers,
-                true)
+                BattleModifierStackSet.FromFlags(
+                    activeModifiers,
+                    4),
+                true,
+                null)
+        {
+        }
+
+        public BattleSim(
+            BattleSimConfig config,
+            Rng rng,
+            StagePlan stagePlan,
+            BattleContent content,
+            PowerUpGauge powerUpGauge,
+            BattleModifierStackSet modifierStacks)
+            : this(
+                config,
+                rng,
+                stagePlan,
+                content,
+                powerUpGauge,
+                modifierStacks,
+                true,
+                null)
+        {
+        }
+
+        public BattleSim(
+            BattleSimConfig config,
+            Rng rng,
+            StagePlan stagePlan,
+            BattleContent content,
+            PowerUpGauge powerUpGauge,
+            BattleModifierStackSet modifierStacks,
+            BattleContinuityState continuityState)
+            : this(
+                config,
+                rng,
+                stagePlan,
+                content,
+                powerUpGauge,
+                modifierStacks,
+                true,
+                continuityState)
         {
         }
 
@@ -832,15 +1464,20 @@ namespace Shmup.Core.Simulation
             StagePlan stagePlan,
             BattleContent content,
             PowerUpGauge powerUpGauge,
-            BattleModifier activeModifiers,
-            bool stageEnabled)
+            BattleModifierStackSet modifierStacks,
+            bool stageEnabled,
+            BattleContinuityState continuityState)
         {
             if (config == null) throw new ArgumentNullException(nameof(config));
             if (rng == null) throw new ArgumentNullException(nameof(rng));
             if (stageEnabled && stagePlan == null) throw new ArgumentNullException(nameof(stagePlan));
             if (stageEnabled && content == null) throw new ArgumentNullException(nameof(content));
             if (stageEnabled && powerUpGauge == null) throw new ArgumentNullException(nameof(powerUpGauge));
+            if (modifierStacks == null)
+                throw new ArgumentNullException(nameof(modifierStacks));
             Validate(config);
+            BattleModifier activeModifiers =
+                modifierStacks.ActiveModifiers;
             if ((activeModifiers & ~BattleModifierRules.All) != 0)
                 throw new ArgumentOutOfRangeException(nameof(activeModifiers));
 
@@ -849,7 +1486,18 @@ namespace Shmup.Core.Simulation
             _maxBullets = config.MaxBullets;
             _maxEnemies = config.MaxEnemies;
             _battleContent = content;
+            _mainShotEffectSoftCap = ResolveEffectSoftCap(
+                content, powerUpGauge, PowerUpSlot.MainShot);
+            _missileEffectSoftCap = ResolveEffectSoftCap(
+                content, powerUpGauge, PowerUpSlot.Missile);
+            _optionEffectSoftCap = ResolveEffectSoftCap(
+                content, powerUpGauge, PowerUpSlot.Option);
+            _shieldEffectSoftCap = ResolveEffectSoftCap(
+                content, powerUpGauge, PowerUpSlot.Shield);
             _playerWeaponType = config.PlayerWeaponType;
+            _equippedPrimaryWeaponFamily =
+                config.PlayerWeaponFamily
+                ?? PrimaryWeaponFamilyFor(config.PlayerWeaponType);
             _mainShotBasePierceEnemyCount =
                 _playerWeaponType == WeaponType.Laser
                     ? config.LaserPierceEnemyCount
@@ -924,6 +1572,8 @@ namespace Shmup.Core.Simulation
             _capsuleHalfWidth = config.CapsuleHalfWidth;
             _capsuleHalfHeight = config.CapsuleHalfHeight;
             _capsuleNoDropWeight = config.CapsuleNoDropWeight;
+            _capsuleDropWeightReduction =
+                config.CapsuleDropWeightReduction;
             _capsuleMagnetRadiusSubUnits =
                 config.CapsuleMagnetRadiusSubUnits;
             _capsuleMagnetSpeedNumerator =
@@ -953,26 +1603,69 @@ namespace Shmup.Core.Simulation
             _capsuleDropMultiplierDenominator = stageEnabled
                 ? stagePlan.CapsuleDropMultiplierDenominator
                 : 1;
+            _contractCapsuleDropMultiplierNumerator =
+                config.ContractCapsuleDropMultiplierNumerator;
+            _contractCapsuleDropMultiplierDenominator =
+                config.ContractCapsuleDropMultiplierDenominator;
             _encounterScoreMultiplierNumerator = stageEnabled
                 ? stagePlan.EncounterScoreMultiplierNumerator
                 : 1;
             _encounterScoreMultiplierDenominator = stageEnabled
                 ? stagePlan.EncounterScoreMultiplierDenominator
                 : 1;
+            _contractScoreMultiplierNumerator =
+                config.ContractScoreMultiplierNumerator;
+            _contractScoreMultiplierDenominator =
+                config.ContractScoreMultiplierDenominator;
             _enemyBulletSpeedNumerator = config.EnemyBulletSpeedNumerator;
             _enemyBulletSpeedDenominator = config.EnemyBulletSpeedDenominator;
             _enemyBulletHalfWidth = config.EnemyBulletHalfWidth;
             _enemyBulletHalfHeight = config.EnemyBulletHalfHeight;
             _enemyBulletDamage = config.EnemyBulletDamage;
             _maxEnemyBullets = config.MaxEnemyBullets;
+            _maxShieldStock = config.MaxShieldStock;
+            _playerHitInvulnerabilityTicks =
+                config.PlayerHitInvulnerabilityTicks;
+            _maxBombStock = config.MaxBombStock;
+            _bombInvulnerabilityTicks =
+                config.BombInvulnerabilityTicks;
+            _bombEffectRadiusSubUnits =
+                config.BombEffectRadiusSubUnits;
+            _bombRegularEnemyDamage =
+                config.BombRegularEnemyDamage;
+            _bombBossDamageCap = config.BombBossDamageCap;
+            _bombBossPartDamageCap =
+                config.BombBossPartDamageCap;
+            _bombNoDropWeight = config.BombNoDropWeight;
+            _bombDropMultiplierNumerator =
+                config.ContractBombDropMultiplierNumerator;
+            _bombDropMultiplierDenominator =
+                config.ContractBombDropMultiplierDenominator;
+            _contractGuaranteesBombDrop =
+                config.ContractGuaranteesBombDrop;
+            _maxBombPickups = config.MaxBombPickups;
+            _maxLasers = config.MaxLasers;
             _activeModifiers = activeModifiers;
-            _pierceShotEnemyCount = config.PierceShotEnemyCount;
+            _pierceShotEnemyCount = MultiplySaturated(
+                config.PierceShotEnemyCount,
+                modifierStacks.GetStrength(
+                    BattleModifier.PierceShot));
             _ricochetRangeSubUnits = config.RicochetRangeSubUnits;
+            _ricochetCount = modifierStacks.GetStrength(
+                BattleModifier.Ricochet);
             _homingMissileTurnLutSlotsPerTick =
-                config.HomingMissileTurnLutSlotsPerTick;
+                Math.Min(
+                    SineLut.Length / 2,
+                    MultiplySaturated(
+                        config.HomingMissileTurnLutSlotsPerTick,
+                        modifierStacks.GetStrength(
+                            BattleModifier.HomingMissile)));
             _killExplosionRadiusSubUnits = config.KillExplosionRadiusSubUnits;
             _killExplosionDamage = config.KillExplosionDamage;
-            _killExplosionMaxTargets = config.KillExplosionMaxTargets;
+            _killExplosionMaxTargets = MultiplySaturated(
+                config.KillExplosionMaxTargets,
+                modifierStacks.GetStrength(
+                    BattleModifier.KillExplosion));
             _grazeExtraRadiusSubUnits = config.GrazeExtraRadiusSubUnits;
             _grazeScore = config.GrazeScore;
             _grazeComboGaugeGain = config.GrazeComboGaugeGain;
@@ -992,7 +1685,12 @@ namespace Shmup.Core.Simulation
                 config.ComboMultiplierLevel4
             };
             _powerUpGauge = powerUpGauge;
+            _shieldGaugeLevel = powerUpGauge == null
+                ? 0
+                : GetEffectivePowerLevel(PowerUpSlot.Shield);
             _dropRng = rng.Fork(DropRngStream);
+            _bombDropRng = rng.Fork(BombDropRngStream);
+            _bossPatternRng = rng.Fork(BossPatternRngStream);
 
             if (stageEnabled && stagePlan.BossMaxHp > 0)
             {
@@ -1015,6 +1713,8 @@ namespace Shmup.Core.Simulation
                 _bossPhases = Array.Empty<Generation.BossPhase>();
                 _bossPartDefinitions = Array.Empty<BossPartDefinition>();
             }
+            _bossUsesTimedPattern =
+                ResolveTimedBossPattern(_bossPhases);
 
             _bossPartStates =
                 new BossPartState[_bossPartDefinitions.Count];
@@ -1034,6 +1734,13 @@ namespace Shmup.Core.Simulation
 
             if (stageEnabled)
             {
+                _stageSegments = stagePlan.Segments;
+                _segmentStartTicks =
+                    BuildSegmentStartTicks(stagePlan);
+                _visionObscured =
+                    stagePlan.Gimmick.VisionObscured;
+                _timeLimitTicks =
+                    stagePlan.Gimmick.TimeLimitTicks;
                 WeaponDefinition weapon = content.PlayerWeapon;
                 _bulletSpeedNumerator = config.UseConfiguredMainShotStats
                     ? config.PlayerBulletSpeedNumerator
@@ -1084,6 +1791,10 @@ namespace Shmup.Core.Simulation
             }
             else
             {
+                _stageSegments = Array.Empty<StageSegment>();
+                _segmentStartTicks = Array.Empty<int>();
+                _visionObscured = false;
+                _timeLimitTicks = 0;
                 _bulletSpeedNumerator = useLaserProfile
                     ? config.LaserSpeedNumerator
                     : useSpreadProfile
@@ -1113,6 +1824,19 @@ namespace Shmup.Core.Simulation
                 _scheduledSpawns = Array.Empty<ScheduledSpawn>();
                 _scheduledObstacles = Array.Empty<ScheduledObstacle>();
             }
+            _bossSpawnX = Math.Max(
+                _bossHoldX,
+                SaturateToInt(
+                    (long)SimSpace.PlayfieldHalfWidthSubUnits
+                    + GetBossLeftExtent()
+                    + 1));
+            int bossEntryDistance =
+                Math.Max(0, _bossSpawnX - _bossHoldX);
+            int bossEntryTicks =
+                (bossEntryDistance + BossGlideSpeedPerTick - 1)
+                / BossGlideSpeedPerTick;
+            _bossEntryStartTick =
+                Math.Max(0, _stageTotalTicks - bossEntryTicks);
 
             int bulletCapacity = _maxBullets + _maxEnemyBullets;
             _bullets = new List<BulletState>(bulletCapacity);
@@ -1125,12 +1849,17 @@ namespace Shmup.Core.Simulation
             _bulletRicochetUsed = new List<int>(bulletCapacity);
             _bulletHomingTargetIds = new List<int>(bulletCapacity);
             _bulletGrazeScored = new List<byte>(bulletCapacity);
+            int maximumPrimaryPierce =
+                GetMaximumPrimaryPierce(
+                    content,
+                    _mainShotBasePierceEnemyCount);
             long hitRecordCapacity =
                 (long)_maxBullets
-                * (_mainShotBasePierceEnemyCount
-                    + _pierceShotEnemyCount
-                    + _missilePierceEnemyCount
-                    + 2L);
+                    * (maximumPrimaryPierce
+                        + _pierceShotEnemyCount
+                        + _ricochetCount
+                        + _missilePierceEnemyCount
+                        + 2L);
             if (hitRecordCapacity > int.MaxValue)
                 throw new ArgumentOutOfRangeException(
                     nameof(config.PierceShotEnemyCount),
@@ -1167,26 +1896,93 @@ namespace Shmup.Core.Simulation
             _enemyMovementFlags = new List<byte>(spawnCapacity);
             _readOnlyEnemies = _enemies.AsReadOnly();
             _obstacles = new List<ObstacleState>(_maxObstacles);
+            _obstacleAges = new List<int>(_maxObstacles);
+            _obstacleLaserAttacks =
+                new List<LaserAttackDefinition>(_maxObstacles);
             _readOnlyObstacles = _obstacles.AsReadOnly();
             _capsules = new List<CapsuleState>(spawnCapacity);
             _capsuleMagnetXRemainders = new List<long>(spawnCapacity);
             _capsuleMagnetYRemainders = new List<long>(spawnCapacity);
             _readOnlyCapsules = _capsules.AsReadOnly();
+            _bombPickups = new List<BombPickupState>(_maxBombPickups);
+            _bombPickupMagnetXRemainders =
+                new List<long>(_maxBombPickups);
+            _bombPickupMagnetYRemainders =
+                new List<long>(_maxBombPickups);
+            _readOnlyBombPickups = _bombPickups.AsReadOnly();
+            _lasers = new List<LaserState>(_maxLasers);
+            _laserDefinitions =
+                new List<LaserAttackDefinition>(_maxLasers);
+            _laserAges = new List<int>(_maxLasers);
+            _readOnlyLasers = _lasers.AsReadOnly();
             _enemyScanIds = new int[spawnCapacity];
             _enemyScanDistances = new long[spawnCapacity];
             long eventCapacity = 64L
                 + 3L * spawnCapacity
                 + 2L * bulletCapacity
-                + 2L * _maxObstacles;
+                + 2L * Math.Max(
+                    _maxObstacles,
+                    _scheduledObstacles.Length)
+                + 2L * _maxBombPickups
+                + 3L * _maxLasers;
             if (eventCapacity > int.MaxValue)
                 throw new ArgumentOutOfRangeException(
                     nameof(stagePlan),
                     "The no-allocation event capacity exceeds the supported range.");
             _events = new SimEvent[(int)eventCapacity];
 
-            PlayerX = config.PlayerSpawnX;
-            PlayerY = config.PlayerSpawnY;
-            PlayerHp = config.PlayerMaxHp;
+            if (continuityState != null
+                && continuityState.MultiplierLevel
+                    >= _comboMultipliers.Length)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(continuityState),
+                    "The carried multiplier level is unsupported.");
+            }
+            if (continuityState != null
+                && ((continuityState.MultiplierLevel
+                        == _comboMultipliers.Length - 1
+                        && continuityState.ComboGauge != 0)
+                    || (continuityState.MultiplierLevel
+                        < _comboMultipliers.Length - 1
+                        && continuityState.ComboGauge
+                            >= _comboGaugeRequirements[
+                                continuityState.MultiplierLevel])))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(continuityState),
+                    "The carried combo gauge is not canonical.");
+            }
+            PlayerX = continuityState == null
+                ? config.PlayerSpawnX
+                : Math.Max(
+                    _playerMinX,
+                    Math.Min(
+                        _playerMaxX,
+                        continuityState.PlayerX));
+            PlayerY = continuityState == null
+                ? config.PlayerSpawnY
+                : Math.Max(
+                    _playerMinY,
+                    Math.Min(
+                        _playerMaxY,
+                        continuityState.PlayerY));
+            if (continuityState != null)
+            {
+                _multiplierLevel =
+                    continuityState.MultiplierLevel;
+                _comboGauge = continuityState.ComboGauge;
+                _ticksSinceLastKill =
+                    continuityState.TicksSinceLastKill;
+            }
+            ShieldStock = Math.Min(
+                config.StartingShieldStock,
+                _maxShieldStock);
+            BombStock = Math.Min(
+                config.StartingBombStock,
+                _maxBombStock);
+            _playerAlive = true;
+            UpdateEnvironmentState();
             RecordPlayerPosition();
             ReadPowerUpLevels();
             UpdateOptionPositions();
@@ -1198,6 +1994,17 @@ namespace Shmup.Core.Simulation
         public int MultiplierLevel => _multiplierLevel;
         public int ScoreMultiplier => _comboMultipliers[_multiplierLevel];
         public int ComboGauge => _comboGauge;
+        public int TicksSinceLastKill => _ticksSinceLastKill;
+
+        public BattleContinuityState CaptureContinuityState()
+        {
+            return new BattleContinuityState(
+                PlayerX,
+                PlayerY,
+                _multiplierLevel,
+                _comboGauge,
+                _ticksSinceLastKill);
+        }
         public BattleStatistics Statistics => new BattleStatistics(
             _shotsFired,
             _shotsHit,
@@ -1207,23 +2014,49 @@ namespace Shmup.Core.Simulation
         public long ScrollX => GetScrollXAtTick(Tick);
         public int PlayerX { get; private set; }
         public int PlayerY { get; private set; }
-        public int PlayerHp { get; private set; }
-        public int ShieldRemaining { get; private set; }
+        public bool IsPlayerAlive => _playerAlive;
+        public int ShieldStock { get; private set; }
+        public int MaxShieldStock => _maxShieldStock;
+        public int BombStock { get; private set; }
+        public int PlayerInvulnerabilityTicksRemaining =>
+            _playerInvulnerabilityTicksRemaining;
+        public int PlayerHp => _playerAlive ? 1 : 0;
+        public int ShieldRemaining => ShieldStock;
         public WeaponType PlayerWeaponType => _playerWeaponType;
+        public PrimaryWeaponFamily EquippedPrimaryWeaponFamily =>
+            _equippedPrimaryWeaponFamily;
         public IReadOnlyList<BulletState> Bullets => _readOnlyBullets;
         public IReadOnlyList<OptionState> Options => _readOnlyOptions;
         public IReadOnlyList<EnemyState> Enemies => _readOnlyEnemies;
         public IReadOnlyList<ObstacleState> Obstacles => _readOnlyObstacles;
         public IReadOnlyList<CapsuleState> Capsules => _readOnlyCapsules;
+        public IReadOnlyList<BombPickupState> BombPickups =>
+            _readOnlyBombPickups;
+        public IReadOnlyList<LaserState> Lasers => _readOnlyLasers;
+        public StageEnvironmentState Environment => _environment;
+        public bool VisionObscured => _visionObscured;
+        public int TimeLimitTicks => _timeLimitTicks;
+        public int RemainingTimeTicks => _timeLimitTicks == 0
+            ? 0
+            : Math.Max(0, _timeLimitTicks - Tick);
+        public bool TimeLimitExpired => _timeLimitExpired;
         public ReadOnlySpan<SimEvent> EventsThisTick => new ReadOnlySpan<SimEvent>(_events, 0, _eventCount);
         public bool BossActive => _bossSpawned && !_bossDefeated;
+        public bool BossEntering =>
+            BossActive && _bossX > _bossHoldX;
         public BossState Boss => new BossState(
             _bossId,
             _bossX,
             _bossY,
             _bossHp,
             _bossRuntimeMaxHp,
-            _bossPhase);
+            _bossPhase,
+            _bossPhases.Count == 0
+                ? BossMovementPattern.LegacyHover
+                : _bossPhases[_bossPhase].MovementPattern,
+            _bossPhases.Count == 0
+                ? BossPartVulnerability.Legacy
+                : _bossPhases[_bossPhase].PartVulnerability);
         public IReadOnlyList<BossPartState> BossParts =>
             _readOnlyBossParts;
         /// <summary>보스전이 예정된 스테이지인지 (RunManager가 종료 조건 분기에 쓴다).</summary>
@@ -1295,9 +2128,12 @@ namespace Shmup.Core.Simulation
             Tick++;
             _eventCount = 0;
             _killScoredThisTick = false;
+            if (_playerInvulnerabilityTicksRemaining > 0)
+                _playerInvulnerabilityTicksRemaining--;
 
-            PlayerX = AdvancePlayerAxis(PlayerX, input.MoveX, ref _playerXRemainder, _playerMinX, _playerMaxX);
-            PlayerY = AdvancePlayerAxis(PlayerY, input.MoveY, ref _playerYRemainder, _playerMinY, _playerMaxY);
+            UpdateEnvironmentState();
+            ExpireTimeLimitIfNeeded();
+            AdvancePlayer(in input);
             RecordPlayerPosition();
             bool activatePressed = input.Activate && !_activateHeld;
             _activateHeld = input.Activate;
@@ -1305,19 +2141,29 @@ namespace Shmup.Core.Simulation
                 _powerUpGauge.Activate();
             ReadPowerUpLevels();
             UpdateOptionPositions();
+            bool bombPressed =
+                input.ActivateBomb && !_bombHeld;
+            _bombHeld = input.ActivateBomb;
+            AdvanceLasers();
             AdvanceBullets();
             AdvanceEnemies();
             AdvanceObstacles();
             AdvanceCapsules();
+            AdvanceBombPickups();
             SpawnScheduledThroughTick(Tick);
             UpdateBoss();
+            if (bombPressed)
+                TryActivateBomb();
             ResolvePlayerBulletObstacleCollisions();
             ResolvePlayerBulletEnemyCollisions();
             ResolvePlayerBulletBossCollisions();
+            RefreshLaserSegments();
             ResolveEnemyBulletPlayerCollisions();
+            ResolveLaserPlayerCollisions();
             ResolveEnemyPlayerCollisions();
             ResolveObstaclePlayerCollisions();
             ResolveCapsulePlayerCollisions();
+            ResolveBombPickupPlayerCollisions();
             AdvanceComboDecay();
 
             if (_cooldown > 0) _cooldown--;
@@ -1405,26 +2251,448 @@ namespace Shmup.Core.Simulation
                 _missileLevel = 0;
                 _optionLevel = 0;
                 _shieldGaugeLevel = 0;
-                ShieldRemaining = 0;
                 return;
             }
 
             int previousMainShot = _mainShotLevel;
             int previousMissile = _missileLevel;
             int previousOption = _optionLevel;
-            _mainShotLevel = _powerUpGauge.GetLevel(PowerUpSlot.MainShot);
-            _missileLevel = _powerUpGauge.GetLevel(PowerUpSlot.Missile);
-            _optionLevel = _powerUpGauge.GetLevel(PowerUpSlot.Option);
+            int nextSpeedLevel =
+                _powerUpGauge.GetLevel(PowerUpSlot.Speed);
+            if (nextSpeedLevel != _speedGaugeLevel)
+            {
+                ApplySpeedGaugeLevel(nextSpeedLevel);
+                EmitLevelChange(
+                    PowerUpSlot.Speed,
+                    _speedGaugeLevel,
+                    nextSpeedLevel);
+                _speedGaugeLevel = nextSpeedLevel;
+            }
+            ApplyGaugeWeaponMode();
+            _mainShotLevel =
+                GetEffectivePowerLevel(PowerUpSlot.MainShot);
+            _missileLevel =
+                GetEffectivePowerLevel(PowerUpSlot.Missile);
+            _optionLevel =
+                GetEffectivePowerLevel(PowerUpSlot.Option);
             EmitLevelChange(PowerUpSlot.MainShot, previousMainShot, _mainShotLevel);
             EmitLevelChange(PowerUpSlot.Missile, previousMissile, _missileLevel);
             EmitLevelChange(PowerUpSlot.Option, previousOption, _optionLevel);
-            int nextShieldLevel = _powerUpGauge.GetLevel(PowerUpSlot.Shield);
+            int nextShieldLevel =
+                GetEffectivePowerLevel(PowerUpSlot.Shield);
             EmitLevelChange(PowerUpSlot.Shield, _shieldGaugeLevel, nextShieldLevel);
             if (nextShieldLevel > _shieldGaugeLevel)
-                ShieldRemaining = nextShieldLevel;
-            else if (ShieldRemaining > nextShieldLevel)
-                ShieldRemaining = nextShieldLevel;
+                RecoverShieldStock(nextShieldLevel - _shieldGaugeLevel);
             _shieldGaugeLevel = nextShieldLevel;
+        }
+
+        void ApplySpeedGaugeLevel(int nextLevel)
+        {
+            int delta = nextLevel - _speedGaugeLevel;
+            if (delta == 0)
+                return;
+            if (delta < 0)
+                throw new InvalidOperationException(
+                    "Speed gauge levels cannot decrease inside a battle.");
+            AddExactPositiveFraction(
+                ref _playerSpeedNumerator,
+                ref _playerSpeedDenominator,
+                (long)_powerUpGauge.SpeedBonusNumerator * delta,
+                _powerUpGauge.SpeedBonusDenominator);
+        }
+
+        void ApplyGaugeWeaponMode()
+        {
+            if (_battleContent == null)
+                return;
+            PrimaryWeaponFamily family;
+            switch (_powerUpGauge.ActiveWeaponMode)
+            {
+                case PowerUpWeaponMode.None:
+                    return;
+                case PowerUpWeaponMode.Double:
+                    family = PrimaryWeaponFamily.Double;
+                    break;
+                case PowerUpWeaponMode.Laser:
+                    family = PrimaryWeaponFamily.Laser;
+                    break;
+                case PowerUpWeaponMode.Triple:
+                    family = PrimaryWeaponFamily.Spread;
+                    break;
+                default:
+                    throw new InvalidOperationException(
+                        "Unknown gauge weapon mode.");
+            }
+            if (family == _equippedPrimaryWeaponFamily)
+                return;
+            PrimaryWeaponFamilyDefinition definition =
+                _battleContent.FindPrimaryWeaponFamily(family);
+            if (definition == null)
+                throw new InvalidOperationException(
+                    $"Gauge mode '{family}' has no primary weapon profile.");
+            PrimaryWeaponFamilyDefinition current =
+                _battleContent.FindPrimaryWeaponFamily(
+                    _equippedPrimaryWeaponFamily);
+            int damageBonus = current == null
+                ? 0
+                : Math.Max(
+                    0,
+                    _playerBulletDamage - current.BaseDamage);
+            int intervalReduction = current == null
+                ? 0
+                : Math.Max(
+                    0,
+                    current.FireIntervalTicks
+                        - _fireIntervalTicks);
+            ApplyPrimaryWeaponProfile(definition);
+            _playerBulletDamage = SaturateToInt(
+                (long)_playerBulletDamage + damageBonus);
+            _fireIntervalTicks = Math.Max(
+                _mainShotMinimumFireIntervalTicks,
+                _fireIntervalTicks - intervalReduction);
+        }
+
+        void ApplyPrimaryWeaponProfile(
+            PrimaryWeaponFamilyDefinition definition)
+        {
+            _equippedPrimaryWeaponFamily = definition.Family;
+            _playerWeaponType = definition.WeaponType;
+            _playerBulletDamage = definition.BaseDamage;
+            _fireIntervalTicks = definition.FireIntervalTicks;
+            _mainShotMinimumFireIntervalTicks =
+                definition.MinimumFireIntervalTicks;
+            _mainShotRapidFireStartLevel =
+                definition.RapidFireStartLevel;
+            _mainShotFireIntervalReductionPerLevel =
+                definition.FireIntervalReductionPerLevel;
+            _bulletSpeedNumerator = definition.SpeedNumerator;
+            _bulletSpeedDenominator = definition.SpeedDenominator;
+            _playerBulletHalfWidth = definition.HalfWidth;
+            _playerBulletHalfHeight = definition.HalfHeight;
+            _mainShotBasePierceEnemyCount =
+                definition.PierceEnemyCount;
+            _spreadWays = definition.SpreadWays;
+            _spreadStepLutSlots = definition.SpreadStepLutSlots;
+        }
+
+        static void AddExactPositiveFraction(
+            ref int numerator,
+            ref int denominator,
+            long bonusNumerator,
+            int bonusDenominator)
+        {
+            if (bonusNumerator < 0 || bonusDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(bonusNumerator));
+            long commonDivisor = GreatestCommonDivisorLong(
+                denominator,
+                bonusDenominator);
+            long leftScale = bonusDenominator / commonDivisor;
+            long rightScale = denominator / commonDivisor;
+            long nextDenominator = (long)denominator * leftScale;
+            long nextNumerator;
+            try
+            {
+                nextNumerator = checked(
+                    (long)numerator * leftScale
+                    + bonusNumerator * rightScale);
+            }
+            catch (OverflowException)
+            {
+                numerator = int.MaxValue;
+                denominator = 1;
+                return;
+            }
+            long divisor = GreatestCommonDivisorLong(
+                nextNumerator,
+                nextDenominator);
+            nextNumerator /= divisor;
+            nextDenominator /= divisor;
+            if (nextNumerator > int.MaxValue
+                || nextDenominator > int.MaxValue)
+            {
+                numerator = int.MaxValue;
+                denominator = 1;
+                return;
+            }
+            numerator = (int)nextNumerator;
+            denominator = (int)nextDenominator;
+        }
+
+        static long GreatestCommonDivisorLong(long left, long right)
+        {
+            while (right != 0)
+            {
+                long remainder = left % right;
+                left = right;
+                right = remainder;
+            }
+            return left == 0 ? 1 : left;
+        }
+
+        int GetEffectivePowerLevel(PowerUpSlot slot)
+        {
+            int rawLevel = _powerUpGauge.GetLevel(slot);
+            int softCap;
+            switch (slot)
+            {
+                case PowerUpSlot.MainShot:
+                    softCap = _mainShotEffectSoftCap;
+                    break;
+                case PowerUpSlot.Missile:
+                    softCap = _missileEffectSoftCap;
+                    break;
+                case PowerUpSlot.Option:
+                    softCap = _optionEffectSoftCap;
+                    break;
+                case PowerUpSlot.Shield:
+                    softCap = _shieldEffectSoftCap;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(slot));
+            }
+            return PowerLevelScaling.GetEffectiveLevel(
+                rawLevel,
+                softCap);
+        }
+
+        static int ResolveEffectSoftCap(
+            BattleContent content,
+            PowerUpGauge gauge,
+            PowerUpSlot slot)
+        {
+            if (content == null || gauge == null)
+                return int.MaxValue;
+            WeaponDefinition definition = content.FindWeapon(slot);
+            return definition != null
+                && definition.MaxLevel == gauge.GetMaxLevel(slot)
+                    ? definition.EffectSoftCapLevel
+                    : int.MaxValue;
+        }
+
+        static int GetMaximumPrimaryPierce(
+            BattleContent content,
+            int fallback)
+        {
+            int maximum = fallback;
+            if (content == null)
+                return maximum;
+            for (int i = 0;
+                i < content.PrimaryWeaponFamilies.Count;
+                i++)
+            {
+                maximum = Math.Max(
+                    maximum,
+                    content.PrimaryWeaponFamilies[i]
+                        .PierceEnemyCount);
+            }
+            return maximum;
+        }
+
+        static PrimaryWeaponFamily PrimaryWeaponFamilyFor(
+            WeaponType weaponType)
+        {
+            switch (weaponType)
+            {
+                case WeaponType.Laser:
+                    return PrimaryWeaponFamily.Laser;
+                case WeaponType.Spread:
+                    return PrimaryWeaponFamily.Spread;
+                default:
+                    return PrimaryWeaponFamily.Vulcan;
+            }
+        }
+
+        /// <summary>
+        /// Restores the single REQ-040 durability resource without exceeding the
+        /// configured provisional cap. Returns the number of stocks restored.
+        /// </summary>
+        public int RecoverShieldStock(int amount)
+        {
+            if (amount < 0)
+                throw new ArgumentOutOfRangeException(nameof(amount));
+            int available = _maxShieldStock - ShieldStock;
+            int restored = Math.Min(amount, available);
+            ShieldStock += restored;
+            return restored;
+        }
+
+        /// <summary>
+        /// Applies the Core-owned runtime shield cap. Lowering the cap clamps
+        /// current stock immediately so no save or following stage can carry an
+        /// impossible stock value.
+        /// </summary>
+        public int SetMaxShieldStock(int maxShieldStock)
+        {
+            if (maxShieldStock < 1
+                || maxShieldStock
+                    > BattleSimConfig.MaximumShieldStock)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maxShieldStock),
+                    $"Shield cap must be in "
+                    + $"1.."
+                    + $"{BattleSimConfig.MaximumShieldStock}.");
+            _maxShieldStock = maxShieldStock;
+            if (ShieldStock > _maxShieldStock)
+                ShieldStock = _maxShieldStock;
+            return ShieldStock;
+        }
+
+        public int SetMaxBombStock(int maxBombStock)
+        {
+            if (maxBombStock < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maxBombStock));
+            _maxBombStock = maxBombStock;
+            if (BombStock > _maxBombStock)
+                BombStock = _maxBombStock;
+            return BombStock;
+        }
+
+        /// <summary>
+        /// Adds bomb stock up to the provisional cap. This is the Core-owned
+        /// reward/pickup integration point; Presentation must not mutate stock.
+        /// </summary>
+        public int AcquireBombStock(int amount)
+        {
+            return AcquireBombStock(
+                amount,
+                0,
+                PlayerX,
+                PlayerY);
+        }
+
+        int AcquireBombStock(
+            int amount,
+            int pickupId,
+            int x,
+            int y)
+        {
+            if (amount < 0)
+                throw new ArgumentOutOfRangeException(nameof(amount));
+            int available = _maxBombStock - BombStock;
+            int restored = Math.Min(amount, available);
+            BombStock += restored;
+            EmitEvent(
+                SimEventType.BombAcquired,
+                pickupId,
+                x,
+                y,
+                BombStock);
+            if (restored > 0)
+                EmitEvent(
+                    SimEventType.BombStockChanged,
+                    0,
+                    PlayerX,
+                    PlayerY,
+                    BombStock);
+            return restored;
+        }
+
+        void TryActivateBomb()
+        {
+            if (BombStock == 0)
+            {
+                EmitEvent(
+                    SimEventType.BombActivationRejectedEmpty,
+                    0,
+                    PlayerX,
+                    PlayerY,
+                    0);
+                return;
+            }
+
+            BombStock--;
+            EmitEvent(
+                SimEventType.BombStockChanged,
+                0,
+                PlayerX,
+                PlayerY,
+                BombStock);
+            EmitEvent(
+                SimEventType.BombActivated,
+                0,
+                PlayerX,
+                PlayerY,
+                _bombEffectRadiusSubUnits);
+            if (_playerInvulnerabilityTicksRemaining
+                < _bombInvulnerabilityTicks)
+            {
+                _playerInvulnerabilityTicksRemaining =
+                    _bombInvulnerabilityTicks;
+            }
+
+            for (int i = _bullets.Count - 1; i >= 0; i--)
+                if (_bullets[i].Faction == BulletFaction.Enemy
+                    && IsOnScreen(_bullets[i].X, _bullets[i].Y))
+                    RemoveBulletAt(i);
+
+            for (int i = _enemies.Count - 1; i >= 0; i--)
+            {
+                EnemyState enemy = _enemies[i];
+                if (!IsOnScreen(enemy.X, enemy.Y))
+                    continue;
+                int hp = Damage.ApplyToHp(
+                    enemy.Hp,
+                    _bombRegularEnemyDamage);
+                if (hp > 0)
+                {
+                    _enemies[i] = new EnemyState(
+                        enemy.Id,
+                        enemy.DefinitionId,
+                        enemy.X,
+                        enemy.Y,
+                        hp);
+                    EmitEvent(
+                        SimEventType.EnemyHit,
+                        enemy.Id,
+                        enemy.X,
+                        enemy.Y,
+                        enemy.Hp - hp);
+                    continue;
+                }
+
+                EnemyDefinition definition = _enemyDefinitions[i];
+                RemoveEnemyAt(i);
+                int awardedScore =
+                    RecordKillScore(definition.ScoreValue);
+                AppendEvent(
+                    SimEventType.EnemyKilled,
+                    enemy.Id,
+                    enemy.X,
+                    enemy.Y,
+                    awardedScore);
+                IncrementSaturated(ref _kills);
+                AdvanceKillCombo();
+                TryDropCapsule(definition, enemy.X, enemy.Y);
+                TryDropBomb(definition, enemy.X, enemy.Y);
+            }
+
+            if (BossEntering
+                || !BossActive
+                || !IsOnScreen(_bossX, _bossY))
+                return;
+            if (_bossPartStates.Length == 0)
+            {
+                ApplyDamageToBoss(_bombBossDamageCap);
+                return;
+            }
+            for (int i = 0;
+                i < _bossPartStates.Length && BossActive;
+                i++)
+            {
+                ApplyDamageToBossPart(
+                    i,
+                    _bombBossPartDamageCap);
+            }
+        }
+
+        static bool IsOnScreen(int x, int y)
+        {
+            return x >= -SimSpace.PlayfieldHalfWidthSubUnits
+                && x <= SimSpace.PlayfieldHalfWidthSubUnits
+                && y >= -SimSpace.PlayfieldHalfHeightSubUnits
+                && y <= SimSpace.PlayfieldHalfHeightSubUnits;
         }
 
         void UpdateOptionPositions()
@@ -1531,16 +2799,336 @@ namespace Shmup.Core.Simulation
             y = _playerHistoryY[historyIndex];
         }
 
-        int AdvancePlayerAxis(int position, int direction, ref int remainder, int min, int max)
+        // 46340 / 65536 is the greatest 16-bit fixed-point diagonal
+        // component whose two-dimensional magnitude does not exceed one.
+        const int DigitalDirectionScale = 65536;
+        const int DigitalDiagonalComponent = 46340;
+
+        void UpdateEnvironmentState()
+        {
+            int segmentIndex = -1;
+            for (int i = 0; i < _stageSegments.Count; i++)
+            {
+                long endTick =
+                    (long)_segmentStartTicks[i]
+                    + _stageSegments[i].LengthTicks;
+                if (Tick >= _segmentStartTicks[i] && Tick < endTick)
+                {
+                    segmentIndex = i;
+                    break;
+                }
+            }
+
+            if (segmentIndex != _currentEnvironmentSegmentIndex)
+            {
+                _driftXRemainder = 0;
+                _driftYRemainder = 0;
+                _currentEnvironmentSegmentIndex = segmentIndex;
+            }
+            if (segmentIndex < 0)
+            {
+                _environment = new StageEnvironmentState(
+                    -1,
+                    null,
+                    false,
+                    0,
+                    0,
+                    0,
+                    0,
+                    1,
+                    0,
+                    1);
+                return;
+            }
+
+            StageSegment segment = _stageSegments[segmentIndex];
+            SegmentEnvironmentDefinition definition =
+                segment.Environment;
+            int localTick = Tick - _segmentStartTicks[segmentIndex];
+            int corridorMinY = definition.HasCorridor
+                ? InterpolateSegmentValue(
+                    definition.StartMinY,
+                    definition.EndMinY,
+                    localTick,
+                    segment.LengthTicks)
+                : 0;
+            int corridorMaxY = definition.HasCorridor
+                ? InterpolateSegmentValue(
+                    definition.StartMaxY,
+                    definition.EndMaxY,
+                    localTick,
+                    segment.LengthTicks)
+                : 0;
+            _environment = new StageEnvironmentState(
+                segmentIndex,
+                segment.SegmentId,
+                definition.HasCorridor,
+                corridorMinY,
+                corridorMaxY,
+                definition.CorridorContactDamage,
+                definition.DriftXNumerator,
+                definition.DriftXDenominator,
+                definition.DriftYNumerator,
+                definition.DriftYDenominator);
+        }
+
+        static int InterpolateSegmentValue(
+            int start,
+            int end,
+            int elapsedTicks,
+            int durationTicks)
+        {
+            return SaturateToInt(
+                (long)start
+                + ((long)end - start) * elapsedTicks / durationTicks);
+        }
+
+        void ExpireTimeLimitIfNeeded()
+        {
+            if (_timeLimitExpired
+                || _timeLimitTicks == 0
+                || Tick < _timeLimitTicks
+                || _bossDefeated)
+                return;
+
+            _timeLimitExpired = true;
+            EmitEvent(
+                SimEventType.TimeLimitExpired,
+                0,
+                PlayerX,
+                PlayerY,
+                _timeLimitTicks);
+            if (!_playerAlive)
+                return;
+            ShieldStock = 0;
+            _playerAlive = false;
+            EmitEvent(
+                SimEventType.PlayerKilled,
+                0,
+                PlayerX,
+                PlayerY,
+                0);
+        }
+
+        void AdvancePlayer(in InputCommand input)
+        {
+            int controlledX;
+            int controlledY;
+            if (input.UseAnalogMovement)
+            {
+                _playerXRemainder = 0;
+                _playerYRemainder = 0;
+                ClampAnalogDelta(
+                    input.AnalogDeltaXSubUnits,
+                    input.AnalogDeltaYSubUnits,
+                    out int deltaX,
+                    out int deltaY);
+                controlledX = ClampPlayerPosition(
+                    PlayerX,
+                    deltaX,
+                    _playerMinX,
+                    _playerMaxX);
+                controlledY = ClampPlayerPosition(
+                    PlayerY,
+                    deltaY,
+                    _playerMinY,
+                    _playerMaxY);
+            }
+            else
+            {
+                int componentScale =
+                    input.MoveX != 0 && input.MoveY != 0
+                        ? DigitalDiagonalComponent
+                        : DigitalDirectionScale;
+                controlledX = AdvanceDigitalPlayerAxis(
+                    PlayerX,
+                    input.MoveX,
+                    componentScale,
+                    ref _playerXRemainder,
+                    _playerMinX,
+                    _playerMaxX);
+                controlledY = AdvanceDigitalPlayerAxis(
+                    PlayerY,
+                    input.MoveY,
+                    componentScale,
+                    ref _playerYRemainder,
+                    _playerMinY,
+                    _playerMaxY);
+            }
+
+            int driftX = AdvanceSignedFraction(
+                _environment.DriftXNumerator,
+                _environment.DriftXDenominator,
+                ref _driftXRemainder);
+            int driftY = AdvanceSignedFraction(
+                _environment.DriftYNumerator,
+                _environment.DriftYDenominator,
+                ref _driftYRemainder);
+            PlayerX = ClampPlayerPosition(
+                controlledX,
+                driftX,
+                _playerMinX,
+                _playerMaxX);
+
+            long candidateY = (long)controlledY + driftY;
+            int minimumY = _playerMinY;
+            int maximumY = _playerMaxY;
+            bool corridorContact = false;
+            if (_environment.HasCorridor)
+            {
+                minimumY = Math.Max(
+                    minimumY,
+                    SaturateToInt(
+                        (long)_environment.CorridorMinY
+                        + _playerHalfHeight));
+                maximumY = Math.Min(
+                    maximumY,
+                    SaturateToInt(
+                        (long)_environment.CorridorMaxY
+                        - _playerHalfHeight));
+                if (minimumY > maximumY)
+                    throw new InvalidOperationException(
+                        "The active corridor is narrower than the player hitbox.");
+                corridorContact =
+                    candidateY < minimumY || candidateY > maximumY;
+            }
+            PlayerY = candidateY <= minimumY
+                ? minimumY
+                : candidateY >= maximumY
+                    ? maximumY
+                    : (int)candidateY;
+            if (corridorContact)
+            {
+                EmitEvent(
+                    SimEventType.CorridorContact,
+                    _environment.SegmentIndex,
+                    PlayerX,
+                    PlayerY,
+                    _environment.CorridorContactDamage);
+                ApplyPlayerHit(
+                    _environment.CorridorContactDamage);
+            }
+        }
+
+        static int AdvanceSignedFraction(
+            int numerator,
+            int denominator,
+            ref long remainder)
+        {
+            long accumulated = remainder + numerator;
+            int delta = (int)(accumulated / denominator);
+            remainder = accumulated % denominator;
+            return delta;
+        }
+
+        void ClampAnalogDelta(
+            int requestedX,
+            int requestedY,
+            out int deltaX,
+            out int deltaY)
+        {
+            if ((requestedX == 0 && requestedY == 0)
+                || _playerSpeedNumerator == 0)
+            {
+                deltaX = 0;
+                deltaY = 0;
+                return;
+            }
+
+            ulong absoluteX = AbsoluteAsUnsigned(requestedX);
+            ulong absoluteY = AbsoluteAsUnsigned(requestedY);
+            ulong lengthSquared =
+                absoluteX * absoluteX + absoluteY * absoluteY;
+            ulong speedNumerator = (ulong)_playerSpeedNumerator;
+            ulong speedDenominator = (ulong)_playerSpeedDenominator;
+            ulong maximumLengthSquared =
+                speedNumerator * speedNumerator
+                / (speedDenominator * speedDenominator);
+
+            if (lengthSquared <= maximumLengthSquared)
+            {
+                deltaX = requestedX;
+                deltaY = requestedY;
+                return;
+            }
+
+            ulong lengthCeiling = IntegerSquareRoot(lengthSquared);
+            if (lengthCeiling * lengthCeiling < lengthSquared)
+                lengthCeiling++;
+            long divisor =
+                (long)speedDenominator * (long)lengthCeiling;
+            deltaX = (int)(
+                (long)requestedX * _playerSpeedNumerator / divisor);
+            deltaY = (int)(
+                (long)requestedY * _playerSpeedNumerator / divisor);
+        }
+
+        int AdvanceDigitalPlayerAxis(
+            int position,
+            int direction,
+            int componentScale,
+            ref long remainder,
+            int min,
+            int max)
         {
             if (direction == 0) return position;
-            long accumulated = remainder + (long)direction * _playerSpeedNumerator;
-            long candidate = position + accumulated / _playerSpeedDenominator;
-            int nextRemainder = (int)(accumulated % _playerSpeedDenominator);
+            long divisor =
+                (long)_playerSpeedDenominator
+                * DigitalDirectionScale;
+            long accumulated =
+                remainder
+                + (long)direction
+                * _playerSpeedNumerator
+                * componentScale;
+            long candidate = position + accumulated / divisor;
+            long nextRemainder = accumulated % divisor;
             if (direction < 0 && candidate <= min) { remainder = 0; return min; }
             if (direction > 0 && candidate >= max) { remainder = 0; return max; }
             remainder = nextRemainder;
             return (int)candidate;
+        }
+
+        static int ClampPlayerPosition(
+            int position,
+            int delta,
+            int min,
+            int max)
+        {
+            long candidate = (long)position + delta;
+            if (candidate <= min)
+                return min;
+            if (candidate >= max)
+                return max;
+            return (int)candidate;
+        }
+
+        static ulong AbsoluteAsUnsigned(int value)
+        {
+            return value < 0
+                ? (ulong)(-(long)value)
+                : (ulong)value;
+        }
+
+        static ulong IntegerSquareRoot(ulong value)
+        {
+            ulong result = 0;
+            ulong bit = 1UL << 62;
+            while (bit > value)
+                bit >>= 2;
+            while (bit != 0)
+            {
+                if (value >= result + bit)
+                {
+                    value -= result + bit;
+                    result = (result >> 1) + bit;
+                }
+                else
+                {
+                    result >>= 1;
+                }
+                bit >>= 2;
+            }
+            return result;
         }
 
         void AdvanceBullets()
@@ -1807,7 +3395,20 @@ namespace Shmup.Core.Simulation
                 _enemies[index] = new EnemyState(state.Id, state.DefinitionId, x, y, state.Hp);
 
                 // 터렛류 조준 사격 (REQ-007 요청 1): fireIntervalTicks > 0 인 정의만.
-                if (definition.FireIntervalTicks > 0 && age % definition.FireIntervalTicks == 0)
+                if (definition.LaserAttack != null
+                    && age % definition.LaserAttack.CycleIntervalTicks
+                        == 0)
+                {
+                    TryStartLaser(
+                        LaserSourceKind.Enemy,
+                        state.Id,
+                        definition.LaserAttack,
+                        x,
+                        y);
+                }
+                else if (definition.LaserAttack == null
+                    && definition.FireIntervalTicks > 0
+                    && age % definition.FireIntervalTicks == 0)
                     SpawnEnemyAimedBullet(
                         x, y, PlayerX, PlayerY,
                         _enemyBulletSpeedNumerator, _enemyBulletSpeedDenominator, 0);
@@ -1830,18 +3431,36 @@ namespace Shmup.Core.Simulation
                 ScheduledObstacle scheduled =
                     _scheduledObstacles[_nextScheduledObstacle++];
                 if (_obstacles.Count >= _maxObstacles)
+                {
+                    EmitEvent(
+                        SimEventType.ObstacleCapacityExceeded,
+                        0,
+                        scheduled.Obstacle.X,
+                        scheduled.Obstacle.Y,
+                        _maxObstacles);
                     continue;
+                }
                 if (_nextObstacleId == int.MaxValue)
                     throw new InvalidOperationException(
                         "The obstacle id counter is exhausted.");
 
                 ObstacleSpawn obstacle = scheduled.Obstacle;
+                int obstacleId = _nextObstacleId++;
                 _obstacles.Add(new ObstacleState(
-                    _nextObstacleId++,
+                    obstacleId,
                     obstacle.Type,
                     obstacle.X,
                     obstacle.Y,
                     obstacle.Hp));
+                _obstacleAges.Add(0);
+                _obstacleLaserAttacks.Add(obstacle.LaserAttack);
+                if (obstacle.LaserAttack != null)
+                    TryStartLaser(
+                        LaserSourceKind.Terrain,
+                        obstacleId,
+                        obstacle.LaserAttack,
+                        obstacle.X,
+                        obstacle.Y);
             }
         }
 
@@ -1861,7 +3480,15 @@ namespace Shmup.Core.Simulation
             int y)
         {
             if (_enemies.Count >= _maxEnemies)
+            {
+                EmitEvent(
+                    SimEventType.EnemyCapacityExceeded,
+                    0,
+                    x,
+                    y,
+                    _maxEnemies);
                 return false;
+            }
             if (_nextEnemyId == int.MaxValue)
                 throw new InvalidOperationException(
                     "The enemy id counter is exhausted.");
@@ -1891,59 +3518,503 @@ namespace Shmup.Core.Simulation
 
             if (!_bossSpawned)
             {
-                if (Tick < _stageTotalTicks) return;
+                if (Tick < _bossEntryStartTick) return;
                 if (_nextEnemyId == int.MaxValue)
                     throw new InvalidOperationException("The enemy id counter is exhausted.");
                 _bossSpawned = true;
                 _bossId = _nextEnemyId++;
-                _bossX = Math.Max(
-                    _bossHoldX,
-                    SaturateToInt(
-                        (long)_bulletDespawnX + 2 * SimSpace.SubUnitsPerWorldUnit));
+                _bossX = _bossSpawnX;
                 _bossY = 0;
                 _bossHp = _bossMaxHp;
                 _bossPhase = 0;
                 _bossAge = 0;
-                _bossFireCooldown = _bossPhases[0].FireIntervalTicks;
+                _bossPhaseAge = 0;
+                _bossMovementAnchorY = _bossY;
+                _bossMovementPhaseOffsetTicks = 0;
+                _bossVelocityY = 0;
+                Generation.BossPhase initialPhase =
+                    _bossPhases[0];
+                _bossFireCooldown =
+                    initialPhase.TelegraphTicks > 0
+                        ? initialPhase.TelegraphTicks
+                        : initialPhase.FireIntervalTicks;
+                _bossPhaseTelegraphPending =
+                    initialPhase.TelegraphTicks > 0;
+                _bossBurstAwaitingVolley =
+                    initialPhase.FirePattern == BossFirePattern.Burst
+                    && initialPhase.TelegraphTicks > 0;
+                _bossPatternVolleyIndex = 0;
                 InitializeBossParts();
                 EmitEvent(SimEventType.BossSpawned, _bossId, _bossX, _bossY, 0);
                 return;
             }
 
-            _bossAge++;
             if (_bossX > _bossHoldX)
             {
-                _bossX = Math.Max(_bossHoldX, _bossX - BossEntrySpeedPerTick);
+                _bossX = Math.Max(
+                    _bossHoldX,
+                    _bossX - BossGlideSpeedPerTick);
                 RefreshBossPartPositions();
                 return;   // 진입 중에는 사격하지 않는다 (등장 연출 여유)
             }
 
+            _bossAge++;
+            AdvanceTimedBossPhase();
+            EmitPendingBossTelegraph();
+            Generation.BossPhase phase = _bossPhases[_bossPhase];
             if (_bossPartDefinitions.Count > 0)
             {
-                UpdateMultipartBoss();
+                UpdateMultipartBoss(phase);
+                UpdateBossPhaseFire(phase);
+                if (_bossUsesTimedPattern)
+                    _bossPhaseAge++;
                 return;
             }
 
-            int lutIndex = (_bossAge >> BossHoverPeriodShift) % SineLut.Length;
-            _bossY = (int)((long)BossHoverAmplitude * SineLut[lutIndex] / SineScale);
-            Generation.BossPhase phase = _bossPhases[_bossPhase];
-            if (_bossFireCooldown > 0) _bossFireCooldown--;
-            if (_bossFireCooldown == 0)
+            ApplyBossPhaseMovement(phase, false);
+            UpdateBossPhaseFire(phase);
+            if (_bossUsesTimedPattern)
+                _bossPhaseAge++;
+        }
+
+        static bool ResolveTimedBossPattern(
+            IReadOnlyList<Generation.BossPhase> phases)
+        {
+            if (phases.Count == 0)
+                return false;
+            bool timed = phases[0].DurationTicks > 0;
+            for (int i = 1; i < phases.Count; i++)
             {
-                int ways = phase.Ways;
-                int available = Math.Max(0, _maxEnemyBullets - CountEnemyBullets());
-                int shots = Math.Min(ways, available);
-                for (int i = 0; i < shots; i++)
-                {
-                    long centeredIndex = 2L * i - (ways - 1L);
-                    int rotation = (int)(
-                        (centeredIndex * SpreadStepLutSlots / 2) % SineLut.Length);
-                    SpawnEnemyAimedBullet(
-                        _bossX, _bossY, PlayerX, PlayerY,
-                        phase.BulletSpeedNumerator, phase.BulletSpeedDenominator, rotation);
-                }
-                _bossFireCooldown = phase.FireIntervalTicks;
+                if ((phases[i].DurationTicks > 0) != timed)
+                    throw new ArgumentException(
+                        "Boss phases cannot mix timed and HP-based progression.",
+                        nameof(phases));
             }
+            return timed;
+        }
+
+        int GetBossLeftExtent()
+        {
+            int extent = _bossHalfWidth;
+            for (int i = 0; i < _bossPartDefinitions.Count; i++)
+            {
+                BossPartDefinition part =
+                    _bossPartDefinitions[i];
+                extent = Math.Max(
+                    extent,
+                    SaturateToInt(
+                        (long)part.HalfWidth - part.OffsetX));
+            }
+            return Math.Max(0, extent);
+        }
+
+        void AdvanceTimedBossPhase()
+        {
+            if (!_bossUsesTimedPattern)
+                return;
+            Generation.BossPhase phase =
+                _bossPhases[_bossPhase];
+            if (_bossPhaseAge < phase.DurationTicks)
+                return;
+            int nextPhase = (_bossPhase + 1) % _bossPhases.Count;
+            EnterBossPhase(nextPhase, true);
+        }
+
+        void EnterBossPhase(
+            int phaseIndex,
+            bool emitChanged)
+        {
+            _bossPhase = phaseIndex;
+            _bossPhaseAge = 0;
+            Generation.BossPhase phase =
+                _bossPhases[phaseIndex];
+            ConfigureBossMovementPhase(phase);
+            _bossFireCooldown = phase.TelegraphTicks > 0
+                ? phase.TelegraphTicks
+                : Math.Max(
+                    1,
+                    Math.Min(
+                        _bossFireCooldown,
+                        phase.FireIntervalTicks));
+            _bossPhaseTelegraphPending =
+                phase.TelegraphTicks > 0;
+            _bossBurstAwaitingVolley =
+                phase.FirePattern == BossFirePattern.Burst
+                && phase.TelegraphTicks > 0;
+            _bossPatternVolleyIndex = 0;
+            RefreshBossPartPositions();
+            if (emitChanged)
+            {
+                EmitEvent(
+                    SimEventType.BossPhaseChanged,
+                    _bossId,
+                    _bossX,
+                    _bossY,
+                    phaseIndex);
+            }
+        }
+
+        void EmitPendingBossTelegraph()
+        {
+            if (!_bossPhaseTelegraphPending)
+                return;
+            _bossPhaseTelegraphPending = false;
+            EmitEvent(
+                SimEventType.BossAttackTelegraphed,
+                _bossId,
+                _bossX,
+                _bossY,
+                _bossPhase);
+        }
+
+        void UpdateBossPhaseFire(Generation.BossPhase phase)
+        {
+            if (_bossFireCooldown > 0)
+                _bossFireCooldown--;
+            if (_bossFireCooldown != 0)
+                return;
+
+            if (phase.FirePattern == BossFirePattern.Burst)
+            {
+                if (_bossBurstAwaitingVolley)
+                {
+                    FireAimedBossVolley(phase);
+                    _bossPatternVolleyIndex++;
+                    _bossBurstAwaitingVolley = false;
+                    _bossFireCooldown = phase.FireIntervalTicks;
+                    return;
+                }
+
+                EmitEvent(
+                    SimEventType.BossAttackTelegraphed,
+                    _bossId,
+                    _bossX,
+                    _bossY,
+                    _bossPhase);
+                _bossBurstAwaitingVolley = true;
+                _bossFireCooldown = phase.TelegraphTicks;
+                return;
+            }
+
+            switch (phase.FirePattern)
+            {
+                case BossFirePattern.Aimed:
+                    FireAimedBossVolley(phase);
+                    break;
+                case BossFirePattern.Radial:
+                    FireRadialBossVolley(phase, 0);
+                    break;
+                case BossFirePattern.Spiral:
+                    FireRadialBossVolley(
+                        phase,
+                        (_bossPatternVolleyIndex
+                            * SpiralStepLutSlots)
+                            % SineLut.Length);
+                    break;
+                case BossFirePattern.Wall:
+                    FireWallBossVolley(phase);
+                    break;
+                default:
+                    throw new InvalidOperationException(
+                        "Unknown boss fire pattern.");
+            }
+            _bossPatternVolleyIndex++;
+            _bossFireCooldown = phase.FireIntervalTicks;
+        }
+
+        void FireAimedBossVolley(Generation.BossPhase phase)
+        {
+            int shots = GetBossVolleyShotCount(phase.Ways);
+            for (int i = 0; i < shots; i++)
+            {
+                long centeredIndex =
+                    2L * i - (phase.Ways - 1L);
+                int rotation = (int)(
+                    (centeredIndex * SpreadStepLutSlots / 2)
+                    % SineLut.Length);
+                SpawnEnemyAimedBullet(
+                    _bossX,
+                    _bossY,
+                    PlayerX,
+                    PlayerY,
+                    phase.BulletSpeedNumerator,
+                    phase.BulletSpeedDenominator,
+                    rotation);
+            }
+        }
+
+        void FireRadialBossVolley(
+            Generation.BossPhase phase,
+            int baseRotation)
+        {
+            int shots = GetBossVolleyShotCount(phase.Ways);
+            for (int i = 0; i < shots; i++)
+            {
+                int rotation =
+                    (baseRotation
+                        + (int)((long)i
+                            * SineLut.Length
+                            / phase.Ways))
+                    % SineLut.Length;
+                SpawnEnemyAimedBullet(
+                    _bossX,
+                    _bossY,
+                    _bossX - SineScale,
+                    _bossY,
+                    phase.BulletSpeedNumerator,
+                    phase.BulletSpeedDenominator,
+                    rotation);
+            }
+        }
+
+        void FireWallBossVolley(Generation.BossPhase phase)
+        {
+            int gap = _bossPatternRng.NextInt(0, phase.Ways);
+            int requested = phase.Ways - 1;
+            int shots = GetBossVolleyShotCount(requested);
+            int fired = 0;
+            long height = (long)_playerMaxY - _playerMinY;
+            for (int lane = 0;
+                lane < phase.Ways && fired < shots;
+                lane++)
+            {
+                if (lane == gap)
+                    continue;
+                int y = (int)(_playerMinY
+                    + height * lane / (phase.Ways - 1));
+                SpawnEnemyAimedBullet(
+                    _bossX,
+                    y,
+                    _playerMinX,
+                    y,
+                    phase.BulletSpeedNumerator,
+                    phase.BulletSpeedDenominator,
+                    0);
+                fired++;
+            }
+        }
+
+        int GetBossVolleyShotCount(int requested)
+        {
+            int available = Math.Max(
+                0,
+                _maxEnemyBullets - CountEnemyBullets());
+            if (requested > available)
+            {
+                EmitEvent(
+                    SimEventType.EnemyBulletCapacityExceeded,
+                    _bossId,
+                    _bossX,
+                    _bossY,
+                    _maxEnemyBullets);
+            }
+            return Math.Min(requested, available);
+        }
+
+        void ApplyBossPhaseMovement(
+            Generation.BossPhase phase,
+            bool legacyVerticalMovementActive)
+        {
+            int previousY = _bossY;
+            switch (phase.MovementPattern)
+            {
+                case BossMovementPattern.LegacyHover:
+                {
+                    if (_bossPartDefinitions.Count > 0
+                        && !legacyVerticalMovementActive)
+                    {
+                        _bossY = _bossMovementAnchorY;
+                        break;
+                    }
+                    int tick = _bossPhaseAge
+                        + _bossMovementPhaseOffsetTicks;
+                    _bossY = SaturateToInt(
+                        (long)_bossMovementAnchorY
+                        + ComputeLegacyHoverOffset(tick));
+                    break;
+                }
+                case BossMovementPattern.Stationary:
+                    _bossY = _bossMovementAnchorY;
+                    break;
+                case BossMovementPattern.VerticalSine:
+                {
+                    _bossY = SaturateToInt(
+                        (long)_bossMovementAnchorY
+                        + ComputeVerticalSineOffset(
+                            phase,
+                            _bossPhaseAge
+                                + _bossMovementPhaseOffsetTicks));
+                    break;
+                }
+                default:
+                    throw new InvalidOperationException(
+                        $"Unknown boss movement pattern "
+                        + $"{phase.MovementPattern}.");
+            }
+            _bossVelocityY = SaturateToInt(
+                (long)_bossY - previousY);
+        }
+
+        void ConfigureBossMovementPhase(
+            Generation.BossPhase phase)
+        {
+            int carriedVelocity = _bossVelocityY;
+            int phaseOffset = FindClosestMovementPhase(
+                phase,
+                carriedVelocity,
+                SaturateToInt(
+                    (long)_bossY + carriedVelocity));
+            int firstOffset = ComputeMovementOffset(
+                phase,
+                phaseOffset);
+            _bossMovementPhaseOffsetTicks = phaseOffset;
+            _bossMovementAnchorY = SaturateToInt(
+                (long)_bossY
+                + carriedVelocity
+                - firstOffset);
+            int amplitude = GetMovementAmplitude(phase);
+            int minimumAnchor = SaturateToInt(
+                (long)_playerMinY
+                + _bossHalfHeight
+                + amplitude);
+            int maximumAnchor = SaturateToInt(
+                (long)_playerMaxY
+                - _bossHalfHeight
+                - amplitude);
+            if (minimumAnchor <= maximumAnchor)
+            {
+                _bossMovementAnchorY = Math.Max(
+                    minimumAnchor,
+                    Math.Min(
+                        maximumAnchor,
+                        _bossMovementAnchorY));
+            }
+        }
+
+        static int FindClosestMovementPhase(
+            Generation.BossPhase phase,
+            int velocity,
+            int desiredPosition)
+        {
+            int period;
+            switch (phase.MovementPattern)
+            {
+                case BossMovementPattern.Stationary:
+                    return 0;
+                case BossMovementPattern.LegacyHover:
+                    period =
+                        SineLut.Length << BossHoverPeriodShift;
+                    break;
+                case BossMovementPattern.VerticalSine:
+                    period = phase.MovementPeriodTicks;
+                    break;
+                default:
+                    throw new InvalidOperationException(
+                        "Unknown boss movement pattern.");
+            }
+
+            int bestTick = 0;
+            long bestPositionError = long.MaxValue;
+            long bestError = long.MaxValue;
+            for (int tick = 0; tick < period; tick++)
+            {
+                int offset =
+                    ComputeMovementOffset(phase, tick);
+                long positionError = Math.Abs(
+                    (long)offset - desiredPosition);
+                long candidateVelocity =
+                    (long)ComputeMovementOffset(phase, tick + 1)
+                    - offset;
+                long error = Math.Abs(
+                    candidateVelocity - velocity);
+                if (positionError < bestPositionError
+                    || (positionError == bestPositionError
+                        && error < bestError))
+                {
+                    bestPositionError = positionError;
+                    bestError = error;
+                    bestTick = tick;
+                }
+            }
+            return bestTick;
+        }
+
+        static int ComputeMovementOffset(
+            Generation.BossPhase phase,
+            int tick)
+        {
+            switch (phase.MovementPattern)
+            {
+                case BossMovementPattern.Stationary:
+                    return 0;
+                case BossMovementPattern.LegacyHover:
+                    return ComputeLegacyHoverOffset(tick);
+                case BossMovementPattern.VerticalSine:
+                    return ComputeVerticalSineOffset(phase, tick);
+                default:
+                    throw new InvalidOperationException(
+                        "Unknown boss movement pattern.");
+            }
+        }
+
+        static int GetMovementAmplitude(
+            Generation.BossPhase phase)
+        {
+            switch (phase.MovementPattern)
+            {
+                case BossMovementPattern.Stationary:
+                    return 0;
+                case BossMovementPattern.LegacyHover:
+                    return BossHoverAmplitude;
+                case BossMovementPattern.VerticalSine:
+                    return SaturateToInt(
+                        (long)phase.MovementAmplitudeNumerator
+                        / phase.MovementAmplitudeDenominator);
+                default:
+                    throw new InvalidOperationException(
+                        "Unknown boss movement pattern.");
+            }
+        }
+
+        static int ComputeLegacyHoverOffset(int tick)
+        {
+            int period =
+                SineLut.Length << BossHoverPeriodShift;
+            int normalized = PositiveModulo(tick, period);
+            int legacyIndex =
+                (normalized >> BossHoverPeriodShift)
+                % SineLut.Length;
+            return SaturateToInt(
+                (long)BossHoverAmplitude
+                * SineLut[legacyIndex]
+                / SineScale);
+        }
+
+        static int ComputeVerticalSineOffset(
+            Generation.BossPhase phase,
+            int tick)
+        {
+            int phaseTick = PositiveModulo(
+                tick,
+                phase.MovementPeriodTicks);
+            int lutIndex = (int)(
+                (long)phaseTick * SineLut.Length
+                / phase.MovementPeriodTicks);
+            long numerator =
+                (long)phase.MovementAmplitudeNumerator
+                * SineLut[lutIndex];
+            long denominator =
+                (long)phase.MovementAmplitudeDenominator
+                * SineScale;
+            return SaturateToInt(numerator / denominator);
+        }
+
+        static int PositiveModulo(int value, int modulus)
+        {
+            int remainder = value % modulus;
+            return remainder < 0
+                ? remainder + modulus
+                : remainder;
         }
 
         void InitializeBossParts()
@@ -1976,7 +4047,7 @@ namespace Shmup.Core.Simulation
             }
         }
 
-        void UpdateMultipartBoss()
+        void UpdateMultipartBoss(Generation.BossPhase phase)
         {
             RegenerateBossParts();
 
@@ -2010,20 +4081,9 @@ namespace Shmup.Core.Simulation
 
             _bossX = SaturateToInt(
                 (long)_bossHoldX - chargeOffset);
-            if (verticalMovementActive)
-            {
-                int lutIndex =
-                    (_bossAge >> BossHoverPeriodShift)
-                    % SineLut.Length;
-                _bossY = (int)(
-                    (long)BossHoverAmplitude
-                    * SineLut[lutIndex]
-                    / SineScale);
-            }
-            else
-            {
-                _bossY = 0;
-            }
+            ApplyBossPhaseMovement(
+                phase,
+                verticalMovementActive);
             RefreshBossPartPositions();
 
             for (int i = 0; i < _bossPartDefinitions.Count; i++)
@@ -2117,7 +4177,29 @@ namespace Shmup.Core.Simulation
                     state.MaxHp,
                     state.Destroyed,
                     state.IsCore,
-                    IsBossCoreGated(i));
+                    IsBossPartInvulnerable(i));
+            }
+        }
+
+        bool IsBossPartInvulnerable(int partIndex)
+        {
+            if (BossEntering)
+                return true;
+            BossPartVulnerability vulnerability =
+                _bossPhases[_bossPhase].PartVulnerability;
+            switch (vulnerability)
+            {
+                case BossPartVulnerability.Legacy:
+                    return IsBossCoreGated(partIndex);
+                case BossPartVulnerability.CoreOnly:
+                    return !_bossPartDefinitions[partIndex].IsCore
+                        || IsBossCoreGated(partIndex);
+                case BossPartVulnerability.All:
+                    return false;
+                default:
+                    throw new InvalidOperationException(
+                        $"Unknown boss part vulnerability "
+                        + $"{vulnerability}.");
             }
         }
 
@@ -2253,28 +4335,7 @@ namespace Shmup.Core.Simulation
                 return;
 
             _bossPartContactHitThisCycle[partIndex] = true;
-            int absorbed = Math.Min(
-                ShieldRemaining,
-                attack.ContactDamage);
-            ShieldRemaining -= absorbed;
-            bool wasAlive = PlayerHp > 0;
-            int hullDamage = attack.ContactDamage - absorbed;
-            PlayerHp = Damage.ApplyToHp(
-                PlayerHp,
-                hullDamage);
-            EmitEvent(
-                SimEventType.PlayerHit,
-                0,
-                PlayerX,
-                PlayerY,
-                hullDamage);
-            if (wasAlive && PlayerHp == 0)
-                EmitEvent(
-                    SimEventType.PlayerKilled,
-                    0,
-                    PlayerX,
-                    PlayerY,
-                    0);
+            ApplyPlayerHit(attack.ContactDamage);
         }
 
         static int PullAxis(
@@ -2318,7 +4379,7 @@ namespace Shmup.Core.Simulation
 
         void ResolvePlayerBulletBossCollisions()
         {
-            if (!BossActive) return;
+            if (!BossActive || BossEntering) return;
 
             int bulletIndex = 0;
             while (bulletIndex < _bullets.Count)
@@ -2408,12 +4469,12 @@ namespace Shmup.Core.Simulation
 
         bool ApplyDamageToBossPart(int partIndex, int damage)
         {
-            if (!BossActive || damage <= 0
+            if (!BossActive || BossEntering || damage <= 0
                 || partIndex < 0
                 || partIndex >= _bossPartStates.Length)
                 return false;
             BossPartState part = _bossPartStates[partIndex];
-            if (part.Destroyed || IsBossCoreGated(partIndex))
+            if (part.Destroyed || IsBossPartInvulnerable(partIndex))
                 return false;
 
             int hp = Damage.ApplyToHp(part.Hp, damage);
@@ -2430,6 +4491,8 @@ namespace Shmup.Core.Simulation
                 hp == 0,
                 part.IsCore,
                 false);
+            if (_bossHp > 0)
+                UpdateBossPhaseFromHp();
             if (hp > 0)
             {
                 EmitEvent(
@@ -2467,7 +4530,7 @@ namespace Shmup.Core.Simulation
 
         bool ApplyDamageToBoss(int damage)
         {
-            if (!BossActive || damage <= 0)
+            if (!BossActive || BossEntering || damage <= 0)
                 return false;
             _bossHp = Damage.ApplyToHp(_bossHp, damage);
             if (_bossHp > 0)
@@ -2478,27 +4541,25 @@ namespace Shmup.Core.Simulation
                     _bossX,
                     _bossY,
                     damage);
-                int phaseCount = _bossPhases.Count;
-                int nextPhase = Math.Min(
-                    phaseCount - 1,
-                    (int)((long)(_bossMaxHp - _bossHp)
-                        * phaseCount / _bossMaxHp));
-                if (nextPhase != _bossPhase)
-                {
-                    _bossPhase = nextPhase;
-                    _bossFireCooldown =
-                        _bossPhases[_bossPhase].FireIntervalTicks;
-                    EmitEvent(
-                        SimEventType.BossPhaseChanged,
-                        _bossId,
-                        _bossX,
-                        _bossY,
-                        nextPhase);
-                }
+                UpdateBossPhaseFromHp();
                 return false;
             }
 
             return DefeatBoss(_bossX, _bossY);
+        }
+
+        void UpdateBossPhaseFromHp()
+        {
+            if (_bossUsesTimedPattern)
+                return;
+            int phaseCount = _bossPhases.Count;
+            int nextPhase = Math.Min(
+                phaseCount - 1,
+                (int)((long)(_bossRuntimeMaxHp - _bossHp)
+                    * phaseCount / _bossRuntimeMaxHp));
+            if (nextPhase <= _bossPhase)
+                return;
+            EnterBossPhase(nextPhase, true);
         }
 
         bool DefeatBoss(int x, int y)
@@ -2541,18 +4602,9 @@ namespace Shmup.Core.Simulation
                         bullet.X, bullet.Y, _enemyBulletHalfWidth, _enemyBulletHalfHeight))
                 {
                     RemoveBulletAt(index);
-                    int absorbed = Math.Min(ShieldRemaining, _enemyBulletDamage);
-                    ShieldRemaining -= absorbed;
-                    PlayerHp = Damage.ApplyToHp(PlayerHp, _enemyBulletDamage - absorbed);
-                    EmitEvent(
-                        SimEventType.PlayerHit,
-                        0,
-                        PlayerX,
-                        PlayerY,
-                        _enemyBulletDamage - absorbed);
-                    if (PlayerHp == 0)
+                    ApplyPlayerHit(_enemyBulletDamage);
+                    if (!_playerAlive)
                     {
-                        EmitEvent(SimEventType.PlayerKilled, 0, PlayerX, PlayerY, 0);
                         return;
                     }
                     continue;
@@ -2691,6 +4743,82 @@ namespace Shmup.Core.Simulation
             }
         }
 
+        void AdvanceBombPickups()
+        {
+            long scrollDelta =
+                GetScrollXAtTick(Tick)
+                - GetScrollXAtTick(Tick - 1);
+            int index = 0;
+            while (index < _bombPickups.Count)
+            {
+                BombPickupState pickup = _bombPickups[index];
+                int nextX = SaturateToInt(pickup.X - scrollDelta);
+                int nextY = pickup.Y;
+                if (_capsuleMagnetRadiusSubUnits > 0
+                    && _capsuleMagnetSpeedNumerator > 0
+                    && SquaredDistanceSaturated(
+                        nextX,
+                        nextY,
+                        PlayerX,
+                        PlayerY)
+                        <= SquaredRadiusSaturated(
+                            _capsuleMagnetRadiusSubUnits))
+                {
+                    long dx = (long)PlayerX - nextX;
+                    long dy = (long)PlayerY - nextY;
+                    long length = IntegerSqrt(dx * dx + dy * dy);
+                    if (length > 0)
+                    {
+                        long directionX =
+                            dx * CapsuleMagnetDirectionScale / length;
+                        long directionY =
+                            dy * CapsuleMagnetDirectionScale / length;
+                        long denominator =
+                            (long)_capsuleMagnetSpeedDenominator
+                            * CapsuleMagnetDirectionScale;
+                        long xRemainder =
+                            _bombPickupMagnetXRemainders[index];
+                        long yRemainder =
+                            _bombPickupMagnetYRemainders[index];
+                        nextX = AdvanceCapsuleMagnetAxis(
+                            nextX,
+                            PlayerX,
+                            (long)_capsuleMagnetSpeedNumerator
+                                * directionX,
+                            denominator,
+                            ref xRemainder);
+                        nextY = AdvanceCapsuleMagnetAxis(
+                            nextY,
+                            PlayerY,
+                            (long)_capsuleMagnetSpeedNumerator
+                                * directionY,
+                            denominator,
+                            ref yRemainder);
+                        _bombPickupMagnetXRemainders[index] =
+                            xRemainder;
+                        _bombPickupMagnetYRemainders[index] =
+                            yRemainder;
+                    }
+                }
+                else
+                {
+                    _bombPickupMagnetXRemainders[index] = 0;
+                    _bombPickupMagnetYRemainders[index] = 0;
+                }
+
+                if (nextX < _enemyDespawnX)
+                {
+                    RemoveBombPickupAt(index);
+                    continue;
+                }
+                _bombPickups[index] = new BombPickupState(
+                    pickup.Id,
+                    nextX,
+                    nextY);
+                index++;
+            }
+        }
+
         static int AdvanceCapsuleMagnetAxis(
             int position,
             int target,
@@ -2722,17 +4850,294 @@ namespace Shmup.Core.Simulation
                 long nextX = obstacle.X - scrollDelta;
                 if (nextX < _enemyDespawnX)
                 {
-                    _obstacles.RemoveAt(index);
+                    RemoveObstacleAt(index);
                     continue;
                 }
 
+                int age = _obstacleAges[index] + 1;
+                _obstacleAges[index] = age;
                 _obstacles[index] = new ObstacleState(
                     obstacle.Id,
                     obstacle.Type,
                     SaturateToInt(nextX),
                     obstacle.Y,
                     obstacle.Hp);
+                LaserAttackDefinition laser =
+                    _obstacleLaserAttacks[index];
+                if (laser != null
+                    && age % laser.CycleIntervalTicks == 0)
+                {
+                    TryStartLaser(
+                        LaserSourceKind.Terrain,
+                        obstacle.Id,
+                        laser,
+                        SaturateToInt(nextX),
+                        obstacle.Y);
+                }
                 index++;
+            }
+        }
+
+        void RemoveObstacleAt(int index)
+        {
+            _obstacles.RemoveAt(index);
+            _obstacleAges.RemoveAt(index);
+            _obstacleLaserAttacks.RemoveAt(index);
+        }
+
+        void TryStartLaser(
+            LaserSourceKind sourceKind,
+            int sourceEntityId,
+            LaserAttackDefinition definition,
+            int sourceX,
+            int sourceY)
+        {
+            if (_lasers.Count >= _maxLasers)
+            {
+                EmitEvent(
+                    SimEventType.LaserCapacityExceeded,
+                    sourceEntityId,
+                    sourceX,
+                    sourceY,
+                    _maxLasers);
+                return;
+            }
+            if (_nextLaserId == int.MaxValue)
+                throw new InvalidOperationException(
+                    "The laser id counter is exhausted.");
+            int id = _nextLaserId++;
+            _laserDefinitions.Add(definition);
+            _laserAges.Add(0);
+            _lasers.Add(CreateLaserState(
+                id,
+                sourceKind,
+                sourceEntityId,
+                sourceX,
+                sourceY,
+                definition,
+                0));
+            EmitEvent(
+                SimEventType.LaserTelegraphStarted,
+                id,
+                sourceX,
+                sourceY,
+                (int)sourceKind);
+        }
+
+        void AdvanceLasers()
+        {
+            int index = 0;
+            while (index < _lasers.Count)
+            {
+                LaserAttackDefinition definition =
+                    _laserDefinitions[index];
+                LaserPhase previousPhase =
+                    _lasers[index].Phase;
+                int age = _laserAges[index] + 1;
+                if (age >= definition.LifetimeTicks)
+                {
+                    int id = _lasers[index].Id;
+                    int x = _lasers[index].StartX;
+                    int y = _lasers[index].StartY;
+                    RemoveLaserAt(index);
+                    EmitEvent(
+                        SimEventType.LaserEnded,
+                        id,
+                        x,
+                        y,
+                        0);
+                    continue;
+                }
+                _laserAges[index] = age;
+                LaserState current = _lasers[index];
+                _lasers[index] = CreateLaserState(
+                    current.Id,
+                    current.SourceKind,
+                    current.SourceEntityId,
+                    current.StartX
+                        - definition.StartOffsetX,
+                    current.StartY
+                        - definition.StartOffsetY,
+                    definition,
+                    age);
+                if (previousPhase == LaserPhase.Telegraph
+                    && _lasers[index].Phase == LaserPhase.Firing)
+                {
+                    EmitEvent(
+                        SimEventType.LaserFired,
+                        current.Id,
+                        _lasers[index].StartX,
+                        _lasers[index].StartY,
+                        definition.FullHalfWidth);
+                }
+                index++;
+            }
+        }
+
+        void RefreshLaserSegments()
+        {
+            int index = 0;
+            while (index < _lasers.Count)
+            {
+                LaserState laser = _lasers[index];
+                int sourceX;
+                int sourceY;
+                if (!TryGetLaserSourcePosition(
+                        laser.SourceKind,
+                        laser.SourceEntityId,
+                        out sourceX,
+                        out sourceY))
+                {
+                    RemoveLaserAt(index);
+                    EmitEvent(
+                        SimEventType.LaserEnded,
+                        laser.Id,
+                        laser.StartX,
+                        laser.StartY,
+                        0);
+                    continue;
+                }
+                _lasers[index] = CreateLaserState(
+                    laser.Id,
+                    laser.SourceKind,
+                    laser.SourceEntityId,
+                    sourceX,
+                    sourceY,
+                    _laserDefinitions[index],
+                    _laserAges[index]);
+                index++;
+            }
+        }
+
+        bool TryGetLaserSourcePosition(
+            LaserSourceKind kind,
+            int sourceEntityId,
+            out int x,
+            out int y)
+        {
+            if (kind == LaserSourceKind.Enemy)
+            {
+                int enemyIndex =
+                    FindEnemyIndexById(sourceEntityId);
+                if (enemyIndex >= 0)
+                {
+                    x = _enemies[enemyIndex].X;
+                    y = _enemies[enemyIndex].Y;
+                    return true;
+                }
+            }
+            else
+            {
+                for (int i = 0; i < _obstacles.Count; i++)
+                    if (_obstacles[i].Id == sourceEntityId)
+                    {
+                        x = _obstacles[i].X;
+                        y = _obstacles[i].Y;
+                        return true;
+                    }
+            }
+            x = 0;
+            y = 0;
+            return false;
+        }
+
+        static LaserState CreateLaserState(
+            int id,
+            LaserSourceKind sourceKind,
+            int sourceEntityId,
+            int sourceX,
+            int sourceY,
+            LaserAttackDefinition definition,
+            int age)
+        {
+            int telegraphEnd = definition.TelegraphTicks;
+            int firingEnd =
+                telegraphEnd + definition.FiringTicks;
+            int sustainEnd =
+                firingEnd + definition.SustainTicks;
+            LaserPhase phase;
+            LaserThicknessStage thickness;
+            int phaseEnd;
+            int halfWidth;
+            if (age < telegraphEnd)
+            {
+                phase = LaserPhase.Telegraph;
+                thickness = LaserThicknessStage.Telegraph;
+                phaseEnd = telegraphEnd;
+                halfWidth = definition.ThinHalfWidth;
+            }
+            else if (age < firingEnd)
+            {
+                phase = LaserPhase.Firing;
+                thickness = LaserThicknessStage.Thin;
+                phaseEnd = firingEnd;
+                halfWidth = definition.ThinHalfWidth;
+            }
+            else if (age < sustainEnd)
+            {
+                phase = LaserPhase.Sustaining;
+                thickness = LaserThicknessStage.Full;
+                phaseEnd = sustainEnd;
+                halfWidth = definition.FullHalfWidth;
+            }
+            else
+            {
+                phase = LaserPhase.Dissipating;
+                thickness = LaserThicknessStage.Thin;
+                phaseEnd = definition.LifetimeTicks;
+                halfWidth = definition.ThinHalfWidth;
+            }
+            return new LaserState(
+                id,
+                sourceKind,
+                sourceEntityId,
+                SaturateToInt(
+                    (long)sourceX + definition.StartOffsetX),
+                SaturateToInt(
+                    (long)sourceY + definition.StartOffsetY),
+                SaturateToInt(
+                    (long)sourceX + definition.EndOffsetX),
+                SaturateToInt(
+                    (long)sourceY + definition.EndOffsetY),
+                phase,
+                thickness,
+                halfWidth,
+                phaseEnd - age,
+                definition.Damage);
+        }
+
+        void RemoveLaserAt(int index)
+        {
+            _lasers.RemoveAt(index);
+            _laserDefinitions.RemoveAt(index);
+            _laserAges.RemoveAt(index);
+        }
+
+        void ResolveLaserPlayerCollisions()
+        {
+            int playerRadius =
+                Math.Max(_playerHalfWidth, _playerHalfHeight);
+            for (int i = 0; i < _lasers.Count; i++)
+            {
+                LaserState laser = _lasers[i];
+                if (!laser.IsDamaging)
+                    continue;
+                int radius = SaturatingAddDamage(
+                    playerRadius,
+                    laser.HalfWidth);
+                if (LaserGeometry.IntersectsSegmentCircle(
+                        laser.StartX,
+                        laser.StartY,
+                        laser.EndX,
+                        laser.EndY,
+                        PlayerX,
+                        PlayerY,
+                        radius))
+                {
+                    ApplyPlayerHit(laser.Damage);
+                    if (!_playerAlive)
+                        return;
+                }
             }
         }
 
@@ -2787,7 +5192,7 @@ namespace Shmup.Core.Simulation
                     }
                     else
                     {
-                        _obstacles.RemoveAt(obstacleIndex);
+                        RemoveObstacleAt(obstacleIndex);
                         int awardedScore = AwardScore(_breakableObstacleScore);
                         EmitEvent(
                             SimEventType.ObstacleDestroyed,
@@ -2879,6 +5284,7 @@ namespace Shmup.Core.Simulation
                         awardedScore);
                     AdvanceKillCombo();
                     TryDropCapsule(definition, enemy.X, enemy.Y);
+                    TryDropBomb(definition, enemy.X, enemy.Y);
                     if (HasModifier(BattleModifier.KillExplosion))
                         ApplyKillExplosion(enemy.Id, enemy.X, enemy.Y);
                 }
@@ -2894,7 +5300,8 @@ namespace Shmup.Core.Simulation
                     }
 
                     if (HasModifier(BattleModifier.Ricochet)
-                        && _bulletRicochetUsed[bulletIndex] == 0)
+                        && _bulletRicochetUsed[bulletIndex]
+                            < _ricochetCount)
                     {
                         int targetId = FindNearestTarget(
                             enemy.X,
@@ -2913,7 +5320,7 @@ namespace Shmup.Core.Simulation
                                 targetY,
                                 _bulletSpeedNumerator,
                                 _bulletSpeedDenominator);
-                            _bulletRicochetUsed[bulletIndex] = 1;
+                            _bulletRicochetUsed[bulletIndex]++;
                             keepBullet = true;
                             EmitEvent(
                                 SimEventType.BulletRicocheted,
@@ -3003,7 +5410,9 @@ namespace Shmup.Core.Simulation
                 targetY = candidate.Y;
             }
 
-            if (BossActive && _bossId != excludedId)
+            if (BossActive
+                && !BossEntering
+                && _bossId != excludedId)
             {
                 long distance = SquaredDistanceSaturated(
                     originX,
@@ -3034,7 +5443,9 @@ namespace Shmup.Core.Simulation
                 y = _enemies[i].Y;
                 return true;
             }
-            if (BossActive && _bossId == targetId)
+            if (BossActive
+                && !BossEntering
+                && _bossId == targetId)
             {
                 x = _bossX;
                 y = _bossY;
@@ -3174,6 +5585,7 @@ namespace Shmup.Core.Simulation
                 IncrementSaturated(ref _kills);
                 AdvanceKillCombo();
                 TryDropCapsule(definition, enemy.X, enemy.Y);
+                TryDropBomb(definition, enemy.X, enemy.Y);
             }
         }
 
@@ -3278,11 +5690,14 @@ namespace Shmup.Core.Simulation
                     awardedScore);
                 AdvanceKillCombo();
                 TryDropCapsule(definition, enemy.X, enemy.Y);
+                TryDropBomb(definition, enemy.X, enemy.Y);
                 // Deliberately no ApplyKillExplosion here: AoE final hits
                 // cannot seed kill_explosion chains (REQ-034).
             }
 
-            if (BossActive && _bossPartDefinitions.Count == 0
+            if (BossActive
+                && !BossEntering
+                && _bossPartDefinitions.Count == 0
                 && SquaredDistanceSaturated(
                     centerX,
                     centerY,
@@ -3291,7 +5706,7 @@ namespace Shmup.Core.Simulation
             {
                 ApplyDamageToBoss(damage);
             }
-            else if (BossActive)
+            else if (BossActive && !BossEntering)
             {
                 for (int i = 0;
                     i < _bossPartStates.Length
@@ -3344,6 +5759,11 @@ namespace Shmup.Core.Simulation
                 multipliedScore,
                 _encounterScoreMultiplierNumerator,
                 _encounterScoreMultiplierDenominator,
+                false);
+            multipliedScore = ScalePositiveRatioSaturated(
+                multipliedScore,
+                _contractScoreMultiplierNumerator,
+                _contractScoreMultiplierDenominator,
                 false);
             long awardedScore = AddScoreSaturated(multipliedScore);
             return awardedScore >= int.MaxValue
@@ -3457,14 +5877,8 @@ namespace Shmup.Core.Simulation
                 }
 
                 int contactDamage = definition.ContactDamage;
-                int absorbed = Math.Min(ShieldRemaining, contactDamage);
-                ShieldRemaining -= absorbed;
-                PlayerHp = Damage.ApplyToHp(PlayerHp, contactDamage - absorbed);
                 RemoveEnemyAt(index);
-                // Arg = 실드를 뚫고 선체에 닿은 데미지. 0이면 실드가 전부 흡수한 것.
-                EmitEvent(SimEventType.PlayerHit, 0, PlayerX, PlayerY, contactDamage - absorbed);
-                if (PlayerHp == 0)
-                    EmitEvent(SimEventType.PlayerKilled, 0, PlayerX, PlayerY, 0);
+                ApplyPlayerHit(contactDamage);
             }
         }
 
@@ -3484,27 +5898,45 @@ namespace Shmup.Core.Simulation
                         _obstacleHalfHeight))
                     continue;
 
-                int absorbed = Math.Min(
-                    ShieldRemaining,
-                    _obstacleContactDamage);
-                ShieldRemaining -= absorbed;
-                bool wasAlive = PlayerHp > 0;
-                int hullDamage = _obstacleContactDamage - absorbed;
-                PlayerHp = Damage.ApplyToHp(PlayerHp, hullDamage);
+                ApplyPlayerHit(_obstacleContactDamage);
+            }
+        }
+
+        bool ApplyPlayerHit(int incomingDamage)
+        {
+            if (incomingDamage <= 0
+                || !_playerAlive
+                || _playerInvulnerabilityTicksRemaining > 0)
+                return false;
+
+            int eventDamage;
+            if (ShieldStock > 0)
+            {
+                ShieldStock--;
+                eventDamage = 0;
+                _playerInvulnerabilityTicksRemaining =
+                    _playerHitInvulnerabilityTicks;
+            }
+            else
+            {
+                _playerAlive = false;
+                eventDamage = incomingDamage;
+            }
+
+            EmitEvent(
+                SimEventType.PlayerHit,
+                0,
+                PlayerX,
+                PlayerY,
+                eventDamage);
+            if (!_playerAlive)
                 EmitEvent(
-                    SimEventType.PlayerHit,
+                    SimEventType.PlayerKilled,
                     0,
                     PlayerX,
                     PlayerY,
-                    hullDamage);
-                if (wasAlive && PlayerHp == 0)
-                    EmitEvent(
-                        SimEventType.PlayerKilled,
-                        0,
-                        PlayerX,
-                        PlayerY,
-                        0);
-            }
+                    0);
+            return true;
         }
 
         void ResolveCapsulePlayerCollisions()
@@ -3527,13 +5959,47 @@ namespace Shmup.Core.Simulation
             }
         }
 
+        void ResolveBombPickupPlayerCollisions()
+        {
+            int index = 0;
+            while (index < _bombPickups.Count)
+            {
+                BombPickupState pickup = _bombPickups[index];
+                if (!Intersects(
+                        PlayerX, PlayerY,
+                        _playerHalfWidth, _playerHalfHeight,
+                        pickup.X, pickup.Y,
+                        _capsuleHalfWidth, _capsuleHalfHeight))
+                {
+                    index++;
+                    continue;
+                }
+
+                RemoveBombPickupAt(index);
+                AcquireBombStock(
+                    1,
+                    pickup.Id,
+                    pickup.X,
+                    pickup.Y);
+            }
+        }
+
         void TryDropCapsule(EnemyDefinition definition, int x, int y)
         {
-            if (definition.DropWeight == 0) return;
+            int baseWeight = Math.Max(
+                0,
+                definition.DropWeight
+                    - _capsuleDropWeightReduction);
+            if (baseWeight == 0) return;
             long scaledWeight = ScalePositiveRatioSaturated(
-                definition.DropWeight,
+                baseWeight,
                 _capsuleDropMultiplierNumerator,
                 _capsuleDropMultiplierDenominator,
+                false);
+            scaledWeight = ScalePositiveRatioSaturated(
+                scaledWeight,
+                _contractCapsuleDropMultiplierNumerator,
+                _contractCapsuleDropMultiplierDenominator,
                 false);
             int dropWeight = scaledWeight >= int.MaxValue - _capsuleNoDropWeight
                 ? int.MaxValue - _capsuleNoDropWeight
@@ -3549,11 +6015,54 @@ namespace Shmup.Core.Simulation
             EmitEvent(SimEventType.CapsuleDropped, capsuleId, x, y, 0);
         }
 
+        void TryDropBomb(EnemyDefinition definition, int x, int y)
+        {
+            if (definition.BombDropWeight == 0
+                || _bombPickups.Count >= _maxBombPickups)
+                return;
+            long scaledWeight = ScalePositiveRatioSaturated(
+                definition.BombDropWeight,
+                _bombDropMultiplierNumerator,
+                _bombDropMultiplierDenominator,
+                false);
+            int dropWeight = scaledWeight >= int.MaxValue
+                - _bombNoDropWeight
+                    ? int.MaxValue - _bombNoDropWeight
+                    : (int)scaledWeight;
+            if (_bombNoDropWeight > int.MaxValue
+                - dropWeight)
+                throw new InvalidOperationException(
+                    "The bomb drop-table total exceeds the integer range.");
+            int totalWeight =
+                _bombNoDropWeight + dropWeight;
+            if (!_contractGuaranteesBombDrop
+                && (totalWeight == 0
+                || _bombDropRng.NextInt(0, totalWeight)
+                    < _bombNoDropWeight))
+                return;
+            if (_nextBombPickupId == int.MaxValue)
+                throw new InvalidOperationException(
+                    "The bomb pickup id counter is exhausted.");
+            _bombPickups.Add(new BombPickupState(
+                _nextBombPickupId++,
+                x,
+                y));
+            _bombPickupMagnetXRemainders.Add(0);
+            _bombPickupMagnetYRemainders.Add(0);
+        }
+
         void RemoveCapsuleAt(int index)
         {
             _capsules.RemoveAt(index);
             _capsuleMagnetXRemainders.RemoveAt(index);
             _capsuleMagnetYRemainders.RemoveAt(index);
+        }
+
+        void RemoveBombPickupAt(int index)
+        {
+            _bombPickups.RemoveAt(index);
+            _bombPickupMagnetXRemainders.RemoveAt(index);
+            _bombPickupMagnetYRemainders.RemoveAt(index);
         }
 
         void SpawnMainShotVolley()
@@ -3786,6 +6295,14 @@ namespace Shmup.Core.Simulation
             return (int)Math.Max(effectiveMinimum, reduced);
         }
 
+        static int MultiplySaturated(int value, int multiplier)
+        {
+            long product = (long)value * multiplier;
+            return product >= int.MaxValue
+                ? int.MaxValue
+                : (int)product;
+        }
+
         bool HasModifier(BattleModifier modifier)
         {
             return (_activeModifiers & modifier) != 0;
@@ -3987,6 +6504,22 @@ namespace Shmup.Core.Simulation
             return schedule.ToArray();
         }
 
+        static int[] BuildSegmentStartTicks(StagePlan stagePlan)
+        {
+            var result = new int[stagePlan.Segments.Count];
+            long startTick = 0;
+            for (int i = 0; i < result.Length; i++)
+            {
+                if (startTick > int.MaxValue)
+                    throw new ArgumentException(
+                        "Stage environment timeline exceeds the tick range.",
+                        nameof(stagePlan));
+                result[i] = (int)startTick;
+                startTick += stagePlan.Segments[i].LengthTicks;
+            }
+            return result;
+        }
+
         static int CompareScheduledSpawns(ScheduledSpawn left, ScheduledSpawn right)
         {
             int tickComparison = left.Tick.CompareTo(right.Tick);
@@ -4015,6 +6548,12 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(config.PlayerSpeedNumerator));
             if (config.PlayerSpeedDenominator <= 0)
                 throw new ArgumentOutOfRangeException(nameof(config.PlayerSpeedDenominator));
+            if (config.PlayerWeaponFamily.HasValue
+                && !Enum.IsDefined(
+                    typeof(PrimaryWeaponFamily),
+                    config.PlayerWeaponFamily.Value))
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.PlayerWeaponFamily));
             if (config.PlayerBulletSpeedNumerator < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.PlayerBulletSpeedNumerator));
             if (config.PlayerBulletSpeedDenominator <= 0)
@@ -4095,14 +6634,52 @@ namespace Shmup.Core.Simulation
                 || (config.OptionFormation == OptionFormation.Trail
                     && config.OptionFollowDelayTicks < 1))
                 throw new ArgumentOutOfRangeException(nameof(config.OptionFollowDelayTicks));
-            if (config.PlayerMaxHp < 1)
-                throw new ArgumentOutOfRangeException(nameof(config.PlayerMaxHp));
+            if (config.StartingShieldStock < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.StartingShieldStock));
+            if (config.MaxShieldStock < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.MaxShieldStock));
+            if (config.PlayerHitInvulnerabilityTicks < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.PlayerHitInvulnerabilityTicks));
+            if (config.StartingBombStock < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.StartingBombStock));
+            if (config.MaxBombStock < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.MaxBombStock));
+            if (config.BombInvulnerabilityTicks < 0
+                || config.BombEffectRadiusSubUnits < 0
+                || config.BombRegularEnemyDamage < 0
+                || config.BombBossDamageCap < 0
+                || config.BombBossPartDamageCap < 0
+                || config.BombNoDropWeight < 0
+                || config.MaxBombPickups < 0
+                || config.MaxLasers < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.BombInvulnerabilityTicks));
             if (config.PlayerHalfWidth < 0 || config.PlayerHalfHeight < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.PlayerHalfWidth));
             if (config.CapsuleHalfWidth < 0 || config.CapsuleHalfHeight < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.CapsuleHalfWidth));
             if (config.CapsuleNoDropWeight < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.CapsuleNoDropWeight));
+            if (config.CapsuleDropWeightReduction < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.CapsuleDropWeightReduction));
+            if (config.ContractBombDropMultiplierNumerator < 0
+                || config.ContractBombDropMultiplierDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.ContractBombDropMultiplierNumerator));
+            if (config.ContractCapsuleDropMultiplierNumerator < 0
+                || config.ContractCapsuleDropMultiplierDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.ContractCapsuleDropMultiplierNumerator));
+            if (config.ContractScoreMultiplierNumerator < 0
+                || config.ContractScoreMultiplierDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.ContractScoreMultiplierNumerator));
             if (config.ScrollSpeedNumerator < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.ScrollSpeedNumerator));
             if (config.ScrollSpeedDenominator < 1)

@@ -31,7 +31,13 @@ namespace Shmup.Presentation.Battle
 
         // 보상 / 경로
         public const string RewardTitle = "STAGE CLEAR - CHOOSE REWARD";
+
+        /// <summary>중간보스 직후의 짧은 2택 (REQ-054). 주 보상과 무게가 달라야 한다.</summary>
+        public const string MidRewardTitle = "MID-BOSS DOWN - QUICK PICK";
         public const string RouteTitle = "CHOOSE YOUR ROUTE";
+
+        /// <summary>섹터 계약 (REQ-070) — 다음 스테이지의 조건을 보고 고른다.</summary>
+        public const string ContractTitle = "NEXT SECTOR - CHOOSE YOUR CONTRACT";
         public const string ChoiceHints =
             "[1]-[3] QUICK PICK      LEFT / RIGHT MOVE   (A) / [ENTER] CONFIRM";
 
@@ -72,5 +78,15 @@ namespace Shmup.Presentation.Battle
 
         // 보스 등장
         public const string BossWarning = "!! WARNING !!";
+
+        // 터치 기기 전용 문면. 폰에서는 키·패드 단축키 안내가 읽을 이유가 없어서,
+        // 같은 자리에 터치 조작을 설명하거나 버튼이 대신하도록 비워 둔다.
+        public const string Onboarding1Touch =
+            "TOUCH AND DRAG - YOUR SHIP FOLLOWS YOUR FINGER      AUTO FIRE IS ON";
+        public const string Onboarding3Touch =
+            "Tap the X button to spend the gauge. WHERE you spend it is your build.";
+        public const string SeedFormatTouch = "SEED  {0}";
+        public const string ChoiceHintsTouch = "TAP A CARD TO CHOOSE";
+        public const string VolumeFormatTouch = "VOLUME  {0}%";
     }
 }

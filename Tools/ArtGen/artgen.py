@@ -132,7 +132,15 @@ def cmd_pixen(args) -> None:
     }
     if args.seed is not None:
         payload["seed"] = args.seed
-    result = _post_json(f"{PIXELLAB_BASE}/create-image-pixen", payload, token)
+    try:
+        result = _post_json(f"{PIXELLAB_BASE}/create-image-pixen", payload, token)
+    except SystemExit:
+        # pixen(v2)이 500을 내는 기간이 있다 (2026-07-31 확인: 크레딧·인증은
+        # 정상인데 pixen만 실패, v1 pixflux는 성공). 품질 우선순위는 pixen이지만
+        # 죽어 있을 때는 pixflux로 폴백해 파이프라인을 세우지 않는다.
+        print("pixen 실패 — v1 pixflux로 폴백")
+        result = _post_json(
+            "https://api.pixellab.ai/v1/generate-image-pixflux", payload, token)
     images = _find_b64_images(result)
     if not images:
         raise SystemExit(f"이미지가 응답에 없다:\n{json.dumps(result)[:2000]}")

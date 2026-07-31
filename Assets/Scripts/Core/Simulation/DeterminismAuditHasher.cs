@@ -32,9 +32,11 @@ namespace Shmup.Core.Simulation
             FoldInt32(run.RoomIndex);
             FoldBool(run.IsBiomeBoss);
             FoldBool(run.IsHiddenBiome);
+            FoldInt32((int)run.StageSection);
             FoldInt32(run.BiomeCount);
             FoldInt32(run.RoomsPerBiome);
             FoldInt32((int)run.State);
+            FoldInt32((int)run.RewardSelectionKind);
             FoldInt32((int)run.CompletionGrade);
             FoldInt32((int)run.SelectedColossalBoss);
             FoldInt32((int)run.LastColossalBossAtRunStart);
@@ -42,6 +44,10 @@ namespace Shmup.Core.Simulation
             FoldInt32(run.NoHitBiomesCleared);
             FoldInt32(run.RareEncountersCleared);
             FoldInt32(run.HiddenConditionCount);
+            FoldInt32(run.ThemeStageIndex);
+            FoldInt32(run.StageThemeOrder.Count);
+            for (int i = 0; i < run.StageThemeOrder.Count; i++)
+                FoldInt32(run.StageThemeOrder[i]);
             FoldUInt64(run.RunSeed);
             FoldInt32(run.Difficulty);
             FoldInt32(run.DifficultyMultiplierNumerator);
@@ -60,13 +66,34 @@ namespace Shmup.Core.Simulation
             FoldShip(run.Ship);
             FoldPowerUpGauge(run.PowerUpGauge);
             FoldInt32((int)run.ActiveModifiers);
+            FoldModifierStacks(run.ModifierStacks);
+            FoldInt32((int)run.CurrentPrimaryWeaponFamily);
+            FoldInt32(run.MaxShieldStock);
+            FoldInt32(run.CapsuleBalance);
+            FoldInt32(run.RewardRerollCost);
             FoldInt32((int)run.CurrentMissileFamily);
             FoldInt32((int)run.CurrentOptionFormation);
             FoldStagePlan(run.StagePlan);
             FoldRewards(run.RewardOptions);
+            FoldContracts(run.ContractOptions);
+            FoldContract(run.ActiveContract);
+            FoldContractHistory(run.ContractChoiceHistory);
+            FoldRewardDecisionHistory(
+                run.RewardDecisionHistory);
             FoldRoutes(run.RouteOptions);
             FoldRouteHistory(run.RouteChoiceHistory);
             FoldBattle(run.Battle);
+        }
+
+        void FoldModifierStacks(BattleModifierStackSet stacks)
+        {
+            FoldInt32(stacks.CombinationLimit);
+            FoldInt32(stacks.CombinationUsed);
+            foreach (BattleModifier effect in BattleModifierRules.Ordered)
+            {
+                FoldInt32(stacks.GetStackCount(effect));
+                FoldInt32(stacks.GetStrength(effect));
+            }
         }
 
         public void FoldBattleState(IBattleSim battle)
@@ -87,6 +114,7 @@ namespace Shmup.Core.Simulation
             FoldInt32((int)option.Type);
             FoldInt32((int)option.Slot);
             FoldInt32(option.Amount);
+            FoldInt32((int)option.PrimaryWeaponFamily);
             FoldInt32((int)option.MissileFamily);
             FoldInt32((int)option.OptionFormation);
         }
@@ -167,6 +195,8 @@ namespace Shmup.Core.Simulation
                 var slot = (PowerUpSlot)i;
                 FoldInt32(gauge.GetLevel(slot));
                 FoldInt32(gauge.GetMaxLevel(slot));
+                FoldInt32(gauge.GetProgress(slot));
+                FoldInt32(gauge.GetRequiredCapsules(slot));
             }
         }
 
@@ -205,6 +235,9 @@ namespace Shmup.Core.Simulation
             FoldInt32(plan.BossHalfWidth);
             FoldInt32(plan.BossHalfHeight);
             FoldInt32(plan.BossHoldX);
+            FoldString(plan.Gimmick.ThemeId);
+            FoldBool(plan.Gimmick.VisionObscured);
+            FoldInt32(plan.Gimmick.TimeLimitTicks);
 
             FoldInt32(plan.BossPhases.Count);
             for (int i = 0; i < plan.BossPhases.Count; i++)
@@ -214,6 +247,14 @@ namespace Shmup.Core.Simulation
                 FoldInt32(phase.Ways);
                 FoldInt32(phase.BulletSpeedNumerator);
                 FoldInt32(phase.BulletSpeedDenominator);
+                FoldInt32((int)phase.MovementPattern);
+                FoldInt32(phase.MovementAmplitudeNumerator);
+                FoldInt32(phase.MovementAmplitudeDenominator);
+                FoldInt32(phase.MovementPeriodTicks);
+                FoldInt32((int)phase.PartVulnerability);
+                FoldInt32(phase.DurationTicks);
+                FoldInt32(phase.TelegraphTicks);
+                FoldInt32((int)phase.FirePattern);
             }
 
             FoldInt32(plan.BossParts.Count);
@@ -253,6 +294,18 @@ namespace Shmup.Core.Simulation
                 FoldInt32(segment.LengthTicks);
                 FoldInt32(segment.EntryLaneMask);
                 FoldInt32(segment.ExitLaneMask);
+                SegmentEnvironmentDefinition environment =
+                    segment.Environment;
+                FoldBool(environment.HasCorridor);
+                FoldInt32(environment.StartMinY);
+                FoldInt32(environment.StartMaxY);
+                FoldInt32(environment.EndMinY);
+                FoldInt32(environment.EndMaxY);
+                FoldInt32(environment.CorridorContactDamage);
+                FoldInt32(environment.DriftXNumerator);
+                FoldInt32(environment.DriftXDenominator);
+                FoldInt32(environment.DriftYNumerator);
+                FoldInt32(environment.DriftYDenominator);
                 FoldInt32(segment.TraversableLaneMasks.Count);
                 for (int j = 0; j < segment.TraversableLaneMasks.Count; j++)
                     FoldInt32(segment.TraversableLaneMasks[j]);
@@ -275,6 +328,24 @@ namespace Shmup.Core.Simulation
                     FoldInt32(obstacle.X);
                     FoldInt32(obstacle.Y);
                     FoldInt32(obstacle.Hp);
+                    LaserAttackDefinition laser =
+                        obstacle.LaserAttack;
+                    FoldBool(laser != null);
+                    if (laser != null)
+                    {
+                        FoldInt32(laser.CycleIntervalTicks);
+                        FoldInt32(laser.TelegraphTicks);
+                        FoldInt32(laser.FiringTicks);
+                        FoldInt32(laser.SustainTicks);
+                        FoldInt32(laser.DissipateTicks);
+                        FoldInt32(laser.StartOffsetX);
+                        FoldInt32(laser.StartOffsetY);
+                        FoldInt32(laser.EndOffsetX);
+                        FoldInt32(laser.EndOffsetY);
+                        FoldInt32(laser.ThinHalfWidth);
+                        FoldInt32(laser.FullHalfWidth);
+                        FoldInt32(laser.Damage);
+                    }
                 }
             }
         }
@@ -290,8 +361,81 @@ namespace Shmup.Core.Simulation
                 FoldInt32((int)reward.Slot);
                 FoldInt32(reward.Amount);
                 FoldInt32((int)reward.ModifierId);
+                FoldString(reward.ModifierKey);
+                FoldInt32((int)reward.PrimaryWeaponFamily);
                 FoldInt32((int)reward.MissileFamily);
                 FoldInt32((int)reward.OptionFormation);
+                FoldInt32(reward.Gains.Count);
+                for (int effect = 0;
+                    effect < reward.Gains.Count;
+                    effect++)
+                {
+                    FoldInt32((int)reward.Gains[effect].Type);
+                    FoldInt32(reward.Gains[effect].Amount);
+                }
+                FoldInt32(reward.Costs.Count);
+                for (int effect = 0;
+                    effect < reward.Costs.Count;
+                    effect++)
+                {
+                    FoldInt32((int)reward.Costs[effect].Type);
+                    FoldInt32(reward.Costs[effect].Amount);
+                }
+            }
+        }
+
+        void FoldContracts(
+            IReadOnlyList<ContractDefinition> contracts)
+        {
+            FoldInt32(contracts.Count);
+            for (int i = 0; i < contracts.Count; i++)
+                FoldContract(contracts[i]);
+        }
+
+        void FoldContract(ContractDefinition contract)
+        {
+            FoldBool(contract != null);
+            if (contract == null)
+                return;
+            FoldString(contract.Id);
+            FoldInt32((int)contract.RiskTier);
+            FoldInt32((int)contract.DestinationKind);
+            FoldInt32((int)contract.Eligibility);
+            FoldInt32(contract.Effects.Count);
+            for (int i = 0; i < contract.Effects.Count; i++)
+            {
+                FoldInt32((int)contract.Effects[i].Type);
+                FoldInt32(contract.Effects[i].Numerator);
+                FoldInt32(contract.Effects[i].Denominator);
+            }
+        }
+
+        void FoldContractHistory(
+            IReadOnlyList<ContractChoice> history)
+        {
+            FoldInt32(history.Count);
+            for (int i = 0; i < history.Count; i++)
+            {
+                FoldInt32(history[i].TargetBiomeIndex);
+                FoldInt32(history[i].OptionIndex);
+                FoldString(history[i].ContractId);
+                FoldInt32(
+                    (int)history[i].DestinationKind);
+            }
+        }
+
+        void FoldRewardDecisionHistory(
+            IReadOnlyList<RewardDecision> history)
+        {
+            FoldInt32(history.Count);
+            for (int i = 0; i < history.Count; i++)
+            {
+                FoldInt32(history[i].RewardSequence);
+                FoldInt32(
+                    (int)history[i].SelectionKind);
+                FoldInt32(
+                    (int)history[i].DecisionKind);
+                FoldInt32(history[i].OptionIndex);
             }
         }
 
@@ -333,12 +477,31 @@ namespace Shmup.Core.Simulation
             FoldInt32(battle.MultiplierLevel);
             FoldInt32(battle.ScoreMultiplier);
             FoldInt32(battle.ComboGauge);
+            FoldInt32(battle.TicksSinceLastKill);
             FoldInt64(battle.ScrollX);
             FoldInt32(battle.PlayerX);
             FoldInt32(battle.PlayerY);
             FoldInt32(battle.PlayerHp);
-            FoldInt32(battle.ShieldRemaining);
+            FoldInt32(battle.ShieldStock);
+            FoldInt32(battle.BombStock);
+            FoldInt32(
+                battle.PlayerInvulnerabilityTicksRemaining);
             FoldInt32((int)battle.PlayerWeaponType);
+            StageEnvironmentState environment = battle.Environment;
+            FoldInt32(environment.SegmentIndex);
+            FoldString(environment.SegmentId);
+            FoldBool(environment.HasCorridor);
+            FoldInt32(environment.CorridorMinY);
+            FoldInt32(environment.CorridorMaxY);
+            FoldInt32(environment.CorridorContactDamage);
+            FoldInt32(environment.DriftXNumerator);
+            FoldInt32(environment.DriftXDenominator);
+            FoldInt32(environment.DriftYNumerator);
+            FoldInt32(environment.DriftYDenominator);
+            FoldBool(battle.VisionObscured);
+            FoldInt32(battle.TimeLimitTicks);
+            FoldInt32(battle.RemainingTimeTicks);
+            FoldBool(battle.TimeLimitExpired);
 
             FoldInt32(battle.Bullets.Count);
             for (int i = 0; i < battle.Bullets.Count; i++)
@@ -391,6 +554,33 @@ namespace Shmup.Core.Simulation
                 FoldInt32(capsule.Y);
             }
 
+            FoldInt32(battle.BombPickups.Count);
+            for (int i = 0; i < battle.BombPickups.Count; i++)
+            {
+                BombPickupState pickup = battle.BombPickups[i];
+                FoldInt32(pickup.Id);
+                FoldInt32(pickup.X);
+                FoldInt32(pickup.Y);
+            }
+
+            FoldInt32(battle.Lasers.Count);
+            for (int i = 0; i < battle.Lasers.Count; i++)
+            {
+                LaserState laser = battle.Lasers[i];
+                FoldInt32(laser.Id);
+                FoldInt32((int)laser.SourceKind);
+                FoldInt32(laser.SourceEntityId);
+                FoldInt32(laser.StartX);
+                FoldInt32(laser.StartY);
+                FoldInt32(laser.EndX);
+                FoldInt32(laser.EndY);
+                FoldInt32((int)laser.Phase);
+                FoldInt32((int)laser.ThicknessStage);
+                FoldInt32(laser.HalfWidth);
+                FoldInt32(laser.PhaseTicksRemaining);
+                FoldInt32(laser.Damage);
+            }
+
             ReadOnlySpan<SimEvent> events = battle.EventsThisTick;
             FoldInt32(events.Length);
             for (int i = 0; i < events.Length; i++)
@@ -405,6 +595,7 @@ namespace Shmup.Core.Simulation
             }
 
             FoldBool(battle.BossActive);
+            FoldBool(battle.BossEntering);
             BossState boss = battle.Boss;
             FoldInt32(boss.Id);
             FoldInt32(boss.X);
@@ -412,6 +603,8 @@ namespace Shmup.Core.Simulation
             FoldInt32(boss.Hp);
             FoldInt32(boss.MaxHp);
             FoldInt32(boss.Phase);
+            FoldInt32((int)boss.MovementPattern);
+            FoldInt32((int)boss.PartVulnerability);
             FoldInt32(battle.BossParts.Count);
             for (int i = 0; i < battle.BossParts.Count; i++)
             {
@@ -423,7 +616,7 @@ namespace Shmup.Core.Simulation
                 FoldInt32(part.MaxHp);
                 FoldBool(part.Destroyed);
                 FoldBool(part.IsCore);
-                FoldBool(part.CoreGated);
+                FoldBool(part.Invulnerable);
             }
         }
 

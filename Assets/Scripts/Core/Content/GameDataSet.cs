@@ -13,6 +13,8 @@ namespace Shmup.Core.Content
     public sealed class GameDataSet
     {
         readonly int[] _powerUpMaxLevels;
+        readonly PowerUpCostCurve _powerUpCostCurve;
+        readonly PowerUpSlotDefinition[] _powerUpGaugeSlots;
         readonly WeaponDefinition _missile;
         readonly ReadOnlyCollection<ShipDefinition> _ships;
         readonly ScoringDefinition _scoring;
@@ -22,12 +24,16 @@ namespace Shmup.Core.Content
             BattleContent battleContent,
             StageGenerationCatalog stageGeneration,
             int capsuleNoDropWeight,
+            int bombNoDropWeight,
             int scrollSpeedNumerator,
             int scrollSpeedDenominator,
             int maxEnemyBullets,
             int[] powerUpMaxLevels,
+            PowerUpCostCurve powerUpCostCurve,
+            IReadOnlyList<PowerUpSlotDefinition> powerUpGaugeSlots,
             WeaponDefinition missile,
             RewardCatalog rewards,
+            ContractCatalog contracts,
             IReadOnlyList<ShipDefinition> ships,
             ScoringDefinition scoring)
         {
@@ -35,6 +41,8 @@ namespace Shmup.Core.Content
             StageGeneration = stageGeneration ?? throw new ArgumentNullException(nameof(stageGeneration));
             if (capsuleNoDropWeight < 0)
                 throw new ArgumentOutOfRangeException(nameof(capsuleNoDropWeight));
+            if (bombNoDropWeight < 0)
+                throw new ArgumentOutOfRangeException(nameof(bombNoDropWeight));
             if (scrollSpeedNumerator < 0)
                 throw new ArgumentOutOfRangeException(nameof(scrollSpeedNumerator));
             if (scrollSpeedDenominator < 1)
@@ -47,12 +55,27 @@ namespace Shmup.Core.Content
                 throw new ArgumentException("Every power-up slot needs a max level.", nameof(powerUpMaxLevels));
 
             CapsuleNoDropWeight = capsuleNoDropWeight;
+            BombNoDropWeight = bombNoDropWeight;
             ScrollSpeedNumerator = scrollSpeedNumerator;
             ScrollSpeedDenominator = scrollSpeedDenominator;
             _maxEnemyBullets = maxEnemyBullets;
             _powerUpMaxLevels = (int[])powerUpMaxLevels.Clone();
+            _powerUpCostCurve = powerUpCostCurve
+                ?? throw new ArgumentNullException(nameof(powerUpCostCurve));
+            if (powerUpGaugeSlots == null)
+                throw new ArgumentNullException(
+                    nameof(powerUpGaugeSlots));
+            _powerUpGaugeSlots =
+                new PowerUpSlotDefinition[powerUpGaugeSlots.Count];
+            for (int i = 0; i < _powerUpGaugeSlots.Length; i++)
+                _powerUpGaugeSlots[i] =
+                    powerUpGaugeSlots[i]
+                    ?? throw new ArgumentException(
+                        "Gauge slots cannot contain null.",
+                        nameof(powerUpGaugeSlots));
             _missile = missile ?? throw new ArgumentNullException(nameof(missile));
             Rewards = rewards;
+            Contracts = contracts;
             _scoring = scoring;
 
             if (ships == null) throw new ArgumentNullException(nameof(ships));
@@ -91,6 +114,7 @@ namespace Shmup.Core.Content
         public BattleContent BattleContent { get; }
         public StageGenerationCatalog StageGeneration { get; }
         public int CapsuleNoDropWeight { get; }
+        public int BombNoDropWeight { get; }
         public int ScrollSpeedNumerator { get; }
         public int ScrollSpeedDenominator { get; }
         /// <summary>
@@ -98,6 +122,10 @@ namespace Shmup.Core.Content
         /// three-input parser overload was used.
         /// </summary>
         public RewardCatalog Rewards { get; }
+        /// <summary>
+        /// Parsed waves.json sector contracts, or null for legacy data.
+        /// </summary>
+        public ContractCatalog Contracts { get; }
         public IReadOnlyList<ShipDefinition> Ships => _ships;
         public ShipDefinition DefaultShip { get; }
 
@@ -119,7 +147,65 @@ namespace Shmup.Core.Content
 
         public PowerUpGauge CreatePowerUpGauge()
         {
-            return new PowerUpGauge((int[])_powerUpMaxLevels.Clone());
+            return new PowerUpGauge(
+                _powerUpMaxLevels[
+                    (int)PowerUpSlot.MainShot],
+                _powerUpGaugeSlots,
+                _powerUpCostCurve);
+        }
+
+        /// <summary>
+        /// Creates the ship-owned five-slot gauge when the ship opts into one;
+        /// otherwise returns the backward-compatible seven-slot gauge.
+        /// The designated weapon entry is an immediate one-activation switch.
+        /// </summary>
+        public PowerUpGauge CreatePowerUpGauge(ShipDefinition ship)
+        {
+            if (ship == null)
+                throw new ArgumentNullException(nameof(ship));
+            if (!ship.HasCustomPowerUpGauge)
+                return CreatePowerUpGauge();
+
+            var slots =
+                new PowerUpSlotDefinition[ship.GaugeSlots.Count];
+            for (int i = 0; i < slots.Length; i++)
+            {
+                PowerUpSlot slot = ship.GaugeSlots[i];
+                PowerUpSlotDefinition source =
+                    FindPowerUpGaugeSlot(slot);
+                slots[i] = new PowerUpSlotDefinition(
+                    source.Slot,
+                    source.NameKey,
+                    source.MaxLevel,
+                    source.CostCurve,
+                    source.SpeedBonusNumerator,
+                    source.SpeedBonusDenominator,
+                    source.IsWeaponMode);
+            }
+            return new PowerUpGauge(
+                _powerUpMaxLevels[
+                    (int)PowerUpSlot.MainShot],
+                slots,
+                _powerUpCostCurve);
+        }
+
+        public PowerUpGauge CreatePowerUpGauge(string shipId)
+        {
+            ShipDefinition ship = FindShip(shipId);
+            if (ship == null)
+                throw new ArgumentException(
+                    $"Unknown ship id '{shipId}'.",
+                    nameof(shipId));
+            return CreatePowerUpGauge(ship);
+        }
+
+        PowerUpSlotDefinition FindPowerUpGaugeSlot(PowerUpSlot slot)
+        {
+            for (int i = 0; i < _powerUpGaugeSlots.Length; i++)
+                if (_powerUpGaugeSlots[i].Slot == slot)
+                    return _powerUpGaugeSlots[i];
+            throw new InvalidOperationException(
+                $"The weapons gauge does not define slot '{slot}'.");
         }
 
         /// <summary>
@@ -138,6 +224,7 @@ namespace Shmup.Core.Content
             config.MainShotHalfWidth = main.ProjectileHalfWidth;
             config.MainShotHalfHeight = main.ProjectileHalfHeight;
             config.CapsuleNoDropWeight = CapsuleNoDropWeight;
+            config.BombNoDropWeight = BombNoDropWeight;
             config.ScrollSpeedNumerator = ScrollSpeedNumerator;
             config.ScrollSpeedDenominator = ScrollSpeedDenominator;
             config.MaxEnemyBullets = _maxEnemyBullets;

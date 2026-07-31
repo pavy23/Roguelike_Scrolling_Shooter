@@ -1,5 +1,213 @@
 ﻿# CODEX → 다른 에이전트 요청
 
+## REQ-055 — 스테이지 고유 기믹 Core 계약 (2026-07-30)
+
+### 재사용 판정
+
+- **스크랩 잔해:** 기존 `ObstacleType.Breakable`을 그대로 사용한다. `hp > 0`,
+  플레이어 탄 충돌/HP 감소/제거, `SimEventType.ObstacleDestroyed`, 남은 HP를
+  포함한 `ObstacleState`가 이미 있었다. 새 잔해 엔티티를 만들지 않았다.
+- **포트리스 게이트:** 기존 `ObstacleType.LaserEmitter`와
+  `Telegraph → Firing → Sustaining → Dissipating`, `LaserState`,
+  `LaserCapacityExceeded`를 그대로 사용한다.
+- **바이오 촉수:** 기존 `EnemyMovePattern.Static`은 자체 전진을 하지 않고 월드
+  스크롤만 적용되므로 벽에 붙은 파괴 가능 적으로 사용 가능하다. `EnemyState`가
+  definition id, 위치, HP를 이미 공개한다. 새 촉수 엔티티를 만들지 않았다.
+- 장애물/일반 적 상한 초과가 조용히 누락되던 경로에는 각각
+  `ObstacleCapacityExceeded`, `EnemyCapacityExceeded` 이벤트를 추가했다.
+
+### 새 JSON 계약 — GROK 요청
+
+실제 `GameData`는 수정하지 않았다. 아래 필드는 모두 선택 사항이고, 누락 시 기존
+동작(기믹 없음)을 보존한다.
+
+```json
+{
+  "gimmicks": [{
+    "theme": "core",
+    "visionObscured": false,
+    "timeLimitTicks": 12000
+  }],
+  "segments": [{
+    "environment": {
+      "corridor": {
+        "startMinY": -9.5,
+        "startMaxY": 9.5,
+        "endMinY": -4.5,
+        "endMaxY": 4.5,
+        "contactDamage": 1
+      },
+      "drift": {
+        "xPerSecond": 0.75,
+        "yPerSecond": -0.5
+      }
+    }
+  }]
+}
+```
+
+- `gimmicks[]`는 최상위 `themes[]`의 id로 연결하며 theme당 최대 하나다.
+- `visionObscured`는 Core 판정에 사용하지 않고 Presentation에 사실만 노출한다.
+- `timeLimitTicks == 0`은 제한 없음이다. 양수 제한은 해당 Battle의 하드
+  데드라인이며, 0틱이 되는 순간 방어막과 무적 시간을 무시하고 실패한다.
+  `12000`(200초)은 **연결 검증용 잠정 시작값**일 뿐이다. 실제 45,000 HP 코어
+  보스 P10/P50 TTK를 측정해 GROK이 제안하고 사람이 확정해 달라.
+- `corridor` Y는 월드유닛 벽 표면이다. 시작/끝 값을 세그먼트 tick에 따라 정수
+  선형 보간한다. 플레이어 중심은 hitbox half-height만큼 안쪽에서 clamp되고,
+  벽 접촉은 `contactDamage`를 준다.
+- `drift`는 월드유닛/초의 signed decimal이다. Core가 정확한 정수 분수/틱으로
+  바꾼다. 입력 벡터를 기체 속도로 clamp한 **뒤**에 더하므로 손을 떼어도 흐르고,
+  플레이어 조작 속도 상한 자체는 바뀌지 않는다.
+
+GROK 작업 요청:
+
+- [ ] `scrapyard`의 빈 잔해 세그먼트에도 `breakable` obstacle을 배치하고 HP,
+  개수, 동시 존재량을 제안해 달라. 시작안은 한 화면 4~8개, HP 20~60이나 최종
+  수치는 밸런스 시뮬/사람 승인 대상이다.
+- [ ] `hive` 적 정의에 `movement.pattern: "static"`, `speed: 0`인 벽 촉수
+  definition을 추가하고 wave spawn으로 배치해 달라. 좁아지는 구간에는 위
+  `environment.corridor`를 추가하되 최소 폭이 플레이어 hitbox보다 충분히 큰지
+  검증해 달라.
+- [ ] `fortress`는 기존 `laserEmitter`를 게이트로 재사용하고 telegraph/발사
+  주기와 배치를 타이밍 회피가 가능하도록 조정해 달라.
+- [ ] `nebula`에 `visionObscured: true`와 세그먼트별 signed drift를 넣어 달라.
+  시작안은 합성 세기 0.5~0.9 u/s이며, 연속으로 같은 방향만 나오지 않도록
+  세그먼트 데이터에서 방향을 교대해 달라.
+- [ ] `core`에 앞선 obstacle/corridor/drift/laser를 혼합하고
+  `timeLimitTicks`를 넣어 달라. 제한 시간은 현 보스 HP의 실제 TTK 분포와 함께
+  제안해 달라.
+
+### Presentation 계약 — CLAUDE 요청
+
+```text
+IBattleSim.Environment
+  SegmentIndex / SegmentId
+  HasCorridor / CorridorMinY / CorridorMaxY / CorridorContactDamage
+  HasDrift / DriftXNumerator/Denominator / DriftYNumerator/Denominator
+IBattleSim.VisionObscured
+IBattleSim.TimeLimitTicks / RemainingTimeTicks / TimeLimitExpired
+```
+
+- [ ] 통로 상·하 벽을 `Environment.CorridorMinY/MaxY`에 맞춰 그려 달라.
+  `CorridorContact`는 벽 접촉 피드백, `PlayerHit`는 실제 피해 피드백으로 사용한다.
+- [ ] 드리프트 방향/세기는 위 exact fraction을 읽어 파티클/배경 흐름으로
+  시각화하되 Presentation에서 기체 위치를 추가 이동시키지 말아 달라.
+- [ ] `VisionObscured`일 때만 네뷸라 구름을 화면에 그려 달라. 구름 alpha/마스크는
+  시각 전용이며 Core 명중·탐지 판정을 바꾸지 않는다.
+- [ ] `RemainingTimeTicks / 60` 카운트다운과 임박 경고를 표시하고,
+  `TimeLimitExpired`에서 명확한 실패 연출을 붙여 달라.
+- [ ] `EnemyCapacityExceeded` / `ObstacleCapacityExceeded` /
+  `LaserCapacityExceeded`를 개발 HUD/로그에 드러내 달라. `Arg`는 설정 상한,
+  X/Y는 거부된 위치다.
+
+하드 데드라인을 선택한 이유: 초과 후 적/탄 밀도를 올리는 방식은 동시 존재 상한에
+걸릴 때 압박이 조용히 약해질 수 있고 여러 밸런스 계수를 동시에 바꾼다. 즉사형은
+카운트다운과 결과가 일치하고 정수 tick 하나로 재현 가능하다.
+
+---
+
+## REQ-054 요약 — 새 상태 흐름과 외부 계약 (2026-07-30)
+
+### Core 상태 흐름
+
+```text
+Opening(전반 구간)
+  → MidBoss(mini_*) → AwaitingReward / MidStage / 2택
+  → Closing(후반 구간)
+  → StageBoss(3 HP phases) → AwaitingReward / Main / 3택
+  → 다음 biome Opening 또는 최종 클리어/숨겨진 biome
+```
+
+- 새 런은 `RunState.AwaitingRoute`에 진입하지 않는다. `RouteOptions`와 새
+  `RouteChoiceHistory`는 비어 있고, `ChooseRoute`는 호환용 심벌만 남긴 채
+  `NotSupportedException`을 낸다.
+- Presentation이 진행 구간을 구분할 수 있도록
+  `RunManager.StageSection: RunStageSection`을 공개한다.
+  값은 `Opening`, `MidBoss`, `Closing`, `StageBoss`,
+  `HiddenOpening`, `HiddenBoss`다.
+- 보상 화면은 `RunManager.RewardSelectionKind`와
+  `RewardOptions.Count`를 함께 사용한다.
+  `MidStage`는 정확히 2개, `Main`은 정확히 3개다.
+- `EncounterType`은 폐기하지 않았다. 선택 카드가 아니라 스테이지 내부 구간의
+  성격으로 재사용한다. 중간보스 구간은 `Elite`, 후반 구간은 전용 RNG 스트림으로
+  `Normal/Elite/Supply/Hazard/Rare` 중 하나를 결정한다. 구 루트 RNG 스트림 id를
+  유지해 다른 난수 용도와의 격리 및 legacy route 검증을 보존한다.
+- 중간보스는 `BattleContent.Enemies`에서 id가 `mini_`로 시작하는 항목만 모아
+  ordinal 정렬한 뒤, 전용 `Rng.Fork(6).Fork(biomeIndex)`로 고른다.
+  JSON 배열 순서 변경은 결과를 흔들지 않는다.
+- 중간보스 `Elite` 표시는 숨겨진 biome의 `eliteRoomsCleared`에 포함하지 않는다.
+  고정 중간보스 5회를 조건에 포함하면 모든 런이 자동으로 조건 하나를 얻기
+  때문이다. 후반 구간의 실제 Elite/Rare, biome 무피해 기록을 쓰는 기존
+  `2-of-3` 거대 보스 조건은 그대로 유지된다.
+
+### 구버전 세이브/리플레이 정책 — 읽기 호환 유지
+
+- **호환 유지**를 선택했다. `AwaitingRoute = 3`의 숫자, `RouteChoiceData`,
+  `InputPlayback.RouteChoices`, suspend/replay의 `routeChoices` 필드를 삭제하지
+  않았다. 필드를 지우면 과거 JSON 역직렬화와 체크섬 마이그레이션을 동시에
+  깨뜨리기 때문이다.
+- 새 직렬화 필드가 필요하지 않아 suspend v11 / replay v10 버전은 올리지 않았다.
+  `StageSection`은 `biomeIndex + roomIndex + isBiomeBoss`로 복원하고, 보상 대기
+  중에는 원래부터 suspend를 만들지 않는다.
+- 새 런의 export는 route payload가 0개다. 구버전 suspend를 연 경우에는 현재
+  구간과 일치하는 legacy route의 theme/encounter를 새 구간 생성에 적용하고
+  history도 보존한다.
+- 구버전 replay는 기존 route payload를 손실 없이 열고 조회할 수 있다. 다만
+  삭제된 선택 화면과 새 중간보스 cadence가 서로 동형이 아니므로, 과거 빌드의
+  화면 전환 타이밍 자체를 재현하는 모드는 제공하지 않는다. 현 빌드 규칙으로
+  입력을 재생하는 마이그레이션 호환이다.
+
+### 보스 페이즈 Core 계약
+
+- 기존 `SimEventType.BossPhaseChanged`를 유지하고, 단일 보스뿐 아니라 multipart
+  보스도 66%/33% 경계에서 이벤트를 내도록 수정했다. `SimEvent.Arg`는 새
+  zero-based phase index(1 또는 2)다.
+- 기존 페이즈별 사격 필드
+  (`fireIntervalTicks`, `ways`, `bulletSpeed`)에 아래 축을 추가했다.
+  모든 필드는 선택 사항이며 누락 시 구 동작을 유지한다.
+
+| `waves.json bosses[].phases[]` 필드 | 허용값/단위 | Core 기본값 |
+|---|---|---|
+| `movementPattern` | `legacyHover`, `stationary`, `verticalSine` | `legacyHover` |
+| `movementAmplitude` | 월드유닛, exact 1/256 변환 | `0` |
+| `movementPeriodTicks` | 양의 정수 tick | `1` |
+| `partVulnerability` | `legacy`, `coreOnly`, `all` | `legacy` |
+
+- 현재 축은 `BattleSim.Boss.MovementPattern`,
+  `BattleSim.Boss.PartVulnerability`, `BattleSim.Boss.X/Y`,
+  `BattleSim.BossParts[i].Invulnerable`로 관찰할 수 있다.
+  `BossPartState.CoreGated`는 구 Presentation 소스 호환용 alias다.
+- HP 페이즈 계산은 정수식
+  `(maxHp - hp) * 3 / maxHp`다. 3 HP 테스트에서 3→2가 66% 경계,
+  2→1이 33% 경계가 되며 각 전환 이벤트를 검증한다.
+
+### CLAUDE 요청
+
+- [ ] `RewardScreen`의 “항상 카드 3개” 가정을 제거하고
+  `RewardOptions.Count`만큼 그려 주세요. `MidStage`는 2택의 짧은 중간 보상,
+  `Main`은 3택 주 보상으로 제목/레이아웃을 구분해 주세요.
+- [ ] route 선택 UI와 `AwaitingRoute` 입력 분기를 제거하고,
+  `StageSection`으로 전반/중간보스/후반/보스 연출을 구분해 주세요.
+- [ ] `BossPhaseChanged` 수신 시 `Arg` 1/2에 대해 발광, 화면 흔들림, 경고를
+  붙여 주세요. 현재 phase의 이동/파츠 상태는 위 `Boss`/`BossParts` 관찰값을
+  사용해 주세요.
+- [ ] 중간보스는 `StageSection == MidBoss` 및 `StagePlan.BossId`가 `mini_*`인
+  정규 보스전이다. 일반 적 뷰가 아니라 보스 HP UI/격파 연출을 사용해 주세요.
+
+### GROK 요청
+
+- [ ] 네 `mini_*`의 stage별 배치/선택 정책과 실제 HP를 확정해 주세요.
+  현재 `GameData/enemies.json`은 `mini_destroyer/horror/walker/crystal`이
+  **160~250 HP**인데 사람 지시에는 **2400~4500 HP**라고 적혀 있어 서로
+  다르다. CODEX는 어느 쪽도 임의 채택하지 않고 현재 JSON 값을 그대로 소비한다.
+- [ ] 각 stage boss의 3개 phase에 위 신규 movement/part 필드를 채워 주세요.
+  구조 의도만 고정한다: phase 0 기본, phase 1 이동 추가+파츠 개방,
+  phase 2 광폭화. 탄 수/간격/속도, 진폭/주기, 파츠 개방 범위의 실제 값은
+  GROK 제안과 사람 승인 대상으로 남긴다.
+- [ ] 후반 구간의 `EncounterType`별 웨이브 조합/밀도와 중간 2택·주 3택의
+  후보 풀 정책을 제안해 주세요. Core는 후보 수만 2/3으로 나누며 특정 보상
+  구성이나 밸런스 수치는 정하지 않았다.
+
 형식: 무엇이 필요한지, 왜, 제안 시그니처. 처리되면 담당 에이전트가 응답을 덧붙이고 체크한다.
 
 - [x] GROK: `GameData/waves.json`에 클리어 가능성 메타데이터를 추가해 주세요.
@@ -749,3 +957,707 @@ BalanceSim `CheckColossalBosses` TTK 110.7s / full-eff 41.3s / spawn peak 45≤1
 - 메타 저장 DTO schema v2의 `lastColossalBoss`를 기존 원자 저장 경로로 보존합니다.
 - 일반 적 풀 용량은 `BattleSimConfig.MaxEnemies`와 동기화합니다. 산란낭과 예약 스폰이
   같은 상한을 공유하므로 Presentation도 그 수보다 작은 풀로 누락시키지 않아야 합니다.
+
+---
+
+## [ ] 사람 결정 / [ ] GROK / [ ] CLAUDE: REQ-040 단일 실드 스톡 계약
+
+Core는 HP와 실드를 분리하던 규칙을 제거하고 다음 단일 내구도 계약으로 변경했습니다.
+
+- `IBattleSim.ShieldStock`이 유일한 내구도 자원입니다.
+- 스톡이 1 이상일 때 피격되면 피해량과 무관하게 정확히 1만 소모하고
+  `PlayerHitInvulnerabilityTicks` 동안 추가 피격을 무시합니다.
+- 스톡 0에서 다음 유효 피격을 받으면 즉사하며 `PlayerKilled`를 발행합니다.
+- `PlayerHp`는 Presentation 컴파일 호환용 생존 플래그입니다. 생존 중 1, 사망 후 0이며
+  다중 HP가 아닙니다.
+- `ShieldRemaining`은 `ShieldStock`의 호환 별칭입니다.
+- `RewardType.ShieldStock = 2`가 정식 이름이며 `RewardType.RepairHp`는 같은 숫자 2의
+  호환 별칭입니다. JSON의 기존 `"type": "repairHp"`를 그대로 읽고,
+  신규 `"shieldStock"`도 읽습니다.
+- `ships.json.maxHp`는 파일명을 바꾸지 않고 `ShipDefinition.StartingShieldStock`으로
+  해석합니다. `ShipDefinition.MaxHp`도 읽기 호환 별칭으로 남아 있습니다.
+- 실드 게이지 레벨이 런 시작 시 기초 스톡에 더해지고, 런 중 Shield 슬롯 레벨 상승은
+  스톡 1을 회복합니다. 룸 사이에는 소모된 현재 스톡을 그대로 승계합니다.
+- `RunSuspendData`는 schema v8입니다. `shieldStock`/`maxShieldStock`을 FNV-1a에
+  포함하며, `playerHp`/`shieldRemaining`은 호환 미러로 계속 저장합니다.
+  v1~v7 세이브는 `max(0, oldHp + oldShield - 1)`을 상한 내 스톡으로 변환해 기존의
+  “남은 피격 가능 횟수”에 가깝게 보존하고 v8 체크섬으로 다시 봉인합니다.
+- `MetaStateData`에는 런 내구도 필드가 없어 schema v2를 유지합니다.
+
+### 사람 결정 필요
+
+1. **실드 스톡 상한:** 잠정값은 **5**입니다
+   (`BattleSimConfig.ProvisionalMaxShieldStock`). 현재 `ships.json`의 최대 `maxHp=5`를
+   보존하는 최소 상한입니다. 이 값에서는 Bulwark의 `maxHp: 5`가 이미 상한이라
+   `startingPowerUpLevels`의 Shield 1이 시작 스톡을 더 늘리지 못합니다.
+   Bulwark의 시작 Shield 레벨까지 유효하게 하려면 상한 6 이상이 필요합니다.
+2. **피격 무적:** Core에 없던 값을 Presentation의 기존 0.3초 피격 플래시에 맞춰
+   잠정 **18틱(60 Hz)** 으로 명시했습니다
+   (`DefaultPlayerHitInvulnerabilityTicks`). 사람 승인 또는 다른 수치 지시가 필요합니다.
+
+### GROK 계약
+
+- `ships.json`/`rewards.json`의 키나 ID는 마이그레이션을 위해 지금 바꿀 필요가 없습니다.
+  현재 값은 Starter 3, Interceptor 2, Bulwark 5 시작 스톡이며
+  `repair_hp_1`은 스톡 1 회복(상한 적용)입니다.
+- 사람의 상한 결정 후 함선별 시작 스톡과 Bulwark 시작 Shield 레벨의 중복을 재검산해
+  주세요. 수치 변경은 GROK 소유입니다.
+
+### CLAUDE 계약
+
+- HUD/DevCheats/GameOver는 `ShieldStock`을 표시하고 사망 판정은
+  `PlayerHp == 0` 또는 `!IsPlayerAlive`를 사용해 주세요.
+- `LowHpWarning`은 더 이상 `PlayerHp == 1`을 쓰면 안 됩니다(모든 생존 프레임에서 1).
+  경고를 유지한다면 `ShieldStock == 0`을 사용해 주세요.
+- 피격 무적 연출은 `PlayerInvulnerabilityTicksRemaining`과 18틱 계약에 맞추고,
+  보상 라벨은 `Repair HP` 대신 `SHIELD STOCK +n`으로 바꿔 주세요.
+- Presentation 저장기가 v8의 `shieldStock`/`maxShieldStock`을 보존해야 합니다.
+  기존 v7 저장은 Core `SaveDataIntegrity.MigrateAndValidate`에 그대로 전달하면 됩니다.
+
+---
+
+## [ ] GROK / [ ] 감사 도구 담당: REQ-043 20룸 성장 곡선·감사 예산 후속
+
+Core 기본 진행은 5 바이옴 × 4룸 = **20룸**, 분기 **19회**로 변경했습니다.
+세이브와 리플레이는 `roomsPerBiome`을 명시 저장하므로 구 6룸 기록은 6룸으로 재생되고,
+신규 기본 기록만 4룸을 사용합니다.
+
+### 성장량 계산
+
+현재 `Tools/BalanceSim`의 GameData 가중 평균은 3세그먼트 룸당 캡슐
+**14.02개**입니다.
+
+- 구 30룸: `30 × 14.02 = 420.6`
+- 신 20룸: `20 × 14.02 = 280.4`
+- 감소: **140.2개(-33.3%)**
+
+4슬롯을 0에서 현재 상한 5/3/4/3까지 목표 슬롯에서 즉시 활성화한다고 가정한 필요
+캡슐은 `5×1 + 3×2 + 4×3 + 3×4 = 35개`입니다. 신규 기대량 280.4는 그 **8.0배**이고,
+회수/활성화 효율이 12.5%만 되어도 전 슬롯 최대에 도달할 수 있습니다. 따라서
+**캡슐 보상량 증가는 현재 수치상 필요하지 않으며**, `capsules_5`를 즉시 올리지 않는
+것을 제안합니다.
+
+바이옴 보스 보상은 비최종 4회로 유지됩니다. 룸 분기 기반 Elite/Rare 기회는
+29회→19회로 **34.5% 감소**합니다. 기존 총량을 기계적으로 보존하려면 변동 보상량을
+`29/19 = 1.526배` 해야 하므로 `capsules_5`의 대응 정수는 8이지만, 위 캡슐 과잉 때문에
+현재는 권장하지 않습니다. GROK은 실제 선택률을 포함한 20룸 헤드리스 표본으로
+슬롯 레벨·modifier/family/formation 완성 시점을 재검산해 주세요.
+
+### 결정론 감사 예산
+
+감사 코드의 기대 룸 수와 숨은 룸 환산식은
+`DefaultRoomsPerBiome`에서 파생되어 자동으로 20룸/19분기를 검증합니다. 실제 suite는
+5개 중 4개 시나리오가 동일 해시로 클리어했으나, `seed-max-prefer-capped` 저성장 경로는
+기존 데이터 기반 예산 **566,120틱**에서 `Playing`으로 종료되어 `AUDIT PASS`에
+도달하지 못했습니다. 4개 통과 경로는 20룸, 분기 19회였고 완료 틱은
+207,562~438,032였습니다.
+
+`Tools/DeterminismAudit/`는 이번 CODEX 소유 범위 밖이라 수정하지 않았습니다.
+감사 도구 담당은 룸 감소로 인한 보상 희소 계수 `6/4 = 1.5`를 저성장 보스 예산에
+반영해 suite 하한을 우선 **849,180틱**(`566,120 × 1.5`)으로 올리거나,
+실제 무업그레이드 DPS에서 예산을 직접 파생해 주세요. GameData 보상 상향으로 감사를
+억지 통과시키기보다는 감사 예산을 최악 성장 경로에 맞추는 것을 권장합니다.
+
+추가 진단(REQ-041/042 작업 시 재측정): 같은
+`seed-max-prefer-capped` 경로는 예산을 1,200,000틱으로 열면
+**834,153틱**에 `RunCleared`/`PerfectClear`에 도달합니다
+(`completedStages=6`, `completedRooms=22`, 숨은 보스 전투 539,468틱).
+따라서 위 849,180틱 하한이면 현재 데이터에서는 통과하며, 6→4룸 진행 게이트 자체가
+멈춘 것이 아니라 숨은 다중 파츠 보스의 실측 명중률이 감사 상수 50%보다 훨씬 낮은
+것이 직접 원인입니다.
+
+---
+
+## [ ] 사람 결정 / [ ] GROK / [ ] CLAUDE: REQ-041 전멸 폭탄 스톡 계약
+
+Core 계약:
+
+- `InputCommand(..., activateBomb)`은 상승 에지에서만 발동합니다.
+  `InputRecordingData`는 schema **v9**이고 `InputRunData.activateBomb`을 저장합니다.
+  v1~v8 리플레이의 해당 비트는 마이그레이션 시 강제로 `false`가 됩니다.
+- `IBattleSim.BombStock`, `BombPickups`가 읽기 전용 상태입니다. 룸 사이에 현재 스톡을
+  승계하고 `RunSuspendData` schema **v9**의 `bombStock`/`maxBombStock`으로 저장합니다.
+  v1~v8 세이브는 `0/ProvisionalMaxBombStock`으로 이행합니다.
+- 발동은 화면 경계 안의 일반 적에 1,000 대미지, 보스/각 파츠에 최대 250 대미지를
+  적용하고 화면 안의 적 탄을 소거합니다. 발동 무적 잠정값은 **45틱(0.75초)**이며 기존
+  피격 무적과 `max(남은 값, 45)`로 합쳐 절대 짧아지지 않습니다.
+- 이벤트:
+  `BombAcquired(EntityId=pickupId, Arg=현재 스톡)`,
+  `BombStockChanged(Arg=현재 스톡)`,
+  `BombActivated(X/Y=플레이어, Arg=연출 반경)`,
+  `BombActivationRejectedEmpty`.
+- 드롭 판정은 캡슐과 분리한 `Rng.Fork(2)`를 사용해 기존 캡슐 결과를 흔들지 않습니다.
+
+### 사람 결정 필요
+
+1. **폭탄 스톡 상한:** 잠정 **3**
+   (`BattleSimConfig.ProvisionalMaxBombStock`). 최종값을 승인/변경해 주세요.
+2. 함께 플레이 검증할 잠정치: 무적 45틱, 일반 적 대미지 1,000,
+   보스/파츠 대미지 상한 각 250, 연출 반경 48u, 동시 필드 픽업 16.
+   이들은 코드로 조절 가능하며 최종 밸런스 승인이 필요합니다.
+
+### GROK 계약
+
+`enemies.json` 현재 schema에서 다음 선택 필드를 지원합니다. 실제 JSON은 GROK
+소유라 이번 변경에서 수정하지 않았습니다.
+
+```json
+{
+  "dropTable": {
+    "noDropWeight": 8,
+    "bombNoDropWeight": 100
+  },
+  "enemies": [{
+    "dropWeight": 12,
+    "bombDropWeight": 0
+  }]
+}
+```
+
+- 잠정 기본은 `bombNoDropWeight: 100`, 적별 누락 `bombDropWeight: 0`입니다.
+- 합계는 Int32 범위여야 합니다. 폭탄 드롭은 캡슐 드롭과 독립 추첨입니다.
+- 실제 적별 가중치와 획득 빈도는 헤드리스 시뮬 결과와 함께 제안해 주세요.
+- 보상 선택 경로도 `rewards.json`의
+  `{ "type": "bombStock", "amount": 1, ... }`를 지원합니다. 실제 weight,
+  stageIndexMin/Max, maxPerRun은 GROK이 정하고 JSON에 추가해 주세요.
+
+### CLAUDE 계약
+
+- HUD는 `BombStock`과 상한을 표시하고 폰 발동 버튼을 새 입력 비트에 연결합니다.
+- 발동/획득/빈 스톡 피드백은 위 이벤트만 구독하며 Presentation에서 스톡을 직접
+  변경하지 않습니다.
+- 리플레이 저장기는 v9 `activateBomb`, 중단 저장기는 v9
+  `bombStock`/`maxBombStock`을 보존합니다. 구버전 DTO는 Core 마이그레이션에
+  그대로 전달합니다.
+
+---
+
+## [ ] 사람 결정 / [ ] GROK / [ ] CLAUDE: REQ-042 적·지형 지속 레이저 계약
+
+Core는 장애물의 세그먼트 배치/스크롤 수명을 재사용하는 것이 맞다고 판단했습니다.
+지형 발사기는 `ObstacleType.LaserEmitter`이며 `hp: 0`과 laser 프로필이 필수입니다.
+실제 빔은 장애물과 수명이 다르므로 `IBattleSim.Lasers`의 독립 상태로 노출됩니다.
+
+공통 laser 스키마:
+
+```json
+{
+  "laser": {
+    "cycleIntervalTicks": 180,
+    "telegraphTicks": 45,
+    "firingTicks": 6,
+    "sustainTicks": 60,
+    "dissipateTicks": 12,
+    "startOffsetX": 0,
+    "startOffsetY": 0,
+    "endOffsetX": -40,
+    "endOffsetY": 0,
+    "thinHalfWidth": 0.0625,
+    "fullHalfWidth": 0.5,
+    "damage": 1
+  }
+}
+```
+
+- 적 정의에 `laser`가 있으면 기존 점 탄 `fireIntervalTicks` 대신 레이저를 사용합니다.
+- 지형은 `waves.json.segments[].obstacles[]`에
+  `{ "type": "laserEmitter", "x": ..., "y": ..., "hp": 0, "laser": ... }`로
+  배치합니다.
+- `cycleIntervalTicks`는 네 단계 총 수명 이상이어야 하며, 예고/발사/소멸은 각 1틱
+  이상, 지속은 0 이상입니다. 좌표·폭은 world unit JSON을 정확한 정수 subunit으로
+  변환합니다.
+- `LaserState.Phase`는 Telegraph/Firing/Sustaining/Dissipating,
+  `ThicknessStage`는 Telegraph/Thin/Full입니다. Firing과 Sustaining만 판정합니다.
+- 판정은 정수·나눗셈 없는 선분 대 원 비교이며, 큰 좌표는 2의 거듭제곱으로 축소해
+  곱셈 오버플로를 막습니다.
+- 동시 상한 잠정값은 **8**입니다. 초과 시
+  `LaserCapacityExceeded(EntityId=sourceId, Arg=8)`를 반드시 발행합니다.
+  시작/발사/종료 이벤트는 `LaserTelegraphStarted`, `LaserFired`, `LaserEnded`입니다.
+
+GROK은 실제 적/세그먼트 ID와 위 네 단계·주기·폭·대미지 수치를 확정해 주세요.
+사람은 동시 상한 8 및 예시 타이밍을 플레이 검증 후 승인해 주세요.
+
+CLAUDE는 `Lasers`의 양 끝점, Phase, ThicknessStage, HalfWidth를 매 틱 렌더링하고
+세 이벤트로 예고음/발사음/소멸 연출을 연결해 주세요. `LaserCapacityExceeded`는
+개발 로그/텔레메트리에 남겨 풀 부족을 조용히 숨기지 않아야 합니다.
+
+REQ-041/042에서 `PowerUpSlot` 또는 이동속도 게이지 슬롯은 추가하지 않았습니다.
+
+---
+
+## [ ] CLAUDE: REQ-045 터치 아날로그 이동 Presentation 연결 계약
+
+### Core 호출 계약
+
+터치가 이동 입력을 소유하는 동안 매 시뮬레이션 틱 아래 팩터리를 호출해 주세요.
+
+```csharp
+InputCommand InputCommand.Analog(
+    int deltaXSubUnits,
+    int deltaYSubUnits,
+    bool fire,
+    bool activate = false,
+    bool activateBomb = false)
+```
+
+- `deltaXSubUnits` / `deltaYSubUnits`는 **목표 위치나 방향이 아니라, 직전 입력
+  샘플부터 누적된 손가락 이동량**입니다.
+- 단위는 `SimSpace` 정수 서브유닛이며
+  `SimSpace.SubUnitsPerWorldUnit == 256`입니다. 화면 델타를 카메라의 월드 델타로
+  바꿔 렌더 프레임 사이에는 그대로 누적하고, 시뮬 틱 경계에서 축별
+  `accumulatedWorldDelta * 256`을 가장 가까운 정수로 변환해 주세요.
+- 렌더 프레임과 시뮬 틱이 다를 수 있으므로 다음 시뮬 틱의
+  `InputCommand.Analog(...)` 한 번에 누적 델타를 넘겨야 합니다. 정수로 내보내고
+  남은 1서브유닛 미만의 분수 잔차는 다음 틱으로 보존해 느린 드래그를 잃지 마세요.
+  누적 정수 결과가 Int32 범위를 넘으면 포화 처리해야 합니다.
+- 터치가 유지되는 동안 손가락이 멈췄다면 반드시 `Analog(0, 0, ...)`을 계속
+  전달해 주세요. 아날로그 모드는 0/0이어도 디지털 축보다 우선하므로 기체가 즉시
+  정지합니다.
+- 터치가 이동을 소유하지 않을 때만 기존
+  `new InputCommand(moveX, moveY, fire, activate, activateBomb)` 디지털 경로를
+  사용해 주세요. 기존 목표점 추적, 8방향 양자화, 축 히스테리시스는 터치 경로에서
+  제거 대상입니다.
+- Presentation에서 속도 정규화나 데드존을 추가하지 마세요. Core가 현재 기체
+  이동속도에 맞춰 정수 벡터 길이 기준으로 클램프합니다.
+
+동시 입력을 직접 구성해야 하는 테스트/특수 경로의 전체 시그니처도 있습니다.
+이 경우 역시 아날로그가 우선합니다.
+
+```csharp
+new InputCommand(
+    int moveX,
+    int moveY,
+    bool fire,
+    bool activate,
+    bool activateBomb,
+    int analogDeltaXSubUnits,
+    int analogDeltaYSubUnits)
+```
+
+### 리플레이 v10 계약
+
+`InputRecordingData.CurrentSchemaVersion == 10`이며 각 `InputRunData`에 다음 필드가
+추가됐습니다.
+
+```csharp
+bool useAnalogMovement;
+int analogDeltaXSubUnits;
+int analogDeltaYSubUnits;
+```
+
+Core의 `InputRecorder`/`InputPlayback`을 그대로 사용하면 기록·재생·체크섬이 모두
+처리됩니다. v1~v9 리플레이는 마이그레이션 후
+`useAnalogMovement = false`, 델타 `0/0`이 됩니다. v9 폭탄 비트는 보존됩니다.
+
+### 기록 크기 검토
+
+기존 RLE는 그대로 유지되어 동일한 아날로그 명령이 이어지면 한 run으로 합쳐집니다.
+새 필드의 고정 논리량은 run당 `bool + int32 + int32`, 즉 약 **9바이트**입니다.
+하지만 실제 드래그 델타가 매 틱 바뀌면 최악의 경우 run이 틱 수와 같아져 60Hz에서
+약 **540바이트/초, 32.4KB/분**의 고정 논리량이 늘어납니다(JSON 필드명/객체
+오버헤드는 별도).
+
+REQ-045는 1/256 world unit의 원본 정수 델타와 정확한 재생을 요구하므로 Core에서
+양자화하지 않았습니다. 저장/전송 용량이 문제라면 Presentation 영속화 계층에서
+GZip/Brotli 같은 **무손실 압축**을 적용해 주세요. JSON 압축 효율이 높고 Core
+결정론/체크섬 입력을 바꾸지 않는 선택입니다. 16-subunit(화면 1픽셀 상당) 등의
+양자화는 조작 감각과 재생 궤적을 바꾸므로 사람 승인 없이는 적용하지 마세요.
+
+### 디지털 밸런스 영향
+
+기존 디지털 대각선은 축마다 최대 속도를 적용해 직선보다 `√2`배 빨랐습니다.
+REQ-045에서 `46340/65536` 고정소수점 성분으로 정규화했습니다. 이제 대각선 총속도는
+직선 상한의 약 99.998%이고, 기존 대비 약 **29.29% 느려집니다**. 직선 속도와
+`GameData` 기본 이동속도 값은 변경하지 않았습니다.
+
+---
+
+## [ ] CLAUDE: REQ-048/049/051 Presentation 연결 및 재현 확인
+
+### REQ-048 고착 조사 결과
+
+현재 Core와 현재 `GameData` 조합을 5바이옴 × 3룸으로 끝까지 구동한 결과:
+
+- 일반 룸 선택 대기: `State == AwaitingRoute`이면 `RouteOptions.Count >= 2`
+- 보상 선택 대기: `State == AwaitingReward`이면 `RewardOptions.Count == 3`
+- 1바이옴 보스 보상 선택 직후:
+  `State == Playing`, `BiomeIndex == 2`, `RoomIndex == 1`,
+  `IsBiomeBoss == false`
+- 최종 결과: 15룸, 14회 분기, 5보스 완료 후 `RunCleared`
+
+따라서 현재 소스에서는 “두 번째 스테이지에서 빈 카드 상태로 Core가 고착”되는
+경로가 재현되지 않았습니다. `BeginRouteSelectionOrAdvance`도 준비 후보를 로컬로
+옮긴 뒤 2개 이상일 때만 공개하고, 부족하면 공개 목록을 비운 채 자동 전진하도록
+불변식을 강화했습니다.
+
+플레이 빌드에서 계속 멈추면 그 프레임에 아래 네 값을 함께 기록해 주세요.
+
+```text
+RunManager.State
+RunManager.BiomeIndex / RoomIndex / IsBiomeBoss
+RunManager.RewardOptions.Count
+RunManager.RouteOptions.Count
+```
+
+위의 정상값과 다르면 Core 재현 입력(시드·선택 이력)을 CODEX에 돌려주시고, 정상값인데
+화면/입력만 멈추면 `RewardScreen`/`RouteScreen`, `Time.timeScale`, 새 Battle 참조 갱신을
+Presentation에서 조사해 주세요. 현재 `Battle.unity`의 두 화면 `_director` 직렬화 연결은
+존재하므로, 재현 프레임의 런타임 상태 캡처가 필요합니다.
+
+### REQ-049 실드 상한
+
+Core 계약:
+
+```csharp
+int RunManager.MaxShieldStock
+void RunManager.SetMaxShieldStock(int maxShieldStock) // 3..5만 허용
+```
+
+- 기본 상한은 3입니다.
+- 2 이하와 6 이상은 `ArgumentOutOfRangeException`입니다.
+- 상한을 낮출 때 보유 스톡은 즉시 새 상한으로 잘립니다.
+- 이유: 상한 밖 스톡을 유지하면 HUD/회복/세이브 체크섬이 서로 다른 권위값을 갖게
+  됩니다. 즉시 절삭하면 모든 관찰자가 같은 단일 자원을 봅니다.
+- `RunSuspendData`의 `maxShieldStock`/`shieldStock` 및 체크섬에 반영됩니다.
+
+다음 사이클의 상한 증가 옵션/UI는 Core 메서드만 호출하고 Presentation에서 직접
+스톡을 변경하지 마세요.
+
+### REQ-051 주무기 표시·보상 계약
+
+```csharp
+RunManager.CurrentPrimaryWeaponFamily
+RunManager.CurrentPrimaryWeaponDefinition
+RewardOption.Type == RewardType.PrimaryWeaponFamily
+RewardOption.PrimaryWeaponFamily
+```
+
+`CurrentPrimaryWeaponDefinition`은 `Id`, `DisplayName`, `Description`, 대미지·간격·속도,
+관통 추가 타깃 수, 확산 발수 등을 제공합니다. 보상 카드와 HUD는 문자열을 하드코딩하지
+말고 이 정의를 읽어 주세요. `ChooseReward` 뒤 기존처럼 Battle 참조를 갱신해야 합니다.
+
+전환은 **1회 확정이 아니라 이후 보상에서 재전환 가능**입니다. 현재 장착 계열만 후보에서
+제외되므로 선택 비용은 유지하면서 런 후반 빌드 수정이 가능합니다. Double은 Core에서
+2-way `WeaponType.Spread`, Laser는 직선 `WeaponType.Laser`이며
+`pierceEnemyCount == 2`는 최초 타깃 포함 최대 3체 명중을 뜻합니다.
+
+---
+
+## [ ] GROK: REQ-049/050/051 GameData 후속 계약
+
+### 실드 데이터
+
+`ships.json`의 `maxHp`는 REQ-040 이후 “시작 실드 스톡” 호환 필드입니다.
+현재 bulwark 값 5는 새 기본 상한 3에서 Core가 3으로 절삭합니다. 모든 함선의 시작값을
+0..3으로 정리하거나, bulwark 5를 유지해야 할 별도 기획 근거를 사람에게 요청해 주세요.
+
+### 15룸 성장량 합산 검산
+
+3룸 × 5바이옴으로 일반 룸은 20→15, 분기는 19→14로 **25% 감소**했습니다.
+현재 밸런스 시뮬의 룸당 캡슐 기대 밴드 10~16을 그대로 대입하면 일반 룸 총 기대량은
+약 **150~240개**입니다. 의도적으로 슬롯을 찍을 때 필요한 캡슐은 현재 상한 기준:
+
+- MainShot 5레벨: 5개
+- Missile 3레벨: 6개
+- Option 4레벨: 12개
+- 주요 3슬롯 합계: 23개
+- Shield 3레벨까지 포함한 전 슬롯 합계: 35개
+
+현재 드롭률만 보면 부족하지 않지만, 같은 사이클의 캡슐 드롭 하향과 합치면 결론이
+달라질 수 있습니다. 변경 후 실제 경로 가중치·Supply 배율·회수율을 포함해 15룸
+P50/P10 총량을 다시 계산하고, P50이 주요 3슬롯 23개에도 못 미칠 때만 수치 조정안을
+제시해 주세요. CODEX는 `GameData` 수치를 변경하지 않았습니다.
+
+### weapons.json v4 / rewards.json v2
+
+Core가 받는 신규 스키마:
+
+```json
+{
+  "schemaVersion": 4,
+  "primaryWeaponFamilies": [
+    {
+      "id": "double",
+      "displayName": "Double",
+      "description": "short UI copy",
+      "weaponType": "spread",
+      "baseDamage": 6,
+      "fireIntervalTicks": 10,
+      "minimumFireIntervalTicks": 6,
+      "rapidFireStartLevel": 3,
+      "fireIntervalReductionPerLevel": 1,
+      "projectileSpeed": 20,
+      "projectileHalfWidth": 0.375,
+      "projectileHalfHeight": 0.140625,
+      "pierceEnemyCount": 0,
+      "spreadWays": 2,
+      "spreadStepLutSlots": 2
+    },
+    {
+      "id": "laser",
+      "displayName": "Laser",
+      "description": "short UI copy",
+      "weaponType": "laser",
+      "baseDamage": 15,
+      "fireIntervalTicks": 16,
+      "minimumFireIntervalTicks": 8,
+      "rapidFireStartLevel": 2,
+      "fireIntervalReductionPerLevel": 2,
+      "projectileSpeed": 28,
+      "projectileHalfWidth": 0.1875,
+      "projectileHalfHeight": 0.0703125,
+      "pierceEnemyCount": 2,
+      "spreadWays": 1,
+      "spreadStepLutSlots": 0
+    }
+  ]
+}
+```
+
+위 수치는 **Core 호환 폴백/예시일 뿐 최종 밸런스가 아닙니다**. 특히 다수 관통 레이저의
+단발 대미지·발사 간격·추가 관통 수(현재 예시 2, 총 3체)를 밸런스 시뮬로 확정해 주세요.
+`primaryWeaponFamilies`에는 최소 double/laser가 필요합니다. 기존 Vulcan/Spread 시작
+함선 호환을 위해 생략된 두 계열은 현재 무기 기본값에서 Core가 폴백 프로필을 만듭니다.
+
+보상 항목은 `rewards.json.schemaVersion = 2`에서 아래 형태입니다.
+
+```json
+{
+  "id": "primary_double",
+  "type": "primaryWeaponFamily",
+  "primaryFamilyId": "double",
+  "weight": 1,
+  "stageIndexMin": 1,
+  "stageIndexMax": 99
+}
+```
+
+laser 항목도 같은 형식으로 추가하고 실제 등장 가중치·구간은 GROK이 제안해 주세요.
+기존 weapons v2/v3, rewards v1은 Core 폴백으로 계속 읽힙니다.
+
+---
+
+## [ ] GEMINI/감사 도구 담당: REQ-048~051 이후 DeterminismAudit suite
+
+Core의 동일 시드 2회 감사 테스트는 15룸 완주 후 같은
+`68CCCBCF9E327A91` 해시로 통과했습니다. 반면 소유 범위 밖
+`Tools/DeterminismAudit --suite`는 현재 `seed-max-prefer-capped` 예산 경로까지
+도달하기 전에 첫 `seed-0-first`가 기본 실드 상한 3에서 보스전 중 `RunOver`되어
+중단됩니다:
+
+```text
+completedRooms=3/15, ticks=4516, state=RunOver
+biome=1, room=3, bossHp=23100/24000
+```
+
+이는 빈 선택지/진행 게이트 고착이 아니라 감사 자동 조작의 생존 실패입니다. 감사 러너의
+무피해 설정 또는 생존 입력을 갱신한 뒤, 기존 `seed-max-prefer-capped` 최악 성장 경로의
+틱 예산 문제를 별도로 재측정해 주세요. CODEX는 해당 도구를 수정하지 않았습니다.
+
+---
+
+## [ ] 사람 결정 / [ ] GROK / [ ] CLAUDE: REQ-053 성장 곡선·스택 모디파이어 계약
+
+### 성장 시뮬레이션 요약
+
+Core 잠정 비용식은 목표 레벨의 현재 레벨을 `L`이라 할 때
+`1 + L + L²` 캡슐 적립입니다. 한 번 활성화할 때 현재 커서의 캡슐 1개만 그 슬롯에
+부분 적립하고 커서를 비웁니다. 원하는 슬롯 앞을 지나간 캡슐은 적립되지 않으므로
+그라디우스식 낭비가 유지됩니다.
+
+현재 상한 5/3/4/3, 공급 170개, 15스테이지 균등 공급, 슬롯을
+S→M→O→B 순환 투자하는 전략의 결과:
+
+| 슬롯 | 170개 종료 상태 | 만렙 스테이지 |
+|---|---:|---:|
+| MainShot | 4레벨, 다음 비용 21 중 8 적립 | 17스테이지 예상 |
+| Missile | 3레벨 | 10 |
+| Option | 4레벨 | 15 |
+| Shield | 3레벨 | 10 |
+
+전 슬롯 만렙의 실제 수집 비용은 커서 이동 낭비를 포함해 **183개**입니다.
+`183 / 170 × 15 = 16.15`, 즉 같은 공급률이면 17스테이지에 완성됩니다. 목표인
+“최종 스테이지 전후”에 걸치지만 이는 잠정 폴백이며 승인값이 아닙니다.
+
+### GROK: weapons.json schema v5
+
+실제 JSON은 수정하지 않았습니다. v2~v4는 위 잠정 곡선으로 이행합니다.
+v5에서는 다음 루트 필드와 무기별 필드가 필수입니다.
+
+```json
+{
+  "schemaVersion": 5,
+  "powerUpCostCurve": {
+    "baseCost": 1,
+    "linearGrowth": 1,
+    "quadraticGrowth": 1
+  },
+  "weapons": [{
+    "id": "main_shot",
+    "maxLevel": 5,
+    "effectSoftCapLevel": 5
+  }]
+}
+```
+
+비용은 정확히
+`baseCost + linearGrowth*L + quadraticGrowth*L*L`이며 모두 정수입니다.
+세 값과 `maxLevel`, `effectSoftCapLevel`은 사람 승인 전 잠정값으로 취급해 주세요.
+공급 P10/P50/P90과 실제 슬롯 선택 전략을 넣어 “주요 슬롯/전 슬롯 완성 스테이지”를
+다시 산출하고 제안해 주세요.
+
+효과는 `effectSoftCapLevel`까지 기존 선형이고, 이후 유효 레벨은
+`softCap + floor(sqrt(rawLevel-softCap))`입니다. 높은 상한에서 옵션 수·대미지·회복이
+무제한 선형 폭증하지 않으면서도 추가 레벨이 완전히 무효가 되지 않게 한 결정입니다.
+상한 자체는 고정 배열이 아니라 슬롯별 정수라 Core 변경 없이 올릴 수 있습니다.
+
+### GROK: rewards.json schema v3
+
+v1/v2 모디파이어는 1회성, strength/cost 1로 이행됩니다. v3은 루트 조합 예산과
+모디파이어별 스택 계약을 데이터로 지정합니다.
+
+```json
+{
+  "schemaVersion": 3,
+  "maxCombinedModifierCost": 4,
+  "rewards": [{
+    "id": "mod_pierce_stack",
+    "type": "modifier",
+    "modifierId": "pierce_stack",
+    "modifierEffect": "pierce_shot",
+    "stackable": true,
+    "maxStacks": 3,
+    "stackStrength": 1,
+    "interactionCost": 1
+  }]
+}
+```
+
+`modifierId`는 새 데이터 ID이고, `modifierEffect`는 현재 Core가 제공하는
+`pierce_shot`, `ricochet`, `homing_missile`, `kill_explosion` 프리미티브 중 하나입니다.
+따라서 새 이름·스택 프로필·강도의 변형은 데이터만으로 추가할 수 있습니다. 완전히 새
+판정 메커니즘은 Core 구현이 필요하므로 요청서로 계약해 주세요.
+
+- 관통: 설정 관통 수 × 누적 strength
+- 도탄: 누적 strength만큼 같은 탄환이 추가 도탄
+- 유도: 회전량 × 누적 strength, 반 바퀴/틱에서 구조적 포화
+- 킬폭발: 최대 대상 수 × 누적 strength. 대미지·반경은 곱하지 않음
+- 전체 조합은 `maxCombinedModifierCost`, 개별 효과는 `maxStacks`로 이중 제한
+- 폭발로 죽은 적은 다시 킬폭발을 만들지 않아 연쇄 재귀가 없음
+- 관통/도탄은 탄환별 명중 ID 기록을 공유해 같은 적 반복 타격을 막음
+- 도탄의 직접 처치에는 킬폭발이 정상 발동하므로 조합 시너지는 유지
+
+위 예시 4/3/1 수치는 호환 설명용 잠정값입니다. 4.12배 폭주 전례를 기준으로 실제
+strength/cost/조합 예산을 헤드리스 표본과 함께 제안해 주세요.
+
+### CLAUDE: HUD·저장 연결
+
+- `PowerUpGauge.GetProgress/GetRequiredCapsules/GetRemainingCapsules`로 선택 슬롯의
+  `현재 적립 / 요구량 / 남은 양`을 표시해 주세요.
+- `ActivateDetailed()`의 `ProgressAdded`, `LevelIncreased`, `SlotMaxed`,
+  `NoSelection`을 구분해 피드백해 주세요. 기존 `Activate()`는 실제 승급 때만
+  `true`입니다.
+- 상한을 픽스된 핍/배열 길이로 가정하지 말고 숫자 또는 동적 생성으로 표시해 주세요.
+- 중단 저장은 schema v11의 슬롯 순서 `powerUpProgress[4]`를 보존합니다.
+  v1~v10은 0으로 이행됩니다.
+- 모디파이어 표시는 `ModifierStacks.GetStackCount/GetStrength`를 사용하고 비트 플래그를
+  단순 on/off 아이콘으로만 해석하지 마세요.
+
+### 적 크기 확인
+
+Core 파서는 `enemies.json`의 `halfWidth`/`halfHeight`를 정수 서브유닛으로 변환하고,
+탄환·플레이어 충돌 모두 `EnemyDefinition.HalfWidth/HalfHeight`를 사용합니다. 즉 시각
+크기와 이 두 필드가 맞으면 히트박스는 데이터 크기를 반영합니다. “모든 조무래기 맷집”
+문제는 히트박스가 아니라 `hp` 티어이므로 이번 Core 작업에는 넣지 않았습니다.
+GROK은 스프라이트 크기와 halfWidth/halfHeight 정합 및 크기별 hp 티어를 같은 데이터
+사이클에서 검산해 주세요.
+
+---
+
+## [ ] REQ-065 후속 → GROK: 바이옴 내 콤보 이월 점수 검산
+
+REQ-065 Core는 같은 바이옴의 일반 방→중간보스→후반 방→바이옴 보스 사이에서
+플레이어 위치와 함께 `MultiplierLevel`, `ComboGauge`, `TicksSinceLastKill`을 이월한다.
+바이옴 변경과 히든 지역 진입에서는 모두 0으로 리셋한다.
+
+연속감에는 맞지만 이전처럼 방마다 콤보가 0이 되는 기준보다 바이옴 총점과 보상 체감이
+상승할 수 있다. 기존/신규 규칙의 바이옴별 평균·P90 점수 배율, 최대 배율 유지 시간,
+최종 점수 분포를 같은 시드·입력 정책으로 비교하고 현재 combo 임계/감쇠 수치 조정이
+필요한지 제안해 주세요. 수치 변경은 사람 승인 전 하지 않습니다.
+
+## [ ] REQ-066 후속 → GROK: 보스별 발사 pattern 배치
+
+`BossPhase.pattern`은 이제 아래 규칙으로 실제 시뮬레이션에 적용된다.
+
+- `aimed`/기존 `spread`/기존 `rapid`: 플레이어 중심 N-way. `ways`는 탄 수.
+- `radial`: 360° 균등 링. `ways`는 링 탄 수.
+- `spiral`: 360° 균등 팔이 발사마다 11.25° 회전. `ways`는 동시 팔 수.
+- `wall`: 플레이어 Y 이동 범위에 `ways`개 지점을 만들고, 전용 결정론 RNG로 고른
+  한 지점을 틈으로 비워 `ways - 1`발을 수평 발사. `ways >= 2`.
+- `burst`: 매 일제사 전에 `telegraphTicks` 예고 후 플레이어 중심 N-way 발사.
+  발사 뒤 `fireIntervalTicks`를 기다리고 다시 예고한다. `telegraphTicks >= 1`.
+- 모든 타입의 `bulletSpeed`는 기존과 같은 정확한 서브유닛/틱 유리수 속도다.
+- 탄 예산이 부족하면 가능한 수만 생성하고 `EnemyBulletCapacityExceeded`를 1회 낸다.
+
+스테이지/난이도별 조합과 `ways`/interval/speed/telegraph 수치는 GameData 소유자가
+채워 주세요. radial/wall의 동시 탄 수가 `MaxEnemyBullets`에 자주 걸리지 않는지와
+각 보스 TTK 구간의 화면 탄 밀도를 헤드리스 시뮬로 함께 검산해 주세요.
+
+## [ ] REQ-064/065 후속 → CLAUDE: 리플레이 버전 안내
+
+- `InputRecordingData.CurrentSchemaVersion`은 11이며 `InputPlayback`은 방 연속성 변경 전
+  v1~v10 기록을 의도적으로 거부한다. 로드 UI에서 “호환되지 않는 이전 시뮬 버전”
+  안내로 처리하고 손상 파일 메시지와 구분해 주세요.
+- 기본 `InputRecorder`는 손실 없는 최악 아날로그 입력 60분(216,000 runs)을 예약한다.
+  기록 전에 입력을 양자화할 필요가 없고, 시뮬에 전달한 명령 그대로 기록하면 된다.
+- `RunSuspendData`는 v12이며 방 시작 위치·콤보를 포함한다. v11 이하는 기존 규칙대로
+  스폰 위치/콤보 0으로 이행된다.
+- `EnemyBulletCapacityExceeded`는 보스 일제사가 적탄 상한으로 잘렸음을 나타내는
+  진단 이벤트다. 개발 HUD/로그에서 관찰 가능하게 연결하면 패턴 데이터 검산에 유용하다.
+
+---
+
+## [ ] REQ-072 → GROK: 종료/숨은 바이옴 계약과 보상 리롤 비용
+
+Core 파서와 런타임 계약은 구현했지만 `GameData/`는 GROK 소유이므로 아래 실제 데이터
+반영을 요청한다. 반영 전에도 Core의 내장 terminal 계약과 리롤 비용 5 폴백으로
+기능은 동작한다.
+
+`waves.json.contracts.entries`에 다음 두 terminal 계약을 추가해 달라.
+
+```json
+{
+  "id": "end_run",
+  "weight": 1,
+  "riskTier": "safe",
+  "destinationKind": "endRun"
+},
+{
+  "id": "uncharted",
+  "weight": 1,
+  "riskTier": "high",
+  "destinationKind": "uncharted",
+  "eligibility": "hiddenBiomeUnlocked"
+}
+```
+
+- `destinationKind` 기본값은 `"nextStage"`다. 허용값은 `"nextStage"`,
+  `"endRun"`, `"uncharted"`다.
+- `eligibility` 기본값은 `"always"`다. 숨은 바이옴 카드는
+  `"hiddenBiomeUnlocked"`만 사용한다.
+- terminal 두 계약은 일반 바이옴의 가중 계약 후보에서 자동 제외되고, 최종 보스
+  이후 예외 화면에서만 제공된다. `end_run`은 항상, `uncharted`는 기존 2-of-3
+  조건 충족 시에만 노출된다.
+
+`rewards.json`은 `schemaVersion`을 5로 올리고 루트에 아래 필드를 추가해 달라.
+
+```json
+{
+  "schemaVersion": 5,
+  "rerollCost": 5
+}
+```
+
+- `rerollCost`는 양의 정수 캡슐 비용이다.
+- 사람 지시의 권장 범위 4~6 중 Core 호환 폴백은 **5**다. 실제 기본값 확정은
+  밸런스 시뮬 결과와 사람 승인 후 조정해 달라.

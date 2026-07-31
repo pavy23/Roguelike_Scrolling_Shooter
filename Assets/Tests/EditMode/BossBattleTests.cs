@@ -14,24 +14,42 @@ namespace Shmup.Core.Tests
         public void BossSpawnsAfterSegmentsApproachesAndHolds()
         {
             var sim = CreateBossSim(
-                bossMaxHp: 100, holdX: 400, phases: Phase(interval: 999, ways: 1));
+                bossMaxHp: 100,
+                holdX: 400,
+                phases: Phase(interval: 1, ways: 1, speed: 64),
+                weaponDamage: 100,
+                bulletSpeed: 256);
             InputCommand none = InputCommand.None;
+            var fire = new InputCommand(0, 0, true);
 
-            for (int i = 0; i < 4; i++) sim.Step(in none);
-            Assert.IsFalse(sim.BossActive);
+            sim.Step(in none);
+            Assert.IsTrue(sim.BossActive);
+            Assert.IsTrue(sim.BossEntering);
 
-            sim.Step(in none);   // tick 5 = 세그먼트 소진 → 스폰
             Assert.IsTrue(sim.BossActive);
             Assert.AreEqual(1, sim.EventsThisTick.Length);
             Assert.AreEqual(SimEventType.BossSpawned, sim.EventsThisTick[0].Type);
             int entryX = sim.Boss.X;
+            Assert.Greater(
+                entryX - 256,
+                SimSpace.PlayfieldHalfWidthSubUnits);
 
-            sim.Step(in none);
-            Assert.AreEqual(entryX - 16, sim.Boss.X);   // 진입 속도 16 서브유닛/틱
+            sim.Step(in fire);
+            Assert.Less(sim.Boss.X, entryX);
 
-            for (int i = 0; i < 200; i++) sim.Step(in none);
+            while (sim.BossEntering)
+            {
+                Assert.AreEqual(100, sim.Boss.Hp);
+                for (int i = 0; i < sim.Bullets.Count; i++)
+                {
+                    Assert.AreNotEqual(
+                        BulletFaction.Enemy,
+                        sim.Bullets[i].Faction);
+                }
+                sim.Step(in fire);
+            }
             Assert.AreEqual(400, sim.Boss.X);           // holdX 정지
-            Assert.AreEqual(100, sim.Boss.Hp);
+            Assert.IsFalse(sim.BossEntering);
         }
 
         [Test]
@@ -96,6 +114,135 @@ namespace Shmup.Core.Tests
             Assert.GreaterOrEqual(sim.Statistics.ShotsFired, 2L);
             Assert.AreEqual(2L, sim.Statistics.ShotsHit);
             Assert.AreEqual(1L, sim.Statistics.Kills);
+        }
+
+        [Test]
+        public void ThreeBossPhasesChangeAtExactSixtySixAndThirtyThreePercentBoundaries()
+        {
+            var phases = new[]
+            {
+                new BossPhase(
+                    999,
+                    1,
+                    32,
+                    1,
+                    BossMovementPattern.Stationary,
+                    0,
+                    1,
+                    1,
+                    BossPartVulnerability.CoreOnly),
+                new BossPhase(
+                    999,
+                    2,
+                    48,
+                    1,
+                    BossMovementPattern.VerticalSine,
+                    128,
+                    1,
+                    8,
+                    BossPartVulnerability.All),
+                new BossPhase(
+                    999,
+                    4,
+                    96,
+                    1,
+                    BossMovementPattern.VerticalSine,
+                    256,
+                    1,
+                    4,
+                    BossPartVulnerability.All)
+            };
+            BattleSim sim = CreateBossSim(
+                bossMaxHp: 3,
+                holdX: 300,
+                phases: phases,
+                weaponDamage: 1,
+                bulletSpeed: 50);
+            InputCommand none = InputCommand.None;
+            for (int tick = 0;
+                tick < 300
+                    && (!sim.BossActive || sim.Boss.X != 300);
+                tick++)
+                sim.Step(in none);
+
+            int firstTransition = FireOneShotUntilPhaseChange(sim);
+            AssertAll(() =>
+            {
+                Assert.AreEqual(1, firstTransition);
+                Assert.AreEqual(2, sim.Boss.Hp);
+                Assert.AreEqual(1, sim.Boss.Phase);
+                Assert.AreEqual(
+                    BossMovementPattern.VerticalSine,
+                    sim.Boss.MovementPattern);
+                Assert.AreEqual(
+                    BossPartVulnerability.All,
+                    sim.Boss.PartVulnerability);
+            });
+
+            int secondTransition = FireOneShotUntilPhaseChange(sim);
+            AssertAll(() =>
+            {
+                Assert.AreEqual(2, secondTransition);
+                Assert.AreEqual(1, sim.Boss.Hp);
+                Assert.AreEqual(2, sim.Boss.Phase);
+                Assert.AreEqual(
+                    BossMovementPattern.VerticalSine,
+                    sim.Boss.MovementPattern);
+                Assert.AreEqual(
+                    BossPartVulnerability.All,
+                    sim.Boss.PartVulnerability);
+            });
+        }
+
+        [Test]
+        public void TimedMovementPhaseTransitionPreservesPositionDelta()
+        {
+            var phases = new[]
+            {
+                new BossPhase(
+                    999, 1, 0, 1,
+                    BossMovementPattern.VerticalSine,
+                    256, 1, 64,
+                    BossPartVulnerability.All,
+                    durationTicks: 12),
+                new BossPhase(
+                    999, 1, 0, 1,
+                    BossMovementPattern.VerticalSine,
+                    384, 1, 80,
+                    BossPartVulnerability.All,
+                    durationTicks: 12)
+            };
+            BattleSim sim = CreateBossSim(
+                bossMaxHp: 100,
+                holdX: 300,
+                phases: phases);
+            InputCommand none = InputCommand.None;
+            for (int tick = 0;
+                tick < 300
+                    && (!sim.BossActive || sim.Boss.X != 300);
+                tick++)
+                sim.Step(in none);
+
+            int previousY = sim.Boss.Y;
+            sim.Step(in none);
+            int previousDelta = sim.Boss.Y - previousY;
+            bool transitioned = false;
+            for (int tick = 0; tick < 24 && !transitioned; tick++)
+            {
+                previousY = sim.Boss.Y;
+                sim.Step(in none);
+                int currentDelta = sim.Boss.Y - previousY;
+                if (HasEvent(
+                        sim.EventsThisTick,
+                        SimEventType.BossPhaseChanged))
+                {
+                    transitioned = true;
+                    Assert.AreEqual(previousDelta, currentDelta);
+                    Assert.LessOrEqual(Math.Abs(currentDelta), 32);
+                }
+                previousDelta = currentDelta;
+            }
+            Assert.IsTrue(transitioned);
         }
 
         [Test]
@@ -244,25 +391,29 @@ namespace Shmup.Core.Tests
         public void RunManagerAwaitsRewardAfterBossAndResumesOnChoice()
         {
             RunManager run = CreateBossRun(seed: 42UL);
-            var fire = new InputCommand(0, 0, true);
-
-            for (int i = 0; i < 500 && run.State == RunState.Playing; i++)
-                run.Step(in fire);
+            CompleteBoss(run);
 
             Assert.AreEqual(RunState.AwaitingReward, run.State);
             Assert.AreEqual(3, run.RewardOptions.Count);
+            Assert.AreEqual(
+                RewardSelectionKind.Main,
+                run.RewardSelectionKind);
             Assert.AreEqual(1, run.StageIndex);
             Assert.AreEqual(1, run.Statistics.StagesCleared);
-            Assert.AreEqual(1L, run.Statistics.ShotsHit);
-            Assert.AreEqual(1L, run.Statistics.Kills);
+            Assert.GreaterOrEqual(run.Statistics.ShotsHit, 2L);
+            Assert.GreaterOrEqual(run.Statistics.Kills, 2L);
 
             run.ChooseReward(0);
+            Assert.AreEqual(
+                RunState.AwaitingContract,
+                run.State);
+            Assert.IsTrue(run.ChooseContract(0));
             Assert.AreEqual(RunState.Playing, run.State);
             Assert.AreEqual(2, run.StageIndex);
             Assert.AreEqual(0, run.RewardOptions.Count);
             Assert.AreEqual(1, run.Statistics.StagesCleared);
-            Assert.AreEqual(1L, run.Statistics.ShotsHit);
-            Assert.AreEqual(1L, run.Statistics.Kills);
+            Assert.GreaterOrEqual(run.Statistics.ShotsHit, 2L);
+            Assert.GreaterOrEqual(run.Statistics.Kills, 2L);
         }
 
         [Test]
@@ -270,12 +421,8 @@ namespace Shmup.Core.Tests
         {
             RunManager first = CreateBossRun(seed: 99UL);
             RunManager second = CreateBossRun(seed: 99UL);
-            var fire = new InputCommand(0, 0, true);
-
-            for (int i = 0; i < 500 && first.State == RunState.Playing; i++)
-                first.Step(in fire);
-            for (int i = 0; i < 500 && second.State == RunState.Playing; i++)
-                second.Step(in fire);
+            CompleteBoss(first);
+            CompleteBoss(second);
 
             Assert.AreEqual(RunState.AwaitingReward, first.State);
             Assert.AreEqual(RunState.AwaitingReward, second.State);
@@ -344,22 +491,28 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void InjectedRewardsFailWhenStageHasFewerThanThreeEligibleEntries()
+        public void InjectedRewardsFillMissingEligibleEntriesWithFallbacks()
         {
             RewardCatalog rewards = Catalog(
                 Reward("only_a", 1, 1),
                 Reward("only_b", 1, 1),
                 Reward("late", 2, 9));
             RunManager run = CreateBossRun(seed: 42UL, rewards: rewards);
-            var fire = new InputCommand(0, 0, true);
 
-            InvalidOperationException error = Assert.Throws<InvalidOperationException>(
-                () =>
-                {
-                    for (int i = 0; i < 500 && run.State == RunState.Playing; i++)
-                        run.Step(in fire);
-                });
-            StringAssert.Contains("2 eligible rewards", error.Message);
+            CompleteBoss(run);
+
+            Assert.AreEqual(
+                RunManager.MainRewardOptionCount,
+                run.RewardOptions.Count);
+            int fallbackCount = 0;
+            for (int i = 0; i < run.RewardOptions.Count; i++)
+            {
+                if (run.RewardOptions[i].Id.StartsWith(
+                        "fallback_",
+                        StringComparison.Ordinal))
+                    fallbackCount++;
+            }
+            Assert.AreEqual(1, fallbackCount);
         }
 
         [Test]
@@ -377,7 +530,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void RepairRewardExpiresWhenTheRunEnds()
+        public void LegacyRepairRewardRestoresShieldStockAndExpiresOnRestart()
         {
             RunManager run = null;
             int repairIndex = -1;
@@ -397,14 +550,18 @@ namespace Shmup.Core.Tests
 
             Assert.IsNotNull(run, "테스트 시드 범위에서 RepairHp 보상을 찾지 못했다");
             run.ChooseReward(repairIndex);
-            Assert.AreEqual(51, run.Battle.PlayerHp);
+            Assert.AreEqual(1, run.Battle.ShieldStock);
+            Assert.IsTrue(run.ChooseContract(0));
 
             InputCommand none = InputCommand.None;
-            run.Step(in none);
+            for (int i = 0;
+                i < 20 && run.State != RunState.RunOver;
+                i++)
+                run.Step(in none);
             Assert.AreEqual(RunState.RunOver, run.State);
 
             run.Restart(999UL);
-            Assert.AreEqual(50, run.Battle.PlayerHp);
+            Assert.AreEqual(0, run.Battle.ShieldStock);
         }
 
         [Test]
@@ -500,7 +657,8 @@ namespace Shmup.Core.Tests
             BattleContent content = Content(
                 new WeaponDefinition("shot", 10, 1, 50, 1, 8, 8), lethal);
             BattleSimConfig config = CreateConfig();
-            config.PlayerMaxHp = 50;
+            config.StartingShieldStock = 0;
+            config.PlayerHitInvulnerabilityTicks = 0;
             return new RunManager(
                 seed,
                 new RewardThenLethalGenerator(lethal.Id),
@@ -512,9 +670,25 @@ namespace Shmup.Core.Tests
         static void CompleteBoss(RunManager run)
         {
             var fire = new InputCommand(0, 0, true);
-            for (int i = 0; i < 500 && run.State == RunState.Playing; i++)
+            for (int i = 0; i < 2000; i++)
+            {
+                if (run.State == RunState.AwaitingReward)
+                {
+                    if (run.RewardSelectionKind
+                        == RewardSelectionKind.Main)
+                        break;
+                    Assert.AreEqual(
+                        RewardSelectionKind.MidStage,
+                        run.RewardSelectionKind);
+                    run.ChooseReward(0);
+                    continue;
+                }
                 run.Step(in fire);
+            }
             Assert.AreEqual(RunState.AwaitingReward, run.State);
+            Assert.AreEqual(
+                RewardSelectionKind.Main,
+                run.RewardSelectionKind);
         }
 
         static int CountBullets(BattleSim sim, BulletFaction faction)
@@ -558,7 +732,8 @@ namespace Shmup.Core.Tests
                         Segment(
                             "lethal",
                             5,
-                            new SpawnEvent(1, _lethalEnemyId, 0, 0))
+                            new SpawnEvent(1, _lethalEnemyId, 0, 0),
+                            new SpawnEvent(2, _lethalEnemyId, 0, 0))
                     },
                     "legacy", 1, 1, 1);
             }
@@ -577,6 +752,41 @@ namespace Shmup.Core.Tests
         static StageSegment Segment(string id, int lengthTicks, params SpawnEvent[] spawns)
         {
             return new StageSegment(id, lengthTicks, spawns, 1, 1, new[] { 1 });
+        }
+
+        static int FireOneShotUntilPhaseChange(BattleSim sim)
+        {
+            int startingPhase = sim.Boss.Phase;
+            var fire = new InputCommand(0, 0, true);
+            InputCommand none = InputCommand.None;
+            for (int tick = 0; tick < 100; tick++)
+            {
+                if (tick == 0)
+                    sim.Step(in fire);
+                else
+                    sim.Step(in none);
+                ReadOnlySpan<SimEvent> events = sim.EventsThisTick;
+                for (int i = 0; i < events.Length; i++)
+                {
+                    if (events[i].Type == SimEventType.BossPhaseChanged)
+                        return events[i].Arg;
+                }
+            }
+            Assert.Fail(
+                $"Boss phase {startingPhase} did not change after one shot.");
+            return -1;
+        }
+
+        static void AssertAll(Action assert) => assert();
+
+        static bool HasEvent(
+            ReadOnlySpan<SimEvent> events,
+            SimEventType type)
+        {
+            for (int i = 0; i < events.Length; i++)
+                if (events[i].Type == type)
+                    return true;
+            return false;
         }
 
         static BattleSimConfig CreateConfig()

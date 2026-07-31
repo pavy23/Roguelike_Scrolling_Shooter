@@ -24,7 +24,7 @@ namespace Shmup.Core.Tests
             exported[1] = 99;
 
             CollectionAssert.AreEqual(
-                new[] { 1, 2, 3, 1 },
+                new[] { 1, 2, 3, 1, 0, 0, 0, 0 },
                 ship.StartingPowerUpLevels);
         }
 
@@ -131,9 +131,11 @@ namespace Shmup.Core.Tests
         {
             MetaState state = MetaState.CreateDefault(
                 ShipDefinition.CreateDefault());
+            string selectedBefore = state.SelectedShipId;
 
-            Assert.Throws<System.InvalidOperationException>(
-                () => state.SelectShip("locked"));
+            Assert.IsFalse(state.SelectShip("locked"));
+            Assert.IsFalse(state.SelectShip(null));
+            Assert.AreEqual(selectedBefore, state.SelectedShipId);
         }
     }
 }

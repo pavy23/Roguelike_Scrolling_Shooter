@@ -20,6 +20,7 @@ namespace Shmup.Presentation.Battle
         [SerializeField] AudioClip _powerup;
         [SerializeField] AudioClip _laserBeam;     // laser 계열 발사음
         [SerializeField] AudioClip _spreadShot;    // spread 계열 발사음
+        [SerializeField] AudioClip _warning;       // 보스 위험 패턴 예고 (REQ-059)
 
         /// <summary>선택 함선의 주무기 계열 — 발사음을 계열별로 바꾼다 (REQ-022 후속).</summary>
         public Shmup.Core.WeaponType WeaponFamily { get; set; } = Shmup.Core.WeaponType.Vulcan;
@@ -33,7 +34,7 @@ namespace Shmup.Presentation.Battle
         [SerializeField] float _laserVolume = 0.35f;
 
         // 이번 스텝에서 이미 재생한 클립 (틱당 1회 제한)
-        readonly bool[] _playedThisStep = new bool[10];
+        readonly bool[] _playedThisStep = new bool[13];
 
         public void PlayEvents(ReadOnlySpan<SimEvent> events)
         {
@@ -44,12 +45,28 @@ namespace Shmup.Presentation.Battle
             if (events.Length > 0)
                 _source.pitch = 1f + (UnityEngine.Random.value - 0.5f) * 0.08f;
 
+            // 전멸 폭탄은 같은 틱에 적 사망 폭발음을 대량으로 몰고 온다. 폭발 채널을
+            // 먼저 선점해 큰 볼륨으로 한 번만 울린다 — 그러지 않으면 사망음이 채널을
+            // 먹어 폭탄이 작게 들리거나, 별도 채널로 두면 두 폭발음이 겹쳐 클리핑한다.
+            for (int i = 0; i < events.Length; i++)
+            {
+                if (events[i].Type != SimEventType.BombActivated) continue;
+                PlayOnce(2, _explosion, 1f);
+                break;
+            }
+
             for (int i = 0; i < events.Length; i++)
             {
                 switch (events[i].Type)
                 {
                     case SimEventType.PlayerFired:
-                        PlayOnce(0, FireClip, _laserVolume);
+                        // 발사음은 내지 않는다 — 주무기와 미사일 모두
+                        // ("주무기랑 미사일 소리 둘다 꺼야 한다", 2026-07-30).
+                        //
+                        // 오토파이어가 기본 ON이라 발사가 쉬지 않고 일어난다. 거기에
+                        // 주무기와 미사일이 각각 이 이벤트를 내므로 발사음이 끊이지 않고
+                        // 울려 듣기 괴로웠다. 발사 자체는 탄이 화면에 보이고 명중하면
+                        // 타격음이 나므로, 발사음이 없어도 피드백은 충분히 남는다.
                         break;
                     case SimEventType.EnemyHit:
                         PlayOnce(1, _hit, 0.5f);
@@ -77,6 +94,19 @@ namespace Shmup.Presentation.Battle
                         break;
                     case SimEventType.StageCleared:
                         PlayOnce(9, _powerup, 1f);
+                        break;
+                    case SimEventType.BombAcquired:
+                        // 캡슐보다 귀한 획득이라 pickup이 아니라 powerup 계열로 알린다.
+                        PlayOnce(10, _powerup, 0.85f);
+                        break;
+                    case SimEventType.BombActivationRejectedEmpty:
+                        // 재고 없이 눌렀다 — 짧고 작게. 버튼이 죽지 않았음을 알리는 정도다.
+                        PlayOnce(11, _hit, 0.25f);
+                        break;
+                    case SimEventType.BossAttackTelegraphed:
+                        // 위험 패턴 예고 — 눈과 귀 양쪽으로. 탄막 속에서는 화면 번쩍임을
+                        // 놓치기 쉽다.
+                        PlayOnce(12, _warning, 0.7f);
                         break;
                 }
             }

@@ -1,9 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using Shmup.Core.Generation;
 
 namespace Shmup.Core.Simulation
 {
+    public enum PrimaryWeaponFamily
+    {
+        Vulcan = 0,
+        Double = 1,
+        Laser = 2,
+        Spread = 3
+    }
+
     public enum MissileFamily
     {
         Straight = 0,
@@ -16,6 +25,179 @@ namespace Shmup.Core.Simulation
         Trail = 0,
         Fixed = 1,
         Orbit = 2
+    }
+
+    public sealed class MidBossProfile
+    {
+        readonly IReadOnlyList<BossPhase> _phases;
+
+        public MidBossProfile(
+            string themeId,
+            int weight,
+            int stageIndexMin,
+            int stageIndexMax,
+            IReadOnlyList<BossPhase> phases)
+        {
+            if (string.IsNullOrWhiteSpace(themeId))
+                throw new ArgumentException(
+                    "Mid-boss theme cannot be null or blank.",
+                    nameof(themeId));
+            if (weight < 1)
+                throw new ArgumentOutOfRangeException(nameof(weight));
+            if (stageIndexMin < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(stageIndexMin));
+            if (stageIndexMax < stageIndexMin)
+                throw new ArgumentOutOfRangeException(
+                    nameof(stageIndexMax));
+            if (phases == null)
+                throw new ArgumentNullException(nameof(phases));
+            if (phases.Count < 2 || phases.Count > 3)
+                throw new ArgumentException(
+                    "Mid-boss patterns require two or three phases.",
+                    nameof(phases));
+            var copy = new BossPhase[phases.Count];
+            for (int i = 0; i < copy.Length; i++)
+            {
+                copy[i] = phases[i]
+                    ?? throw new ArgumentException(
+                        "Mid-boss phases cannot contain null.",
+                        nameof(phases));
+                if (copy[i].DurationTicks < 1)
+                    throw new ArgumentException(
+                        "Mid-boss phases must have positive durationTicks.",
+                        nameof(phases));
+            }
+
+            ThemeId = themeId;
+            Weight = weight;
+            StageIndexMin = stageIndexMin;
+            StageIndexMax = stageIndexMax;
+            _phases = Array.AsReadOnly(copy);
+        }
+
+        public string ThemeId { get; }
+        public int Weight { get; }
+        public int StageIndexMin { get; }
+        public int StageIndexMax { get; }
+        public IReadOnlyList<BossPhase> Phases => _phases;
+    }
+
+    /// <summary>
+    /// Immutable, data-owned primary weapon profile. Display text is carried
+    /// with the deterministic profile so Presentation can explain both the
+    /// equipped family and reward choices without hard-coded labels.
+    /// </summary>
+    public sealed class PrimaryWeaponFamilyDefinition
+    {
+        public PrimaryWeaponFamilyDefinition(
+            PrimaryWeaponFamily family,
+            string displayName,
+            string description,
+            WeaponType weaponType,
+            int baseDamage,
+            int fireIntervalTicks,
+            int minimumFireIntervalTicks,
+            int rapidFireStartLevel,
+            int fireIntervalReductionPerLevel,
+            int speedNumerator,
+            int speedDenominator,
+            int halfWidth,
+            int halfHeight,
+            int pierceEnemyCount,
+            int spreadWays,
+            int spreadStepLutSlots)
+        {
+            if (!Enum.IsDefined(typeof(PrimaryWeaponFamily), family))
+                throw new ArgumentOutOfRangeException(nameof(family));
+            if (string.IsNullOrWhiteSpace(displayName))
+                throw new ArgumentException(
+                    "Display name cannot be null or blank.",
+                    nameof(displayName));
+            if (string.IsNullOrWhiteSpace(description))
+                throw new ArgumentException(
+                    "Description cannot be null or blank.",
+                    nameof(description));
+            if (!Enum.IsDefined(typeof(WeaponType), weaponType))
+                throw new ArgumentOutOfRangeException(nameof(weaponType));
+            if (baseDamage < 0
+                || fireIntervalTicks < 1
+                || minimumFireIntervalTicks < 1
+                || minimumFireIntervalTicks > fireIntervalTicks
+                || rapidFireStartLevel < 0
+                || fireIntervalReductionPerLevel < 0
+                || speedNumerator < 0
+                || speedDenominator < 1
+                || halfWidth < 0
+                || halfHeight < 0
+                || pierceEnemyCount < 0
+                || spreadWays < 1
+                || spreadStepLutSlots < 0)
+                throw new ArgumentOutOfRangeException(nameof(baseDamage));
+            if (family == PrimaryWeaponFamily.Double
+                && (weaponType != WeaponType.Spread || spreadWays != 2))
+                throw new ArgumentException(
+                    "Double must use the two-way spread simulation profile.",
+                    nameof(weaponType));
+            if (family == PrimaryWeaponFamily.Laser
+                && (weaponType != WeaponType.Laser
+                    || pierceEnemyCount < 1))
+                throw new ArgumentException(
+                    "Laser must use a piercing laser simulation profile.",
+                    nameof(weaponType));
+
+            Family = family;
+            DisplayName = displayName;
+            Description = description;
+            WeaponType = weaponType;
+            BaseDamage = baseDamage;
+            FireIntervalTicks = fireIntervalTicks;
+            MinimumFireIntervalTicks = minimumFireIntervalTicks;
+            RapidFireStartLevel = rapidFireStartLevel;
+            FireIntervalReductionPerLevel =
+                fireIntervalReductionPerLevel;
+            SpeedNumerator = speedNumerator;
+            SpeedDenominator = speedDenominator;
+            HalfWidth = halfWidth;
+            HalfHeight = halfHeight;
+            PierceEnemyCount = pierceEnemyCount;
+            SpreadWays = spreadWays;
+            SpreadStepLutSlots = spreadStepLutSlots;
+        }
+
+        public PrimaryWeaponFamily Family { get; }
+        public string Id => PrimaryWeaponFamilyIds.ToId(Family);
+        public string DisplayName { get; }
+        public string Description { get; }
+        public WeaponType WeaponType { get; }
+        public int BaseDamage { get; }
+        public int FireIntervalTicks { get; }
+        public int MinimumFireIntervalTicks { get; }
+        public int RapidFireStartLevel { get; }
+        public int FireIntervalReductionPerLevel { get; }
+        public int SpeedNumerator { get; }
+        public int SpeedDenominator { get; }
+        public int HalfWidth { get; }
+        public int HalfHeight { get; }
+        public int PierceEnemyCount { get; }
+        public int SpreadWays { get; }
+        public int SpreadStepLutSlots { get; }
+    }
+
+    public static class PrimaryWeaponFamilyIds
+    {
+        public static string ToId(PrimaryWeaponFamily family)
+        {
+            switch (family)
+            {
+                case PrimaryWeaponFamily.Vulcan: return "vulcan";
+                case PrimaryWeaponFamily.Double: return "double";
+                case PrimaryWeaponFamily.Laser: return "laser";
+                case PrimaryWeaponFamily.Spread: return "spread";
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(family));
+            }
+        }
     }
 
     public sealed class MissileFamilyDefinition
@@ -181,6 +363,93 @@ namespace Shmup.Core.Simulation
     }
 
     /// <summary>
+    /// Immutable four-phase hostile laser profile. Segment offsets are relative
+    /// to the source entity and remain in integer simulation subunits.
+    /// </summary>
+    public sealed class LaserAttackDefinition
+    {
+        public LaserAttackDefinition(
+            int cycleIntervalTicks,
+            int telegraphTicks,
+            int firingTicks,
+            int sustainTicks,
+            int dissipateTicks,
+            int startOffsetX,
+            int startOffsetY,
+            int endOffsetX,
+            int endOffsetY,
+            int thinHalfWidth,
+            int fullHalfWidth,
+            int damage)
+        {
+            if (cycleIntervalTicks < 1)
+                throw new ArgumentOutOfRangeException(nameof(cycleIntervalTicks));
+            if (telegraphTicks < 1)
+                throw new ArgumentOutOfRangeException(nameof(telegraphTicks));
+            if (firingTicks < 1)
+                throw new ArgumentOutOfRangeException(nameof(firingTicks));
+            if (sustainTicks < 0)
+                throw new ArgumentOutOfRangeException(nameof(sustainTicks));
+            if (dissipateTicks < 1)
+                throw new ArgumentOutOfRangeException(nameof(dissipateTicks));
+            if (startOffsetX == endOffsetX && startOffsetY == endOffsetY)
+                throw new ArgumentException(
+                    "A laser segment must have distinct endpoints.");
+            if (thinHalfWidth < 0)
+                throw new ArgumentOutOfRangeException(nameof(thinHalfWidth));
+            if (fullHalfWidth < thinHalfWidth)
+                throw new ArgumentOutOfRangeException(
+                    nameof(fullHalfWidth),
+                    "Full laser width cannot be smaller than its thin width.");
+            if (damage < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(damage),
+                    "A hostile laser must deal positive damage.");
+
+            long lifetime = (long)telegraphTicks
+                + firingTicks
+                + sustainTicks
+                + dissipateTicks;
+            if (lifetime > int.MaxValue)
+                throw new ArgumentOutOfRangeException(
+                    nameof(dissipateTicks),
+                    "Laser lifetime exceeds the supported tick range.");
+            if (cycleIntervalTicks < lifetime)
+                throw new ArgumentOutOfRangeException(
+                    nameof(cycleIntervalTicks),
+                    "Laser cycles cannot overlap on the same source.");
+
+            CycleIntervalTicks = cycleIntervalTicks;
+            TelegraphTicks = telegraphTicks;
+            FiringTicks = firingTicks;
+            SustainTicks = sustainTicks;
+            DissipateTicks = dissipateTicks;
+            StartOffsetX = startOffsetX;
+            StartOffsetY = startOffsetY;
+            EndOffsetX = endOffsetX;
+            EndOffsetY = endOffsetY;
+            ThinHalfWidth = thinHalfWidth;
+            FullHalfWidth = fullHalfWidth;
+            Damage = damage;
+        }
+
+        public int CycleIntervalTicks { get; }
+        public int TelegraphTicks { get; }
+        public int FiringTicks { get; }
+        public int SustainTicks { get; }
+        public int DissipateTicks { get; }
+        public int StartOffsetX { get; }
+        public int StartOffsetY { get; }
+        public int EndOffsetX { get; }
+        public int EndOffsetY { get; }
+        public int ThinHalfWidth { get; }
+        public int FullHalfWidth { get; }
+        public int Damage { get; }
+        public int LifetimeTicks =>
+            TelegraphTicks + FiringTicks + SustainTicks + DissipateTicks;
+    }
+
+    /// <summary>
     /// Immutable, Unity-free enemy data. Speeds are simulation subunits per tick
     /// represented as an exact fraction.
     /// </summary>
@@ -264,6 +533,52 @@ namespace Shmup.Core.Simulation
             int movementDelayTicks,
             int movementDurationTicks,
             int movementPauseTicks)
+            : this(
+                id,
+                displayName,
+                maxHp,
+                contactDamage,
+                scoreValue,
+                movePattern,
+                moveSpeedNumerator,
+                moveSpeedDenominator,
+                fireIntervalTicks,
+                halfWidth,
+                halfHeight,
+                dropWeight,
+                movementAmplitudeNumerator,
+                movementAmplitudeDenominator,
+                movementPeriodTicks,
+                movementDelayTicks,
+                movementDurationTicks,
+                movementPauseTicks,
+                0,
+                null)
+        {
+        }
+
+        public EnemyDefinition(
+            string id,
+            string displayName,
+            int maxHp,
+            int contactDamage,
+            int scoreValue,
+            EnemyMovePattern movePattern,
+            int moveSpeedNumerator,
+            int moveSpeedDenominator,
+            int fireIntervalTicks,
+            int halfWidth,
+            int halfHeight,
+            int dropWeight,
+            int movementAmplitudeNumerator,
+            int movementAmplitudeDenominator,
+            int movementPeriodTicks,
+            int movementDelayTicks,
+            int movementDurationTicks,
+            int movementPauseTicks,
+            int bombDropWeight,
+            LaserAttackDefinition laserAttack,
+            MidBossProfile midBossProfile = null)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Enemy id cannot be null or empty.", nameof(id));
@@ -291,6 +606,8 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(halfHeight));
             if (dropWeight < 0)
                 throw new ArgumentOutOfRangeException(nameof(dropWeight));
+            if (bombDropWeight < 0)
+                throw new ArgumentOutOfRangeException(nameof(bombDropWeight));
             if (movementAmplitudeNumerator < 0)
                 throw new ArgumentOutOfRangeException(nameof(movementAmplitudeNumerator));
             if (movementAmplitudeDenominator < 1)
@@ -320,6 +637,9 @@ namespace Shmup.Core.Simulation
             HalfWidth = halfWidth;
             HalfHeight = halfHeight;
             DropWeight = dropWeight;
+            BombDropWeight = bombDropWeight;
+            LaserAttack = laserAttack;
+            MidBossProfile = midBossProfile;
             MovementAmplitudeNumerator = movementAmplitudeNumerator;
             MovementAmplitudeDenominator = movementAmplitudeDenominator;
             MovementPeriodTicks = movementPeriodTicks;
@@ -340,6 +660,9 @@ namespace Shmup.Core.Simulation
         public int HalfWidth { get; }
         public int HalfHeight { get; }
         public int DropWeight { get; }
+        public int BombDropWeight { get; }
+        public LaserAttackDefinition LaserAttack { get; }
+        public MidBossProfile MidBossProfile { get; }
         public int MovementAmplitudeNumerator { get; }
         public int MovementAmplitudeDenominator { get; }
         public int MovementAmplitude =>
@@ -407,7 +730,8 @@ namespace Shmup.Core.Simulation
             int projectileHalfWidth,
             int projectileHalfHeight,
             int maxLevel,
-            int minimumFireIntervalTicks)
+            int minimumFireIntervalTicks,
+            int effectSoftCapLevel = -1)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Weapon id cannot be null or empty.", nameof(id));
@@ -429,6 +753,12 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(projectileHalfHeight));
             if (maxLevel < 1)
                 throw new ArgumentOutOfRangeException(nameof(maxLevel));
+            if (effectSoftCapLevel == -1)
+                effectSoftCapLevel = maxLevel;
+            if (effectSoftCapLevel < 1
+                || effectSoftCapLevel > maxLevel)
+                throw new ArgumentOutOfRangeException(
+                    nameof(effectSoftCapLevel));
 
             Id = id;
             Slot = slot;
@@ -440,6 +770,7 @@ namespace Shmup.Core.Simulation
             ProjectileHalfWidth = projectileHalfWidth;
             ProjectileHalfHeight = projectileHalfHeight;
             MaxLevel = maxLevel;
+            EffectSoftCapLevel = effectSoftCapLevel;
         }
 
         public string Id { get; }
@@ -452,6 +783,7 @@ namespace Shmup.Core.Simulation
         public int ProjectileHalfWidth { get; }
         public int ProjectileHalfHeight { get; }
         public int MaxLevel { get; }
+        public int EffectSoftCapLevel { get; }
     }
 
     /// <summary>
@@ -462,6 +794,8 @@ namespace Shmup.Core.Simulation
     {
         readonly ReadOnlyCollection<EnemyDefinition> _enemies;
         readonly ReadOnlyCollection<WeaponDefinition> _weapons;
+        readonly ReadOnlyCollection<PrimaryWeaponFamilyDefinition>
+            _primaryWeaponFamilies;
         readonly ReadOnlyCollection<MissileFamilyDefinition> _missileFamilies;
         readonly ReadOnlyCollection<OptionFormationDefinition> _optionFormations;
 
@@ -473,6 +807,7 @@ namespace Shmup.Core.Simulation
                 enemies,
                 weapons,
                 playerWeaponId,
+                CreateLegacyPrimaryWeaponFamilies(weapons, playerWeaponId),
                 CreateLegacyMissileFamilies(weapons),
                 MissileFamily.Straight,
                 CreateLegacyOptionFormations(),
@@ -484,6 +819,30 @@ namespace Shmup.Core.Simulation
             IReadOnlyList<EnemyDefinition> enemies,
             IReadOnlyList<WeaponDefinition> weapons,
             string playerWeaponId,
+            IReadOnlyList<MissileFamilyDefinition> missileFamilies,
+            MissileFamily defaultMissileFamily,
+            IReadOnlyList<OptionFormationDefinition> optionFormations,
+            OptionFormation defaultOptionFormation)
+            : this(
+                enemies,
+                weapons,
+                playerWeaponId,
+                CreateLegacyPrimaryWeaponFamilies(
+                    weapons,
+                    playerWeaponId),
+                missileFamilies,
+                defaultMissileFamily,
+                optionFormations,
+                defaultOptionFormation)
+        {
+        }
+
+        public BattleContent(
+            IReadOnlyList<EnemyDefinition> enemies,
+            IReadOnlyList<WeaponDefinition> weapons,
+            string playerWeaponId,
+            IReadOnlyList<PrimaryWeaponFamilyDefinition>
+                primaryWeaponFamilies,
             IReadOnlyList<MissileFamilyDefinition> missileFamilies,
             MissileFamily defaultMissileFamily,
             IReadOnlyList<OptionFormationDefinition> optionFormations,
@@ -519,6 +878,8 @@ namespace Shmup.Core.Simulation
             PlayerWeapon = FindWeapon(playerWeaponId) ?? throw new ArgumentException(
                 "The player weapon id is not present in the weapon definitions.",
                 nameof(playerWeaponId));
+            _primaryWeaponFamilies =
+                CopyPrimaryWeaponFamilies(primaryWeaponFamilies);
             _missileFamilies = CopyMissileFamilies(missileFamilies);
             _optionFormations = CopyOptionFormations(optionFormations);
             DefaultMissileFamily = defaultMissileFamily;
@@ -535,6 +896,8 @@ namespace Shmup.Core.Simulation
 
         public IReadOnlyList<EnemyDefinition> Enemies => _enemies;
         public IReadOnlyList<WeaponDefinition> Weapons => _weapons;
+        public IReadOnlyList<PrimaryWeaponFamilyDefinition>
+            PrimaryWeaponFamilies => _primaryWeaponFamilies;
         public IReadOnlyList<MissileFamilyDefinition> MissileFamilies =>
             _missileFamilies;
         public IReadOnlyList<OptionFormationDefinition> OptionFormations =>
@@ -542,6 +905,15 @@ namespace Shmup.Core.Simulation
         public WeaponDefinition PlayerWeapon { get; }
         public MissileFamily DefaultMissileFamily { get; }
         public OptionFormation DefaultOptionFormation { get; }
+
+        public PrimaryWeaponFamilyDefinition FindPrimaryWeaponFamily(
+            PrimaryWeaponFamily family)
+        {
+            for (int i = 0; i < _primaryWeaponFamilies.Count; i++)
+                if (_primaryWeaponFamilies[i].Family == family)
+                    return _primaryWeaponFamilies[i];
+            return null;
+        }
 
         public MissileFamilyDefinition FindMissileFamily(
             MissileFamily family)
@@ -632,6 +1004,41 @@ namespace Shmup.Core.Simulation
             return new ReadOnlyCollection<MissileFamilyDefinition>(copy);
         }
 
+        static ReadOnlyCollection<PrimaryWeaponFamilyDefinition>
+            CopyPrimaryWeaponFamilies(
+                IReadOnlyList<PrimaryWeaponFamilyDefinition> source)
+        {
+            if (source == null || source.Count == 0)
+                throw new ArgumentException(
+                    "At least one primary weapon family is required.",
+                    nameof(source));
+            var copy =
+                new PrimaryWeaponFamilyDefinition[source.Count];
+            bool hasDouble = false;
+            bool hasLaser = false;
+            for (int i = 0; i < copy.Length; i++)
+            {
+                copy[i] = source[i] ?? throw new ArgumentException(
+                    "Primary weapon families cannot contain null.",
+                    nameof(source));
+                for (int previous = 0; previous < i; previous++)
+                    if (copy[previous].Family == copy[i].Family)
+                        throw new ArgumentException(
+                            "Primary weapon families cannot be duplicated.",
+                            nameof(source));
+                hasDouble |= copy[i].Family
+                    == PrimaryWeaponFamily.Double;
+                hasLaser |= copy[i].Family
+                    == PrimaryWeaponFamily.Laser;
+            }
+            if (!hasDouble || !hasLaser)
+                throw new ArgumentException(
+                    "Double and laser primary weapon families are required.",
+                    nameof(source));
+            return new ReadOnlyCollection<PrimaryWeaponFamilyDefinition>(
+                copy);
+        }
+
         static ReadOnlyCollection<OptionFormationDefinition>
             CopyOptionFormations(
                 IReadOnlyList<OptionFormationDefinition> source)
@@ -689,6 +1096,122 @@ namespace Shmup.Core.Simulation
                     0,
                     0,
                     0)
+            };
+        }
+
+        static IReadOnlyList<PrimaryWeaponFamilyDefinition>
+            CreateLegacyPrimaryWeaponFamilies(
+                IReadOnlyList<WeaponDefinition> weapons,
+                string playerWeaponId)
+        {
+            WeaponDefinition main = null;
+            if (weapons != null && playerWeaponId != null)
+                for (int i = 0; i < weapons.Count; i++)
+                    if (weapons[i] != null
+                        && string.Equals(
+                            weapons[i].Id,
+                            playerWeaponId,
+                            StringComparison.Ordinal))
+                    {
+                        main = weapons[i];
+                        break;
+                    }
+            int u = SimSpace.SubUnitsPerWorldUnit;
+            int baseDamage = main == null ? 10 : main.BaseDamage;
+            int fireInterval =
+                main == null
+                    ? 8
+                    : Math.Max(1, main.FireIntervalTicks);
+            int minimumInterval =
+                main == null
+                    ? 4
+                    : Math.Min(
+                        fireInterval,
+                        Math.Max(
+                            1,
+                            main.MinimumFireIntervalTicks));
+            int speedNumerator =
+                main == null
+                    ? 20 * u
+                    : main.ProjectileSpeedNumerator;
+            int speedDenominator =
+                main == null
+                    ? SimSpace.TicksPerSecond
+                    : main.ProjectileSpeedDenominator;
+            int halfWidth =
+                main == null ? 3 * u / 8 : main.ProjectileHalfWidth;
+            int halfHeight =
+                main == null ? 9 * u / 64 : main.ProjectileHalfHeight;
+            return new[]
+            {
+                new PrimaryWeaponFamilyDefinition(
+                    PrimaryWeaponFamily.Vulcan,
+                    "Vulcan",
+                    "Rapid straight fire.",
+                    WeaponType.Vulcan,
+                    baseDamage,
+                    fireInterval,
+                    minimumInterval,
+                    2,
+                    1,
+                    speedNumerator,
+                    speedDenominator,
+                    halfWidth,
+                    halfHeight,
+                    0,
+                    1,
+                    0),
+                new PrimaryWeaponFamilyDefinition(
+                    PrimaryWeaponFamily.Double,
+                    "Double",
+                    "Two-way spread fire for wider coverage.",
+                    WeaponType.Spread,
+                    Math.Max(1, baseDamage * 3 / 5),
+                    Math.Max(1, fireInterval + 2),
+                    Math.Max(1, minimumInterval),
+                    3,
+                    1,
+                    speedNumerator,
+                    speedDenominator,
+                    halfWidth,
+                    halfHeight,
+                    0,
+                    2,
+                    2),
+                new PrimaryWeaponFamilyDefinition(
+                    PrimaryWeaponFamily.Laser,
+                    "Laser",
+                    "Slower straight fire that pierces up to three enemies.",
+                    WeaponType.Laser,
+                    Math.Max(1, baseDamage * 3 / 2),
+                    Math.Max(fireInterval + 3, fireInterval * 2),
+                    Math.Max(1, fireInterval),
+                    2,
+                    2,
+                    speedNumerator,
+                    speedDenominator,
+                    Math.Max(0, halfWidth / 2),
+                    Math.Max(0, halfHeight / 2),
+                    2,
+                    1,
+                    0),
+                new PrimaryWeaponFamilyDefinition(
+                    PrimaryWeaponFamily.Spread,
+                    "Spread",
+                    "Three-way coverage fire.",
+                    WeaponType.Spread,
+                    Math.Max(1, baseDamage * 3 / 5),
+                    Math.Max(1, fireInterval + 2),
+                    Math.Max(1, minimumInterval),
+                    3,
+                    1,
+                    speedNumerator,
+                    speedDenominator,
+                    halfWidth,
+                    halfHeight,
+                    0,
+                    3,
+                    2)
             };
         }
 

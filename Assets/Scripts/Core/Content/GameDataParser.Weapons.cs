@@ -9,16 +9,23 @@ namespace Shmup.Core.Content
         {
             int schemaVersion = Require(root.schemaVersion, "weapons.json.schemaVersion");
             if (schemaVersion != SupportedSchemaVersion
-                && schemaVersion != SupportedWeaponsSchemaVersion)
+                && schemaVersion != SupportedWeaponsSchemaVersion
+                && schemaVersion != SupportedPrimaryWeaponsSchemaVersion
+                && schemaVersion != SupportedPowerUpCurveSchemaVersion
+                && schemaVersion != SupportedPowerUpGaugeSchemaVersion)
                 throw Error(
                     "weapons.json.schemaVersion",
-                    $"must be {SupportedSchemaVersion} or "
-                    + $"{SupportedWeaponsSchemaVersion}, but was {schemaVersion}.");
+                    $"must be {SupportedSchemaVersion}, "
+                    + $"{SupportedWeaponsSchemaVersion}, or "
+                    + $"{SupportedPrimaryWeaponsSchemaVersion}, "
+                    + $"{SupportedPowerUpCurveSchemaVersion}, or "
+                    + $"{SupportedPowerUpGaugeSchemaVersion}, "
+                    + $"but was {schemaVersion}.");
 
             WeaponDto[] source = RequireArray(root.weapons, "weapons.json.weapons");
             var definitions = new WeaponDefinition[source.Length];
             var maxLevels = new int[PowerUpGauge.SlotCount];
-            var seenSlots = new bool[PowerUpGauge.SlotCount];
+            var seenSlots = new bool[4];
             WeaponDefinition mainShot = null;
             WeaponDefinition missile = null;
 
@@ -30,6 +37,11 @@ namespace Shmup.Core.Content
                     throw Error(path, "cannot be null.");
 
                 PowerUpSlot slot = ParsePowerUpSlot(item.slot, path + ".slot");
+                if ((int)slot >= seenSlots.Length)
+                    throw Error(
+                        path + ".slot",
+                        "selectable gauge slots are declared in powerUpGauge.slots, "
+                        + "not weapons.");
                 if (seenSlots[(int)slot])
                     throw Error(path + ".slot", $"duplicates slot '{slot}'.");
 
@@ -59,7 +71,12 @@ namespace Shmup.Core.Content
                         Require(item.projectileHalfHeight, path + ".projectileHalfHeight"),
                         path + ".projectileHalfHeight"),
                     Require(item.maxLevel, path + ".maxLevel"),
-                    minimumFireIntervalTicks);
+                    minimumFireIntervalTicks,
+                    ParseEffectSoftCapLevel(
+                        item,
+                        slot,
+                        schemaVersion,
+                        path));
 
                 definitions[i] = definition;
                 seenSlots[(int)slot] = true;
@@ -75,10 +92,11 @@ namespace Shmup.Core.Content
                         $"is missing slot '{(PowerUpSlot)i}'.");
 
             MissileFamilyDefinition[] missileFamilies;
+            PrimaryWeaponFamilyDefinition[] primaryWeaponFamilies;
             OptionFormationDefinition[] optionFormations;
             MissileFamily defaultMissileFamily;
             OptionFormation defaultOptionFormation;
-            if (schemaVersion == SupportedWeaponsSchemaVersion)
+            if (schemaVersion >= SupportedWeaponsSchemaVersion)
             {
                 missileFamilies = ParseMissileFamilies(root);
                 optionFormations = ParseOptionFormations(root);
@@ -88,6 +106,13 @@ namespace Shmup.Core.Content
                 defaultOptionFormation = ParseOptionFormation(
                     root.defaultOptionFormation,
                     "weapons.json.defaultOptionFormation");
+                primaryWeaponFamilies =
+                    schemaVersion
+                >= SupportedPrimaryWeaponsSchemaVersion
+                        ? CompletePrimaryWeaponFamilies(
+                            ParsePrimaryWeaponFamilies(root),
+                            CreateLegacyPrimaryWeaponFamilies(mainShot))
+                        : CreateLegacyPrimaryWeaponFamilies(mainShot);
             }
             else
             {
@@ -122,17 +147,457 @@ namespace Shmup.Core.Content
                 };
                 defaultMissileFamily = MissileFamily.Straight;
                 defaultOptionFormation = OptionFormation.Trail;
+                primaryWeaponFamilies =
+                    CreateLegacyPrimaryWeaponFamilies(mainShot);
             }
+
+            PowerUpCostCurve costCurve =
+                schemaVersion >= SupportedPowerUpCurveSchemaVersion
+                    ? ParsePowerUpCostCurve(root.powerUpCostCurve)
+                    : PowerUpCostCurve.CreateProvisional();
+            PowerUpSlotDefinition[] gaugeSlots =
+                schemaVersion >= SupportedPowerUpGaugeSchemaVersion
+                    ? ParsePowerUpGauge(root.powerUpGauge)
+                    : CreateLegacyPowerUpGauge(
+                        maxLevels,
+                        costCurve);
+            for (int i = 0; i < gaugeSlots.Length; i++)
+                maxLevels[(int)gaugeSlots[i].Slot] =
+                    gaugeSlots[i].MaxLevel;
 
             return new WeaponParseResult(
                 definitions,
                 maxLevels,
+                costCurve,
+                gaugeSlots,
                 mainShot,
                 missile,
+                primaryWeaponFamilies,
                 missileFamilies,
                 defaultMissileFamily,
                 optionFormations,
                 defaultOptionFormation);
+        }
+
+        static int ParseEffectSoftCapLevel(
+            WeaponDto item,
+            PowerUpSlot slot,
+            int schemaVersion,
+            string path)
+        {
+            int maxLevel =
+                Require(item.maxLevel, path + ".maxLevel");
+            if (schemaVersion >= SupportedPowerUpCurveSchemaVersion)
+            {
+                int value = Require(
+                    item.effectSoftCapLevel,
+                    path + ".effectSoftCapLevel");
+                if (value < 1 || value > maxLevel)
+                    throw Error(
+                        path + ".effectSoftCapLevel",
+                        "must be within 1..maxLevel.");
+                return value;
+            }
+
+            int legacySoftCap;
+            switch (slot)
+            {
+                case PowerUpSlot.MainShot: legacySoftCap = 5; break;
+                case PowerUpSlot.Missile: legacySoftCap = 3; break;
+                case PowerUpSlot.Option: legacySoftCap = 4; break;
+                case PowerUpSlot.Shield: legacySoftCap = 3; break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(slot));
+            }
+            return Math.Min(maxLevel, legacySoftCap);
+        }
+
+        static PowerUpCostCurve ParsePowerUpCostCurve(
+            PowerUpCostCurveDto source)
+        {
+            const string path = "weapons.json.powerUpCostCurve";
+            if (source == null)
+                throw Error(path, "is required.");
+            int baseCost = Require(source.baseCost, path + ".baseCost");
+            int linearGrowth = Require(
+                source.linearGrowth,
+                path + ".linearGrowth");
+            int quadraticGrowth = Require(
+                source.quadraticGrowth,
+                path + ".quadraticGrowth");
+            if (baseCost < 1)
+                throw Error(path + ".baseCost", "must be positive.");
+            if (linearGrowth < 0)
+                throw Error(path + ".linearGrowth", "cannot be negative.");
+            if (quadraticGrowth < 0)
+                throw Error(path + ".quadraticGrowth", "cannot be negative.");
+            return new PowerUpCostCurve(
+                baseCost,
+                linearGrowth,
+                quadraticGrowth);
+        }
+
+        static PowerUpSlotDefinition[] ParsePowerUpGauge(
+            PowerUpGaugeDto source)
+        {
+            const string path = "weapons.json.powerUpGauge";
+            if (source == null)
+                throw Error(path, "is required.");
+            PowerUpGaugeSlotDto[] slots = RequireArray(
+                source.slots,
+                path + ".slots");
+            if (slots.Length != PowerUpGauge.DefaultGaugeSlotCount)
+                throw Error(
+                    path + ".slots",
+                    $"must contain exactly "
+                    + $"{PowerUpGauge.DefaultGaugeSlotCount} entries.");
+
+            var definitions =
+                new PowerUpSlotDefinition[slots.Length];
+            var seen = new bool[PowerUpGauge.SlotCount];
+            seen[(int)PowerUpSlot.MainShot] = true;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                string slotPath = $"{path}.slots[{i}]";
+                PowerUpGaugeSlotDto item = slots[i];
+                if (item == null)
+                    throw Error(slotPath, "cannot be null.");
+                PowerUpSlot slot = ParsePowerUpSlot(
+                    item.slot,
+                    slotPath + ".slot");
+                if (slot == PowerUpSlot.MainShot)
+                    throw Error(
+                        slotPath + ".slot",
+                        "MainShot is a hidden shared power axis.");
+                if (seen[(int)slot])
+                    throw Error(
+                        slotPath + ".slot",
+                        $"duplicates slot '{slot}'.");
+                seen[(int)slot] = true;
+
+                ExactFraction speedBonus =
+                    item.speedBonusPerLevel.HasValue
+                        ? ToPerTickSpeed(
+                            item.speedBonusPerLevel.Value,
+                            slotPath + ".speedBonusPerLevel")
+                        : new ExactFraction(0, 1);
+                if (slot == PowerUpSlot.Speed
+                    && speedBonus.Numerator < 1)
+                    throw Error(
+                        slotPath + ".speedBonusPerLevel",
+                        "must be positive for Speed.");
+                if (slot != PowerUpSlot.Speed
+                    && speedBonus.Numerator != 0)
+                    throw Error(
+                        slotPath + ".speedBonusPerLevel",
+                        "is only valid for Speed.");
+
+                definitions[i] = new PowerUpSlotDefinition(
+                    slot,
+                    RequireText(
+                        item.nameKey,
+                        slotPath + ".nameKey"),
+                    Require(
+                        item.maxLevel,
+                        slotPath + ".maxLevel"),
+                    ParsePowerUpSlotCostCurve(
+                        item.costCurve,
+                        slotPath + ".costCurve"),
+                    speedBonus.Numerator,
+                    speedBonus.Denominator);
+            }
+            for (int i = 0; i < seen.Length; i++)
+                if (!seen[i])
+                    throw Error(
+                        path + ".slots",
+                        $"is missing slot '{(PowerUpSlot)i}'.");
+            return definitions;
+        }
+
+        static PowerUpCostCurve ParsePowerUpSlotCostCurve(
+            PowerUpCostCurveDto source,
+            string path)
+        {
+            if (source == null)
+                throw Error(path, "is required.");
+            int baseCost = Require(
+                source.baseCost,
+                path + ".baseCost");
+            int linearGrowth = Require(
+                source.linearGrowth,
+                path + ".linearGrowth");
+            int quadraticGrowth = Require(
+                source.quadraticGrowth,
+                path + ".quadraticGrowth");
+            if (baseCost < 1)
+                throw Error(path + ".baseCost", "must be positive.");
+            if (linearGrowth < 0)
+                throw Error(
+                    path + ".linearGrowth",
+                    "cannot be negative.");
+            if (quadraticGrowth < 0)
+                throw Error(
+                    path + ".quadraticGrowth",
+                    "cannot be negative.");
+            return new PowerUpCostCurve(
+                baseCost,
+                linearGrowth,
+                quadraticGrowth);
+        }
+
+        static PowerUpSlotDefinition[] CreateLegacyPowerUpGauge(
+            int[] maxLevels,
+            PowerUpCostCurve costCurve)
+        {
+            return new[]
+            {
+                new PowerUpSlotDefinition(
+                    PowerUpSlot.Speed,
+                    "powerUp.speed",
+                    5,
+                    costCurve,
+                    SimSpace.SubUnitsPerWorldUnit,
+                    SimSpace.TicksPerSecond),
+                new PowerUpSlotDefinition(
+                    PowerUpSlot.Missile,
+                    "powerUp.missile",
+                    maxLevels[(int)PowerUpSlot.Missile],
+                    costCurve),
+                new PowerUpSlotDefinition(
+                    PowerUpSlot.Double,
+                    "powerUp.double",
+                    1,
+                    costCurve),
+                new PowerUpSlotDefinition(
+                    PowerUpSlot.Laser,
+                    "powerUp.laser",
+                    1,
+                    costCurve),
+                new PowerUpSlotDefinition(
+                    PowerUpSlot.Triple,
+                    "powerUp.triple",
+                    1,
+                    costCurve),
+                new PowerUpSlotDefinition(
+                    PowerUpSlot.Option,
+                    "powerUp.option",
+                    maxLevels[(int)PowerUpSlot.Option],
+                    costCurve),
+                new PowerUpSlotDefinition(
+                    PowerUpSlot.Shield,
+                    "powerUp.shield",
+                    maxLevels[(int)PowerUpSlot.Shield],
+                    costCurve)
+            };
+        }
+
+        static PrimaryWeaponFamilyDefinition[]
+            ParsePrimaryWeaponFamilies(WeaponsDto root)
+        {
+            PrimaryWeaponFamilyDto[] source = RequireArray(
+                root.primaryWeaponFamilies,
+                "weapons.json.primaryWeaponFamilies");
+            if (source.Length < 2 || source.Length > 4)
+                throw Error(
+                    "weapons.json.primaryWeaponFamilies",
+                    "must contain 2 to 4 unique families including double and laser.");
+            var definitions =
+                new PrimaryWeaponFamilyDefinition[source.Length];
+            var seen = new bool[4];
+            for (int i = 0; i < source.Length; i++)
+            {
+                string path =
+                    $"weapons.json.primaryWeaponFamilies[{i}]";
+                PrimaryWeaponFamilyDto item = source[i];
+                if (item == null)
+                    throw Error(path, "cannot be null.");
+                PrimaryWeaponFamily family =
+                    ParsePrimaryWeaponFamily(
+                        item.id,
+                        path + ".id");
+                if (seen[(int)family])
+                    throw Error(path + ".id", $"duplicates '{item.id}'.");
+                seen[(int)family] = true;
+                ExactFraction speed = ToPerTickSpeed(
+                    Require(
+                        item.projectileSpeed,
+                        path + ".projectileSpeed"),
+                    path + ".projectileSpeed");
+                definitions[i] =
+                    new PrimaryWeaponFamilyDefinition(
+                        family,
+                        RequireText(
+                            item.displayName,
+                            path + ".displayName"),
+                        RequireText(
+                            item.description,
+                            path + ".description"),
+                        ParseWeaponType(
+                            RequireText(
+                                item.weaponType,
+                                path + ".weaponType"),
+                            path + ".weaponType"),
+                        Require(
+                            item.baseDamage,
+                            path + ".baseDamage"),
+                        Require(
+                            item.fireIntervalTicks,
+                            path + ".fireIntervalTicks"),
+                        Require(
+                            item.minimumFireIntervalTicks,
+                            path + ".minimumFireIntervalTicks"),
+                        Require(
+                            item.rapidFireStartLevel,
+                            path + ".rapidFireStartLevel"),
+                        Require(
+                            item.fireIntervalReductionPerLevel,
+                            path + ".fireIntervalReductionPerLevel"),
+                        speed.Numerator,
+                        speed.Denominator,
+                        ToSubUnits(
+                            Require(
+                                item.projectileHalfWidth,
+                                path + ".projectileHalfWidth"),
+                            path + ".projectileHalfWidth"),
+                        ToSubUnits(
+                            Require(
+                                item.projectileHalfHeight,
+                                path + ".projectileHalfHeight"),
+                            path + ".projectileHalfHeight"),
+                        Require(
+                            item.pierceEnemyCount,
+                            path + ".pierceEnemyCount"),
+                        Require(
+                            item.spreadWays,
+                            path + ".spreadWays"),
+                        Require(
+                            item.spreadStepLutSlots,
+                            path + ".spreadStepLutSlots"));
+            }
+            if (!seen[(int)PrimaryWeaponFamily.Double]
+                || !seen[(int)PrimaryWeaponFamily.Laser])
+                throw Error(
+                    "weapons.json.primaryWeaponFamilies",
+                    "must include double and laser.");
+            return definitions;
+        }
+
+        static PrimaryWeaponFamilyDefinition[]
+            CompletePrimaryWeaponFamilies(
+                PrimaryWeaponFamilyDefinition[] configured,
+                PrimaryWeaponFamilyDefinition[] fallbacks)
+        {
+            var present = new bool[4];
+            for (int i = 0; i < configured.Length; i++)
+                present[(int)configured[i].Family] = true;
+
+            int missingCount = 0;
+            for (int i = 0; i < fallbacks.Length; i++)
+                if (!present[(int)fallbacks[i].Family])
+                    missingCount++;
+            if (missingCount == 0)
+                return configured;
+
+            var complete =
+                new PrimaryWeaponFamilyDefinition[
+                    configured.Length + missingCount];
+            Array.Copy(configured, complete, configured.Length);
+            int writeIndex = configured.Length;
+            for (int i = 0; i < fallbacks.Length; i++)
+            {
+                PrimaryWeaponFamilyDefinition fallback = fallbacks[i];
+                if (present[(int)fallback.Family])
+                    continue;
+                complete[writeIndex++] = fallback;
+            }
+            return complete;
+        }
+
+        static PrimaryWeaponFamilyDefinition[]
+            CreateLegacyPrimaryWeaponFamilies(WeaponDefinition main)
+        {
+            int u = SimSpace.SubUnitsPerWorldUnit;
+            int baseDamage = main.BaseDamage;
+            int fireInterval = Math.Max(
+                1,
+                main.FireIntervalTicks);
+            int minimumInterval =
+                Math.Min(
+                    fireInterval,
+                    Math.Max(
+                        1,
+                        main.MinimumFireIntervalTicks));
+            return new[]
+            {
+                new PrimaryWeaponFamilyDefinition(
+                    PrimaryWeaponFamily.Vulcan,
+                    "Vulcan",
+                    "Rapid straight fire.",
+                    WeaponType.Vulcan,
+                    baseDamage,
+                    fireInterval,
+                    minimumInterval,
+                    2,
+                    1,
+                    main.ProjectileSpeedNumerator,
+                    main.ProjectileSpeedDenominator,
+                    main.ProjectileHalfWidth,
+                    main.ProjectileHalfHeight,
+                    0,
+                    1,
+                    0),
+                new PrimaryWeaponFamilyDefinition(
+                    PrimaryWeaponFamily.Double,
+                    "Double",
+                    "Two-way spread fire for wider coverage.",
+                    WeaponType.Spread,
+                    Math.Max(1, baseDamage * 3 / 5),
+                    fireInterval + 2,
+                    minimumInterval,
+                    3,
+                    1,
+                    main.ProjectileSpeedNumerator,
+                    main.ProjectileSpeedDenominator,
+                    main.ProjectileHalfWidth,
+                    main.ProjectileHalfHeight,
+                    0,
+                    2,
+                    2),
+                new PrimaryWeaponFamilyDefinition(
+                    PrimaryWeaponFamily.Laser,
+                    "Laser",
+                    "Slower straight fire that pierces up to three enemies.",
+                    WeaponType.Laser,
+                    Math.Max(1, baseDamage * 3 / 2),
+                    Math.Max(fireInterval + 3, fireInterval * 2),
+                    Math.Max(fireInterval, minimumInterval),
+                    2,
+                    2,
+                    28 * u,
+                    SimSpace.TicksPerSecond,
+                    Math.Max(0, main.ProjectileHalfWidth / 2),
+                    Math.Max(0, main.ProjectileHalfHeight / 2),
+                    2,
+                    1,
+                    0),
+                new PrimaryWeaponFamilyDefinition(
+                    PrimaryWeaponFamily.Spread,
+                    "Spread",
+                    "Three-way coverage fire.",
+                    WeaponType.Spread,
+                    Math.Max(1, baseDamage * 3 / 5),
+                    fireInterval + 2,
+                    minimumInterval,
+                    3,
+                    1,
+                    main.ProjectileSpeedNumerator,
+                    main.ProjectileSpeedDenominator,
+                    main.ProjectileHalfWidth,
+                    main.ProjectileHalfHeight,
+                    0,
+                    3,
+                    2)
+            };
         }
 
         static MissileFamilyDefinition[] ParseMissileFamilies(
@@ -314,6 +779,21 @@ namespace Shmup.Core.Content
             }
         }
 
+        internal static PrimaryWeaponFamily ParsePrimaryWeaponFamily(
+            string value,
+            string path)
+        {
+            switch (RequireText(value, path))
+            {
+                case "vulcan": return PrimaryWeaponFamily.Vulcan;
+                case "double": return PrimaryWeaponFamily.Double;
+                case "laser": return PrimaryWeaponFamily.Laser;
+                case "spread": return PrimaryWeaponFamily.Spread;
+                default:
+                    throw Error(path, $"has unknown value '{value}'.");
+            }
+        }
+
         internal static OptionFormation ParseOptionFormation(
             string value,
             string path)
@@ -336,6 +816,10 @@ namespace Shmup.Core.Content
                 case "Missile": return PowerUpSlot.Missile;
                 case "Option": return PowerUpSlot.Option;
                 case "Shield": return PowerUpSlot.Shield;
+                case "Speed": return PowerUpSlot.Speed;
+                case "Double": return PowerUpSlot.Double;
+                case "Laser": return PowerUpSlot.Laser;
+                case "Triple": return PowerUpSlot.Triple;
                 default: throw Error(path, $"has unknown value '{value}'.");
             }
         }
@@ -345,8 +829,11 @@ namespace Shmup.Core.Content
             public WeaponParseResult(
                 WeaponDefinition[] definitions,
                 int[] maxLevels,
+                PowerUpCostCurve costCurve,
+                PowerUpSlotDefinition[] gaugeSlots,
                 WeaponDefinition mainShot,
                 WeaponDefinition missile,
+                PrimaryWeaponFamilyDefinition[] primaryWeaponFamilies,
                 MissileFamilyDefinition[] missileFamilies,
                 MissileFamily defaultMissileFamily,
                 OptionFormationDefinition[] optionFormations,
@@ -354,8 +841,11 @@ namespace Shmup.Core.Content
             {
                 Definitions = definitions;
                 MaxLevels = maxLevels;
+                CostCurve = costCurve;
+                GaugeSlots = gaugeSlots;
                 MainShot = mainShot;
                 Missile = missile;
+                PrimaryWeaponFamilies = primaryWeaponFamilies;
                 MissileFamilies = missileFamilies;
                 DefaultMissileFamily = defaultMissileFamily;
                 OptionFormations = optionFormations;
@@ -364,8 +854,12 @@ namespace Shmup.Core.Content
 
             public WeaponDefinition[] Definitions { get; }
             public int[] MaxLevels { get; }
+            public PowerUpCostCurve CostCurve { get; }
+            public PowerUpSlotDefinition[] GaugeSlots { get; }
             public WeaponDefinition MainShot { get; }
             public WeaponDefinition Missile { get; }
+            public PrimaryWeaponFamilyDefinition[]
+                PrimaryWeaponFamilies { get; }
             public MissileFamilyDefinition[] MissileFamilies { get; }
             public MissileFamily DefaultMissileFamily { get; }
             public OptionFormationDefinition[] OptionFormations { get; }

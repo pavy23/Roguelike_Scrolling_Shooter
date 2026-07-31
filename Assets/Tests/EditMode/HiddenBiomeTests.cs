@@ -75,7 +75,7 @@ namespace Shmup.Core.Tests
 
             Assert.IsTrue(run.IsHiddenBiome);
             Assert.IsTrue(run.IsBiomeBoss);
-            Assert.AreEqual(3, run.BiomeIndex);
+            Assert.AreEqual(run.BiomeCount, run.BiomeIndex);
             Assert.AreEqual(2, run.RoomIndex);
             Assert.AreEqual(4, run.EliteRoomsCleared);
             Assert.AreEqual(2, run.NoHitBiomesCleared);
@@ -109,6 +109,35 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 RunCompletionGrade.StandardClear,
                 run.CompletionGrade);
+        }
+
+        [Test]
+        public void MissingColossalContentFinishesQualifiedRunWithoutStalling()
+        {
+            MetaState meta = MetaState.CreateDefault(
+                ShipDefinition.CreateDefault());
+            var unsupported =
+                new HiddenGenerator(EncounterType.Elite, false);
+            RunManager run = CreateRun(
+                0x5803UL,
+                new RunProgressionConfig(2, 2),
+                meta,
+                EncounterType.Elite,
+                unsupported);
+
+            AdvanceUntilFinished(run);
+
+            Assert.AreEqual(RunState.RunCleared, run.State);
+            Assert.AreEqual(
+                RunCompletionGrade.StandardClear,
+                run.CompletionGrade);
+            Assert.IsFalse(run.IsHiddenBiome);
+            Assert.AreEqual(
+                ColossalBossKind.None,
+                run.SelectedColossalBoss);
+            Assert.AreEqual(
+                ColossalBossKind.None,
+                meta.LastColossalBoss);
         }
 
         [Test]
@@ -329,13 +358,37 @@ namespace Shmup.Core.Tests
             {
                 if (run.State == RunState.AwaitingReward)
                     run.ChooseReward(0);
-                else if (run.State == RunState.AwaitingRoute)
-                    run.ChooseRoute(0);
+                else if (run.State
+                    == RunState.AwaitingContract)
+                    ChooseUncharted(run);
                 else
                     run.Step(in fire);
+                Assert.LessOrEqual(
+                    run.BiomeIndex,
+                    run.BiomeCount,
+                    "Public biome progression must never expose BIOME 6/5.");
             }
             Assert.IsTrue(run.IsHiddenBiome);
             Assert.IsTrue(run.IsBiomeBoss);
+        }
+
+        static void ChooseUncharted(RunManager run)
+        {
+            if (run.BiomeIndex < run.BiomeCount)
+            {
+                Assert.IsTrue(run.ChooseContract(0));
+                return;
+            }
+            for (int i = 0; i < run.ContractOptions.Count; i++)
+            {
+                if (run.ContractOptions[i].DestinationKind
+                    != ContractDestinationKind.Uncharted)
+                    continue;
+                Assert.IsTrue(run.ChooseContract(i));
+                return;
+            }
+            Assert.Fail(
+                "Qualified hidden-biome run did not expose an uncharted contract.");
         }
 
         static void AdvanceUntilFinished(RunManager run)
@@ -347,8 +400,9 @@ namespace Shmup.Core.Tests
             {
                 if (run.State == RunState.AwaitingReward)
                     run.ChooseReward(0);
-                else if (run.State == RunState.AwaitingRoute)
-                    run.ChooseRoute(0);
+                else if (run.State
+                    == RunState.AwaitingContract)
+                    run.ChooseContract(0);
                 else
                     run.Step(in fire);
             }
@@ -408,10 +462,14 @@ namespace Shmup.Core.Tests
             IColossalBossStageGenerator
         {
             readonly EncounterType _encounterType;
+            readonly bool _supportsColossalBoss;
 
-            public HiddenGenerator(EncounterType encounterType)
+            public HiddenGenerator(
+                EncounterType encounterType,
+                bool supportsColossalBoss = true)
             {
                 _encounterType = encounterType;
+                _supportsColossalBoss = supportsColossalBoss;
             }
 
             public StagePlan Generate(
@@ -445,8 +503,9 @@ namespace Shmup.Core.Tests
             public bool CanGenerateColossalBoss(
                 ColossalBossKind kind)
             {
-                return kind == ColossalBossKind.Leviathan
-                    || kind == ColossalBossKind.Broodmother;
+                return _supportsColossalBoss
+                    && (kind == ColossalBossKind.Leviathan
+                        || kind == ColossalBossKind.Broodmother);
             }
 
             public StagePlan GenerateColossalBoss(

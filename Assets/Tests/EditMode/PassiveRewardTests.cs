@@ -22,17 +22,17 @@ namespace Shmup.Core.Tests
             var fire = new InputCommand(0, 0, true);
 
             CompleteBoss(run);
-            run.ChooseReward(0);
+            ChooseReward(run, 0);
             Step(run, 11, in fire);
             Assert.AreEqual(3L, run.Battle.Statistics.ShotsFired);
 
             CompleteBoss(run);
-            run.ChooseReward(0);
+            ChooseReward(run, 0);
             Step(run, 9, in fire);
             Assert.AreEqual(3L, run.Battle.Statistics.ShotsFired);
 
             CompleteBoss(run);
-            run.ChooseReward(0);
+            ChooseReward(run, 0);
             Step(run, 9, in fire);
             Assert.AreEqual(
                 3L,
@@ -52,10 +52,10 @@ namespace Shmup.Core.Tests
                     stageIndex == 1 ? 1 : stageIndex == 2 ? 4 : 5));
 
             CompleteBoss(stacked);
-            stacked.ChooseReward(0);
+            ChooseReward(stacked, 0);
             CompleteBoss(stacked);
             Assert.AreEqual(2L, stacked.Battle.Statistics.ShotsHit);
-            stacked.ChooseReward(0);
+            ChooseReward(stacked, 0);
             CompleteBoss(stacked);
             Assert.AreEqual(
                 1L,
@@ -71,7 +71,7 @@ namespace Shmup.Core.Tests
                 new BossEveryStageGenerator(stageIndex =>
                     stageIndex == 1 ? 1 : int.MaxValue));
             CompleteBoss(saturated);
-            saturated.ChooseReward(0);
+            ChooseReward(saturated, 0);
             CompleteBoss(saturated);
             Assert.AreEqual(
                 1L,
@@ -94,12 +94,12 @@ namespace Shmup.Core.Tests
             var moveRight = new InputCommand(1, 0, false);
 
             CompleteBoss(stacked);
-            stacked.ChooseReward(0);
+            ChooseReward(stacked, 0);
             Step(stacked, SimSpace.TicksPerSecond, in moveRight);
             Assert.AreEqual(SimSpace.SubUnitsPerWorldUnit, stacked.Battle.PlayerX);
 
             CompleteBoss(stacked);
-            stacked.ChooseReward(0);
+            ChooseReward(stacked, 0);
             Step(stacked, SimSpace.TicksPerSecond, in moveRight);
             Assert.AreEqual(
                 2 * SimSpace.SubUnitsPerWorldUnit,
@@ -115,7 +115,7 @@ namespace Shmup.Core.Tests
                 new WeaponDefinition("shot", 1, 1, 100, 1, 0, 0),
                 new BossEveryStageGenerator(_ => 1));
             CompleteBoss(saturated);
-            saturated.ChooseReward(0);
+            ChooseReward(saturated, 0);
             saturated.Step(in moveRight);
             Assert.AreEqual(
                 int.MaxValue / SimSpace.TicksPerSecond,
@@ -146,8 +146,8 @@ namespace Shmup.Core.Tests
             int secondCappedIndex = FindRewardOption(second, "capped");
             Assert.AreEqual(firstCappedIndex, secondCappedIndex);
 
-            first.ChooseReward(firstCappedIndex);
-            second.ChooseReward(secondCappedIndex);
+            ChooseReward(first, firstCappedIndex);
+            ChooseReward(second, secondCappedIndex);
             CompleteBoss(first);
             CompleteBoss(second);
 
@@ -178,7 +178,9 @@ namespace Shmup.Core.Tests
                 new BossEveryStageGenerator(_ => 1));
 
             CompleteBoss(run);
-            run.ChooseReward(FindRewardOption(run, "unlimited"));
+            ChooseReward(
+                run,
+                FindRewardOption(run, "unlimited"));
             CompleteBoss(run);
 
             Assert.GreaterOrEqual(FindRewardOption(run, "unlimited"), 0);
@@ -191,6 +193,7 @@ namespace Shmup.Core.Tests
             var generator = new RewardThenLethalGenerator("lethal");
             ulong seed = FindSeedOfferingCappedReward(rewards, generator);
             BattleSimConfig config = Config();
+            config.StartingShieldStock = 0;
             var lethal = new EnemyDefinition(
                 "lethal", 1, 100, EnemyMovePattern.Static,
                 0, 1, 0, 0, 0, 0, 1);
@@ -203,10 +206,20 @@ namespace Shmup.Core.Tests
                 config,
                 content,
                 PowerUpGauge.CreateDefault(),
-                rewards);
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                null,
+                1,
+                1,
+                new RunProgressionConfig(
+                    RunProgressionConfig.DefaultBiomeCount,
+                    1));
 
             CompleteBoss(run);
-            run.ChooseReward(FindRewardOption(run, "capped"));
+            ChooseReward(
+                run,
+                FindRewardOption(run, "capped"));
             InputCommand none = InputCommand.None;
             Step(run, 12, in none);
             Assert.AreEqual(RunState.RunOver, run.State);
@@ -223,6 +236,7 @@ namespace Shmup.Core.Tests
         static void AssertPassiveExpires(RewardType type)
         {
             BattleSimConfig config = Config();
+            config.StartingShieldStock = 0;
             config.PlayerSpeedNumerator = 0;
             config.PlayerSpeedDenominator = SimSpace.TicksPerSecond;
             config.MainShotMinimumFireIntervalTicks = 1;
@@ -239,7 +253,7 @@ namespace Shmup.Core.Tests
                 new RewardThenLethalGenerator(lethal.Id));
 
             CompleteBoss(run);
-            run.ChooseReward(0);
+            ChooseReward(run, 0);
             InputCommand none = InputCommand.None;
             Step(run, 12, in none);
             Assert.AreEqual(RunState.RunOver, run.State);
@@ -296,7 +310,15 @@ namespace Shmup.Core.Tests
                 config,
                 content,
                 PowerUpGauge.CreateDefault(),
-                rewards);
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                null,
+                1,
+                1,
+                new RunProgressionConfig(
+                    RunProgressionConfig.DefaultBiomeCount,
+                    1));
         }
 
         static RunManager CreateRun(
@@ -310,7 +332,15 @@ namespace Shmup.Core.Tests
                 Config(),
                 Content(new WeaponDefinition("shot", 1, 1, 100, 1, 0, 0)),
                 PowerUpGauge.CreateDefault(),
-                rewards);
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                null,
+                1,
+                1,
+                new RunProgressionConfig(
+                    RunProgressionConfig.DefaultBiomeCount,
+                    1));
         }
 
         static RewardCatalog CappedCatalog()
@@ -420,12 +450,34 @@ namespace Shmup.Core.Tests
             };
         }
 
+        static void ChooseReward(
+            RunManager run,
+            int optionIndex)
+        {
+            Assert.IsTrue(run.ChooseReward(optionIndex));
+            if (run.State == RunState.AwaitingContract)
+                Assert.IsTrue(run.ChooseContract(0));
+        }
+
         static void CompleteBoss(RunManager run)
         {
             var fire = new InputCommand(0, 0, true);
-            for (int i = 0; i < 2000 && run.State == RunState.Playing; i++)
+            for (int i = 0; i < 4000; i++)
+            {
+                if (run.State == RunState.AwaitingReward)
+                {
+                    if (run.RewardSelectionKind
+                        == RewardSelectionKind.Main)
+                        break;
+                    run.ChooseReward(0);
+                    continue;
+                }
                 run.Step(in fire);
+            }
             Assert.AreEqual(RunState.AwaitingReward, run.State);
+            Assert.AreEqual(
+                RewardSelectionKind.Main,
+                run.RewardSelectionKind);
         }
 
         static void Step(

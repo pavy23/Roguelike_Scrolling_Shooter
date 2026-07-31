@@ -1288,3 +1288,66 @@ GROK 후속: 파츠 HP 배분·조건 임계·TTK 검산. CLAUDE 후속: 파츠 
 실제 두 boss ID가 들어오면 자동으로 GameData 정의를 사용한다.
 
 검증: CoreStandalone 297 tests PASS, determinism-audit-05 `AUDIT PASS`.
+
+## REQ-057 (CODEX): REQ-055 이후 리듬 테스트 2개 실패
+
+`Tools/CoreStandalone`에서 `dotnet test` 결과 **351/353**. 실패 2개다.
+
+### 1. `GameDataParserTests.RepositoryApprovedV2Files_ParseCompletely` (985행)
+
+```
+Expected: 30  But was: 31
+```
+
+GROK이 REQ-055에서 `hive_tentacle`을 추가해 적 카탈로그가 31개가 됐다. **기대값만 31로 갱신하면 된다.** GROK도 요청을 남겼다.
+
+### 2. `RunCompletionTests.CurrentMiniBossContent_FullRhythmRunTakesDamageAndCrossesBossPhasesDeterministically`
+
+```
+Expected: RunCleared  But was: RunOver
+```
+
+**진단 (CLAUDE가 조사한 내용 — 시간 절약용)**:
+
+- 실패한 assert는 `FinalState` **하나뿐**이다. `RoomsCleared == 15`, `MidRewards == 5`, `MainRewards == 5`, `MidBossEncounters == 5`, 페이즈 이벤트는 모두 통과한다. 즉 **15방을 다 돌고 마지막에 죽는다.**
+- **제한 시간은 원인이 아니다.** `gimmicks[core].timeLimitTicks`를 0으로 바꿔 테스트해도 같은 2개가 실패한다 (확인 후 원복했다).
+- **기믹 배치도 원인이 아니다.** 장애물·레이저 중 `|y| < 1.5`에 놓인 것이 **0개**다. 드리프트는 최대 0.45/0.2 u/s로 이동속도(9.5~21.5)의 2~5%다. 통로는 화면 ±11.25 중 ±5까지만 좁아진다. 플레이어가 (0,0)에 고정되어 있어도 이들에 직접 닿지 않는다.
+- 남는 원인은 **적 탄**이다. REQ-054(적 4티어)와 REQ-055(촉수 등 신규 적)로 탄 밀도가 올라갔고, 이 테스트의 플레이어는 (0,0)에 **가만히 있어서 회피를 하지 않는다.**
+
+즉 이 테스트의 전제("회피하지 않아도 완주한다")가 콘텐츠 강화로 무효화된 것으로 보인다. 판단을 맡긴다:
+
+- 리듬 검증이 목적이라면 플레이어가 **최소한의 회피**를 하도록 트레이스를 고치는 편이 낫다 (지금은 콘텐츠가 조금만 강해져도 깨진다).
+- 아니면 이 테스트가 "무회피 생존 가능성"을 의도적으로 지키려는 것인지 알려 달라 — 그렇다면 콘텐츠 쪽을 되돌려야 하므로 GROK 작업이 된다.
+
+**어느 쪽이든 근거를 보고해라.** 기대값을 그냥 `RunOver`로 바꾸는 것은 안 된다 — 그러면 "런이 클리어 가능한가"를 아무도 검증하지 않게 된다.
+
+### 참고: Unity 컴파일 함정
+
+REQ-055의 `StageGimmickTests.cs`가 `internal` 멤버 `BattleSimConfig.UseConfiguredMainShotStats`를 참조해 **Unity 컴파일이 깨졌고, 씬 빌드와 플레이어 빌드가 전부 멈췄다.** CoreStandalone은 Core와 테스트를 한 어셈블리로 묶어 컴파일하므로 통과하지만 Unity는 별도 어셈블리다.
+
+빌드가 완전히 막혀 CLAUDE가 `Assets/Scripts/Core/AssemblyInfo.cs`를 새로 만들어 `[assembly: InternalsVisibleTo("Shmup.Core.Tests")]`를 넣었다 (기존 파일은 건드리지 않았다). 더 나은 방식이 있으면 바꿔도 된다.
+
+**앞으로 EditMode 테스트가 참조하는 Core 심벌은 `public`이거나 이 파일을 거쳐야 한다.** `dotnet test` 통과가 Unity 통과를 보장하지 않는다는 것을 요청서마다 확인해라.
+
+## REQ-064 (CODEX): 입력 녹화가 터치 아날로그 입력에서 스테이지 1 만에 터진다
+
+폰 실플레이 크래시 (2026-07-30 스크린샷, ErrorOverlay 덕에 원인 확정):
+
+```
+InvalidOperationException: The input recording run capacity has been exhausted.
+@ Shmup.Core.Simulation.InputRecorder.Record
+```
+
+원인: `InputRecording.cs`의 RLE 압축은 같은 입력이 이어질 때만 칸을 아낀다. **터치 아날로그 입력(REQ-045)은 매 틱 델타가 달라 압축이 0%다** — 4096칸이 드래그 ~68초 만에 찬다. 디지털(키보드) 입력만 있던 시절의 용량 설계다.
+
+임시 방어: BattleDirector가 차기 직전에 녹화를 접고 리플레이 저장을 포기한다 (게임은 계속됨). **아날로그 런의 리플레이가 사실상 저장 불가능한 상태다.**
+
+### 요구
+
+1. 아날로그 입력이 섞인 긴 런도 리플레이가 온전히 저장되게 해라. 방향 후보:
+   - 용량을 틱 기준으로 재산정 (15방 완주 = 수십 분 = 틱당 1칸 가정 시 십만 단위)
+   - 또는 아날로그 델타를 양자화/델타 인코딩해 압축이 다시 걸리게 (결정론 주의 — 양자화가 시뮬 입력 자체를 바꾸면 리플레이 호환이 깨진다. 양자화는 **기록 전 시뮬 입력에 이미 적용**돼야 재생이 일치한다)
+2. `Record`가 가득 참에 예외를 던지는 대신 안전하게 실패(반환값)하는 것도 검토해라 — ChooseReward와 같은 원칙 (Presentation 실수가 런을 죽이면 안 된다).
+3. 저장 크기를 보고해라 — WebGL localStorage에 들어가야 한다.
+
+검증: dotnet test 전부, 아날로그 입력 장시간 녹화 테스트 추가, 같은 시드 리플레이 해시 일치.
