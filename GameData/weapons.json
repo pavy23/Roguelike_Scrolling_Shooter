@@ -21,8 +21,8 @@
       "projectileSpeed": 10,
       "projectileHalfWidth": 0.46875,
       "projectileHalfHeight": 0.28125,
-      "maxLevel": 3,
-      "effectSoftCapLevel": 3
+      "maxLevel": 6,
+      "effectSoftCapLevel": 6
     },
     {
       "id": "option",
@@ -43,7 +43,7 @@
       "projectileSpeed": 0,
       "projectileHalfWidth": 0.0,
       "projectileHalfHeight": 0.0,
-      "maxLevel": 3,
+      "maxLevel": 6,
       "effectSoftCapLevel": 3
     }
   ],
@@ -203,21 +203,21 @@
       {
         "slot": "Speed",
         "nameKey": "Speed",
-        "maxLevel": 5,
+        "maxLevel": 6,
         "speedBonusPerLevel": 1.0,
         "costCurve": {
           "baseCost": 1,
-          "linearGrowth": 0,
+          "linearGrowth": 1,
           "quadraticGrowth": 0
         }
       },
       {
         "slot": "Missile",
         "nameKey": "Missile",
-        "maxLevel": 3,
+        "maxLevel": 6,
         "costCurve": {
           "baseCost": 1,
-          "linearGrowth": 1,
+          "linearGrowth": 0,
           "quadraticGrowth": 1
         }
       },
@@ -226,7 +226,7 @@
         "nameKey": "Double Shot",
         "maxLevel": 1,
         "costCurve": {
-          "baseCost": 2,
+          "baseCost": 1,
           "linearGrowth": 0,
           "quadraticGrowth": 0
         }
@@ -236,7 +236,7 @@
         "nameKey": "Laser",
         "maxLevel": 1,
         "costCurve": {
-          "baseCost": 3,
+          "baseCost": 1,
           "linearGrowth": 0,
           "quadraticGrowth": 0
         }
@@ -246,7 +246,7 @@
         "nameKey": "Triple Shot",
         "maxLevel": 1,
         "costCurve": {
-          "baseCost": 3,
+          "baseCost": 1,
           "linearGrowth": 0,
           "quadraticGrowth": 0
         }
@@ -264,10 +264,10 @@
       {
         "slot": "Shield",
         "nameKey": "Shield",
-        "maxLevel": 3,
+        "maxLevel": 6,
         "costCurve": {
           "baseCost": 2,
-          "linearGrowth": 2,
+          "linearGrowth": 0,
           "quadraticGrowth": 1
         }
       }

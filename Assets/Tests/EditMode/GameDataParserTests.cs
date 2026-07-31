@@ -1277,21 +1277,40 @@ namespace Shmup.Core.Tests
                 ContractEligibility.HiddenBiomeUnlocked,
                 data.Contracts.Uncharted.Eligibility);
             Assert.AreEqual(3, data.Ships.Count);
+            // REQ-079 human ship identity: Double/1, Triple/0, Laser/2 + 5-slot gauges.
             Assert.AreEqual(
                 WeaponType.Vulcan,
                 data.FindShip("starter").WeaponType);
             Assert.AreEqual(
-                3,
-                data.FindShip("starter").StartingShieldStock.Value);
-            Assert.AreEqual(3, data.FindShip("starter").MaxHp.Value);
+                PrimaryWeaponFamily.Double,
+                data.FindShip("starter").GaugeWeaponFamily);
             Assert.AreEqual(
-                WeaponType.Laser,
-                data.FindShip("interceptor").WeaponType);
-            Assert.AreEqual(2, data.FindShip("interceptor").MaxHp.Value);
+                1,
+                data.FindShip("starter").StartingShieldStock.Value);
+            Assert.AreEqual(1, data.FindShip("starter").MaxHp.Value);
             Assert.AreEqual(
                 WeaponType.Spread,
+                data.FindShip("interceptor").WeaponType);
+            Assert.AreEqual(
+                PrimaryWeaponFamily.Spread,
+                data.FindShip("interceptor").GaugeWeaponFamily);
+            Assert.AreEqual(0, data.FindShip("interceptor").MaxHp.Value);
+            Assert.AreEqual(
+                WeaponType.Laser,
                 data.FindShip("bulwark").WeaponType);
-            Assert.AreEqual(5, data.FindShip("bulwark").MaxHp.Value);
+            Assert.AreEqual(
+                PrimaryWeaponFamily.Laser,
+                data.FindShip("bulwark").GaugeWeaponFamily);
+            Assert.AreEqual(2, data.FindShip("bulwark").MaxHp.Value);
+            Assert.IsTrue(data.FindShip("starter").HasCustomPowerUpGauge);
+            Assert.AreEqual(
+                5,
+                data.StageGeneration.ClosingSegmentsPerStage);
+            Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Speed));
+            Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Missile));
+            // Option stays at 4: Fixed formation schema is locked to 4 offsets (Core).
+            Assert.AreEqual(4, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Option));
+            Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Shield));
             Assert.AreEqual(128, data.CreateBattleSimConfig().MaxEnemyBullets);
 
             // 640×360 재스케일(REQ-006) 후 elite_sine 진폭 = 3.0u = 768 서브유닛.

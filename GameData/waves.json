@@ -4,6 +4,7 @@
   "spawnX": 21.0,
   "laneCount": 3,
   "segmentsPerStage": 3,
+  "closingSegmentsPerStage": 5,
   "startLaneMask": 2,
   "themes": [
     "scrapyard",
@@ -4633,7 +4634,7 @@
       "environment": {
         "drift": {
           "xPerSecond": -0.42,
-          "yPerSecond": -0.20
+          "yPerSecond": -0.2
         }
       }
     },

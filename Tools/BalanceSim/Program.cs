@@ -183,6 +183,8 @@ static class Program
 
         Console.WriteLine("ThemeIds (ordinal): " + string.Join(", ", catalog.ThemeIds));
         Console.WriteLine("SegmentsPerStage: " + catalog.SegmentsPerStage);
+        Console.WriteLine(
+            "ClosingSegmentsPerStage: " + catalog.ClosingSegmentsPerStage);
         Console.WriteLine();
 
         Console.WriteLine("Segments:");
@@ -2691,14 +2693,15 @@ static class Program
     }
 
     /// <summary>
-    /// REQ-022: three ship primaries (vulcan/laser/spread) single-target DPS balance.
-    /// Level-0 main shot only; missiles/options off. Soft FAIL if max/min &gt; band.
+    /// REQ-079: three ships with human-assigned weapon families, starting shield,
+    /// speed roles, and five-slot gauges. Baseline weaponType ST DPS is report-only
+    /// for pre-activation loadout; identity is gaugeWeaponFamily.
     /// </summary>
     static int CheckShipPrimaryDpsBalance(GameDataSet data)
     {
         int failures = 0;
         Console.WriteLine(
-            "Ship primary DPS balance (single target, level 0, provisional §7):");
+            "REQ-079 ship identity (gauge weapon / shield / speed, provisional §7):");
 
         if (data.Ships.Count < 3)
         {
@@ -2715,23 +2718,44 @@ static class Program
             return 1;
         }
 
-        // Concept fields
-        if (starter.WeaponType != WeaponType.Vulcan || starter.MaxHp != 3)
+        failures += CheckOneShipIdentity(
+            data,
+            starter,
+            expectedFamily: PrimaryWeaponFamily.Double,
+            expectedShield: 1,
+            speedNum: 1,
+            speedDen: 1,
+            role: "balanced");
+        failures += CheckOneShipIdentity(
+            data,
+            interceptor,
+            expectedFamily: PrimaryWeaponFamily.Spread,
+            expectedShield: 0,
+            speedNum: 5,
+            speedDen: 4,
+            role: "fast/fragile");
+        failures += CheckOneShipIdentity(
+            data,
+            bulwark,
+            expectedFamily: PrimaryWeaponFamily.Laser,
+            expectedShield: 2,
+            speedNum: 4,
+            speedDen: 5,
+            role: "slow/tank");
+
+        // Interceptor must outrun starter; bulwark must lag starter (exact fractions).
+        double starterMove = starter.MoveSpeedMultiplierNumerator
+            / (double)starter.MoveSpeedMultiplierDenominator;
+        double interMove = interceptor.MoveSpeedMultiplierNumerator
+            / (double)interceptor.MoveSpeedMultiplierDenominator;
+        double bulwarkMove = bulwark.MoveSpeedMultiplierNumerator
+            / (double)bulwark.MoveSpeedMultiplierDenominator;
+        if (!(interMove > starterMove && bulwarkMove < starterMove))
         {
             Console.WriteLine(
-                $"FAIL ships: starter expected vulcan/HP3 got {starter.WeaponType}/{starter.MaxHp}.");
-            failures++;
-        }
-        if (interceptor.WeaponType != WeaponType.Laser || interceptor.MaxHp != 2)
-        {
-            Console.WriteLine(
-                $"FAIL ships: interceptor expected laser/HP2 got {interceptor.WeaponType}/{interceptor.MaxHp}.");
-            failures++;
-        }
-        if (bulwark.WeaponType != WeaponType.Spread || bulwark.MaxHp != 5)
-        {
-            Console.WriteLine(
-                $"FAIL ships: bulwark expected spread/HP5 got {bulwark.WeaponType}/{bulwark.MaxHp}.");
+                $"FAIL ships: speed roles broken "
+                + $"(starter={starterMove:F2}, interceptor={interMove:F2}, "
+                + $"bulwark={bulwarkMove:F2}).");
             failures++;
         }
 
@@ -2744,9 +2768,12 @@ static class Program
                 double dps = damage * (double)SimSpace.TicksPerSecond / ShipDpsSimTicks;
                 results.Add((ship.Id, ship.WeaponType, damage, dps));
                 Console.WriteLine(
-                    $"  {ship.Id,-14} weapon={ship.WeaponType,-7} maxHp={ship.MaxHp} " +
-                    $"move={ship.MoveSpeedMultiplierNumerator}/{ship.MoveSpeedMultiplierDenominator} " +
-                    $"dmg@{ShipDpsSimTicks}t={damage} dps≈{dps:F1}");
+                    $"  {ship.Id,-14} baselineWeapon={ship.WeaponType,-7} "
+                    + $"family={ship.GaugeWeaponFamily} "
+                    + $"shield={ship.StartingShieldStock} "
+                    + $"move={ship.MoveSpeedMultiplierNumerator}/"
+                    + $"{ship.MoveSpeedMultiplierDenominator} "
+                    + $"dmg@{ShipDpsSimTicks}t={damage} dps≈{dps:F1}");
             }
             catch (Exception ex)
             {
@@ -2760,44 +2787,124 @@ static class Program
             double min = results.Min(r => r.dps);
             double max = results.Max(r => r.dps);
             double ratio = min <= 0 ? double.PositiveInfinity : max / min;
+            // Coverage-first interceptor trails ST; band is softer than pre-REQ-079.
+            const double MaxBaselineRatio = 2.25;
             Console.WriteLine(
-                $"  single-target DPS ratio max/min = {ratio:F2} " +
-                $"(band ≤{MaxShipSingleTargetDpsRatio:F2})");
+                $"  baseline single-target DPS ratio max/min = {ratio:F2} "
+                + $"(band ≤{MaxBaselineRatio:F2})");
 
-            if (ratio > MaxShipSingleTargetDpsRatio)
+            if (ratio > MaxBaselineRatio)
             {
                 Console.WriteLine(
-                    $"FAIL ships: DPS ratio {ratio:F2} > {MaxShipSingleTargetDpsRatio:F2} " +
-                    "(one primary dominates single-target).");
+                    $"FAIL ships: DPS ratio {ratio:F2} > {MaxBaselineRatio:F2} "
+                    + "(one baseline primary dominates single-target).");
                 failures++;
-            }
-
-            // Soft role checks: laser should not be far below vulcan; spread may trail
-            // single-target but must deal damage.
-            double vulcan = results.First(r => r.weapon == WeaponType.Vulcan).dps;
-            double laser = results.First(r => r.weapon == WeaponType.Laser).dps;
-            double spread = results.First(r => r.weapon == WeaponType.Spread).dps;
-            if (laser < vulcan * 0.5)
-            {
-                Console.WriteLine(
-                    $"FAIL ships: laser dps {laser:F1} < 50% of vulcan {vulcan:F1}.");
-                failures++;
-            }
-            if (spread <= 0)
-            {
-                Console.WriteLine("FAIL ships: spread dealt no damage.");
-                failures++;
-            }
-            else if (spread > vulcan * 1.5)
-            {
-                Console.WriteLine(
-                    $"WARN ships: spread single-target dps {spread:F1} > 1.5× vulcan " +
-                    $"{vulcan:F1} (coverage weapon unexpectedly strong on 1 target, §7).");
             }
         }
 
         if (failures == 0)
-            Console.WriteLine("PASS: ship primary concept + single-target DPS band.");
+            Console.WriteLine("PASS: REQ-079 ship identity + five-slot gauges.");
+        return failures;
+    }
+
+    static int CheckOneShipIdentity(
+        GameDataSet data,
+        ShipDefinition ship,
+        PrimaryWeaponFamily expectedFamily,
+        int expectedShield,
+        int speedNum,
+        int speedDen,
+        string role)
+    {
+        int failures = 0;
+        if (!ship.HasCustomPowerUpGauge
+            || ship.GaugeWeaponFamily != expectedFamily)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} expected gauge family {expectedFamily}, "
+                + $"got {ship.GaugeWeaponFamily} (custom={ship.HasCustomPowerUpGauge}).");
+            failures++;
+        }
+        if (ship.StartingShieldStock != expectedShield)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} expected startingShield={expectedShield}, "
+                + $"got {ship.StartingShieldStock}.");
+            failures++;
+        }
+        if (ship.MoveSpeedMultiplierNumerator != speedNum
+            || ship.MoveSpeedMultiplierDenominator != speedDen)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} expected move {speedNum}/{speedDen}, "
+                + $"got {ship.MoveSpeedMultiplierNumerator}/"
+                + $"{ship.MoveSpeedMultiplierDenominator} ({role}).");
+            failures++;
+        }
+
+        PowerUpGauge gauge = data.CreatePowerUpGauge(ship);
+        if (gauge.GaugeSlotCount != PowerUpGauge.ShipGaugeSlotCount)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} gauge slots {gauge.GaugeSlotCount} "
+                + $"(expected {PowerUpGauge.ShipGaugeSlotCount}).");
+            failures++;
+            return failures;
+        }
+
+        PowerUpSlot weaponSlot = ShipDefinition.GaugeSlotForFamily(expectedFamily);
+        PowerUpSlot[] expected =
+        {
+            PowerUpSlot.Speed,
+            PowerUpSlot.Missile,
+            weaponSlot,
+            PowerUpSlot.Option,
+            PowerUpSlot.Shield,
+        };
+        for (int i = 0; i < expected.Length; i++)
+        {
+            if (gauge.GaugeSlots[i].Slot != expected[i])
+            {
+                Console.WriteLine(
+                    $"FAIL ships: {ship.Id} slot[{i}] expected {expected[i]}, "
+                    + $"got {gauge.GaugeSlots[i].Slot}.");
+                failures++;
+            }
+        }
+
+        PowerUpSlotDefinition weaponDef = gauge.GaugeSlots[2];
+        if (!weaponDef.ActivatesImmediately || weaponDef.MaxLevel != 1)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} weapon slot must be immediate maxLevel 1 "
+                + $"(immediate={weaponDef.ActivatesImmediately}, "
+                + $"max={weaponDef.MaxLevel}).");
+            failures++;
+        }
+        if (weaponDef.CostCurve.BaseCost != 1
+            || weaponDef.CostCurve.LinearGrowth != 0
+            || weaponDef.CostCurve.QuadraticGrowth != 0)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} weapon slot cost should be flat 1 "
+                + $"(got {weaponDef.CostCurve.BaseCost}+"
+                + $"{weaponDef.CostCurve.LinearGrowth}L+"
+                + $"{weaponDef.CostCurve.QuadraticGrowth}L²).");
+            failures++;
+        }
+
+        // One Collect cycle onto weapon index 2 then Activate → family switches.
+        gauge.Collect();
+        gauge.Collect();
+        gauge.Collect();
+        if (gauge.ActivateDetailed() != PowerUpActivationResult.LevelIncreased
+            || gauge.GetLevel(weaponSlot) != 1)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} weapon slot did not activate in one shot.");
+            failures++;
+        }
+
         return failures;
     }
 
@@ -6021,15 +6128,15 @@ static class Program
     }
 
     /// <summary>
-    /// REQ-075: seven-slot Gradius gauge data ownership — cost curves front-cheap
-    /// rear-expensive, weapon modes maxLevel 1 one-shot, Speed bonus present.
-    /// Capsule EV ~9.7/stage context for full-power budget report.
+    /// REQ-075/079: seven-slot catalog ownership — maxLevel 6 level slots,
+    /// weapon modes maxLevel 1 flat cost 1, front-cheap rear-expensive,
+    /// all-in L6 ≈ run capsule EV (~50), exclusive full impossible in one run.
     /// </summary>
     static int CheckPowerUpGaugeSevenSlots(GameDataSet data)
     {
         int failures = 0;
         Console.WriteLine(
-            "REQ-075 power-up gauge (7 slots, provisional §7):");
+            "REQ-079 power-up gauge (maxLevel 6 + closing EV, provisional §7):");
 
         PowerUpGauge gauge = data.CreatePowerUpGauge();
         if (gauge.GaugeSlotCount != PowerUpGauge.DefaultGaugeSlotCount)
@@ -6051,7 +6158,15 @@ static class Program
             PowerUpSlot.Shield,
         };
 
+        // REQ-079: Speed/Missile/Shield max 6; Option stays 4 (Fixed offsets lock + density).
+        // Weapon modes stay one-shot max 1.
+        int[] expectedMax =
+        {
+            6, 6, 1, 1, 1, 4, 6,
+        };
+
         int totalMaxCost = 0;
+        var levelSlotCosts = new List<(string name, int cost)>();
         Console.WriteLine(
             "  slot order + cost-to-max (capsules, pure activation):");
         for (int i = 0; i < expectedOrder.Length; i++)
@@ -6073,11 +6188,24 @@ static class Program
             }
 
             bool isMode = PowerUpSlotDefinition.IsWeaponModeSlot(def.Slot);
-            if (isMode && def.MaxLevel != 1)
+            if (def.MaxLevel != expectedMax[i])
             {
                 Console.WriteLine(
-                    $"FAIL gauge: weapon mode {def.Slot} maxLevel must be 1, "
+                    $"FAIL gauge: {def.Slot} maxLevel expected {expectedMax[i]}, "
                     + $"got {def.MaxLevel}.");
+                failures++;
+            }
+
+            if (isMode
+                && (def.CostCurve.BaseCost != 1
+                    || def.CostCurve.LinearGrowth != 0
+                    || def.CostCurve.QuadraticGrowth != 0))
+            {
+                Console.WriteLine(
+                    $"FAIL gauge: weapon mode {def.Slot} cost must be flat 1 "
+                    + $"(got {def.CostCurve.BaseCost}+"
+                    + $"{def.CostCurve.LinearGrowth}L+"
+                    + $"{def.CostCurve.QuadraticGrowth}L²).");
                 failures++;
             }
 
@@ -6085,6 +6213,8 @@ static class Program
             for (int level = 0; level < def.MaxLevel; level++)
                 slotCost += def.CostCurve.GetCostForCurrentLevel(level);
             totalMaxCost += slotCost;
+            if (!isMode)
+                levelSlotCosts.Add((def.NameKey, slotCost));
 
             string modeTag = isMode ? "MODE" : "LVL ";
             string speedNote = def.Slot == PowerUpSlot.Speed
@@ -6097,8 +6227,6 @@ static class Program
                 + $"costToMax={slotCost}{speedNote}");
         }
 
-        // Gradius front-cheap / rear-expensive: Speed L0 cost ≤ Shield L0 cost,
-        // and Speed total ≤ Shield total (or equal only if both flat).
         PowerUpSlotDefinition speed = gauge.GaugeSlots[0];
         PowerUpSlotDefinition shield = gauge.GaugeSlots[6];
         int speedL0 = speed.CostCurve.GetCostForCurrentLevel(0);
@@ -6119,48 +6247,99 @@ static class Program
             failures++;
         }
 
-        // One mode activation is not stacked into totalMaxCost as all three —
-        // player picks one. Report exclusive-mode budget separately.
         int modeMin = int.MaxValue;
         int modeMax = 0;
-        for (int i = 0; i < gauge.GaugeSlotCount; i++)
-        {
-            PowerUpSlotDefinition def = gauge.GaugeSlots[i];
-            if (!def.IsWeaponMode)
-                continue;
-            int c = def.CostCurve.GetCostForCurrentLevel(0);
-            if (c < modeMin) modeMin = c;
-            if (c > modeMax) modeMax = c;
-        }
-
-        // Subtract all three mode full costs then add one representative.
         int modeSum = 0;
         for (int i = 0; i < gauge.GaugeSlotCount; i++)
         {
             PowerUpSlotDefinition def = gauge.GaugeSlots[i];
             if (!def.IsWeaponMode)
                 continue;
-            modeSum += def.CostCurve.GetCostForCurrentLevel(0);
+            int c = def.CostCurve.GetCostForCurrentLevel(0);
+            modeSum += c;
+            if (c < modeMin) modeMin = c;
+            if (c > modeMax) modeMax = c;
         }
         int exclusiveFull = totalMaxCost - modeSum + modeMax;
-        const double CapsuleEvPerStage = 9.7;
-        double stagesToFull = exclusiveFull / CapsuleEvPerStage;
 
+        // Opening-only EV (legacy) + open+closing EV after REQ-079 extension.
+        double openEv = EstimateStageCapsuleEv(data, stage: 1);
+        double fullRoomEv = EstimateOpenCloseCapsuleEv(data, stage: 1);
+        StageGenerationCatalog catalog = data.StageGeneration;
+        int openSegs = catalog.SegmentsPerStage;
+        int closeSegs = catalog.ClosingSegmentsPerStage;
+        Console.WriteLine(
+            $"  closing: open segs={openSegs} close segs={closeSegs} "
+            + $"(×{closeSegs / (double)openSegs:F2} vs open)");
+        Console.WriteLine(
+            $"  capsule EV open-only≈{openEv:F2} · open+close≈{fullRoomEv:F2}");
+
+        // Run budget: 5 biomes × open+close rooms (boss/mid not counted here).
+        const int RunBiomes = 5;
+        double runEv = fullRoomEv * RunBiomes;
         Console.WriteLine(
             $"  pure cost all-max (3 modes summed)={totalMaxCost}; "
             + $"exclusive-mode full≈{exclusiveFull} "
             + $"(mode one-shot {modeMin}..{modeMax})");
         Console.WriteLine(
-            $"  @ capsule EV≈{CapsuleEvPerStage:F1}/stage → "
-            + $"~{stagesToFull:F1} stages to exclusive full power "
-            + "(routing waste not included)");
+            $"  @ run capsule EV≈{runEv:F0} (5× open+close) → "
+            + $"exclusive full needs ~{exclusiveFull / Math.Max(1.0, fullRoomEv):F1} "
+            + "stages (all-in L6 only)");
 
-        // Soft band: exclusive full should land roughly mid-run (6..14 stages).
-        if (stagesToFull < 5.0 || stagesToFull > 16.0)
+        // Closing must be 1.5×..2.0× opening segment count.
+        double closeRatio = closeSegs / (double)openSegs;
+        if (closeRatio < 1.5 || closeRatio > 2.0)
         {
             Console.WriteLine(
-                $"FAIL gauge: exclusive full-power stages {stagesToFull:F1} "
-                + "outside [5,16] vs EV 9.7.");
+                $"FAIL gauge: closing/open segment ratio {closeRatio:F2} "
+                + "outside [1.5, 2.0].");
+            failures++;
+        }
+
+        // Cost-to-max bands vs run capsule EV (~50 open-only historical; ~100 open+close).
+        foreach ((string name, int cost) in levelSlotCosts)
+        {
+            if (name.Equals("Speed", StringComparison.Ordinal))
+            {
+                if (cost < 15 || cost > 40)
+                {
+                    Console.WriteLine(
+                        $"FAIL gauge: Speed costToMax {cost} outside [15,40] "
+                        + "(front-cheap but not free).");
+                    failures++;
+                }
+                continue;
+            }
+
+            if (name.Equals("Option", StringComparison.Ordinal))
+            {
+                // maxLevel 4 (Fixed offset lock): still rear-expensive, not free.
+                if (cost < 20 || cost > 50)
+                {
+                    Console.WriteLine(
+                        $"FAIL gauge: Option costToMax {cost} outside [20,50] "
+                        + "(maxLevel 4 rear slot).");
+                    failures++;
+                }
+                continue;
+            }
+
+            // Missile / Shield L6 all-in band.
+            if (cost < 40 || cost > 90)
+            {
+                Console.WriteLine(
+                    $"FAIL gauge: {name} costToMax {cost} outside [40,90] "
+                    + "(L6 should require ~all-in vs run EV≈50).");
+                failures++;
+            }
+        }
+
+        // Exclusive full must exceed one run EV — cannot max everything.
+        if (exclusiveFull <= runEv * 1.2)
+        {
+            Console.WriteLine(
+                $"FAIL gauge: exclusive full {exclusiveFull} ≤ 1.2× run EV "
+                + $"{runEv:F0} (full power too cheap).");
             failures++;
         }
 
@@ -6195,8 +6374,19 @@ static class Program
 
         if (failures == 0)
             Console.WriteLine(
-                "PASS: REQ-075/077 seven-slot gauge + single Speed economy.");
+                "PASS: REQ-079 maxLevel-6 gauge + closing EV consistency.");
         return failures;
+    }
+
+    static double EstimateOpenCloseCapsuleEv(GameDataSet data, int stage)
+    {
+        double openOnly = EstimateStageCapsuleEv(data, stage);
+        StageGenerationCatalog catalog = data.StageGeneration;
+        if (catalog.SegmentsPerStage < 1)
+            return openOnly;
+        double perSeg = openOnly / catalog.SegmentsPerStage;
+        return perSeg
+            * (catalog.SegmentsPerStage + catalog.ClosingSegmentsPerStage);
     }
 
     /// <summary>
