@@ -3256,15 +3256,19 @@ static class Program
                 $"FAIL weapons v3: trail followDelayTicks={trail.FollowDelayTicks} expected 12.");
             failures++;
         }
-        if (fixedForm.OffsetXs.Count != 4 || fixedForm.OffsetYs.Count != 4)
+        // REQ-084/Option-6: fixed formation offsets = max Option level (6).
+        // World → subunits: 0.75→192, ±1.5→±384, ±2.75→±704, ±4.0→±1024.
+        if (fixedForm.OffsetXs.Count != 6 || fixedForm.OffsetYs.Count != 6)
         {
-            Console.WriteLine("FAIL weapons v3: fixed formation needs 4 offsets.");
+            Console.WriteLine("FAIL weapons v3: fixed formation needs 6 offsets.");
             failures++;
         }
         else
         {
             int[] expectedX =
             {
+                (int)(0.75m * SimSpace.SubUnitsPerWorldUnit),
+                (int)(0.75m * SimSpace.SubUnitsPerWorldUnit),
                 (int)(0.75m * SimSpace.SubUnitsPerWorldUnit),
                 (int)(0.75m * SimSpace.SubUnitsPerWorldUnit),
                 (int)(0.75m * SimSpace.SubUnitsPerWorldUnit),
@@ -3275,9 +3279,11 @@ static class Program
                 (int)(1.5m * SimSpace.SubUnitsPerWorldUnit),
                 (int)(-1.5m * SimSpace.SubUnitsPerWorldUnit),
                 (int)(2.75m * SimSpace.SubUnitsPerWorldUnit),
-                (int)(-2.75m * SimSpace.SubUnitsPerWorldUnit)
+                (int)(-2.75m * SimSpace.SubUnitsPerWorldUnit),
+                (int)(4.0m * SimSpace.SubUnitsPerWorldUnit),
+                (int)(-4.0m * SimSpace.SubUnitsPerWorldUnit)
             };
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 6; i++)
             {
                 if (fixedForm.OffsetXs[i] != expectedX[i]
                     || fixedForm.OffsetYs[i] != expectedY[i])
@@ -6423,11 +6429,11 @@ static class Program
             PowerUpSlot.Shield,
         };
 
-        // REQ-079: Speed/Missile/Shield max 6; Option stays 4 (Fixed offsets lock + density).
+        // REQ-084/Option-6: Speed/Missile/Option/Shield max 6.
         // Weapon modes stay one-shot max 1.
         int[] expectedMax =
         {
-            6, 6, 1, 1, 1, 4, 6,
+            6, 6, 1, 1, 1, 6, 6,
         };
 
         int totalMaxCost = 0;
@@ -6580,11 +6586,11 @@ static class Program
 
             if (name.Equals("Option", StringComparison.Ordinal))
             {
-                if (cost < 3 || cost > 6)
+                if (cost < 4 || cost > 8)
                 {
                     Console.WriteLine(
-                        $"FAIL gauge: Option costToMax {cost} outside [3,6] "
-                        + "(flat-1, maxLevel 4).");
+                        $"FAIL gauge: Option costToMax {cost} outside [4,8] "
+                        + "(flat-1, maxLevel 6).");
                     failures++;
                 }
                 continue;

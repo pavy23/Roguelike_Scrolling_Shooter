@@ -1328,9 +1328,8 @@ namespace Shmup.Core.Tests
                 data.StageGeneration.ClosingSegmentsPerStage);
             Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Speed));
             Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Missile));
-            // Content remains at 4 until the content-owned REQ-084 update lands;
-            // Core accepts both the legacy 4 and expanded 6 fixed offsets.
-            Assert.AreEqual(4, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Option));
+            // Content REQ-084 follow-up: Option maxLevel 6 + fixed offsets 6.
+            Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Option));
             Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Shield));
             Assert.AreEqual(128, data.CreateBattleSimConfig().MaxEnemyBullets);
 
