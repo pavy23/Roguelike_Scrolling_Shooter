@@ -50,7 +50,7 @@ namespace Shmup.Presentation.Battle
 
             // 실드 잔량 — 좌하단. "몇 대를 맞아야 죽는지"가 항상 읽혀야 한다.
             _shieldText = UiKit.CreateCornerText(_canvas.transform, _font, "", 12,
-                UiKit.TextMain, new Vector2(0f, 0f), new Vector2(8f, 8f),
+                UiKit.TextMain, new Vector2(0f, 0f), new Vector2(8f, 46f),
                 TextAnchor.LowerLeft, "ShieldCount");
             UiKit.AddShadow(_shieldText);
         }

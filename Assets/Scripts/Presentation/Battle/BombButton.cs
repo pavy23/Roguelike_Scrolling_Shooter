@@ -53,7 +53,7 @@ namespace Shmup.Presentation.Battle
             // 설명 없이 연결된다 ("이쁘게 누르기 편한 아이콘으로", 2026-07-31).
             var button = UiKit.CreateTouchButton(
                 canvas.transform, _font, "", 9,
-                new Vector2(1f, 0f), new Vector2(-16f, 16f), new Vector2(64f, 64f),
+                new Vector2(1f, 0f), new Vector2(-14f, 46f), new Vector2(64f, 64f),
                 OnTap, "BombButton", accent: true);
 
             _background = button.targetGraphic as Image;
