@@ -4,6 +4,26 @@
 
 ---
 
+## 2026-07-31 REQ-075 — 7슬롯 게이지 + 레이저 적 (content 완료 · 후속 요청)
+
+**완료 (content):**  
+- `weapons.json` **v6**: `powerUpGauge` 7슬롯 + `primaryWeaponFamilies` 4종 + 슬롯별 비용  
+- `enemies.json`: `laser_sentry` / `prism_beamer` (+2 → 카탈로그 34)  
+- `waves.json`: scrap/nebula/fortress에 레이저 적 희소 배치  
+- `rewards.json`: `light_frame` → SlotLevel Speed×2; mid `moveSpeedUp` 잔류 (아래)  
+**표:** `Reviews/from-grok/req075-seven-slot-gauge-laser-enemies-2026-07-31.md`  
+**검증:** 394/394 · BalanceSim all green · 시드 해시 일치
+
+### CODEX
+1. [ ] DeterminismAudit `--suite` seed-0-first가 7슬롯 게이지 하에서 5/5 완주하지 못함 (틱 예산 소진, 보스 잔여 ~40 HP). 자동 플레이/예산/게이지 활성화 정책 조정.
+2. [ ] `CurrentMiniBossContent_FullRhythmRun…`: mid weight-4 카드가 `GrantLevels`/`Collect`면 rooms=3 hang. `moveSpeedUp`(컨피그만)은 통과. 수정 후 mid `passive_move_speed_1` → `slot_speed_1` 교체 가능.
+
+### CLAUDE
+1. [ ] Resources `GameData` 동기화 (weapons v6, enemies 34, waves, rewards)
+2. [ ] 게이지 HUD nameKey 풀네임 (Speed / Missile / Double Shot / Laser / Triple Shot / Option / Shield)
+
+---
+
 ## 2026-07-31 REQ-071 — 섹터 계약 + 대가 있는 보상 (완료 · content)
 
 **완료 (content):**  

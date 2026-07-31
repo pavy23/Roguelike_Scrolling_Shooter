@@ -1203,9 +1203,11 @@ namespace Shmup.Core.Tests
                 != null;
             EnemyDefinition miniCore =
                 data.BattleContent.FindEnemy("mini_core");
+            // REQ-075: laser_sentry + prism_beamer add two laser-profile enemies.
             Assert.AreEqual(
                 (hasHiveTentacle ? 31 : 30)
-                    + (miniCore != null ? 1 : 0),
+                    + (miniCore != null ? 1 : 0)
+                    + 2,
                 data.BattleContent.Enemies.Count);
             if (miniCore != null)
             {

@@ -228,6 +228,12 @@ static class Program
         Console.WriteLine();
         failures += CheckWeaponExpansion(data);
         Console.WriteLine();
+        failures += CheckPowerUpGaugeSevenSlots(data);
+        Console.WriteLine();
+        failures += CheckPrimaryWeaponFamilyDps(data);
+        Console.WriteLine();
+        failures += CheckEnemyLaserProfiles(data);
+        Console.WriteLine();
         failures += CheckColossalBosses(data, generator);
         Console.WriteLine();
         failures += CheckStageClearability(data);
@@ -2350,7 +2356,7 @@ static class Program
     }
 
     /// <summary>
-    /// REQ-021/055/063: schema v3 roster must include dive/zigzag/dash on 8–12 of 32 enemies.
+    /// REQ-021/055/063/075: schema v3 roster must include dive/zigzag/dash on 8–12 of 34 enemies.
     /// </summary>
     static int CheckEnemyMovementRoster(GameDataSet data)
     {
@@ -2386,11 +2392,11 @@ static class Program
         Console.WriteLine(
             $"  new patterns (dive|zigzag|dash) = {newPatternCount} / {data.BattleContent.Enemies.Count}");
 
-        // REQ-063 adds mini_core (core mid-boss) → 32 catalog enemies.
-        if (data.BattleContent.Enemies.Count != 32)
+        // REQ-063 mini_core → 32; REQ-075 laser_sentry + prism_beamer → 34.
+        if (data.BattleContent.Enemies.Count != 34)
         {
             Console.WriteLine(
-                $"FAIL movement: expected 32 enemies, got {data.BattleContent.Enemies.Count}.");
+                $"FAIL movement: expected 34 enemies, got {data.BattleContent.Enemies.Count}.");
             failures++;
         }
 
@@ -5465,9 +5471,11 @@ static class Program
                 && r.Amount >= 2
                 && r.Costs.Count > 0)
                 hasOverclock = true;
+            // REQ-075: light_frame is SlotLevel+Speed (not moveSpeedUp dual economy).
             if (r.Id == "light_frame"
-                && r.Type == RewardType.MoveSpeedUp
-                && r.Amount >= 6
+                && r.Type == RewardType.SlotLevel
+                && r.Slot == PowerUpSlot.Speed
+                && r.Amount >= 2
                 && r.Costs.Count > 0)
                 hasLight = true;
             if (r.Id == "ammo_mod"
@@ -5488,7 +5496,37 @@ static class Program
         {
             Console.WriteLine(
                 "  costed signature: overclock_core dmg+2/shield-1 · "
-                + "light_frame move+6/bombCap-1 · ammo_mod fire+2/capsule-2");
+                + "light_frame Speed+2/bombCap-1 · ammo_mod fire+2/capsule-2");
+        }
+
+        // REQ-075: at least one SlotLevel Speed reward (free or costed).
+        // Residual mid moveSpeedUp may remain until the 1-tick rhythm harness
+        // tolerates frequent gauge mutations (CODEX follow-up).
+        bool hasSpeedSlotReward = false;
+        for (int i = 0; i < rewards.All.Count; i++)
+        {
+            RewardDefinition r = rewards.All[i];
+            if (r.Type == RewardType.SlotLevel
+                && r.Slot == PowerUpSlot.Speed
+                && r.Amount >= 1)
+            {
+                hasSpeedSlotReward = true;
+                break;
+            }
+        }
+
+        if (!hasSpeedSlotReward)
+        {
+            Console.WriteLine(
+                "FAIL rewards: missing SlotLevel Speed reward "
+                + "(REQ-075 gauge economy).");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine(
+                "  REQ-075 speed economy: SlotLevel Speed present "
+                + "(light_frame costed Speed+2); mid moveSpeedUp residual OK.");
         }
 
         if (failures == 0)
@@ -5972,6 +6010,412 @@ static class Program
             main.FireIntervalTicks - reductions * reductionPerLevel);
         if (interval < 1) interval = 1;
         return damage * (double)SimSpace.TicksPerSecond / interval;
+    }
+
+    /// <summary>
+    /// REQ-075: seven-slot Gradius gauge data ownership — cost curves front-cheap
+    /// rear-expensive, weapon modes maxLevel 1 one-shot, Speed bonus present.
+    /// Capsule EV ~9.7/stage context for full-power budget report.
+    /// </summary>
+    static int CheckPowerUpGaugeSevenSlots(GameDataSet data)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "REQ-075 power-up gauge (7 slots, provisional §7):");
+
+        PowerUpGauge gauge = data.CreatePowerUpGauge();
+        if (gauge.GaugeSlotCount != PowerUpGauge.DefaultGaugeSlotCount)
+        {
+            Console.WriteLine(
+                $"FAIL gauge: expected {PowerUpGauge.DefaultGaugeSlotCount} "
+                + $"visible slots, got {gauge.GaugeSlotCount}.");
+            return 1;
+        }
+
+        PowerUpSlot[] expectedOrder =
+        {
+            PowerUpSlot.Speed,
+            PowerUpSlot.Missile,
+            PowerUpSlot.Double,
+            PowerUpSlot.Laser,
+            PowerUpSlot.Triple,
+            PowerUpSlot.Option,
+            PowerUpSlot.Shield,
+        };
+
+        int totalMaxCost = 0;
+        Console.WriteLine(
+            "  slot order + cost-to-max (capsules, pure activation):");
+        for (int i = 0; i < expectedOrder.Length; i++)
+        {
+            PowerUpSlotDefinition def = gauge.GaugeSlots[i];
+            if (def.Slot != expectedOrder[i])
+            {
+                Console.WriteLine(
+                    $"FAIL gauge: slot[{i}] expected {expectedOrder[i]}, "
+                    + $"got {def.Slot}.");
+                failures++;
+            }
+
+            if (string.IsNullOrWhiteSpace(def.NameKey))
+            {
+                Console.WriteLine(
+                    $"FAIL gauge: {def.Slot} nameKey blank.");
+                failures++;
+            }
+
+            bool isMode = PowerUpSlotDefinition.IsWeaponModeSlot(def.Slot);
+            if (isMode && def.MaxLevel != 1)
+            {
+                Console.WriteLine(
+                    $"FAIL gauge: weapon mode {def.Slot} maxLevel must be 1, "
+                    + $"got {def.MaxLevel}.");
+                failures++;
+            }
+
+            int slotCost = 0;
+            for (int level = 0; level < def.MaxLevel; level++)
+                slotCost += def.CostCurve.GetCostForCurrentLevel(level);
+            totalMaxCost += slotCost;
+
+            string modeTag = isMode ? "MODE" : "LVL ";
+            string speedNote = def.Slot == PowerUpSlot.Speed
+                ? $" speed+={def.SpeedBonusNumerator}/{def.SpeedBonusDenominator}/tick"
+                : "";
+            Console.WriteLine(
+                $"    [{i}] {def.NameKey,-12} {modeTag} max={def.MaxLevel} "
+                + $"curve={def.CostCurve.BaseCost}+{def.CostCurve.LinearGrowth}L"
+                + $"+{def.CostCurve.QuadraticGrowth}L² "
+                + $"costToMax={slotCost}{speedNote}");
+        }
+
+        // Gradius front-cheap / rear-expensive: Speed L0 cost ≤ Shield L0 cost,
+        // and Speed total ≤ Shield total (or equal only if both flat).
+        PowerUpSlotDefinition speed = gauge.GaugeSlots[0];
+        PowerUpSlotDefinition shield = gauge.GaugeSlots[6];
+        int speedL0 = speed.CostCurve.GetCostForCurrentLevel(0);
+        int shieldL0 = shield.CostCurve.GetCostForCurrentLevel(0);
+        if (speedL0 > shieldL0)
+        {
+            Console.WriteLine(
+                $"FAIL gauge: Speed L0 cost {speedL0} > Shield L0 {shieldL0} "
+                + "(front should be cheaper).");
+            failures++;
+        }
+
+        if (speed.Slot != PowerUpSlot.Speed
+            || speed.SpeedBonusNumerator < 1)
+        {
+            Console.WriteLine(
+                "FAIL gauge: Speed slot must define positive speedBonusPerLevel.");
+            failures++;
+        }
+
+        // One mode activation is not stacked into totalMaxCost as all three —
+        // player picks one. Report exclusive-mode budget separately.
+        int modeMin = int.MaxValue;
+        int modeMax = 0;
+        for (int i = 0; i < gauge.GaugeSlotCount; i++)
+        {
+            PowerUpSlotDefinition def = gauge.GaugeSlots[i];
+            if (!def.IsWeaponMode)
+                continue;
+            int c = def.CostCurve.GetCostForCurrentLevel(0);
+            if (c < modeMin) modeMin = c;
+            if (c > modeMax) modeMax = c;
+        }
+
+        // Subtract all three mode full costs then add one representative.
+        int modeSum = 0;
+        for (int i = 0; i < gauge.GaugeSlotCount; i++)
+        {
+            PowerUpSlotDefinition def = gauge.GaugeSlots[i];
+            if (!def.IsWeaponMode)
+                continue;
+            modeSum += def.CostCurve.GetCostForCurrentLevel(0);
+        }
+        int exclusiveFull = totalMaxCost - modeSum + modeMax;
+        const double CapsuleEvPerStage = 9.7;
+        double stagesToFull = exclusiveFull / CapsuleEvPerStage;
+
+        Console.WriteLine(
+            $"  pure cost all-max (3 modes summed)={totalMaxCost}; "
+            + $"exclusive-mode full≈{exclusiveFull} "
+            + $"(mode one-shot {modeMin}..{modeMax})");
+        Console.WriteLine(
+            $"  @ capsule EV≈{CapsuleEvPerStage:F1}/stage → "
+            + $"~{stagesToFull:F1} stages to exclusive full power "
+            + "(routing waste not included)");
+
+        // Soft band: exclusive full should land roughly mid-run (6..14 stages).
+        if (stagesToFull < 5.0 || stagesToFull > 16.0)
+        {
+            Console.WriteLine(
+                $"FAIL gauge: exclusive full-power stages {stagesToFull:F1} "
+                + "outside [5,16] vs EV 9.7.");
+            failures++;
+        }
+
+        // REQ-075: SlotLevel Speed required. Residual moveSpeedUp is WARN-only
+        // (1-tick RhythmRunGenerator stalls if the weight-4 mid card mutates the
+        // gauge via Collect/GrantLevels — keep one non-gauge mid effect for now).
+        RewardCatalog rewards = data.Rewards;
+        bool hasSpeedSlot = false;
+        int moveSpeedUpCount = 0;
+        for (int i = 0; i < rewards.All.Count; i++)
+        {
+            RewardDefinition r = rewards.All[i];
+            if (r.Type == RewardType.SlotLevel
+                && r.Slot == PowerUpSlot.Speed)
+                hasSpeedSlot = true;
+            if (r.Type == RewardType.MoveSpeedUp)
+                moveSpeedUpCount++;
+        }
+        if (!hasSpeedSlot)
+        {
+            Console.WriteLine(
+                "FAIL rewards: missing SlotLevel Speed (REQ-075).");
+            failures++;
+        }
+        else if (moveSpeedUpCount > 0)
+        {
+            Console.WriteLine(
+                $"WARN rewards: {moveSpeedUpCount} residual moveSpeedUp card(s) "
+                + "(dual economy soft; retire after rhythm harness fix).");
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-075 seven-slot gauge + cost curve.");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-075: vulcan / double / laser / triple(spread) ST DPS comparison table.
+    /// Soft FAIL if ST DPS max/min exceeds ship band (shared MainShot axis).
+    /// </summary>
+    static int CheckPrimaryWeaponFamilyDps(GameDataSet data)
+    {
+        int failures = 0;
+        const double MaxFamilyStRatio = 2.25; // coverage families trail ST
+        Console.WriteLine(
+            "REQ-075 primary weapon families ST DPS (level 0, provisional §7):");
+
+        IReadOnlyList<PrimaryWeaponFamilyDefinition> families =
+            data.BattleContent.PrimaryWeaponFamilies;
+        if (families == null || families.Count < 4)
+        {
+            Console.WriteLine(
+                $"FAIL primary: expected ≥4 families, got {families?.Count ?? 0}.");
+            return 1;
+        }
+
+        bool hasDouble = false, hasLaser = false, hasVulcan = false, hasSpread = false;
+        var rows = new List<(string id, string name, int dmg, int interval, int ways, int pierce, double stDps, double volleyDps)>();
+        for (int i = 0; i < families.Count; i++)
+        {
+            PrimaryWeaponFamilyDefinition f = families[i];
+            if (f.Family == PrimaryWeaponFamily.Vulcan) hasVulcan = true;
+            if (f.Family == PrimaryWeaponFamily.Double) hasDouble = true;
+            if (f.Family == PrimaryWeaponFamily.Laser) hasLaser = true;
+            if (f.Family == PrimaryWeaponFamily.Spread) hasSpread = true;
+
+            // L0: weaponLevel for Damage.Compute is max(1, gaugeLevel) in main path
+            // but level-0 main uses base damage directly in many sims — use base.
+            int dmg = f.BaseDamage;
+            int interval = Math.Max(1, f.FireIntervalTicks);
+            double stDps = dmg * (double)SimSpace.TicksPerSecond / interval;
+            double volleyDps = stDps * Math.Max(1, f.SpreadWays);
+            rows.Add((
+                f.Id,
+                f.DisplayName,
+                dmg,
+                interval,
+                f.SpreadWays,
+                f.PierceEnemyCount,
+                stDps,
+                volleyDps));
+        }
+
+        if (!hasVulcan || !hasDouble || !hasLaser || !hasSpread)
+        {
+            Console.WriteLine(
+                "FAIL primary: catalog must include vulcan+double+laser+spread.");
+            failures++;
+        }
+
+        Console.WriteLine(
+            "  family            dmg int ways pierce   ST DPS  volleyDPS");
+        double minSt = double.MaxValue;
+        double maxSt = 0;
+        foreach (var r in rows.OrderBy(x => x.id, StringComparer.Ordinal))
+        {
+            Console.WriteLine(
+                $"  {r.name,-16} {r.dmg,3} {r.interval,3} {r.ways,4} "
+                + $"{r.pierce,6} {r.stDps,8:F1} {r.volleyDps,9:F1}");
+            if (r.stDps < minSt) minSt = r.stDps;
+            if (r.stDps > maxSt) maxSt = r.stDps;
+        }
+
+        double ratio = minSt <= 0 ? double.PositiveInfinity : maxSt / minSt;
+        Console.WriteLine(
+            $"  ST DPS max/min = {ratio:F2} (band ≤{MaxFamilyStRatio:F2})");
+        if (ratio > MaxFamilyStRatio)
+        {
+            Console.WriteLine(
+                $"FAIL primary: ST ratio {ratio:F2} > {MaxFamilyStRatio:F2}.");
+            failures++;
+        }
+
+        // Role: double uses 2 ways; triple/spread uses ≥3; laser pierces.
+        PrimaryWeaponFamilyDefinition dbl =
+            data.BattleContent.FindPrimaryWeaponFamily(PrimaryWeaponFamily.Double);
+        PrimaryWeaponFamilyDefinition tri =
+            data.BattleContent.FindPrimaryWeaponFamily(PrimaryWeaponFamily.Spread);
+        PrimaryWeaponFamilyDefinition las =
+            data.BattleContent.FindPrimaryWeaponFamily(PrimaryWeaponFamily.Laser);
+        if (dbl == null || dbl.SpreadWays != 2)
+        {
+            Console.WriteLine("FAIL primary: Double must be spreadWays=2.");
+            failures++;
+        }
+        else if (dbl.SpreadStepLutSlots < 8)
+        {
+            // 8 lut slots ≈ ±22.5°; 16 ≈ ±45° (1/64-turn LUT).
+            Console.WriteLine(
+                $"WARN primary: Double step={dbl.SpreadStepLutSlots} "
+                + "(want ≥8 for noticeable V / ~45° feel).");
+        }
+
+        if (tri == null || tri.SpreadWays < 3)
+        {
+            Console.WriteLine("FAIL primary: Triple/Spread must be spreadWays≥3.");
+            failures++;
+        }
+
+        if (las == null || las.PierceEnemyCount < 1)
+        {
+            Console.WriteLine("FAIL primary: Laser must pierce ≥1 extra enemy.");
+            failures++;
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-075 primary family DPS table.");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-075: ≥2 laser-profile enemies; non-fortress placement; laser budget note.
+    /// </summary>
+    static int CheckEnemyLaserProfiles(GameDataSet data)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "REQ-075 enemy laser profiles (provisional §7):");
+
+        var laserEnemies = new List<EnemyDefinition>();
+        foreach (EnemyDefinition e in data.BattleContent.Enemies)
+        {
+            if (e.LaserAttack != null)
+                laserEnemies.Add(e);
+        }
+
+        Console.WriteLine($"  laser enemies: {laserEnemies.Count}");
+        for (int i = 0; i < laserEnemies.Count; i++)
+        {
+            EnemyDefinition e = laserEnemies[i];
+            LaserAttackDefinition L = e.LaserAttack;
+            int life = L.TelegraphTicks + L.FiringTicks
+                + L.SustainTicks + L.DissipateTicks;
+            Console.WriteLine(
+                $"    {e.Id,-18} hp={e.MaxHp,4} cycle={L.CycleIntervalTicks}t "
+                + $"life={life}t dmg={L.Damage} "
+                + $"beam=({L.StartOffsetX},{L.StartOffsetY})→"
+                + $"({L.EndOffsetX},{L.EndOffsetY})");
+            if (life > L.CycleIntervalTicks)
+            {
+                Console.WriteLine(
+                    $"FAIL laser: '{e.Id}' lifetime {life} > cycle "
+                    + $"{L.CycleIntervalTicks}.");
+                failures++;
+            }
+        }
+
+        if (laserEnemies.Count < 1 || laserEnemies.Count > 4)
+        {
+            Console.WriteLine(
+                $"FAIL laser: enemy laser count {laserEnemies.Count} "
+                + "outside [1,4].");
+            failures++;
+        }
+
+        // Non-fortress placement: at least one scrapyard/hive/nebula segment
+        // spawns a laser enemy (terrain laser gates live mainly on fortress).
+        var laserIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < laserEnemies.Count; i++)
+            laserIds.Add(laserEnemies[i].Id);
+
+        int nonFortressHits = 0;
+        int fortressHits = 0;
+        int peakLaserSourcesInSegment = 0;
+        foreach (StageSegmentTemplate seg in data.StageGeneration.Segments)
+        {
+            int enemyLaserSpawns = 0;
+            int emitterCount = 0;
+            for (int s = 0; s < seg.Spawns.Count; s++)
+            {
+                if (laserIds.Contains(seg.Spawns[s].EnemyId))
+                    enemyLaserSpawns++;
+            }
+
+            for (int o = 0; o < seg.Obstacles.Count; o++)
+            {
+                if (seg.Obstacles[o].Type == ObstacleType.LaserEmitter)
+                    emitterCount++;
+            }
+
+            int sources = enemyLaserSpawns + emitterCount;
+            if (sources > peakLaserSourcesInSegment)
+                peakLaserSourcesInSegment = sources;
+
+            if (enemyLaserSpawns == 0)
+                continue;
+
+            string theme = seg.ThemeId ?? "";
+            if (string.Equals(theme, "fortress", StringComparison.Ordinal))
+                fortressHits++;
+            else
+                nonFortressHits++;
+        }
+
+        Console.WriteLine(
+            $"  segments with laser enemies: fortress={fortressHits} "
+            + $"other={nonFortressHits}");
+        Console.WriteLine(
+            $"  peak laser sources in one segment template "
+            + $"(enemies+emitters, not concurrent)={peakLaserSourcesInSegment} "
+            + $"(MaxLasers={BattleSimConfig.CreateDefault().MaxLasers})");
+
+        if (nonFortressHits < 1)
+        {
+            Console.WriteLine(
+                "FAIL laser: no non-fortress segment spawns a laser enemy "
+                + "(must appear outside terrain laser gates).");
+            failures++;
+        }
+
+        // Soft: concurrent cap is runtime; warn if template sources > MaxLasers.
+        int maxLasers = BattleSimConfig.CreateDefault().MaxLasers;
+        if (peakLaserSourcesInSegment > maxLasers)
+        {
+            Console.WriteLine(
+                $"WARN laser: segment template sources "
+                + $"{peakLaserSourcesInSegment} > MaxLasers {maxLasers} "
+                + "(overlap risk if cycles align; stagger ages mitigate).");
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-075 enemy laser profiles.");
+        return failures;
     }
 
     static double EstimateStageCapsuleEv(GameDataSet data, int stage)
