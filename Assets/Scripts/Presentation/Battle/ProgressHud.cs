@@ -58,6 +58,11 @@ namespace Shmup.Presentation.Battle
             rect.anchorMin = new Vector2(0f, 0.5f);
             rect.anchorMax = new Vector2(1f, 0.5f);
             rect.sizeDelta = new Vector2(0f, 44f);
+            // 띠 위아래 금색 룰 — 밋밋한 반투명 사각형이 아니라 연출된 배너로 읽힌다
+            UiKit.CreateRule(rect, new Vector2(0.5f, 1f), Vector2.zero, 460f,
+                UiKit.TextAccent, "RuleTop");
+            UiKit.CreateRule(rect, new Vector2(0.5f, 0f), Vector2.zero, 460f,
+                UiKit.TextAccent, "RuleBottom");
             _bannerText = UiKit.CreateTextStretch(rect, _fontBold, "", 20,
                 UiKit.TextAccent, TextAnchor.MiddleCenter, 0f, "BannerText");
             _bannerRoot = band;

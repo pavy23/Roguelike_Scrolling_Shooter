@@ -856,7 +856,9 @@ namespace Shmup.EditorTools
 
             // 보스 HP 바: 상단 중앙, px_white 스케일 방식. BossActive 동안만 director가 켠다.
             var bossHpRoot = new GameObject("BossHp");
-            bossHpRoot.transform.localPosition = new Vector3(0f, 10.4f, 0f);
+            // 실드 0 경고 띠(상단 10px ≈ 화면 위 0.625u)와 겹치지 않게 그 아래에 둔다.
+            // 경고를 끄는 것이 아니라 바가 비키는 것이 맞다 (사람 교정, 2026-07-31).
+            bossHpRoot.transform.localPosition = new Vector3(0f, 9.7f, 0f);
             var hpBack = new GameObject("Back");
             hpBack.transform.SetParent(bossHpRoot.transform, false);
             var hpBackRenderer = hpBack.AddComponent<SpriteRenderer>();

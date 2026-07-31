@@ -48,6 +48,12 @@ namespace Shmup.Presentation.Battle
         public static readonly Color ButtonBg = new Color(0.16f, 0.26f, 0.48f, 0.92f);
         public static readonly Color ButtonBgAccent = new Color(0.26f, 0.42f, 0.72f, 0.95f);
 
+        // UiSkin 베벨 스프라이트는 그레이스케일 — 이 틴트가 최종 색을 정한다.
+        // accent는 금색 면 + 진한 라벨: 화면당 하나뿐인 주 동작(CTA)이 즉시 읽힌다.
+        public static readonly Color ButtonFace = new Color(0.34f, 0.50f, 0.86f, 1f);
+        public static readonly Color ButtonFaceAccent = new Color(1f, 0.84f, 0.42f, 1f);
+        public static readonly Color TextOnAccent = new Color(0.22f, 0.13f, 0.02f, 1f);
+
         public static Canvas CreateCanvas(string name, int sortingOrder)
         {
             var go = new GameObject(name);
@@ -88,8 +94,15 @@ namespace Shmup.Presentation.Battle
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var image = go.AddComponent<Image>();
-            image.color = accent ? ButtonBgAccent : ButtonBg;
+            image.sprite = UiSkin.Button;
+            image.type = Image.Type.Sliced;
+            image.color = accent ? ButtonFaceAccent : ButtonFace;
             image.raycastTarget = true;
+
+            // 바닥에서 살짝 뜬 느낌 — 슬라이스 지오메트리를 아래로 복제하는 드롭 섀도
+            var drop = go.AddComponent<Shadow>();
+            drop.effectColor = new Color(0f, 0f, 0f, 0.5f);
+            drop.effectDistance = new Vector2(0f, -2f);
 
             var rect = image.rectTransform;
             rect.anchorMin = rect.anchorMax = anchor;
@@ -99,7 +112,8 @@ namespace Shmup.Presentation.Battle
                 Mathf.Max(size.x, MinTouchSize), Mathf.Max(size.y, MinTouchSize));
 
             var text = CreateText(rect, font, label, fontSize,
-                accent ? TextAccent : TextMain, TextAnchor.MiddleCenter, "Label");
+                accent ? TextOnAccent : TextMain, TextAnchor.MiddleCenter, "Label");
+            if (!accent) AddShadow(text, 1f);   // 밝은 라벨만 — 진한 라벨은 그림자가 번져 보인다
             var textRect = text.rectTransform;
             textRect.anchorMin = Vector2.zero;
             textRect.anchorMax = Vector2.one;
@@ -144,16 +158,42 @@ namespace Shmup.Presentation.Battle
             return image;
         }
 
-        /// <summary>중앙 앵커 패널: 단색 배경 + 1px 보더 프레임.</summary>
+        /// <summary>
+        /// 중앙 앵커 패널: 픽셀 베벨 프레임 + 그라데이션 채움 2겹.
+        /// 루트 이미지는 **프레임 링만** 그린다(중앙 투명) — 화면들이 커서/위험도
+        /// 표시로 <c>GetComponent&lt;Image&gt;().color</c>를 재색칠하는 계약이 있는데,
+        /// 링만 물들면 채움이 함께 변색되지 않아 오히려 전보다 깔끔하다.
+        /// </summary>
         public static RectTransform CreatePanel(Transform parent, Vector2 size, string name = "Panel")
         {
-            var border = CreateImage(parent, name, PanelBorder);
-            var rect = border.rectTransform;
+            var frame = CreateImage(parent, name, PanelBorder);
+            frame.sprite = UiSkin.Frame;
+            frame.type = Image.Type.Sliced;
+            var rect = frame.rectTransform;
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = size;
-            var inner = CreateImage(rect, "Bg", PanelBg);
-            Stretch(inner.rectTransform, Vector2.one, -Vector2.one);   // 1px 보더
+
+            var inner = CreateImage(rect, "Bg", Color.white);
+            inner.sprite = UiSkin.Fill;
+            inner.type = Image.Type.Sliced;
+            // 프레임 링(아웃라인+릿지+인너 라인 = 4px)에 정확히 맞닿게 안쪽으로
+            Stretch(inner.rectTransform, new Vector2(4f, 4f), new Vector2(-4f, -4f));
             return rect;
+        }
+
+        /// <summary>양끝이 사그라드는 장식 가로선 — 타이틀 밑줄, 섹션 구분.</summary>
+        public static Image CreateRule(
+            Transform parent, Vector2 anchor, Vector2 offset, float width,
+            Color color, string name = "Rule")
+        {
+            var image = CreateImage(parent, name, color);
+            image.sprite = UiSkin.Rule;
+            image.type = Image.Type.Sliced;
+            var rect = image.rectTransform;
+            rect.anchorMin = rect.anchorMax = rect.pivot = anchor;
+            rect.anchoredPosition = offset;
+            rect.sizeDelta = new Vector2(width, 3f);
+            return image;
         }
 
         public static Text CreateText(

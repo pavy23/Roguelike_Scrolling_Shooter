@@ -328,36 +328,16 @@ namespace Shmup.Presentation.Battle
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var image = go.AddComponent<Image>();
-            image.color = new Color(0.16f, 0.24f, 0.45f, 0.66f);
+            // 공용 베벨 스킨 — 플레이 시야를 가리지 않게 반투명 틴트만 다르다
+            image.sprite = UiSkin.Button;
+            image.type = Image.Type.Sliced;
+            image.color = new Color(0.32f, 0.47f, 0.82f, 0.78f);
             image.raycastTarget = false;
             var rect = image.rectTransform;
             rect.anchorMin = rect.anchorMax = anchor;
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = offset;
             rect.sizeDelta = new Vector2(size, size);
-
-            // 테두리 — 활성 버튼임을 알리는 밝은 링
-            var border = new GameObject("Border");
-            border.transform.SetParent(rect, false);
-            var borderImage = border.AddComponent<Image>();
-            borderImage.color = new Color(0.55f, 0.75f, 1f, 0.5f);
-            borderImage.raycastTarget = false;
-            var borderRect = borderImage.rectTransform;
-            borderRect.anchorMin = Vector2.zero;
-            borderRect.anchorMax = Vector2.one;
-            borderRect.offsetMin = Vector2.zero;
-            borderRect.offsetMax = Vector2.zero;
-            // 안쪽 채움을 다시 덮어 링만 남긴다
-            var inner = new GameObject("Inner");
-            inner.transform.SetParent(borderRect, false);
-            var innerImage = inner.AddComponent<Image>();
-            innerImage.color = new Color(0.10f, 0.15f, 0.30f, 0.85f);
-            innerImage.raycastTarget = false;
-            var innerRect = innerImage.rectTransform;
-            innerRect.anchorMin = Vector2.zero;
-            innerRect.anchorMax = Vector2.one;
-            innerRect.offsetMin = new Vector2(2f, 2f);
-            innerRect.offsetMax = new Vector2(-2f, -2f);
 
             if (icon != null)
             {
@@ -382,29 +362,5 @@ namespace Shmup.Presentation.Battle
             return rect;
         }
 
-        RectTransform CreateButton(
-            Transform parent, string name, string label,
-            Vector2 anchor, Vector2 offset, float size)
-        {
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            var image = go.AddComponent<Image>();
-            image.color = new Color(0.35f, 0.55f, 0.95f, 0.22f);
-            image.raycastTarget = false;
-            var rect = image.rectTransform;
-            rect.anchorMin = rect.anchorMax = anchor;
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = offset;
-            rect.sizeDelta = new Vector2(size, size);
-
-            var text = UiKit.CreateText(rect, _font, label, 11,
-                UiKit.TextMain, TextAnchor.MiddleCenter, "Label");
-            var textRect = text.rectTransform;
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = Vector2.zero;
-            textRect.offsetMax = Vector2.zero;
-            return rect;
-        }
     }
 }

@@ -26,10 +26,12 @@ namespace Shmup.Presentation.Battle
         const float SlotGap = 4f;
         const int MaxPips = 6;
 
-        static readonly Color FrameNormal = new Color(0.18f, 0.24f, 0.40f, 0.85f);
-        static readonly Color FrameCursor = new Color(0.55f, 0.42f, 0.12f, 0.95f);
-        static readonly Color FrameMaxed = new Color(0.14f, 0.36f, 0.24f, 0.9f);
-        static readonly Color FrameActiveMode = new Color(0.42f, 0.16f, 0.38f, 0.9f);
+        // UiSkin.Button(그레이스케일 베벨) 위에 곱해지는 틴트 — 평면 배경 시절 값에서
+        // 베벨 그라데이션만큼(약 1.35배) 밝혀 체감 밝기를 유지한다.
+        static readonly Color FrameNormal = new Color(0.24f, 0.32f, 0.54f, 0.85f);
+        static readonly Color FrameCursor = new Color(0.74f, 0.57f, 0.16f, 0.95f);
+        static readonly Color FrameMaxed = new Color(0.19f, 0.49f, 0.32f, 0.9f);
+        static readonly Color FrameActiveMode = new Color(0.57f, 0.22f, 0.51f, 0.9f);
         static readonly Color32 PipFilled = new Color32(0x9C, 0xD4, 0xFF, 0xFF);
         static readonly Color32 PipEmpty = new Color32(0x22, 0x2C, 0x44, 0xFF);
         static readonly Color32 PipBanking = new Color32(0x4E, 0x7A, 0xB8, 0xFF);
@@ -78,6 +80,8 @@ namespace Shmup.Presentation.Battle
                 var go = new GameObject($"GaugeSlot{i}");
                 go.transform.SetParent(_canvas.transform, false);
                 var frame = go.AddComponent<Image>();
+                frame.sprite = UiSkin.Button;
+                frame.type = Image.Type.Sliced;
                 frame.color = FrameNormal;
                 frame.raycastTarget = false;
                 var rect = frame.rectTransform;

@@ -147,6 +147,9 @@ namespace Shmup.Presentation.Battle
                 TextAnchor.UpperCenter, "Title2");
             UiKit.AddShadow(title1, 3f);
             UiKit.AddShadow(title2, 3f);
+            // 로고 밑줄 — 양끝이 사그라드는 금색 라인이 로고와 메뉴 영역을 나눈다
+            UiKit.CreateRule(canvas.transform, new Vector2(0.5f, 1f),
+                new Vector2(0f, -148f), 300f, UiKit.TextAccent, "TitleRule");
             _promptText = UiKit.CreateCornerText(canvas.transform, _font,
                 UiText.LaunchPrompt, 14, UiKit.TextAccent,
                 new Vector2(0.5f, 1f), new Vector2(0f, -160f), TextAnchor.UpperCenter, "Prompt");
