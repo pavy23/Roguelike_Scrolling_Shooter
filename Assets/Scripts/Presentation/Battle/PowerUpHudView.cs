@@ -147,6 +147,25 @@ namespace Shmup.Presentation.Battle
             }
         }
 
+        /// <summary>
+        /// 무기 진화 단계명 (REQ-086, 사람 승인 설계). 모르는 조합은 기본 이름으로.
+        /// 표시명은 슬롯 폭(76px) 안에 들어가게 짧게 유지한다.
+        /// </summary>
+        static string EvolutionName(string nameKey, int level)
+        {
+            switch (nameKey)
+            {
+                case "double":
+                    return level >= 3 ? "CROSS FIRE" : level == 2 ? "TAIL GUARD" : "DOUBLE";
+                case "triple":
+                    return level >= 3 ? "BURNER" : level == 2 ? "PULSE FAN" : "TRIPLE";
+                case "laser":
+                    return level >= 3 ? "PRISM BEAM" : level == 2 ? "LANCE" : "LASER";
+                default:
+                    return DisplayName(nameKey);
+            }
+        }
+
         void LateUpdate()
         {
             var gauge = _director != null ? _director.Gauge : null;
@@ -170,8 +189,11 @@ namespace Shmup.Presentation.Battle
                     maxed ? FrameMaxed : FrameNormal;
 
                 string name = DisplayName(view.NameKey);
-                // 무기 모드는 레벨이 아니라 켜짐/꺼짐이 정체다
-                _labels[i].text = view.IsActiveWeaponMode ? $"{name}\nON"
+                // 무기 모드는 켜짐/진화 단계가 정체다 (REQ-086: maxLevel 3 진화).
+                // 활성 상태에서는 현재 진화 단계의 이름을 그대로 보여 준다 —
+                // "DOUBLE LV2"보다 "TAIL GUARD"가 무엇이 바뀌었는지 즉시 읽힌다.
+                _labels[i].text = view.IsActiveWeaponMode
+                    ? $"{EvolutionName(view.NameKey, view.Level)}\n{(view.Level >= view.MaxLevel ? "MAX" : $"MK{view.Level}")}"
                     : view.MaxLevel <= 1 ? name
                     : maxed ? $"{name}\nMAX"
                     : $"{name}\nLV{view.Level}";
