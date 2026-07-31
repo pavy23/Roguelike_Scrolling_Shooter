@@ -101,6 +101,14 @@ namespace Shmup.Presentation.Battle
             for (int i = 0; i < _edges.Length; i++)
                 _edges[i].color = color;
 
+            // 보스전 중에는 상단 띠를 끈다 — 오버레이 캔버스가 월드 스프라이트인
+            // 보스 HP 바 위에 그려져, 같은 붉은색 띠에 바가 묻힌다
+            // ("보스 에너지바가 실드 0일 때 빨간 테두리랑 겹쳐 안 보이네", 2026-07-31).
+            // 좌우·하단 세 띠로도 위험은 충분히 읽힌다.
+            bool hideTop = _director.BossActive;
+            if (_edges[0].gameObject.activeSelf == hideTop)
+                _edges[0].gameObject.SetActive(!hideTop);
+
             _beepTimer -= Time.deltaTime;
             if (_beepTimer <= 0f)
             {
