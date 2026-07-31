@@ -580,6 +580,28 @@ namespace Shmup.Core.Content
         public int? durationTicks;
         [DataMember]
         public int? telegraphTicks;
+        [DataMember]
+        public string projectileKind;
+        [DataMember]
+        public int? splitAfterTicks;
+        [DataMember]
+        public int? mineTravelTicks;
+        [DataMember]
+        public int? mineTelegraphTicks;
+        [DataMember]
+        public decimal? mineAcceleration;
+        [DataMember]
+        public string signaturePatternId;
+        [DataMember]
+        public string signatureSpawnEnemyId;
+        [DataMember]
+        public int? signatureObstacleHp;
+        [DataMember]
+        public decimal? signatureGravity;
+        [DataMember]
+        public int? signatureHomingTurnLutSlotsPerTick;
+        [DataMember]
+        public LaserAttackDto bossLaser;
     }
 
     [DataContract]

@@ -342,6 +342,69 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void Parse_Req087ProjectileAndSignatureAxesAreExactAndOptional()
+        {
+            const string laser = @"""bossLaser"": {
+          ""cycleIntervalTicks"": 8, ""telegraphTicks"": 2,
+          ""firingTicks"": 2, ""sustainTicks"": 2,
+          ""dissipateTicks"": 2,
+          ""startOffsetX"": 0, ""startOffsetY"": -1,
+          ""endOffsetX"": 0, ""endOffsetY"": 1,
+          ""thinHalfWidth"": 0.125, ""fullHalfWidth"": 0.25,
+          ""damage"": 1
+        }";
+            string waves = WavesJson.Replace(
+                @"""entryLaneMask"": 7, ""hp"": 500",
+                @"""entryLaneMask"": 7, ""hp"": 500,
+    ""phases"": [
+      { ""fireIntervalTicks"": 60, ""ways"": 1, ""bulletSpeed"": 6 },
+      { ""fireIntervalTicks"": 60, ""ways"": 1, ""bulletSpeed"": 6,
+        ""projectileKind"": ""heavy"",
+        ""signaturePatternId"": ""scrapThrow"",
+        ""signatureObstacleHp"": 9, ""signatureGravity"": 3600 },
+      { ""fireIntervalTicks"": 60, ""ways"": 1, ""bulletSpeed"": 6,
+        ""projectileKind"": ""splitter"", ""splitAfterTicks"": 12,
+        ""signaturePatternId"": ""brood"",
+        ""signatureSpawnEnemyId"": ""elite_sine"",
+        ""signatureHomingTurnLutSlotsPerTick"": 1 },
+      { ""fireIntervalTicks"": 60, ""ways"": 1, ""bulletSpeed"": 6,
+        ""projectileKind"": ""mine"", ""mineTravelTicks"": 10,
+        ""mineTelegraphTicks"": 8, ""mineAcceleration"": 3600,
+        ""signaturePatternId"": ""laserGrid"", " + laser + @" },
+      { ""fireIntervalTicks"": 60, ""ways"": 1, ""bulletSpeed"": 6,
+        ""signaturePatternId"": ""lightning"", " + laser + @" },
+      { ""fireIntervalTicks"": 60, ""ways"": 4, ""bulletSpeed"": 6,
+        ""pattern"": ""radial"", ""projectileKind"": ""bossLaser"",
+        ""signaturePatternId"": ""prismCore"", " + laser + @" }
+    ]");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                waves);
+            IReadOnlyList<BossPhase> phases =
+                data.StageGeneration.Bosses[0].Phases;
+
+            Assert.AreEqual(BossProjectileKind.Normal, phases[0].ProjectileKind);
+            Assert.AreEqual(BossSignaturePattern.None, phases[0].SignaturePattern);
+            Assert.AreEqual(BossProjectileKind.Heavy, phases[1].ProjectileKind);
+            Assert.AreEqual(BossSignaturePattern.ScrapThrow, phases[1].SignaturePattern);
+            Assert.AreEqual(256, phases[1].SignatureGravityNumerator);
+            Assert.AreEqual(1, phases[1].SignatureGravityDenominator);
+            Assert.AreEqual(BossProjectileKind.Splitter, phases[2].ProjectileKind);
+            Assert.AreEqual(12, phases[2].SplitAfterTicks);
+            Assert.AreEqual(BossSignaturePattern.Brood, phases[2].SignaturePattern);
+            Assert.AreEqual("elite_sine", phases[2].SignatureSpawnEnemyId);
+            Assert.AreEqual(BossProjectileKind.Mine, phases[3].ProjectileKind);
+            Assert.AreEqual(256, phases[3].MineAccelerationNumerator);
+            Assert.AreEqual(BossSignaturePattern.LaserGrid, phases[3].SignaturePattern);
+            Assert.AreEqual(BossSignaturePattern.Lightning, phases[4].SignaturePattern);
+            Assert.AreEqual(BossProjectileKind.BossLaser, phases[5].ProjectileKind);
+            Assert.AreEqual(BossSignaturePattern.PrismCore, phases[5].SignaturePattern);
+            Assert.IsNotNull(phases[5].LaserAttack);
+        }
+
+        [Test]
         public void Parse_LegacyBossPatternNamesMapToAimed()
         {
             string waves = WavesJson.Replace(

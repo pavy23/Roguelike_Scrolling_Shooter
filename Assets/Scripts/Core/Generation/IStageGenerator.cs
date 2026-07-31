@@ -115,6 +115,27 @@ namespace Shmup.Core.Generation
         Burst = 4
     }
 
+    /// <summary>Projectile vocabulary selectable by every boss phase (REQ-087).</summary>
+    public enum BossProjectileKind
+    {
+        Normal = 0,
+        Heavy = 1,
+        Splitter = 2,
+        Mine = 3,
+        BossLaser = 4
+    }
+
+    /// <summary>Stable, content-facing ids for the five approved boss signatures.</summary>
+    public enum BossSignaturePattern
+    {
+        None = 0,
+        ScrapThrow = 1,
+        Brood = 2,
+        LaserGrid = 3,
+        Lightning = 4,
+        PrismCore = 5
+    }
+
     public enum BossPartVulnerability
     {
         /// <summary>Preserves core-gate behavior from older boss data.</summary>
@@ -155,7 +176,20 @@ namespace Shmup.Core.Generation
             BossPartVulnerability partVulnerability,
             int durationTicks = 0,
             int telegraphTicks = 0,
-            BossFirePattern firePattern = BossFirePattern.Aimed)
+            BossFirePattern firePattern = BossFirePattern.Aimed,
+            BossProjectileKind projectileKind = BossProjectileKind.Normal,
+            int splitAfterTicks = 0,
+            int mineTravelTicks = 0,
+            int mineTelegraphTicks = 0,
+            int mineAccelerationNumerator = 0,
+            int mineAccelerationDenominator = 1,
+            BossSignaturePattern signaturePattern = BossSignaturePattern.None,
+            string signatureSpawnEnemyId = null,
+            int signatureObstacleHp = 0,
+            int signatureGravityNumerator = 0,
+            int signatureGravityDenominator = 1,
+            int signatureHomingTurnLutSlotsPerTick = 0,
+            Simulation.LaserAttackDefinition laserAttack = null)
         {
             if (fireIntervalTicks < 1)
                 throw new ArgumentOutOfRangeException(nameof(fireIntervalTicks));
@@ -211,6 +245,70 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException(
                     "Burst fire patterns require positive telegraphTicks.",
                     nameof(telegraphTicks));
+            if (!Enum.IsDefined(typeof(BossProjectileKind), projectileKind))
+                throw new ArgumentOutOfRangeException(nameof(projectileKind));
+            if (splitAfterTicks < 0)
+                throw new ArgumentOutOfRangeException(nameof(splitAfterTicks));
+            if (mineTravelTicks < 0)
+                throw new ArgumentOutOfRangeException(nameof(mineTravelTicks));
+            if (mineTelegraphTicks < 0)
+                throw new ArgumentOutOfRangeException(nameof(mineTelegraphTicks));
+            if (mineAccelerationNumerator < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(mineAccelerationNumerator));
+            if (mineAccelerationDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(mineAccelerationDenominator));
+            if (projectileKind == BossProjectileKind.Splitter
+                && splitAfterTicks < 1)
+                throw new ArgumentException(
+                    "Splitter projectiles require positive splitAfterTicks.",
+                    nameof(splitAfterTicks));
+            if (projectileKind == BossProjectileKind.Mine
+                && (mineTravelTicks < 1
+                    || mineTelegraphTicks < 1
+                    || mineAccelerationNumerator < 1))
+                throw new ArgumentException(
+                    "Mine projectiles require positive travel, telegraph, and acceleration values.",
+                    nameof(projectileKind));
+            if (projectileKind == BossProjectileKind.BossLaser
+                && laserAttack == null)
+                throw new ArgumentException(
+                    "Boss-laser phases require a laser profile.",
+                    nameof(laserAttack));
+            if (!Enum.IsDefined(typeof(BossSignaturePattern), signaturePattern))
+                throw new ArgumentOutOfRangeException(nameof(signaturePattern));
+            if (signatureObstacleHp < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(signatureObstacleHp));
+            if (signatureGravityNumerator < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(signatureGravityNumerator));
+            if (signatureGravityDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(signatureGravityDenominator));
+            if (signatureHomingTurnLutSlotsPerTick < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(signatureHomingTurnLutSlotsPerTick));
+            if (signaturePattern == BossSignaturePattern.ScrapThrow
+                && (signatureObstacleHp < 1
+                    || signatureGravityNumerator < 1))
+                throw new ArgumentException(
+                    "Scrap-throw signatures require positive obstacle HP and gravity.",
+                    nameof(signaturePattern));
+            if (signaturePattern == BossSignaturePattern.Brood
+                && (string.IsNullOrEmpty(signatureSpawnEnemyId)
+                    || signatureHomingTurnLutSlotsPerTick < 1))
+                throw new ArgumentException(
+                    "Brood signatures require a spawn enemy id and positive homing turn rate.",
+                    nameof(signaturePattern));
+            if ((signaturePattern == BossSignaturePattern.LaserGrid
+                    || signaturePattern == BossSignaturePattern.Lightning
+                    || signaturePattern == BossSignaturePattern.PrismCore)
+                && laserAttack == null)
+                throw new ArgumentException(
+                    "Laser signatures require a laser profile.",
+                    nameof(laserAttack));
             FireIntervalTicks = fireIntervalTicks;
             Ways = ways;
             BulletSpeedNumerator = bulletSpeedNumerator;
@@ -223,6 +321,20 @@ namespace Shmup.Core.Generation
             DurationTicks = durationTicks;
             TelegraphTicks = telegraphTicks;
             FirePattern = firePattern;
+            ProjectileKind = projectileKind;
+            SplitAfterTicks = splitAfterTicks;
+            MineTravelTicks = mineTravelTicks;
+            MineTelegraphTicks = mineTelegraphTicks;
+            MineAccelerationNumerator = mineAccelerationNumerator;
+            MineAccelerationDenominator = mineAccelerationDenominator;
+            SignaturePattern = signaturePattern;
+            SignatureSpawnEnemyId = signatureSpawnEnemyId;
+            SignatureObstacleHp = signatureObstacleHp;
+            SignatureGravityNumerator = signatureGravityNumerator;
+            SignatureGravityDenominator = signatureGravityDenominator;
+            SignatureHomingTurnLutSlotsPerTick =
+                signatureHomingTurnLutSlotsPerTick;
+            LaserAttack = laserAttack;
         }
 
         public int FireIntervalTicks { get; }
@@ -245,6 +357,19 @@ namespace Shmup.Core.Generation
         /// </summary>
         public int TelegraphTicks { get; }
         public BossFirePattern FirePattern { get; }
+        public BossProjectileKind ProjectileKind { get; }
+        public int SplitAfterTicks { get; }
+        public int MineTravelTicks { get; }
+        public int MineTelegraphTicks { get; }
+        public int MineAccelerationNumerator { get; }
+        public int MineAccelerationDenominator { get; }
+        public BossSignaturePattern SignaturePattern { get; }
+        public string SignatureSpawnEnemyId { get; }
+        public int SignatureObstacleHp { get; }
+        public int SignatureGravityNumerator { get; }
+        public int SignatureGravityDenominator { get; }
+        public int SignatureHomingTurnLutSlotsPerTick { get; }
+        public Simulation.LaserAttackDefinition LaserAttack { get; }
     }
 
     public enum BossPartAttackType
