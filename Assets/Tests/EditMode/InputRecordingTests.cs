@@ -107,7 +107,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 1,
                 replayedRun.PowerUpGauge.GetLevel(
-                    PowerUpSlot.MainShot));
+                    PowerUpSlot.Speed));
         }
 
         [Test]
@@ -233,6 +233,17 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void SchemaThirteenRecordingIsRejectedAfterGaugeReorder()
+        {
+            InputRecordingData legacy = ValidData();
+            legacy.schemaVersion = 13;
+            legacy.checksum = null;
+
+            Assert.Throws<ArgumentException>(
+                () => SaveDataIntegrity.MigrateAndValidate(legacy));
+        }
+
+        [Test]
         public void AnalogRecordedPlayback_ReproducesDeterminismHash()
         {
             BattleSimConfig config =
@@ -304,12 +315,12 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 1,
                 recordedRun.PowerUpGauge.GetLevel(
-                    PowerUpSlot.MainShot));
+                    PowerUpSlot.Speed));
             Assert.AreEqual(
                 recordedRun.PowerUpGauge.GetLevel(
-                    PowerUpSlot.MainShot),
+                    PowerUpSlot.Speed),
                 replayedRun.PowerUpGauge.GetLevel(
-                    PowerUpSlot.MainShot));
+                    PowerUpSlot.Speed));
             Assert.AreEqual(
                 recordedRun.PowerUpGauge.Cursor,
                 replayedRun.PowerUpGauge.Cursor);
@@ -328,15 +339,18 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(
                 1,
-                run.PowerUpGauge.GetLevel(PowerUpSlot.MainShot));
+                run.PowerUpGauge.GetLevel(PowerUpSlot.Speed));
             Assert.AreEqual(0, run.PowerUpGauge.Cursor);
 
             run.Step(in released);
             run.Step(in held);
 
             Assert.AreEqual(
-                2,
-                run.PowerUpGauge.GetLevel(PowerUpSlot.MainShot));
+                1,
+                run.PowerUpGauge.GetLevel(PowerUpSlot.Speed));
+            Assert.AreEqual(
+                1,
+                run.PowerUpGauge.GetProgress(PowerUpSlot.Speed));
             Assert.AreEqual(
                 PowerUpGauge.NoSelection,
                 run.PowerUpGauge.Cursor);

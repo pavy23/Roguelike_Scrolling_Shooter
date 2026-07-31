@@ -24,7 +24,7 @@ namespace Shmup.Core.Tests
             exported[1] = 99;
 
             CollectionAssert.AreEqual(
-                new[] { 1, 2, 3, 1 },
+                new[] { 1, 2, 3, 1, 0, 0, 0, 0 },
                 ship.StartingPowerUpLevels);
         }
 

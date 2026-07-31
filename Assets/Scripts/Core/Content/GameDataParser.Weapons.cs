@@ -11,19 +11,21 @@ namespace Shmup.Core.Content
             if (schemaVersion != SupportedSchemaVersion
                 && schemaVersion != SupportedWeaponsSchemaVersion
                 && schemaVersion != SupportedPrimaryWeaponsSchemaVersion
-                && schemaVersion != SupportedPowerUpCurveSchemaVersion)
+                && schemaVersion != SupportedPowerUpCurveSchemaVersion
+                && schemaVersion != SupportedPowerUpGaugeSchemaVersion)
                 throw Error(
                     "weapons.json.schemaVersion",
                     $"must be {SupportedSchemaVersion}, "
                     + $"{SupportedWeaponsSchemaVersion}, or "
-                    + $"{SupportedPrimaryWeaponsSchemaVersion}, or "
-                    + $"{SupportedPowerUpCurveSchemaVersion}, "
+                    + $"{SupportedPrimaryWeaponsSchemaVersion}, "
+                    + $"{SupportedPowerUpCurveSchemaVersion}, or "
+                    + $"{SupportedPowerUpGaugeSchemaVersion}, "
                     + $"but was {schemaVersion}.");
 
             WeaponDto[] source = RequireArray(root.weapons, "weapons.json.weapons");
             var definitions = new WeaponDefinition[source.Length];
             var maxLevels = new int[PowerUpGauge.SlotCount];
-            var seenSlots = new bool[PowerUpGauge.SlotCount];
+            var seenSlots = new bool[4];
             WeaponDefinition mainShot = null;
             WeaponDefinition missile = null;
 
@@ -35,6 +37,11 @@ namespace Shmup.Core.Content
                     throw Error(path, "cannot be null.");
 
                 PowerUpSlot slot = ParsePowerUpSlot(item.slot, path + ".slot");
+                if ((int)slot >= seenSlots.Length)
+                    throw Error(
+                        path + ".slot",
+                        "selectable gauge slots are declared in powerUpGauge.slots, "
+                        + "not weapons.");
                 if (seenSlots[(int)slot])
                     throw Error(path + ".slot", $"duplicates slot '{slot}'.");
 
@@ -148,11 +155,21 @@ namespace Shmup.Core.Content
                 schemaVersion >= SupportedPowerUpCurveSchemaVersion
                     ? ParsePowerUpCostCurve(root.powerUpCostCurve)
                     : PowerUpCostCurve.CreateProvisional();
+            PowerUpSlotDefinition[] gaugeSlots =
+                schemaVersion >= SupportedPowerUpGaugeSchemaVersion
+                    ? ParsePowerUpGauge(root.powerUpGauge)
+                    : CreateLegacyPowerUpGauge(
+                        maxLevels,
+                        costCurve);
+            for (int i = 0; i < gaugeSlots.Length; i++)
+                maxLevels[(int)gaugeSlots[i].Slot] =
+                    gaugeSlots[i].MaxLevel;
 
             return new WeaponParseResult(
                 definitions,
                 maxLevels,
                 costCurve,
+                gaugeSlots,
                 mainShot,
                 missile,
                 primaryWeaponFamilies,
@@ -218,6 +235,160 @@ namespace Shmup.Core.Content
                 baseCost,
                 linearGrowth,
                 quadraticGrowth);
+        }
+
+        static PowerUpSlotDefinition[] ParsePowerUpGauge(
+            PowerUpGaugeDto source)
+        {
+            const string path = "weapons.json.powerUpGauge";
+            if (source == null)
+                throw Error(path, "is required.");
+            PowerUpGaugeSlotDto[] slots = RequireArray(
+                source.slots,
+                path + ".slots");
+            if (slots.Length != PowerUpGauge.DefaultGaugeSlotCount)
+                throw Error(
+                    path + ".slots",
+                    $"must contain exactly "
+                    + $"{PowerUpGauge.DefaultGaugeSlotCount} entries.");
+
+            var definitions =
+                new PowerUpSlotDefinition[slots.Length];
+            var seen = new bool[PowerUpGauge.SlotCount];
+            seen[(int)PowerUpSlot.MainShot] = true;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                string slotPath = $"{path}.slots[{i}]";
+                PowerUpGaugeSlotDto item = slots[i];
+                if (item == null)
+                    throw Error(slotPath, "cannot be null.");
+                PowerUpSlot slot = ParsePowerUpSlot(
+                    item.slot,
+                    slotPath + ".slot");
+                if (slot == PowerUpSlot.MainShot)
+                    throw Error(
+                        slotPath + ".slot",
+                        "MainShot is a hidden shared power axis.");
+                if (seen[(int)slot])
+                    throw Error(
+                        slotPath + ".slot",
+                        $"duplicates slot '{slot}'.");
+                seen[(int)slot] = true;
+
+                ExactFraction speedBonus =
+                    item.speedBonusPerLevel.HasValue
+                        ? ToPerTickSpeed(
+                            item.speedBonusPerLevel.Value,
+                            slotPath + ".speedBonusPerLevel")
+                        : new ExactFraction(0, 1);
+                if (slot == PowerUpSlot.Speed
+                    && speedBonus.Numerator < 1)
+                    throw Error(
+                        slotPath + ".speedBonusPerLevel",
+                        "must be positive for Speed.");
+                if (slot != PowerUpSlot.Speed
+                    && speedBonus.Numerator != 0)
+                    throw Error(
+                        slotPath + ".speedBonusPerLevel",
+                        "is only valid for Speed.");
+
+                definitions[i] = new PowerUpSlotDefinition(
+                    slot,
+                    RequireText(
+                        item.nameKey,
+                        slotPath + ".nameKey"),
+                    Require(
+                        item.maxLevel,
+                        slotPath + ".maxLevel"),
+                    ParsePowerUpSlotCostCurve(
+                        item.costCurve,
+                        slotPath + ".costCurve"),
+                    speedBonus.Numerator,
+                    speedBonus.Denominator);
+            }
+            for (int i = 0; i < seen.Length; i++)
+                if (!seen[i])
+                    throw Error(
+                        path + ".slots",
+                        $"is missing slot '{(PowerUpSlot)i}'.");
+            return definitions;
+        }
+
+        static PowerUpCostCurve ParsePowerUpSlotCostCurve(
+            PowerUpCostCurveDto source,
+            string path)
+        {
+            if (source == null)
+                throw Error(path, "is required.");
+            int baseCost = Require(
+                source.baseCost,
+                path + ".baseCost");
+            int linearGrowth = Require(
+                source.linearGrowth,
+                path + ".linearGrowth");
+            int quadraticGrowth = Require(
+                source.quadraticGrowth,
+                path + ".quadraticGrowth");
+            if (baseCost < 1)
+                throw Error(path + ".baseCost", "must be positive.");
+            if (linearGrowth < 0)
+                throw Error(
+                    path + ".linearGrowth",
+                    "cannot be negative.");
+            if (quadraticGrowth < 0)
+                throw Error(
+                    path + ".quadraticGrowth",
+                    "cannot be negative.");
+            return new PowerUpCostCurve(
+                baseCost,
+                linearGrowth,
+                quadraticGrowth);
+        }
+
+        static PowerUpSlotDefinition[] CreateLegacyPowerUpGauge(
+            int[] maxLevels,
+            PowerUpCostCurve costCurve)
+        {
+            return new[]
+            {
+                new PowerUpSlotDefinition(
+                    PowerUpSlot.Speed,
+                    "powerUp.speed",
+                    5,
+                    costCurve,
+                    SimSpace.SubUnitsPerWorldUnit,
+                    SimSpace.TicksPerSecond),
+                new PowerUpSlotDefinition(
+                    PowerUpSlot.Missile,
+                    "powerUp.missile",
+                    maxLevels[(int)PowerUpSlot.Missile],
+                    costCurve),
+                new PowerUpSlotDefinition(
+                    PowerUpSlot.Double,
+                    "powerUp.double",
+                    1,
+                    costCurve),
+                new PowerUpSlotDefinition(
+                    PowerUpSlot.Laser,
+                    "powerUp.laser",
+                    1,
+                    costCurve),
+                new PowerUpSlotDefinition(
+                    PowerUpSlot.Triple,
+                    "powerUp.triple",
+                    1,
+                    costCurve),
+                new PowerUpSlotDefinition(
+                    PowerUpSlot.Option,
+                    "powerUp.option",
+                    maxLevels[(int)PowerUpSlot.Option],
+                    costCurve),
+                new PowerUpSlotDefinition(
+                    PowerUpSlot.Shield,
+                    "powerUp.shield",
+                    maxLevels[(int)PowerUpSlot.Shield],
+                    costCurve)
+            };
         }
 
         static PrimaryWeaponFamilyDefinition[]
@@ -645,6 +816,10 @@ namespace Shmup.Core.Content
                 case "Missile": return PowerUpSlot.Missile;
                 case "Option": return PowerUpSlot.Option;
                 case "Shield": return PowerUpSlot.Shield;
+                case "Speed": return PowerUpSlot.Speed;
+                case "Double": return PowerUpSlot.Double;
+                case "Laser": return PowerUpSlot.Laser;
+                case "Triple": return PowerUpSlot.Triple;
                 default: throw Error(path, $"has unknown value '{value}'.");
             }
         }
@@ -655,6 +830,7 @@ namespace Shmup.Core.Content
                 WeaponDefinition[] definitions,
                 int[] maxLevels,
                 PowerUpCostCurve costCurve,
+                PowerUpSlotDefinition[] gaugeSlots,
                 WeaponDefinition mainShot,
                 WeaponDefinition missile,
                 PrimaryWeaponFamilyDefinition[] primaryWeaponFamilies,
@@ -666,6 +842,7 @@ namespace Shmup.Core.Content
                 Definitions = definitions;
                 MaxLevels = maxLevels;
                 CostCurve = costCurve;
+                GaugeSlots = gaugeSlots;
                 MainShot = mainShot;
                 Missile = missile;
                 PrimaryWeaponFamilies = primaryWeaponFamilies;
@@ -678,6 +855,7 @@ namespace Shmup.Core.Content
             public WeaponDefinition[] Definitions { get; }
             public int[] MaxLevels { get; }
             public PowerUpCostCurve CostCurve { get; }
+            public PowerUpSlotDefinition[] GaugeSlots { get; }
             public WeaponDefinition MainShot { get; }
             public WeaponDefinition Missile { get; }
             public PrimaryWeaponFamilyDefinition[]

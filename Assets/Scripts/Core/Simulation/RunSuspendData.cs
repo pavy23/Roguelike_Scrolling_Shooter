@@ -84,7 +84,11 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class RunSuspendData
     {
-        public const int CurrentSchemaVersion = 14;
+        /// <summary>
+        /// Schema 15 stores eight stable power axes and a seven-slot cursor.
+        /// Schema 14 is rejected because its four-entry arrays are ambiguous.
+        /// </summary>
+        public const int CurrentSchemaVersion = 15;
 
         [DataMember(Order = 0)]
         public int schemaVersion;

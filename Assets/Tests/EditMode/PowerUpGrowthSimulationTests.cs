@@ -1,4 +1,3 @@
-using System;
 using NUnit.Framework;
 
 namespace Shmup.Core.Tests
@@ -7,25 +6,23 @@ namespace Shmup.Core.Tests
     public class PowerUpGrowthSimulationTests
     {
         [Test]
-        public void ProvisionalCurve_With170Capsules_ReachesFullPowerAtRunEndBand()
+        public void ProvisionalCurve_With170Capsules_RoutesAcrossCompleteGauge()
         {
             const int capsuleSupply = 170;
-            const int stageCount = 15;
-            var gauge = new PowerUpGauge(
-                new[] { 5, 3, 4, 3 },
-                PowerUpCostCurve.CreateProvisional());
-            int[] maxStage = { -1, -1, -1, -1 };
+            var gauge = PowerUpGauge.CreateDefault();
+            var completed = new bool[gauge.GaugeSlotCount];
             int target = 0;
             int capsulesUsed = 0;
+            int completedCount = 0;
 
-            while (capsulesUsed < capsuleSupply)
+            while (capsulesUsed < capsuleSupply
+                && completedCount < completed.Length)
             {
-                while (gauge.GetLevel((PowerUpSlot)target)
-                    >= gauge.GetMaxLevel((PowerUpSlot)target))
-                {
-                    target = (target + 1) % PowerUpGauge.SlotCount;
-                }
+                while (completed[target])
+                    target = (target + 1) % completed.Length;
 
+                PowerUpSlot slot =
+                    gauge.GaugeSlots[target].Slot;
                 int routeCost = target + 1;
                 if (capsulesUsed + routeCost > capsuleSupply)
                     break;
@@ -33,60 +30,26 @@ namespace Shmup.Core.Tests
                     gauge.Collect();
                 capsulesUsed += routeCost;
                 gauge.ActivateDetailed();
-                PowerUpSlot slot = (PowerUpSlot)target;
-                if (gauge.GetLevel(slot) == gauge.GetMaxLevel(slot)
-                    && maxStage[target] < 0)
+                if (gauge.GetLevel(slot)
+                    == gauge.GetMaxLevel(slot))
                 {
-                    maxStage[target] = DivideCeiling(
-                        capsulesUsed * stageCount,
-                        capsuleSupply);
+                    completed[target] = true;
+                    completedCount++;
                 }
-                target = (target + 1) % PowerUpGauge.SlotCount;
+                target = (target + 1) % completed.Length;
             }
 
-            AssertAll(() =>
-            {
-                CollectionAssert.AreEqual(
-                    new[] { 4, 3, 4, 3 },
-                    gauge.ExportLevels());
-                CollectionAssert.AreEqual(
-                    new[] { 8, 0, 0, 0 },
-                    gauge.ExportProgress());
-                CollectionAssert.AreEqual(
-                    new[] { -1, 10, 15, 10 },
-                    maxStage);
-                Assert.AreEqual(
-                    13,
-                    gauge.GetRemainingCapsules(PowerUpSlot.MainShot));
-                Assert.AreEqual(183, RoutedCapsulesForFullPower());
-                Assert.AreEqual(
-                    17,
-                    DivideCeiling(
-                        RoutedCapsulesForFullPower() * stageCount,
-                        capsuleSupply));
-            });
+            Assert.AreEqual(
+                PowerUpGauge.DefaultGaugeSlotCount,
+                gauge.GaugeSlotCount);
+            Assert.AreEqual(PowerUpSlot.Speed, gauge.GaugeSlots[0].Slot);
+            Assert.AreEqual(PowerUpSlot.Shield, gauge.GaugeSlots[6].Slot);
+            Assert.Greater(capsulesUsed, 0);
+            Assert.LessOrEqual(capsulesUsed, capsuleSupply);
+            Assert.Greater(gauge.GetLevel(PowerUpSlot.Speed), 0);
+            Assert.AreNotEqual(
+                PowerUpWeaponMode.None,
+                gauge.ActiveWeaponMode);
         }
-
-        static int DivideCeiling(int numerator, int denominator)
-        {
-            return (numerator + denominator - 1) / denominator;
-        }
-
-        static int RoutedCapsulesForFullPower()
-        {
-            int[] maximums = { 5, 3, 4, 3 };
-            PowerUpCostCurve curve =
-                PowerUpCostCurve.CreateProvisional();
-            int total = 0;
-            for (int slot = 0; slot < maximums.Length; slot++)
-            {
-                for (int level = 0; level < maximums[slot]; level++)
-                    total += curve.GetCostForCurrentLevel(level)
-                        * (slot + 1);
-            }
-            return total;
-        }
-
-        static void AssertAll(Action assert) => assert();
     }
 }

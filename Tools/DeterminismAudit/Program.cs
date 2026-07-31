@@ -153,15 +153,18 @@ namespace Shmup.DeterminismAudit
             // Audit traversal must not depend on current balance survivability.
             // Hit events and HP changes are still folded into the state hash.
             config.PlayerMaxHp = 1_000_000;
+            PowerUpGauge gauge = data.CreatePowerUpGauge();
             var run = new RunManager(
                 scenario.Seed,
                 new AuditStageGenerator(data),
                 config,
                 data.BattleContent,
-                data.CreatePowerUpGauge(),
+                gauge,
                 data.Rewards,
                 data.Contracts,
-                CreateAuditShip(data.DefaultShip));
+                CreateAuditShip(
+                    data.DefaultShip,
+                    gauge.GetMaxLevel(PowerUpSlot.MainShot)));
             var hasher = new DeterminismAuditHasher();
             int[] rewardCounts = new int[data.Rewards.All.Count];
             int executedTicks = 0;
@@ -696,7 +699,8 @@ namespace Shmup.DeterminismAudit
                     moveY = verticalPhase < 180 ? 1 : -1;
             }
             bool fire = true;
-            bool activate = run.PowerUpGauge.CanActivate;
+            bool activate =
+                ShouldActivatePowerUp(run.PowerUpGauge);
             bool activateBomb =
                 battle.BossActive
                 && battle.BombStock > 0
@@ -707,6 +711,20 @@ namespace Shmup.DeterminismAudit
                 fire,
                 activate,
                 activateBomb);
+        }
+
+        static bool ShouldActivatePowerUp(PowerUpGauge gauge)
+        {
+            if (gauge == null
+                || gauge.Cursor == PowerUpGauge.NoSelection
+                || !gauge.CanActivate)
+                return false;
+            PowerUpGaugeSlotView selected =
+                gauge.GetGaugeSlotView(gauge.Cursor);
+            if (selected.GaugeIndex != gauge.Cursor)
+                throw new InvalidOperationException(
+                    "Gauge observation index does not match its cursor.");
+            return selected.Level < selected.MaxLevel;
         }
 
         static bool TrySelectPickupTargetY(
@@ -836,16 +854,22 @@ namespace Shmup.DeterminismAudit
                     : null);
         }
 
-        static ShipDefinition CreateAuditShip(ShipDefinition source)
+        static ShipDefinition CreateAuditShip(
+            ShipDefinition source,
+            int mainShotLevel)
         {
             if (source == null)
-                return ShipDefinition.CreateDefault();
+                source = ShipDefinition.CreateDefault();
+            int[] startingLevels =
+                source.ExportStartingPowerUpLevels();
+            startingLevels[(int)PowerUpSlot.MainShot] =
+                mainShotLevel;
             return new ShipDefinition(
                 source.Id,
                 source.DisplayName,
                 source.MoveSpeedMultiplierNumerator,
                 source.MoveSpeedMultiplierDenominator,
-                source.ExportStartingPowerUpLevels(),
+                startingLevels,
                 source.UnlockCost,
                 source.WeaponType,
                 null);

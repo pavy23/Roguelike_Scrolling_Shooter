@@ -248,7 +248,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(RunState.Playing, manager.State);
             Assert.AreNotSame(initialGauge, manager.PowerUpGauge);
             CollectionAssert.AreEqual(
-                new[] { 2, 1, 2, 1 },
+                new[] { 2, 1, 2, 1, 0, 0, 0, 0 },
                 manager.PowerUpGauge.ExportLevels());
             AssertCall(generator.Calls[1], 44UL, 1, 1);
         }
@@ -300,7 +300,7 @@ namespace Shmup.Core.Tests
             manager.Restart(56UL);
 
             CollectionAssert.AreEqual(
-                new[] { 3, 2, 1, 2 },
+                new[] { 3, 2, 1, 2, 0, 0, 0, 0 },
                 manager.PowerUpGauge.ExportLevels());
         }
 
@@ -387,7 +387,7 @@ namespace Shmup.Core.Tests
             Assert.AreSame(ship, manager.Ship);
             Assert.AreEqual(2, manager.Battle.PlayerX);
             CollectionAssert.AreEqual(
-                new[] { 2, 1, 0, 0 },
+                new[] { 2, 1, 0, 0, 0, 0, 0, 0 },
                 manager.PowerUpGauge.ExportLevels());
         }
 
@@ -527,7 +527,7 @@ namespace Shmup.Core.Tests
             manager.Restart(93UL);
 
             CollectionAssert.AreEqual(
-                new[] { 2, 1, 0, 0 },
+                new[] { 2, 1, 0, 0, 0, 0, 0, 0 },
                 manager.PowerUpGauge.ExportLevels());
         }
 

@@ -47,11 +47,11 @@ namespace Shmup.Core.Simulation
     public sealed class InputRecordingData
     {
         /// <summary>
-        /// Reward rerolls are explicit decisions in schema 13. Older recordings
-        /// are intentionally rejected instead of guessing whether a reward pool
-        /// was rerolled.
+        /// Schema 14 records commands against the seven-slot gauge order.
+        /// Schema 13 is rejected because identical activate input selects a
+        /// different power-up under the old four-slot order.
         /// </summary>
-        public const int CurrentSchemaVersion = 13;
+        public const int CurrentSchemaVersion = 14;
 
         [DataMember(Order = 0)]
         public int schemaVersion;

@@ -246,6 +246,64 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void MovingEnemyLaserRemainsAnchoredThroughEveryPhase()
+        {
+            LaserAttackDefinition laser = Laser(
+                cycle: 8,
+                telegraph: 2,
+                firing: 2,
+                sustain: 2,
+                dissipate: 2);
+            var enemy = new EnemyDefinition(
+                "moving_laser", "Moving Laser", 100, 0, 0,
+                EnemyMovePattern.Straight,
+                10, 1, 0, 0, 0, 0,
+                0, 1, 64, 0, 1, 0,
+                0, laser);
+            BattleSim sim = Sim(
+                Config(),
+                Segment(
+                    "moving_enemy_laser",
+                    100,
+                    new SpawnEvent(0, enemy.Id, 500, 50)),
+                new[] { enemy });
+
+            for (int i = 0; i < 8; i++)
+                Step(sim, InputCommand.None);
+
+            Assert.AreEqual(1, sim.Lasers.Count);
+            int firstEnemyX = sim.Enemies[0].X;
+            LaserPhase[] expectedPhases =
+            {
+                LaserPhase.Telegraph,
+                LaserPhase.Telegraph,
+                LaserPhase.Firing,
+                LaserPhase.Firing,
+                LaserPhase.Sustaining,
+                LaserPhase.Sustaining,
+                LaserPhase.Dissipating,
+                LaserPhase.Dissipating
+            };
+            for (int i = 0; i < expectedPhases.Length; i++)
+            {
+                Assert.AreEqual(1, sim.Lasers.Count);
+                Assert.AreEqual(expectedPhases[i], sim.Lasers[0].Phase);
+                Assert.AreEqual(
+                    sim.Enemies[0].X - 100,
+                    sim.Lasers[0].StartX);
+                Assert.AreEqual(
+                    sim.Enemies[0].X + 100,
+                    sim.Lasers[0].EndX);
+                Assert.AreEqual(
+                    sim.Enemies[0].Y,
+                    sim.Lasers[0].StartY);
+                if (i + 1 < expectedPhases.Length)
+                    Step(sim, InputCommand.None);
+            }
+            Assert.Less(sim.Enemies[0].X, firstEnemyX);
+        }
+
+        [Test]
         public void LaserCapacityExceededIsObservable()
         {
             LaserAttackDefinition laser = Laser(

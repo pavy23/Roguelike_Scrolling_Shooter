@@ -1054,7 +1054,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(WeaponType.Vulcan, swift.WeaponType);
             Assert.IsFalse(swift.MaxHp.HasValue);
             CollectionAssert.AreEqual(
-                new[] { 1, 0, 1, 0 },
+                new[] { 1, 0, 1, 0, 0, 0, 0, 0 },
                 swift.StartingPowerUpLevels);
             Assert.AreEqual(1000L, swift.UnlockCost);
             Assert.IsFalse(data.Ships is ShipDefinition[]);
