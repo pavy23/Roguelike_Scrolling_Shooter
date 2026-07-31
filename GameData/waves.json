@@ -1266,6 +1266,11 @@
           "tick": 820,
           "enemyId": "zako_tank",
           "y": 0
+        },
+        {
+          "tick": 520,
+          "enemyId": "laser_sentry",
+          "y": -4.5
         }
       ],
       "obstacles": [
@@ -1468,6 +1473,16 @@
           "tick": 620,
           "enemyId": "elite_sine",
           "y": 0
+        },
+        {
+          "tick": 240,
+          "enemyId": "laser_sentry",
+          "y": 4.25
+        },
+        {
+          "tick": 480,
+          "enemyId": "laser_sentry",
+          "y": -4.25
         }
       ],
       "obstacles": [
@@ -1631,6 +1646,11 @@
           "tick": 700,
           "enemyId": "elite_sine",
           "y": 0
+        },
+        {
+          "tick": 360,
+          "enemyId": "prism_beamer",
+          "y": 4.25
         }
       ],
       "obstacles": [
@@ -1921,6 +1941,16 @@
           "tick": 820,
           "enemyId": "guardian_sphere",
           "y": 0
+        },
+        {
+          "tick": 200,
+          "enemyId": "laser_sentry",
+          "y": 4.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "laser_sentry",
+          "y": -4.5
         }
       ],
       "obstacles": [
@@ -3650,6 +3680,11 @@
           "tick": 700,
           "enemyId": "mortar_drone",
           "y": 2
+        },
+        {
+          "tick": 400,
+          "enemyId": "laser_sentry",
+          "y": 4.5
         }
       ],
       "obstacles": [
@@ -3827,6 +3862,11 @@
           "tick": 760,
           "enemyId": "zako_tank",
           "y": 0
+        },
+        {
+          "tick": 420,
+          "enemyId": "laser_sentry",
+          "y": -4.5
         }
       ],
       "obstacles": [
@@ -4468,6 +4508,11 @@
           "tick": 680,
           "enemyId": "elite_sine",
           "y": 0
+        },
+        {
+          "tick": 300,
+          "enemyId": "prism_beamer",
+          "y": -4.25
         }
       ],
       "obstacles": [
@@ -4596,6 +4641,11 @@
           "tick": 640,
           "enemyId": "elite_sine",
           "y": 0
+        },
+        {
+          "tick": 280,
+          "enemyId": "prism_beamer",
+          "y": 4.0
         }
       ],
       "obstacles": [
@@ -4830,6 +4880,16 @@
           "tick": 700,
           "enemyId": "elite_sine",
           "y": 0
+        },
+        {
+          "tick": 200,
+          "enemyId": "prism_beamer",
+          "y": 4.25
+        },
+        {
+          "tick": 520,
+          "enemyId": "prism_beamer",
+          "y": -4.25
         }
       ],
       "obstacles": [
@@ -4985,6 +5045,11 @@
           "tick": 650,
           "enemyId": "elite_sine",
           "y": 0
+        },
+        {
+          "tick": 320,
+          "enemyId": "prism_beamer",
+          "y": 4.5
         }
       ],
       "obstacles": [
@@ -5129,6 +5194,11 @@
           "tick": 700,
           "enemyId": "guardian_sphere",
           "y": 0
+        },
+        {
+          "tick": 360,
+          "enemyId": "laser_sentry",
+          "y": -4.5
         }
       ],
       "obstacles": [
@@ -5441,6 +5511,16 @@
           "tick": 760,
           "enemyId": "guardian_sphere",
           "y": 0
+        },
+        {
+          "tick": 340,
+          "enemyId": "laser_sentry",
+          "y": 4.25
+        },
+        {
+          "tick": 460,
+          "enemyId": "prism_beamer",
+          "y": -4.25
         }
       ],
       "obstacles": [

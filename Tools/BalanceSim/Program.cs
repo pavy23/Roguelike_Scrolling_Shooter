@@ -7149,23 +7149,36 @@ static class Program
             failures++;
         }
 
-        // Non-fortress placement: at least one scrapyard/hive/nebula segment
-        // spawns a laser enemy (terrain laser gates live mainly on fortress).
+        // Placement budget (REQ-088 follow-up): laser_sentry owns fortress+core,
+        // prism_beamer owns nebula+core, scrapyard stays minimal (stage-1 soft).
         var laserIds = new HashSet<string>(StringComparer.Ordinal);
         for (int i = 0; i < laserEnemies.Count; i++)
             laserIds.Add(laserEnemies[i].Id);
 
         int nonFortressHits = 0;
         int fortressHits = 0;
+        int fortressSentrySegs = 0;
+        int coreSentrySegs = 0;
+        int nebulaBeamerSegs = 0;
+        int coreBeamerSegs = 0;
+        int scrapyardLaserSegs = 0;
         int peakLaserSourcesInSegment = 0;
+        const int designPeakSources = 4;
         foreach (StageSegmentTemplate seg in data.StageGeneration.Segments)
         {
             int enemyLaserSpawns = 0;
+            int sentrySpawns = 0;
+            int beamerSpawns = 0;
             int emitterCount = 0;
             for (int s = 0; s < seg.Spawns.Count; s++)
             {
-                if (laserIds.Contains(seg.Spawns[s].EnemyId))
+                string eid = seg.Spawns[s].EnemyId;
+                if (laserIds.Contains(eid))
                     enemyLaserSpawns++;
+                if (string.Equals(eid, "laser_sentry", StringComparison.Ordinal))
+                    sentrySpawns++;
+                if (string.Equals(eid, "prism_beamer", StringComparison.Ordinal))
+                    beamerSpawns++;
             }
 
             for (int o = 0; o < seg.Obstacles.Count; o++)
@@ -7178,10 +7191,30 @@ static class Program
             if (sources > peakLaserSourcesInSegment)
                 peakLaserSourcesInSegment = sources;
 
+            string theme = seg.ThemeId ?? "";
+            if (sentrySpawns > 0)
+            {
+                if (string.Equals(theme, "fortress", StringComparison.Ordinal))
+                    fortressSentrySegs++;
+                else if (string.Equals(theme, "core", StringComparison.Ordinal))
+                    coreSentrySegs++;
+            }
+
+            if (beamerSpawns > 0)
+            {
+                if (string.Equals(theme, "nebula", StringComparison.Ordinal))
+                    nebulaBeamerSegs++;
+                else if (string.Equals(theme, "core", StringComparison.Ordinal))
+                    coreBeamerSegs++;
+            }
+
+            if (enemyLaserSpawns > 0
+                && string.Equals(theme, "scrapyard", StringComparison.Ordinal))
+                scrapyardLaserSegs++;
+
             if (enemyLaserSpawns == 0)
                 continue;
 
-            string theme = seg.ThemeId ?? "";
             if (string.Equals(theme, "fortress", StringComparison.Ordinal))
                 fortressHits++;
             else
@@ -7192,9 +7225,16 @@ static class Program
             $"  segments with laser enemies: fortress={fortressHits} "
             + $"other={nonFortressHits}");
         Console.WriteLine(
+            $"  laser_sentry segs: fortress={fortressSentrySegs} "
+            + $"core={coreSentrySegs}");
+        Console.WriteLine(
+            $"  prism_beamer segs: nebula={nebulaBeamerSegs} "
+            + $"core={coreBeamerSegs} scrapyard={scrapyardLaserSegs}");
+        Console.WriteLine(
             $"  peak laser sources in one segment template "
             + $"(enemies+emitters, not concurrent)={peakLaserSourcesInSegment} "
-            + $"(MaxLasers={BattleSimConfig.CreateDefault().MaxLasers})");
+            + $"(design≤{designPeakSources}, "
+            + $"MaxLasers={BattleSimConfig.CreateDefault().MaxLasers})");
 
         if (nonFortressHits < 1)
         {
@@ -7204,14 +7244,63 @@ static class Program
             failures++;
         }
 
-        // Soft: concurrent cap is runtime; warn if template sources > MaxLasers.
+        if (fortressSentrySegs < 4)
+        {
+            Console.WriteLine(
+                $"FAIL laser: laser_sentry fortress segs "
+                + $"{fortressSentrySegs} < 4.");
+            failures++;
+        }
+
+        if (coreSentrySegs < 2)
+        {
+            Console.WriteLine(
+                $"FAIL laser: laser_sentry core segs "
+                + $"{coreSentrySegs} < 2.");
+            failures++;
+        }
+
+        if (nebulaBeamerSegs < 4)
+        {
+            Console.WriteLine(
+                $"FAIL laser: prism_beamer nebula segs "
+                + $"{nebulaBeamerSegs} < 4.");
+            failures++;
+        }
+
+        if (coreBeamerSegs < 1)
+        {
+            Console.WriteLine(
+                "FAIL laser: prism_beamer missing from core segments.");
+            failures++;
+        }
+
+        // Stage-1 soft: scrapyard may host a single beamer intro, not a grid.
+        if (scrapyardLaserSegs > 1)
+        {
+            Console.WriteLine(
+                $"FAIL laser: scrapyard laser segs {scrapyardLaserSegs} > 1 "
+                + "(stage-1 mitigation: keep minimal).");
+            failures++;
+        }
+
+        // Design peak ≤4 keeps concurrent fire well under MaxLasers=8.
+        if (peakLaserSourcesInSegment > designPeakSources)
+        {
+            Console.WriteLine(
+                $"FAIL laser: segment template sources "
+                + $"{peakLaserSourcesInSegment} > design peak "
+                + $"{designPeakSources} (LaserCapacityExceeded risk).");
+            failures++;
+        }
+
         int maxLasers = BattleSimConfig.CreateDefault().MaxLasers;
         if (peakLaserSourcesInSegment > maxLasers)
         {
             Console.WriteLine(
-                $"WARN laser: segment template sources "
-                + $"{peakLaserSourcesInSegment} > MaxLasers {maxLasers} "
-                + "(overlap risk if cycles align; stagger ages mitigate).");
+                $"FAIL laser: segment template sources "
+                + $"{peakLaserSourcesInSegment} > MaxLasers {maxLasers}.");
+            failures++;
         }
 
         if (failures == 0)

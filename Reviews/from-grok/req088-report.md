@@ -3,19 +3,19 @@
 - 작업일: 2026-08-01
 - 담당: GROK / CONTENT
 - 브랜치/worktree: `content` / `wt-content`
-- 결과: **PASS**
+- 결과: **PASS** (레이저 적 배치 후속 포함)
 
 ## 결론
 
-REQ-088 다섯 항목을 전부 반영했다. CODEX REQ-085/086/087 파서 축을 확인한 뒤
-`GameData/` 수치와 BalanceSim 게이트를 갱신했다.
+REQ-088 다섯 항목 + 사람 지적 **레이저 적 배치**를 반영했다.
+CODEX REQ-085/086/087 파서 축을 확인한 뒤 `GameData/` 수치와 BalanceSim 게이트를 갱신했다.
 
 | 검증 | 결과 |
 |---|---|
 | `dotnet test` (CoreStandalone) | **454/454** |
 | BalanceSim | **all green** |
 | DeterminismAudit `--suite` | **AUDIT PASS** |
-| 같은 시드 2회 (`12345` 3st 30000t) | **EXACT_MATCH** `D66A41FDFF551D0D` |
+| 같은 시드 2회 (`12345` 3st 30000t) | **EXACT_MATCH** `D66A41FDFF551D0D` (초기 5항목 시점) |
 
 ---
 
@@ -153,9 +153,67 @@ EXACT_MATCH True
 
 ---
 
+## 6. 레이저 적 배치 (REQ-088 후속 · 사람 지적)
+
+**문제:** `laser_sentry` / `prism_beamer`가 waves에 사실상 안 나왔다.
+- 수정 전: `laser_sentry` 1세그먼트×1마리, `prism_beamer` 2세그먼트×각 1마리.
+- `shard_prism`은 이름과 달리 `laser` 프로필 없음.
+
+### 판단 — `shard_prism`에 laser 미부여
+
+| 선택 | 이유 |
+|---|---|
+| **부여 안 함** | 코어 중형 앵커(HP 850)이며 `seg_core_shard_battery`에 **5기** 밀집. prism_beamer급 laser를 붙이면 동시 빔 소스·피크 난이도가 급등. |
+| 이름 의미 | “프리즘/결정” 정체성(고체력 사격 앵커)으로 두고, 빔 역할은 `prism_beamer`·`laser_sentry`에 분리. |
+| 레이저 적 수 | 카탈로그 laser 적 **2종** 유지 (BalanceSim 게이트 [1,4]). |
+
+### 배치 결과
+
+| 적 | 테마 | 세그먼트 수 | 배치 요약 |
+|---|---|---:|---|
+| `laser_sentry` | **fortress** | **4** | sentry_grid×2, interceptor_assault×2, mortar_line×1, turret_cross×1 |
+| `laser_sentry` | **core** | **3** | guardian_wall×2, void_mix×1, phase_discs×1 |
+| `prism_beamer` | **nebula** | **5** | ribbon×1, storm×1, echo_ribbon×1, void_moth_swarm×1, prism_haze×2 |
+| `prism_beamer` | **core** | **2** | rift_blades×1, void_mix×1 |
+| `prism_beamer` | scrapyard | **1** | tumbler_pack×1만 유지 (스테이지1 완화) |
+
+- fortress `drone_lattice` / `armored_gate`는 이미 laserEmitter 3기 → 적 laser 추가 생략 (피크 소스 억제).
+- 세그먼트 템플릿 피크 소스(적 laser + laserEmitter) **≤4** (MaxLasers=8, `LaserCapacityExceeded` 여유).
+- scrapyard 레이저 세그먼트 **≤1** 게이트로 스테이지1 최소 노출 고정.
+
+### BalanceSim 게이트 강화
+
+`CheckEnemyLaserProfiles`:
+- `laser_sentry` fortress ≥4 · core ≥2
+- `prism_beamer` nebula ≥4 · core ≥1
+- scrapyard laser segs ≤1
+- peak sources ≤ design 4 (초과 시 FAIL)
+
+### 검증 (배치 후)
+
+| 항목 | 결과 |
+|---|---|
+| `dotnet test` CoreStandalone | **454/454** |
+| BalanceSim | **all green** (laser segs fortress=4 core_sentry=3 nebula_beamer=5 core_beamer=2 scrap=1 peak=4) |
+| DeterminismAudit `--suite` | **AUDIT PASS** |
+
+```text
+PASS: REQ-075 enemy laser profiles.
+  laser_sentry segs: fortress=4 core=3
+  prism_beamer segs: nebula=5 core=2 scrapyard=1
+  peak laser sources … =4 (design≤4, MaxLasers=8)
+
+AUDIT PASS
+(hashes: B5132344…, 5D08BF20…, 38F62D27…, 8B44B301…, A6229179…, 1476FE56…)
+```
+
+---
+
 ## 변경 파일
 
 - `GameData/weapons.json` — optionMissile 50, 무기 모드 maxLevel 3, double/laser/spread levels
-- `GameData/waves.json` — boss_stage1 hp 4250, 5보스 p1–p2 탄종·시그니처
-- `Tools/BalanceSim/Program.cs` — REQ-088 게이트
+- `GameData/waves.json` — boss_stage1 hp 4250, 5보스 p1–p2 탄종·시그니처, **레이저 적 배치 확장**
+- `GameData/enemies.json` — (본 후속: `shard_prism` laser 미부여, 변경 없음)
+- `Tools/BalanceSim/Program.cs` — REQ-088 게이트 + 레이저 배치 게이트
+- `Tools/BalanceSim/_apply_laser_placement.py` — 배치 재현 스크립트
 - `Reviews/from-grok/req088-report.md` — 본 보고서
