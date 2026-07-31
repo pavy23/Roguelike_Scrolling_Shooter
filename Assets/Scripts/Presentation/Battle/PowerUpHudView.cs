@@ -123,6 +123,12 @@ namespace Shmup.Presentation.Battle
         /// <summary>데이터의 nameKey를 HUD 표기로. 모르는 키는 대문자로 그대로 쓴다.</summary>
         static string DisplayName(string nameKey)
         {
+            // Core가 함선 게이지의 주무기 축에 붙이는 고정 키 (REQ-082 D).
+            // 스위치의 소문자 케이스와 달리 이 키만 혼합 대소문자라 별도 처리한다 —
+            // 그대로 두면 "POWERUP.MAINSHOT"이 화면에 노출된다 (로컬 검증에서 발견).
+            if (!string.IsNullOrEmpty(nameKey)
+                && nameKey.IndexOf("mainShot", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                return "SHOT";
             switch (nameKey)
             {
                 case "speed": return "SPEED";
