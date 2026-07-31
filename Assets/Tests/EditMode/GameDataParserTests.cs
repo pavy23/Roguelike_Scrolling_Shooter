@@ -1197,8 +1197,12 @@ namespace Shmup.Core.Tests
                 data.StageGeneration.Bosses.Count);
             Assert.AreEqual(3, data.Rewards.OptionCount);
             // 13 base + 3 missileFamily + 3 optionFormation (REQ-034)
-            // + bomb_stock_1 (REQ-067).
-            Assert.AreEqual(20, data.Rewards.All.Count);
+            // + bomb_stock_1 (REQ-067)
+            // + 5 costed rewards (REQ-071).
+            Assert.AreEqual(25, data.Rewards.All.Count);
+            Assert.IsNotNull(data.Contracts);
+            Assert.AreEqual("standard_route", data.Contracts.Standard.Id);
+            Assert.AreEqual(9, data.Contracts.All.Count);
             Assert.AreEqual(3, data.Ships.Count);
             Assert.AreEqual(
                 WeaponType.Vulcan,

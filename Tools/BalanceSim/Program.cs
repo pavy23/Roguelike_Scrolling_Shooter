@@ -231,6 +231,8 @@ static class Program
         failures += CheckColossalBosses(data, generator);
         Console.WriteLine();
         failures += CheckStageClearability(data);
+        Console.WriteLine();
+        failures += CheckSectorContractsAndCostedRewards(data);
 
         Console.WriteLine();
         if (failures == 0)
@@ -547,6 +549,11 @@ static class Program
 
         foreach (RewardDefinition def in rewards.All)
         {
+            // REQ-071: modifiers live in main; estimate E[mods] against main/both only.
+            bool inMainOffer = def.Pool == RewardPool.Main || def.Pool == RewardPool.Both;
+            if (!inMainOffer)
+                continue;
+
             bool stage1 = def.StageIndexMin <= 1 && def.StageIndexMax >= 1;
             bool stage2 = def.StageIndexMin <= 2 && def.StageIndexMax >= 2;
             if (stage1) totalWeightStage1 += def.Weight;
@@ -573,10 +580,23 @@ static class Program
                 failures++;
             }
 
-            if (!def.MaxPerRun.HasValue || def.MaxPerRun.Value != 1)
+            // REQ-071: open stacks 2–3 so molbbang builds exist without full monopoly.
+            if (!def.MaxPerRun.HasValue
+                || def.MaxPerRun.Value < 2
+                || def.MaxPerRun.Value > 3)
             {
                 Console.WriteLine(
-                    $"FAIL rewards: {def.Id} maxPerRun must be 1 (got {def.MaxPerRun}).");
+                    $"FAIL rewards: {def.Id} maxPerRun must be 2..3 (got {def.MaxPerRun}).");
+                failures++;
+            }
+
+            if (!def.ModifierStackable
+                || def.ModifierMaxStacks < 2
+                || def.ModifierMaxStacks > 3)
+            {
+                Console.WriteLine(
+                    $"FAIL rewards: {def.Id} must be stackable with maxStacks 2..3 "
+                    + $"(stackable={def.ModifierStackable}, maxStacks={def.ModifierMaxStacks}).");
                 failures++;
             }
 
@@ -590,7 +610,9 @@ static class Program
             Console.WriteLine(
                 $"  {def.Id,-22} modifier={def.ModifierId,-14} " +
                 $"weight={def.Weight} stage={def.StageIndexMin}-{def.StageIndexMax} " +
-                $"maxPerRun={def.MaxPerRun}");
+                $"maxPerRun={def.MaxPerRun} stacks={def.ModifierMaxStacks} " +
+                $"str={def.ModifierStackStrength} cost={def.ModifierInteractionCost} " +
+                $"pool={def.Pool}");
             expected.Remove(def.Id);
         }
 
@@ -601,7 +623,7 @@ static class Program
         }
 
         // With-replacement approximation of expected modifiers in a 3-pick.
-        // Guide: ~1 modifier per 3-choice offer (REQ-014).
+        // REQ-071: weight against main/both pool only (mid is tactical).
         double expectedStage1 = totalWeightStage1 == 0
             ? 0
             : 3.0 * modifierWeightStage1 / totalWeightStage1;
@@ -610,11 +632,13 @@ static class Program
             : 3.0 * modifierWeightStage2 / totalWeightStage2;
 
         Console.WriteLine(
-            $"  weight stage1: modifiers={modifierWeightStage1}/{totalWeightStage1} " +
+            $"  main-pool stage1: modifiers={modifierWeightStage1}/{totalWeightStage1} " +
             $"E[mods in 3-pick]≈{expectedStage1:F2}");
         Console.WriteLine(
-            $"  weight stage2+: modifiers={modifierWeightStage2}/{totalWeightStage2} " +
+            $"  main-pool stage2+: modifiers={modifierWeightStage2}/{totalWeightStage2} " +
             $"E[mods in 3-pick]≈{expectedStage2:F2}");
+        Console.WriteLine(
+            $"  maxCombinedModifierCost={rewards.MaxCombinedModifierCost}");
 
         if (foundModifiers != 4)
         {
@@ -623,15 +647,16 @@ static class Program
         }
 
         // Soft band around guide (~1). Provisional — warn-only outside band.
-        if (expectedStage1 < 0.5 || expectedStage1 > 1.8)
+        // Main pool is denser in build picks; allow a slightly higher ceiling.
+        if (expectedStage1 < 0.5 || expectedStage1 > 2.2)
         {
             Console.WriteLine(
-                $"WARN rewards: stage1 E[mods]≈{expectedStage1:F2} outside guide band [0.5, 1.8] (§7).");
+                $"WARN rewards: stage1 E[mods]≈{expectedStage1:F2} outside guide band [0.5, 2.2] (§7).");
         }
-        if (expectedStage2 < 0.5 || expectedStage2 > 1.8)
+        if (expectedStage2 < 0.5 || expectedStage2 > 2.2)
         {
             Console.WriteLine(
-                $"WARN rewards: stage2 E[mods]≈{expectedStage2:F2} outside guide band [0.5, 1.8] (§7).");
+                $"WARN rewards: stage2 E[mods]≈{expectedStage2:F2} outside guide band [0.5, 2.2] (§7).");
         }
 
         if (failures == 0)
@@ -5188,6 +5213,277 @@ static class Program
             Console.WriteLine("PASS: REQ-060 stage-1 clearability + curve report.");
         else
             Console.WriteLine($"FAIL: REQ-060 clearability ({failures} failure(s)).");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-071: sector contract catalog integrity + costed rewards +
+    /// worst-case density clearability gate (escort_run 1.5× HP load).
+    /// </summary>
+    static int CheckSectorContractsAndCostedRewards(GameDataSet data)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "REQ-071 sector contracts + costed rewards (provisional §7):");
+
+        ContractCatalog contracts = data.Contracts;
+        if (contracts == null)
+        {
+            Console.WriteLine("FAIL contracts: waves.json.contracts missing.");
+            return 1;
+        }
+
+        if (contracts.Standard == null
+            || contracts.Standard.Id != "standard_route"
+            || !contracts.Standard.IsNeutral
+            || contracts.Standard.RiskTier != ContractRiskTier.Safe)
+        {
+            Console.WriteLine(
+                "FAIL contracts: standard_route must be safe + fully neutral.");
+            failures++;
+        }
+
+        int specialty = 0;
+        double maxDensity = 1.0;
+        string densestId = contracts.Standard.Id;
+        Console.WriteLine(
+            $"  catalog: standard={contracts.Standard.Id} "
+            + $"options={contracts.MinimumOptionCount}.."
+            + $"{contracts.MaximumOptionCount} "
+            + $"entries={contracts.All.Count}");
+
+        for (int i = 0; i < contracts.All.Count; i++)
+        {
+            ContractDefinition c = contracts.All[i];
+            double density = c.EnemyDensityDenominator == 0
+                ? 1.0
+                : c.EnemyDensityNumerator
+                    / (double)c.EnemyDensityDenominator;
+            double capsules = c.CapsuleDropDenominator == 0
+                ? 1.0
+                : c.CapsuleDropNumerator
+                    / (double)c.CapsuleDropDenominator;
+            double score = c.ScoreMultiplierDenominator == 0
+                ? 1.0
+                : c.ScoreMultiplierNumerator
+                    / (double)c.ScoreMultiplierDenominator;
+            double gimmick = c.GimmickIntensityDenominator == 0
+                ? 1.0
+                : c.GimmickIntensityNumerator
+                    / (double)c.GimmickIntensityDenominator;
+
+            if (!ReferenceEquals(c, contracts.Standard))
+                specialty++;
+
+            if (density > maxDensity)
+            {
+                maxDensity = density;
+                densestId = c.Id;
+            }
+
+            // Low-risk specialty contracts must still carry a cost.
+            if (!ReferenceEquals(c, contracts.Standard)
+                && c.RiskTier == ContractRiskTier.Low
+                && c.IsNeutral)
+            {
+                Console.WriteLine(
+                    $"FAIL contracts: low-risk '{c.Id}' is neutral "
+                    + "(free safety kills the standard route).");
+                failures++;
+            }
+
+            Console.WriteLine(
+                $"  {c.Id,-16} tier={c.RiskTier,-8} dens×{density:F2} "
+                + $"cap×{capsules:F2} gim×{gimmick:F2} "
+                + $"score×{score:F2} Δcards={c.RewardOptionCountDelta:+#;-#;0} "
+                + $"bombG={(c.GuaranteedBombDrop ? 1 : 0)} w={c.Weight}");
+        }
+
+        if (specialty < 6 || specialty > 10)
+        {
+            Console.WriteLine(
+                $"FAIL contracts: specialty count {specialty} outside 6..10.");
+            failures++;
+        }
+
+        // Pool split + costed rewards.
+        int mid = 0, main = 0, both = 0, costed = 0;
+        RewardCatalog rewards = data.Rewards;
+        for (int i = 0; i < rewards.All.Count; i++)
+        {
+            RewardDefinition r = rewards.All[i];
+            if (r.Pool == RewardPool.Mid) mid++;
+            else if (r.Pool == RewardPool.Main) main++;
+            else both++;
+            if (r.Costs != null && r.Costs.Count > 0)
+                costed++;
+        }
+
+        Console.WriteLine(
+            $"  rewards pool: mid={mid} main={main} both={both} "
+            + $"costed={costed} total={rewards.All.Count}");
+
+        if (mid < 4)
+        {
+            Console.WriteLine(
+                $"FAIL rewards: mid pool too thin ({mid} < 4).");
+            failures++;
+        }
+
+        if (main < 12)
+        {
+            Console.WriteLine(
+                $"FAIL rewards: main pool too thin ({main} < 12).");
+            failures++;
+        }
+
+        if (costed < 4 || costed > 6)
+        {
+            Console.WriteLine(
+                $"FAIL rewards: costed count {costed} outside 4..6.");
+            failures++;
+        }
+
+        // Stage-1 worst density: scale open+close HP by max contract density.
+        // Midboss/boss are not density-scaled (spawn tables only).
+        StageGenerationCatalog catalog = data.StageGeneration;
+        BattleContent content = data.BattleContent;
+        string theme = catalog.ThemeIds[0];
+        int difficulty = 1;
+        long poolHpWeighted = 0;
+        int poolWeight = 0;
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            if (!seg.SupportsDifficulty(difficulty) || !seg.SupportsTheme(theme))
+                continue;
+            int hp = SegmentSpawnHp(seg, content);
+            int w = Math.Max(1, seg.Weight);
+            poolHpWeighted += (long)hp * w;
+            poolWeight += w;
+        }
+
+        if (poolWeight == 0)
+        {
+            Console.WriteLine("FAIL contracts: empty stage-1 segment pool.");
+            return failures + 1;
+        }
+
+        double avgSegHp = poolHpWeighted / (double)poolWeight;
+        double openCloseHp = avgSegHp * catalog.SegmentsPerStage * 2.0;
+
+        // Mid avg (same as REQ-060).
+        var midBosses = new List<EnemyDefinition>();
+        for (int i = 0; i < content.Enemies.Count; i++)
+        {
+            EnemyDefinition e = content.Enemies[i];
+            if (e.Id.StartsWith("mini_", StringComparison.Ordinal))
+                midBosses.Add(e);
+        }
+
+        double midAvg = 0;
+        for (int i = 0; i < midBosses.Count; i++)
+            midAvg += midBosses[i].MaxHp;
+        if (midBosses.Count > 0)
+            midAvg /= midBosses.Count;
+
+        StageBossTemplate boss = null;
+        for (int b = 0; b < catalog.Bosses.Count; b++)
+        {
+            if (string.Equals(
+                    catalog.Bosses[b].BossId,
+                    "boss_stage1",
+                    StringComparison.Ordinal))
+            {
+                boss = catalog.Bosses[b];
+                break;
+            }
+        }
+
+        if (boss == null)
+        {
+            Console.WriteLine("FAIL contracts: missing boss_stage1.");
+            return failures + 1;
+        }
+
+        ShipDefinition starter = data.FindShip("starter");
+        WeaponDefinition mainWeapon = content.FindWeapon(PowerUpSlot.MainShot);
+        int mainStart = starter.ExportStartingPowerUpLevels()[(int)PowerUpSlot.MainShot];
+        double starterDps = TheoreticalMainShotDps(mainWeapon, mainStart);
+        double reachDps = Math.Max(
+            starterDps * 1.15,
+            BossExpectedDps[0].ExpectedDps * 0.85);
+        double effDps = reachDps * MidSkillHitUptime;
+
+        double baselineTot = openCloseHp + midAvg + boss.MaxHp;
+        double worstOpenClose = openCloseHp * maxDensity;
+        double worstTot = worstOpenClose + midAvg + boss.MaxHp;
+        double worstTtk = worstTot / effDps;
+        double baselineTtk = baselineTot / effDps;
+
+        // Costed-reward worst: glass_cannon path is late-stage; for stage-1
+        // the densest contract is the primary clearability pressure.
+        // Allow a modest stretch over the baseline stage-1 budget.
+        const double MaxWorstContractTtkSeconds = MaxStage1FullTtkSeconds * 1.35;
+
+        Console.WriteLine(
+            $"  densest contract={densestId} dens×{maxDensity:F2}");
+        Console.WriteLine(
+            $"  S1 baseline totHP={baselineTot:F0} TTK@reachEff={baselineTtk:F0}s");
+        Console.WriteLine(
+            $"  S1 worst dens× OC={worstOpenClose:F0} tot={worstTot:F0} "
+            + $"TTK={worstTtk:F0}s (gate≤{MaxWorstContractTtkSeconds:F0}s)");
+
+        if (worstTtk > MaxWorstContractTtkSeconds)
+        {
+            Console.WriteLine(
+                $"FAIL contracts: worst density TTK {worstTtk:F0}s > "
+                + $"{MaxWorstContractTtkSeconds:F0}s — density/score trades too harsh.");
+            failures++;
+        }
+
+        // Costed reward net strength check: gain amount should exceed free peer.
+        // overclock_core damage 2 vs passive_damage_1 amount 1; light_frame 6 vs 3.
+        bool hasOverclock = false;
+        bool hasLight = false;
+        bool hasAmmo = false;
+        for (int i = 0; i < rewards.All.Count; i++)
+        {
+            RewardDefinition r = rewards.All[i];
+            if (r.Id == "overclock_core"
+                && r.Type == RewardType.DamageUp
+                && r.Amount >= 2
+                && r.Costs.Count > 0)
+                hasOverclock = true;
+            if (r.Id == "light_frame"
+                && r.Type == RewardType.MoveSpeedUp
+                && r.Amount >= 6
+                && r.Costs.Count > 0)
+                hasLight = true;
+            if (r.Id == "ammo_mod"
+                && r.Type == RewardType.FireRateUp
+                && r.Amount >= 2
+                && r.Costs.Count > 0)
+                hasAmmo = true;
+        }
+
+        if (!hasOverclock || !hasLight || !hasAmmo)
+        {
+            Console.WriteLine(
+                "FAIL rewards: missing signature costed rewards "
+                + $"(overclock={hasOverclock} light={hasLight} ammo={hasAmmo}).");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine(
+                "  costed signature: overclock_core dmg+2/shield-1 · "
+                + "light_frame move+6/bombCap-1 · ammo_mod fire+2/capsule-2");
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-071 contracts + costed rewards.");
+        else
+            Console.WriteLine($"FAIL: REQ-071 ({failures} failure(s)).");
         return failures;
     }
 

@@ -1,6 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 4,
   "optionCount": 3,
+  "maxCombinedModifierCost": 5,
   "rewards": [
     {
       "id": "capsules_5",
@@ -8,43 +9,8 @@
       "amount": 5,
       "weight": 3,
       "stageIndexMin": 1,
-      "stageIndexMax": 99
-    },
-    {
-      "id": "slot_main_shot_1",
-      "type": "slotLevel",
-      "slot": "MainShot",
-      "amount": 1,
-      "weight": 2,
-      "stageIndexMin": 1,
-      "stageIndexMax": 99
-    },
-    {
-      "id": "slot_missile_1",
-      "type": "slotLevel",
-      "slot": "Missile",
-      "amount": 1,
-      "weight": 2,
-      "stageIndexMin": 1,
-      "stageIndexMax": 99
-    },
-    {
-      "id": "slot_option_1",
-      "type": "slotLevel",
-      "slot": "Option",
-      "amount": 1,
-      "weight": 2,
-      "stageIndexMin": 1,
-      "stageIndexMax": 99
-    },
-    {
-      "id": "slot_shield_1",
-      "type": "slotLevel",
-      "slot": "Shield",
-      "amount": 1,
-      "weight": 2,
-      "stageIndexMin": 1,
-      "stageIndexMax": 99
+      "stageIndexMax": 99,
+      "pool": "mid"
     },
     {
       "id": "repair_hp_1",
@@ -52,7 +18,8 @@
       "amount": 1,
       "weight": 3,
       "stageIndexMin": 1,
-      "stageIndexMax": 99
+      "stageIndexMax": 99,
+      "pool": "mid"
     },
     {
       "id": "bomb_stock_1",
@@ -61,25 +28,8 @@
       "weight": 2,
       "stageIndexMin": 1,
       "stageIndexMax": 99,
-      "maxPerRun": 3
-    },
-    {
-      "id": "passive_fire_rate_1",
-      "type": "fireRateUp",
-      "amount": 1,
-      "weight": 1,
-      "stageIndexMin": 2,
-      "stageIndexMax": 99,
-      "maxPerRun": 3
-    },
-    {
-      "id": "passive_damage_1",
-      "type": "damageUp",
-      "amount": 1,
-      "weight": 1,
-      "stageIndexMin": 2,
-      "stageIndexMax": 99,
-      "maxPerRun": 3
+      "maxPerRun": 3,
+      "pool": "mid"
     },
     {
       "id": "passive_move_speed_1",
@@ -88,7 +38,68 @@
       "weight": 4,
       "stageIndexMin": 1,
       "stageIndexMax": 99,
-      "maxPerRun": 4
+      "maxPerRun": 4,
+      "pool": "mid"
+    },
+    {
+      "id": "slot_shield_1",
+      "type": "slotLevel",
+      "slot": "Shield",
+      "amount": 1,
+      "weight": 2,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99,
+      "pool": "mid"
+    },
+    {
+      "id": "slot_main_shot_1",
+      "type": "slotLevel",
+      "slot": "MainShot",
+      "amount": 1,
+      "weight": 2,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99,
+      "pool": "main"
+    },
+    {
+      "id": "slot_missile_1",
+      "type": "slotLevel",
+      "slot": "Missile",
+      "amount": 1,
+      "weight": 2,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99,
+      "pool": "main"
+    },
+    {
+      "id": "slot_option_1",
+      "type": "slotLevel",
+      "slot": "Option",
+      "amount": 1,
+      "weight": 2,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99,
+      "pool": "main"
+    },
+    {
+      "id": "passive_fire_rate_1",
+      "type": "fireRateUp",
+      "amount": 1,
+      "weight": 1,
+      "stageIndexMin": 2,
+      "stageIndexMax": 99,
+      "maxPerRun": 3,
+      "pool": "main"
+    },
+    {
+      "id": "passive_damage_1",
+      "type": "damageUp",
+      "amount": 1,
+      "weight": 1,
+      "stageIndexMin": 2,
+      "stageIndexMax": 99,
+      "maxPerRun": 3,
+      "pool": "main"
     },
     {
       "id": "mod_pierce_shot",
@@ -97,7 +108,12 @@
       "weight": 2,
       "stageIndexMin": 1,
       "stageIndexMax": 99,
-      "maxPerRun": 1
+      "maxPerRun": 2,
+      "stackable": true,
+      "maxStacks": 2,
+      "stackStrength": 1,
+      "interactionCost": 1,
+      "pool": "main"
     },
     {
       "id": "mod_ricochet",
@@ -106,7 +122,12 @@
       "weight": 2,
       "stageIndexMin": 1,
       "stageIndexMax": 99,
-      "maxPerRun": 1
+      "maxPerRun": 2,
+      "stackable": true,
+      "maxStacks": 2,
+      "stackStrength": 1,
+      "interactionCost": 1,
+      "pool": "main"
     },
     {
       "id": "mod_homing_missile",
@@ -115,7 +136,12 @@
       "weight": 2,
       "stageIndexMin": 1,
       "stageIndexMax": 99,
-      "maxPerRun": 1
+      "maxPerRun": 2,
+      "stackable": true,
+      "maxStacks": 2,
+      "stackStrength": 1,
+      "interactionCost": 1,
+      "pool": "main"
     },
     {
       "id": "mod_kill_explosion",
@@ -124,7 +150,12 @@
       "weight": 2,
       "stageIndexMin": 1,
       "stageIndexMax": 99,
-      "maxPerRun": 1
+      "maxPerRun": 2,
+      "stackable": true,
+      "maxStacks": 2,
+      "stackStrength": 1,
+      "interactionCost": 1,
+      "pool": "main"
     },
     {
       "id": "missile_family_straight",
@@ -132,7 +163,8 @@
       "familyId": "straight",
       "weight": 1,
       "stageIndexMin": 1,
-      "stageIndexMax": 99
+      "stageIndexMax": 99,
+      "pool": "main"
     },
     {
       "id": "missile_family_spread_bomb",
@@ -140,7 +172,8 @@
       "familyId": "spread_bomb",
       "weight": 2,
       "stageIndexMin": 1,
-      "stageIndexMax": 99
+      "stageIndexMax": 99,
+      "pool": "main"
     },
     {
       "id": "missile_family_piercing_lance",
@@ -148,7 +181,8 @@
       "familyId": "piercing_lance",
       "weight": 2,
       "stageIndexMin": 2,
-      "stageIndexMax": 99
+      "stageIndexMax": 99,
+      "pool": "main"
     },
     {
       "id": "option_formation_trail",
@@ -156,7 +190,8 @@
       "formationId": "trail",
       "weight": 1,
       "stageIndexMin": 1,
-      "stageIndexMax": 99
+      "stageIndexMax": 99,
+      "pool": "main"
     },
     {
       "id": "option_formation_fixed",
@@ -164,7 +199,8 @@
       "formationId": "fixed",
       "weight": 2,
       "stageIndexMin": 1,
-      "stageIndexMax": 99
+      "stageIndexMax": 99,
+      "pool": "main"
     },
     {
       "id": "option_formation_orbit",
@@ -172,8 +208,88 @@
       "formationId": "orbit",
       "weight": 2,
       "stageIndexMin": 2,
-      "stageIndexMax": 99
+      "stageIndexMax": 99,
+      "pool": "main"
+    },
+    {
+      "id": "overclock_core",
+      "type": "damageUp",
+      "amount": 2,
+      "weight": 2,
+      "stageIndexMin": 2,
+      "stageIndexMax": 99,
+      "maxPerRun": 1,
+      "pool": "main",
+      "costs": [
+        {
+          "type": "shieldMaxDown",
+          "amount": 1
+        }
+      ]
+    },
+    {
+      "id": "light_frame",
+      "type": "moveSpeedUp",
+      "amount": 6,
+      "weight": 2,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99,
+      "maxPerRun": 1,
+      "pool": "main",
+      "costs": [
+        {
+          "type": "bombMaxDown",
+          "amount": 1
+        }
+      ]
+    },
+    {
+      "id": "ammo_mod",
+      "type": "fireRateUp",
+      "amount": 2,
+      "weight": 2,
+      "stageIndexMin": 2,
+      "stageIndexMax": 99,
+      "maxPerRun": 1,
+      "pool": "main",
+      "costs": [
+        {
+          "type": "capsuleDropWeightDown",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": "glass_cannon",
+      "type": "damageUp",
+      "amount": 3,
+      "weight": 1,
+      "stageIndexMin": 3,
+      "stageIndexMax": 99,
+      "maxPerRun": 1,
+      "pool": "main",
+      "costs": [
+        {
+          "type": "shieldMaxDown",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": "bomber_payload",
+      "type": "bombStock",
+      "amount": 2,
+      "weight": 1,
+      "stageIndexMin": 2,
+      "stageIndexMax": 99,
+      "maxPerRun": 1,
+      "pool": "main",
+      "costs": [
+        {
+          "type": "moveSpeedDown",
+          "amount": 1
+        }
+      ]
     }
   ]
 }
-

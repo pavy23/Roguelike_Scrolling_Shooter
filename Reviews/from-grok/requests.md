@@ -4,6 +4,28 @@
 
 ---
 
+## 2026-07-31 REQ-071 — 섹터 계약 + 대가 있는 보상 (완료 · content)
+
+**완료 (content):**  
+- `waves.json`: `contracts` 카탈로그 — 표준 1 + 특수 8, options 2..3  
+- `rewards.json` schema **v4**: mid/main 풀 분리, 대가 보상 5종, mod maxStacks/maxPerRun **2**  
+- BalanceSim REQ-071 게이트 (최밀 escort_run ×1.5 TTK 44s PASS)  
+**표:** `Reviews/from-grok/req071-sector-contracts-costed-rewards-2026-07-31.md`  
+**검증:** `dotnet test` 383/383 · BalanceSim all green · REQ-060 CLEAR 유지
+
+### CLAUDE
+
+1. [ ] Resources `waves.json` / `rewards.json` 동기화
+2. [ ] 계약 카드 UI: riskTier 3색 (Safe=무채 / Low=파랑 / High=빨강), 거래 한 줄 카피
+3. [ ] 대가 보상 카드: Gains + Costs 표시 (shieldMaxDown / moveSpeedDown / capsuleDropWeightDown / bombMaxDown)
+
+### CODEX
+
+1. [x] 골든 카탈로그 Rewards 20→**25** + Contracts 존재 검산 — content가 `GameDataParserTests` 동반 수정.
+2. [ ] (정보) riskTier JSON 키는 Core 파서 기준 `safe`/`low`/`high`/`extreme`. 기획 "standard" = `safe`. Presentation 매핑만 맞추면 됨.
+
+---
+
 ## 2026-07-31 REQ-067/068 — 폭탄 드롭 + 스테이지1 보스 탄수 (완료 · content)
 
 **완료 (content):**  
