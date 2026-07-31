@@ -1,16 +1,17 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "ships": [
     {
       "id": "starter",
       "displayName": "Starter",
       "moveSpeedMultiplierNumerator": 1,
       "moveSpeedMultiplierDenominator": 1,
-      "startingPowerUpLevels": [2, 0, 0, 0],
+      "startingPowerUpLevels": [0, 0, 0, 0],
       "unlockCost": 0,
       "weaponType": "vulcan",
       "startingShieldStock": 1,
       "gaugeWeaponFamily": "double",
+      "missileFamily": "downward_drop",
       "powerUpGaugeSlots": [
         "Speed",
         "Missile",
@@ -26,9 +27,10 @@
       "moveSpeedMultiplierDenominator": 4,
       "startingPowerUpLevels": [0, 0, 0, 0],
       "unlockCost": 25000,
-      "weaponType": "spread",
+      "weaponType": "vulcan",
       "startingShieldStock": 0,
       "gaugeWeaponFamily": "triple",
+      "missileFamily": "straight",
       "powerUpGaugeSlots": [
         "Speed",
         "Missile",
@@ -44,9 +46,10 @@
       "moveSpeedMultiplierDenominator": 5,
       "startingPowerUpLevels": [0, 0, 0, 0],
       "unlockCost": 50000,
-      "weaponType": "laser",
+      "weaponType": "vulcan",
       "startingShieldStock": 2,
       "gaugeWeaponFamily": "laser",
+      "missileFamily": "homing",
       "powerUpGaugeSlots": [
         "Speed",
         "Missile",

@@ -1226,7 +1226,8 @@ namespace Shmup.Core.Tests
                     3);
             }
             Assert.AreEqual(4, data.BattleContent.Weapons.Count);
-            Assert.AreEqual(3, data.BattleContent.MissileFamilies.Count);
+            // REQ-080/081: five missile families (combat trio + downward_drop + homing).
+            Assert.AreEqual(5, data.BattleContent.MissileFamilies.Count);
             Assert.AreEqual(3, data.BattleContent.OptionFormations.Count);
             Assert.AreEqual(
                 MissileFamily.Straight,
@@ -1234,6 +1235,12 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 OptionFormation.Trail,
                 data.BattleContent.DefaultOptionFormation);
+            Assert.IsNotNull(
+                data.BattleContent.FindMissileFamily(
+                    MissileFamily.DownwardDrop));
+            Assert.IsNotNull(
+                data.BattleContent.FindMissileFamily(
+                    MissileFamily.Homing));
             Assert.AreEqual(38, data.StageGeneration.Segments.Count);
             bool hasLeviathan = false;
             bool hasBroodmother = false;
@@ -1255,10 +1262,10 @@ namespace Shmup.Core.Tests
                 hasLeviathan ? 7 : 5,
                 data.StageGeneration.Bosses.Count);
             Assert.AreEqual(3, data.Rewards.OptionCount);
-            // 13 base + 3 missileFamily + 3 optionFormation (REQ-034)
+            // 13 base + 5 missileFamily + 3 optionFormation (REQ-034/081)
             // + bomb_stock_1 (REQ-067)
             // + 5 costed rewards (REQ-071).
-            Assert.AreEqual(25, data.Rewards.All.Count);
+            Assert.AreEqual(27, data.Rewards.All.Count);
             // REQ-073: schema v5 exposes capsule reroll cost (provisional §7 = 5).
             Assert.AreEqual(5, data.Rewards.RerollCost);
             Assert.IsNotNull(data.Contracts);
@@ -1277,7 +1284,7 @@ namespace Shmup.Core.Tests
                 ContractEligibility.HiddenBiomeUnlocked,
                 data.Contracts.Uncharted.Eligibility);
             Assert.AreEqual(3, data.Ships.Count);
-            // REQ-079 human ship identity: Double/1, Triple/0, Laser/2 + 5-slot gauges.
+            // REQ-081 start line: all ships vulcan L0; identity via gauge + missile.
             Assert.AreEqual(
                 WeaponType.Vulcan,
                 data.FindShip("starter").WeaponType);
@@ -1285,22 +1292,35 @@ namespace Shmup.Core.Tests
                 PrimaryWeaponFamily.Double,
                 data.FindShip("starter").GaugeWeaponFamily);
             Assert.AreEqual(
+                MissileFamily.DownwardDrop,
+                data.FindShip("starter").StartingMissileFamily.Value);
+            Assert.AreEqual(
+                0,
+                data.FindShip("starter")
+                    .ExportStartingPowerUpLevels()[0]);
+            Assert.AreEqual(
                 1,
                 data.FindShip("starter").StartingShieldStock.Value);
             Assert.AreEqual(1, data.FindShip("starter").MaxHp.Value);
             Assert.AreEqual(
-                WeaponType.Spread,
+                WeaponType.Vulcan,
                 data.FindShip("interceptor").WeaponType);
             Assert.AreEqual(
                 PrimaryWeaponFamily.Spread,
                 data.FindShip("interceptor").GaugeWeaponFamily);
+            Assert.AreEqual(
+                MissileFamily.Straight,
+                data.FindShip("interceptor").StartingMissileFamily.Value);
             Assert.AreEqual(0, data.FindShip("interceptor").MaxHp.Value);
             Assert.AreEqual(
-                WeaponType.Laser,
+                WeaponType.Vulcan,
                 data.FindShip("bulwark").WeaponType);
             Assert.AreEqual(
                 PrimaryWeaponFamily.Laser,
                 data.FindShip("bulwark").GaugeWeaponFamily);
+            Assert.AreEqual(
+                MissileFamily.Homing,
+                data.FindShip("bulwark").StartingMissileFamily.Value);
             Assert.AreEqual(2, data.FindShip("bulwark").MaxHp.Value);
             Assert.IsTrue(data.FindShip("starter").HasCustomPowerUpGauge);
             Assert.AreEqual(

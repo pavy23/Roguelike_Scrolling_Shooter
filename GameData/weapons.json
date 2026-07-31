@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "weapons": [
     {
       "id": "main_shot",
@@ -63,12 +63,13 @@
       "projectileHalfHeight": 0.140625,
       "pierceEnemyCount": 0,
       "spreadWays": 1,
-      "spreadStepLutSlots": 0
+      "spreadStepLutSlots": 0,
+      "shotAngleLutSlots": [0]
     },
     {
       "id": "double",
       "displayName": "Double Shot",
-      "description": "Two-way coverage: forward pair at ~\u00b145\u00b0 (Gradius Double grammar). Shares MainShot power axis.",
+      "description": "Asymmetric Gradius Double: forward + upward 45° diagonal. Shares MainShot power axis.",
       "weaponType": "spread",
       "baseDamage": 7,
       "fireIntervalTicks": 10,
@@ -80,7 +81,8 @@
       "projectileHalfHeight": 0.140625,
       "pierceEnemyCount": 0,
       "spreadWays": 2,
-      "spreadStepLutSlots": 16
+      "spreadStepLutSlots": 16,
+      "shotAngleLutSlots": [0, 8]
     },
     {
       "id": "laser",
@@ -97,7 +99,8 @@
       "projectileHalfHeight": 0.0703125,
       "pierceEnemyCount": 2,
       "spreadWays": 1,
-      "spreadStepLutSlots": 0
+      "spreadStepLutSlots": 0,
+      "shotAngleLutSlots": [0]
     },
     {
       "id": "spread",
@@ -114,7 +117,8 @@
       "projectileHalfHeight": 0.140625,
       "pierceEnemyCount": 0,
       "spreadWays": 3,
-      "spreadStepLutSlots": 4
+      "spreadStepLutSlots": 4,
+      "shotAngleLutSlots": []
     }
   ],
   "missileFamilies": [
@@ -129,7 +133,10 @@
       "pierceEnemyCount": 0,
       "explosionDamage": 0,
       "explosionRadius": 0,
-      "explosionMaxTargets": 0
+      "explosionMaxTargets": 0,
+      "damageGrowthPercentPerLevel": 50,
+      "dropDelayTicks": 0,
+      "homingTurnLutSlotsPerTick": 1
     },
     {
       "id": "spread_bomb",
@@ -142,7 +149,10 @@
       "pierceEnemyCount": 0,
       "explosionDamage": 16,
       "explosionRadius": 1.75,
-      "explosionMaxTargets": 5
+      "explosionMaxTargets": 5,
+      "damageGrowthPercentPerLevel": 45,
+      "dropDelayTicks": 0,
+      "homingTurnLutSlotsPerTick": 1
     },
     {
       "id": "piercing_lance",
@@ -155,7 +165,42 @@
       "pierceEnemyCount": 2,
       "explosionDamage": 0,
       "explosionRadius": 0,
-      "explosionMaxTargets": 0
+      "explosionMaxTargets": 0,
+      "damageGrowthPercentPerLevel": 40,
+      "dropDelayTicks": 0,
+      "homingTurnLutSlotsPerTick": 1
+    },
+    {
+      "id": "downward_drop",
+      "baseDamage": 18,
+      "fireIntervalTicks": 40,
+      "minimumFireIntervalTicks": 24,
+      "fireIntervalReductionPerLevel": 4,
+      "projectileSpeed": 9,
+      "fallSpeedY": 9,
+      "pierceEnemyCount": 0,
+      "explosionDamage": 0,
+      "explosionRadius": 0,
+      "explosionMaxTargets": 0,
+      "damageGrowthPercentPerLevel": 40,
+      "dropDelayTicks": 4,
+      "homingTurnLutSlotsPerTick": 1
+    },
+    {
+      "id": "homing",
+      "baseDamage": 14,
+      "fireIntervalTicks": 48,
+      "minimumFireIntervalTicks": 28,
+      "fireIntervalReductionPerLevel": 4,
+      "projectileSpeed": 8,
+      "fallSpeedY": 0,
+      "pierceEnemyCount": 0,
+      "explosionDamage": 0,
+      "explosionRadius": 0,
+      "explosionMaxTargets": 0,
+      "damageGrowthPercentPerLevel": 30,
+      "dropDelayTicks": 0,
+      "homingTurnLutSlotsPerTick": 1
     }
   ],
   "defaultMissileFamily": "straight",

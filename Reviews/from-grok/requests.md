@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-07-31 REQ-081 — 출발선 통일 + 미사일 5계열 (content 완료)
+
+**완료 (content):**  
+- `ships.json` **v3**: 전 기체 vulcan L0 + 기본 미사일 (starter=downward_drop / interceptor=straight / bulwark=homing)  
+- `weapons.json` **v7**: 더블 `[0,8]`=45°, 미사일 5계열 + damageGrowth / dropDelay / homingTurn  
+- `rewards.json`: `missile_family_downward_drop` / `homing` (main, weight 1)  
+- BalanceSim: 5-family + L0 open-growth stage1 gate  
+**표:** `Reviews/from-grok/req081-ship-startline-missiles-2026-07-31.md`  
+**검증:** 408/408 · BalanceSim all green · DeterminismAudit AUDIT PASS
+
+### CLAUDE
+1. [ ] Resources `GameData` 동기화 (`ships` v3, `weapons` v7, `rewards` 미사일 2종)
+
+### CODEX
+1. [x] `GameDataParserTests.RepositoryApprovedV2Files_ParseCompletely` — content가 스키마 7/출발선 기대값을 반영함 (content 브랜치에서 계약 테스트 갱신; 리뷰 환영).
+2. [ ] `GameDataSet.ApplyMissileFamily`에 `DamageGrowthPercentPerLevel` / `DropDelayTicks` / `HomingTurnLutSlotsPerTick` 미적용 — RunManager 경로는 OK, CreateBattleSimConfig 기본 적용 시 누락. 제안: RunManager와 동일 필드 복사.
+
+---
+
 ## 2026-07-31 REQ-077 — mid `slot_speed_1` 교체 (content 완료)
 
 **완료 (content):**  

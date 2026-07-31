@@ -108,7 +108,7 @@ static class Program
     // Expected biome-reach DPS anchors (see analyze_stage_hp.py) — 4-room average.
     static readonly (string Id, double ExpectedDps)[] BossExpectedDps =
     {
-        // REQ-060: first boss tutorial-short; mid anchor assumes Main2 start + light growth.
+        // REQ-060/081: first boss tutorial-short; mid anchor assumes Main L0 + open-room growth.
         ("boss_stage1", 450.0),
         ("boss_hive", 600.0),
         ("boss_fortress", 720.0),
@@ -129,16 +129,18 @@ static class Program
     // Tutorial→real jump is intentional (stage1 gentle); stage2 must not 4×+ spike.
     const double MaxStage1To2HpJump = 4.0;
 
-    // REQ-034 missile family / option formation gates (provisional §7).
+    // REQ-034/080/081 missile family / option formation gates (provisional §7).
     // Playtest 2026-07-30: missile fire rate lowered (support weapon, less screen fill).
     // ST DPS bands rebased around longer base intervals (straight 42t / bomb 54t / lance 70t).
+    // REQ-081: five families; co-aligned ST band still applies to combat trio only.
     const int MissileRapidFireStartLevel = 2;
     const int MissileFamilyStSimTicks = 300;
+    const int ExpectedMissileFamilyCount = 5;
     const double MissileFamilyL1StMin = 26.0;
     const double MissileFamilyL1StMax = 40.0;
     const double MissileFamilyL3StMin = 70.0;
     const double MissileFamilyL3StMax = 100.0;
-    const double MissileFamilyStMaxMinRatio = 1.25; // three lineages stay in same ST band
+    const double MissileFamilyStMaxMinRatio = 1.25; // combat trio stay in same ST band
     const double LancePierceShotClearRatioMax = 1.05; // missile-only: pierce_shot must not buff lance
     const double BombKillExpClearRatioMax = 1.40; // bomb splash kills never reseed kill_explosion
     const double BombKillExpVsBaselineWarn = 5.0;
@@ -2693,15 +2695,15 @@ static class Program
     }
 
     /// <summary>
-    /// REQ-079: three ships with human-assigned weapon families, starting shield,
-    /// speed roles, and five-slot gauges. Baseline weaponType ST DPS is report-only
-    /// for pre-activation loadout; identity is gaugeWeaponFamily.
+    /// REQ-079/081: three ships with human-assigned gauge families, starting shield,
+    /// speed roles, five-slot gauges. REQ-081 unifies start line: all vulcan L0 +
+    /// per-ship default missile; identity weapons only via gauge activation.
     /// </summary>
     static int CheckShipPrimaryDpsBalance(GameDataSet data)
     {
         int failures = 0;
         Console.WriteLine(
-            "REQ-079 ship identity (gauge weapon / shield / speed, provisional §7):");
+            "REQ-079/081 ship identity (gauge / missile / shield / speed, provisional §7):");
 
         if (data.Ships.Count < 3)
         {
@@ -2725,6 +2727,7 @@ static class Program
             expectedShield: 1,
             speedNum: 1,
             speedDen: 1,
+            expectedMissile: MissileFamily.DownwardDrop,
             role: "balanced");
         failures += CheckOneShipIdentity(
             data,
@@ -2733,6 +2736,7 @@ static class Program
             expectedShield: 0,
             speedNum: 5,
             speedDen: 4,
+            expectedMissile: MissileFamily.Straight,
             role: "fast/fragile");
         failures += CheckOneShipIdentity(
             data,
@@ -2741,6 +2745,7 @@ static class Program
             expectedShield: 2,
             speedNum: 4,
             speedDen: 5,
+            expectedMissile: MissileFamily.Homing,
             role: "slow/tank");
 
         // Interceptor must outrun starter; bulwark must lag starter (exact fractions).
@@ -2757,6 +2762,42 @@ static class Program
                 + $"(starter={starterMove:F2}, interceptor={interMove:F2}, "
                 + $"bulwark={bulwarkMove:F2}).");
             failures++;
+        }
+
+        // REQ-081 start line: every ship is vulcan L0 until gauge activation.
+        Console.WriteLine("  start line (REQ-081 human locks):");
+        foreach (ShipDefinition ship in new[] { starter, interceptor, bulwark })
+        {
+            int[] levels = ship.ExportStartingPowerUpLevels();
+            bool allZero = true;
+            for (int i = 0; i < levels.Length; i++)
+                if (levels[i] != 0)
+                    allZero = false;
+            string missileLabel = ship.StartingMissileFamily.HasValue
+                ? ship.StartingMissileFamily.Value.ToString()
+                : "<null>";
+            Console.WriteLine(
+                $"    {ship.Id,-12} weapon={ship.WeaponType,-7} "
+                + $"mainL={levels[(int)PowerUpSlot.MainShot]} "
+                + $"levelsZero={allZero} "
+                + $"missile={missileLabel} "
+                + $"shield={ship.StartingShieldStock} "
+                + $"move={ship.MoveSpeedMultiplierNumerator}/"
+                + $"{ship.MoveSpeedMultiplierDenominator}");
+            if (ship.WeaponType != WeaponType.Vulcan)
+            {
+                Console.WriteLine(
+                    $"FAIL ships: {ship.Id} must start weaponType=vulcan "
+                    + $"(got {ship.WeaponType}); identity weapons are gauge-only.");
+                failures++;
+            }
+            if (!allZero)
+            {
+                Console.WriteLine(
+                    $"FAIL ships: {ship.Id} startingPowerUpLevels must be all 0 "
+                    + "(REQ-081 human lock).");
+                failures++;
+            }
         }
 
         var results = new List<(string id, WeaponType weapon, int dmg, double dps)>();
@@ -2814,6 +2855,7 @@ static class Program
         int expectedShield,
         int speedNum,
         int speedDen,
+        MissileFamily expectedMissile,
         string role)
     {
         int failures = 0;
@@ -2839,6 +2881,14 @@ static class Program
                 $"FAIL ships: {ship.Id} expected move {speedNum}/{speedDen}, "
                 + $"got {ship.MoveSpeedMultiplierNumerator}/"
                 + $"{ship.MoveSpeedMultiplierDenominator} ({role}).");
+            failures++;
+        }
+        if (!ship.StartingMissileFamily.HasValue
+            || ship.StartingMissileFamily.Value != expectedMissile)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} expected missileFamily {expectedMissile}, "
+                + $"got {ship.StartingMissileFamily}.");
             failures++;
         }
 
@@ -3039,10 +3089,11 @@ static class Program
         IReadOnlyList<OptionFormationDefinition> formations =
             data.BattleContent.OptionFormations;
 
-        if (families.Count != 3)
+        if (families.Count != ExpectedMissileFamilyCount)
         {
             Console.WriteLine(
-                $"FAIL weapons v3: expected 3 missileFamilies, got {families.Count}.");
+                $"FAIL weapons v7: expected {ExpectedMissileFamilyCount} missileFamilies, "
+                + $"got {families.Count}.");
             return 1;
         }
         if (formations.Count != 3)
@@ -3067,9 +3118,16 @@ static class Program
             data.BattleContent.FindMissileFamily(MissileFamily.SpreadBomb);
         MissileFamilyDefinition lance =
             data.BattleContent.FindMissileFamily(MissileFamily.PiercingLance);
-        if (straight == null || bomb == null || lance == null)
+        MissileFamilyDefinition drop =
+            data.BattleContent.FindMissileFamily(MissileFamily.DownwardDrop);
+        MissileFamilyDefinition homing =
+            data.BattleContent.FindMissileFamily(MissileFamily.Homing);
+        if (straight == null || bomb == null || lance == null
+            || drop == null || homing == null)
         {
-            Console.WriteLine("FAIL weapons v3: missing straight/spread_bomb/piercing_lance.");
+            Console.WriteLine(
+                "FAIL weapons v7: missing straight/spread_bomb/piercing_lance/"
+                + "downward_drop/homing.");
             return failures + 1;
         }
 
@@ -3079,9 +3137,10 @@ static class Program
             || straight.MinimumFireIntervalTicks != 20
             || straight.FireIntervalReductionPerLevel != 5
             || straight.PierceEnemyCount != 0
-            || straight.ExplosionDamage != 0)
+            || straight.ExplosionDamage != 0
+            || straight.DamageGrowthPercentPerLevel != 50)
         {
-            Console.WriteLine("FAIL weapons v3: straight family numbers diverge from design.");
+            Console.WriteLine("FAIL weapons v7: straight family numbers diverge from design.");
             failures++;
         }
         if (bomb.BaseDamage != 12
@@ -3091,10 +3150,11 @@ static class Program
             || bomb.FireIntervalReductionPerLevel != 5
             || bomb.ExplosionMaxTargets != 5
             || bomb.ExplosionRadiusSubUnits
-                != (int)(1.75m * SimSpace.SubUnitsPerWorldUnit))
+                != (int)(1.75m * SimSpace.SubUnitsPerWorldUnit)
+            || bomb.DamageGrowthPercentPerLevel != 45)
         {
             Console.WriteLine(
-                $"FAIL weapons v3: spread_bomb numbers diverge " +
+                $"FAIL weapons v7: spread_bomb numbers diverge " +
                 $"(radiusSu={bomb.ExplosionRadiusSubUnits}).");
             failures++;
         }
@@ -3103,11 +3163,57 @@ static class Program
             || lance.MinimumFireIntervalTicks != 44
             || lance.FireIntervalReductionPerLevel != 6
             || lance.PierceEnemyCount != 2
-            || lance.ExplosionDamage != 0)
+            || lance.ExplosionDamage != 0
+            || lance.DamageGrowthPercentPerLevel != 40)
         {
-            Console.WriteLine("FAIL weapons v3: piercing_lance numbers diverge from design.");
+            Console.WriteLine("FAIL weapons v7: piercing_lance numbers diverge from design.");
             failures++;
         }
+        // Specialty missiles (REQ-081): drop needs delay+fall; homing needs turn rate
+        // and lower ST than straight (convenience tax).
+        if (drop.DropDelayTicks < 1
+            || drop.FallSpeedYNumerator < 1
+            || drop.BaseDamage < 1
+            || drop.DamageGrowthPercentPerLevel < 1)
+        {
+            Console.WriteLine(
+                "FAIL weapons v7: downward_drop needs fall, dropDelay, damage, growth.");
+            failures++;
+        }
+        if (homing.HomingTurnLutSlotsPerTick < 1
+            || homing.BaseDamage < 1
+            || homing.DamageGrowthPercentPerLevel < 1)
+        {
+            Console.WriteLine(
+                "FAIL weapons v7: homing needs turn rate, damage, growth.");
+            failures++;
+        }
+        double dropL1 = TheoreticalMissileStDps(drop, 1);
+        double homingL1 = TheoreticalMissileStDps(homing, 1);
+        double straightL1 = TheoreticalMissileStDps(straight, 1);
+        Console.WriteLine(
+            $"  specialty ST L1: downward_drop={dropL1:F1} homing={homingL1:F1} "
+            + $"(straight={straightL1:F1}; homing must trail straight)");
+        if (homingL1 >= straightL1)
+        {
+            Console.WriteLine(
+                $"FAIL weapons: homing L1 ST {homingL1:F1} must be < straight "
+                + $"{straightL1:F1} (convenience tax).");
+            failures++;
+        }
+        Console.WriteLine(
+            "  damage growth %/level: "
+            + $"straight={straight.DamageGrowthPercentPerLevel} "
+            + $"bomb={bomb.DamageGrowthPercentPerLevel} "
+            + $"lance={lance.DamageGrowthPercentPerLevel} "
+            + $"drop={drop.DamageGrowthPercentPerLevel} "
+            + $"homing={homing.DamageGrowthPercentPerLevel}");
+        Console.WriteLine(
+            $"  downward_drop: delay={drop.DropDelayTicks}t fallY={drop.FallSpeedYNumerator}/"
+            + $"{drop.FallSpeedYDenominator} base={drop.BaseDamage} int={drop.FireIntervalTicks}");
+        Console.WriteLine(
+            $"  homing: turn={homing.HomingTurnLutSlotsPerTick} slots/t "
+            + $"base={homing.BaseDamage} int={homing.FireIntervalTicks}");
 
         OptionFormationDefinition trail =
             data.BattleContent.FindOptionFormation(OptionFormation.Trail);
@@ -3178,24 +3284,42 @@ static class Program
             $"defaults={data.BattleContent.DefaultMissileFamily}/" +
             $"{data.BattleContent.DefaultOptionFormation}");
 
-        // --- Theoretical ST DPS (design formula) ---
+        // --- Theoretical ST DPS (design formula; combat trio hard-gated) ---
         Console.WriteLine("  theoretical ST DPS (direct+explosion when bomb):");
         var theoryL1 = new List<(string id, double dps)>();
         var theoryL3 = new List<(string id, double dps)>();
-        foreach (MissileFamilyDefinition fam in new[] { straight, bomb, lance })
+        foreach (MissileFamilyDefinition fam in new[]
+                 { straight, bomb, lance, drop, homing })
         {
             double dps1 = TheoreticalMissileStDps(fam, 1);
             double dps3 = TheoreticalMissileStDps(fam, 3);
-            theoryL1.Add((fam.Id, dps1));
-            theoryL3.Add((fam.Id, dps3));
+            bool combatTrio = fam.Family == MissileFamily.Straight
+                || fam.Family == MissileFamily.SpreadBomb
+                || fam.Family == MissileFamily.PiercingLance;
+            if (combatTrio)
+            {
+                theoryL1.Add((fam.Id, dps1));
+                theoryL3.Add((fam.Id, dps3));
+            }
             int interval1 = MissileIntervalAtLevel(fam, 1);
             int interval3 = MissileIntervalAtLevel(fam, 3);
             int shot1 = MissileStShotDamage(fam, 1);
             int shot3 = MissileStShotDamage(fam, 3);
             Console.WriteLine(
                 $"    {fam.Id,-16} L1 dmg/shot={shot1,3} interval={interval1,2} ST={dps1:F1}  " +
-                $"L3 dmg/shot={shot3,3} interval={interval3,2} ST={dps3:F1}");
+                $"L3 dmg/shot={shot3,3} interval={interval3,2} ST={dps3:F1}"
+                + (combatTrio ? "" : "  [specialty report]"));
 
+            // Level growth taste: L1→L6 table for every family.
+            var growthCells = new List<string>();
+            for (int lv = 1; lv <= 6; lv++)
+                growthCells.Add($"L{lv}={TheoreticalMissileStDps(fam, lv):F0}");
+            Console.WriteLine(
+                $"      growth curve: {string.Join(" ", growthCells)} "
+                + $"(+{fam.DamageGrowthPercentPerLevel}% base/level)");
+
+            if (!combatTrio)
+                continue;
             if (dps1 < MissileFamilyL1StMin || dps1 > MissileFamilyL1StMax)
             {
                 Console.WriteLine(
@@ -3416,6 +3540,9 @@ static class Program
             ["missile_family_straight"] = (MissileFamily.Straight, 1, 1),
             ["missile_family_spread_bomb"] = (MissileFamily.SpreadBomb, 2, 1),
             ["missile_family_piercing_lance"] = (MissileFamily.PiercingLance, 2, 2),
+            // REQ-081: low-weight main-pool switches for ship-default specialty lines.
+            ["missile_family_downward_drop"] = (MissileFamily.DownwardDrop, 1, 1),
+            ["missile_family_homing"] = (MissileFamily.Homing, 1, 1),
         };
         var expectedForm = new Dictionary<string, (OptionFormation form, int weight, int stageMin)>(
             StringComparer.Ordinal)
@@ -3505,10 +3632,10 @@ static class Program
             Console.WriteLine($"FAIL rewards: missing optionFormation '{missing}'.");
             failures++;
         }
-        if (foundFamily != 3 || foundForm != 3)
+        if (foundFamily != ExpectedMissileFamilyCount || foundForm != 3)
         {
             Console.WriteLine(
-                $"FAIL rewards: expected 3 family + 3 formation entries " +
+                $"FAIL rewards: expected {ExpectedMissileFamilyCount} family + 3 formation entries " +
                 $"(got {foundFamily}+{foundForm}).");
             failures++;
         }
@@ -3536,9 +3663,10 @@ static class Program
 
     static int MissileStShotDamage(MissileFamilyDefinition fam, int level)
     {
-        int direct = Damage.Compute(fam.BaseDamage, level);
+        int growth = fam.DamageGrowthPercentPerLevel;
+        int direct = Damage.Compute(fam.BaseDamage, level, growth);
         int boom = fam.ExplosionDamage > 0
-            ? Damage.Compute(fam.ExplosionDamage, level)
+            ? Damage.Compute(fam.ExplosionDamage, level, growth)
             : 0;
         return direct + boom;
     }
@@ -3589,6 +3717,11 @@ static class Program
         config.MissileExplosionRadiusSubUnits =
             definition.ExplosionRadiusSubUnits;
         config.MissileExplosionMaxTargets = definition.ExplosionMaxTargets;
+        config.MissileDamageGrowthPercentPerLevel =
+            definition.DamageGrowthPercentPerLevel;
+        config.MissileDropDelayTicks = definition.DropDelayTicks;
+        config.HomingMissileTurnLutSlotsPerTick =
+            definition.HomingTurnLutSlotsPerTick;
     }
 
     static int SimulateMissileSingleTargetDamage(
@@ -5095,10 +5228,10 @@ static class Program
     static string NullLabel(string value) => value ?? "<null>";
 
     /// <summary>
-    /// REQ-060: stage-1 must be learnable with starter ship + mid dodge skill.
-    /// Models Opening(3seg)+MidBoss+Closing(3seg)+StageBoss under Main2-start
-    /// firepower and 1+L+L² growth (capsule EV from rooms only). Late stages
-    /// are reported for the difficulty table; only stage-1 has hard gates.
+    /// REQ-060/081: stage-1 must be learnable with starter ship + mid dodge skill.
+    /// REQ-081 locks Main L0 start; midboss/full-stage gates use open-room capsule EV
+    /// growth (1+L+L²) rather than a free Main L2 start. Late stages are reported
+    /// for the difficulty table; only stage-1 has hard gates.
     /// </summary>
     static int CheckStageClearability(GameDataSet data)
     {
@@ -5107,7 +5240,7 @@ static class Program
         BattleContent content = data.BattleContent;
 
         Console.WriteLine(
-            "REQ-060 stage clearability (starter / mid-skill, provisional §7):");
+            "REQ-060/081 stage clearability (starter L0 + open growth, provisional §7):");
 
         ShipDefinition starter = data.FindShip("starter");
         if (starter == null)
@@ -5118,7 +5251,9 @@ static class Program
 
         int[] startLevels = starter.ExportStartingPowerUpLevels();
         int mainStart = startLevels[(int)PowerUpSlot.MainShot];
-        int shieldStocks = starter.MaxHp ?? 1;
+        int shieldStocks = starter.StartingShieldStock
+            ?? starter.MaxHp
+            ?? 1;
         WeaponDefinition mainWeapon = content.FindWeapon(PowerUpSlot.MainShot);
         if (mainWeapon == null)
         {
@@ -5126,13 +5261,41 @@ static class Program
             return 1;
         }
 
+        if (mainStart != 0)
+        {
+            Console.WriteLine(
+                $"FAIL clear: REQ-081 requires starter Main start L0, got L{mainStart}.");
+            failures++;
+        }
+
         double starterDps = TheoreticalMainShotDps(mainWeapon, mainStart);
         double starterEff = starterDps * MidSkillHitUptime;
+
+        // Open-room capsule EV funds Main growth before midboss (not start-level lever).
+        // Shared MainShot cost matches weapons.json powerUpCostCurve (1+L+L²).
+        double openCapsuleEv = EstimateStageCapsuleEv(data, stage: 1);
+        PowerUpCostCurve mainCost = PowerUpCostCurve.CreateProvisional();
+        int mainAtMid = EstimateMainLevelAfterCapsules(
+            mainStart,
+            openCapsuleEv,
+            mainCost);
+        double midDps = TheoreticalMainShotDps(mainWeapon, mainAtMid);
+        double midEff = midDps * MidSkillHitUptime;
+        // Light reach for stage-1 boss: open+close ≈ 2 rooms of EV.
+        int mainAtBoss = EstimateMainLevelAfterCapsules(
+            mainStart,
+            openCapsuleEv * 2.0,
+            mainCost);
+        double grownDps = TheoreticalMainShotDps(mainWeapon, mainAtBoss);
 
         Console.WriteLine(
             $"  starter Main L{mainStart} DPS={starterDps:F1} " +
             $"eff@{MidSkillHitUptime:P0}={starterEff:F1} · " +
             $"shieldStocks={shieldStocks}");
+        Console.WriteLine(
+            $"  open capsule EV≈{openCapsuleEv:F2} → Main@mid L{mainAtMid} "
+            + $"DPS={midDps:F1} eff={midEff:F1} · open+close EV≈{openCapsuleEv * 2:F1} "
+            + $"→ Main@boss L{mainAtBoss} DPS={grownDps:F1}");
 
         // Midboss pool (sim CreateMidBossPlan: all mini_* equal weight).
         var midBosses = new List<EnemyDefinition>();
@@ -5153,7 +5316,7 @@ static class Program
         int midSum = 0;
         int midWorst = 0;
         EnemyDefinition worstMid = midBosses[0];
-        Console.WriteLine("  midboss pool (stage-agnostic):");
+        Console.WriteLine("  midboss pool (stage-agnostic, TTK @ post-open Main):");
         for (int i = 0; i < midBosses.Count; i++)
         {
             EnemyDefinition m = midBosses[i];
@@ -5164,23 +5327,24 @@ static class Program
                 worstMid = m;
             }
 
-            double ttk = m.MaxHp / starterEff;
+            double ttk = m.MaxHp / Math.Max(1.0, midEff);
             Console.WriteLine(
                 $"    {m.Id,-18} hp={m.MaxHp,5} " +
-                $"TTK@starterEff={ttk:F1}s fire={m.FireIntervalTicks}t");
+                $"TTK@midEff={ttk:F1}s fire={m.FireIntervalTicks}t");
         }
 
         double midAvg = midSum / (double)midBosses.Count;
-        double midWorstTtk = midWorst / starterEff;
+        double midWorstTtk = midWorst / Math.Max(1.0, midEff);
         Console.WriteLine(
             $"  mid avgHP={midAvg:F0} worst={worstMid.Id} hp={midWorst} " +
-            $"TTK={midWorstTtk:F1}s (max {MaxMidBossTtkStarterSeconds:F0}s)");
+            $"TTK={midWorstTtk:F1}s (max {MaxMidBossTtkStarterSeconds:F0}s @ L{mainAtMid})");
         if (midWorstTtk > MaxMidBossTtkStarterSeconds)
         {
             Console.WriteLine(
                 $"FAIL clear: worst midboss TTK {midWorstTtk:F1}s > " +
-                $"{MaxMidBossTtkStarterSeconds:F0}s at starter effective DPS. " +
-                "Stage 1 can roll any mini_* — lower HP or stage-weight selection.");
+                $"{MaxMidBossTtkStarterSeconds:F0}s at post-open Main L{mainAtMid}. " +
+                "Lever: early capsule EV (noDropWeight / dropWeight) or first-seg density — "
+                + "not starting Main level (REQ-081 lock).");
             failures++;
         }
 
@@ -5189,10 +5353,10 @@ static class Program
         {
             "boss_stage1", "boss_hive", "boss_fortress", "boss_storm", "boss_core"
         };
-        // Reach DPS: stage1 uses starter+light growth; later use BossExpectedDps anchors.
+        // Reach DPS: stage1 uses open+close growth; later use BossExpectedDps anchors.
         double[] reachDps =
         {
-            Math.Max(starterDps * 1.15, BossExpectedDps[0].ExpectedDps * 0.85),
+            Math.Max(grownDps * 1.10, BossExpectedDps[0].ExpectedDps * 0.85),
             BossExpectedDps[1].ExpectedDps,
             BossExpectedDps[2].ExpectedDps,
             BossExpectedDps[3].ExpectedDps,
@@ -5267,7 +5431,8 @@ static class Program
             // Hit proxy (mid skill): sparse scrapes + pressure time on large targets.
             // Large mid/boss hitboxes raise player DPS uptime; dodge window is wider
             // than dense zako packs (invuln frames after each stock consume help).
-            double midTtk = midAvg / Math.Max(1.0, starterEff);
+            // Mid uses post-open growth (REQ-081 L0 start + capsule climb).
+            double midTtk = midAvg / Math.Max(1.0, midEff);
             double bossTtk = boss.MaxHp / Math.Max(1.0, effDps);
             double expectedHits =
                 0.30 * 2.0 // open+close scrapes
@@ -5319,18 +5484,73 @@ static class Program
             prevAvgPoolHp = avgSegHp;
         }
 
-        // Capsule growth note: cost 1+L+L² Main2→Main3 = 7 pure.
-        double eStage = EstimateStageCapsuleEv(data, stage: 1);
+        // Capsule growth note: L0→1=1, L1→2=3, L2→3=7 under 1+L+L².
+        double eStage = openCapsuleEv;
+        int costL0to1 = mainCost.GetCostForCurrentLevel(0);
+        int costL1to2 = mainCost.GetCostForCurrentLevel(1);
+        int costL2to3 = mainCost.GetCostForCurrentLevel(2);
         Console.WriteLine(
             $"  stage1 capsule EV (3-seg room)≈{eStage:F2} · " +
-            "Main2→3 pure cost=7 (1+L+L²) · open+close≈2 rooms → " +
-            $"{eStage * 2:F1} caps before mid reward/boss");
+            $"Main costs L0→1={costL0to1} L1→2={costL1to2} L2→3={costL2to3} "
+            + $"(1+L+L²) · open+close≈2 rooms → {eStage * 2:F1} caps · "
+            + $"mid Main L{mainAtMid} / boss Main L{mainAtBoss}");
+
+        // Double asymmetric angle (Gradius 45°) — report only.
+        PrimaryWeaponFamilyDefinition doubleFamily =
+            content.FindPrimaryWeaponFamily(PrimaryWeaponFamily.Double);
+        if (doubleFamily != null
+            && doubleFamily.ShotAngleLutSlots.Count == 2)
+        {
+            int up = doubleFamily.ShotAngleLutSlots[1];
+            double deg = up * 360.0
+                / PrimaryWeaponFamilyDefinition.AngleLutSlotsPerTurn;
+            Console.WriteLine(
+                $"  double shotAngleLutSlots=[{doubleFamily.ShotAngleLutSlots[0]}, "
+                + $"{up}] ≈ {deg:F0}° upward (Gradius Double grammar)");
+            if (doubleFamily.ShotAngleLutSlots[0] != 0 || up != 8)
+            {
+                Console.WriteLine(
+                    "FAIL clear: double must be forward+upward 45° "
+                    + "(shotAngleLutSlots [0, 8]).");
+                failures++;
+            }
+        }
+        else
+        {
+            Console.WriteLine(
+                "FAIL clear: double family missing asymmetric shotAngleLutSlots.");
+            failures++;
+        }
 
         if (failures == 0)
-            Console.WriteLine("PASS: REQ-060 stage-1 clearability + curve report.");
+            Console.WriteLine("PASS: REQ-060/081 stage-1 L0 clearability + curve report.");
         else
-            Console.WriteLine($"FAIL: REQ-060 clearability ({failures} failure(s)).");
+            Console.WriteLine($"FAIL: REQ-060/081 clearability ({failures} failure(s)).");
         return failures;
+    }
+
+    /// <summary>
+    /// Spends capsule EV greedily on MainShot levels using the shared cost curve.
+    /// Models mid-skill "dump capsules into Main" before midboss / boss.
+    /// </summary>
+    static int EstimateMainLevelAfterCapsules(
+        int startLevel,
+        double capsuleEv,
+        PowerUpCostCurve costCurve)
+    {
+        int level = Math.Max(0, startLevel);
+        double remaining = Math.Max(0.0, capsuleEv);
+        // Soft-cap growth modelling at Main soft-cap (effect soft-cap 5) + a bit.
+        const int MaxModelLevel = 5;
+        while (level < MaxModelLevel)
+        {
+            int cost = costCurve.GetCostForCurrentLevel(level);
+            if (cost < 1 || remaining + 1e-9 < cost)
+                break;
+            remaining -= cost;
+            level++;
+        }
+        return level;
     }
 
     /// <summary>
