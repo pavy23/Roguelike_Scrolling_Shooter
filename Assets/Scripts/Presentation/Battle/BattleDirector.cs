@@ -462,7 +462,7 @@ namespace Shmup.Presentation.Battle
                     _bombPickupPrefab, _bombPickupRoot, config.MaxBombPickups, "BombPickup");
             }
             _fxPool = new SpritePool(_explosionPrefab, _fxRoot, 16, "Explosion");
-            _optionPool = new SpritePool(_optionPrefab, _optionRoot, 4, "Option");
+            _optionPool = new SpritePool(_optionPrefab, _optionRoot, 6, "Option");   // 옵션 6기 (REQ-084)
             if (_obstaclePrefab != null && _obstacleRoot != null)
                 _obstaclePool = new SpritePool(_obstaclePrefab, _obstacleRoot, config.MaxObstacles, "Obstacle");
 
