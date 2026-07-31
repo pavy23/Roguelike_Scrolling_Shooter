@@ -1,5 +1,6 @@
 {
   "schemaVersion": 7,
+  "optionMissileDamagePercent": 50,
   "weapons": [
     {
       "id": "main_shot",
@@ -69,7 +70,7 @@
     {
       "id": "double",
       "displayName": "Double Shot",
-      "description": "Asymmetric Gradius Double: forward + upward ~30° diagonal. Shares MainShot power axis.",
+      "description": "Asymmetric Gradius Double: forward + upward ~30° diagonal. Evolves Tail Guard → Cross Fire.",
       "weaponType": "spread",
       "baseDamage": 7,
       "fireIntervalTicks": 10,
@@ -82,12 +83,26 @@
       "pierceEnemyCount": 0,
       "spreadWays": 2,
       "spreadStepLutSlots": 16,
-      "shotAngleLutSlots": [0, 5]
+      "shotAngleLutSlots": [0, 5],
+      "levels": [
+        {
+          "level": 2,
+          "spreadWays": 3,
+          "shotAngleLutSlots": [0, 5, 32]
+        },
+        {
+          "level": 3,
+          "spreadWays": 4,
+          "shotAngleLutSlots": [0, 0, 5, 32],
+          "burstCount": 2,
+          "burstIntervalTicks": 1
+        }
+      ]
     },
     {
       "id": "laser",
       "displayName": "Laser",
-      "description": "Slower piercing beam. Strong vs columns and large targets.",
+      "description": "Slower piercing beam. Evolves Lance (pierce+blast) → Prism Beam (hold beam).",
       "weaponType": "laser",
       "baseDamage": 16,
       "fireIntervalTicks": 14,
@@ -100,12 +115,29 @@
       "pierceEnemyCount": 2,
       "spreadWays": 1,
       "spreadStepLutSlots": 0,
-      "shotAngleLutSlots": [0]
+      "shotAngleLutSlots": [0],
+      "levels": [
+        {
+          "level": 2,
+          "pierceEnemyCount": 4,
+          "impactExplosionDamage": 8,
+          "impactExplosionRadius": 0.75
+        },
+        {
+          "level": 3,
+          "pierceEnemyCount": 4,
+          "beamDamagePerTick": 2,
+          "beamLength": 20.0,
+          "beamStartHalfWidth": 0.125,
+          "beamGrowthPerTick": 0.0625,
+          "beamMaxHalfWidth": 0.5
+        }
+      ]
     },
     {
       "id": "spread",
       "displayName": "Triple Shot",
-      "description": "Three-way coverage fire. Weakest single-target, strongest screen fill.",
+      "description": "Three-way coverage fire. Evolves Pulse Fan → Afterburner volley.",
       "weaponType": "spread",
       "baseDamage": 6,
       "fireIntervalTicks": 10,
@@ -118,7 +150,31 @@
       "pierceEnemyCount": 0,
       "spreadWays": 3,
       "spreadStepLutSlots": 4,
-      "shotAngleLutSlots": []
+      "shotAngleLutSlots": [],
+      "levels": [
+        {
+          "level": 2,
+          "spreadWays": 5,
+          "spreadStepLutSlots": 4,
+          "shotAngleLutSlots": [],
+          "pulseMinStepLutSlots": 2,
+          "pulseMaxStepLutSlots": 6,
+          "pulsePeriodTicks": 12
+        },
+        {
+          "level": 3,
+          "spreadWays": 5,
+          "spreadStepLutSlots": 4,
+          "shotAngleLutSlots": [],
+          "pulseMinStepLutSlots": 2,
+          "pulseMaxStepLutSlots": 6,
+          "pulsePeriodTicks": 12,
+          "burstCount": 2,
+          "burstIntervalTicks": 1,
+          "inertiaVelocityPercent": 50,
+          "minimumFireIntervalTicks": 4
+        }
+      ]
     }
   ],
   "missileFamilies": [
@@ -277,7 +333,7 @@
       {
         "slot": "Double",
         "nameKey": "Double Shot",
-        "maxLevel": 1,
+        "maxLevel": 3,
         "costCurve": {
           "baseCost": 1,
           "linearGrowth": 0,
@@ -287,7 +343,7 @@
       {
         "slot": "Laser",
         "nameKey": "Laser",
-        "maxLevel": 1,
+        "maxLevel": 3,
         "costCurve": {
           "baseCost": 1,
           "linearGrowth": 0,
@@ -297,7 +353,7 @@
       {
         "slot": "Triple",
         "nameKey": "Triple Shot",
-        "maxLevel": 1,
+        "maxLevel": 3,
         "costCurve": {
           "baseCost": 1,
           "linearGrowth": 0,
