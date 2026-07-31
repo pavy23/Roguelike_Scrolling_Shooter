@@ -186,6 +186,24 @@
       "pool": "main"
     },
     {
+      "id": "missile_family_downward_drop",
+      "type": "missileFamily",
+      "familyId": "downward_drop",
+      "weight": 1,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99,
+      "pool": "main"
+    },
+    {
+      "id": "missile_family_homing",
+      "type": "missileFamily",
+      "familyId": "homing",
+      "weight": 1,
+      "stageIndexMin": 1,
+      "stageIndexMax": 99,
+      "pool": "main"
+    },
+    {
       "id": "option_formation_trail",
       "type": "optionFormation",
       "formationId": "trail",
