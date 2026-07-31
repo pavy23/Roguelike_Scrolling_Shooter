@@ -73,11 +73,13 @@ SpriteAtlas:
     - f0349a611d3a9fa4cb81ccc2d04a7ab9: 21300000
     - 47eacf613ee6752408142b6d685e3170: 21300000
     - bce87b81a2fe1dd42a17fe462e8389e6: 21300000
+    - 9b69c191fd55e964790858a5797045c3: 21300000
     - 03e8a5b15bbeeda46b4ed48033ccfed6: 21300000
     - 8ea7a7c1c2a0dc74abc89c8c4a2f306d: 21300000
     - 224499c15eec05d48b0e4ce586027acd: 21300000
     - e7f97ac140a017342ac3823166d6db2b: 21300000
     - 8223efc135567174c98392f413865a76: 21300000
+    - 124582f1aa1161a4e9175edc12034cd3: 21300000
     - 123a0d02ea1331243a36df7595aa403f: 21300000
     - e9dea312b2dc14e479236962968de8b2: 21300000
     - 74651c123c41f714dbf3cc18dfef2b4c: 21300000
@@ -340,11 +342,13 @@ SpriteAtlas:
   - {fileID: 21300000, guid: f0349a611d3a9fa4cb81ccc2d04a7ab9, type: 3}
   - {fileID: 21300000, guid: 47eacf613ee6752408142b6d685e3170, type: 3}
   - {fileID: 21300000, guid: bce87b81a2fe1dd42a17fe462e8389e6, type: 3}
+  - {fileID: 21300000, guid: 9b69c191fd55e964790858a5797045c3, type: 3}
   - {fileID: 21300000, guid: 03e8a5b15bbeeda46b4ed48033ccfed6, type: 3}
   - {fileID: 21300000, guid: 8ea7a7c1c2a0dc74abc89c8c4a2f306d, type: 3}
   - {fileID: 21300000, guid: 224499c15eec05d48b0e4ce586027acd, type: 3}
   - {fileID: 21300000, guid: e7f97ac140a017342ac3823166d6db2b, type: 3}
   - {fileID: 21300000, guid: 8223efc135567174c98392f413865a76, type: 3}
+  - {fileID: 21300000, guid: 124582f1aa1161a4e9175edc12034cd3, type: 3}
   - {fileID: 21300000, guid: 123a0d02ea1331243a36df7595aa403f, type: 3}
   - {fileID: 21300000, guid: e9dea312b2dc14e479236962968de8b2, type: 3}
   - {fileID: 21300000, guid: 74651c123c41f714dbf3cc18dfef2b4c, type: 3}
@@ -606,11 +610,13 @@ SpriteAtlas:
   - boss_stage1
   - anim_mini_crystal_01
   - anim_sentry_02
+  - enemy_prism_beamer
   - nebula_mid
   - anim_spore_00
   - anim_rift_blade_01
   - bullet
   - anim_elite_01
+  - enemy_laser_sentry
   - anim_sting_hornet_00
   - anim_spore_03
   - stars_near
