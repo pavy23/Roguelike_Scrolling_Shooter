@@ -43,6 +43,7 @@ namespace Shmup.Core
                 WeaponType.Vulcan,
                 null,
                 null,
+                null,
                 null)
         {
         }
@@ -66,6 +67,7 @@ namespace Shmup.Core
                 weaponType,
                 maxHp,
                 null,
+                null,
                 null)
         {
         }
@@ -80,7 +82,8 @@ namespace Shmup.Core
             WeaponType weaponType,
             int? startingShieldStock,
             PrimaryWeaponFamily? gaugeWeaponFamily,
-            IReadOnlyList<PowerUpSlot> gaugeSlots)
+            IReadOnlyList<PowerUpSlot> gaugeSlots,
+            MissileFamily? startingMissileFamily = null)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Ship id cannot be null or empty.", nameof(id));
@@ -111,6 +114,12 @@ namespace Shmup.Core
                 && startingShieldStock.Value < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(startingShieldStock));
+            if (startingMissileFamily.HasValue
+                && !Enum.IsDefined(
+                    typeof(MissileFamily),
+                    startingMissileFamily.Value))
+                throw new ArgumentOutOfRangeException(
+                    nameof(startingMissileFamily));
             if (gaugeWeaponFamily.HasValue
                 && (gaugeWeaponFamily.Value
                         == PrimaryWeaponFamily.Vulcan
@@ -148,6 +157,7 @@ namespace Shmup.Core
             WeaponType = weaponType;
             StartingShieldStock = startingShieldStock;
             GaugeWeaponFamily = gaugeWeaponFamily;
+            StartingMissileFamily = startingMissileFamily;
             _gaugeSlots = CopyGaugeSlots(
                 gaugeSlots,
                 gaugeWeaponFamily);
@@ -181,6 +191,11 @@ namespace Shmup.Core
             _readOnlyGaugeSlots;
         public bool HasCustomPowerUpGauge =>
             GaugeWeaponFamily.HasValue;
+        /// <summary>
+        /// Ship-owned starting family. Null preserves weapons.json's legacy
+        /// global default for schema v1/v2 ships.
+        /// </summary>
+        public MissileFamily? StartingMissileFamily { get; }
 
         public int[] ExportStartingPowerUpLevels()
         {

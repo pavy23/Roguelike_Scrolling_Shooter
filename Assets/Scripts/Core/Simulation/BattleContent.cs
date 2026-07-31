@@ -17,7 +17,9 @@ namespace Shmup.Core.Simulation
     {
         Straight = 0,
         SpreadBomb = 1,
-        PiercingLance = 2
+        PiercingLance = 2,
+        DownwardDrop = 3,
+        Homing = 4
     }
 
     public enum OptionFormation
@@ -90,6 +92,10 @@ namespace Shmup.Core.Simulation
     /// </summary>
     public sealed class PrimaryWeaponFamilyDefinition
     {
+        public const int AngleLutSlotsPerTurn = 64;
+
+        readonly ReadOnlyCollection<int> _shotAngleLutSlots;
+
         public PrimaryWeaponFamilyDefinition(
             PrimaryWeaponFamily family,
             string displayName,
@@ -106,7 +112,8 @@ namespace Shmup.Core.Simulation
             int halfHeight,
             int pierceEnemyCount,
             int spreadWays,
-            int spreadStepLutSlots)
+            int spreadStepLutSlots,
+            int[] shotAngleLutSlots = null)
         {
             if (!Enum.IsDefined(typeof(PrimaryWeaponFamily), family))
                 throw new ArgumentOutOfRangeException(nameof(family));
@@ -132,12 +139,33 @@ namespace Shmup.Core.Simulation
                 || halfHeight < 0
                 || pierceEnemyCount < 0
                 || spreadWays < 1
-                || spreadStepLutSlots < 0)
+                || spreadStepLutSlots < 0
+                || spreadStepLutSlots > AngleLutSlotsPerTurn / 2)
                 throw new ArgumentOutOfRangeException(nameof(baseDamage));
-            if (family == PrimaryWeaponFamily.Double
-                && (weaponType != WeaponType.Spread || spreadWays != 2))
+            int[] angles = shotAngleLutSlots == null
+                ? family == PrimaryWeaponFamily.Double
+                    ? new[] { 0, AngleLutSlotsPerTurn / 8 }
+                    : Array.Empty<int>()
+                : (int[])shotAngleLutSlots.Clone();
+            if (angles.Length != 0 && angles.Length != spreadWays)
                 throw new ArgumentException(
-                    "Double must use the two-way spread simulation profile.",
+                    "Explicit shot angles must match spreadWays.",
+                    nameof(shotAngleLutSlots));
+            for (int i = 0; i < angles.Length; i++)
+            {
+                if (angles[i] < -AngleLutSlotsPerTurn / 2
+                    || angles[i] > AngleLutSlotsPerTurn / 2)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(shotAngleLutSlots));
+            }
+            if (family == PrimaryWeaponFamily.Double
+                && (weaponType != WeaponType.Spread
+                    || spreadWays != 2
+                    || angles.Length != 2
+                    || angles[0] != 0
+                    || angles[1] <= 0))
+                throw new ArgumentException(
+                    "Double must fire forward, then upward.",
                     nameof(weaponType));
             if (family == PrimaryWeaponFamily.Laser
                 && (weaponType != WeaponType.Laser
@@ -163,6 +191,7 @@ namespace Shmup.Core.Simulation
             PierceEnemyCount = pierceEnemyCount;
             SpreadWays = spreadWays;
             SpreadStepLutSlots = spreadStepLutSlots;
+            _shotAngleLutSlots = Array.AsReadOnly(angles);
         }
 
         public PrimaryWeaponFamily Family { get; }
@@ -182,6 +211,12 @@ namespace Shmup.Core.Simulation
         public int PierceEnemyCount { get; }
         public int SpreadWays { get; }
         public int SpreadStepLutSlots { get; }
+        /// <summary>
+        /// Optional per-projectile rotations in 1/64-turn slots. Empty uses
+        /// the symmetric spread grammar; Double is normalized to [0, 8].
+        /// </summary>
+        public IReadOnlyList<int> ShotAngleLutSlots =>
+            _shotAngleLutSlots;
     }
 
     public static class PrimaryWeaponFamilyIds
@@ -215,7 +250,10 @@ namespace Shmup.Core.Simulation
             int pierceEnemyCount,
             int explosionDamage,
             int explosionRadiusSubUnits,
-            int explosionMaxTargets)
+            int explosionMaxTargets,
+            int damageGrowthPercentPerLevel = 50,
+            int dropDelayTicks = 0,
+            int homingTurnLutSlotsPerTick = 1)
         {
             if (!Enum.IsDefined(typeof(MissileFamily), family))
                 throw new ArgumentOutOfRangeException(nameof(family));
@@ -230,8 +268,23 @@ namespace Shmup.Core.Simulation
                 || pierceEnemyCount < 0
                 || explosionDamage < 0
                 || explosionRadiusSubUnits < 0
-                || explosionMaxTargets < 0)
+                || explosionMaxTargets < 0
+                || damageGrowthPercentPerLevel < 0
+                || dropDelayTicks < 0
+                || homingTurnLutSlotsPerTick < 0
+                || homingTurnLutSlotsPerTick
+                    > PrimaryWeaponFamilyDefinition.AngleLutSlotsPerTurn / 2)
                 throw new ArgumentOutOfRangeException(nameof(baseDamage));
+            if (family == MissileFamily.DownwardDrop
+                && (fallSpeedYNumerator < 1 || dropDelayTicks < 1))
+                throw new ArgumentException(
+                    "Downward-drop missiles require fall speed and drop delay.",
+                    nameof(family));
+            if (family == MissileFamily.Homing
+                && homingTurnLutSlotsPerTick < 1)
+                throw new ArgumentException(
+                    "Homing missiles require a positive turn rate.",
+                    nameof(family));
             Family = family;
             BaseDamage = baseDamage;
             FireIntervalTicks = fireIntervalTicks;
@@ -246,6 +299,11 @@ namespace Shmup.Core.Simulation
             ExplosionDamage = explosionDamage;
             ExplosionRadiusSubUnits = explosionRadiusSubUnits;
             ExplosionMaxTargets = explosionMaxTargets;
+            DamageGrowthPercentPerLevel =
+                damageGrowthPercentPerLevel;
+            DropDelayTicks = dropDelayTicks;
+            HomingTurnLutSlotsPerTick =
+                homingTurnLutSlotsPerTick;
         }
 
         public MissileFamily Family { get; }
@@ -262,6 +320,9 @@ namespace Shmup.Core.Simulation
         public int ExplosionDamage { get; }
         public int ExplosionRadiusSubUnits { get; }
         public int ExplosionMaxTargets { get; }
+        public int DamageGrowthPercentPerLevel { get; }
+        public int DropDelayTicks { get; }
+        public int HomingTurnLutSlotsPerTick { get; }
     }
 
     public sealed class OptionFormationDefinition
@@ -333,6 +394,8 @@ namespace Shmup.Core.Simulation
                 case MissileFamily.Straight: return "straight";
                 case MissileFamily.SpreadBomb: return "spread_bomb";
                 case MissileFamily.PiercingLance: return "piercing_lance";
+                case MissileFamily.DownwardDrop: return "downward_drop";
+                case MissileFamily.Homing: return "homing";
                 default: throw new ArgumentOutOfRangeException(nameof(family));
             }
         }

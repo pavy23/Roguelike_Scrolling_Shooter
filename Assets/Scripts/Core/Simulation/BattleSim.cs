@@ -429,17 +429,31 @@ namespace Shmup.Core.Simulation
     public readonly struct BulletState
     {
         public BulletState(int id, BulletFaction faction, int x, int y)
-            : this(id, faction, BulletKind.MainShot, x, y)
+            : this(id, faction, BulletKind.MainShot, x, y, 0)
         {
         }
 
         public BulletState(int id, BulletFaction faction, BulletKind kind, int x, int y)
+            : this(id, faction, kind, x, y, 0)
         {
+        }
+
+        public BulletState(
+            int id,
+            BulletFaction faction,
+            BulletKind kind,
+            int x,
+            int y,
+            int ageTicks)
+        {
+            if (ageTicks < 0)
+                throw new ArgumentOutOfRangeException(nameof(ageTicks));
             Id = id;
             Faction = faction;
             Kind = kind;
             X = x;
             Y = y;
+            AgeTicks = ageTicks;
         }
 
         public int Id { get; }
@@ -447,6 +461,7 @@ namespace Shmup.Core.Simulation
         public BulletKind Kind { get; }
         public int X { get; }
         public int Y { get; }
+        public int AgeTicks { get; }
     }
 
     /// <summary>Observable option position in integer simulation subunits.</summary>
@@ -918,7 +933,10 @@ namespace Shmup.Core.Simulation
         public int SpreadWays { get; set; } = 3;
         /// <summary>Angular spacing in 1/64-turn SineLut slots.</summary>
         public int SpreadStepLutSlots { get; set; } = 2;
+        public int[] MainShotAngleLutSlots { get; set; } =
+            Array.Empty<int>();
         public int MissileBaseDamage { get; set; } = 2;
+        public int MissileDamageGrowthPercentPerLevel { get; set; } = 50;
         public int MissileFireIntervalTicks { get; set; } = 45;
         public int MissileRapidFireStartLevel { get; set; } = 2;
         public int MissileFireIntervalReductionPerLevel { get; set; } = 5;
@@ -935,6 +953,7 @@ namespace Shmup.Core.Simulation
         public int MissileExplosionDamage { get; set; }
         public int MissileExplosionRadiusSubUnits { get; set; }
         public int MissileExplosionMaxTargets { get; set; }
+        public int MissileDropDelayTicks { get; set; }
         /// <summary>
         /// Player-position history distance between consecutive options.
         /// Option N follows the position from N * OptionFollowDelayTicks ago.
@@ -1042,6 +1061,10 @@ namespace Shmup.Core.Simulation
             copy.OptionFixedOffsetYs = OptionFixedOffsetYs == null
                 ? null
                 : (int[])OptionFixedOffsetYs.Clone();
+            copy.MainShotAngleLutSlots =
+                MainShotAngleLutSlots == null
+                    ? null
+                    : (int[])MainShotAngleLutSlots.Clone();
             return copy;
         }
     }
@@ -1175,10 +1198,13 @@ namespace Shmup.Core.Simulation
         WeaponType _playerWeaponType;
         int _mainShotBasePierceEnemyCount;
         int _spreadWays, _spreadStepLutSlots;
+        int[] _mainShotAngleLutSlots;
         int _mainShotRapidFireStartLevel;
         int _mainShotFireIntervalReductionPerLevel;
         int _mainShotMinimumFireIntervalTicks;
-        readonly int _missileBaseDamage, _missileFireIntervalTicks, _missileRapidFireStartLevel;
+        readonly int _missileBaseDamage;
+        readonly int _missileDamageGrowthPercentPerLevel;
+        readonly int _missileFireIntervalTicks, _missileRapidFireStartLevel;
         readonly int _missileFireIntervalReductionPerLevel, _missileMinimumFireIntervalTicks;
         readonly int _missileSpeedXNumerator, _missileSpeedXDenominator;
         readonly int _missileFallSpeedYNumerator, _missileFallSpeedYDenominator;
@@ -1188,6 +1214,7 @@ namespace Shmup.Core.Simulation
         readonly int _missileExplosionDamage;
         readonly int _missileExplosionRadiusSubUnits;
         readonly int _missileExplosionMaxTargets;
+        readonly int _missileDropDelayTicks;
         readonly int _optionFollowDelayTicks;
         readonly OptionFormation _optionFormation;
         readonly int[] _optionFixedOffsetXs, _optionFixedOffsetYs;
@@ -1504,6 +1531,10 @@ namespace Shmup.Core.Simulation
                     : 0;
             _spreadWays = config.SpreadWays;
             _spreadStepLutSlots = config.SpreadStepLutSlots;
+            _mainShotAngleLutSlots =
+                config.MainShotAngleLutSlots == null
+                    ? Array.Empty<int>()
+                    : (int[])config.MainShotAngleLutSlots.Clone();
             bool useLaserProfile =
                 !config.UseConfiguredMainShotStats
                 && _playerWeaponType == WeaponType.Laser;
@@ -1526,6 +1557,8 @@ namespace Shmup.Core.Simulation
                     ? config.SpreadMinimumFireIntervalTicks
                     : config.MainShotMinimumFireIntervalTicks;
             _missileBaseDamage = config.MissileBaseDamage;
+            _missileDamageGrowthPercentPerLevel =
+                config.MissileDamageGrowthPercentPerLevel;
             _missileFireIntervalTicks = config.MissileFireIntervalTicks;
             _missileRapidFireStartLevel = config.MissileRapidFireStartLevel;
             _missileFireIntervalReductionPerLevel =
@@ -1546,6 +1579,8 @@ namespace Shmup.Core.Simulation
                 config.MissileExplosionRadiusSubUnits;
             _missileExplosionMaxTargets =
                 config.MissileExplosionMaxTargets;
+            _missileDropDelayTicks =
+                config.MissileDropDelayTicks;
             _optionFollowDelayTicks = config.OptionFollowDelayTicks;
             _optionFormation = config.OptionFormation;
             _optionFixedOffsetXs = config.OptionFixedOffsetXs == null
@@ -1653,13 +1688,16 @@ namespace Shmup.Core.Simulation
             _ricochetRangeSubUnits = config.RicochetRangeSubUnits;
             _ricochetCount = modifierStacks.GetStrength(
                 BattleModifier.Ricochet);
+            int homingStrength = modifierStacks.GetStrength(
+                BattleModifier.HomingMissile);
+            if (_missileFamily == MissileFamily.Homing)
+                homingStrength = 1;
             _homingMissileTurnLutSlotsPerTick =
                 Math.Min(
                     SineLut.Length / 2,
                     MultiplySaturated(
                         config.HomingMissileTurnLutSlotsPerTick,
-                        modifierStacks.GetStrength(
-                            BattleModifier.HomingMissile)));
+                        homingStrength));
             _killExplosionRadiusSubUnits = config.KillExplosionRadiusSubUnits;
             _killExplosionDamage = config.KillExplosionDamage;
             _killExplosionMaxTargets = MultiplySaturated(
@@ -2373,6 +2411,18 @@ namespace Shmup.Core.Simulation
                 definition.PierceEnemyCount;
             _spreadWays = definition.SpreadWays;
             _spreadStepLutSlots = definition.SpreadStepLutSlots;
+            _mainShotAngleLutSlots =
+                CopyAngles(definition.ShotAngleLutSlots);
+        }
+
+        static int[] CopyAngles(IReadOnlyList<int> source)
+        {
+            if (source == null || source.Count == 0)
+                return Array.Empty<int>();
+            var copy = new int[source.Count];
+            for (int i = 0; i < copy.Length; i++)
+                copy[i] = source[i];
+            return copy;
         }
 
         static void AddExactPositiveFraction(
@@ -2764,9 +2814,17 @@ namespace Shmup.Core.Simulation
             if (_missilePierceEnemyCount < 0
                 || _missileExplosionDamage < 0
                 || _missileExplosionRadiusSubUnits < 0
-                || _missileExplosionMaxTargets < 0)
+                || _missileExplosionMaxTargets < 0
+                || _missileDamageGrowthPercentPerLevel < 0
+                || _missileDropDelayTicks < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(BattleSimConfig.MissilePierceEnemyCount));
+            if (_missileFamily == MissileFamily.DownwardDrop
+                && (_missileFallSpeedYNumerator < 1
+                    || _missileDropDelayTicks < 1))
+                throw new ArgumentException(
+                    "Downward-drop missile config requires fall speed "
+                    + "and drop delay.");
             if (_optionOrbitRadiusSubUnits < 0
                 || _optionOrbitAngularLutSlotsNumerator < 0
                 || _optionOrbitAngularLutSlotsDenominator < 1)
@@ -3139,7 +3197,8 @@ namespace Shmup.Core.Simulation
             {
                 BulletState bullet = _bullets[read];
                 if (bullet.Kind == BulletKind.Missile
-                    && HasModifier(BattleModifier.HomingMissile))
+                    && (_missileFamily == MissileFamily.Homing
+                        || HasModifier(BattleModifier.HomingMissile)))
                     UpdateHomingMissile(read, in bullet);
                 int xNumerator, xDenominator, yNumerator, yDenominator;
                 if (_bulletVelDenominators[read] > 0)
@@ -3155,7 +3214,13 @@ namespace Shmup.Core.Simulation
                     bool isMissile = bullet.Kind == BulletKind.Missile;
                     xNumerator = isMissile ? _missileSpeedXNumerator : _bulletSpeedNumerator;
                     xDenominator = isMissile ? _missileSpeedXDenominator : _bulletSpeedDenominator;
-                    yNumerator = isMissile ? -_missileFallSpeedYNumerator : 0;
+                    bool waitingToDrop =
+                        isMissile
+                        && _missileFamily == MissileFamily.DownwardDrop
+                        && bullet.AgeTicks < _missileDropDelayTicks;
+                    yNumerator = isMissile && !waitingToDrop
+                        ? -_missileFallSpeedYNumerator
+                        : 0;
                     yDenominator = isMissile ? _missileFallSpeedYDenominator : 1;
                 }
 
@@ -3186,8 +3251,16 @@ namespace Shmup.Core.Simulation
                     continue;
                 }
                 int nextY = SaturateToInt(nextYLong);
+                int nextAge = bullet.AgeTicks == int.MaxValue
+                    ? int.MaxValue
+                    : bullet.AgeTicks + 1;
                 _bullets[write] = new BulletState(
-                    bullet.Id, bullet.Faction, bullet.Kind, (int)nextX, nextY);
+                    bullet.Id,
+                    bullet.Faction,
+                    bullet.Kind,
+                    (int)nextX,
+                    nextY,
+                    nextAge);
                 _bulletXRemainders[write] = nextXRemainder;
                 _bulletYRemainders[write] = nextYRemainder;
                 _bulletVelXNumerators[write] = _bulletVelXNumerators[read];
@@ -3218,6 +3291,9 @@ namespace Shmup.Core.Simulation
 
         void UpdateHomingMissile(int bulletIndex, in BulletState bullet)
         {
+            if (_missileFamily == MissileFamily.DownwardDrop
+                && bullet.AgeTicks < _missileDropDelayTicks)
+                return;
             int targetId = _bulletHomingTargetIds[bulletIndex];
             int targetX;
             int targetY;
@@ -4420,7 +4496,7 @@ namespace Shmup.Core.Simulation
 
                 RemoveBulletAt(bulletIndex);
                 int damage = bullet.Kind == BulletKind.Missile
-                    ? Damage.Compute(_missileBaseDamage, Math.Max(1, _missileLevel))
+                    ? ComputeMissileDamage(_missileBaseDamage)
                     : Damage.Compute(_playerBulletDamage, Math.Max(1, _mainShotLevel));
                 bool defeated = partIndex >= 0
                     ? ApplyDamageToBossPart(partIndex, damage)
@@ -5164,9 +5240,8 @@ namespace Shmup.Core.Simulation
                 if (obstacle.Type == ObstacleType.Breakable)
                 {
                     int damage = bullet.Kind == BulletKind.Missile
-                        ? Damage.Compute(
-                            _missileBaseDamage,
-                            Math.Max(1, _missileLevel))
+                        ? ComputeMissileDamage(
+                            _missileBaseDamage)
                         : Damage.Compute(
                             _playerBulletDamage,
                             Math.Max(1, _mainShotLevel));
@@ -5176,9 +5251,8 @@ namespace Shmup.Core.Simulation
                     {
                         damage = SaturatingAddDamage(
                             damage,
-                            Damage.Compute(
-                                _missileExplosionDamage,
-                                Math.Max(1, _missileLevel)));
+                            ComputeMissileDamage(
+                                _missileExplosionDamage));
                     }
                     int hp = Damage.ApplyToHp(obstacle.Hp, damage);
                     if (hp > 0)
@@ -5262,7 +5336,7 @@ namespace Shmup.Core.Simulation
 
                 EnemyState enemy = _enemies[enemyIndex];
                 int damage = bullet.Kind == BulletKind.Missile
-                    ? Damage.Compute(_missileBaseDamage, Math.Max(1, _missileLevel))
+                    ? ComputeMissileDamage(_missileBaseDamage)
                     : Damage.Compute(_playerBulletDamage, Math.Max(1, _mainShotLevel));
                 int hp = Damage.ApplyToHp(enemy.Hp, damage);
                 if (hp > 0)
@@ -5594,9 +5668,8 @@ namespace Shmup.Core.Simulation
             int centerX,
             int centerY)
         {
-            int damage = Damage.Compute(
-                _missileExplosionDamage,
-                Math.Max(1, _missileLevel));
+            int damage = ComputeMissileDamage(
+                _missileExplosionDamage);
             EmitEvent(
                 SimEventType.MissileExploded,
                 sourceBulletId,
@@ -6094,10 +6167,19 @@ namespace Shmup.Core.Simulation
             int shots = Math.Min(_spreadWays, available);
             for (int i = 0; i < shots; i++)
             {
-                long centeredIndex = 2L * i - (_spreadWays - 1L);
-                int rotation = (int)(
-                    (centeredIndex * _spreadStepLutSlots / 2)
-                    % SineLut.Length);
+                int rotation;
+                if (_mainShotAngleLutSlots.Length != 0)
+                {
+                    rotation = _mainShotAngleLutSlots[i];
+                }
+                else
+                {
+                    long centeredIndex =
+                        2L * i - (_spreadWays - 1L);
+                    rotation = (int)(
+                        (centeredIndex * _spreadStepLutSlots / 2)
+                        % SineLut.Length);
+                }
                 SpawnSpreadBullet(x, y, rotation);
             }
         }
@@ -6470,6 +6552,14 @@ namespace Shmup.Core.Simulation
             return result;
         }
 
+        int ComputeMissileDamage(int baseDamage)
+        {
+            return Damage.Compute(
+                baseDamage,
+                Math.Max(1, _missileLevel),
+                _missileDamageGrowthPercentPerLevel);
+        }
+
         static int SaturatingAddDamage(int left, int right)
         {
             long sum = (long)left + right;
@@ -6609,8 +6699,30 @@ namespace Shmup.Core.Simulation
                 || config.SpreadStepLutSlots > SineLut.Length / 2)
                 throw new ArgumentOutOfRangeException(
                     nameof(config.SpreadStepLutSlots));
+            if (config.MainShotAngleLutSlots == null)
+                throw new ArgumentNullException(
+                    nameof(config.MainShotAngleLutSlots));
+            if (config.MainShotAngleLutSlots.Length != 0
+                && config.MainShotAngleLutSlots.Length
+                    != config.SpreadWays)
+                throw new ArgumentException(
+                    "Main-shot angle count must match SpreadWays.",
+                    nameof(config.MainShotAngleLutSlots));
+            for (int i = 0;
+                i < config.MainShotAngleLutSlots.Length;
+                i++)
+            {
+                int angle = config.MainShotAngleLutSlots[i];
+                if (angle < -SineLut.Length / 2
+                    || angle > SineLut.Length / 2)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(config.MainShotAngleLutSlots));
+            }
             if (config.MissileBaseDamage < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.MissileBaseDamage));
+            if (config.MissileDamageGrowthPercentPerLevel < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.MissileDamageGrowthPercentPerLevel));
             if (config.MissileFireIntervalTicks < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.MissileFireIntervalTicks));
             if (config.MissileRapidFireStartLevel < 1)
@@ -6630,6 +6742,9 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentOutOfRangeException(nameof(config.MissileFallSpeedYDenominator));
             if (config.MissileHalfWidth < 0 || config.MissileHalfHeight < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.MissileHalfWidth));
+            if (config.MissileDropDelayTicks < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.MissileDropDelayTicks));
             if (config.OptionFollowDelayTicks < 0
                 || (config.OptionFormation == OptionFormation.Trail
                     && config.OptionFollowDelayTicks < 1))
@@ -6737,6 +6852,11 @@ namespace Shmup.Core.Simulation
             if (config.HomingMissileTurnLutSlotsPerTick < 0
                 || config.HomingMissileTurnLutSlotsPerTick > SineLut.Length / 2)
                 throw new ArgumentOutOfRangeException(
+                    nameof(config.HomingMissileTurnLutSlotsPerTick));
+            if (config.MissileFamily == MissileFamily.Homing
+                && config.HomingMissileTurnLutSlotsPerTick < 1)
+                throw new ArgumentException(
+                    "Homing missile config requires a positive turn rate.",
                     nameof(config.HomingMissileTurnLutSlotsPerTick));
             if (config.KillExplosionRadiusSubUnits < 0)
                 throw new ArgumentOutOfRangeException(

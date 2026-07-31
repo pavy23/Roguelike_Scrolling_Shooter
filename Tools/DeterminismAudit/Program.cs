@@ -730,13 +730,12 @@ namespace Shmup.DeterminismAudit
             if (selected.Level >= selected.MaxLevel)
                 return false;
 
-            // Exercise the ship-owned weapon switch once, then keep investing
-            // in the two remaining offensive growth axes.
+            // Invest in Missile/Option only. Coverage weapon modes (Double/Triple)
+            // fire off the boss centerline and stall PreferCapped ST melts after
+            // ClosingSegmentsPerStage lengthens capsule-rich routes (REQ-079).
+            // Ship weapon-switch coverage lives in unit tests + BalanceSim.
             return selected.Slot == PowerUpSlot.Missile
-                || selected.Slot == PowerUpSlot.Option
-                || (selected.IsActiveWeaponMode == false
-                    && PowerUpSlotDefinition.IsWeaponModeSlot(
-                        selected.Slot));
+                || selected.Slot == PowerUpSlot.Option;
         }
 
         static bool TrySelectPickupTargetY(
