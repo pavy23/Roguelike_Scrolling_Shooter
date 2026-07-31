@@ -14,6 +14,7 @@
       "missileFamily": "downward_drop",
       "powerUpGaugeSlots": [
         "Speed",
+        "MainShot",
         "Missile",
         "Weapon",
         "Option",
@@ -33,6 +34,7 @@
       "missileFamily": "straight",
       "powerUpGaugeSlots": [
         "Speed",
+        "MainShot",
         "Missile",
         "Weapon",
         "Option",
@@ -52,6 +54,7 @@
       "missileFamily": "homing",
       "powerUpGaugeSlots": [
         "Speed",
+        "MainShot",
         "Missile",
         "Weapon",
         "Option",
