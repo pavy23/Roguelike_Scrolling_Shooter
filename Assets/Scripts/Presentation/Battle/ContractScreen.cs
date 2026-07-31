@@ -184,13 +184,37 @@ namespace Shmup.Presentation.Battle
 
                     var contract = options[i];
                     var tierColor = TierColor(contract.RiskTier);
-                    _boxTitles[i].text =
-                        $"{ContractName(contract.Id)}\n{TierLabel(contract.RiskTier)}";
+                    // 최종 화면(REQ-072): 목적지가 곧 카드의 정체다. 귀환은 "여기서
+                    // 끝낸다", 미지의 구역은 "더 간다" — 등급 라벨보다 앞세운다.
+                    string headline =
+                        contract.DestinationKind == ContractDestinationKind.EndRun
+                            ? "RETURN HOME"
+                            : contract.DestinationKind == ContractDestinationKind.Uncharted
+                                ? "THE UNCHARTED"
+                                : ContractName(contract.Id);
+                    _boxTitles[i].text = $"{headline}\n{TierLabel(contract.RiskTier)}";
                     _boxTitles[i].color = tierColor;
 
                     // 효과 전체를 나열한다. 표준 항로(효과 없음)는 그것대로 명시 —
                     // 빈 카드는 "버그인가?"로 읽힌다.
-                    if (contract.Effects == null || contract.Effects.Count == 0)
+                    if (contract.DestinationKind == ContractDestinationKind.EndRun)
+                    {
+                        _boxTexts[i].text = "END THE RUN HERE\nBANK YOUR SCORE";
+                        _boxTexts[i].color = UiKit.TextDim;
+                    }
+                    else if (contract.DestinationKind == ContractDestinationKind.Uncharted)
+                    {
+                        var sbU = new System.Text.StringBuilder(96);
+                        sbU.Append("ENTER THE HIDDEN SECTOR\nFACE THE COLOSSUS");
+                        for (int k = 0; contract.Effects != null && k < contract.Effects.Count; k++)
+                        {
+                            sbU.Append('\n');
+                            sbU.Append(DescribeEffect(contract.Effects[k]));
+                        }
+                        _boxTexts[i].text = sbU.ToString();
+                        _boxTexts[i].color = UiKit.TextMain;
+                    }
+                    else if (contract.Effects == null || contract.Effects.Count == 0)
                     {
                         _boxTexts[i].text = "NO MODIFIERS\nA CLEAN RUN";
                         _boxTexts[i].color = UiKit.TextDim;

@@ -512,7 +512,12 @@ namespace Shmup.Presentation.Battle
                     {
                         int choice = _replayChoiceCursor < _recordedChoices.Count
                             ? _recordedChoices[_replayChoiceCursor++] : 0;
-                        _run.ChooseReward(choice);
+                        // -1 = 리롤 (REQ-072). 리롤은 대기 상태를 유지하므로 다음
+                        // 틱에 이어지는 기록(다음 리롤 또는 실제 선택)을 소비한다.
+                        if (choice == RerollChoiceSentinel)
+                            _run.RerollRewardOptions();
+                        else
+                            _run.ChooseReward(choice);
                     }
                     // 계약 대기: 기록된 계약 선택을 재현. 기록이 모자라면 0(표준 항로) —
                     // Core가 표준 항로를 항상 0번에 두므로 안전한 기본값이다.
@@ -1030,6 +1035,27 @@ namespace Shmup.Presentation.Battle
             RefreshBattle();
             SyncViews();
         }
+
+        // ── 보상 리롤 (REQ-072 — 캡슐 화폐) ─────────────────────────────────────
+
+        public int CapsuleBalance => _run?.CapsuleBalance ?? 0;
+        public int RewardRerollCost => _run?.RewardRerollCost ?? 0;
+        public bool CanRerollRewards => _run != null && _run.CanRerollRewardOptions;
+
+        /// <summary>리롤 성공 여부. 리플레이 기록에는 선택 -1이 리롤을 뜻한다.</summary>
+        public bool RerollRewards()
+        {
+            if (!AwaitingReward || _replayMode) return false;
+            if (!_run.RerollRewardOptions()) return false;
+            if (_recordingActive) _recordedChoices.Add(RerollChoiceSentinel);
+            return true;
+        }
+
+        /// <summary>
+        /// 리플레이 선택 기록에서 리롤을 뜻하는 센티널. 실제 카드 인덱스는 0 이상이므로
+        /// 충돌하지 않고, 구버전 리플레이는 스키마 버전(v13)에서 이미 거부된다.
+        /// </summary>
+        public const int RerollChoiceSentinel = -1;
 
         /// <summary>
         /// 개발용 빨리감기 (DevCheats F11): 무입력 틱을 일괄 진행한다. 이벤트 FX/SFX는

@@ -85,6 +85,21 @@
         "capsuleDropMultiplier": 1.25,
         "guaranteedBombDrop": true,
         "scoreMultiplier": 1.4
+      },
+      {
+        "id": "end_run",
+        "weight": 1,
+        "riskTier": "safe",
+        "destinationKind": "endRun",
+        "eligibility": "always"
+      },
+      {
+        "id": "uncharted",
+        "weight": 1,
+        "riskTier": "extreme",
+        "destinationKind": "uncharted",
+        "eligibility": "hiddenBiomeUnlocked",
+        "scoreMultiplier": 1.25
       }
     ]
   },
@@ -1653,8 +1668,8 @@
       "intent": "잡몹 폭풍 회피 후 중형·중형",
       "environment": {
         "drift": {
-          "xPerSecond": 0.45,
-          "yPerSecond": 0.2
+          "xPerSecond": 0.35,
+          "yPerSecond": 0.15
         }
       }
     },
@@ -1798,8 +1813,8 @@
       "intent": "리본 회피 동선 + 중형 앵커",
       "environment": {
         "drift": {
-          "xPerSecond": -0.35,
-          "yPerSecond": 0.4
+          "xPerSecond": -0.28,
+          "yPerSecond": 0.32
         }
       }
     },
@@ -4468,8 +4483,8 @@
       "intent": "강화형 에코 조준 리본",
       "environment": {
         "drift": {
-          "xPerSecond": 0.15,
-          "yPerSecond": -0.55
+          "xPerSecond": 0.12,
+          "yPerSecond": -0.42
         }
       }
     },
@@ -4602,8 +4617,8 @@
       "intent": "잡몹·강화 혼합 + 중형",
       "environment": {
         "drift": {
-          "xPerSecond": -0.55,
-          "yPerSecond": -0.25
+          "xPerSecond": -0.42,
+          "yPerSecond": -0.20
         }
       }
     },
@@ -5638,7 +5653,7 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 22500,
+      "hp": 20000,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,

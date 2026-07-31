@@ -30,6 +30,9 @@ namespace Shmup.Presentation.Battle
         int _cursor;
         float _emptyOptionsAge;
         const float EmptyOptionsGrace = 2.5f;
+        UnityEngine.UI.Button _rerollButton;
+        Text _rerollLabel;
+        UnityEngine.UI.Image _rerollBg;
 
         const float BoxWidth = 150f, BoxHeight = 84f, BoxGap = 14f;
 
@@ -79,7 +82,41 @@ namespace Shmup.Presentation.Battle
                 10, UiKit.TextDim,
                 new Vector2(0.5f, 0.5f), new Vector2(0f, -66f), TextAnchor.MiddleCenter, "Hints");
 
+            // 리롤 (REQ-072): 캡슐을 지불하고 후보를 다시 뽑는다 — 성장이냐 선택권이냐.
+            // 카드 아래 중앙. 잔고 부족이면 흐리게 두되 계속 보인다 — 기능의 존재를
+            // 숨기면 캡슐을 아껴 둘 이유도 배울 수 없다.
+            _rerollButton = UiKit.CreateTouchButton(
+                canvas.transform, _font, "", 10,
+                new Vector2(0.5f, 0f), new Vector2(0f, 64f), new Vector2(170f, 34f),
+                OnReroll, "Reroll");
+            _rerollBg = _rerollButton.targetGraphic as UnityEngine.UI.Image;
+            _rerollLabel = _rerollButton.GetComponentInChildren<Text>();
+
             _root.SetActive(false);
+        }
+
+        void OnReroll()
+        {
+            if (_director == null || !_director.RerollRewards()) return;
+            _labelsBuilt = false;   // 새 후보로 카드 재구성
+        }
+
+        void UpdateRerollButton()
+        {
+            if (_rerollButton == null || _director == null) return;
+            int cost = _director.RewardRerollCost;
+            int balance = _director.CapsuleBalance;
+            bool can = _director.CanRerollRewards;
+            if (_rerollLabel != null)
+                _rerollLabel.text = $"REROLL  {cost} CAPS  (HAVE {balance})";
+            if (_rerollLabel != null)
+                _rerollLabel.color = can ? UiKit.TextAccent : UiKit.TextDim;
+            if (_rerollBg != null)
+            {
+                var c = _rerollBg.color;
+                c.a = can ? 1f : 0.45f;
+                _rerollBg.color = c;
+            }
         }
 
         /// <summary>탭/키 공용 선택. 열려 있지 않거나 범위를 벗어난 탭은 무시한다.</summary>
@@ -130,6 +167,7 @@ namespace Shmup.Presentation.Battle
                 return;
             }
             _emptyOptionsAge = 0f;
+            UpdateRerollButton();
 
             if (!_labelsBuilt)
             {
