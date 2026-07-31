@@ -5,7 +5,7 @@ namespace Shmup.Core.Content
 {
     public static partial class GameDataParser
     {
-        const int SupportedShipsSchemaVersion = 2;
+        const int SupportedShipsSchemaVersion = 3;
 
         static ShipDefinition[] ParseShips(ShipsDto root, int[] powerUpMaxLevels)
         {
@@ -88,7 +88,16 @@ namespace Shmup.Core.Content
                             path + ".maxHp",
                             allowZero: false),
                     gaugeWeaponFamily,
-                    gaugeSlots);
+                    gaugeSlots,
+                    schemaVersion >= SupportedShipsSchemaVersion
+                        ? ParseShipMissileFamily(
+                            item.missileFamily,
+                            path + ".missileFamily")
+                        : item.missileFamily == null
+                            ? (MissileFamily?)null
+                            : ParseShipMissileFamily(
+                                item.missileFamily,
+                                path + ".missileFamily"));
                 for (int previous = 0; previous < i; previous++)
                 {
                     if (string.Equals(
@@ -123,6 +132,15 @@ namespace Shmup.Core.Content
                 case "spread": return WeaponType.Spread;
                 default: throw Error(path, $"has unknown value '{value}'.");
             }
+        }
+
+        static MissileFamily ParseShipMissileFamily(
+            string value,
+            string path)
+        {
+            if (value == null)
+                throw Error(path, "is required.");
+            return ParseMissileFamily(value, path);
         }
 
         static PrimaryWeaponFamily? ParseGaugeWeaponFamily(

@@ -23,7 +23,8 @@ namespace Shmup.Core
                     source.schemaVersion);
             }
             if (source.schemaVersion == 14
-                || source.schemaVersion == 15)
+                || source.schemaVersion == 15
+                || source.schemaVersion == 16)
                 throw Unsupported(
                     "run suspend",
                     source.schemaVersion);
@@ -247,7 +248,8 @@ namespace Shmup.Core
                     source.schemaVersion);
             }
             if (source.schemaVersion == 13
-                || source.schemaVersion == 14)
+                || source.schemaVersion == 14
+                || source.schemaVersion == 15)
                 throw Unsupported(
                     "input recording",
                     source.schemaVersion);

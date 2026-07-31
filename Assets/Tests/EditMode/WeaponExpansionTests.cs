@@ -372,6 +372,267 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void DoubleFiresForwardAndUpwardInsteadOfSymmetricPair()
+        {
+            var definition = new PrimaryWeaponFamilyDefinition(
+                PrimaryWeaponFamily.Double,
+                "Double",
+                "Forward plus upward.",
+                WeaponType.Spread,
+                6,
+                10,
+                6,
+                3,
+                1,
+                100,
+                1,
+                0,
+                0,
+                0,
+                2,
+                16,
+                new[] { 0, 8 });
+            BattleSimConfig config = Config();
+            config.PlayerWeaponType = WeaponType.Spread;
+            config.PlayerWeaponFamily =
+                PrimaryWeaponFamily.Double;
+            config.SpreadWays = definition.SpreadWays;
+            config.SpreadStepLutSlots =
+                definition.SpreadStepLutSlots;
+            config.MainShotAngleLutSlots =
+                new[]
+                {
+                    definition.ShotAngleLutSlots[0],
+                    definition.ShotAngleLutSlots[1]
+                };
+            BattleSim sim = CreateSim(
+                config,
+                Gauge(),
+                BattleModifier.None,
+                Array.Empty<EnemyDefinition>(),
+                Array.Empty<SpawnEvent>());
+
+            FireAndAdvance(sim, 1);
+
+            Assert.AreEqual(2, sim.Bullets.Count);
+            Assert.AreEqual(0, sim.Bullets[0].Y);
+            Assert.Greater(sim.Bullets[0].X, 0);
+            Assert.Greater(sim.Bullets[1].Y, 0);
+            Assert.Greater(sim.Bullets[1].X, 0);
+        }
+
+        [Test]
+        public void DownwardDropTravelsForwardBeforeFalling()
+        {
+            BattleSimConfig config = Config();
+            ConfigureMissile(
+                config,
+                MissileFamily.DownwardDrop,
+                100,
+                40);
+            config.MissileDropDelayTicks = 2;
+            BattleSim sim = CreateSim(
+                config,
+                Gauge(missileLevel: 1),
+                BattleModifier.None,
+                Array.Empty<EnemyDefinition>(),
+                Array.Empty<SpawnEvent>());
+
+            FireAndAdvance(sim, 1);
+            BulletState first = FindBullet(
+                sim,
+                BulletKind.Missile);
+            Assert.AreEqual(100, first.X);
+            Assert.AreEqual(0, first.Y);
+            Assert.AreEqual(1, first.AgeTicks);
+
+            InputCommand none = InputCommand.None;
+            sim.Step(in none);
+            BulletState second = FindBullet(
+                sim,
+                BulletKind.Missile);
+            Assert.AreEqual(200, second.X);
+            Assert.AreEqual(0, second.Y);
+            Assert.AreEqual(2, second.AgeTicks);
+
+            sim.Step(in none);
+            BulletState falling = FindBullet(
+                sim,
+                BulletKind.Missile);
+            Assert.AreEqual(300, falling.X);
+            Assert.AreEqual(-40, falling.Y);
+        }
+
+        [Test]
+        public void HomingFamilySteersWithoutHomingModifier()
+        {
+            BattleSimConfig config = Config();
+            ConfigureMissile(
+                config,
+                MissileFamily.Homing,
+                100,
+                0);
+            config.HomingMissileTurnLutSlotsPerTick = 4;
+            BattleSim sim = CreateSim(
+                config,
+                Gauge(missileLevel: 1),
+                BattleModifier.None,
+                new[] { Enemy("target", 100) },
+                new[] { Spawn("target", 600, 600) });
+            BattleSim redundantModifier = CreateSim(
+                config,
+                Gauge(missileLevel: 1),
+                BattleModifier.HomingMissile,
+                new[] { Enemy("target", 100) },
+                new[] { Spawn("target", 600, 600) });
+
+            FireAndAdvance(sim, 1);
+            FireAndAdvance(redundantModifier, 1);
+
+            BulletState missile = FindBullet(
+                sim,
+                BulletKind.Missile);
+            BulletState redundant = FindBullet(
+                redundantModifier,
+                BulletKind.Missile);
+            Assert.Greater(missile.Y, 0);
+            Assert.Greater(missile.X, 0);
+            Assert.AreEqual(missile.X, redundant.X);
+            Assert.AreEqual(missile.Y, redundant.Y);
+        }
+
+        [Test]
+        public void MissileDamageGrowthPercentScalesLevelDamage()
+        {
+            BattleSim levelOne = DamageScalingSim(1);
+            BattleSim levelThree = DamageScalingSim(3);
+
+            FireAndAdvance(levelOne, 1);
+            FireAndAdvance(levelThree, 1);
+
+            Assert.AreEqual(90, levelOne.Enemies[0].Hp);
+            Assert.AreEqual(85, levelThree.Enemies[0].Hp);
+        }
+
+        [Test]
+        public void HomingTrajectoryProducesSameSeedHash()
+        {
+            BattleSim first = HomingAuditSim();
+            BattleSim second = HomingAuditSim();
+            var firstHasher = new DeterminismAuditHasher();
+            var secondHasher = new DeterminismAuditHasher();
+            var fire = new InputCommand(0, 0, true);
+            first.Step(in fire);
+            second.Step(in fire);
+            InputCommand none = InputCommand.None;
+            for (int i = 0; i < 8; i++)
+            {
+                first.Step(in none);
+                second.Step(in none);
+            }
+            firstHasher.FoldBattleState(first);
+            secondHasher.FoldBattleState(second);
+
+            Assert.AreEqual(
+                firstHasher.HexHash,
+                secondHasher.HexHash);
+        }
+
+        [Test]
+        public void PreviousReplayAndSuspendVersionsAreRejected()
+        {
+            Assert.AreEqual(
+                16,
+                InputRecordingData.CurrentSchemaVersion);
+            Assert.AreEqual(
+                17,
+                RunSuspendData.CurrentSchemaVersion);
+            Assert.Throws<ArgumentException>(
+                () => SaveDataIntegrity.MigrateAndValidate(
+                    new InputRecordingData
+                    {
+                        schemaVersion = 15
+                    }));
+            Assert.Throws<ArgumentException>(
+                () => SaveDataIntegrity.MigrateAndValidate(
+                    new RunSuspendData
+                    {
+                        schemaVersion = 16
+                    }));
+        }
+
+        [Test]
+        public void WeaponsV7AndShipsV3ParseReq080Profiles()
+        {
+            string root = FindRepositoryRoot();
+            string gameData = Path.Combine(root, "GameData");
+            GameDataSet data = GameDataParser.Parse(
+                File.ReadAllText(
+                    Path.Combine(gameData, "enemies.json")),
+                WeaponsV7Json(),
+                File.ReadAllText(
+                    Path.Combine(gameData, "waves.json")),
+                null,
+                ShipsV3Json);
+
+            PrimaryWeaponFamilyDefinition doubleShot =
+                data.BattleContent.FindPrimaryWeaponFamily(
+                    PrimaryWeaponFamily.Double);
+            Assert.AreEqual(0, doubleShot.ShotAngleLutSlots[0]);
+            Assert.AreEqual(8, doubleShot.ShotAngleLutSlots[1]);
+            Assert.AreEqual(
+                5,
+                data.BattleContent.MissileFamilies.Count);
+            MissileFamilyDefinition downward =
+                data.BattleContent.FindMissileFamily(
+                    MissileFamily.DownwardDrop);
+            Assert.AreEqual(3, downward.DropDelayTicks);
+            Assert.AreEqual(
+                25,
+                downward.DamageGrowthPercentPerLevel);
+            MissileFamilyDefinition homing =
+                data.BattleContent.FindMissileFamily(
+                    MissileFamily.Homing);
+            Assert.AreEqual(2, homing.HomingTurnLutSlotsPerTick);
+            Assert.AreEqual(
+                MissileFamily.DownwardDrop,
+                data.FindShip("starter").StartingMissileFamily);
+            Assert.AreEqual(
+                MissileFamily.Straight,
+                data.FindShip("interceptor").StartingMissileFamily);
+            Assert.AreEqual(
+                MissileFamily.Homing,
+                data.FindShip("bulwark").StartingMissileFamily);
+        }
+
+        [Test]
+        public void HomingShipExcludesRedundantHomingRewards()
+        {
+            RunManager run = CreateHomingShipRewardRun();
+            Assert.AreEqual(
+                MissileFamily.Homing,
+                run.CurrentMissileFamily);
+
+            AdvanceToFirstBossReward(run);
+
+            Assert.AreEqual(
+                RunManager.RewardOptionCount,
+                run.RewardOptions.Count);
+            for (int i = 0; i < run.RewardOptions.Count; i++)
+            {
+                RewardOption option = run.RewardOptions[i];
+                Assert.IsFalse(
+                    option.Type == RewardType.MissileFamily
+                    && option.MissileFamily
+                        == MissileFamily.Homing);
+                Assert.IsFalse(
+                    option.Type == RewardType.Modifier
+                    && option.ModifierId
+                        == BattleModifier.HomingMissile);
+            }
+        }
+
+        [Test]
         public void WeaponsV4PrimaryMetadataAndRewardV2ParseEndToEnd()
         {
             string root = FindRepositoryRoot();
@@ -501,6 +762,42 @@ namespace Shmup.Core.Tests
                 Array.Empty<SpawnEvent>());
             FireAndAdvance(sim, 1);
             return FindBullet(sim, BulletKind.Missile);
+        }
+
+        static BattleSim DamageScalingSim(int missileLevel)
+        {
+            BattleSimConfig config = Config();
+            ConfigureMissile(
+                config,
+                MissileFamily.Straight,
+                100,
+                0);
+            config.MainShotBaseDamage = 0;
+            config.MissileBaseDamage = 10;
+            config.MissileDamageGrowthPercentPerLevel = 25;
+            return CreateSim(
+                config,
+                Gauge(missileLevel: missileLevel),
+                BattleModifier.None,
+                new[] { Enemy("damage_target", 100) },
+                new[] { Spawn("damage_target", 100, 0) });
+        }
+
+        static BattleSim HomingAuditSim()
+        {
+            BattleSimConfig config = Config();
+            ConfigureMissile(
+                config,
+                MissileFamily.Homing,
+                100,
+                0);
+            config.HomingMissileTurnLutSlotsPerTick = 2;
+            return CreateSim(
+                config,
+                Gauge(missileLevel: 1),
+                BattleModifier.None,
+                new[] { Enemy("audit_target", 100) },
+                new[] { Spawn("audit_target", 900, 500) });
         }
 
         static void ConfigureMissile(
@@ -686,7 +983,63 @@ namespace Shmup.Core.Tests
         } }
     ]
   }
-");
+                ");
+        }
+
+        static string WeaponsV7Json()
+        {
+            string weapons = WeaponsV6Json()
+                .Replace(
+                    @"""schemaVersion"": 6",
+                    @"""schemaVersion"": 7")
+                .Replace(
+                    @"""explosionMaxTargets"": 0 }",
+                    @"""explosionMaxTargets"": 0,
+      ""damageGrowthPercentPerLevel"": 25, ""dropDelayTicks"": 0,
+      ""homingTurnLutSlotsPerTick"": 1 }")
+                .Replace(
+                    @"""explosionMaxTargets"": 5 }",
+                    @"""explosionMaxTargets"": 5,
+      ""damageGrowthPercentPerLevel"": 30, ""dropDelayTicks"": 0,
+      ""homingTurnLutSlotsPerTick"": 1 }")
+                .Replace(
+                    @"""spreadStepLutSlots"": 2 }",
+                    @"""spreadStepLutSlots"": 16,
+      ""shotAngleLutSlots"": [0, 8] }")
+                .Replace(
+                    @"""spreadStepLutSlots"": 0 }",
+                    @"""spreadStepLutSlots"": 0,
+      ""shotAngleLutSlots"": [0] }");
+            string marker = "  ],"
+                + Environment.NewLine
+                + "  \"defaultMissileFamily\"";
+            int arrayEnd = weapons.IndexOf(
+                marker,
+                StringComparison.Ordinal);
+            Assert.GreaterOrEqual(arrayEnd, 0);
+            int lastObjectEnd = weapons.LastIndexOf(
+                '}',
+                arrayEnd);
+            Assert.GreaterOrEqual(lastObjectEnd, 0);
+            return weapons.Insert(
+                lastObjectEnd + 1,
+                @",
+    { ""id"": ""downward_drop"", ""baseDamage"": 18,
+      ""fireIntervalTicks"": 36, ""minimumFireIntervalTicks"": 20,
+      ""fireIntervalReductionPerLevel"": 4, ""projectileSpeed"": 10,
+      ""fallSpeedY"": 8, ""pierceEnemyCount"": 0,
+      ""explosionDamage"": 0, ""explosionRadius"": 0,
+      ""explosionMaxTargets"": 0,
+      ""damageGrowthPercentPerLevel"": 25, ""dropDelayTicks"": 3,
+      ""homingTurnLutSlotsPerTick"": 1 },
+    { ""id"": ""homing"", ""baseDamage"": 16,
+      ""fireIntervalTicks"": 42, ""minimumFireIntervalTicks"": 24,
+      ""fireIntervalReductionPerLevel"": 4, ""projectileSpeed"": 9,
+      ""fallSpeedY"": 0, ""pierceEnemyCount"": 0,
+      ""explosionDamage"": 0, ""explosionRadius"": 0,
+      ""explosionMaxTargets"": 0,
+      ""damageGrowthPercentPerLevel"": 35, ""dropDelayTicks"": 0,
+      ""homingTurnLutSlotsPerTick"": 2 }");
         }
 
         static EnemyDefinition Enemy(string id, int hp)
@@ -780,6 +1133,76 @@ namespace Shmup.Core.Tests
                 1,
                 1,
                 new RunProgressionConfig(2, 1));
+        }
+
+        static RunManager CreateHomingShipRewardRun()
+        {
+            var ship = new ShipDefinition(
+                "homing_ship",
+                "Homing Ship",
+                1,
+                1,
+                new int[PowerUpGauge.SlotCount],
+                0,
+                WeaponType.Vulcan,
+                null,
+                null,
+                null,
+                MissileFamily.Homing);
+            return new RunManager(
+                456UL,
+                new RewardStageGenerator(),
+                Config(),
+                ExpandedContent(),
+                Gauge(),
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                HomingShipRewards(),
+                ship,
+                1,
+                1,
+                new RunProgressionConfig(2, 1));
+        }
+
+        static RewardCatalog HomingShipRewards()
+        {
+            return new RewardCatalog(
+                RunManager.RewardOptionCount,
+                new[]
+                {
+                    SwitchMissile(
+                        "homing",
+                        MissileFamily.Homing),
+                    SwitchMissile(
+                        "straight",
+                        MissileFamily.Straight),
+                    new RewardDefinition(
+                        "homing_modifier",
+                        RewardType.Modifier,
+                        PowerUpSlot.Missile,
+                        1,
+                        1,
+                        1,
+                        99,
+                        1,
+                        BattleModifier.HomingMissile),
+                    new RewardDefinition(
+                        "capsules",
+                        RewardType.Capsules,
+                        PowerUpSlot.MainShot,
+                        1,
+                        1,
+                        1,
+                        99),
+                    new RewardDefinition(
+                        "bomb",
+                        RewardType.BombStock,
+                        PowerUpSlot.MainShot,
+                        1,
+                        1,
+                        1,
+                        99)
+                });
         }
 
         static BattleSim CreateExplosionAllocationSim()
@@ -938,6 +1361,24 @@ namespace Shmup.Core.Tests
                     0,
                     2,
                     0,
+                    0),
+                Missile(
+                    MissileFamily.DownwardDrop,
+                    18,
+                    36,
+                    10 * u,
+                    8 * u,
+                    0,
+                    0,
+                    0),
+                Missile(
+                    MissileFamily.Homing,
+                    16,
+                    42,
+                    9 * u,
+                    0,
+                    0,
+                    0,
                     0)
             };
             var formations = new[]
@@ -1000,7 +1441,10 @@ namespace Shmup.Core.Tests
                 pierce,
                 explosionDamage,
                 explosionRadius,
-                explosionDamage == 0 ? 0 : 5);
+                explosionDamage == 0 ? 0 : 5,
+                50,
+                family == MissileFamily.DownwardDrop ? 2 : 0,
+                family == MissileFamily.Homing ? 4 : 1);
         }
 
         static string FindRepositoryRoot()
@@ -1087,6 +1531,42 @@ namespace Shmup.Core.Tests
       ""stageIndexMin"": 1, ""stageIndexMax"": 99 },
     { ""id"": ""capsules"", ""type"": ""capsules"", ""amount"": 1,
       ""weight"": 1, ""stageIndexMin"": 1, ""stageIndexMax"": 99 }
+  ]
+}";
+
+        const string ShipsV3Json = @"{
+  ""schemaVersion"": 3,
+  ""ships"": [
+    {
+      ""id"": ""starter"",
+      ""displayName"": ""Starter"",
+      ""moveSpeedMultiplierNumerator"": 1,
+      ""moveSpeedMultiplierDenominator"": 1,
+      ""startingPowerUpLevels"": [0, 0, 0, 0],
+      ""unlockCost"": 0,
+      ""weaponType"": ""vulcan"",
+      ""missileFamily"": ""downward_drop""
+    },
+    {
+      ""id"": ""interceptor"",
+      ""displayName"": ""Interceptor"",
+      ""moveSpeedMultiplierNumerator"": 1,
+      ""moveSpeedMultiplierDenominator"": 1,
+      ""startingPowerUpLevels"": [0, 0, 0, 0],
+      ""unlockCost"": 1,
+      ""weaponType"": ""spread"",
+      ""missileFamily"": ""straight""
+    },
+    {
+      ""id"": ""bulwark"",
+      ""displayName"": ""Bulwark"",
+      ""moveSpeedMultiplierNumerator"": 1,
+      ""moveSpeedMultiplierDenominator"": 1,
+      ""startingPowerUpLevels"": [0, 0, 0, 0],
+      ""unlockCost"": 2,
+      ""weaponType"": ""laser"",
+      ""missileFamily"": ""homing""
+    }
   ]
 }";
 

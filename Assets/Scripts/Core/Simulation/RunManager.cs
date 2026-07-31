@@ -1407,6 +1407,13 @@ namespace Shmup.Core.Simulation
                 _rewards.MaxCombinedModifierCost);
             _ship = ship ?? ShipDefinition.CreateDefault();
             ValidateShipGauge(_ship, PowerUpGauge);
+            if (_ship.StartingMissileFamily.HasValue
+                && _battleContent.FindMissileFamily(
+                    _ship.StartingMissileFamily.Value) == null)
+                throw new ArgumentException(
+                    $"Ship '{_ship.Id}' references an unavailable "
+                    + "missile family.",
+                    nameof(ship));
             NormalizeDifficultyMultiplier(
                 difficultyMultiplierNumerator,
                 difficultyMultiplierDenominator,
@@ -1527,7 +1534,8 @@ namespace Shmup.Core.Simulation
             ApplyShipStartingLevels(PowerUpGauge);
             ResetShieldStockForNewRun();
             CurrentMissileFamily =
-                _battleContent.DefaultMissileFamily;
+                _ship.StartingMissileFamily
+                ?? _battleContent.DefaultMissileFamily;
             CurrentOptionFormation =
                 _battleContent.DefaultOptionFormation;
             ApplyCurrentLoadoutProfiles();
@@ -2821,6 +2829,12 @@ namespace Shmup.Core.Simulation
                         reward.ModifierStackStrength,
                         reward.ModifierInteractionCost,
                         reward.ModifierMaxStacks))
+                    continue;
+                if (reward.Type == RewardType.Modifier
+                    && reward.ModifierId
+                        == BattleModifier.HomingMissile
+                    && CurrentMissileFamily
+                        == MissileFamily.Homing)
                     continue;
                 if (reward.Type == RewardType.MissileFamily
                     && reward.MissileFamily
@@ -4135,6 +4149,8 @@ namespace Shmup.Core.Simulation
                     + "is not present in BattleContent.");
             _battleConfig.MissileFamily = missile.Family;
             _battleConfig.MissileBaseDamage = missile.BaseDamage;
+            _battleConfig.MissileDamageGrowthPercentPerLevel =
+                missile.DamageGrowthPercentPerLevel;
             _battleConfig.MissileFireIntervalTicks =
                 missile.FireIntervalTicks;
             _battleConfig.MissileMinimumFireIntervalTicks =
@@ -4157,6 +4173,10 @@ namespace Shmup.Core.Simulation
                 missile.ExplosionRadiusSubUnits;
             _battleConfig.MissileExplosionMaxTargets =
                 missile.ExplosionMaxTargets;
+            _battleConfig.MissileDropDelayTicks =
+                missile.DropDelayTicks;
+            _battleConfig.HomingMissileTurnLutSlotsPerTick =
+                missile.HomingTurnLutSlotsPerTick;
 
             OptionFormationDefinition option =
                 _battleContent.FindOptionFormation(
@@ -4249,6 +4269,8 @@ namespace Shmup.Core.Simulation
                 definition.SpreadWays;
             _battleConfig.SpreadStepLutSlots =
                 definition.SpreadStepLutSlots;
+            _battleConfig.MainShotAngleLutSlots =
+                CopyIntegers(definition.ShotAngleLutSlots);
             _battleConfig.UseConfiguredMainShotStats = true;
         }
 

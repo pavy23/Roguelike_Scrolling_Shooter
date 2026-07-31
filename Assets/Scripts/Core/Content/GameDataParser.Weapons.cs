@@ -12,14 +12,16 @@ namespace Shmup.Core.Content
                 && schemaVersion != SupportedWeaponsSchemaVersion
                 && schemaVersion != SupportedPrimaryWeaponsSchemaVersion
                 && schemaVersion != SupportedPowerUpCurveSchemaVersion
-                && schemaVersion != SupportedPowerUpGaugeSchemaVersion)
+                && schemaVersion != SupportedPowerUpGaugeSchemaVersion
+                && schemaVersion != SupportedReq080WeaponsSchemaVersion)
                 throw Error(
                     "weapons.json.schemaVersion",
                     $"must be {SupportedSchemaVersion}, "
                     + $"{SupportedWeaponsSchemaVersion}, or "
                     + $"{SupportedPrimaryWeaponsSchemaVersion}, "
                     + $"{SupportedPowerUpCurveSchemaVersion}, or "
-                    + $"{SupportedPowerUpGaugeSchemaVersion}, "
+                    + $"{SupportedPowerUpGaugeSchemaVersion}, or "
+                    + $"{SupportedReq080WeaponsSchemaVersion}, "
                     + $"but was {schemaVersion}.");
 
             WeaponDto[] source = RequireArray(root.weapons, "weapons.json.weapons");
@@ -98,7 +100,9 @@ namespace Shmup.Core.Content
             OptionFormation defaultOptionFormation;
             if (schemaVersion >= SupportedWeaponsSchemaVersion)
             {
-                missileFamilies = ParseMissileFamilies(root);
+                missileFamilies = ParseMissileFamilies(
+                    root,
+                    schemaVersion);
                 optionFormations = ParseOptionFormations(root);
                 defaultMissileFamily = ParseMissileFamily(
                     root.defaultMissileFamily,
@@ -110,7 +114,9 @@ namespace Shmup.Core.Content
                     schemaVersion
                 >= SupportedPrimaryWeaponsSchemaVersion
                         ? CompletePrimaryWeaponFamilies(
-                            ParsePrimaryWeaponFamilies(root),
+                            ParsePrimaryWeaponFamilies(
+                                root,
+                                schemaVersion),
                             CreateLegacyPrimaryWeaponFamilies(mainShot))
                         : CreateLegacyPrimaryWeaponFamilies(mainShot);
             }
@@ -392,7 +398,9 @@ namespace Shmup.Core.Content
         }
 
         static PrimaryWeaponFamilyDefinition[]
-            ParsePrimaryWeaponFamilies(WeaponsDto root)
+            ParsePrimaryWeaponFamilies(
+                WeaponsDto root,
+                int schemaVersion)
         {
             PrimaryWeaponFamilyDto[] source = RequireArray(
                 root.primaryWeaponFamilies,
@@ -472,7 +480,14 @@ namespace Shmup.Core.Content
                             path + ".spreadWays"),
                         Require(
                             item.spreadStepLutSlots,
-                            path + ".spreadStepLutSlots"));
+                            path + ".spreadStepLutSlots"),
+                        schemaVersion
+                            >= SupportedReq080WeaponsSchemaVersion
+                            ? RequireArray(
+                                item.shotAngleLutSlots,
+                                path + ".shotAngleLutSlots",
+                                allowEmpty: true)
+                            : item.shotAngleLutSlots);
             }
             if (!seen[(int)PrimaryWeaponFamily.Double]
                 || !seen[(int)PrimaryWeaponFamily.Laser])
@@ -601,17 +616,26 @@ namespace Shmup.Core.Content
         }
 
         static MissileFamilyDefinition[] ParseMissileFamilies(
-            WeaponsDto root)
+            WeaponsDto root,
+            int schemaVersion)
         {
             MissileFamilyDto[] source = RequireArray(
                 root.missileFamilies,
                 "weapons.json.missileFamilies");
-            if (source.Length != 3)
+            int requiredCount =
+                schemaVersion >= SupportedReq080WeaponsSchemaVersion
+                    ? 5
+                    : 3;
+            if (source.Length != requiredCount)
                 throw Error(
                     "weapons.json.missileFamilies",
-                    "must contain straight, spread_bomb, and piercing_lance.");
+                    schemaVersion >= SupportedReq080WeaponsSchemaVersion
+                        ? "must contain straight, spread_bomb, "
+                            + "piercing_lance, downward_drop, and homing."
+                        : "must contain straight, spread_bomb, "
+                            + "and piercing_lance.");
             var definitions = new MissileFamilyDefinition[source.Length];
-            var seen = new bool[3];
+            var seen = new bool[5];
             for (int i = 0; i < source.Length; i++)
             {
                 string path = $"weapons.json.missileFamilies[{i}]";
@@ -659,7 +683,22 @@ namespace Shmup.Core.Content
                         path + ".explosionRadius"),
                     Require(
                         item.explosionMaxTargets,
-                        path + ".explosionMaxTargets"));
+                        path + ".explosionMaxTargets"),
+                    schemaVersion >= SupportedReq080WeaponsSchemaVersion
+                        ? Require(
+                            item.damageGrowthPercentPerLevel,
+                            path + ".damageGrowthPercentPerLevel")
+                        : item.damageGrowthPercentPerLevel ?? 50,
+                    schemaVersion >= SupportedReq080WeaponsSchemaVersion
+                        ? Require(
+                            item.dropDelayTicks,
+                            path + ".dropDelayTicks")
+                        : item.dropDelayTicks ?? 0,
+                    schemaVersion >= SupportedReq080WeaponsSchemaVersion
+                        ? Require(
+                            item.homingTurnLutSlotsPerTick,
+                            path + ".homingTurnLutSlotsPerTick")
+                        : item.homingTurnLutSlotsPerTick ?? 1);
             }
             return definitions;
         }
@@ -774,6 +813,9 @@ namespace Shmup.Core.Content
                 case "spread_bomb": return MissileFamily.SpreadBomb;
                 case "piercing_lance":
                     return MissileFamily.PiercingLance;
+                case "downward_drop":
+                    return MissileFamily.DownwardDrop;
+                case "homing": return MissileFamily.Homing;
                 default:
                     throw Error(path, $"has unknown value '{value}'.");
             }

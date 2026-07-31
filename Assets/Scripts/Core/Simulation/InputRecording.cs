@@ -52,7 +52,7 @@ namespace Shmup.Core.Simulation
         /// rejected because identical capsule/activate input can select a
         /// different slot.
         /// </summary>
-        public const int CurrentSchemaVersion = 15;
+        public const int CurrentSchemaVersion = 16;
 
         [DataMember(Order = 0)]
         public int schemaVersion;

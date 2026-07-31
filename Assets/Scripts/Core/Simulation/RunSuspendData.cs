@@ -88,7 +88,7 @@ namespace Shmup.Core.Simulation
         /// Schema 16 stores eight stable power axes and a ship-specific gauge
         /// cursor. Schema 15 is rejected because its cursor assumed seven slots.
         /// </summary>
-        public const int CurrentSchemaVersion = 16;
+        public const int CurrentSchemaVersion = 17;
 
         [DataMember(Order = 0)]
         public int schemaVersion;

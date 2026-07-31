@@ -389,6 +389,12 @@ namespace Shmup.Core.Content
         public decimal? explosionRadius;
         [DataMember]
         public int? explosionMaxTargets;
+        [DataMember]
+        public int? damageGrowthPercentPerLevel;
+        [DataMember]
+        public int? dropDelayTicks;
+        [DataMember]
+        public int? homingTurnLutSlotsPerTick;
     }
 
     [DataContract]
@@ -424,6 +430,8 @@ namespace Shmup.Core.Content
         public int? spreadWays;
         [DataMember]
         public int? spreadStepLutSlots;
+        [DataMember]
+        public int[] shotAngleLutSlots;
     }
 
     [DataContract]
@@ -670,6 +678,8 @@ namespace Shmup.Core.Content
         public string gaugeWeaponFamily;
         [DataMember]
         public string[] powerUpGaugeSlots;
+        [DataMember]
+        public string missileFamily;
     }
 
     [DataContract]

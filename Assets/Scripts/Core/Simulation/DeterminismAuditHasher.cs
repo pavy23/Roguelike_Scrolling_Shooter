@@ -512,6 +512,7 @@ namespace Shmup.Core.Simulation
                 FoldInt32((int)bullet.Kind);
                 FoldInt32(bullet.X);
                 FoldInt32(bullet.Y);
+                FoldInt32(bullet.AgeTicks);
             }
 
             FoldInt32(battle.Options.Count);
