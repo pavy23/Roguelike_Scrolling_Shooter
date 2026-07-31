@@ -126,6 +126,9 @@ namespace Shmup.Presentation.Battle
             switch (nameKey)
             {
                 case "speed": return "SPEED";
+                case "mainshot":
+                case "main shot":
+                case "shot": return "SHOT";
                 case "missile": return "MISSILE";
                 case "double": return "DOUBLE";
                 case "laser": return "LASER";
