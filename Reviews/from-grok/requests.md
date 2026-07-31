@@ -4,22 +4,36 @@
 
 ---
 
+## 2026-07-31 REQ-077 — mid `slot_speed_1` 교체 (content 완료)
+
+**완료 (content):**  
+- `rewards.json`: `passive_move_speed_1` (`moveSpeedUp`) → **`slot_speed_1`** (`slotLevel` Speed×1, weight **4**, mid)  
+- 이중 성장 경제 제거; mid 풀 가중 유지  
+- BalanceSim: free mid Speed 필수, residual `moveSpeedUp` FAIL  
+**표:** `Reviews/from-grok/req077-slot-speed-mid-replacement-2026-07-31.md`  
+**선행:** REQ-076 (하니스 조준 수정 + `slot_speed_1` 회귀 테스트)
+
+### CLAUDE
+1. [ ] Resources `rewards.json` 동기화 (`slot_speed_1`)
+
+---
+
 ## 2026-07-31 REQ-075 — 7슬롯 게이지 + 레이저 적 (content 완료 · 후속 요청)
 
 **완료 (content):**  
 - `weapons.json` **v6**: `powerUpGauge` 7슬롯 + `primaryWeaponFamilies` 4종 + 슬롯별 비용  
 - `enemies.json`: `laser_sentry` / `prism_beamer` (+2 → 카탈로그 34)  
 - `waves.json`: scrap/nebula/fortress에 레이저 적 희소 배치  
-- `rewards.json`: `light_frame` → SlotLevel Speed×2; mid `moveSpeedUp` 잔류 (아래)  
+- `rewards.json`: `light_frame` → SlotLevel Speed×2; mid `moveSpeedUp` 잔류 → **REQ-077에서 `slot_speed_1`로 교체 완료**  
 **표:** `Reviews/from-grok/req075-seven-slot-gauge-laser-enemies-2026-07-31.md`  
 **검증:** 394/394 · BalanceSim all green · 시드 해시 일치
 
 ### CODEX
-1. [ ] DeterminismAudit `--suite` seed-0-first가 7슬롯 게이지 하에서 5/5 완주하지 못함 (틱 예산 소진, 보스 잔여 ~40 HP). 자동 플레이/예산/게이지 활성화 정책 조정.
-2. [ ] `CurrentMiniBossContent_FullRhythmRun…`: mid weight-4 카드가 `GrantLevels`/`Collect`면 rooms=3 hang. `moveSpeedUp`(컨피그만)은 통과. 수정 후 mid `passive_move_speed_1` → `slot_speed_1` 교체 가능.
+1. [x] DeterminismAudit `--suite` seed-0-first 7슬롯 하 완주 — REQ-076 감사 자동 플레이(공격 기여 슬롯 투자) + suite AUDIT PASS.
+2. [x] 리듬 하니스 hang — Core 아님, 보스 조준 문제. REQ-076 수정 + `slot_speed_1` 카탈로그 회귀 테스트. content는 REQ-077에서 mid 교체 완료.
 
 ### CLAUDE
-1. [ ] Resources `GameData` 동기화 (weapons v6, enemies 34, waves, rewards)
+1. [ ] Resources `GameData` 동기화 (weapons v6, enemies 34, waves, rewards — REQ-077 `slot_speed_1` 포함)
 2. [ ] 게이지 HUD nameKey 풀네임 (Speed / Missile / Double Shot / Laser / Triple Shot / Option / Shield)
 
 ---

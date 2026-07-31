@@ -33,13 +33,13 @@
       "pool": "mid"
     },
     {
-      "id": "passive_move_speed_1",
-      "type": "moveSpeedUp",
-      "amount": 3,
+      "id": "slot_speed_1",
+      "type": "slotLevel",
+      "slot": "Speed",
+      "amount": 1,
       "weight": 4,
       "stageIndexMin": 1,
       "stageIndexMax": 99,
-      "maxPerRun": 4,
       "pool": "mid"
     },
     {

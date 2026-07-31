@@ -5499,34 +5499,42 @@ static class Program
                 + "light_frame Speed+2/bombCap-1 · ammo_mod fire+2/capsule-2");
         }
 
-        // REQ-075: at least one SlotLevel Speed reward (free or costed).
-        // Residual mid moveSpeedUp may remain until the 1-tick rhythm harness
-        // tolerates frequent gauge mutations (CODEX follow-up).
-        bool hasSpeedSlotReward = false;
+        // REQ-077: free mid SlotLevel Speed (slot_speed_1) + costed light_frame.
+        // Dual moveSpeedUp economy retired after rhythm harness fix (REQ-076).
+        bool hasFreeMidSpeedSlot = false;
+        int residualMoveSpeedUp = 0;
         for (int i = 0; i < rewards.All.Count; i++)
         {
             RewardDefinition r = rewards.All[i];
             if (r.Type == RewardType.SlotLevel
                 && r.Slot == PowerUpSlot.Speed
-                && r.Amount >= 1)
-            {
-                hasSpeedSlotReward = true;
-                break;
-            }
+                && r.Amount >= 1
+                && (r.Costs == null || r.Costs.Count == 0)
+                && r.Pool == RewardPool.Mid)
+                hasFreeMidSpeedSlot = true;
+            if (r.Type == RewardType.MoveSpeedUp)
+                residualMoveSpeedUp++;
         }
 
-        if (!hasSpeedSlotReward)
+        if (!hasFreeMidSpeedSlot)
         {
             Console.WriteLine(
-                "FAIL rewards: missing SlotLevel Speed reward "
-                + "(REQ-075 gauge economy).");
+                "FAIL rewards: missing free mid SlotLevel Speed "
+                + "(REQ-077 slot_speed_1).");
+            failures++;
+        }
+        else if (residualMoveSpeedUp > 0)
+        {
+            Console.WriteLine(
+                $"FAIL rewards: {residualMoveSpeedUp} residual moveSpeedUp "
+                + "card(s) (dual economy retired in REQ-077).");
             failures++;
         }
         else
         {
             Console.WriteLine(
-                "  REQ-075 speed economy: SlotLevel Speed present "
-                + "(light_frame costed Speed+2); mid moveSpeedUp residual OK.");
+                "  REQ-077 speed economy: free mid slot_speed_1 + "
+                + "costed light_frame Speed+2; no moveSpeedUp dual path.");
         }
 
         if (failures == 0)
@@ -6156,36 +6164,38 @@ static class Program
             failures++;
         }
 
-        // REQ-075: SlotLevel Speed required. Residual moveSpeedUp is WARN-only
-        // (1-tick RhythmRunGenerator stalls if the weight-4 mid card mutates the
-        // gauge via Collect/GrantLevels — keep one non-gauge mid effect for now).
+        // REQ-077: free mid SlotLevel Speed required; moveSpeedUp dual path gone.
         RewardCatalog rewards = data.Rewards;
-        bool hasSpeedSlot = false;
+        bool hasFreeMidSpeedSlot = false;
         int moveSpeedUpCount = 0;
         for (int i = 0; i < rewards.All.Count; i++)
         {
             RewardDefinition r = rewards.All[i];
             if (r.Type == RewardType.SlotLevel
-                && r.Slot == PowerUpSlot.Speed)
-                hasSpeedSlot = true;
+                && r.Slot == PowerUpSlot.Speed
+                && (r.Costs == null || r.Costs.Count == 0)
+                && r.Pool == RewardPool.Mid)
+                hasFreeMidSpeedSlot = true;
             if (r.Type == RewardType.MoveSpeedUp)
                 moveSpeedUpCount++;
         }
-        if (!hasSpeedSlot)
+        if (!hasFreeMidSpeedSlot)
         {
             Console.WriteLine(
-                "FAIL rewards: missing SlotLevel Speed (REQ-075).");
+                "FAIL rewards: missing free mid SlotLevel Speed (REQ-077).");
             failures++;
         }
         else if (moveSpeedUpCount > 0)
         {
             Console.WriteLine(
-                $"WARN rewards: {moveSpeedUpCount} residual moveSpeedUp card(s) "
-                + "(dual economy soft; retire after rhythm harness fix).");
+                $"FAIL rewards: {moveSpeedUpCount} residual moveSpeedUp "
+                + "card(s) (dual economy retired in REQ-077).");
+            failures++;
         }
 
         if (failures == 0)
-            Console.WriteLine("PASS: REQ-075 seven-slot gauge + cost curve.");
+            Console.WriteLine(
+                "PASS: REQ-075/077 seven-slot gauge + single Speed economy.");
         return failures;
     }
 
