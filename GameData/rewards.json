@@ -1,7 +1,8 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "optionCount": 3,
   "maxCombinedModifierCost": 5,
+  "rerollCost": 5,
   "rewards": [
     {
       "id": "capsules_5",

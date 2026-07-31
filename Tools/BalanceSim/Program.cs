@@ -233,6 +233,10 @@ static class Program
         failures += CheckStageClearability(data);
         Console.WriteLine();
         failures += CheckSectorContractsAndCostedRewards(data);
+        Console.WriteLine();
+        failures += CheckTerminalContractsAndReroll(data);
+        Console.WriteLine();
+        failures += CheckStageShuffleClearability(data);
 
         Console.WriteLine();
         if (failures == 0)
@@ -5272,10 +5276,13 @@ static class Program
                 : c.GimmickIntensityNumerator
                     / (double)c.GimmickIntensityDenominator;
 
-            if (!ReferenceEquals(c, contracts.Standard))
+            if (!ReferenceEquals(c, contracts.Standard)
+                && c.DestinationKind == ContractDestinationKind.NextStage)
                 specialty++;
 
-            if (density > maxDensity)
+            // Density pressure only applies to mid-run nextStage routes.
+            if (c.DestinationKind == ContractDestinationKind.NextStage
+                && density > maxDensity)
             {
                 maxDensity = density;
                 densestId = c.Id;
@@ -5283,6 +5290,7 @@ static class Program
 
             // Low-risk specialty contracts must still carry a cost.
             if (!ReferenceEquals(c, contracts.Standard)
+                && c.DestinationKind == ContractDestinationKind.NextStage
                 && c.RiskTier == ContractRiskTier.Low
                 && c.IsNeutral)
             {
@@ -5292,17 +5300,20 @@ static class Program
                 failures++;
             }
 
+            string dest = c.DestinationKind == ContractDestinationKind.NextStage
+                ? ""
+                : $" dest={c.DestinationKind}";
             Console.WriteLine(
                 $"  {c.Id,-16} tier={c.RiskTier,-8} dens×{density:F2} "
                 + $"cap×{capsules:F2} gim×{gimmick:F2} "
                 + $"score×{score:F2} Δcards={c.RewardOptionCountDelta:+#;-#;0} "
-                + $"bombG={(c.GuaranteedBombDrop ? 1 : 0)} w={c.Weight}");
+                + $"bombG={(c.GuaranteedBombDrop ? 1 : 0)} w={c.Weight}{dest}");
         }
 
         if (specialty < 6 || specialty > 10)
         {
             Console.WriteLine(
-                $"FAIL contracts: specialty count {specialty} outside 6..10.");
+                $"FAIL contracts: nextStage specialty count {specialty} outside 6..10.");
             failures++;
         }
 
@@ -5485,6 +5496,465 @@ static class Program
         else
             Console.WriteLine($"FAIL: REQ-071 ({failures} failure(s)).");
         return failures;
+    }
+
+    /// <summary>
+    /// REQ-073: final-run contracts (endRun / uncharted) + capsule reroll cost
+    /// exchange ratio vs 1+L+L² gauge growth and stage capsule EV.
+    /// </summary>
+    static int CheckTerminalContractsAndReroll(GameDataSet data)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "REQ-073 terminal contracts + reroll cost (provisional §7):");
+
+        ContractCatalog contracts = data.Contracts;
+        if (contracts == null)
+        {
+            Console.WriteLine("FAIL terminal: waves.json.contracts missing.");
+            return 1;
+        }
+
+        ContractDefinition endRun = contracts.EndRun;
+        ContractDefinition uncharted = contracts.Uncharted;
+        if (endRun == null)
+        {
+            Console.WriteLine(
+                "FAIL terminal: missing endRun destination (id end_run).");
+            failures++;
+        }
+        else
+        {
+            bool ok = endRun.DestinationKind == ContractDestinationKind.EndRun
+                && endRun.RiskTier == ContractRiskTier.Safe
+                && endRun.Eligibility == ContractEligibility.Always
+                && endRun.IsNeutral;
+            Console.WriteLine(
+                $"  end_run: tier={endRun.RiskTier} dest={endRun.DestinationKind} "
+                + $"elig={endRun.Eligibility} neutral={endRun.IsNeutral} "
+                + $"[{(ok ? "ok" : "BAD")}]");
+            if (!ok)
+            {
+                Console.WriteLine(
+                    "FAIL terminal: end_run must be safe + always + neutral endRun.");
+                failures++;
+            }
+        }
+
+        if (uncharted == null)
+        {
+            Console.WriteLine(
+                "FAIL terminal: missing uncharted destination (id uncharted).");
+            failures++;
+        }
+        else
+        {
+            double score = uncharted.ScoreMultiplierDenominator == 0
+                ? 1.0
+                : uncharted.ScoreMultiplierNumerator
+                    / (double)uncharted.ScoreMultiplierDenominator;
+            bool ok =
+                uncharted.DestinationKind == ContractDestinationKind.Uncharted
+                && uncharted.RiskTier == ContractRiskTier.Extreme
+                && uncharted.Eligibility
+                    == ContractEligibility.HiddenBiomeUnlocked
+                && score >= 1.1
+                && score <= 1.5
+                && uncharted.IsEligible(3, 2, 0)
+                && !uncharted.IsEligible(2, 1, 0);
+            Console.WriteLine(
+                $"  uncharted: tier={uncharted.RiskTier} "
+                + $"dest={uncharted.DestinationKind} "
+                + $"elig={uncharted.Eligibility} score×{score:F2} "
+                + $"[{(ok ? "ok" : "BAD")}]");
+            if (!ok)
+            {
+                Console.WriteLine(
+                    "FAIL terminal: uncharted must be extreme + "
+                    + "hiddenBiomeUnlocked + modest score mult (1.1..1.5).");
+                failures++;
+            }
+        }
+
+        // Reroll cost band 4..6 (AGENTS.md §7 provisional).
+        int reroll = data.Rewards.RerollCost;
+        Console.WriteLine($"  rewards.rerollCost={reroll} (want 4..6)");
+        if (reroll < 4 || reroll > 6)
+        {
+            Console.WriteLine(
+                $"FAIL terminal: rerollCost {reroll} outside provisional 4..6.");
+            failures++;
+        }
+
+        // Exchange ratio: stage capsule EV vs cost curve 1+L+L² and one reroll.
+        double eStage1 = EstimateStageCapsuleEv(data, stage: 1);
+        double eStage2 = EstimateStageCapsuleEv(data, stage: 2);
+        double eStageAvg = (eStage1 + eStage2) / 2.0;
+        // Pure costs for L→L+1 under provisional 1+L+L².
+        int Cost(int level) => 1 + level + level * level;
+        int main2to3 = Cost(2); // 7
+        int main1to2 = Cost(1); // 3
+        int main0to1 = Cost(0); // 1
+        double rerollsPerStage = eStageAvg / Math.Max(1, reroll);
+        double levelShare = reroll / (double)main2to3;
+        double earlyLevelShare = reroll / (double)(main0to1 + main1to2); // 4
+
+        Console.WriteLine(
+            $"  capsule EV S1≈{eStage1:F2} S2≈{eStage2:F2} avg≈{eStageAvg:F2}");
+        Console.WriteLine(
+            $"  gauge cost 1+L+L²: L0→1={main0to1} L1→2={main1to2} "
+            + $"L2→3={main2to3}");
+        Console.WriteLine(
+            $"  exchange: 1 reroll = {reroll} caps "
+            + $"≈ {levelShare:P0} of Main2→3 ({main2to3}) "
+            + $"≈ {earlyLevelShare:P0} of early climb L0→2 ({main0to1 + main1to2})");
+        Console.WriteLine(
+            $"  stage budget: ≈{rerollsPerStage:F1} rerolls/stage if all caps spent on reroll "
+            + $"(target 1.5..3.5 — not free spam, not dead button)");
+
+        if (rerollsPerStage < 1.5 || rerollsPerStage > 3.5)
+        {
+            Console.WriteLine(
+                $"FAIL terminal: reroll/stage budget {rerollsPerStage:F1} "
+                + "outside 1.5..3.5 — retune cost or capsule EV.");
+            failures++;
+        }
+
+        if (levelShare < 0.45 || levelShare > 1.0)
+        {
+            Console.WriteLine(
+                $"FAIL terminal: reroll vs Main2→3 share {levelShare:P0} "
+                + "outside 45%..100%.");
+            failures++;
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-073 terminal contracts + reroll exchange.");
+        else
+            Console.WriteLine($"FAIL: REQ-073 terminal ({failures} failure(s)).");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-073: stage 2–4 theme shuffle must keep difficulty ordered by stage
+    /// index, and nebula-as-stage-2 (vision + drift early) must remain clearable.
+    /// </summary>
+    static int CheckStageShuffleClearability(GameDataSet data)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "REQ-073 stage shuffle clearability (provisional §7):");
+
+        StageGenerationCatalog catalog = data.StageGeneration;
+        BattleContent content = data.BattleContent;
+        if (catalog.ThemeIds.Count < 5)
+        {
+            Console.WriteLine(
+                $"FAIL shuffle: need ≥5 themes, have {catalog.ThemeIds.Count}.");
+            return 1;
+        }
+
+        string fixedFirst = catalog.ThemeIds[0];
+        string fixedLast = catalog.ThemeIds[4];
+        string[] middle =
+        {
+            catalog.ThemeIds[1],
+            catalog.ThemeIds[2],
+            catalog.ThemeIds[3]
+        };
+        Console.WriteLine(
+            $"  fixed ends: S1={fixedFirst} · S5={fixedLast} · "
+            + $"shuffle pool=[{string.Join(",", middle)}]");
+
+        // Midboss average (stage-agnostic pool).
+        var midBosses = new List<EnemyDefinition>();
+        for (int i = 0; i < content.Enemies.Count; i++)
+        {
+            EnemyDefinition e = content.Enemies[i];
+            if (e.Id.StartsWith("mini_", StringComparison.Ordinal))
+                midBosses.Add(e);
+        }
+
+        if (midBosses.Count == 0)
+        {
+            Console.WriteLine("FAIL shuffle: no mini_* midbosses.");
+            return 1;
+        }
+
+        double midAvg = 0;
+        int midWorst = 0;
+        for (int i = 0; i < midBosses.Count; i++)
+        {
+            midAvg += midBosses[i].MaxHp;
+            if (midBosses[i].MaxHp > midWorst)
+                midWorst = midBosses[i].MaxHp;
+        }
+
+        midAvg /= midBosses.Count;
+
+        // Reach DPS by stage ordinal (growth through the run, not by theme).
+        double[] reachDpsByStage =
+        {
+            Math.Max(
+                TheoreticalMainShotDps(
+                    content.FindWeapon(PowerUpSlot.MainShot),
+                    data.FindShip("starter")
+                        .ExportStartingPowerUpLevels()[(int)PowerUpSlot.MainShot])
+                    * 1.15,
+                BossExpectedDps[0].ExpectedDps * 0.85),
+            BossExpectedDps[1].ExpectedDps,
+            BossExpectedDps[2].ExpectedDps,
+            BossExpectedDps[3].ExpectedDps,
+            BossExpectedDps[4].ExpectedDps,
+        };
+
+        // Soft gate: S2 full TTK at mid skill must stay learnable even with
+        // nebula early (vision + drift tax). Later stages report only.
+        const double MaxStage2FullTtkSeconds = 160.0;
+        const double MaxStage2ExpectedHits = 3.75;
+        // Nebula vision+drift mid-skill uptime tax (presentation vision; drift is real).
+        const double NebulaUptimeFactor = 0.88;
+
+        var perms = new List<string[]>();
+        PermuteThemes(middle, 0, perms);
+
+        Console.WriteLine(
+            "  order table: S2/S3/S4 themes · S2 poolHP · S2 TTK · S2 hits · "
+            + "S2→S3 HP jump · verdict");
+
+        double worstS2Ttk = 0;
+        string worstOrder = "";
+        int nebulaSecondClear = 0;
+        int nebulaSecondTotal = 0;
+
+        foreach (string[] mid in perms)
+        {
+            string[] order =
+            {
+                fixedFirst,
+                mid[0],
+                mid[1],
+                mid[2],
+                fixedLast
+            };
+
+            double prevPoolHp = -1;
+            double s2Ttk = 0;
+            double s2Hits = 0;
+            double s2Pool = 0;
+            double jump23 = 0;
+            bool s2Clear = true;
+            var row = new System.Text.StringBuilder();
+            row.Append($"  [{mid[0],-8}/{mid[1],-8}/{mid[2],-8}]");
+
+            for (int stage = 1; stage <= 5; stage++)
+            {
+                string theme = order[stage - 1];
+                int difficulty = stage;
+                long poolHpWeighted = 0;
+                int poolWeight = 0;
+                int poolCount = 0;
+                int driftSegs = 0;
+                foreach (StageSegmentTemplate seg in catalog.Segments)
+                {
+                    if (!seg.SupportsDifficulty(difficulty)
+                        || !seg.SupportsTheme(theme))
+                        continue;
+                    int hp = SegmentSpawnHp(seg, content);
+                    int w = Math.Max(1, seg.Weight);
+                    poolHpWeighted += (long)hp * w;
+                    poolWeight += w;
+                    poolCount++;
+                    if (seg.Environment != null && seg.Environment.HasDrift)
+                        driftSegs++;
+                }
+
+                if (poolCount == 0 || poolWeight == 0)
+                {
+                    Console.WriteLine(
+                        $"FAIL shuffle: empty pool theme={theme} "
+                        + $"stage={stage} diff={difficulty}.");
+                    failures++;
+                    s2Clear = false;
+                    break;
+                }
+
+                double avgSegHp = poolHpWeighted / (double)poolWeight;
+                double openCloseHp = avgSegHp * catalog.SegmentsPerStage * 2.0;
+
+                StageBossTemplate boss = FindBossForTheme(catalog, theme);
+                if (boss == null)
+                {
+                    Console.WriteLine(
+                        $"FAIL shuffle: no boss for theme '{theme}'.");
+                    failures++;
+                    s2Clear = false;
+                    break;
+                }
+
+                double totalAvg = openCloseHp + midAvg + boss.MaxHp;
+                double dps = reachDpsByStage[stage - 1];
+                double uptime = MidSkillHitUptime;
+                if (string.Equals(theme, "nebula", StringComparison.Ordinal))
+                    uptime *= NebulaUptimeFactor;
+                double effDps = dps * uptime;
+                double fullTtk = totalAvg / effDps;
+                double midTtk = midAvg / Math.Max(1.0, dps * MidSkillHitUptime);
+                double bossTtk = boss.MaxHp / Math.Max(1.0, effDps);
+                double expectedHits =
+                    0.30 * 2.0
+                    + midTtk / 14.0
+                    + bossTtk / 20.0
+                    + (driftSegs > 0 ? 0.15 : 0.0);
+
+                if (stage == 2)
+                {
+                    s2Ttk = fullTtk;
+                    s2Hits = expectedHits;
+                    s2Pool = avgSegHp;
+                    s2Clear = fullTtk <= MaxStage2FullTtkSeconds
+                        && expectedHits <= MaxStage2ExpectedHits;
+                    if (fullTtk > worstS2Ttk)
+                    {
+                        worstS2Ttk = fullTtk;
+                        worstOrder = string.Join(">", mid);
+                    }
+                }
+
+                if (stage == 3 && prevPoolHp > 0)
+                    jump23 = avgSegHp / prevPoolHp;
+
+                if (stage >= 2)
+                    prevPoolHp = avgSegHp;
+            }
+
+            bool nebulaSecond = string.Equals(
+                mid[0],
+                "nebula",
+                StringComparison.Ordinal);
+            if (nebulaSecond)
+            {
+                nebulaSecondTotal++;
+                if (s2Clear)
+                    nebulaSecondClear++;
+            }
+
+            string verdict = s2Clear ? "CLEAR" : "WALL";
+            if (nebulaSecond)
+                verdict += " nebula@S2";
+            Console.WriteLine(
+                $"{row} S2pool={s2Pool,5:F0} TTK={s2Ttk,5:F0}s "
+                + $"hits≈{s2Hits:F2} jump23={jump23:F2}× [{verdict}]");
+
+            if (!s2Clear)
+            {
+                Console.WriteLine(
+                    $"FAIL shuffle: S2 not clearable for order "
+                    + $"{string.Join(">", mid)} "
+                    + $"(TTK {s2Ttk:F0}s / hits {s2Hits:F2}).");
+                failures++;
+            }
+        }
+
+        Console.WriteLine(
+            $"  permutations={perms.Count} · nebula@S2 clear "
+            + $"{nebulaSecondClear}/{nebulaSecondTotal} · "
+            + $"worst S2 TTK={worstS2Ttk:F0}s ({worstOrder})");
+
+        // Difficulty must not invert inside a run: S2 pool HP < S4 pool HP
+        // for every shuffle order (including nebula early vs light late theme).
+        foreach (string[] mid in perms)
+        {
+            double s2 = WeightedThemePoolHp(catalog, content, mid[0], 2);
+            double s4 = WeightedThemePoolHp(catalog, content, mid[2], 4);
+            if (s2 <= 0 || s4 <= 0)
+                continue;
+            double ratio = s2 / s4;
+            bool nebulaSecond = string.Equals(
+                mid[0],
+                "nebula",
+                StringComparison.Ordinal);
+            Console.WriteLine(
+                $"  order {mid[0]}>{mid[1]}>{mid[2]}: "
+                + $"S2pool/S4pool {s2:F0}/{s4:F0} = {ratio:F2}× "
+                + (nebulaSecond ? "(nebula@S2) " : "")
+                + (ratio < 1.0 ? "[monoOK]" : "[INVERT]"));
+            if (ratio >= 1.0)
+            {
+                Console.WriteLine(
+                    "FAIL shuffle: S2 pool ≥ S4 pool "
+                    + $"(ratio {ratio:F2}) — stage ordinal difficulty inverted.");
+                failures++;
+            }
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-073 stage shuffle clearability.");
+        else
+            Console.WriteLine($"FAIL: REQ-073 shuffle ({failures} failure(s)).");
+        return failures;
+    }
+
+    static void PermuteThemes(
+        string[] items,
+        int start,
+        List<string[]> results)
+    {
+        if (start >= items.Length - 1)
+        {
+            var copy = new string[items.Length];
+            Array.Copy(items, copy, items.Length);
+            results.Add(copy);
+            return;
+        }
+
+        for (int i = start; i < items.Length; i++)
+        {
+            string tmp = items[start];
+            items[start] = items[i];
+            items[i] = tmp;
+            PermuteThemes(items, start + 1, results);
+            items[i] = items[start];
+            items[start] = tmp;
+        }
+    }
+
+    static StageBossTemplate FindBossForTheme(
+        StageGenerationCatalog catalog,
+        string theme)
+    {
+        for (int b = 0; b < catalog.Bosses.Count; b++)
+        {
+            StageBossTemplate boss = catalog.Bosses[b];
+            if (boss.BossId.StartsWith("boss_leviathan", StringComparison.Ordinal)
+                || boss.BossId.StartsWith("boss_brood", StringComparison.Ordinal))
+                continue;
+            if (string.Equals(boss.ThemeId, theme, StringComparison.Ordinal))
+                return boss;
+        }
+
+        return null;
+    }
+
+    static double WeightedThemePoolHp(
+        StageGenerationCatalog catalog,
+        BattleContent content,
+        string theme,
+        int difficulty)
+    {
+        long poolHpWeighted = 0;
+        int poolWeight = 0;
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            if (!seg.SupportsDifficulty(difficulty) || !seg.SupportsTheme(theme))
+                continue;
+            int hp = SegmentSpawnHp(seg, content);
+            int w = Math.Max(1, seg.Weight);
+            poolHpWeighted += (long)hp * w;
+            poolWeight += w;
+        }
+
+        return poolWeight == 0 ? 0.0 : poolHpWeighted / (double)poolWeight;
     }
 
     static double TheoreticalMainShotDps(WeaponDefinition main, int gaugeLevel)

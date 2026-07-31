@@ -1251,9 +1251,23 @@ namespace Shmup.Core.Tests
             // + bomb_stock_1 (REQ-067)
             // + 5 costed rewards (REQ-071).
             Assert.AreEqual(25, data.Rewards.All.Count);
+            // REQ-073: schema v5 exposes capsule reroll cost (provisional §7 = 5).
+            Assert.AreEqual(5, data.Rewards.RerollCost);
             Assert.IsNotNull(data.Contracts);
             Assert.AreEqual("standard_route", data.Contracts.Standard.Id);
-            Assert.AreEqual(9, data.Contracts.All.Count);
+            // 1 standard + 8 nextStage specialty + end_run + uncharted (REQ-073).
+            Assert.AreEqual(11, data.Contracts.All.Count);
+            Assert.IsNotNull(data.Contracts.EndRun);
+            Assert.AreEqual(
+                ContractDestinationKind.EndRun,
+                data.Contracts.EndRun.DestinationKind);
+            Assert.IsNotNull(data.Contracts.Uncharted);
+            Assert.AreEqual(
+                ContractDestinationKind.Uncharted,
+                data.Contracts.Uncharted.DestinationKind);
+            Assert.AreEqual(
+                ContractEligibility.HiddenBiomeUnlocked,
+                data.Contracts.Uncharted.Eligibility);
             Assert.AreEqual(3, data.Ships.Count);
             Assert.AreEqual(
                 WeaponType.Vulcan,
