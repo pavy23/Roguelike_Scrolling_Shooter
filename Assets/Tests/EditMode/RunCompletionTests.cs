@@ -355,16 +355,17 @@ namespace Shmup.Core.Tests
         {
             BattleContent content = CreateRhythmContent(data);
             BattleSimConfig config = CreateRhythmConfig();
+            ShipDefinition ship = CreateRhythmShip(data.DefaultShip);
             var run = new RunManager(
                 seed,
                 new RhythmRunGenerator("damage_probe"),
                 config,
                 content,
-                data.CreatePowerUpGauge(),
+                data.CreatePowerUpGauge(ship),
                 new MetaProgression(1, 1),
                 StageDifficultyCurve.CreateDefault(),
                 rewards ?? data.Rewards,
-                null,
+                ship,
                 1,
                 1,
                 RunProgressionConfig.CreateDefault());
@@ -465,6 +466,28 @@ namespace Shmup.Core.Tests
                 run.RouteChoiceHistory.Count,
                 run.Statistics.RoomsCleared,
                 run.State);
+        }
+
+        static ShipDefinition CreateRhythmShip(ShipDefinition source)
+        {
+            return new ShipDefinition(
+                source.Id,
+                source.DisplayName,
+                source.MoveSpeedMultiplierNumerator,
+                source.MoveSpeedMultiplierDenominator,
+                source.ExportStartingPowerUpLevels(),
+                source.UnlockCost,
+                source.WeaponType,
+                source.StartingShieldStock,
+                PrimaryWeaponFamily.Double,
+                new[]
+                {
+                    PowerUpSlot.Speed,
+                    PowerUpSlot.Missile,
+                    PowerUpSlot.Double,
+                    PowerUpSlot.Option,
+                    PowerUpSlot.Shield
+                });
         }
 
         static RewardCatalog EnsureMidSpeedSlotReward(

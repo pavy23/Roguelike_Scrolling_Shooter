@@ -36,6 +36,33 @@ namespace Shmup.Core.Generation
             EncounterType encounterType);
     }
 
+    public enum StageRouteSection
+    {
+        Default = 0,
+        Closing = 1
+    }
+
+    /// <summary>
+    /// Optional route extension for section-specific data knobs. Legacy route
+    /// generators keep using IRouteStageGenerator unchanged.
+    /// </summary>
+    public interface ISectionRouteStageGenerator
+    {
+        bool CanGenerateRouteForSection(
+            string themeId,
+            int stageIndex,
+            int difficulty,
+            EncounterType encounterType,
+            StageRouteSection section);
+        StagePlan GenerateRouteForSection(
+            ulong seed,
+            int stageIndex,
+            int difficulty,
+            string themeId,
+            EncounterType encounterType,
+            StageRouteSection section);
+    }
+
     public enum ColossalBossKind
     {
         None = 0,

@@ -108,7 +108,8 @@ namespace Shmup.Core
             int maxLevel,
             PowerUpCostCurve costCurve,
             int speedBonusNumerator = 0,
-            int speedBonusDenominator = 1)
+            int speedBonusDenominator = 1,
+            bool activatesImmediately = false)
         {
             if (slot == PowerUpSlot.MainShot
                 || !Enum.IsDefined(typeof(PowerUpSlot), slot))
@@ -136,6 +137,10 @@ namespace Shmup.Core
                 throw new ArgumentException(
                     "Mutually-exclusive weapon mode slots must have maxLevel 1.",
                     nameof(maxLevel));
+            if (activatesImmediately && !IsWeaponModeSlot(slot))
+                throw new ArgumentException(
+                    "Only a weapon mode slot can activate immediately.",
+                    nameof(activatesImmediately));
             costCurve.GetCostForCurrentLevel(maxLevel - 1);
 
             Slot = slot;
@@ -144,6 +149,7 @@ namespace Shmup.Core
             CostCurve = costCurve;
             SpeedBonusNumerator = speedBonusNumerator;
             SpeedBonusDenominator = speedBonusDenominator;
+            ActivatesImmediately = activatesImmediately;
         }
 
         public PowerUpSlot Slot { get; }
@@ -152,6 +158,11 @@ namespace Shmup.Core
         public PowerUpCostCurve CostCurve { get; }
         public int SpeedBonusNumerator { get; }
         public int SpeedBonusDenominator { get; }
+        /// <summary>
+        /// A ship-owned weapon slot switches family on its first activation.
+        /// Legacy seven-slot gauges retain partial-investment behavior.
+        /// </summary>
+        public bool ActivatesImmediately { get; }
         public bool IsWeaponMode => IsWeaponModeSlot(Slot);
 
         internal static bool IsWeaponModeSlot(PowerUpSlot slot)
@@ -205,6 +216,7 @@ namespace Shmup.Core
     {
         public const int SlotCount = 8;
         public const int DefaultGaugeSlotCount = 7;
+        public const int ShipGaugeSlotCount = 5;
         public const int NoSelection = -1;
 
         readonly int[] _levels = new int[SlotCount];
@@ -246,12 +258,18 @@ namespace Shmup.Core
                     nameof(mainShotMaxLevel));
             if (gaugeSlots == null)
                 throw new ArgumentNullException(nameof(gaugeSlots));
-            if (gaugeSlots.Count != DefaultGaugeSlotCount)
+            if (gaugeSlots.Count != DefaultGaugeSlotCount
+                && gaugeSlots.Count != ShipGaugeSlotCount)
                 throw new ArgumentException(
-                    $"The complete gauge requires exactly "
-                    + $"{DefaultGaugeSlotCount} visible slots.",
+                    $"The gauge requires exactly {ShipGaugeSlotCount} "
+                    + $"or {DefaultGaugeSlotCount} visible slots.",
                     nameof(gaugeSlots));
 
+            for (int i = 0; i < SlotCount; i++)
+            {
+                _maxLevels[i] = 0;
+                _costCurves[i] = PowerUpCostCurve.FlatOne;
+            }
             _maxLevels[(int)PowerUpSlot.MainShot] =
                 mainShotMaxLevel;
             _costCurves[(int)PowerUpSlot.MainShot] =
@@ -280,11 +298,7 @@ namespace Shmup.Core
                 _maxLevels[stateIndex] = definition.MaxLevel;
                 _costCurves[stateIndex] = definition.CostCurve;
             }
-            for (int i = 0; i < seen.Length; i++)
-                if (!seen[i])
-                    throw new ArgumentException(
-                        $"Gauge slot '{(PowerUpSlot)i}' is missing.",
-                        nameof(gaugeSlots));
+            ValidateVisibleSlots(seen, gaugeSlots.Count);
             _readOnlyGaugeSlots =
                 Array.AsReadOnly(_gaugeSlots);
         }
@@ -340,6 +354,12 @@ namespace Shmup.Core
         public int GetRequiredCapsules(PowerUpSlot slot)
         {
             int index = ValidateSlot(slot);
+            PowerUpSlotDefinition definition =
+                FindDefinitionOrNull(slot);
+            if (definition != null
+                && definition.ActivatesImmediately
+                && _levels[index] < _maxLevels[index])
+                return 1;
             return _levels[index] >= _maxLevels[index]
                 ? 0
                 : _costCurves[index]
@@ -355,6 +375,12 @@ namespace Shmup.Core
                 || currentLevel > _maxLevels[index])
                 throw new ArgumentOutOfRangeException(
                     nameof(currentLevel));
+            PowerUpSlotDefinition definition =
+                FindDefinitionOrNull(slot);
+            if (definition != null
+                && definition.ActivatesImmediately
+                && currentLevel < _maxLevels[index])
+                return 1;
             return currentLevel == _maxLevels[index]
                 ? 0
                 : _costCurves[index]
@@ -418,8 +444,18 @@ namespace Shmup.Core
                 return LastActivationResult;
             }
 
-            _progress[stateIndex]++;
+            PowerUpSlotDefinition definition =
+                _gaugeSlots[Cursor];
             Cursor = NoSelection;
+            if (definition.ActivatesImmediately)
+            {
+                ActivateWeaponMode(slot);
+                LastActivationResult =
+                    PowerUpActivationResult.LevelIncreased;
+                return LastActivationResult;
+            }
+
+            _progress[stateIndex]++;
             int required = _costCurves[stateIndex]
                 .GetCostForCurrentLevel(_levels[stateIndex]);
             if (_progress[stateIndex] < required)
@@ -448,6 +484,8 @@ namespace Shmup.Core
                 throw new ArgumentOutOfRangeException(nameof(amount));
             int index = ValidateSlot(slot);
             int previous = _levels[index];
+            if (_maxLevels[index] == 0)
+                return 0;
             if (PowerUpSlotDefinition.IsWeaponModeSlot(slot)
                 && amount > 0)
             {
@@ -519,10 +557,9 @@ namespace Shmup.Core
                         nameof(levels));
                 int restoredProgress =
                     progress == null ? 0 : progress[i];
-                int required = levels[i] >= _maxLevels[i]
-                    ? 0
-                    : _costCurves[i]
-                        .GetCostForCurrentLevel(levels[i]);
+                int required = GetRequiredCapsulesForLevel(
+                    (PowerUpSlot)i,
+                    levels[i]);
                 if (restoredProgress < 0
                     || (required == 0 && restoredProgress != 0)
                     || (required > 0
@@ -598,10 +635,51 @@ namespace Shmup.Core
 
         PowerUpSlotDefinition FindDefinition(PowerUpSlot slot)
         {
+            PowerUpSlotDefinition definition =
+                FindDefinitionOrNull(slot);
+            if (definition != null)
+                return definition;
+            throw new ArgumentOutOfRangeException(nameof(slot));
+        }
+
+        PowerUpSlotDefinition FindDefinitionOrNull(PowerUpSlot slot)
+        {
             for (int i = 0; i < _gaugeSlots.Length; i++)
                 if (_gaugeSlots[i].Slot == slot)
                     return _gaugeSlots[i];
-            throw new ArgumentOutOfRangeException(nameof(slot));
+            return null;
+        }
+
+        static void ValidateVisibleSlots(bool[] seen, int gaugeSlotCount)
+        {
+            PowerUpSlot[] required =
+            {
+                PowerUpSlot.Speed,
+                PowerUpSlot.Missile,
+                PowerUpSlot.Option,
+                PowerUpSlot.Shield
+            };
+            for (int i = 0; i < required.Length; i++)
+                if (!seen[(int)required[i]])
+                    throw new ArgumentException(
+                        $"Gauge slot '{required[i]}' is missing.",
+                        "gaugeSlots");
+
+            int weaponModes = 0;
+            for (int i = (int)PowerUpSlot.Double;
+                i <= (int)PowerUpSlot.Triple;
+                i++)
+            {
+                if (seen[i])
+                    weaponModes++;
+            }
+            int expectedModes =
+                gaugeSlotCount == DefaultGaugeSlotCount ? 3 : 1;
+            if (weaponModes != expectedModes)
+                throw new ArgumentException(
+                    $"The {gaugeSlotCount}-slot gauge requires exactly "
+                    + $"{expectedModes} weapon mode slot(s).",
+                    "gaugeSlots");
         }
 
         static int ValidateSlot(PowerUpSlot slot)

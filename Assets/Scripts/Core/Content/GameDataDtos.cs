@@ -223,6 +223,8 @@ namespace Shmup.Core.Content
         [DataMember]
         public int? segmentsPerStage;
         [DataMember]
+        public int? closingSegmentsPerStage;
+        [DataMember]
         public int? startLaneMask;
         [DataMember]
         public string[] themes;
@@ -662,6 +664,12 @@ namespace Shmup.Core.Content
         public string weaponType;
         [DataMember]
         public int? maxHp;
+        [DataMember]
+        public int? startingShieldStock;
+        [DataMember]
+        public string gaugeWeaponFamily;
+        [DataMember]
+        public string[] powerUpGaugeSlots;
     }
 
     [DataContract]

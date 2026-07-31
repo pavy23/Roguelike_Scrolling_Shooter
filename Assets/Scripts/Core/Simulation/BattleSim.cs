@@ -1092,6 +1092,11 @@ namespace Shmup.Core.Simulation
         ReadOnlySpan<SimEvent> EventsThisTick { get; }
         /// <summary>보스전 진행 중 여부. false면 Boss 값은 무의미하다.</summary>
         bool BossActive { get; }
+        /// <summary>
+        /// True while the boss is gliding from fully off-screen to its combat
+        /// hold point. Entry is non-firing and invulnerable.
+        /// </summary>
+        bool BossEntering { get; }
         BossState Boss { get; }
         /// <summary>Stable allocation-free view of multipart boss state.</summary>
         IReadOnlyList<BossPartState> BossParts { get; }
@@ -1298,6 +1303,7 @@ namespace Shmup.Core.Simulation
         // 보스 (REQ-007). _bossMaxHp == 0 이면 이 스테이지에 보스전 없음.
         readonly int _bossMaxHp, _bossRuntimeMaxHp;
         readonly int _bossHalfWidth, _bossHalfHeight, _bossHoldX;
+        readonly int _bossSpawnX, _bossEntryStartTick;
         readonly IReadOnlyList<Generation.BossPhase> _bossPhases;
         readonly IReadOnlyList<BossPartDefinition> _bossPartDefinitions;
         readonly BossPartState[] _bossPartStates;
@@ -1319,8 +1325,8 @@ namespace Shmup.Core.Simulation
         readonly bool _bossUsesTimedPattern;
         int _bossSuctionXRemainder, _bossSuctionYRemainder;
 
-        const int BossEntrySpeedPerTick = 16;                          // 서브유닛/틱
         const int BossHoverAmplitude = 3 * SimSpace.SubUnitsPerWorldUnit;
+        const int BossGlideSpeedPerTick = 64;
         const int BossHoverPeriodShift = 2;                            // age >> 2 → 약 4.3초 주기
         const int SpreadStepLutSlots = 2;                              // n-way 간격 = 11.25°
         const int SpiralStepLutSlots = 2;
@@ -1818,6 +1824,19 @@ namespace Shmup.Core.Simulation
                 _scheduledSpawns = Array.Empty<ScheduledSpawn>();
                 _scheduledObstacles = Array.Empty<ScheduledObstacle>();
             }
+            _bossSpawnX = Math.Max(
+                _bossHoldX,
+                SaturateToInt(
+                    (long)SimSpace.PlayfieldHalfWidthSubUnits
+                    + GetBossLeftExtent()
+                    + 1));
+            int bossEntryDistance =
+                Math.Max(0, _bossSpawnX - _bossHoldX);
+            int bossEntryTicks =
+                (bossEntryDistance + BossGlideSpeedPerTick - 1)
+                / BossGlideSpeedPerTick;
+            _bossEntryStartTick =
+                Math.Max(0, _stageTotalTicks - bossEntryTicks);
 
             int bulletCapacity = _maxBullets + _maxEnemyBullets;
             _bullets = new List<BulletState>(bulletCapacity);
@@ -2023,6 +2042,8 @@ namespace Shmup.Core.Simulation
         public bool TimeLimitExpired => _timeLimitExpired;
         public ReadOnlySpan<SimEvent> EventsThisTick => new ReadOnlySpan<SimEvent>(_events, 0, _eventCount);
         public bool BossActive => _bossSpawned && !_bossDefeated;
+        public bool BossEntering =>
+            BossActive && _bossX > _bossHoldX;
         public BossState Boss => new BossState(
             _bossId,
             _bossX,
@@ -2647,7 +2668,9 @@ namespace Shmup.Core.Simulation
                 TryDropBomb(definition, enemy.X, enemy.Y);
             }
 
-            if (!BossActive || !IsOnScreen(_bossX, _bossY))
+            if (BossEntering
+                || !BossActive
+                || !IsOnScreen(_bossX, _bossY))
                 return;
             if (_bossPartStates.Length == 0)
             {
@@ -3495,15 +3518,12 @@ namespace Shmup.Core.Simulation
 
             if (!_bossSpawned)
             {
-                if (Tick < _stageTotalTicks) return;
+                if (Tick < _bossEntryStartTick) return;
                 if (_nextEnemyId == int.MaxValue)
                     throw new InvalidOperationException("The enemy id counter is exhausted.");
                 _bossSpawned = true;
                 _bossId = _nextEnemyId++;
-                _bossX = Math.Max(
-                    _bossHoldX,
-                    SaturateToInt(
-                        (long)_bulletDespawnX + 2 * SimSpace.SubUnitsPerWorldUnit));
+                _bossX = _bossSpawnX;
                 _bossY = 0;
                 _bossHp = _bossMaxHp;
                 _bossPhase = 0;
@@ -3529,14 +3549,16 @@ namespace Shmup.Core.Simulation
                 return;
             }
 
-            _bossAge++;
             if (_bossX > _bossHoldX)
             {
-                _bossX = Math.Max(_bossHoldX, _bossX - BossEntrySpeedPerTick);
+                _bossX = Math.Max(
+                    _bossHoldX,
+                    _bossX - BossGlideSpeedPerTick);
                 RefreshBossPartPositions();
                 return;   // 진입 중에는 사격하지 않는다 (등장 연출 여유)
             }
 
+            _bossAge++;
             AdvanceTimedBossPhase();
             EmitPendingBossTelegraph();
             Generation.BossPhase phase = _bossPhases[_bossPhase];
@@ -3569,6 +3591,21 @@ namespace Shmup.Core.Simulation
                         nameof(phases));
             }
             return timed;
+        }
+
+        int GetBossLeftExtent()
+        {
+            int extent = _bossHalfWidth;
+            for (int i = 0; i < _bossPartDefinitions.Count; i++)
+            {
+                BossPartDefinition part =
+                    _bossPartDefinitions[i];
+                extent = Math.Max(
+                    extent,
+                    SaturateToInt(
+                        (long)part.HalfWidth - part.OffsetX));
+            }
+            return Math.Max(0, extent);
         }
 
         void AdvanceTimedBossPhase()
@@ -4146,6 +4183,8 @@ namespace Shmup.Core.Simulation
 
         bool IsBossPartInvulnerable(int partIndex)
         {
+            if (BossEntering)
+                return true;
             BossPartVulnerability vulnerability =
                 _bossPhases[_bossPhase].PartVulnerability;
             switch (vulnerability)
@@ -4340,7 +4379,7 @@ namespace Shmup.Core.Simulation
 
         void ResolvePlayerBulletBossCollisions()
         {
-            if (!BossActive) return;
+            if (!BossActive || BossEntering) return;
 
             int bulletIndex = 0;
             while (bulletIndex < _bullets.Count)
@@ -4430,7 +4469,7 @@ namespace Shmup.Core.Simulation
 
         bool ApplyDamageToBossPart(int partIndex, int damage)
         {
-            if (!BossActive || damage <= 0
+            if (!BossActive || BossEntering || damage <= 0
                 || partIndex < 0
                 || partIndex >= _bossPartStates.Length)
                 return false;
@@ -4491,7 +4530,7 @@ namespace Shmup.Core.Simulation
 
         bool ApplyDamageToBoss(int damage)
         {
-            if (!BossActive || damage <= 0)
+            if (!BossActive || BossEntering || damage <= 0)
                 return false;
             _bossHp = Damage.ApplyToHp(_bossHp, damage);
             if (_bossHp > 0)
@@ -5371,7 +5410,9 @@ namespace Shmup.Core.Simulation
                 targetY = candidate.Y;
             }
 
-            if (BossActive && _bossId != excludedId)
+            if (BossActive
+                && !BossEntering
+                && _bossId != excludedId)
             {
                 long distance = SquaredDistanceSaturated(
                     originX,
@@ -5402,7 +5443,9 @@ namespace Shmup.Core.Simulation
                 y = _enemies[i].Y;
                 return true;
             }
-            if (BossActive && _bossId == targetId)
+            if (BossActive
+                && !BossEntering
+                && _bossId == targetId)
             {
                 x = _bossX;
                 y = _bossY;
@@ -5652,7 +5695,9 @@ namespace Shmup.Core.Simulation
                 // cannot seed kill_explosion chains (REQ-034).
             }
 
-            if (BossActive && _bossPartDefinitions.Count == 0
+            if (BossActive
+                && !BossEntering
+                && _bossPartDefinitions.Count == 0
                 && SquaredDistanceSaturated(
                     centerX,
                     centerY,
@@ -5661,7 +5706,7 @@ namespace Shmup.Core.Simulation
             {
                 ApplyDamageToBoss(damage);
             }
-            else if (BossActive)
+            else if (BossActive && !BossEntering)
             {
                 for (int i = 0;
                     i < _bossPartStates.Length

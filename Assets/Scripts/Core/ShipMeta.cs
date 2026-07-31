@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Runtime.Serialization;
 using Shmup.Core.Generation;
+using Shmup.Core.Simulation;
 
 namespace Shmup.Core
 {
@@ -22,6 +23,8 @@ namespace Shmup.Core
     {
         readonly int[] _startingPowerUpLevels;
         readonly ReadOnlyCollection<int> _readOnlyStartingPowerUpLevels;
+        readonly PowerUpSlot[] _gaugeSlots;
+        readonly ReadOnlyCollection<PowerUpSlot> _readOnlyGaugeSlots;
 
         public ShipDefinition(
             string id,
@@ -38,6 +41,8 @@ namespace Shmup.Core
                 startingPowerUpLevels,
                 unlockCost,
                 WeaponType.Vulcan,
+                null,
+                null,
                 null)
         {
         }
@@ -51,6 +56,31 @@ namespace Shmup.Core
             long unlockCost,
             WeaponType weaponType,
             int? maxHp)
+            : this(
+                id,
+                displayName,
+                moveSpeedMultiplierNumerator,
+                moveSpeedMultiplierDenominator,
+                startingPowerUpLevels,
+                unlockCost,
+                weaponType,
+                maxHp,
+                null,
+                null)
+        {
+        }
+
+        public ShipDefinition(
+            string id,
+            string displayName,
+            int moveSpeedMultiplierNumerator,
+            int moveSpeedMultiplierDenominator,
+            int[] startingPowerUpLevels,
+            long unlockCost,
+            WeaponType weaponType,
+            int? startingShieldStock,
+            PrimaryWeaponFamily? gaugeWeaponFamily,
+            IReadOnlyList<PowerUpSlot> gaugeSlots)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Ship id cannot be null or empty.", nameof(id));
@@ -77,8 +107,24 @@ namespace Shmup.Core
                 throw new ArgumentOutOfRangeException(nameof(unlockCost));
             if (!Enum.IsDefined(typeof(WeaponType), weaponType))
                 throw new ArgumentOutOfRangeException(nameof(weaponType));
-            if (maxHp.HasValue && maxHp.Value < 1)
-                throw new ArgumentOutOfRangeException(nameof(maxHp));
+            if (startingShieldStock.HasValue
+                && startingShieldStock.Value < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(startingShieldStock));
+            if (gaugeWeaponFamily.HasValue
+                && (gaugeWeaponFamily.Value
+                        == PrimaryWeaponFamily.Vulcan
+                    || !Enum.IsDefined(
+                        typeof(PrimaryWeaponFamily),
+                        gaugeWeaponFamily.Value)))
+                throw new ArgumentOutOfRangeException(
+                    nameof(gaugeWeaponFamily));
+            bool hasGaugeSlots = gaugeSlots != null
+                && gaugeSlots.Count != 0;
+            if (hasGaugeSlots != gaugeWeaponFamily.HasValue)
+                throw new ArgumentException(
+                    "A custom gauge requires both gaugeWeaponFamily "
+                    + "and gaugeSlots.");
 
             _startingPowerUpLevels =
                 new int[PowerUpGauge.SlotCount];
@@ -100,7 +146,13 @@ namespace Shmup.Core
             MoveSpeedMultiplierDenominator = moveSpeedMultiplierDenominator;
             UnlockCost = unlockCost;
             WeaponType = weaponType;
-            StartingShieldStock = maxHp;
+            StartingShieldStock = startingShieldStock;
+            GaugeWeaponFamily = gaugeWeaponFamily;
+            _gaugeSlots = CopyGaugeSlots(
+                gaugeSlots,
+                gaugeWeaponFamily);
+            _readOnlyGaugeSlots =
+                Array.AsReadOnly(_gaugeSlots);
             _readOnlyStartingPowerUpLevels =
                 Array.AsReadOnly(_startingPowerUpLevels);
         }
@@ -114,16 +166,89 @@ namespace Shmup.Core
         public long UnlockCost { get; }
         public WeaponType WeaponType { get; }
         /// <summary>
-        /// Ship-specific starting shield stock sourced from the legacy maxHp JSON
-        /// field. Null preserves BattleSimConfig.StartingShieldStock.
+        /// Ship-specific starting shield stock. Zero is a valid glass-cannon
+        /// start; null preserves BattleSimConfig.StartingShieldStock.
         /// </summary>
         public int? StartingShieldStock { get; }
         /// <summary>Compatibility alias for pre-REQ-040 callers.</summary>
         public int? MaxHp => StartingShieldStock;
+        /// <summary>
+        /// Family selected by the custom five-slot ship weapon entry.
+        /// Null means the backward-compatible seven-slot gauge.
+        /// </summary>
+        public PrimaryWeaponFamily? GaugeWeaponFamily { get; }
+        public IReadOnlyList<PowerUpSlot> GaugeSlots =>
+            _readOnlyGaugeSlots;
+        public bool HasCustomPowerUpGauge =>
+            GaugeWeaponFamily.HasValue;
 
         public int[] ExportStartingPowerUpLevels()
         {
             return (int[])_startingPowerUpLevels.Clone();
+        }
+
+        static PowerUpSlot[] CopyGaugeSlots(
+            IReadOnlyList<PowerUpSlot> source,
+            PrimaryWeaponFamily? family)
+        {
+            if (source == null || source.Count == 0)
+                return Array.Empty<PowerUpSlot>();
+            if (source.Count != PowerUpGauge.ShipGaugeSlotCount)
+                throw new ArgumentException(
+                    $"A ship gauge requires exactly "
+                    + $"{PowerUpGauge.ShipGaugeSlotCount} slots.",
+                    nameof(source));
+
+            var copy = new PowerUpSlot[source.Count];
+            var seen = new bool[PowerUpGauge.SlotCount];
+            int weaponModes = 0;
+            PowerUpSlot expectedWeapon =
+                GaugeSlotForFamily(family.Value);
+            for (int i = 0; i < copy.Length; i++)
+            {
+                PowerUpSlot slot = source[i];
+                int index = (int)slot;
+                if (slot == PowerUpSlot.MainShot
+                    || index < 0
+                    || index >= PowerUpGauge.SlotCount)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(source));
+                if (seen[index])
+                    throw new ArgumentException(
+                        $"Duplicate ship gauge slot '{slot}'.",
+                        nameof(source));
+                seen[index] = true;
+                copy[i] = slot;
+                if (PowerUpSlotDefinition.IsWeaponModeSlot(slot))
+                    weaponModes++;
+            }
+            if (!seen[(int)PowerUpSlot.Speed]
+                || !seen[(int)PowerUpSlot.Missile]
+                || !seen[(int)PowerUpSlot.Option]
+                || !seen[(int)PowerUpSlot.Shield]
+                || weaponModes != 1
+                || !seen[(int)expectedWeapon])
+                throw new ArgumentException(
+                    "A ship gauge requires Speed, Missile, its designated "
+                    + "weapon, Option, and Shield exactly once.",
+                    nameof(source));
+            return copy;
+        }
+
+        public static PowerUpSlot GaugeSlotForFamily(
+            PrimaryWeaponFamily family)
+        {
+            switch (family)
+            {
+                case PrimaryWeaponFamily.Double:
+                    return PowerUpSlot.Double;
+                case PrimaryWeaponFamily.Laser:
+                    return PowerUpSlot.Laser;
+                case PrimaryWeaponFamily.Spread:
+                    return PowerUpSlot.Triple;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(family));
+            }
         }
 
         /// <summary>Neutral fallback used when ships.json is absent.</summary>

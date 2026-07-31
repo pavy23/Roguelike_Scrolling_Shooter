@@ -153,7 +153,12 @@ namespace Shmup.DeterminismAudit
             // Audit traversal must not depend on current balance survivability.
             // Hit events and HP changes are still folded into the state hash.
             config.PlayerMaxHp = 1_000_000;
-            PowerUpGauge gauge = data.CreatePowerUpGauge();
+            PowerUpGauge legacyGauge = data.CreatePowerUpGauge();
+            ShipDefinition auditShip = CreateAuditShip(
+                data.DefaultShip,
+                legacyGauge.GetMaxLevel(PowerUpSlot.MainShot));
+            PowerUpGauge gauge =
+                data.CreatePowerUpGauge(auditShip);
             var run = new RunManager(
                 scenario.Seed,
                 new AuditStageGenerator(data),
@@ -162,9 +167,7 @@ namespace Shmup.DeterminismAudit
                 gauge,
                 data.Rewards,
                 data.Contracts,
-                CreateAuditShip(
-                    data.DefaultShip,
-                    gauge.GetMaxLevel(PowerUpSlot.MainShot)));
+                auditShip);
             var hasher = new DeterminismAuditHasher();
             int[] rewardCounts = new int[data.Rewards.All.Count];
             int executedTicks = 0;
@@ -727,12 +730,13 @@ namespace Shmup.DeterminismAudit
             if (selected.Level >= selected.MaxLevel)
                 return false;
 
-            // The audit ship starts with its shared shot axis maxed. Keep its
-            // single-target Vulcan profile instead of cycling through every
-            // seven-slot weapon mode, and spend capsules only on the two
-            // remaining offensive growth axes.
+            // Exercise the ship-owned weapon switch once, then keep investing
+            // in the two remaining offensive growth axes.
             return selected.Slot == PowerUpSlot.Missile
-                || selected.Slot == PowerUpSlot.Option;
+                || selected.Slot == PowerUpSlot.Option
+                || (selected.IsActiveWeaponMode == false
+                    && PowerUpSlotDefinition.IsWeaponModeSlot(
+                        selected.Slot));
         }
 
         static bool TrySelectPickupTargetY(
@@ -872,6 +876,11 @@ namespace Shmup.DeterminismAudit
                 source.ExportStartingPowerUpLevels();
             startingLevels[(int)PowerUpSlot.MainShot] =
                 mainShotLevel;
+            PrimaryWeaponFamily family =
+                source.GaugeWeaponFamily
+                ?? PrimaryWeaponFamily.Double;
+            PowerUpSlot weaponSlot =
+                ShipDefinition.GaugeSlotForFamily(family);
             return new ShipDefinition(
                 source.Id,
                 source.DisplayName,
@@ -880,7 +889,16 @@ namespace Shmup.DeterminismAudit
                 startingLevels,
                 source.UnlockCost,
                 source.WeaponType,
-                null);
+                null,
+                family,
+                new[]
+                {
+                    PowerUpSlot.Speed,
+                    PowerUpSlot.Missile,
+                    weaponSlot,
+                    PowerUpSlot.Option,
+                    PowerUpSlot.Shield
+                });
         }
 
         static bool TryParseSeed(string value, out ulong seed)
@@ -1160,6 +1178,7 @@ namespace Shmup.DeterminismAudit
         /// </summary>
         sealed class AuditStageGenerator :
             IRouteStageGenerator,
+            ISectionRouteStageGenerator,
             IColossalBossStageGenerator
         {
             const int U = SimSpace.SubUnitsPerWorldUnit;
@@ -1222,6 +1241,38 @@ namespace Shmup.DeterminismAudit
                     difficulty,
                     themeId,
                     encounterType);
+            }
+
+            public bool CanGenerateRouteForSection(
+                string themeId,
+                int stageIndex,
+                int difficulty,
+                EncounterType encounterType,
+                StageRouteSection section)
+            {
+                return _inner.CanGenerateRouteForSection(
+                    themeId,
+                    stageIndex,
+                    difficulty,
+                    encounterType,
+                    section);
+            }
+
+            public StagePlan GenerateRouteForSection(
+                ulong seed,
+                int stageIndex,
+                int difficulty,
+                string themeId,
+                EncounterType encounterType,
+                StageRouteSection section)
+            {
+                return _inner.GenerateRouteForSection(
+                    seed,
+                    stageIndex,
+                    difficulty,
+                    themeId,
+                    encounterType,
+                    section);
             }
 
             public bool CanGenerateColossalBoss(ColossalBossKind kind)
