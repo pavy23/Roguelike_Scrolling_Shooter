@@ -1176,8 +1176,18 @@ namespace Shmup.EditorTools
             SetReference(scoreHud, "_director", director);
             SetReference(scoreHud, "_fontBold", uiFontBold);
 
-            CreateHud(director, hudSlotSprite, hudPipSprite);
-            CreateBackground(director, starsFarSprite, starsNearSprite);
+            var themeRoots = CreateBackground(director, starsFarSprite, starsNearSprite);
+
+            // 구간(섹션) 배경 전환 (Phase C 1단계, 설계안 §2). 파티클·틴트·스크롤 체감만으로
+            // 5스테이지 × 4구간 = 20룩을 만든다 — 아트 0장. 순수 표현이라 Core에 되먹임이 없다.
+            var sectionThemes = battleRoot.AddComponent<SectionThemeDirector>();
+            SetReference(sectionThemes, "_director", director);
+            SetReference(sectionThemes, "_juice", juice);
+            SetReference(sectionThemes, "_pixelSprite", whiteSprite);
+            SetReferenceArray(sectionThemes, "_themeRoots", themeRoots);
+            CreateSectionArtSlots(sectionThemes);
+
+            CreateHud(director, hudSlotSprite, hudPipSprite, sectionThemes);
             CreateSfx(director);
             CreateBgm(director);
 
@@ -1303,7 +1313,7 @@ namespace Shmup.EditorTools
         /// 각 루트 = 별 2겹 + 테마 3겹(art-input/&lt;theme&gt;_far/mid/near.png). 팩터가 작을수록 원경,
         /// near 레이어는 게임플레이 위(55)에서 스크롤보다 빠르게 지나가는 전경 실루엣.
         /// </summary>
-        static void CreateBackground(BattleDirector director, Sprite farSprite, Sprite nearSprite)
+        static GameObject[] CreateBackground(BattleDirector director, Sprite farSprite, Sprite nearSprite)
         {
             var themeRoots = new List<GameObject>();
             var themeIds = new List<string>();
@@ -1324,8 +1334,10 @@ namespace Shmup.EditorTools
             for (int i = 1; i < themeRoots.Count; i++)
                 themeRoots[i].SetActive(false);
 
-            SetReferenceArray(director, "_themeBackgrounds", themeRoots.ToArray());
+            var roots = themeRoots.ToArray();
+            SetReferenceArray(director, "_themeBackgrounds", roots);
             SetStringArray(director, "_themeIds", themeIds.ToArray());
+            return roots;
         }
 
         static GameObject CreateThemeRoot(
@@ -1342,19 +1354,23 @@ namespace Shmup.EditorTools
             var sprites = new List<Sprite>();
             var factors = new List<float>();
             var orders = new List<int>();
-            void AddLayer(Sprite sprite, float factor, int order)
+            var roles = new List<int>();
+            // 아트가 없으면 레이어가 통째로 빠지므로 인덱스는 테마마다 달라진다.
+            // SectionThemeDirector는 인덱스가 아니라 이 역할(BgLayerRole)로 레이어를 지목한다.
+            void AddLayer(Sprite sprite, float factor, int order, BgLayerRole role)
             {
                 if (sprite == null) return;
                 sprites.Add(sprite);
                 factors.Add(factor);
                 orders.Add(order);
+                roles.Add((int)role);
             }
 
-            AddLayer(starsFar, 0.1f, -100);
-            AddLayer(themeFar, 0.2f, -96);
-            AddLayer(starsNear, 0.45f, -90);
-            AddLayer(themeMid, 0.6f, -85);
-            AddLayer(themeNear, 1.15f, 55);
+            AddLayer(starsFar, 0.1f, -100, BgLayerRole.SkyFar);
+            AddLayer(themeFar, 0.2f, -96, BgLayerRole.Far);
+            AddLayer(starsNear, 0.45f, -90, BgLayerRole.SkyNear);
+            AddLayer(themeMid, 0.6f, -85, BgLayerRole.Mid);
+            AddLayer(themeNear, 1.15f, 55, BgLayerRole.Near);
 
             const float tileWidth = RefResolutionX / (float)AssetsPPU;
             var root = new GameObject(rootName);
@@ -1375,10 +1391,24 @@ namespace Shmup.EditorTools
                 }
             }
 
+            // 랜드마크 슬롯 (설계안 §2 "랜드마크 스프라이트 1개" — 반복 배경 착시 해소).
+            // 지금은 스프라이트가 없어 꺼져 있고, SectionThemeDirector가 룩 테이블의
+            // landmarkSlot에 아트가 꽂히는 순간 켠다. 타일링하지 않는 단일 스프라이트라
+            // 패럴랙스 레이어에 넣지 않았다 — 지금은 제자리에서 스케일만 커진다(접근감).
+            // 아트가 들어온 뒤 "한 번 지나가는" 연출이 필요하면 그때 전용 이동을 붙인다.
+            var landmark = new GameObject("Landmark");
+            landmark.transform.SetParent(root.transform, false);
+            var landmarkRenderer = landmark.AddComponent<SpriteRenderer>();
+            landmarkRenderer.sprite = LoadExternalSprite(
+                $"{themePrefix}_landmark.png", $"{themePrefix}_landmark");
+            landmarkRenderer.sortingOrder = -84;   // 중경(-85) 앞, 워시(0) 뒤
+            landmarkRenderer.enabled = false;
+
             var parallax = root.AddComponent<ParallaxBackground>();
             SetReference(parallax, "_director", director);
             SetReferenceArray(parallax, "_layers", layers);
             SetFloatArray(parallax, "_factors", factors.ToArray());
+            SetIntArray(parallax, "_layerRoles", roles.ToArray());
             SetFloat(parallax, "_tileWidth", tileWidth);
             return root;
         }
@@ -1571,7 +1601,9 @@ namespace Shmup.EditorTools
         /// 씬에 스프라이트를 박지 않는다 — PowerUpHudView가 게이지 관측 API를 순회하며
         /// 런타임에 UGUI로 조립한다. 여기서는 컴포넌트와 폰트만 배선한다.
         /// </summary>
-        static void CreateHud(BattleDirector director, Sprite slotSprite, Sprite pipSprite)
+        static void CreateHud(
+            BattleDirector director, Sprite slotSprite, Sprite pipSprite,
+            SectionThemeDirector sectionThemes)
         {
             var hudRoot = new GameObject("Hud");
 
@@ -1583,6 +1615,36 @@ namespace Shmup.EditorTools
 
             var cheats = hudRoot.AddComponent<DevCheats>();
             SetReference(cheats, "_director", director);
+            SetReference(cheats, "_sectionThemes", sectionThemes);   // F7 구간 룩 미리보기
+        }
+
+        /// <summary>
+        /// 구간 룩의 아트 교체 슬롯. **지금은 art-input에 파일이 없어 대부분 비어 있다** —
+        /// 이 배선이 곧 아트 2단계의 꽂는 자리다. 파일을 넣고 SectionThemeTable의
+        /// spriteSlot/landmarkSlot에 같은 키를 적으면 그 순간 살아난다.
+        ///
+        /// 키 규칙: &lt;prefix&gt;_far_dusk / _far_dark / _fg / _landmark
+        /// (prefix = scrap · hive · fort · nebula · core).
+        /// </summary>
+        static void CreateSectionArtSlots(SectionThemeDirector sectionThemes)
+        {
+            string[] prefixes = { "scrap", "hive", "fort", "nebula", "core" };
+            string[] suffixes = { "far_dusk", "far_dark", "fg", "landmark" };
+
+            var keys = new List<string>();
+            var sprites = new List<UnityEngine.Object>();
+            foreach (string prefix in prefixes)
+                foreach (string suffix in suffixes)
+                {
+                    string key = $"{prefix}_{suffix}";
+                    var sprite = LoadExternalSprite($"{key}.png", key);
+                    if (sprite == null) continue;
+                    keys.Add(key);
+                    sprites.Add(sprite);
+                }
+
+            SetStringArray(sectionThemes, "_slotKeys", keys.ToArray());
+            SetReferenceArray(sectionThemes, "_slotSprites", sprites.ToArray());
         }
 
         static void SetReferenceArray(UnityEngine.Object target, string fieldName, UnityEngine.Object[] values)

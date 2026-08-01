@@ -20,6 +20,7 @@ namespace Shmup.Presentation.Battle
     public sealed class DevCheats : MonoBehaviour
     {
         [SerializeField] BattleDirector _director;
+        [SerializeField] SectionThemeDirector _sectionThemes;
 
         /// <summary>F3으로 오버레이 표시 전환. 개발 모드에서만 의미가 있고 기본 표시다.</summary>
         static bool _overlayVisible;
@@ -46,10 +47,17 @@ namespace Shmup.Presentation.Battle
             if (!DevArgs.DevMode) return;
 
             var keyboard = Keyboard.current;
-            if (keyboard == null || _director == null || _director.Gauge == null) return;
+            if (keyboard == null) return;
 
             // F3은 표시 전환일 뿐이라 치트가 아니다 — 제출을 막지 않는다.
             if (keyboard.f3Key.wasPressedThisFrame) _overlayVisible = !_overlayVisible;
+
+            // F7: 구간 배경 룩(전반/중간보스/후반/보스) 순환 미리보기. 순수 표현이라
+            // 역시 치트가 아니다 — 20룩을 실제로 진행하지 않고 눈으로 확인하려면 필요하다.
+            if (keyboard.f7Key.wasPressedThisFrame && _sectionThemes != null)
+                _sectionThemes.DevCycleSectionPreview();
+
+            if (_director == null || _director.Gauge == null) return;
 
             if (keyboard.f9Key.wasPressedThisFrame)
             {
@@ -113,12 +121,16 @@ namespace Shmup.Presentation.Battle
                      ^ ((long)_director.StageIndex << 40)
                      ^ ((long)_director.PlayerHp << 32)
                      ^ ((long)_director.ShieldRemaining << 24)
+                     ^ ((long)(int)_director.StageSection << 20)
                      ^ (long)(_director.Tick / 30);
             if (key != _overlayKey)
             {
                 _overlayKey = key;
+                string section = _sectionThemes != null
+                    ? $"   sect {_sectionThemes.CurrentSection}/{_sectionThemes.DevPreviewLabel}"
+                    : "";
                 _overlayText =
-                    $"run {_director.RunNumber}   stage {_director.StageIndex}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{DevFlagText}\n[F3] hide   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --god survives)";
+                    $"run {_director.RunNumber}   stage {_director.StageIndex}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{section}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --god survives)";
             }
             GUI.Label(new Rect(8, 4, Screen.width - 16, _style.fontSize * 3), _overlayText, _style);
         }
