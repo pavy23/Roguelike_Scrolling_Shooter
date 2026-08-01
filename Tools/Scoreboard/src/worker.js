@@ -41,6 +41,20 @@ function utcDateKey(now) {
   return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
 }
 
+// Core DailySeed.FromDate와 동일한 FNV-1a 32 (yyyymmdd 4바이트 LE).
+// 데일리 보드는 "오늘의 공통 시드" 경쟁이므로, 어제 시작해 오늘 제출된
+// 이어하기 런(다른 시드)이 오늘 보드에 섞이지 않게 서버에서 검증한다.
+function dailySeedFor(yyyymmdd) {
+  let value = Number(yyyymmdd) >>> 0;
+  let hash = 2166136261 >>> 0;
+  for (let i = 0; i < 4; i++) {
+    hash = (hash ^ (value & 0xFF)) >>> 0;
+    hash = Math.imul(hash, 16777619) >>> 0;
+    value >>>= 8;
+  }
+  return hash >>> 0;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -89,7 +103,17 @@ export default {
       if (count >= RATE_LIMIT_PER_10MIN) return json({ error: 'rate limited' }, 429, headers);
       await env.SCORES.put(rlKey, String(count + 1), { expirationTtl: 600 });
 
-      const boardKey = daily ? `daily:${utcDateKey(Date.now())}` : 'all';
+      // 데일리는 시드가 곧 날짜다 — 시드가 속한 날짜의 보드에 넣는다. 자정을
+      // 넘겨 끝낸 런은 시작한 날의 보드로 가고, 어느 날짜와도 안 맞는 시드는
+      // 데일리를 사칭한 것이므로 거부한다 (오늘/어제 이틀치만 인정).
+      let boardKey = 'all';
+      if (daily) {
+        const todayKey = utcDateKey(Date.now());
+        const yesterdayKey = utcDateKey(Date.now() - 86400_000);
+        if (seed === String(dailySeedFor(todayKey))) boardKey = `daily:${todayKey}`;
+        else if (seed === String(dailySeedFor(yesterdayKey))) boardKey = `daily:${yesterdayKey}`;
+        else return json({ error: 'seed does not match any recent daily' }, 400, headers);
+      }
       const list = (await env.SCORES.get(boardKey, 'json')) || [];
 
       // P1.5 상세 통계 (선택 필드 — 없으면 생략, 음수/비정상은 버림)
