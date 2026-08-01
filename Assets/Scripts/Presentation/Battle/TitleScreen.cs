@@ -6,12 +6,13 @@ using UnityEngine.UI;
 namespace Shmup.Presentation.Battle
 {
     /// <summary>
-    /// 타이틀 화면 (UGUI + 픽셀 폰트). 스타필드가 천천히 흐르고, 시드를 확인/수정한 뒤
-    /// Space/Enter/(A)로 출격한다. 시드 편집은 숫자 키 + 백스페이스 직접 처리
-    /// (InputField/EventSystem 의존 없이 패드와 공존).
+    /// 타이틀 화면 (UGUI + 픽셀 폰트). 스타필드가 천천히 흐르고, Space/Enter/(A)로 출격한다.
     ///
     /// 시드는 방문할 때마다 새로 뽑는다. 이건 "이번 런을 무엇으로 할지"의 선택일 뿐이고
     /// (Presentation 소관), 같은 시드를 넣으면 같은 런이 나오는 것은 Core가 보장한다.
+    ///
+    /// 시드를 **보고 고치는** 수단(표시 줄·숫자 입력·리롤 버튼)은 개발용 재현 도구라
+    /// <see cref="DevArgs.DevMode"/>에서만 나온다 — <see cref="_seedUi"/> 참고.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class TitleScreen : MonoBehaviour
@@ -26,6 +27,18 @@ namespace Shmup.Presentation.Battle
         string _seedText;
         Text _promptText, _seedValueText, _continueText;
         string _shownSeed;
+
+        /// <summary>
+        /// 시드 UI(표시 줄·숫자 입력·NEW SEED 버튼)를 내보내는가 = <see cref="DevArgs.DevMode"/>.
+        ///
+        /// 이 셋은 "같은 판을 다시 돌린다"는 개발/디버깅 도구다. 릴리스에서 플레이어에게
+        /// 시드 칸을 보여 주면 (a) 무슨 숫자인지 설명할 자리가 없고 (b) 손으로 고정한 런은
+        /// 어차피 스코어보드 제출이 막혀 있어 눌러 봐야 손해만 본다. 그래서 통째로 감춘다 —
+        /// 시드 값 자체는 그대로 <see cref="NewRandomSeed"/>로 뽑으므로 런의 동작은 같다.
+        /// Start에서 한 번 읽어 캐시한다: 화면이 사는 동안 값이 바뀔 일이 없고, 생성 시점과
+        /// Update의 판정이 어긋나면 없는 텍스트를 만지게 된다.
+        /// </summary>
+        bool _seedUi;
 
         /// <summary>
         /// 지금 칸에 있는 시드를 사람이 직접 쳐 넣었는가 (스코어보드 공정성).
@@ -364,26 +377,36 @@ namespace Shmup.Presentation.Battle
                     PlayReplay, "ReplayButton");
             }
 
-            // 시드는 폰에서 숫자 입력이 번거로우므로 다시 뽑기만 제공한다.
-            UiKit.CreateTouchButton(parent, _font, "NEW SEED", 10,
-                new Vector2(1f, 1f), new Vector2(-10f, -150f), new Vector2(112f, h),
-                RerollSeed, "SeedButton");
+            // 오른쪽 열. 시드 블록은 개발 모드에서만 나오므로 좌표를 박아 두지 않고
+            // 커서로 쌓는다 — 릴리스에서 시드가 빠진 자리에 버튼 두 칸짜리 구멍이
+            // 남으면 랭킹 버튼만 허공에 떠 보인다.
+            float rightY = -150f;
 
-            // 글로벌 랭킹 (P1): 오늘의 데일리 보드 top 10. 시드 값 표시 아래에 둔다.
-            UiKit.CreateTouchButton(parent, _font, "RANKING", 10,
-                new Vector2(1f, 1f), new Vector2(-10f, -214f), new Vector2(112f, h),
-                ToggleRanking, "RankingButton");
-
-            // 시드 값은 그 버튼 바로 아래로 옮긴다 — 원래 자리(하단 중앙)는 LAUNCH와 격납고가 쓴다.
-            if (_seedValueText != null)
+            if (_seedUi)
             {
-                var rect = _seedValueText.rectTransform;
-                rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(1f, 1f);
-                rect.anchoredPosition = new Vector2(-10f, -150f - h - 4f);
-                rect.sizeDelta = new Vector2(112f, 20f);
-                _seedValueText.alignment = TextAnchor.UpperRight;
-                _seedValueText.fontSize = 9;
+                // 시드는 폰에서 숫자 입력이 번거로우므로 다시 뽑기만 제공한다.
+                UiKit.CreateTouchButton(parent, _font, "NEW SEED", 10,
+                    new Vector2(1f, 1f), new Vector2(-10f, rightY), new Vector2(112f, h),
+                    RerollSeed, "SeedButton");
+                rightY -= h + 4f;
+
+                // 시드 값은 그 버튼 바로 아래로 — 원래 자리(하단 중앙)는 LAUNCH와 격납고가 쓴다.
+                if (_seedValueText != null)
+                {
+                    var rect = _seedValueText.rectTransform;
+                    rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(1f, 1f);
+                    rect.anchoredPosition = new Vector2(-10f, rightY);
+                    rect.sizeDelta = new Vector2(112f, 20f);
+                    _seedValueText.alignment = TextAnchor.UpperRight;
+                    _seedValueText.fontSize = 9;
+                }
+                rightY -= 26f;
             }
+
+            // 글로벌 랭킹 (P1): 오늘의 데일리 보드 top 10.
+            UiKit.CreateTouchButton(parent, _font, "RANKING", 10,
+                new Vector2(1f, 1f), new Vector2(-10f, rightY), new Vector2(112f, h),
+                ToggleRanking, "RankingButton");
 
             // 출격은 가장 크고 눈에 띄게 — 이 화면의 유일한 주 동작이다.
             UiKit.CreateTouchButton(parent, _fontBold, "LAUNCH", 20,
@@ -394,6 +417,7 @@ namespace Shmup.Presentation.Battle
         void Start()
         {
             _seedText = NewRandomSeed().ToString();
+            _seedUi = DevArgs.DevMode;
 
             var canvas = UiKit.CreateCanvas("TitleCanvas", 50);
             canvas.transform.SetParent(transform, false);
@@ -448,10 +472,13 @@ namespace Shmup.Presentation.Battle
                 UiText.LaunchPrompt, 14, UiKit.TextAccent,
                 new Vector2(0.5f, 1f), new Vector2(0f, -160f), TextAnchor.UpperCenter, "Prompt");
             UiKit.AddShadow(_promptText);
-            _seedValueText = UiKit.CreateCornerText(canvas.transform, _font, "", 11,
-                UiKit.TextDim, new Vector2(0.5f, 0f), new Vector2(0f, 66f),
-                TextAnchor.LowerCenter, "Seed");
-            UiKit.AddShadow(_seedValueText);
+            if (_seedUi)
+            {
+                _seedValueText = UiKit.CreateCornerText(canvas.transform, _font, "", 11,
+                    UiKit.TextDim, new Vector2(0.5f, 0f), new Vector2(0f, 66f),
+                    TextAnchor.LowerCenter, "Seed");
+                UiKit.AddShadow(_seedValueText);
+            }
 
             // 이어하기 (REQ-017): 저장된 런이 있으면 안내 표시
             _suspended = RunSave.TryLoad();
@@ -532,7 +559,10 @@ namespace Shmup.Presentation.Battle
 
             if (keyboard != null)
             {
-                EditSeed(keyboard);
+                // 시드 편집도 개발 모드 전용이다. 릴리스에서 숫자 키를 살려 두면 화면에
+                // 아무것도 안 보이는 채로 시드가 바뀌고, 그 런은 수동 낙인이 찍혀 조용히
+                // 제출이 막힌다 — 보이지 않는 UI에 붙은 입력은 없는 편이 낫다.
+                if (_seedUi) EditSeed(keyboard);
                 if (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame)
                 {
                     StartRun();

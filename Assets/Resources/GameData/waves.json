@@ -5602,6 +5602,1328 @@
           "yPerSecond": 0.45
         }
       }
+    },
+    {
+      "id": "seg_scrap_zigzag_posts",
+      "difficultyMin": 1,
+      "difficultyMax": 2,
+      "weight": 10,
+      "lengthTicks": 600,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "pipe_rat",
+          "y": 3.5
+        },
+        {
+          "tick": 80,
+          "enemyId": "pipe_rat",
+          "y": -3.5
+        },
+        {
+          "tick": 120,
+          "enemyId": "rust_skimmer",
+          "y": 2.0
+        },
+        {
+          "tick": 160,
+          "enemyId": "rust_skimmer",
+          "y": -2.0
+        },
+        {
+          "tick": 180,
+          "enemyId": "scrap_tumbler",
+          "y": 2.5
+        },
+        {
+          "tick": 200,
+          "enemyId": "junk_roller",
+          "y": 0.0
+        },
+        {
+          "tick": 240,
+          "enemyId": "pipe_rat",
+          "y": 4.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "pipe_rat",
+          "y": -4.0
+        },
+        {
+          "tick": 320,
+          "enemyId": "rust_skimmer",
+          "y": 1.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "rust_skimmer",
+          "y": -1.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "scrap_tumbler",
+          "y": -2.5
+        },
+        {
+          "tick": 400,
+          "enemyId": "junk_roller",
+          "y": 3.0
+        },
+        {
+          "tick": 440,
+          "enemyId": "pipe_rat",
+          "y": -2.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "rust_skimmer",
+          "y": 0.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "breakable",
+          "x": 11.0,
+          "y": 3.75,
+          "hp": 24
+        },
+        {
+          "type": "breakable",
+          "x": 13.0,
+          "y": -3.75,
+          "hp": 26
+        },
+        {
+          "type": "breakable",
+          "x": 15.0,
+          "y": 3.75,
+          "hp": 28
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": -3.75,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": 3.75,
+          "hp": 26
+        },
+        {
+          "type": "breakable",
+          "x": 12.0,
+          "y": -1.75,
+          "hp": 22
+        }
+      ],
+      "intent": "상하 지그재그 기둥 — 레인 교대 회피",
+      "theme": "scrapyard"
+    },
+    {
+      "id": "seg_scrap_center_breach",
+      "difficultyMin": 1,
+      "difficultyMax": 3,
+      "weight": 10,
+      "lengthTicks": 640,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 50,
+          "enemyId": "junk_roller",
+          "y": 2.5
+        },
+        {
+          "tick": 90,
+          "enemyId": "junk_roller",
+          "y": -2.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "rust_skimmer",
+          "y": 0.0
+        },
+        {
+          "tick": 180,
+          "enemyId": "pipe_rat",
+          "y": 3.5
+        },
+        {
+          "tick": 200,
+          "enemyId": "scrap_tumbler",
+          "y": 0.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "pipe_rat",
+          "y": -3.5
+        },
+        {
+          "tick": 270,
+          "enemyId": "rust_skimmer",
+          "y": 1.5
+        },
+        {
+          "tick": 310,
+          "enemyId": "rust_skimmer",
+          "y": -1.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "junk_roller",
+          "y": 0.0
+        },
+        {
+          "tick": 400,
+          "enemyId": "scrap_tumbler",
+          "y": 1.5
+        },
+        {
+          "tick": 410,
+          "enemyId": "pipe_rat",
+          "y": 2.0
+        },
+        {
+          "tick": 460,
+          "enemyId": "pipe_rat",
+          "y": -2.0
+        },
+        {
+          "tick": 520,
+          "enemyId": "rust_skimmer",
+          "y": 3.0
+        },
+        {
+          "tick": 560,
+          "enemyId": "junk_roller",
+          "y": -3.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "breakable",
+          "x": 14.5,
+          "y": 3.25,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 14.5,
+          "y": 1.5,
+          "hp": 32
+        },
+        {
+          "type": "breakable",
+          "x": 14.5,
+          "y": 0.0,
+          "hp": 35
+        },
+        {
+          "type": "breakable",
+          "x": 14.5,
+          "y": -1.5,
+          "hp": 32
+        },
+        {
+          "type": "breakable",
+          "x": 14.5,
+          "y": -3.25,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 17.5,
+          "y": 2.0,
+          "hp": 25
+        },
+        {
+          "type": "breakable",
+          "x": 17.5,
+          "y": -2.0,
+          "hp": 25
+        }
+      ],
+      "intent": "중앙 파괴벽 뚫기 — 커버 클리어 후 전진",
+      "theme": "scrapyard"
+    },
+    {
+      "id": "seg_scrap_shard_field",
+      "difficultyMin": 1,
+      "difficultyMax": 2,
+      "weight": 10,
+      "lengthTicks": 620,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 35,
+          "enemyId": "rust_skimmer",
+          "y": 4.0
+        },
+        {
+          "tick": 70,
+          "enemyId": "pipe_rat",
+          "y": -3.5
+        },
+        {
+          "tick": 110,
+          "enemyId": "junk_roller",
+          "y": 1.0
+        },
+        {
+          "tick": 150,
+          "enemyId": "rust_skimmer",
+          "y": -1.0
+        },
+        {
+          "tick": 170,
+          "enemyId": "scrap_tumbler",
+          "y": -1.5
+        },
+        {
+          "tick": 190,
+          "enemyId": "pipe_rat",
+          "y": 3.0
+        },
+        {
+          "tick": 230,
+          "enemyId": "junk_roller",
+          "y": -4.0
+        },
+        {
+          "tick": 270,
+          "enemyId": "rust_skimmer",
+          "y": 0.0
+        },
+        {
+          "tick": 310,
+          "enemyId": "pipe_rat",
+          "y": 2.0
+        },
+        {
+          "tick": 350,
+          "enemyId": "rust_skimmer",
+          "y": -2.5
+        },
+        {
+          "tick": 380,
+          "enemyId": "scrap_tumbler",
+          "y": 2.0
+        },
+        {
+          "tick": 400,
+          "enemyId": "junk_roller",
+          "y": 3.5
+        },
+        {
+          "tick": 450,
+          "enemyId": "pipe_rat",
+          "y": -0.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "rust_skimmer",
+          "y": 1.5
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "breakable",
+          "x": 10.5,
+          "y": 4.25,
+          "hp": 22
+        },
+        {
+          "type": "breakable",
+          "x": 11.5,
+          "y": -3.5,
+          "hp": 24
+        },
+        {
+          "type": "breakable",
+          "x": 13.0,
+          "y": 0.75,
+          "hp": 28
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": 3.0,
+          "hp": 26
+        },
+        {
+          "type": "breakable",
+          "x": 15.5,
+          "y": -4.25,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": 1.75,
+          "hp": 28
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": -1.25,
+          "hp": 32
+        },
+        {
+          "type": "breakable",
+          "x": 19.5,
+          "y": 2.5,
+          "hp": 24
+        }
+      ],
+      "intent": "흩어진 파편밭 — 넓은 y 스팬 회피 동선",
+      "theme": "scrapyard"
+    },
+    {
+      "id": "seg_scrap_rail_split",
+      "difficultyMin": 1,
+      "difficultyMax": 2,
+      "weight": 9,
+      "lengthTicks": 600,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        2
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "pipe_rat",
+          "y": 0.0
+        },
+        {
+          "tick": 80,
+          "enemyId": "rust_skimmer",
+          "y": 1.5
+        },
+        {
+          "tick": 120,
+          "enemyId": "rust_skimmer",
+          "y": -1.5
+        },
+        {
+          "tick": 160,
+          "enemyId": "junk_roller",
+          "y": 0.0
+        },
+        {
+          "tick": 200,
+          "enemyId": "pipe_rat",
+          "y": 2.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "scrap_tumbler",
+          "y": 0.0
+        },
+        {
+          "tick": 240,
+          "enemyId": "pipe_rat",
+          "y": -2.0
+        },
+        {
+          "tick": 290,
+          "enemyId": "rust_skimmer",
+          "y": 0.0
+        },
+        {
+          "tick": 340,
+          "enemyId": "junk_roller",
+          "y": 1.0
+        },
+        {
+          "tick": 390,
+          "enemyId": "rust_skimmer",
+          "y": -1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "scrap_tumbler",
+          "y": 0.0
+        },
+        {
+          "tick": 440,
+          "enemyId": "pipe_rat",
+          "y": 0.0
+        },
+        {
+          "tick": 500,
+          "enemyId": "junk_roller",
+          "y": 2.0
+        },
+        {
+          "tick": 540,
+          "enemyId": "pipe_rat",
+          "y": -2.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "breakable",
+          "x": 12.0,
+          "y": 3.5,
+          "hp": 26
+        },
+        {
+          "type": "breakable",
+          "x": 15.0,
+          "y": 3.5,
+          "hp": 28
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": 3.5,
+          "hp": 26
+        },
+        {
+          "type": "breakable",
+          "x": 12.0,
+          "y": -3.5,
+          "hp": 26
+        },
+        {
+          "type": "breakable",
+          "x": 15.0,
+          "y": -3.5,
+          "hp": 28
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": -3.5,
+          "hp": 26
+        }
+      ],
+      "intent": "상하 레일 분리 — 중앙 통로 유지 훈련",
+      "theme": "scrapyard"
+    },
+    {
+      "id": "seg_hive_tentacle_posts",
+      "difficultyMin": 2,
+      "difficultyMax": 4,
+      "weight": 7,
+      "lengthTicks": 680,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "hive_tentacle",
+          "y": 5.5
+        },
+        {
+          "tick": 40,
+          "enemyId": "hive_tentacle",
+          "y": -5.5
+        },
+        {
+          "tick": 90,
+          "enemyId": "spore_drifter",
+          "y": 2.0
+        },
+        {
+          "tick": 130,
+          "enemyId": "sting_hornet",
+          "y": -3.0
+        },
+        {
+          "tick": 170,
+          "enemyId": "lancer_dart",
+          "y": 3.5
+        },
+        {
+          "tick": 210,
+          "enemyId": "spore_drifter",
+          "y": -1.5
+        },
+        {
+          "tick": 250,
+          "enemyId": "sting_hornet",
+          "y": 1.0
+        },
+        {
+          "tick": 290,
+          "enemyId": "lancer_dart",
+          "y": -3.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "hive_tentacle",
+          "y": 5.5
+        },
+        {
+          "tick": 380,
+          "enemyId": "spore_drifter",
+          "y": 0.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "sting_hornet",
+          "y": 2.5
+        },
+        {
+          "tick": 470,
+          "enemyId": "lancer_dart",
+          "y": -2.0
+        },
+        {
+          "tick": 520,
+          "enemyId": "brood_spitter",
+          "y": 1.5
+        },
+        {
+          "tick": 560,
+          "enemyId": "sting_hornet",
+          "y": -1.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.5,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 13.0,
+          "y": 1.75,
+          "hp": 22
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": -1.75,
+          "hp": 24
+        }
+      ],
+      "intent": "하이브 촉수 기둥 지그재그 — 상하 교대 압박",
+      "theme": "hive"
+    },
+    {
+      "id": "seg_hive_membrane_wall",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 6,
+      "lengthTicks": 700,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        2
+      ],
+      "spawns": [
+        {
+          "tick": 45,
+          "enemyId": "brood_spitter",
+          "y": 2.5
+        },
+        {
+          "tick": 90,
+          "enemyId": "brood_spitter",
+          "y": -2.5
+        },
+        {
+          "tick": 130,
+          "enemyId": "sting_hornet",
+          "y": 3.5
+        },
+        {
+          "tick": 170,
+          "enemyId": "lancer_dart",
+          "y": -3.5
+        },
+        {
+          "tick": 210,
+          "enemyId": "spore_drifter",
+          "y": 0.0
+        },
+        {
+          "tick": 250,
+          "enemyId": "hive_tentacle",
+          "y": 5.5
+        },
+        {
+          "tick": 250,
+          "enemyId": "hive_tentacle",
+          "y": -5.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "brood_spitter",
+          "y": 1.5
+        },
+        {
+          "tick": 350,
+          "enemyId": "sting_hornet",
+          "y": -1.5
+        },
+        {
+          "tick": 400,
+          "enemyId": "lancer_dart",
+          "y": 2.0
+        },
+        {
+          "tick": 450,
+          "enemyId": "spore_drifter",
+          "y": -2.0
+        },
+        {
+          "tick": 500,
+          "enemyId": "brood_spitter",
+          "y": 0.0
+        },
+        {
+          "tick": 560,
+          "enemyId": "sting_hornet",
+          "y": 3.0
+        },
+        {
+          "tick": 600,
+          "enemyId": "lancer_dart",
+          "y": -3.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 15.0,
+          "y": 2.5,
+          "hp": 28
+        },
+        {
+          "type": "breakable",
+          "x": 15.0,
+          "y": 0.0,
+          "hp": 32
+        },
+        {
+          "type": "breakable",
+          "x": 15.0,
+          "y": -2.5,
+          "hp": 28
+        }
+      ],
+      "intent": "유기 막 벽 관통 — 중앙 클리어 강요",
+      "theme": "hive"
+    },
+    {
+      "id": "seg_fortress_shield_bastion",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "weight": 7,
+      "lengthTicks": 720,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "sentry_drone",
+          "y": 3.0
+        },
+        {
+          "tick": 40,
+          "enemyId": "sentry_drone",
+          "y": -3.0
+        },
+        {
+          "tick": 100,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "interceptor_rush",
+          "y": 2.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "interceptor_rush",
+          "y": -2.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "mortar_drone",
+          "y": 0.0
+        },
+        {
+          "tick": 320,
+          "enemyId": "sentry_drone",
+          "y": 4.0
+        },
+        {
+          "tick": 360,
+          "enemyId": "sentry_drone",
+          "y": -4.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "laser_sentry",
+          "y": 3.25
+        },
+        {
+          "tick": 480,
+          "enemyId": "interceptor_rush",
+          "y": 1.0
+        },
+        {
+          "tick": 520,
+          "enemyId": "interceptor_rush",
+          "y": -1.0
+        },
+        {
+          "tick": 580,
+          "enemyId": "zako_tank",
+          "y": 0.0
+        },
+        {
+          "tick": 640,
+          "enemyId": "mortar_drone",
+          "y": 2.5
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 13.0,
+          "y": 2.0,
+          "hp": 35
+        },
+        {
+          "type": "breakable",
+          "x": 13.0,
+          "y": -2.0,
+          "hp": 35
+        },
+        {
+          "type": "breakable",
+          "x": 17.5,
+          "y": 1.5,
+          "hp": 40
+        },
+        {
+          "type": "laserEmitter",
+          "x": 16.0,
+          "y": 3.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        }
+      ],
+      "intent": "요새 차폐벽+포탑 — 방패 파괴 후 돌파",
+      "theme": "fortress"
+    },
+    {
+      "id": "seg_fortress_crossfire_alley",
+      "difficultyMin": 4,
+      "difficultyMax": 7,
+      "weight": 5,
+      "lengthTicks": 780,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        2
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 40,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "laser_sentry",
+          "y": 4.0
+        },
+        {
+          "tick": 140,
+          "enemyId": "laser_sentry",
+          "y": -4.0
+        },
+        {
+          "tick": 180,
+          "enemyId": "interceptor_rush",
+          "y": 2.5
+        },
+        {
+          "tick": 220,
+          "enemyId": "interceptor_rush",
+          "y": -2.5
+        },
+        {
+          "tick": 280,
+          "enemyId": "mortar_drone",
+          "y": 0.0
+        },
+        {
+          "tick": 320,
+          "enemyId": "sentry_drone",
+          "y": 3.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "sentry_drone",
+          "y": -3.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "interceptor_rush",
+          "y": 1.5
+        },
+        {
+          "tick": 460,
+          "enemyId": "interceptor_rush",
+          "y": -1.5
+        },
+        {
+          "tick": 580,
+          "enemyId": "zako_tank",
+          "y": 0.0
+        },
+        {
+          "tick": 640,
+          "enemyId": "mortar_drone",
+          "y": 2.0
+        },
+        {
+          "tick": 700,
+          "enemyId": "elite_sine",
+          "y": 0.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 12.5,
+          "y": 1.75,
+          "hp": 42
+        },
+        {
+          "type": "breakable",
+          "x": 12.5,
+          "y": -1.75,
+          "hp": 42
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": 0.0,
+          "hp": 48
+        },
+        {
+          "type": "laserEmitter",
+          "x": 15.5,
+          "y": 3.25,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        }
+      ],
+      "intent": "요새 교차사격 골목 — 차폐·레이저 동시 압박",
+      "theme": "fortress"
+    },
+    {
+      "id": "seg_nebula_drift_lattice",
+      "difficultyMin": 3,
+      "difficultyMax": 7,
+      "weight": 6,
+      "lengthTicks": 720,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 35,
+          "enemyId": "wisp_spark",
+          "y": 3.0
+        },
+        {
+          "tick": 75,
+          "enemyId": "void_moth",
+          "y": -2.0
+        },
+        {
+          "tick": 115,
+          "enemyId": "echo_wisp",
+          "y": 4.0
+        },
+        {
+          "tick": 155,
+          "enemyId": "void_moth",
+          "y": 1.0
+        },
+        {
+          "tick": 195,
+          "enemyId": "wisp_spark",
+          "y": -3.5
+        },
+        {
+          "tick": 235,
+          "enemyId": "echo_wisp",
+          "y": 0.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "void_moth",
+          "y": 2.5
+        },
+        {
+          "tick": 320,
+          "enemyId": "prism_beamer",
+          "y": 3.5
+        },
+        {
+          "tick": 370,
+          "enemyId": "wisp_spark",
+          "y": -1.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "void_moth",
+          "y": 1.5
+        },
+        {
+          "tick": 470,
+          "enemyId": "echo_wisp",
+          "y": -3.0
+        },
+        {
+          "tick": 530,
+          "enemyId": "elite_sine",
+          "y": 0.0
+        },
+        {
+          "tick": 590,
+          "enemyId": "void_moth",
+          "y": 2.0
+        },
+        {
+          "tick": 640,
+          "enemyId": "prism_beamer",
+          "y": -2.5
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.5,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 13.0,
+          "y": -4.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.5,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 12.0,
+          "y": 1.5,
+          "hp": 30
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": -1.5,
+          "hp": 35
+        },
+        {
+          "type": "breakable",
+          "x": 19.5,
+          "y": 2.0,
+          "hp": 32
+        }
+      ],
+      "intent": "성운 부유 격자 — 대각 결정 회피",
+      "theme": "nebula"
+    },
+    {
+      "id": "seg_core_phase_columns",
+      "difficultyMin": 4,
+      "difficultyMax": 7,
+      "weight": 5,
+      "lengthTicks": 800,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "rift_blade",
+          "y": 3.0
+        },
+        {
+          "tick": 80,
+          "enemyId": "rift_blade",
+          "y": -3.0
+        },
+        {
+          "tick": 120,
+          "enemyId": "phase_disc",
+          "y": 2.0
+        },
+        {
+          "tick": 160,
+          "enemyId": "phase_disc",
+          "y": -2.0
+        },
+        {
+          "tick": 200,
+          "enemyId": "guardian_sphere",
+          "y": 0.0
+        },
+        {
+          "tick": 250,
+          "enemyId": "shard_prism",
+          "y": 3.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "rift_blade",
+          "y": 1.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "rift_blade",
+          "y": -1.5
+        },
+        {
+          "tick": 390,
+          "enemyId": "laser_sentry",
+          "y": 4.0
+        },
+        {
+          "tick": 440,
+          "enemyId": "phase_disc",
+          "y": 0.0
+        },
+        {
+          "tick": 500,
+          "enemyId": "guardian_sphere",
+          "y": 2.5
+        },
+        {
+          "tick": 550,
+          "enemyId": "shard_prism",
+          "y": -2.5
+        },
+        {
+          "tick": 610,
+          "enemyId": "rift_blade",
+          "y": 1.0
+        },
+        {
+          "tick": 660,
+          "enemyId": "elite_sine",
+          "y": 0.0
+        },
+        {
+          "tick": 720,
+          "enemyId": "interceptor_rush",
+          "y": 2.0
+        },
+        {
+          "tick": 740,
+          "enemyId": "interceptor_rush",
+          "y": -2.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 13.5,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 17.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 12.0,
+          "y": 2.0,
+          "hp": 48
+        },
+        {
+          "type": "breakable",
+          "x": 15.0,
+          "y": -2.0,
+          "hp": 50
+        },
+        {
+          "type": "breakable",
+          "x": 18.5,
+          "y": 1.5,
+          "hp": 50
+        },
+        {
+          "type": "laserEmitter",
+          "x": 16.0,
+          "y": 3.0,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        }
+      ],
+      "intent": "코어 위상 기둥 — 후반 조밀 통로",
+      "theme": "core"
     }
   ],
   "bosses": [

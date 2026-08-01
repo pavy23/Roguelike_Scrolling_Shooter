@@ -34,7 +34,7 @@ namespace Shmup.Presentation.Battle
         [SerializeField] float _laserVolume = 0.35f;
 
         // 이번 스텝에서 이미 재생한 클립 (틱당 1회 제한)
-        readonly bool[] _playedThisStep = new bool[13];
+        readonly bool[] _playedThisStep = new bool[15];
 
         public void PlayEvents(ReadOnlySpan<SimEvent> events)
         {
@@ -107,6 +107,18 @@ namespace Shmup.Presentation.Battle
                         // 위험 패턴 예고 — 눈과 귀 양쪽으로. 탄막 속에서는 화면 번쩍임을
                         // 놓치기 쉽다.
                         PlayOnce(12, _warning, 0.7f);
+                        break;
+                    case SimEventType.ObstacleDamaged:
+                        // 장애물은 적과 달리 가만히 있는 과녁이라 지속 사격을 받는다.
+                        // 적 피격(0.5)과 같은 볼륨이면 벽 하나 부수는 동안 화면 전체가
+                        // 타격음으로 덮인다 — 채널도 EnemyHit과 나눠 두어야 같은 틱에
+                        // 적과 장애물을 동시에 맞혔을 때 한쪽이 삼켜지지 않는다.
+                        PlayOnce(13, _hit, 0.3f);
+                        break;
+                    case SimEventType.ObstacleDestroyed:
+                        // 파괴는 격파와 같은 종류의 성과지만 적 격파(0.8)보다는 작다 —
+                        // 장애물은 길을 여는 수단이지 목표가 아니다.
+                        PlayOnce(14, _explosion, 0.6f);
                         break;
                 }
             }
