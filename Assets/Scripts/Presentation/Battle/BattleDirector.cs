@@ -278,6 +278,10 @@ namespace Shmup.Presentation.Battle
         public void SaveRunToDisk()
         {
             if (_run == null || _run.State != RunState.Playing) return;
+            // 개발 플래그 런은 Core가 스냅샷 내보내기를 예외로 거절한다 (REQ-096) —
+            // 일시정지에서 타이틀로 나가거나 게임을 끄는 평범한 경로라 여기서 걸러야
+            // 한다. 어차피 제출도 막힌 런이라 이어할 것도 없다.
+            if (_run.DevFlagsActive) return;
             RunSave.Save(_run.ExportSuspendData());
         }
 
@@ -416,6 +420,8 @@ namespace Shmup.Presentation.Battle
             Seed = (long)newSeed;
             IsDailyRun = false;   // 재출격은 새 시드다 — 더 이상 데일리 런이 아니다
             CheatUsed = false;    // 새 런은 깨끗하다 — 치트 낙인은 그 런에만 남는다
+            // 단, 개발 플래그는 RunManager에 굳어 있어 재출격해도 그대로다 (REQ-096).
+            if (_run.DevFlagsActive) MarkCheatUsed();
             ResetRunSummary();
             RefreshBattle();
             SyncViews();
@@ -477,6 +483,13 @@ namespace Shmup.Presentation.Battle
             config.CapsuleHalfHeight = SimSpace.SubUnitsPerWorldUnit * 3 / 8;
             config.PlayerMaxHp = 3;
 
+            // 개발용 런 시작 조건 (REQ-096). 새 런에만 건다 — 리플레이는 기록 당시
+            // 조건을 그대로 재현해야 하고, 이어하기 저장은 dev 런에서 Core가 이미
+            // 금지하므로 복원되는 파일은 항상 평범한 런이다.
+            // DevArgs가 릴리스에서 false/null만 돌려주므로 여기서 다시 막지 않는다.
+            bool devRunFlags = !_replayMode && PendingResume == null;
+            config.PlayerInvulnerable = devRunFlags && DevArgs.GodMode;
+
             // 런 수명은 Core(RunManager) 소관: 스테이지 전환, 난이도 곡선, 사망 감지,
             // 재시작 시 파워업 승계까지. Presentation은 Step을 돌리고 Battle을 그릴 뿐이다.
             // 이어하기(REQ-017): 타이틀이 PendingResume을 채우면 새 런 대신 리줌한다.
@@ -521,6 +534,15 @@ namespace Shmup.Presentation.Battle
                 {
                     DifficultySelect.GetMultiplier(out diffNum, out diffDen);
                 }
+                // 시작 스테이지 점프 (REQ-096). Core는 범위를 벗어나면 예외를 던지므로
+                // 오타가 런을 아예 못 띄우는 일이 없게 여기서 캠페인 길이로 자른다.
+                RunConfig runConfig = null;
+                if (devRunFlags && DevArgs.OverrideStartStage.HasValue)
+                {
+                    int lastStage = RunProgressionConfig.CreateDefault().BiomeCount;
+                    runConfig = new RunConfig(
+                        Mathf.Clamp(DevArgs.OverrideStartStage.Value, 1, lastStage));
+                }
                 _run = new RunManager(
                     (ulong)Seed,
                     new SegmentStageGenerator(data.StageGeneration),
@@ -530,9 +552,15 @@ namespace Shmup.Presentation.Battle
                     data.Rewards,
                     selectedShip,
                     diffNum,
-                    diffDen);
+                    diffDen,
+                    runConfig);
             }
             _sim = _run.Battle;
+
+            // 개발 플래그가 걸린 런은 기록이 아니다 (REQ-096). F9/F10 치트와 같은
+            // 경로로 제출을 닫는다 — 무적으로 5스테이지에서 시작한 점수가 보드에
+            // 올라갈 이유가 없다. 판정은 Core(DevFlagsActive)가 하고 여기선 따르기만 한다.
+            if (_run.DevFlagsActive) MarkCheatUsed();
 
             // 데일리 표식은 "타이틀의 DAILY RUN으로 시작한 신규 런"에만 붙인다.
             // --seed 강제, 이어하기, 리플레이는 시드가 데일리와 같아도 같은 조건의 런이 아니다.

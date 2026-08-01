@@ -75,6 +75,28 @@ namespace Shmup.Presentation.Battle
         long _overlayKey = long.MinValue;
         string _overlayText = "";
 
+        /// <summary>
+        /// 켜져 있는 개발 플래그 표시 (REQ-096). 런 도중 바뀌지 않는 값이라 한 번만
+        /// 만든다. 무적으로 죽지 않는 것을 "적 탄이 안 맞네?" 같은 버그로 오독하는
+        /// 사고가 실제로 나므로, 켜져 있으면 화면이 그렇다고 말해 줘야 한다.
+        /// </summary>
+        string _devFlagText;
+
+        string DevFlagText
+        {
+            get
+            {
+                if (_devFlagText != null) return _devFlagText;
+                var sb = new System.Text.StringBuilder(32);
+                if (DevArgs.GodMode) sb.Append("   [GOD]");
+                if (DevArgs.OverrideStartStage.HasValue)
+                    sb.Append($"   [START {DevArgs.OverrideStartStage.Value}]");
+                if (sb.Length > 0) sb.Append("   NO SUBMIT");
+                _devFlagText = sb.ToString();
+                return _devFlagText;
+            }
+        }
+
         void OnGUI()
         {
             if (_director == null || !_overlayVisible || !DevArgs.DevMode) return;
@@ -96,7 +118,7 @@ namespace Shmup.Presentation.Battle
             {
                 _overlayKey = key;
                 _overlayText =
-                    $"run {_director.RunNumber}   stage {_director.StageIndex}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}\n[F3] hide   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed)";
+                    $"run {_director.RunNumber}   stage {_director.StageIndex}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{DevFlagText}\n[F3] hide   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --god survives)";
             }
             GUI.Label(new Rect(8, 4, Screen.width - 16, _style.fontSize * 3), _overlayText, _style);
         }

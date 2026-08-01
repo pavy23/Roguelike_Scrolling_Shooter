@@ -14,6 +14,12 @@ namespace Shmup.Presentation.Battle
         const string DevFlag = "--dev";
         const string DevQuery = "dev=1";
 
+        /// <summary>N스테이지부터 시작 (REQ-096). `--stage=3` 또는 `?dev=1&stage=3`.</summary>
+        const string StageKey = "stage";
+
+        /// <summary>피격 무시 (REQ-096). `--god` / `--god=1` 또는 `?dev=1&god=1`.</summary>
+        const string GodKey = "god";
+
         static bool _devMode;
         static bool _devModeResolved;
 
@@ -81,6 +87,110 @@ namespace Shmup.Presentation.Battle
                 }
                 return null;
             }
+        }
+
+        // ── 개발용 런 시작 조건 (REQ-096) ──────────────────────────────────────
+        //
+        // 무적과 스테이지 점프는 시드 고정과 성격이 다르다: 시드는 "같은 런을 다시
+        // 본다"지만 이 둘은 런 자체를 바꾼다. 그래서 **DevMode가 아닐 때는 인자를
+        // 읽지도 않는다** — 릴리스 빌드에 `?god=1`을 붙여도 아무 일도 일어나지 않는다.
+        // (Core는 이 값들이 기본값이 아니면 RunManager.DevFlagsActive를 세우고,
+        //  BattleDirector가 그 런의 점수 제출을 치트 런과 똑같이 닫는다.)
+
+        static bool _startStageResolved;
+        static int? _startStage;
+
+        /// <summary>시작 스테이지(1부터). 지정이 없거나 개발 모드가 아니면 null.</summary>
+        public static int? OverrideStartStage
+        {
+            get
+            {
+                if (_startStageResolved) return _startStage;
+                _startStageResolved = true;
+                _startStage = ResolveStartStage();
+                return _startStage;
+            }
+        }
+
+        static int? ResolveStartStage()
+        {
+            if (!DevMode) return null;
+            if (!TryReadArg(StageKey, out string raw)) return null;
+            if (!int.TryParse(raw, NumberStyles.Integer,
+                              CultureInfo.InvariantCulture, out int stage))
+                return null;
+            // 1 미만은 Core가 예외로 거절한다. 오타 하나로 런이 시작조차 못 하면
+            // 진단이 어려워지므로 여기서 무시하고 기본값으로 흘려보낸다.
+            return stage >= 1 ? stage : (int?)null;
+        }
+
+        static bool _godResolved;
+        static bool _god;
+
+        /// <summary>피격 무시. 개발 모드가 아니면 항상 false.</summary>
+        public static bool GodMode
+        {
+            get
+            {
+                if (_godResolved) return _god;
+                _godResolved = true;
+                _god = DevMode
+                    && TryReadArg(GodKey, out string raw)
+                    && IsTruthy(raw);
+                return _god;
+            }
+        }
+
+        /// <summary>값 없는 플래그(<c>--god</c>)는 켜짐. 0/false/off/no만 꺼짐으로 읽는다.</summary>
+        static bool IsTruthy(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return true;
+            return !string.Equals(value, "0", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(value, "false", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(value, "off", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(value, "no", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// 실행 인자(<c>--key=value</c> / <c>--key</c>)와 WebGL URL 쿼리(<c>key=value</c>)를
+        /// 같은 이름으로 읽는다. 데스크톱은 인자로, 폰 원격 검증은 주소로 — 두 경로를
+        /// 하나의 이름으로 묶어야 QA 지시가 플랫폼마다 갈리지 않는다.
+        /// </summary>
+        static bool TryReadArg(string key, out string value)
+        {
+            value = null;
+            string prefix = "--" + key + "=";
+            string flag = "--" + key;
+            foreach (var arg in Environment.GetCommandLineArgs())
+            {
+                if (arg.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = arg.Substring(prefix.Length);
+                    return true;
+                }
+                if (string.Equals(arg, flag, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = "1";
+                    return true;
+                }
+            }
+
+            string url = Application.absoluteURL;
+            if (string.IsNullOrEmpty(url)) return false;
+            int question = url.IndexOf('?');
+            if (question < 0) return false;
+            string query = url.Substring(question + 1);
+            int hash = query.IndexOf('#');
+            if (hash >= 0) query = query.Substring(0, hash);
+            foreach (var pair in query.Split('&'))
+            {
+                int equals = pair.IndexOf('=');
+                string name = equals >= 0 ? pair.Substring(0, equals) : pair;
+                if (!string.Equals(name, key, StringComparison.OrdinalIgnoreCase)) continue;
+                value = equals >= 0 ? pair.Substring(equals + 1) : "1";
+                return true;
+            }
+            return false;
         }
     }
 }
