@@ -66,7 +66,7 @@ static class Program
     const int ThemeDiffAssemblySeedCount = 8;
 
     // Segment weights (REQ-029, provisional §7).
-    const int ExpectedSegmentCount = 48;
+    const int ExpectedSegmentCount = 60; // REQ-103b: +10 cleanKill +2 speed spikes
     const int DefaultSegmentWeight = StageSegmentTemplate.DefaultWeight;
     const int MinWeightedLowCount = 4;   // spectacle / maze / dense
     const int MaxWeightedLow = 5;        // weight ≤ this counts as low
@@ -268,6 +268,8 @@ static class Program
         failures += CheckStageShuffleClearability(data);
         Console.WriteLine();
         failures += CheckReq103aStageOverhaul(data, generator);
+        Console.WriteLine();
+        failures += CheckReq103bGimmickAxes(data, generator);
 
         Console.WriteLine();
         if (failures == 0)
@@ -7917,6 +7919,561 @@ static class Program
         else
             Console.WriteLine(
                 $"FAIL: REQ-103a ({failures} issues, assemblyFails={assemblyFails}).");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-103b gimmick axes: scrap cover (blocksEnemyBullets), hive regen walls,
+    /// midboss cleanKill branch tables, scroll speed spikes, fort/nebula density.
+    /// </summary>
+    static int CheckReq103bGimmickAxes(
+        GameDataSet data,
+        SegmentStageGenerator generator)
+    {
+        int failures = 0;
+        StageGenerationCatalog catalog = data.StageGeneration;
+        BattleContent content = data.BattleContent;
+        Console.WriteLine(
+            "REQ-103b gimmick axes (cover / regen / outcome / scroll):");
+
+        int scrapCoverObs = 0;
+        int scrapCoverSegs = 0;
+        int hiveRegenObs = 0;
+        int hiveRegenSegs = 0;
+        int spikeSegs = 0;
+        int cleanKillSegs = 0;
+        var cleanKillByTheme = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (string theme in catalog.ThemeIds)
+            cleanKillByTheme[theme] = 0;
+
+        // Softlock probe: regen walls must not form a full solid+breakable seal
+        // with no dig path — i.e. at least one breakable (diggable) on hive late.
+        int hiveLateWithRegenBreakable = 0;
+        int hiveLateTotal = 0;
+
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            bool hasCover = false;
+            bool hasRegen = false;
+            int breakables = 0;
+            int regenBreakables = 0;
+            for (int i = 0; i < seg.Obstacles.Count; i++)
+            {
+                ObstacleSpawn o = seg.Obstacles[i];
+                if (o.Type == ObstacleType.Breakable)
+                {
+                    breakables++;
+                    if (o.BlocksEnemyBullets)
+                    {
+                        scrapCoverObs += string.Equals(
+                            seg.ThemeId, "scrapyard", StringComparison.Ordinal)
+                            ? 1
+                            : 0;
+                        hasCover = true;
+                    }
+                    if (o.RegenDelayTicks > 0)
+                    {
+                        regenBreakables++;
+                        if (string.Equals(
+                                seg.ThemeId, "hive", StringComparison.Ordinal))
+                        {
+                            hiveRegenObs++;
+                            hasRegen = true;
+                            // Delay band 180..300 ticks (@60tps ≈ 3–5s).
+                            if (o.RegenDelayTicks < 180 || o.RegenDelayTicks > 300)
+                            {
+                                Console.WriteLine(
+                                    $"FAIL 103b: '{seg.SegmentId}' regenDelayTicks="
+                                    + $"{o.RegenDelayTicks} outside 180..300.");
+                                failures++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (hasCover
+                && string.Equals(seg.ThemeId, "scrapyard", StringComparison.Ordinal))
+                scrapCoverSegs++;
+            if (hasRegen
+                && string.Equals(seg.ThemeId, "hive", StringComparison.Ordinal))
+                hiveRegenSegs++;
+
+            if (string.Equals(seg.ThemeId, "hive", StringComparison.Ordinal)
+                && seg.DifficultyMin >= 3)
+            {
+                hiveLateTotal++;
+                if (regenBreakables > 0 && breakables > 0)
+                    hiveLateWithRegenBreakable++;
+            }
+
+            // Scroll spike: ExactFraction 3/2 (1.5).
+            if (seg.ScrollSpeedMultiplierNumerator != 1
+                || seg.ScrollSpeedMultiplierDenominator != 1)
+            {
+                spikeSegs++;
+                bool isThreeHalves =
+                    seg.ScrollSpeedMultiplierNumerator == 3
+                    && seg.ScrollSpeedMultiplierDenominator == 2;
+                if (!isThreeHalves)
+                {
+                    Console.WriteLine(
+                        $"FAIL 103b: '{seg.SegmentId}' scroll mult "
+                        + $"{seg.ScrollSpeedMultiplierNumerator}/"
+                        + $"{seg.ScrollSpeedMultiplierDenominator} "
+                        + "(expected 3/2 for spikes).");
+                    failures++;
+                }
+            }
+
+            // Outcome tags.
+            if (seg.PostMidbossOutcomes != null
+                && seg.PostMidbossOutcomes.Count > 0)
+            {
+                bool clean = false;
+                for (int i = 0; i < seg.PostMidbossOutcomes.Count; i++)
+                {
+                    if (seg.PostMidbossOutcomes[i] == MidbossOutcomeKind.CleanKill)
+                        clean = true;
+                }
+                if (clean)
+                {
+                    cleanKillSegs++;
+                    if (seg.ThemeId != null
+                        && cleanKillByTheme.ContainsKey(seg.ThemeId))
+                        cleanKillByTheme[seg.ThemeId]++;
+                }
+            }
+        }
+
+        Console.WriteLine(
+            $"  scrap cover: segs={scrapCoverSegs} obs={scrapCoverObs}");
+        Console.WriteLine(
+            $"  hive regen: segs={hiveRegenSegs} obs={hiveRegenObs} "
+            + $"late-with-regen={hiveLateWithRegenBreakable}/{hiveLateTotal}");
+        Console.WriteLine(
+            $"  scroll spikes (non-1 mult): {spikeSegs}");
+        Console.WriteLine(
+            $"  cleanKill segs: {cleanKillSegs}");
+
+        if (scrapCoverObs < 20 || scrapCoverSegs < 6)
+        {
+            Console.WriteLine(
+                $"FAIL 103b: scrap cover too thin "
+                + $"(obs={scrapCoverObs} segs={scrapCoverSegs}; need ≥20/6).");
+            failures++;
+        }
+
+        // Cover geometry: at least one late scrap segment has mid-lane cover
+        // (|y| ≤ 3u) so player can tuck behind against edge turrets.
+        int lateCoverMidLane = 0;
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            if (!string.Equals(seg.ThemeId, "scrapyard", StringComparison.Ordinal))
+                continue;
+            if (seg.DifficultyMin < 2)
+                continue;
+            for (int i = 0; i < seg.Obstacles.Count; i++)
+            {
+                ObstacleSpawn o = seg.Obstacles[i];
+                if (!o.BlocksEnemyBullets)
+                    continue;
+                double yWorld = o.Y / (double)SimSpace.SubUnitsPerWorldUnit;
+                if (Math.Abs(yWorld) <= 3.0)
+                    lateCoverMidLane++;
+            }
+        }
+        Console.WriteLine(
+            $"  scrap mid-lane cover posts (|y|≤3, dMin≥2): {lateCoverMidLane}");
+        if (lateCoverMidLane < 8)
+        {
+            Console.WriteLine(
+                $"FAIL 103b: mid-lane cover posts {lateCoverMidLane} < 8 "
+                + "(cover angle for 'not shooting = defense').");
+            failures++;
+        }
+
+        if (hiveRegenObs < 6 || hiveRegenSegs < 3)
+        {
+            Console.WriteLine(
+                $"FAIL 103b: hive regen too thin "
+                + $"(obs={hiveRegenObs} segs={hiveRegenSegs}; need ≥6/3).");
+            failures++;
+        }
+
+        if (hiveLateTotal > 0
+            && hiveLateWithRegenBreakable < Math.Max(1, hiveLateTotal / 2))
+        {
+            Console.WriteLine(
+                "FAIL 103b: hive late dig path insufficient "
+                + "(regen breakables required so walls don't softlock).");
+            failures++;
+        }
+
+        // Softlock: hive late segs with regen must still parse as clearable templates
+        // (entry→masks→exit). Assembly below also checks full plans.
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            if (!string.Equals(seg.ThemeId, "hive", StringComparison.Ordinal))
+                continue;
+            if (seg.DifficultyMin < 3)
+                continue;
+            // No solid-only full-column seal at play center: if any solid column
+            // clusters near y=0 within |y|<2, require a nearby breakable dig.
+            // (Heuristic — full corridor gap is already enforced for solids.)
+            bool hasCenterBreakable = false;
+            for (int i = 0; i < seg.Obstacles.Count; i++)
+            {
+                ObstacleSpawn o = seg.Obstacles[i];
+                if (o.Type != ObstacleType.Breakable)
+                    continue;
+                double yWorld = o.Y / (double)SimSpace.SubUnitsPerWorldUnit;
+                if (Math.Abs(yWorld) <= 3.0)
+                    hasCenterBreakable = true;
+            }
+            if (!hasCenterBreakable && seg.Obstacles.Count > 0)
+            {
+                Console.WriteLine(
+                    $"FAIL 103b: hive late '{seg.SegmentId}' has no mid-lane "
+                    + "breakable dig path (softlock risk on regen walls).");
+                failures++;
+            }
+        }
+
+        // Scroll spikes: scrap late + core early, each at least one 3/2 short seg.
+        int scrapSpike = 0;
+        int coreSpike = 0;
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            bool isSpike =
+                seg.ScrollSpeedMultiplierNumerator == 3
+                && seg.ScrollSpeedMultiplierDenominator == 2;
+            if (!isSpike)
+                continue;
+            if (seg.LengthTicks > 400)
+            {
+                Console.WriteLine(
+                    $"FAIL 103b: spike '{seg.SegmentId}' lengthTicks="
+                    + $"{seg.LengthTicks} > 400 (must stay short).");
+                failures++;
+            }
+            if (string.Equals(seg.ThemeId, "scrapyard", StringComparison.Ordinal)
+                && seg.DifficultyMin >= 3)
+                scrapSpike++;
+            if (string.Equals(seg.ThemeId, "core", StringComparison.Ordinal)
+                && seg.DifficultyMax <= 4)
+                coreSpike++;
+        }
+        Console.WriteLine(
+            $"  spikes: scrap-late={scrapSpike} core-early={coreSpike}");
+        if (scrapSpike < 1 || coreSpike < 1)
+        {
+            Console.WriteLine(
+                "FAIL 103b: need scrap late + core early scroll spikes (3/2).");
+            failures++;
+        }
+
+        // cleanKill: ≥1 per theme, and EV slightly better (fewer spawns / more capsule).
+        foreach (string theme in catalog.ThemeIds)
+        {
+            int n = cleanKillByTheme[theme];
+            Console.WriteLine($"    cleanKill theme={theme,-10} n={n}");
+            if (n < 1)
+            {
+                Console.WriteLine(
+                    $"FAIL 103b: theme '{theme}' has no cleanKill segments.");
+                failures++;
+            }
+        }
+
+        // Branch EV gate: mean spawn count of cleanKill < mean of Default late
+        // themed segs; capsule EV/spawn slightly higher (promoted drop weights).
+        double SumSpawnEv(StageSegmentTemplate seg)
+        {
+            double ev = 0.0;
+            int noDrop = data.CapsuleNoDropWeight;
+            for (int i = 0; i < seg.Spawns.Count; i++)
+            {
+                EnemyDefinition e = content.FindEnemy(seg.Spawns[i].EnemyId);
+                if (e == null) continue;
+                ev += e.DropWeight / (double)(noDrop + e.DropWeight);
+            }
+            return ev;
+        }
+
+        double ckSpawns = 0, ckEv = 0, ckN = 0;
+        double defSpawns = 0, defEv = 0, defN = 0;
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            if (seg.ThemeId == null)
+                continue;
+            bool isClean = false;
+            if (seg.PostMidbossOutcomes != null)
+            {
+                for (int i = 0; i < seg.PostMidbossOutcomes.Count; i++)
+                    if (seg.PostMidbossOutcomes[i] == MidbossOutcomeKind.CleanKill)
+                        isClean = true;
+            }
+            double ev = SumSpawnEv(seg);
+            if (isClean)
+            {
+                ckSpawns += seg.Spawns.Count;
+                ckEv += ev;
+                ckN++;
+            }
+            else if ((seg.PostMidbossOutcomes == null
+                    || seg.PostMidbossOutcomes.Count == 0)
+                && seg.DifficultyMin >= 3)
+            {
+                // Default pool late themed — same band as cleanKill variants.
+                defSpawns += seg.Spawns.Count;
+                defEv += ev;
+                defN++;
+            }
+        }
+        if (ckN < 1 || defN < 1)
+        {
+            Console.WriteLine("FAIL 103b: cannot compute cleanKill vs default EV.");
+            failures++;
+        }
+        else
+        {
+            double ckAvgSp = ckSpawns / ckN;
+            double defAvgSp = defSpawns / defN;
+            double ckAvgEvPerSpawn = (ckEv / ckN) / Math.Max(1.0, ckAvgSp);
+            double defAvgEvPerSpawn = (defEv / defN) / Math.Max(1.0, defAvgSp);
+            Console.WriteLine(
+                $"  EV gate: cleanKill avgSpawns={ckAvgSp:F2} "
+                + $"ev/spawn={ckAvgEvPerSpawn:F4} · default avgSpawns={defAvgSp:F2} "
+                + $"ev/spawn={defAvgEvPerSpawn:F4}");
+            // Mild reward: fewer foes (or equal), not a free win.
+            if (ckAvgSp > defAvgSp * 0.95)
+            {
+                Console.WriteLine(
+                    "FAIL 103b: cleanKill avg spawns not meaningfully below default "
+                    + "(need fewer enemies on fast midboss kill path).");
+                failures++;
+            }
+            // Capsule slightly up per remaining spawn (promotions) — allow flat if
+            // spawn cut alone is the reward; require not worse than 90% of default.
+            if (ckAvgEvPerSpawn < defAvgEvPerSpawn * 0.90)
+            {
+                Console.WriteLine(
+                    "FAIL 103b: cleanKill capsule density collapsed "
+                    + "(over-nerf; keep mild capsule lean).");
+                failures++;
+            }
+            // Over-reward ban: cleanKill total EV must not exceed default by much.
+            double ckTotal = ckEv / ckN;
+            double defTotal = defEv / defN;
+            if (ckTotal > defTotal * 1.05)
+            {
+                Console.WriteLine(
+                    $"FAIL 103b: cleanKill total capsule EV {ckTotal:F3} > "
+                    + $"default {defTotal:F3}×1.05 (over-reward).");
+                failures++;
+            }
+        }
+
+        // Assembly: cleanKill closing route per theme must use tagged pool
+        // (not silent Default fallback from ResolveAvailableOutcome).
+        var cleanKillIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            if (seg.PostMidbossOutcomes == null)
+                continue;
+            for (int i = 0; i < seg.PostMidbossOutcomes.Count; i++)
+            {
+                if (seg.PostMidbossOutcomes[i] == MidbossOutcomeKind.CleanKill)
+                {
+                    cleanKillIds.Add(seg.SegmentId);
+                    break;
+                }
+            }
+        }
+
+        int closing = catalog.ClosingSegmentsPerStage > 0
+            ? catalog.ClosingSegmentsPerStage
+            : catalog.SegmentsPerStage;
+        int outcomeAssembleFails = 0;
+        const ulong seed = 0x103B0E77UL;
+        for (int t = 0; t < catalog.ThemeIds.Count; t++)
+        {
+            string theme = catalog.ThemeIds[t];
+            // cleanKill templates are late-band (dMin≥3). Early diffs may
+            // legally fall back to Default; enforce tagged pool at 3 and 5.
+            int stage = Math.Max(3, t + 1);
+            int[] diffsToCheck = { 3, 5 };
+            for (int di = 0; di < diffsToCheck.Length; di++)
+            {
+                int difficulty = diffsToCheck[di];
+                try
+                {
+                    if (generator is not IMidbossOutcomeRouteStageGenerator routeGen)
+                    {
+                        Console.WriteLine(
+                            "FAIL 103b: generator missing IMidbossOutcomeRouteStageGenerator.");
+                        failures++;
+                        t = catalog.ThemeIds.Count;
+                        break;
+                    }
+                    StagePlan plan = routeGen.GenerateRouteForSection(
+                        seed,
+                        stage,
+                        difficulty,
+                        theme,
+                        EncounterType.Normal,
+                        StageRouteSection.Closing,
+                        MidbossOutcomeKind.CleanKill);
+                    if (!StagePlanClearability.IsClearable(plan))
+                    {
+                        Console.WriteLine(
+                            $"FAIL 103b: cleanKill plan not clearable theme={theme} "
+                            + $"diff={difficulty} closingN={closing}.");
+                        failures++;
+                        outcomeAssembleFails++;
+                        continue;
+                    }
+
+                    int taggedHits = 0;
+                    for (int s = 0; s < plan.Segments.Count; s++)
+                    {
+                        if (cleanKillIds.Contains(plan.Segments[s].SegmentId))
+                            taggedHits++;
+                    }
+                    // ResolveAvailableOutcome falls back to Default when the
+                    // tagged pool cannot form a full clearable closing route.
+                    // Content contract: all closing slots should be cleanKill.
+                    int needTagged = plan.Segments.Count;
+                    if (taggedHits < needTagged)
+                    {
+                        Console.WriteLine(
+                            $"FAIL 103b: cleanKill fallback theme={theme} diff={difficulty} "
+                            + $"tagged={taggedHits}/{plan.Segments.Count} "
+                            + $"(need {needTagged}) segs=[{string.Join(",", SegmentIds(plan))}]");
+                        failures++;
+                        outcomeAssembleFails++;
+                        continue;
+                    }
+
+                    if (di == 0)
+                    {
+                        Console.WriteLine(
+                            $"  OK cleanKill assemble theme={theme,-10} "
+                            + $"diff={difficulty} tagged={taggedHits}/{plan.Segments.Count} "
+                            + $"segs=[{string.Join(",", SegmentIds(plan))}]");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(
+                        $"FAIL 103b: cleanKill assemble theme={theme} "
+                        + $"diff={difficulty}: {ex.Message}");
+                    failures++;
+                    outcomeAssembleFails++;
+                }
+            }
+        }
+
+        // Attrition/Default still works (regression).
+        try
+        {
+            StagePlan defPlan = generator.Generate(seed, 1, 1);
+            if (!StagePlanClearability.IsClearable(defPlan))
+            {
+                Console.WriteLine("FAIL 103b: default stage1 plan not clearable.");
+                failures++;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"FAIL 103b: default assemble: {ex.Message}");
+            failures++;
+        }
+
+        // Fort / nebula density sanity (hull turrets + lightning statics).
+        int fortTurretSpawns = 0;
+        int nebulaPhaseSpawns = 0;
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            for (int i = 0; i < seg.Spawns.Count; i++)
+            {
+                string id = seg.Spawns[i].EnemyId;
+                if (string.Equals(seg.ThemeId, "fortress", StringComparison.Ordinal)
+                    && (id == "turret_ground" || id == "turret_ceiling"))
+                    fortTurretSpawns++;
+                if (string.Equals(seg.ThemeId, "nebula", StringComparison.Ordinal)
+                    && (id == "phase_disc" || id == "prism_beamer"))
+                    nebulaPhaseSpawns++;
+            }
+        }
+        Console.WriteLine(
+            $"  fortress turret spawns={fortTurretSpawns} · "
+            + $"nebula phase/prism={nebulaPhaseSpawns}");
+        // Mild densify targets (heavy densify flips audit contract timing).
+        if (fortTurretSpawns < 12)
+        {
+            Console.WriteLine(
+                $"FAIL 103b: fortress hull turrets {fortTurretSpawns} < 12.");
+            failures++;
+        }
+        if (nebulaPhaseSpawns < 8)
+        {
+            Console.WriteLine(
+                $"FAIL 103b: nebula lightning statics {nebulaPhaseSpawns} < 8.");
+            failures++;
+        }
+
+        // Core time-limit headroom under max gimmick intensity 1.5 (2/3 scale).
+        int coreTimeLimit = 0;
+        for (int i = 0; i < catalog.Gimmicks.Count; i++)
+        {
+            StageGimmickDefinition g = catalog.Gimmicks[i];
+            if (string.Equals(g.ThemeId, "core", StringComparison.Ordinal))
+            {
+                coreTimeLimit = g.TimeLimitTicks;
+                break;
+            }
+        }
+        int scaledAt15 = coreTimeLimit * 2 / 3;
+        int closingN = catalog.ClosingSegmentsPerStage > 0
+            ? catalog.ClosingSegmentsPerStage
+            : catalog.SegmentsPerStage;
+        // Worst-case core closing length estimate: max themed core length × N.
+        int maxCoreLen = 0;
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            if (!string.Equals(seg.ThemeId, "core", StringComparison.Ordinal))
+                continue;
+            if (seg.LengthTicks > maxCoreLen)
+                maxCoreLen = seg.LengthTicks;
+        }
+        int worstClosing = maxCoreLen * closingN;
+        Console.WriteLine(
+            $"  core timeLimit={coreTimeLimit} scaled@1.5={scaledAt15} "
+            + $"worstClosing≈{worstClosing} (maxLen={maxCoreLen}×{closingN})");
+        if (coreTimeLimit < 12000)
+        {
+            Console.WriteLine(
+                $"FAIL 103b: core timeLimitTicks {coreTimeLimit} < 12000 "
+                + "(need headroom for closing under gimmick intensity 1.5).");
+            failures++;
+        }
+        if (scaledAt15 < worstClosing)
+        {
+            Console.WriteLine(
+                $"FAIL 103b: core scaled timeLimit {scaledAt15} < "
+                + $"worst closing length {worstClosing}.");
+            failures++;
+        }
+
+        if (failures == 0)
+            Console.WriteLine(
+                "PASS: REQ-103b cover/regen/outcome/scroll/density.");
+        else
+            Console.WriteLine(
+                $"FAIL: REQ-103b ({failures} issues, "
+                + $"outcomeAssembleFails={outcomeAssembleFails}).");
         return failures;
     }
 

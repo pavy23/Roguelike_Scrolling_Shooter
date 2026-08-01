@@ -4,28 +4,56 @@
 
 ---
 
+## 2026-08-02 REQ-103b — 대개편 2차 기믹 축 데이터 (content 완료)
+
+**완료 (content):**  
+- scrapyard `blocksEnemyBullets` cover (전반 티칭 + 후반 엄폐 라인)  
+- hive `regenDelayTicks` 180–270 (membrane/organic/nest/hornet) · dig path 유지  
+- cleanKill 후반 분기 세그 **10** (테마×2) · Default untagged 유지  
+- scroll spike `1.5` ×2 (`seg_scrap_speed_spike` / `seg_core_speed_spike`)  
+- fortress 함체 포탑·nebula phase_disc mild 밀도  
+- core `timeLimitTicks` 9000→**12000** (기믹 1.5 하 closing 7세그 여유)  
+- 세그먼트 **48→60** · BalanceSim `CheckReq103bGimmickAxes`  
+**표:** `Reviews/from-grok/req103b-report.md`  
+**검증:** 499/499 · BalanceSim all green · DeterminismAudit AUDIT PASS
+
+### CLAUDE
+1. [ ] Resources `GameData/waves.json` 동기화 (60 segs · blocksEnemyBullets / regenDelayTicks / postMidbossOutcomes / scrollSpeedMultiplier / core TL)
+2. [ ] (선택) `EnemyBulletBlocked` · `ObstacleRegenerated` · `MidBossDefeated` 연출 구독
+3. [ ] (선택) scrap cover · hive dig · speed-spike 구간 시각 확인
+
+### CODEX
+- 없음 (REQ-101 C-A..D 스키마 완료, content optional 필드만 사용). C-E 섹션 마커는 Presentation 연동 시 재검토.
+
+### GEMINI
+1. [ ] cleanKill 분기 후반 체감·clearability 교차 검산
+2. [ ] DeterminismAudit 해시 변동은 content 의도 — 베이스라인 갱신 여부
+3. [ ] core timeLimit 12000 · 기믹 intensity 1.5 계약 경로 소프트락 재검
+
+---
+
 ## 2026-08-02 REQ-103a — 스테이지 대개편 1차 (기존 스키마, content 완료)
 
 **완료 (content):**  
 - `waves.json` 후반 잠식 multi-mask 7→3→2 (테마 차등, St5=`[7,3,2,2]`) · 마스크 변경 32  
 - 전 세그먼트 보스 밸리 gap≥120 (패딩 37)  
 - 후반 static 포대 성격 분리 (scrap/hive/nebula/core) · laser peak≤4 유지  
-- 스크롤 스파이크 필드 **없음** → Core C-D  
+- 스크롤 스파이크 필드 **없음** → Core C-D → **REQ-103b에서 content 채움**  
 - BalanceSim `CheckReq103aStageOverhaul` 게이트 추가  
 **표:** `Reviews/from-grok/req103a-report.md`  
 **Core 요구서:** `Reviews/from-grok/req103-core-requests.md`  
 **검증:** 489/489 · BalanceSim all green · DeterminismAudit AUDIT PASS
 
 ### CODEX
-1. [ ] **C-A** `Obstacle.blocksEnemyBullets` (St1 고철 방패) — 적탄 차단, 기본 false 하위호환
-2. [ ] **C-B** `Obstacle.regenDelayTicks` (St2 재생 세포벽) — 0=재생 없음
-3. [ ] **C-C** `midbossOutcome` 분기 + 후반 세그먼트 풀 선택 (`Rng.Fork` 분리 스트림)
-4. [ ] **C-D** `Segment.scrollSpeedMultiplier` (St1 후반·St5 전반 스파이크) — ExactFraction 권장
-5. [ ] **C-E** `StageSectionEvent` 마커 (Intro/MidbossDefeat/LateHalf/BossWarn) — **세그 인덱스 단독 불충분**
-6. [ ] (참고) BalanceSim `CreateSegment(Rng)` REQ-098 호환은 content가 수정함
+1. [x] **C-A** `Obstacle.blocksEnemyBullets` — REQ-101 PASS · content REQ-103b 채움
+2. [x] **C-B** `Obstacle.regenDelayTicks` — REQ-101 PASS · content REQ-103b 채움
+3. [x] **C-C** `midbossOutcome` 분기 — REQ-101 PASS · content REQ-103b cleanKill 풀
+4. [x] **C-D** `Segment.scrollSpeedMultiplier` — REQ-101 PASS · content REQ-103b spike
+5. [ ] **C-E** `StageSectionEvent` 마커 (Intro/MidbossDefeat/LateHalf/BossWarn) — MidBossDefeated 이벤트는 발행됨 · 전 구간 마커 확장 여부는 Presentation 요청
+6. [x] (참고) BalanceSim `CreateSegment(Rng)` REQ-098 호환은 content가 수정함
 
 ### CLAUDE
-1. [ ] Resources `GameData/waves.json` 동기화 (잠식 multi-mask + 밸리 패딩)
+1. [ ] Resources `GameData/waves.json` 동기화 (잠식 multi-mask + 밸리 패딩 → **103b 전체 동기화로 통합**)
 2. [ ] (C-E 후) SectionTheme lerp — MidbossDefeat / LateHalf 구독
 3. [ ] (선택) 잠식 구간 레인 벽/배경 연출 정합
 

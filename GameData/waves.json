@@ -2315,7 +2315,8 @@
           "type": "breakable",
           "x": 11.0,
           "y": 2.5,
-          "hp": 25
+          "hp": 25,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -2327,7 +2328,8 @@
           "type": "breakable",
           "x": 16.0,
           "y": 3.5,
-          "hp": 28
+          "hp": 28,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -2339,10 +2341,11 @@
           "type": "breakable",
           "x": 14.0,
           "y": 1.75,
-          "hp": 35
+          "hp": 35,
+          "blocksEnemyBullets": true
         }
       ],
-      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | 스크랩 잡몹 직선 리듬"
+      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | 스크랩 잡몹 직선 리듬 | REQ103b cover"
     },
     {
       "id": "seg_scrap_pipe_dash",
@@ -2433,7 +2436,8 @@
           "type": "breakable",
           "x": 12.0,
           "y": 4.0,
-          "hp": 22
+          "hp": 22,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -2445,7 +2449,8 @@
           "type": "breakable",
           "x": 17.0,
           "y": 1.75,
-          "hp": 30
+          "hp": 30,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -2457,7 +2462,8 @@
           "type": "breakable",
           "x": 15.5,
           "y": 3.0,
-          "hp": 24
+          "hp": 24,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -2466,7 +2472,7 @@
           "hp": 34
         }
       ],
-      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | valley | 대시 잡몹 회피 — 반응 속도"
+      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | valley | 대시 잡몹 회피 — 반응 속도 | REQ103b cover"
     },
     {
       "id": "seg_scrap_skimmer_weave",
@@ -2562,7 +2568,8 @@
           "type": "breakable",
           "x": 11.5,
           "y": 3.25,
-          "hp": 30
+          "hp": 30,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -2574,7 +2581,8 @@
           "type": "breakable",
           "x": 16.5,
           "y": 1.75,
-          "hp": 40
+          "hp": 40,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -2586,7 +2594,8 @@
           "type": "breakable",
           "x": 12.5,
           "y": -1.75,
-          "hp": 32
+          "hp": 32,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -2595,7 +2604,7 @@
           "hp": 26
         }
       ],
-      "intent": "REQ103a mid | masks[2] | theme=scrapyard | valley | 스킴 잡몹 직조 회피 동선"
+      "intent": "REQ103a mid | masks[2] | theme=scrapyard | valley | 스킴 잡몹 직조 회피 동선 | REQ103b cover"
     },
     {
       "id": "seg_scrap_junk_corridor",
@@ -2709,34 +2718,39 @@
           "type": "breakable",
           "x": 12.5,
           "y": 1.75,
-          "hp": 35
+          "hp": 35,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
           "x": 14.0,
           "y": -2.0,
-          "hp": 40
+          "hp": 40,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
           "x": 16.5,
           "y": 3.0,
-          "hp": 38
+          "hp": 38,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": -1.75,
-          "hp": 45
+          "hp": 45,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
           "x": 19.5,
           "y": 2.5,
-          "hp": 42
+          "hp": 42,
+          "blocksEnemyBullets": true
         }
       ],
-      "intent": "REQ103a mid | masks[7→3] | theme=scrapyard | valley | 강화형 조준 + 통로 압박"
+      "intent": "REQ103a mid | masks[7→3] | theme=scrapyard | valley | 강화형 조준 + 통로 압박 | REQ103b cover-line"
     },
     {
       "id": "seg_scrap_tumbler_pack",
@@ -2865,40 +2879,46 @@
           "type": "breakable",
           "x": 12.0,
           "y": 1.75,
-          "hp": 45
+          "hp": 45,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
           "x": 14.5,
           "y": 3.5,
-          "hp": 40
+          "hp": 40,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
           "x": 14.5,
           "y": -3.5,
-          "hp": 40
+          "hp": 40,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
           "x": 17.0,
           "y": 2.0,
-          "hp": 50
+          "hp": 50,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
           "x": 19.0,
           "y": -2.5,
-          "hp": 48
+          "hp": 48,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
           "x": 16.0,
           "y": -1.75,
-          "hp": 55
+          "hp": 55,
+          "blocksEnemyBullets": true
         }
       ],
-      "intent": "REQ103a mid | masks[7→3] | theme=scrapyard | 강화형 텀블러 팩 조준 강요"
+      "intent": "REQ103a mid | masks[7→3] | theme=scrapyard | 강화형 텀블러 팩 조준 강요 | REQ103b cover-line"
     },
     {
       "id": "seg_scrap_rust_gauntlet",
@@ -3034,46 +3054,53 @@
           "type": "breakable",
           "x": 11.5,
           "y": 2.0,
-          "hp": 50
+          "hp": 50,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 13.0,
-          "y": -2.5,
-          "hp": 55
+          "x": 11.5,
+          "y": -2.0,
+          "hp": 50,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 15.5,
-          "y": 1.75,
-          "hp": 60
+          "x": 14.0,
+          "y": 0.0,
+          "hp": 55,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 17.0,
-          "y": 3.5,
-          "hp": 48
+          "x": 16.5,
+          "y": 2.25,
+          "hp": 55,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 17.0,
-          "y": -3.5,
-          "hp": 48
+          "x": 16.5,
+          "y": -2.25,
+          "hp": 55,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 19.5,
-          "y": -1.75,
-          "hp": 55
+          "x": 19.0,
+          "y": 1.5,
+          "hp": 48,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 12.5,
-          "y": -4.0,
-          "hp": 42
+          "x": 19.0,
+          "y": -1.5,
+          "hp": 48,
+          "blocksEnemyBullets": true
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→3] | theme=scrapyard | valley | static+ | 중형 앵커 가틀릿 — 화력 집중"
+      "intent": "REQ103a late-encroach | masks[7→3→3] | theme=scrapyard | valley | static+ | 중형 앵커 가틀릿 — 화력 집중 | REQ103b cover-line"
     },
     {
       "id": "seg_hive_brood_wave",
@@ -3348,16 +3375,18 @@
           "type": "breakable",
           "x": 16.0,
           "y": 1.5,
-          "hp": 20
+          "hp": 20,
+          "regenDelayTicks": 270
         },
         {
           "type": "breakable",
           "x": 19.0,
           "y": -1.5,
-          "hp": 20
+          "hp": 20,
+          "regenDelayTicks": 270
         }
       ],
-      "intent": "REQ103a mid | masks[7→3] | theme=hive | valley | 다이브 잡몹 회피 리듬"
+      "intent": "REQ103a mid | masks[7→3] | theme=hive | valley | 다이브 잡몹 회피 리듬 | REQ103b regen@270"
     },
     {
       "id": "seg_hive_organic_pulse",
@@ -3472,16 +3501,18 @@
           "type": "breakable",
           "x": 12.5,
           "y": 1.5,
-          "hp": 25
+          "hp": 25,
+          "regenDelayTicks": 210
         },
         {
           "type": "breakable",
           "x": 16.5,
           "y": 2.5,
-          "hp": 30
+          "hp": 30,
+          "regenDelayTicks": 210
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=hive | valley | static+ | 중형 위협 + 중형 화력 집중",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=hive | valley | static+ | 중형 위협 + 중형 화력 집중 | REQ103b regen@210",
       "environment": {
         "corridor": {
           "startMinY": -9.0,
@@ -3595,16 +3626,18 @@
           "type": "breakable",
           "x": 13.0,
           "y": -1.5,
-          "hp": 25
+          "hp": 25,
+          "regenDelayTicks": 180
         },
         {
           "type": "breakable",
           "x": 17.0,
           "y": -2.5,
-          "hp": 30
+          "hp": 30,
+          "regenDelayTicks": 180
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=hive | valley | static+ | 좁은 구간 중형 격파 목표",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=hive | valley | static+ | 좁은 구간 중형 격파 목표 | REQ103b regen@180",
       "environment": {
         "corridor": {
           "startMinY": -8.5,
@@ -3815,23 +3848,13 @@
       "spawns": [
         {
           "tick": 50,
-          "enemyId": "turret_ground",
-          "y": -5.5
+          "enemyId": "turret_ceiling",
+          "y": 5.5
         },
         {
           "tick": 50,
-          "enemyId": "turret_ceiling",
-          "y": 5.5
-        },
-        {
-          "tick": 180,
           "enemyId": "turret_ground",
           "y": -5.5
-        },
-        {
-          "tick": 180,
-          "enemyId": "turret_ceiling",
-          "y": 5.5
         },
         {
           "tick": 90,
@@ -3839,29 +3862,14 @@
           "y": 2.5
         },
         {
-          "tick": 130,
-          "enemyId": "sentry_drone",
-          "y": -2.5
-        },
-        {
-          "tick": 220,
-          "enemyId": "sentry_drone",
-          "y": 0
-        },
-        {
-          "tick": 280,
-          "enemyId": "sentry_drone",
-          "y": 3.5
-        },
-        {
-          "tick": 340,
-          "enemyId": "sentry_drone",
-          "y": -3.5
-        },
-        {
           "tick": 100,
           "enemyId": "interceptor_rush",
           "y": 1
+        },
+        {
+          "tick": 130,
+          "enemyId": "sentry_drone",
+          "y": -2.5
         },
         {
           "tick": 160,
@@ -3869,14 +3877,49 @@
           "y": -1
         },
         {
+          "tick": 180,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 220,
+          "enemyId": "sentry_drone",
+          "y": 0
+        },
+        {
           "tick": 240,
           "enemyId": "interceptor_rush",
           "y": 2
         },
         {
+          "tick": 260,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 260,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 280,
+          "enemyId": "sentry_drone",
+          "y": 3.5
+        },
+        {
           "tick": 300,
           "enemyId": "interceptor_rush",
           "y": -2
+        },
+        {
+          "tick": 340,
+          "enemyId": "sentry_drone",
+          "y": -3.5
         },
         {
           "tick": 360,
@@ -3887,6 +3930,11 @@
           "tick": 400,
           "enemyId": "mortar_drone",
           "y": 2
+        },
+        {
+          "tick": 420,
+          "enemyId": "laser_sentry",
+          "y": -4.5
         },
         {
           "tick": 460,
@@ -3907,11 +3955,6 @@
           "tick": 760,
           "enemyId": "zako_tank",
           "y": 0
-        },
-        {
-          "tick": 420,
-          "enemyId": "laser_sentry",
-          "y": -4.5
         }
       ],
       "obstacles": [
@@ -3986,7 +4029,7 @@
           "hp": 40
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 교차 포탑 위치 선정 + 중형"
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 교차 포탑 위치 선정 + 중형 | REQ103b hull-turret-mild"
     },
     {
       "id": "seg_fortress_drone_lattice",
@@ -4009,44 +4052,14 @@
           "y": 4
         },
         {
-          "tick": 95,
-          "enemyId": "sentry_drone",
-          "y": -4
-        },
-        {
-          "tick": 150,
-          "enemyId": "sentry_drone",
-          "y": 2
-        },
-        {
-          "tick": 205,
-          "enemyId": "sentry_drone",
-          "y": -2
-        },
-        {
-          "tick": 260,
-          "enemyId": "sentry_drone",
-          "y": 0
-        },
-        {
-          "tick": 315,
-          "enemyId": "sentry_drone",
-          "y": 3
-        },
-        {
-          "tick": 370,
-          "enemyId": "sentry_drone",
-          "y": -3
-        },
-        {
-          "tick": 425,
-          "enemyId": "sentry_drone",
-          "y": 1.5
-        },
-        {
           "tick": 70,
           "enemyId": "interceptor_rush",
           "y": 1
+        },
+        {
+          "tick": 95,
+          "enemyId": "sentry_drone",
+          "y": -4
         },
         {
           "tick": 110,
@@ -4059,13 +4072,38 @@
           "y": 3
         },
         {
+          "tick": 150,
+          "enemyId": "sentry_drone",
+          "y": 2
+        },
+        {
           "tick": 190,
           "enemyId": "interceptor_rush",
           "y": -3
         },
         {
+          "tick": 200,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 200,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 205,
+          "enemyId": "sentry_drone",
+          "y": -2
+        },
+        {
           "tick": 230,
           "enemyId": "interceptor_rush",
+          "y": 0
+        },
+        {
+          "tick": 260,
+          "enemyId": "sentry_drone",
           "y": 0
         },
         {
@@ -4074,9 +4112,19 @@
           "y": 4
         },
         {
+          "tick": 280,
+          "enemyId": "mortar_drone",
+          "y": 2.5
+        },
+        {
           "tick": 310,
           "enemyId": "interceptor_rush",
           "y": -4
+        },
+        {
+          "tick": 315,
+          "enemyId": "sentry_drone",
+          "y": 3
         },
         {
           "tick": 350,
@@ -4084,19 +4132,24 @@
           "y": 2
         },
         {
+          "tick": 360,
+          "enemyId": "mortar_drone",
+          "y": -2.5
+        },
+        {
+          "tick": 370,
+          "enemyId": "sentry_drone",
+          "y": -3
+        },
+        {
           "tick": 390,
           "enemyId": "interceptor_rush",
           "y": -2
         },
         {
-          "tick": 280,
-          "enemyId": "mortar_drone",
-          "y": 2.5
-        },
-        {
-          "tick": 360,
-          "enemyId": "mortar_drone",
-          "y": -2.5
+          "tick": 425,
+          "enemyId": "sentry_drone",
+          "y": 1.5
         },
         {
           "tick": 440,
@@ -4110,13 +4163,13 @@
         },
         {
           "tick": 560,
-          "enemyId": "turret_ground",
-          "y": -5.5
+          "enemyId": "turret_ceiling",
+          "y": 5.5
         },
         {
           "tick": 560,
-          "enemyId": "turret_ceiling",
-          "y": 5.5
+          "enemyId": "turret_ground",
+          "y": -5.5
         },
         {
           "tick": 620,
@@ -4227,7 +4280,7 @@
           "hp": 45
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 강화형 드론 격자 압박"
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 강화형 드론 격자 압박 | REQ103b hull-turret-mild"
     },
     {
       "id": "seg_fortress_armored_gate",
@@ -4246,23 +4299,13 @@
       "spawns": [
         {
           "tick": 40,
-          "enemyId": "turret_ground",
-          "y": -5.5
+          "enemyId": "turret_ceiling",
+          "y": 5.5
         },
         {
           "tick": 40,
-          "enemyId": "turret_ceiling",
-          "y": 5.5
-        },
-        {
-          "tick": 120,
           "enemyId": "turret_ground",
           "y": -5.5
-        },
-        {
-          "tick": 120,
-          "enemyId": "turret_ceiling",
-          "y": 5.5
         },
         {
           "tick": 80,
@@ -4270,49 +4313,19 @@
           "y": 2
         },
         {
-          "tick": 160,
-          "enemyId": "sentry_drone",
-          "y": -2
-        },
-        {
-          "tick": 200,
-          "enemyId": "sentry_drone",
-          "y": 3.5
-        },
-        {
-          "tick": 240,
-          "enemyId": "sentry_drone",
-          "y": -3.5
-        },
-        {
-          "tick": 280,
-          "enemyId": "sentry_drone",
-          "y": 0
-        },
-        {
           "tick": 100,
           "enemyId": "mortar_drone",
           "y": 1.5
         },
         {
-          "tick": 180,
-          "enemyId": "mortar_drone",
-          "y": -1.5
+          "tick": 120,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
         },
         {
-          "tick": 260,
-          "enemyId": "mortar_drone",
-          "y": 0
-        },
-        {
-          "tick": 340,
-          "enemyId": "mortar_drone",
-          "y": 2.5
-        },
-        {
-          "tick": 400,
-          "enemyId": "mortar_drone",
-          "y": -2.5
+          "tick": 120,
+          "enemyId": "turret_ground",
+          "y": -5.5
         },
         {
           "tick": 140,
@@ -4320,9 +4333,49 @@
           "y": 4
         },
         {
+          "tick": 150,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 150,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 160,
+          "enemyId": "sentry_drone",
+          "y": -2
+        },
+        {
+          "tick": 180,
+          "enemyId": "mortar_drone",
+          "y": -1.5
+        },
+        {
+          "tick": 200,
+          "enemyId": "sentry_drone",
+          "y": 3.5
+        },
+        {
           "tick": 220,
           "enemyId": "interceptor_rush",
           "y": -4
+        },
+        {
+          "tick": 240,
+          "enemyId": "sentry_drone",
+          "y": -3.5
+        },
+        {
+          "tick": 260,
+          "enemyId": "mortar_drone",
+          "y": 0
+        },
+        {
+          "tick": 280,
+          "enemyId": "sentry_drone",
+          "y": 0
         },
         {
           "tick": 300,
@@ -4330,9 +4383,19 @@
           "y": 1
         },
         {
+          "tick": 340,
+          "enemyId": "mortar_drone",
+          "y": 2.5
+        },
+        {
           "tick": 380,
           "enemyId": "interceptor_rush",
           "y": -1
+        },
+        {
+          "tick": 400,
+          "enemyId": "mortar_drone",
+          "y": -2.5
         },
         {
           "tick": 450,
@@ -4453,7 +4516,7 @@
           "hp": 50
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 중형·중형 화력 집중 관문"
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 중형·중형 화력 집중 관문 | REQ103b hull-turret-mild"
     },
     {
       "id": "seg_nebula_echo_ribbon",
@@ -4617,9 +4680,19 @@
           "y": 3
         },
         {
+          "tick": 70,
+          "enemyId": "wisp_spark",
+          "y": 0
+        },
+        {
           "tick": 90,
           "enemyId": "void_moth",
           "y": -2
+        },
+        {
+          "tick": 130,
+          "enemyId": "wisp_spark",
+          "y": 3
         },
         {
           "tick": 140,
@@ -4632,34 +4705,14 @@
           "y": -4
         },
         {
-          "tick": 240,
-          "enemyId": "void_moth",
-          "y": 1
-        },
-        {
-          "tick": 290,
-          "enemyId": "void_moth",
-          "y": -1
-        },
-        {
-          "tick": 340,
-          "enemyId": "void_moth",
-          "y": 2.5
-        },
-        {
-          "tick": 70,
-          "enemyId": "wisp_spark",
-          "y": 0
-        },
-        {
-          "tick": 130,
-          "enemyId": "wisp_spark",
-          "y": 3
-        },
-        {
           "tick": 190,
           "enemyId": "wisp_spark",
           "y": -3
+        },
+        {
+          "tick": 240,
+          "enemyId": "void_moth",
+          "y": 1
         },
         {
           "tick": 250,
@@ -4667,9 +4720,29 @@
           "y": 1.5
         },
         {
+          "tick": 280,
+          "enemyId": "prism_beamer",
+          "y": 4.0
+        },
+        {
+          "tick": 290,
+          "enemyId": "void_moth",
+          "y": -1
+        },
+        {
           "tick": 310,
           "enemyId": "echo_wisp",
           "y": 2
+        },
+        {
+          "tick": 340,
+          "enemyId": "void_moth",
+          "y": 2.5
+        },
+        {
+          "tick": 350,
+          "enemyId": "phase_disc",
+          "y": 3.5
         },
         {
           "tick": 370,
@@ -4690,11 +4763,6 @@
           "tick": 640,
           "enemyId": "elite_sine",
           "y": 0
-        },
-        {
-          "tick": 280,
-          "enemyId": "prism_beamer",
-          "y": 4.0
         }
       ],
       "obstacles": [
@@ -4729,7 +4797,7 @@
           "hp": 30
         }
       ],
-      "intent": "REQ103a mid | masks[7] | theme=nebula | valley | 잡몹·강화 혼합 + 중형",
+      "intent": "REQ103a mid | masks[7] | theme=nebula | valley | 잡몹·강화 혼합 + 중형 | REQ103b lightning-mild",
       "environment": {
         "drift": {
           "xPerSecond": -0.42,
@@ -4793,6 +4861,11 @@
           "y": -3.5
         },
         {
+          "tick": 450,
+          "enemyId": "phase_disc",
+          "y": 0.0
+        },
+        {
           "tick": 480,
           "enemyId": "elite_sine",
           "y": 0
@@ -4851,7 +4924,7 @@
           "hp": 35
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=nebula | valley | static+ | 중형 드리프트 화력 집중",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=nebula | valley | static+ | 중형 드리프트 화력 집중 | REQ103b lightning-mild",
       "environment": {
         "drift": {
           "xPerSecond": 0.7,
@@ -4895,9 +4968,19 @@
           "y": -4
         },
         {
+          "tick": 200,
+          "enemyId": "prism_beamer",
+          "y": 4.25
+        },
+        {
           "tick": 240,
           "enemyId": "shard_prism",
           "y": 0
+        },
+        {
+          "tick": 300,
+          "enemyId": "phase_disc",
+          "y": 3.0
         },
         {
           "tick": 320,
@@ -4920,6 +5003,11 @@
           "y": 0
         },
         {
+          "tick": 520,
+          "enemyId": "prism_beamer",
+          "y": -4.25
+        },
+        {
           "tick": 560,
           "enemyId": "phase_disc",
           "y": 4.5
@@ -4933,16 +5021,6 @@
           "tick": 700,
           "enemyId": "elite_sine",
           "y": 0
-        },
-        {
-          "tick": 200,
-          "enemyId": "prism_beamer",
-          "y": 4.25
-        },
-        {
-          "tick": 520,
-          "enemyId": "prism_beamer",
-          "y": -4.25
         }
       ],
       "obstacles": [
@@ -4983,7 +5061,7 @@
           "hp": 40
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=nebula | valley | static+ | 중형 프리즘 + 중형 목표",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=nebula | valley | static+ | 중형 프리즘 + 중형 목표 | REQ103b lightning-mild",
       "environment": {
         "drift": {
           "xPerSecond": -0.4,
@@ -5730,7 +5808,8 @@
           "type": "breakable",
           "x": 11.0,
           "y": 3.75,
-          "hp": 24
+          "hp": 24,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -5742,7 +5821,8 @@
           "type": "breakable",
           "x": 15.0,
           "y": 3.75,
-          "hp": 28
+          "hp": 28,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -5754,7 +5834,8 @@
           "type": "breakable",
           "x": 19.0,
           "y": 3.75,
-          "hp": 26
+          "hp": 26,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -5763,7 +5844,7 @@
           "hp": 22
         }
       ],
-      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | valley | 상하 지그재그 기둥 — 레인 교대 회피",
+      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | valley | 상하 지그재그 기둥 — 레인 교대 회피 | REQ103b cover",
       "theme": "scrapyard"
     },
     {
@@ -5860,7 +5941,8 @@
           "type": "breakable",
           "x": 14.5,
           "y": 1.5,
-          "hp": 32
+          "hp": 32,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -5872,7 +5954,8 @@
           "type": "breakable",
           "x": 14.5,
           "y": -1.5,
-          "hp": 32
+          "hp": 32,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -5884,7 +5967,8 @@
           "type": "breakable",
           "x": 17.5,
           "y": 2.0,
-          "hp": 25
+          "hp": 25,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -5893,7 +5977,7 @@
           "hp": 25
         }
       ],
-      "intent": "REQ103a mid | masks[7] | theme=scrapyard | valley | 중앙 파괴벽 뚫기 — 커버 클리어 후 전진",
+      "intent": "REQ103a mid | masks[7] | theme=scrapyard | valley | 중앙 파괴벽 뚫기 — 커버 클리어 후 전진 | REQ103b cover",
       "theme": "scrapyard"
     },
     {
@@ -5984,7 +6068,8 @@
           "type": "breakable",
           "x": 10.5,
           "y": 4.25,
-          "hp": 22
+          "hp": 22,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -5996,7 +6081,8 @@
           "type": "breakable",
           "x": 13.0,
           "y": 0.75,
-          "hp": 28
+          "hp": 28,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -6008,7 +6094,8 @@
           "type": "breakable",
           "x": 15.5,
           "y": -4.25,
-          "hp": 30
+          "hp": 30,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -6020,7 +6107,8 @@
           "type": "breakable",
           "x": 18.0,
           "y": -1.25,
-          "hp": 32
+          "hp": 32,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -6029,7 +6117,7 @@
           "hp": 24
         }
       ],
-      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | 흩어진 파편밭 — 넓은 y 스팬 회피 동선",
+      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | 흩어진 파편밭 — 넓은 y 스팬 회피 동선 | REQ103b cover",
       "theme": "scrapyard"
     },
     {
@@ -6120,7 +6208,8 @@
           "type": "breakable",
           "x": 12.0,
           "y": 3.5,
-          "hp": 26
+          "hp": 26,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -6132,7 +6221,8 @@
           "type": "breakable",
           "x": 18.0,
           "y": 3.5,
-          "hp": 26
+          "hp": 26,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -6144,7 +6234,8 @@
           "type": "breakable",
           "x": 15.0,
           "y": -3.5,
-          "hp": 28
+          "hp": 28,
+          "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
@@ -6153,7 +6244,7 @@
           "hp": 26
         }
       ],
-      "intent": "REQ103a early-open | masks[2] | theme=scrapyard | valley | 상하 레일 분리 — 중앙 통로 유지 훈련",
+      "intent": "REQ103a early-open | masks[2] | theme=scrapyard | valley | 상하 레일 분리 — 중앙 통로 유지 훈련 | REQ103b cover",
       "theme": "scrapyard"
     },
     {
@@ -6376,22 +6467,25 @@
           "type": "breakable",
           "x": 15.0,
           "y": 2.5,
-          "hp": 28
+          "hp": 28,
+          "regenDelayTicks": 240
         },
         {
           "type": "breakable",
           "x": 15.0,
           "y": 0.0,
-          "hp": 32
+          "hp": 28,
+          "regenDelayTicks": 240
         },
         {
           "type": "breakable",
           "x": 15.0,
           "y": -2.5,
-          "hp": 28
+          "hp": 28,
+          "regenDelayTicks": 240
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=hive | valley | static+ | 유기 막 벽 관통 — 중앙 클리어 강요",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=hive | valley | static+ | 유기 막 벽 관통 — 중앙 클리어 강요 | REQ103b regen@240",
       "theme": "hive"
     },
     {
@@ -6549,13 +6643,13 @@
       "spawns": [
         {
           "tick": 40,
-          "enemyId": "turret_ground",
-          "y": -5.5
+          "enemyId": "turret_ceiling",
+          "y": 5.5
         },
         {
           "tick": 40,
-          "enemyId": "turret_ceiling",
-          "y": 5.5
+          "enemyId": "turret_ground",
+          "y": -5.5
         },
         {
           "tick": 100,
@@ -6571,6 +6665,16 @@
           "tick": 180,
           "enemyId": "interceptor_rush",
           "y": 2.5
+        },
+        {
+          "tick": 200,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 200,
+          "enemyId": "turret_ground",
+          "y": -5.5
         },
         {
           "tick": 220,
@@ -6682,7 +6786,7 @@
           }
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 요새 교차사격 골목 — 차폐·레이저 동시 압박",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 요새 교차사격 골목 — 차폐·레이저 동시 압박 | REQ103b hull-turret-mild",
       "theme": "fortress"
     },
     {
@@ -6732,6 +6836,11 @@
         {
           "tick": 280,
           "enemyId": "void_moth",
+          "y": 2.5
+        },
+        {
+          "tick": 320,
+          "enemyId": "phase_disc",
           "y": 2.5
         },
         {
@@ -6814,7 +6923,7 @@
           "hp": 32
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=nebula | valley | static+ | 성운 부유 격자 — 대각 결정 회피",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=nebula | valley | static+ | 성운 부유 격자 — 대각 결정 회피 | REQ103b lightning-mild",
       "theme": "nebula"
     },
     {
@@ -6973,6 +7082,1626 @@
       ],
       "intent": "REQ103a late-encroach | masks[7→3→2→2] | theme=core | valley | static+ | 코어 위상 기둥 — 후반 조밀 통로",
       "theme": "core"
+    },
+    {
+      "id": "seg_scrap_speed_spike",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 5,
+      "lengthTicks": 280,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3
+      ],
+      "theme": "scrapyard",
+      "scrollSpeedMultiplier": 1.5,
+      "spawns": [
+        {
+          "tick": 20,
+          "enemyId": "rust_skimmer",
+          "y": 2.5
+        },
+        {
+          "tick": 40,
+          "enemyId": "rust_skimmer",
+          "y": -2.5
+        },
+        {
+          "tick": 60,
+          "enemyId": "pipe_rat",
+          "y": 0.0
+        },
+        {
+          "tick": 90,
+          "enemyId": "junk_roller",
+          "y": 1.5
+        },
+        {
+          "tick": 110,
+          "enemyId": "scrap_tumbler",
+          "y": -1.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "rust_skimmer",
+          "y": 3.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "breakable",
+          "x": 12.0,
+          "y": 2.0,
+          "hp": 30,
+          "blocksEnemyBullets": true
+        },
+        {
+          "type": "breakable",
+          "x": 12.0,
+          "y": -2.0,
+          "hp": 30,
+          "blocksEnemyBullets": true
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": 0.0,
+          "hp": 28,
+          "blocksEnemyBullets": true
+        }
+      ],
+      "intent": "REQ103b speed-spike 3/2 | theme=scrapyard | late short scramble"
+    },
+    {
+      "id": "seg_core_speed_spike",
+      "difficultyMin": 2,
+      "difficultyMax": 4,
+      "weight": 6,
+      "lengthTicks": 280,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3
+      ],
+      "theme": "core",
+      "scrollSpeedMultiplier": 1.5,
+      "spawns": [
+        {
+          "tick": 20,
+          "enemyId": "rift_blade",
+          "y": 3.0
+        },
+        {
+          "tick": 40,
+          "enemyId": "rift_blade",
+          "y": -3.0
+        },
+        {
+          "tick": 60,
+          "enemyId": "phase_disc",
+          "y": 0.0
+        },
+        {
+          "tick": 90,
+          "enemyId": "rift_blade",
+          "y": 1.5
+        },
+        {
+          "tick": 110,
+          "enemyId": "rift_blade",
+          "y": -1.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "phase_disc",
+          "y": 2.5
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 6.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -6.0,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 13.5,
+          "y": 1.5,
+          "hp": 35
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": -1.5,
+          "hp": 35
+        }
+      ],
+      "intent": "REQ103b speed-spike 3/2 | theme=core | early short scramble"
+    },
+    {
+      "id": "seg_scrap_clean_kill_corridor",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 3,
+      "lengthTicks": 910,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        3
+      ],
+      "theme": "scrapyard",
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "scrap_tumbler",
+          "y": 3
+        },
+        {
+          "tick": 70,
+          "enemyId": "scrap_tumbler",
+          "y": -3
+        },
+        {
+          "tick": 100,
+          "enemyId": "scrap_tumbler",
+          "y": 0
+        },
+        {
+          "tick": 130,
+          "enemyId": "pipe_rat",
+          "y": 4
+        },
+        {
+          "tick": 160,
+          "enemyId": "pipe_rat",
+          "y": -4
+        },
+        {
+          "tick": 200,
+          "enemyId": "scrap_tumbler",
+          "y": 2
+        },
+        {
+          "tick": 240,
+          "enemyId": "scrap_tumbler",
+          "y": -2
+        },
+        {
+          "tick": 280,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 280,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "junk_roller",
+          "y": 1.5
+        },
+        {
+          "tick": 380,
+          "enemyId": "turret_ground",
+          "y": -4.5
+        },
+        {
+          "tick": 440,
+          "enemyId": "zako_tank",
+          "y": 2.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "zako_tank",
+          "y": -2.5
+        },
+        {
+          "tick": 560,
+          "enemyId": "turret_ground",
+          "y": 3.5
+        },
+        {
+          "tick": 600,
+          "enemyId": "turret_ground",
+          "y": -3.5
+        },
+        {
+          "tick": 760,
+          "enemyId": "turret_ground",
+          "y": -4.5
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": 7.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 11.5,
+          "y": 2.0,
+          "hp": 50,
+          "blocksEnemyBullets": true
+        },
+        {
+          "type": "breakable",
+          "x": 11.5,
+          "y": -2.0,
+          "hp": 50,
+          "blocksEnemyBullets": true
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": 0.0,
+          "hp": 55,
+          "blocksEnemyBullets": true
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": 2.25,
+          "hp": 55,
+          "blocksEnemyBullets": true
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": -2.25,
+          "hp": 55,
+          "blocksEnemyBullets": true
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": 1.5,
+          "hp": 48,
+          "blocksEnemyBullets": true
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": -1.5,
+          "hp": 48,
+          "blocksEnemyBullets": true
+        }
+      ],
+      "intent": "REQ103a late-encroach | masks[7→3→3] | theme=scrapyard | valley | static+ | 중형 앵커 가틀릿 — 화력 집중 | REQ103b cover-line | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "postMidbossOutcomes": [
+        "cleanKill"
+      ]
+    },
+    {
+      "id": "seg_hive_clean_kill_membrane",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 5,
+      "lengthTicks": 750,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2
+      ],
+      "spawns": [
+        {
+          "tick": 45,
+          "enemyId": "brood_spitter",
+          "y": 2.5
+        },
+        {
+          "tick": 90,
+          "enemyId": "brood_spitter",
+          "y": -2.5
+        },
+        {
+          "tick": 130,
+          "enemyId": "spore_drifter",
+          "y": 3.5
+        },
+        {
+          "tick": 170,
+          "enemyId": "brood_spitter",
+          "y": -3.5
+        },
+        {
+          "tick": 210,
+          "enemyId": "spore_drifter",
+          "y": 0.0
+        },
+        {
+          "tick": 250,
+          "enemyId": "hive_tentacle",
+          "y": -5.5
+        },
+        {
+          "tick": 250,
+          "enemyId": "hive_tentacle",
+          "y": 5.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "brood_spitter",
+          "y": 1.5
+        },
+        {
+          "tick": 350,
+          "enemyId": "spore_drifter",
+          "y": -1.5
+        },
+        {
+          "tick": 400,
+          "enemyId": "hive_tentacle",
+          "y": 4.5
+        },
+        {
+          "tick": 600,
+          "enemyId": "hive_tentacle",
+          "y": -4.5
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 15.0,
+          "y": 2.5,
+          "hp": 28,
+          "regenDelayTicks": 240
+        },
+        {
+          "type": "breakable",
+          "x": 15.0,
+          "y": 0.0,
+          "hp": 28,
+          "regenDelayTicks": 240
+        },
+        {
+          "type": "breakable",
+          "x": 15.0,
+          "y": -2.5,
+          "hp": 28,
+          "regenDelayTicks": 240
+        }
+      ],
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=hive | valley | static+ | 유기 막 벽 관통 — 중앙 클리어 강요 | REQ103b regen@240 | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "theme": "hive",
+      "postMidbossOutcomes": [
+        "cleanKill"
+      ]
+    },
+    {
+      "id": "seg_fortress_clean_kill_hull",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 5,
+      "lengthTicks": 910,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2
+      ],
+      "theme": "fortress",
+      "spawns": [
+        {
+          "tick": 50,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 50,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 90,
+          "enemyId": "sentry_drone",
+          "y": 2.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "sentry_drone",
+          "y": 1
+        },
+        {
+          "tick": 130,
+          "enemyId": "sentry_drone",
+          "y": -2.5
+        },
+        {
+          "tick": 160,
+          "enemyId": "sentry_drone",
+          "y": -1
+        },
+        {
+          "tick": 180,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 220,
+          "enemyId": "sentry_drone",
+          "y": 0
+        },
+        {
+          "tick": 240,
+          "enemyId": "sentry_drone",
+          "y": 2
+        },
+        {
+          "tick": 280,
+          "enemyId": "sentry_drone",
+          "y": 3.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "interceptor_rush",
+          "y": -2
+        },
+        {
+          "tick": 340,
+          "enemyId": "sentry_drone",
+          "y": -3.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "interceptor_rush",
+          "y": 0
+        },
+        {
+          "tick": 400,
+          "enemyId": "mortar_drone",
+          "y": 2
+        },
+        {
+          "tick": 760,
+          "enemyId": "zako_tank",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "laserEmitter",
+          "x": 15.5,
+          "y": 2.75,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 120,
+            "telegraphTicks": 30,
+            "firingTicks": 5,
+            "sustainTicks": 20,
+            "dissipateTicks": 10,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 15.5,
+          "y": -2.75,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "breakable",
+          "x": 12.0,
+          "y": 1.75,
+          "hp": 35
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": -1.75,
+          "hp": 40
+        }
+      ],
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 교차 포탑 위치 선정 + 중형 | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "postMidbossOutcomes": [
+        "cleanKill"
+      ]
+    },
+    {
+      "id": "seg_nebula_clean_kill_haze",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 4,
+      "lengthTicks": 850,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2
+      ],
+      "theme": "nebula",
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "echo_wisp",
+          "y": 2.5
+        },
+        {
+          "tick": 90,
+          "enemyId": "void_moth",
+          "y": -2.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "echo_wisp",
+          "y": 4
+        },
+        {
+          "tick": 190,
+          "enemyId": "echo_wisp",
+          "y": -4
+        },
+        {
+          "tick": 200,
+          "enemyId": "prism_beamer",
+          "y": 4.25
+        },
+        {
+          "tick": 240,
+          "enemyId": "shard_prism",
+          "y": 0
+        },
+        {
+          "tick": 320,
+          "enemyId": "echo_wisp",
+          "y": 1
+        },
+        {
+          "tick": 380,
+          "enemyId": "phase_disc",
+          "y": -4.5
+        },
+        {
+          "tick": 440,
+          "enemyId": "shard_prism",
+          "y": 2
+        },
+        {
+          "tick": 500,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 700,
+          "enemyId": "elite_sine",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 7.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -7.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 19.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 13.0,
+          "y": -1.5,
+          "hp": 35
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": -3.25,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 20.0,
+          "y": 2.5,
+          "hp": 40
+        }
+      ],
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=nebula | valley | static+ | 중형 프리즘 + 중형 목표 | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.4,
+          "yPerSecond": 0.8
+        }
+      },
+      "postMidbossOutcomes": [
+        "cleanKill"
+      ]
+    },
+    {
+      "id": "seg_core_clean_kill_void",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 3,
+      "lengthTicks": 910,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2,
+        2
+      ],
+      "theme": "core",
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "guardian_sphere",
+          "y": 2
+        },
+        {
+          "tick": 100,
+          "enemyId": "phase_disc",
+          "y": 3
+        },
+        {
+          "tick": 130,
+          "enemyId": "phase_disc",
+          "y": -3
+        },
+        {
+          "tick": 160,
+          "enemyId": "phase_disc",
+          "y": 0
+        },
+        {
+          "tick": 220,
+          "enemyId": "shard_prism",
+          "y": -2
+        },
+        {
+          "tick": 280,
+          "enemyId": "void_moth",
+          "y": 3.5
+        },
+        {
+          "tick": 320,
+          "enemyId": "void_moth",
+          "y": -3.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "laser_sentry",
+          "y": 4.25
+        },
+        {
+          "tick": 380,
+          "enemyId": "prism_beamer",
+          "y": 4.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "prism_beamer",
+          "y": -4.5
+        },
+        {
+          "tick": 460,
+          "enemyId": "guardian_sphere",
+          "y": 0
+        },
+        {
+          "tick": 460,
+          "enemyId": "prism_beamer",
+          "y": -4.25
+        },
+        {
+          "tick": 520,
+          "enemyId": "phase_disc",
+          "y": 2.5
+        },
+        {
+          "tick": 760,
+          "enemyId": "guardian_sphere",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 9.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 13.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 17.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 12.0,
+          "y": 1.75,
+          "hp": 50
+        },
+        {
+          "type": "breakable",
+          "x": 15.5,
+          "y": 2.5,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 18.5,
+          "y": -2.0,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": -3.0,
+          "hp": 48
+        }
+      ],
+      "intent": "REQ103a late-encroach | masks[7→3→2→2] | theme=core | valley | static+ | 전 티어 혼합 최종 가틀릿 | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "environment": {
+        "corridor": {
+          "startMinY": -8.5,
+          "startMaxY": 8.5,
+          "endMinY": -4.5,
+          "endMaxY": 4.5,
+          "contactDamage": 1
+        },
+        "drift": {
+          "xPerSecond": -0.4,
+          "yPerSecond": 0.45
+        }
+      },
+      "postMidbossOutcomes": [
+        "cleanKill"
+      ]
+    },
+    {
+      "id": "seg_scrap_clean_kill_junk",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 6,
+      "lengthTicks": 810,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3
+      ],
+      "theme": "scrapyard",
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "junk_roller",
+          "y": 2
+        },
+        {
+          "tick": 70,
+          "enemyId": "junk_roller",
+          "y": -2
+        },
+        {
+          "tick": 100,
+          "enemyId": "scrap_tumbler",
+          "y": 3
+        },
+        {
+          "tick": 140,
+          "enemyId": "scrap_tumbler",
+          "y": -3
+        },
+        {
+          "tick": 180,
+          "enemyId": "junk_roller",
+          "y": 0
+        },
+        {
+          "tick": 210,
+          "enemyId": "scrap_tumbler",
+          "y": 4
+        },
+        {
+          "tick": 250,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "scrap_tumbler",
+          "y": 2.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "scrap_tumbler",
+          "y": -2.5
+        },
+        {
+          "tick": 380,
+          "enemyId": "junk_roller",
+          "y": 1
+        },
+        {
+          "tick": 420,
+          "enemyId": "junk_roller",
+          "y": -4
+        },
+        {
+          "tick": 460,
+          "enemyId": "rust_skimmer",
+          "y": 3
+        },
+        {
+          "tick": 660,
+          "enemyId": "junk_roller",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 12.5,
+          "y": 1.75,
+          "hp": 35,
+          "blocksEnemyBullets": true
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": -2.0,
+          "hp": 40,
+          "blocksEnemyBullets": true
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": 3.0,
+          "hp": 38,
+          "blocksEnemyBullets": true
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": -1.75,
+          "hp": 45,
+          "blocksEnemyBullets": true
+        },
+        {
+          "type": "breakable",
+          "x": 19.5,
+          "y": 2.5,
+          "hp": 42,
+          "blocksEnemyBullets": true
+        }
+      ],
+      "intent": "REQ103a mid | masks[7→3] | theme=scrapyard | valley | 강화형 조준 + 통로 압박 | REQ103b cover-line | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "postMidbossOutcomes": [
+        "cleanKill"
+      ]
+    },
+    {
+      "id": "seg_hive_clean_kill_pulse",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 5,
+      "lengthTicks": 850,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2
+      ],
+      "theme": "hive",
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "hive_tentacle",
+          "y": -6.5
+        },
+        {
+          "tick": 40,
+          "enemyId": "hive_tentacle",
+          "y": 6.5
+        },
+        {
+          "tick": 40,
+          "enemyId": "spore_drifter",
+          "y": 3
+        },
+        {
+          "tick": 80,
+          "enemyId": "spore_drifter",
+          "y": -3
+        },
+        {
+          "tick": 120,
+          "enemyId": "brood_spitter",
+          "y": 2
+        },
+        {
+          "tick": 180,
+          "enemyId": "brood_spitter",
+          "y": -2
+        },
+        {
+          "tick": 240,
+          "enemyId": "brood_spitter",
+          "y": 4
+        },
+        {
+          "tick": 280,
+          "enemyId": "brood_spitter",
+          "y": -4
+        },
+        {
+          "tick": 300,
+          "enemyId": "hive_tentacle",
+          "y": 4.0
+        },
+        {
+          "tick": 320,
+          "enemyId": "spore_drifter",
+          "y": 0
+        },
+        {
+          "tick": 360,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 420,
+          "enemyId": "brood_spitter",
+          "y": 3
+        },
+        {
+          "tick": 700,
+          "enemyId": "brood_spitter",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 12.5,
+          "y": 1.5,
+          "hp": 25,
+          "regenDelayTicks": 210
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": 2.5,
+          "hp": 30,
+          "regenDelayTicks": 210
+        }
+      ],
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=hive | valley | static+ | 중형 위협 + 중형 화력 집중 | REQ103b regen@210 | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "environment": {
+        "corridor": {
+          "startMinY": -9.0,
+          "startMaxY": 9.0,
+          "endMinY": -5.0,
+          "endMaxY": 5.0,
+          "contactDamage": 1
+        }
+      },
+      "postMidbossOutcomes": [
+        "cleanKill"
+      ]
+    },
+    {
+      "id": "seg_fortress_clean_kill_lattice",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 4,
+      "lengthTicks": 910,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2
+      ],
+      "theme": "fortress",
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "sentry_drone",
+          "y": 4
+        },
+        {
+          "tick": 70,
+          "enemyId": "sentry_drone",
+          "y": 1
+        },
+        {
+          "tick": 95,
+          "enemyId": "sentry_drone",
+          "y": -4
+        },
+        {
+          "tick": 110,
+          "enemyId": "sentry_drone",
+          "y": -1
+        },
+        {
+          "tick": 150,
+          "enemyId": "sentry_drone",
+          "y": 3
+        },
+        {
+          "tick": 150,
+          "enemyId": "sentry_drone",
+          "y": 2
+        },
+        {
+          "tick": 190,
+          "enemyId": "interceptor_rush",
+          "y": -3
+        },
+        {
+          "tick": 205,
+          "enemyId": "sentry_drone",
+          "y": -2
+        },
+        {
+          "tick": 230,
+          "enemyId": "interceptor_rush",
+          "y": 0
+        },
+        {
+          "tick": 260,
+          "enemyId": "sentry_drone",
+          "y": 0
+        },
+        {
+          "tick": 270,
+          "enemyId": "interceptor_rush",
+          "y": 4
+        },
+        {
+          "tick": 280,
+          "enemyId": "mortar_drone",
+          "y": 2.5
+        },
+        {
+          "tick": 310,
+          "enemyId": "interceptor_rush",
+          "y": -4
+        },
+        {
+          "tick": 315,
+          "enemyId": "sentry_drone",
+          "y": 3
+        },
+        {
+          "tick": 350,
+          "enemyId": "interceptor_rush",
+          "y": 2
+        },
+        {
+          "tick": 360,
+          "enemyId": "mortar_drone",
+          "y": -2.5
+        },
+        {
+          "tick": 370,
+          "enemyId": "sentry_drone",
+          "y": -3
+        },
+        {
+          "tick": 390,
+          "enemyId": "interceptor_rush",
+          "y": -2
+        },
+        {
+          "tick": 425,
+          "enemyId": "sentry_drone",
+          "y": 1.5
+        },
+        {
+          "tick": 440,
+          "enemyId": "mortar_drone",
+          "y": 0
+        },
+        {
+          "tick": 760,
+          "enemyId": "zako_tank",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "laserEmitter",
+          "x": 13.0,
+          "y": 4.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 150,
+            "telegraphTicks": 36,
+            "firingTicks": 6,
+            "sustainTicks": 24,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 16.0,
+          "y": 2.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 120,
+            "telegraphTicks": 30,
+            "firingTicks": 5,
+            "sustainTicks": 20,
+            "dissipateTicks": 10,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "laserEmitter",
+          "x": 19.0,
+          "y": -4.5,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 180,
+            "telegraphTicks": 42,
+            "firingTicks": 6,
+            "sustainTicks": 30,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -38.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        },
+        {
+          "type": "breakable",
+          "x": 14.5,
+          "y": 2.0,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 17.5,
+          "y": -2.0,
+          "hp": 45
+        }
+      ],
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 강화형 드론 격자 압박 | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "postMidbossOutcomes": [
+        "cleanKill"
+      ]
+    },
+    {
+      "id": "seg_nebula_clean_kill_crystal",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 5,
+      "lengthTicks": 850,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2
+      ],
+      "theme": "nebula",
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "echo_wisp",
+          "y": 3
+        },
+        {
+          "tick": 80,
+          "enemyId": "echo_wisp",
+          "y": -3
+        },
+        {
+          "tick": 120,
+          "enemyId": "echo_wisp",
+          "y": 2
+        },
+        {
+          "tick": 180,
+          "enemyId": "void_moth",
+          "y": -2
+        },
+        {
+          "tick": 240,
+          "enemyId": "echo_wisp",
+          "y": 0
+        },
+        {
+          "tick": 300,
+          "enemyId": "guardian_sphere",
+          "y": 0
+        },
+        {
+          "tick": 360,
+          "enemyId": "phase_disc",
+          "y": 3.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "phase_disc",
+          "y": -3.5
+        },
+        {
+          "tick": 480,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 700,
+          "enemyId": "elite_sine",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 12.5,
+          "y": 1.5,
+          "hp": 35
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": 3.25,
+          "hp": 35
+        }
+      ],
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=nebula | valley | static+ | 중형 드리프트 화력 집중 | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "environment": {
+        "drift": {
+          "xPerSecond": 0.7,
+          "yPerSecond": 0.35
+        }
+      },
+      "postMidbossOutcomes": [
+        "cleanKill"
+      ]
+    },
+    {
+      "id": "seg_core_clean_kill_shard",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 3,
+      "lengthTicks": 910,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2
+      ],
+      "theme": "core",
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 40,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 80,
+          "enemyId": "shard_prism",
+          "y": 2
+        },
+        {
+          "tick": 120,
+          "enemyId": "phase_disc",
+          "y": 1
+        },
+        {
+          "tick": 160,
+          "enemyId": "shard_prism",
+          "y": -2
+        },
+        {
+          "tick": 200,
+          "enemyId": "phase_disc",
+          "y": -1
+        },
+        {
+          "tick": 240,
+          "enemyId": "shard_prism",
+          "y": 0
+        },
+        {
+          "tick": 280,
+          "enemyId": "phase_disc",
+          "y": 4
+        },
+        {
+          "tick": 320,
+          "enemyId": "shard_prism",
+          "y": 3
+        },
+        {
+          "tick": 360,
+          "enemyId": "rift_blade",
+          "y": -4
+        },
+        {
+          "tick": 400,
+          "enemyId": "shard_prism",
+          "y": -3
+        },
+        {
+          "tick": 440,
+          "enemyId": "phase_disc",
+          "y": 2.5
+        },
+        {
+          "tick": 760,
+          "enemyId": "guardian_sphere",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": 7.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": -7.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 12.5,
+          "y": 1.75,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 15.0,
+          "y": -2.0,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": 2.5,
+          "hp": 60
+        },
+        {
+          "type": "laserEmitter",
+          "x": 16.0,
+          "y": -4.0,
+          "hp": 0,
+          "laser": {
+            "cycleIntervalTicks": 180,
+            "telegraphTicks": 42,
+            "firingTicks": 6,
+            "sustainTicks": 28,
+            "dissipateTicks": 12,
+            "startOffsetX": 0.0,
+            "startOffsetY": 0.0,
+            "endOffsetX": -36.0,
+            "endOffsetY": 0.0,
+            "thinHalfWidth": 0.0625,
+            "fullHalfWidth": 0.5,
+            "damage": 1
+          }
+        }
+      ],
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=core | valley | 중형 배터리 화력 집중 | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "environment": {
+        "drift": {
+          "xPerSecond": 0.5,
+          "yPerSecond": 0.3
+        }
+      },
+      "postMidbossOutcomes": [
+        "cleanKill"
+      ]
     }
   ],
   "bosses": [
@@ -7591,7 +9320,7 @@
     {
       "theme": "core",
       "visionObscured": false,
-      "timeLimitTicks": 9000
+      "timeLimitTicks": 12000
     }
   ]
 }
