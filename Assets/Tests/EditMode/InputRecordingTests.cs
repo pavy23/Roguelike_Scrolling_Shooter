@@ -490,6 +490,17 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void SchemaTwentyRecordingIsRejectedAfterObstacleJitterChange()
+        {
+            InputRecordingData legacy = ValidData();
+            legacy.schemaVersion = 20;
+            legacy.checksum = null;
+
+            Assert.Throws<ArgumentException>(
+                () => SaveDataIntegrity.MigrateAndValidate(legacy));
+        }
+
+        [Test]
         public void SchemaOneRecording_MigratesAllLaterFields()
         {
             var recorder = new InputRecorder();

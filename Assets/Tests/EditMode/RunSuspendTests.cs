@@ -368,25 +368,18 @@ namespace Shmup.Core.Tests
                 SaveDataIntegrity.HasValidChecksum(migrated));
         }
 
-        [Test]
-        public void SchemaTwentyOneSuspendMigratesBombsUsedToZero()
+        [TestCase(21)]
+        [TestCase(22)]
+        public void PreJitterSuspendSchemasAreRejected(int schemaVersion)
         {
             RunSuspendData legacy =
                 CreateRun(new BoundaryStageGenerator())
                     .ExportSuspendData();
-            legacy.schemaVersion = 21;
+            legacy.schemaVersion = schemaVersion;
             legacy.checksum = null;
-            legacy.bombsUsed = 99;
 
-            RunSuspendData migrated =
-                SaveDataIntegrity.MigrateAndValidate(legacy);
-
-            Assert.AreEqual(
-                RunSuspendData.CurrentSchemaVersion,
-                migrated.schemaVersion);
-            Assert.AreEqual(0L, migrated.bombsUsed);
-            Assert.IsTrue(
-                SaveDataIntegrity.HasValidChecksum(migrated));
+            Assert.Throws<ArgumentException>(
+                () => SaveDataIntegrity.MigrateAndValidate(legacy));
         }
 
         [Test]

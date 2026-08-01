@@ -502,6 +502,88 @@ namespace Shmup.Core.Tests
                     100, 256, 256, 2048, new BossPhase[] { null }));
         }
 
+        [Test]
+        public void SeededObstacleJitter_IsDeterministicAndVariesAcrossAllStages()
+        {
+            var generator = CreateObstacleGenerator();
+            int units = SimSpace.SubUnitsPerWorldUnit;
+
+            for (int stageIndex = 1; stageIndex <= 7; stageIndex++)
+            {
+                StagePlan first = generator.Generate(0UL, stageIndex, 1);
+                StagePlan repeated = generator.Generate(0UL, stageIndex, 1);
+                AssertPlansEqual(first, repeated);
+
+                ObstacleSpawn solid = first.Segments[0].Obstacles[0];
+                ObstacleSpawn breakable = first.Segments[0].Obstacles[1];
+                Assert.AreEqual(10 * units, solid.X);
+                Assert.AreEqual(12 * units, breakable.X);
+                Assert.LessOrEqual(
+                    Math.Abs(solid.Y - 2 * units),
+                    SegmentStageGenerator.SolidJitterSubUnits);
+                Assert.LessOrEqual(
+                    Math.Abs(breakable.Y + 2 * units),
+                    SegmentStageGenerator.BreakableJitterSubUnits);
+
+                bool foundDifferentCoordinates = false;
+                for (ulong seed = 1; seed <= 64; seed++)
+                {
+                    StagePlan candidate = generator.Generate(
+                        seed,
+                        stageIndex,
+                        1);
+                    if (candidate.Segments[0].Obstacles[0].Y != solid.Y
+                        || candidate.Segments[0].Obstacles[1].Y
+                            != breakable.Y)
+                    {
+                        foundDifferentCoordinates = true;
+                        break;
+                    }
+                }
+                Assert.IsTrue(
+                    foundDifferentCoordinates,
+                    $"stage {stageIndex} did not vary obstacle coordinates");
+            }
+        }
+
+        [Test]
+        public void ObstacleJitterStream_DoesNotChangeSegmentOrBossSelection()
+        {
+            var plain = CreateGenerator();
+            var withObstacles = new SegmentStageGenerator(
+                new StageGenerationCatalog(
+                    3,
+                    2,
+                    Center,
+                    new[]
+                    {
+                        ObstacleSegment("to_left", Center, Left, Center | Left),
+                        ObstacleSegment("to_right", Center, Right, Center | Right),
+                        ObstacleSegment("hold_left", Left, Left, Left),
+                        ObstacleSegment("hold_right", Right, Right, Right)
+                    },
+                    new[]
+                    {
+                        new StageBossTemplate(
+                            "right_boss_a", 1, 1, 1, 5, Right),
+                        new StageBossTemplate(
+                            "right_boss_b", 1, 1, 1, 5, Right)
+                    }));
+
+            for (ulong seed = 0; seed < 128; seed++)
+            {
+                StagePlan expected = plain.Generate(seed, 1, 2);
+                StagePlan actual = withObstacles.Generate(seed, 1, 2);
+                Assert.AreEqual(
+                    expected.Segments[0].SegmentId,
+                    actual.Segments[0].SegmentId);
+                Assert.AreEqual(
+                    expected.Segments[1].SegmentId,
+                    actual.Segments[1].SegmentId);
+                Assert.AreEqual(expected.BossId, actual.BossId);
+            }
+        }
+
         static SegmentStageGenerator CreateGenerator()
         {
             var catalog = new StageGenerationCatalog(
@@ -539,6 +621,60 @@ namespace Shmup.Core.Tests
                     new StageBossTemplate("boss", 1, 1, 1, 5, Center)
                 });
             return new SegmentStageGenerator(catalog);
+        }
+
+        static SegmentStageGenerator CreateObstacleGenerator()
+        {
+            return new SegmentStageGenerator(
+                new StageGenerationCatalog(
+                    3,
+                    1,
+                    Center,
+                    new[]
+                    {
+                        ObstacleSegment(
+                            "obstacle_route",
+                            Center,
+                            Center,
+                            Center)
+                    },
+                    new[]
+                    {
+                        new StageBossTemplate(
+                            "boss", 1, 10, 1, 5, Center)
+                    }));
+        }
+
+        static StageSegmentTemplate ObstacleSegment(
+            string id,
+            int entry,
+            int exit,
+            int checkpoint)
+        {
+            int units = SimSpace.SubUnitsPerWorldUnit;
+            return new StageSegmentTemplate(
+                id,
+                1,
+                5,
+                600,
+                entry,
+                exit,
+                new[] { checkpoint },
+                Array.Empty<SpawnEvent>(),
+                new[]
+                {
+                    new ObstacleSpawn(
+                        ObstacleType.Solid,
+                        10 * units,
+                        2 * units,
+                        0),
+                    new ObstacleSpawn(
+                        ObstacleType.Breakable,
+                        12 * units,
+                        -2 * units,
+                        3)
+                },
+                null);
         }
 
         static SegmentStageGenerator CreateThemedGenerator()

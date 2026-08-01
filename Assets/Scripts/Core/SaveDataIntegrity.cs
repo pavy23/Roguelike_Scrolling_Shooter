@@ -28,7 +28,9 @@ namespace Shmup.Core
                 || source.schemaVersion == 17
                 || source.schemaVersion == 18
                 || source.schemaVersion == 19
-                || source.schemaVersion == 20)
+                || source.schemaVersion == 20
+                || source.schemaVersion == 21
+                || source.schemaVersion == 22)
                 throw Unsupported(
                     "run suspend",
                     source.schemaVersion);
@@ -271,7 +273,8 @@ namespace Shmup.Core
                 || source.schemaVersion == 16
                 || source.schemaVersion == 17
                 || source.schemaVersion == 18
-                || source.schemaVersion == 19)
+                || source.schemaVersion == 19
+                || source.schemaVersion == 20)
                 throw Unsupported(
                     "input recording",
                     source.schemaVersion);

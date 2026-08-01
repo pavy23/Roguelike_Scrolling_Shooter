@@ -592,10 +592,10 @@ namespace Shmup.Core.Tests
         public void PreReq090ReplayAndSuspendVersionsAreRejected()
         {
             Assert.AreEqual(
-                20,
+                21,
                 InputRecordingData.CurrentSchemaVersion);
             Assert.AreEqual(
-                22,
+                23,
                 RunSuspendData.CurrentSchemaVersion);
             Assert.Throws<ArgumentException>(
                 () => SaveDataIntegrity.MigrateAndValidate(

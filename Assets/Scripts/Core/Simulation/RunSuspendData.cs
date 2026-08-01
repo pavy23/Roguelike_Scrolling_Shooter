@@ -91,10 +91,10 @@ namespace Shmup.Core.Simulation
     public sealed class RunSuspendData
     {
         /// <summary>
-        /// Schema 22 records run-cumulative bomb activations. Schema 21 remains
-        /// migratable and initializes that newly observable statistic to zero.
+        /// Schema 23 records the seeded obstacle-jitter generation contract.
+        /// Earlier obstacle layouts are incompatible with boundary resume.
         /// </summary>
-        public const int CurrentSchemaVersion = 22;
+        public const int CurrentSchemaVersion = 23;
 
         [DataMember(Order = 0)]
         public int schemaVersion;

@@ -47,10 +47,10 @@ namespace Shmup.Core.Simulation
     public sealed class InputRecordingData
     {
         /// <summary>
-        /// Schema 20 records room-boundary scroll continuity in deterministic
-        /// state hashes. Schema 19 recordings use the old zero-reset semantics.
+        /// Schema 21 records the seeded obstacle-jitter generation contract.
+        /// Earlier recordings reproduce a different obstacle layout.
         /// </summary>
-        public const int CurrentSchemaVersion = 20;
+        public const int CurrentSchemaVersion = 21;
 
         [DataMember(Order = 0)]
         public int schemaVersion;

@@ -420,8 +420,10 @@ namespace Shmup.Core.Generation
             }
         }
 
-        internal StageSegment CreateSegment()
+        internal StageSegment CreateSegment(Rng obstacleJitterRng)
         {
+            if (obstacleJitterRng == null)
+                throw new ArgumentNullException(nameof(obstacleJitterRng));
             return new StageSegment(
                 SegmentId,
                 LengthTicks,
@@ -429,8 +431,45 @@ namespace Shmup.Core.Generation
                 EntryLaneMask,
                 ExitLaneMask,
                 TraversableLaneMasks,
-                Obstacles,
+                JitterObstacles(obstacleJitterRng),
                 Environment);
+        }
+
+        IReadOnlyList<ObstacleSpawn> JitterObstacles(Rng rng)
+        {
+            if (Obstacles.Count == 0)
+                return Obstacles;
+
+            var jittered = new ObstacleSpawn[Obstacles.Count];
+            for (int i = 0; i < jittered.Length; i++)
+            {
+                ObstacleSpawn source = Obstacles[i];
+                int magnitude = source.Type == ObstacleType.Breakable
+                    ? SegmentStageGenerator.BreakableJitterSubUnits
+                    : source.Type == ObstacleType.Solid
+                        ? SegmentStageGenerator.SolidJitterSubUnits
+                        : 0;
+                int offsetY = magnitude == 0
+                    ? 0
+                    : rng.Fork(i).NextInt(-magnitude, magnitude + 1);
+                jittered[i] = new ObstacleSpawn(
+                    source.Type,
+                    source.X,
+                    AddClamped(source.Y, offsetY),
+                    source.Hp,
+                    source.LaserAttack);
+            }
+            return jittered;
+        }
+
+        static int AddClamped(int value, int delta)
+        {
+            long sum = (long)value + delta;
+            if (sum < int.MinValue)
+                return int.MinValue;
+            if (sum > int.MaxValue)
+                return int.MaxValue;
+            return (int)sum;
         }
 
         static IReadOnlyList<int> CopyMasks(IReadOnlyList<int> source)
@@ -722,6 +761,11 @@ namespace Shmup.Core.Generation
         const int SegmentSelectionStream = 0;
         const int BossSelectionStream = 1;
         const int ThemePermutationStream = 2;
+        public const int ObstacleJitterStream = 3;
+        public const int SolidJitterSubUnits =
+            Simulation.SimSpace.SubUnitsPerWorldUnit / 2;
+        public const int BreakableJitterSubUnits =
+            3 * Simulation.SimSpace.SubUnitsPerWorldUnit / 2;
         const int HazardCenterOffsetSubUnits = 256;
         public const string LeviathanBossId = "boss_leviathan";
         public const string BroodmotherBossId = "boss_broodmother";
@@ -974,6 +1018,7 @@ namespace Shmup.Core.Generation
                 .Fork(difficulty);
             Rng segmentRng = stageRng.Fork(SegmentSelectionStream);
             Rng bossRng = stageRng.Fork(BossSelectionStream);
+            Rng obstacleJitterRng = stageRng.Fork(ObstacleJitterStream);
 
             var assembled = new StageSegment[segmentCount];
             var completionCache = new Dictionary<long, bool>();
@@ -1019,7 +1064,8 @@ namespace Shmup.Core.Generation
                     : PickWeightedCandidate(segmentRng, viableIndices);
                 int selectedIndex = viableIndices[pick];
                 StageSegmentTemplate selected = _catalog.Segments[selectedIndex];
-                assembled[position] = selected.CreateSegment();
+                assembled[position] = selected.CreateSegment(
+                    obstacleJitterRng.Fork(position));
                 reachable = viableExits[pick];
                 selectedTemplates[selectedIndex] = true;
                 previousTemplateIndex = selectedIndex;
