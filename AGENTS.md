@@ -23,6 +23,14 @@
 
 공유 파일(`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.gitignore`)은 사람만 수정한다.
 
+**CLAUDE 3분화 개편 (2026-08-01 사람 승인):** 기존 CLAUDE 역할을 모델 3개로 나눈다.
+
+| 담당 | 모델 | 임무 | 비고 |
+|---|---|---|---|
+| **ORCHESTRATOR** | Claude Fable 5 | 전체 오케스트레이션 — REQ 발행, 디스패치, 병합, 빌드·배포, 최종 검수. 공유 규칙 준수 감시 | 커밋 주체. 코드 구현은 위임이 기본 |
+| **RENDERER** | Claude Opus 5 (서브에이전트) | Presentation 구현 — 기존 CLAUDE 소유 영역 그대로 (`Assets/` 중 Core·Tests 제외, `ProjectSettings/`, `Tools/ArtGen/`) | 오케스트레이터 세션 안에서 구동. 커밋은 오케스트레이터가 검수 후 대신 (Co-Authored-By 표기). 렌더러 가동 중 오케스트레이터는 같은 파일을 만지지 않는다 |
+| **PLAYTESTER** | Claude Sonnet 5 (서브에이전트) | **실플레이 체감 검증** — 배포 전 브라우저 실주행(치트 F9/F10/F11 활용), 스크린샷 근거 리포트 `Reviews/from-tester/` | 코드·에셋 소유 없음. GEMINI와 경계: GEMINI = 코드·결정론·데이터의 **재현 검증**, PLAYTESTER = 화면에서 실제로 **보이고 느껴지는가**. 배포 게이트에 PLAYTESTER PASS 추가 (5중 게이트) |
+
 **아트/사운드 생성물 규칙** (2026-07-28): AI 생성 에셋은 후보 다량 생산 → **사람(아트 디렉터) 큐레이션 합격작만** `Assets/Art/`·`Assets/Audio/`에 확정한다. 생성 프롬프트·파라미터는 산출물과 함께 커밋해 재현 가능하게 유지한다. 시뮬 상태 변화를 애니메이션·사운드로 표현해야 하면 Core의 시뮬 이벤트(REQ-005)를 구독한다 — Presentation에서 게임플레이 판정을 내리지 않는 원칙은 그대로다.
 
 **GEMINI 확장 임무 (2026-07-29 사람 승인):**
