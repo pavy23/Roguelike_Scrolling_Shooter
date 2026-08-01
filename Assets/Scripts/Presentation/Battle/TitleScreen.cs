@@ -133,16 +133,18 @@ namespace Shmup.Presentation.Battle
             _rankingRoot = canvas.gameObject;
 
             UiKit.CreateDim(canvas.transform, new Color(0f, 0.01f, 0.05f, 0.72f));
-            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(320f, 250f));
+            // P1.5: 한 줄 끝에 문맥(기체·도달·NB)이 붙어 320px로는 점수가 잘린다.
+            // 헤어라인 패널 언어는 그대로 두고 폭만 넓힌다.
+            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(380f, 250f));
 
             UiKit.CreateCornerText(panel, _fontBold, "DAILY RANKING", 14, UiKit.TextMain,
                 new Vector2(0.5f, 1f), new Vector2(0f, -12f), TextAnchor.UpperCenter, "RankTitle");
-            UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -34f), 260f,
+            UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -34f), 320f,
                 UiKit.TextAccent, "RankRule");
 
             _rankingBody = UiKit.CreateCornerText(panel, _font, "", 10, UiKit.TextDim,
                 new Vector2(0.5f, 1f), new Vector2(0f, -44f), TextAnchor.UpperLeft, "RankBody");
-            _rankingBody.rectTransform.sizeDelta = new Vector2(280f, 150f);
+            _rankingBody.rectTransform.sizeDelta = new Vector2(340f, 150f);
 
             UiKit.CreateTouchButton(panel, _font, "CLOSE", 11,
                 new Vector2(0.5f, 0f), new Vector2(0f, 12f), new Vector2(140f, 34f),
@@ -193,9 +195,49 @@ namespace Shmup.Presentation.Battle
                 sb.Append(Clip(entry.n, 10).PadRight(10));
                 sb.Append(' ');
                 sb.Append(entry.s.ToString("N0").PadLeft(10));
+                AppendContext(sb, entry);
             }
             _rankingBody.text = sb.ToString();
             _rankingBody.color = UiKit.TextMain;
+        }
+
+        /// <summary>앰버 뱃지 색 = UiKit.TextAccent. 리치 텍스트라 문자열로 박아 둔다.</summary>
+        const string BadgeOpen = "<color=#FFB31C>";
+        const string BadgeClose = "</color>";
+
+        /// <summary>
+        /// 점수 뒤에 붙는 짧은 문맥: 기체 약칭 + 도달 지점 + 노봄 뱃지.
+        /// "얼마나 갔나 / 무엇으로 / 봄을 썼나"가 순위표에서 바로 읽혀야 한다.
+        ///
+        /// P1.5 이전 기록에는 이 값들이 아예 없다 (서버가 키를 뺀다 → 전부 0).
+        /// 스테이지 번호는 1부터라 <c>st &lt;= 0</c>이 곧 구 항목이고, 그때는 칸을
+        /// 비운다 — 0으로 그리면 "1스테이지에서 죽었다"는 거짓말이 된다.
+        /// </summary>
+        static void AppendContext(System.Text.StringBuilder sb, ScoreboardEntry entry)
+        {
+            if (entry.st <= 0) return;
+
+            sb.Append("  ");
+            sb.Append(ScoreboardClient.ShipAbbrev(entry.sh));
+            sb.Append(' ');
+            // 완주는 도달 좌표보다 등급이 정보다 — "5-4"보다 "CLEAR"가 크다.
+            if (entry.g == "PERFECT" || entry.g == "CLEAR")
+                sb.Append(entry.g);
+            else
+            {
+                sb.Append(entry.st);
+                sb.Append('-');
+                sb.Append(entry.rm > 0 ? entry.rm : 1);
+            }
+
+            // 봄을 한 번도 안 쓴 런은 같은 점수라도 다른 주행이다.
+            if (entry.bb == 0)
+            {
+                sb.Append(' ');
+                sb.Append(BadgeOpen);
+                sb.Append("NB");
+                sb.Append(BadgeClose);
+            }
         }
 
         static string Clip(string value, int max)

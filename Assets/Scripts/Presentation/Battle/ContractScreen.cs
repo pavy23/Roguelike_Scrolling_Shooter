@@ -266,9 +266,70 @@ namespace Shmup.Presentation.Battle
                         : $"REWARD CARDS {e.Numerator}";
                 case ContractEffectType.ScoreMultiplier:
                     return $"SCORE x{ratio:0.##}";
+                // 봉인 계약 (REQ-095). 무엇이 막히는지가 카드의 정체다 —
+                // "게이지를 못 쓴다"는 다른 어떤 배율보다 먼저 읽혀야 한다.
+                case ContractEffectType.GaugeActivationBanned:
+                    return "NO GAUGE";
+                case ContractEffectType.OptionActivationBanned:
+                    return "NO OPTION";
+                case ContractEffectType.ShieldActivationBanned:
+                    return "NO SHIELD";
                 default:
-                    return e.Type.ToString().ToUpperInvariant();
+                    // 모르는 효과도 절대 빈 줄로 두지 않는다 — 빈 줄은 "카드가 고장났다"로
+                    // 읽히고, 이 화면의 존재 이유(효과를 다 적는다)와 정면으로 어긋난다.
+                    return e.Denominator != 1
+                        ? $"{e.Type.ToString().ToUpperInvariant()} x{ratio:0.##}"
+                        : e.Type.ToString().ToUpperInvariant();
             }
+        }
+
+        static bool IsBan(ContractEffectType type)
+        {
+            return type == ContractEffectType.GaugeActivationBanned
+                || type == ContractEffectType.OptionActivationBanned
+                || type == ContractEffectType.ShieldActivationBanned;
+        }
+
+        /// <summary>
+        /// 카드 본문의 효과 줄 전체. 봉인 계약은 배율이 곧 봉인의 대가라 봉인 줄에
+        /// 배율을 붙여 한 줄로 읽히게 하고("NO GAUGE x1.6"), 같은 숫자를 반복하는
+        /// 별도 SCORE 줄은 접는다 — 168px 카드에서 중복은 소음이다.
+        /// 봉인이 없는 계약은 기존 그대로 한 효과 = 한 줄이다.
+        /// </summary>
+        static void AppendEffectLines(System.Text.StringBuilder sb, ContractOption contract)
+        {
+            var effects = contract.Effects;
+            if (effects == null || effects.Count == 0) return;
+
+            int scoreNumerator = contract.ScoreMultiplierNumerator;
+            int scoreDenominator = contract.ScoreMultiplierDenominator;
+            bool hasScore = scoreDenominator != 0 && scoreNumerator != scoreDenominator;
+            bool scorePending = hasScore && HasBan(effects);
+            string scoreSuffix = hasScore
+                ? $" x{(float)scoreNumerator / scoreDenominator:0.##}" : "";
+
+            for (int k = 0; k < effects.Count; k++)
+            {
+                var effect = effects[k];
+                // 봉인 줄이 배율을 이미 싣고 있으면 SCORE 줄은 생략한다.
+                if (scorePending && effect.Type == ContractEffectType.ScoreMultiplier)
+                    continue;
+                if (sb.Length > 0) sb.Append('\n');
+                sb.Append(DescribeEffect(in effect));
+                // 배율은 첫 봉인 줄에만. 봉인이 둘이어도 같은 숫자를 두 번 적지 않는다.
+                if (scorePending && IsBan(effect.Type))
+                {
+                    sb.Append(scoreSuffix);
+                    scorePending = false;
+                }
+            }
+        }
+
+        static bool HasBan(System.Collections.Generic.IReadOnlyList<ContractEffectView> effects)
+        {
+            for (int k = 0; k < effects.Count; k++)
+                if (IsBan(effects[k].Type)) return true;
+            return false;
         }
 
         void Update()
@@ -322,11 +383,7 @@ namespace Shmup.Presentation.Battle
                     {
                         var sbU = new System.Text.StringBuilder(96);
                         sbU.Append("ENTER THE HIDDEN SECTOR\nFACE THE COLOSSUS");
-                        for (int k = 0; contract.Effects != null && k < contract.Effects.Count; k++)
-                        {
-                            sbU.Append('\n');
-                            sbU.Append(DescribeEffect(contract.Effects[k]));
-                        }
+                        AppendEffectLines(sbU, contract);
                         _boxTexts[i].text = sbU.ToString();
                         _boxTexts[i].color = UiKit.TextMain;
                     }
@@ -338,11 +395,7 @@ namespace Shmup.Presentation.Battle
                     else
                     {
                         var sb = new System.Text.StringBuilder(96);
-                        for (int k = 0; k < contract.Effects.Count; k++)
-                        {
-                            if (k > 0) sb.Append('\n');
-                            sb.Append(DescribeEffect(contract.Effects[k]));
-                        }
+                        AppendEffectLines(sb, contract);
                         _boxTexts[i].text = sb.ToString();
                         _boxTexts[i].color = UiKit.TextMain;
                     }

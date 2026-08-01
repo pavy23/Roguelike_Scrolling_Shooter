@@ -92,9 +92,16 @@ export default {
       const boardKey = daily ? `daily:${utcDateKey(Date.now())}` : 'all';
       const list = (await env.SCORES.get(boardKey, 'json')) || [];
 
+      // P1.5 상세 통계 (선택 필드 — 없으면 생략, 음수/비정상은 버림)
+      const stat = (v, max) => (Number.isFinite(Number(v)) && Number(v) >= 0 && Number(v) <= max)
+        ? Math.floor(Number(v)) : undefined;
       const entry = {
         n: name, s: Math.floor(score), sd: seed, sh: ship, d: difficulty,
         g: grade, h: hash, t: Date.now(), tk: tkHash,
+        st: stat(body.stage, 99), rm: stat(body.room, 99),
+        op: stat(body.options, 9), lv: stat(body.levels, 99),
+        bb: stat(body.bombs, 999), gz: stat(body.graze, 999999),
+        mx: stat(body.maxCombo, 99),
       };
 
       // 같은 토큰의 기존 기록은 최고 점수 하나만 남긴다

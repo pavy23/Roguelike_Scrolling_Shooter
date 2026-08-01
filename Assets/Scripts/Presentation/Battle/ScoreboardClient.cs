@@ -19,6 +19,17 @@ namespace Shmup.Presentation.Battle
         public long s;
         public string sh;
         public string g;
+
+        // P1.5 상세 통계. 서버가 값이 없는 항목은 키 자체를 빼므로(JSON.stringify가
+        // undefined를 지운다) 구 기록에서는 전부 0으로 남는다 — st는 1부터 시작하는
+        // 스테이지 번호라 `st <= 0`이 곧 "이 기록엔 문맥이 없다"는 뜻이다.
+        public int st;   // 도달 스테이지 (1부터)
+        public int rm;   // 도달 룸 (1부터)
+        public int op;   // 옵션 수
+        public int lv;   // 게이지 레벨 합
+        public int bb;   // 사용한 봄 수 (0 = NO BOMB)
+        public int gz;   // 그레이즈 누계
+        public int mx;   // 최고 콤보 배율
     }
 
     [Serializable]
@@ -39,6 +50,16 @@ namespace Shmup.Presentation.Battle
         public string grade;
         public string replayHash;
         public bool daily;
+
+        // P1.5 상세 통계 (서버 선택 필드). JsonUtility는 값이 0이어도 키를 항상 실어
+        // 보내는데, 서버가 0 이상만 받아들이므로 그대로도 안전하다.
+        public int stage;
+        public int room;
+        public int options;
+        public int levels;
+        public int bombs;
+        public int graze;
+        public int maxCombo;
     }
 
     [Serializable]
@@ -58,6 +79,16 @@ namespace Shmup.Presentation.Battle
         public string Grade;
         public string ReplayHash;
         public bool Daily;
+
+        // P1.5: 점수 한 줄로는 "어떻게 죽었는지"가 남지 않는다. 도달 지점과 빌드 규모,
+        // 봄/그레이즈까지 같이 올려야 보드가 기록이 아니라 이야기가 된다.
+        public int Stage;
+        public int Room;
+        public int Options;
+        public int Levels;
+        public int Bombs;
+        public int Graze;
+        public int MaxCombo;
     }
 
     /// <summary>
@@ -187,9 +218,44 @@ namespace Shmup.Presentation.Battle
                 difficulty = submission.Difficulty ?? string.Empty,
                 grade = submission.Grade ?? string.Empty,
                 replayHash = submission.ReplayHash ?? string.Empty,
-                daily = submission.Daily
+                daily = submission.Daily,
+                // 서버는 음수/상한 초과를 통째로 버린다 — 여기서 미리 잘라 "값이 통째로
+                // 사라진 기록"이 나오지 않게 한다 (상한은 worker.js의 stat()과 같은 값).
+                stage = Clamp(submission.Stage, 99),
+                room = Clamp(submission.Room, 99),
+                options = Clamp(submission.Options, 9),
+                levels = Clamp(submission.Levels, 99),
+                bombs = Clamp(submission.Bombs, 999),
+                graze = Clamp(submission.Graze, 999999),
+                maxCombo = Clamp(submission.MaxCombo, 99)
             };
             Host.StartCoroutine(SubmitRoutine(JsonUtility.ToJson(payload), onDone));
+        }
+
+        /// <summary>서버가 받아 주는 범위로 자른다. 음수는 0.</summary>
+        static int Clamp(int value, int max)
+        {
+            if (value < 0) return 0;
+            return value > max ? max : value;
+        }
+
+        /// <summary>
+        /// 보드 한 줄에 들어갈 기체 약칭. 이름 전체를 쓸 자리가 없어 두 글자로 줄인다 —
+        /// 모르는 id는 앞 두 글자를 대문자로(신규 기체가 추가돼도 칸이 비지 않는다).
+        /// </summary>
+        public static string ShipAbbrev(string shipId)
+        {
+            if (string.IsNullOrEmpty(shipId)) return "  ";
+            switch (shipId.ToLowerInvariant())
+            {
+                case "starter": return "ST";
+                case "interceptor": return "IC";
+                case "bulwark": return "BW";
+                default:
+                    return shipId.Length >= 2
+                        ? shipId.Substring(0, 2).ToUpperInvariant()
+                        : shipId.ToUpperInvariant();
+            }
         }
 
         /// <summary>보드 조회. 콜백은 (엔트리, 에러) — 점수 내림차순, 최대 100줄.</summary>

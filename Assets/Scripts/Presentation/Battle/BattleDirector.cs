@@ -350,6 +350,44 @@ namespace Shmup.Presentation.Battle
         /// <summary>파워업 게이지 (Core/RunManager 소유). HUD가 읽어서 그린다. 재시작 시 승계 적용된 새 인스턴스로 바뀐다.</summary>
         public PowerUpGauge Gauge => _run?.PowerUpGauge;
 
+        // ── 계약 잠금 피드백 (REQ-094 관측 소비) ──────────────────────────────
+        //
+        // 계약이 발동을 막고 있으면 SELECT를 눌러도 게이지가 그대로다. 화면이 아무
+        // 반응도 하지 않으면 플레이어는 그것을 "고장"으로 읽는다 — 거부된 그 틱을
+        // 잡아 HUD가 한 번 번쩍이게 신호를 보낸다.
+        //
+        // 게이지의 LastActivationResult는 다음 발동까지 남아 있는 '마지막 결과'라
+        // 값 변화만으로는 재시도를 구분할 수 없다. 그래서 sim과 같은 방식으로
+        // Activate의 상승 에지를 여기서도 재고, 그 틱의 결과만 본다.
+        bool _contractActivateHeld;
+
+        /// <summary>계약으로 발동이 거부될 때마다 1 증가. HUD는 값이 바뀐 순간에 플래시한다.</summary>
+        public int ContractLockPulse { get; private set; }
+
+        /// <summary>마지막으로 거부된 이유 (게이지 전체 / 옵션 / 실드).</summary>
+        public PowerUpActivationResult ContractLockResult { get; private set; }
+            = PowerUpActivationResult.NoSelection;
+
+        void DetectContractLock(in InputCommand command, bool playingBefore)
+        {
+            bool pressed = command.Activate && !_contractActivateHeld;
+            _contractActivateHeld = command.Activate;
+            // Playing이 아닌 틱의 Step은 no-op이라 게이지 결과가 갱신되지 않는다 —
+            // 보상/계약 화면에서 누른 SELECT가 지난 결과를 다시 울리면 안 된다.
+            if (!pressed || !playingBefore) return;
+
+            var gauge = _run?.PowerUpGauge;
+            if (gauge == null) return;
+            var result = gauge.LastActivationResult;
+            if (result != PowerUpActivationResult.ContractGaugeActivationBanned
+                && result != PowerUpActivationResult.ContractOptionActivationBanned
+                && result != PowerUpActivationResult.ContractShieldActivationBanned)
+                return;
+
+            ContractLockResult = result;
+            ContractLockPulse++;
+        }
+
         public long TotalScore => _run?.TotalScore ?? 0;
         /// <summary>런 전체 통계 (완료 스테이지 + 현재 전투 합산 — Core 권위 값).</summary>
         public RunStatistics RunStats => _run != null ? _run.Statistics : default;
@@ -636,6 +674,7 @@ namespace Shmup.Presentation.Battle
                 }
             }
             _run.Step(command);
+            DetectContractLock(in command, playingBefore);
 
             // 런 종료(사망 또는 완주) 시 점수를 메타 재화로 1회 적립. 리플레이는 비적립.
             if (_run.IsFinished

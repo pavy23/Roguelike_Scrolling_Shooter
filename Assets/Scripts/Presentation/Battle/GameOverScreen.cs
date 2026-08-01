@@ -141,6 +141,8 @@ namespace Shmup.Presentation.Battle
 
             _submitState = SubmitState.Sending;
             SetSubmitLabel("SENDING...");
+            var runStats = _director.RunStats;
+            var gauge = _director.Gauge;
             ScoreboardClient.Submit(new ScoreSubmission
             {
                 Score = _director.TotalScore,
@@ -151,8 +153,41 @@ namespace Shmup.Presentation.Battle
                 // TODO: 리플레이 검증 해시. Core에 "이 런의 결과 해시"를 내주는 API가 없어
                 // 비워 둔다 (Reviews/from-claude/requests.md REQ-093 — CODEX 요청).
                 ReplayHash = "",
-                Daily = _director.IsDailyRun
+                Daily = _director.IsDailyRun,
+
+                // P1.5 상세 통계 (REQ-094 관측 소비). 전부 사망 시점의 Core 권위 값이다 —
+                // 화면에 이미 그려 둔 숫자를 다시 계산하지 않고 같은 출처에서 읽는다.
+                Stage = _director.StageIndex,
+                Room = _director.RoomIndex,
+                // 옵션은 게이지 Option 레벨이 곧 개수다 (Core가 이 값으로 옵션을 띄운다).
+                // 사망 시점의 IBattleSim.Options는 이미 정리됐을 수 있어 게이지를 읽는다.
+                Options = gauge != null
+                    ? gauge.GetLevel(Shmup.Core.PowerUpSlot.Option) : 0,
+                Levels = GaugeLevelTotal(gauge),
+                Bombs = ToInt(runStats.BombsUsed),
+                Graze = ToInt(runStats.GrazeCount),
+                MaxCombo = _director.BestMultiplier
             }, OnSubmitDone);
+        }
+
+        /// <summary>
+        /// 게이지 전 슬롯 레벨의 합 (SHOT 포함). "빌드를 얼마나 키웠나"를 한 숫자로
+        /// 압축한 값이라 슬롯 구성이 기체마다 달라도 비교가 된다.
+        /// </summary>
+        static int GaugeLevelTotal(Shmup.Core.PowerUpGauge gauge)
+        {
+            if (gauge == null) return 0;
+            int total = 0;
+            for (int i = 0; i < gauge.GaugeSlotCount; i++)
+                total += gauge.GetGaugeSlotView(i).Level;
+            return total;
+        }
+
+        /// <summary>Core 통계는 포화 누계(long)다 — 제출 필드 폭에 맞춰 자른다.</summary>
+        static int ToInt(long value)
+        {
+            if (value <= 0) return 0;
+            return value > int.MaxValue ? int.MaxValue : (int)value;
         }
 
         void OnSubmitDone(int rank, string error)
@@ -226,8 +261,11 @@ namespace Shmup.Presentation.Battle
                     $"SCORE  {_director.TotalScore:D8}   (run {_director.RunNumber}, stage {_director.StageIndex})";
                 _statsText.text =
                     $"KILLS {stats.Kills}   CAPSULES {stats.CapsulesCollected}   ACC {accuracy:0.#}%   SHOTS {stats.ShotsFired}";
+                // BOMBS는 보드의 NB(노봄) 뱃지와 같은 값이다 — 여기서 0을 확인할 수
+                // 있어야 뱃지가 왜 붙었는지/안 붙었는지 납득이 된다.
                 _extraText.text =
-                    $"BEST COMBO x{_director.BestMultiplier}   GRAZE {stats.GrazeCount}";
+                    $"BEST COMBO x{_director.BestMultiplier}   GRAZE {stats.GrazeCount}"
+                    + $"   BOMBS {stats.BombsUsed}";
                 _modifierText.text = DescribeModifiers(_director.ActiveModifiers);
             }
 

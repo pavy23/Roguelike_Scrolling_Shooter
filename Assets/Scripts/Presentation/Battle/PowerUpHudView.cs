@@ -45,6 +45,18 @@ namespace Shmup.Presentation.Battle
         int _builtCount = -1;
         int _shownShield = int.MinValue;
 
+        // 계약 잠금 플래시 (REQ-094). SELECT를 눌렀는데 게이지가 꿈쩍도 않으면 고장으로
+        // 읽힌다 — 계약이 막고 있다는 말을 게이지 바로 위에서 한 번 해 준다.
+        Text _contractLockText;
+        int _shownLockPulse;
+        float _lockFlashAge = float.MaxValue;
+
+        /// <summary>플래시 지속 시간(초). 읽히되 시야를 오래 막지 않는 길이.</summary>
+        const float LockFlashDuration = 1f;
+
+        /// <summary>마지막 구간은 서서히 사라진다 — 뚝 끊기면 눈이 잔상만 남긴다.</summary>
+        const float LockFadeTail = 0.3f;
+
         void Start()
         {
             _canvas = UiKit.CreateCanvas("GaugeCanvas", 42);
@@ -55,6 +67,14 @@ namespace Shmup.Presentation.Battle
                 UiKit.TextMain, new Vector2(0f, 0f), new Vector2(8f, 46f),
                 TextAnchor.LowerLeft, "ShieldCount");
             UiKit.AddShadow(_shieldText);
+
+            // 게이지 슬롯 줄(높이 SlotHeight, y=4) 바로 위. 슬롯을 가리지 않으면서
+            // 시선이 게이지에 있을 때 같은 시야에 들어오는 자리다.
+            _contractLockText = UiKit.CreateCornerText(_canvas.transform, _font, "", 11,
+                UiKit.TextAccent, new Vector2(0.5f, 0f), new Vector2(0f, SlotHeight + 10f),
+                TextAnchor.LowerCenter, "ContractLock");
+            UiKit.AddShadow(_contractLockText);
+            _contractLockText.gameObject.SetActive(false);
         }
 
         void Build(int count)
@@ -167,8 +187,13 @@ namespace Shmup.Presentation.Battle
 
         void LateUpdate()
         {
+            if (_canvas == null) return;
+            // 게이지가 아직 없어도(런 준비 중) 플래시 타이머는 돌려야 한다 —
+            // 켜 놓은 채로 멈추면 글자가 화면에 눌어붙는다.
+            UpdateContractLock();
+
             var gauge = _director != null ? _director.Gauge : null;
-            if (gauge == null || _canvas == null) return;
+            if (gauge == null) return;
 
             UpdateShieldCount();
 
@@ -228,6 +253,55 @@ namespace Shmup.Presentation.Battle
                         else _pips[i][p].color = PipEmpty;
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// 계약이 발동을 거부한 순간을 받아 1초짜리 앰버 플래시를 띄운다.
+        /// BattleDirector가 세는 펄스 값이 바뀌는 순간이 곧 "방금 거부됐다"는 신호다.
+        /// </summary>
+        void UpdateContractLock()
+        {
+            if (_contractLockText == null) return;
+
+            if (_director != null && _director.ContractLockPulse != _shownLockPulse)
+            {
+                _shownLockPulse = _director.ContractLockPulse;
+                _lockFlashAge = 0f;
+                _contractLockText.text = LockMessage(_director.ContractLockResult);
+                _contractLockText.gameObject.SetActive(true);
+            }
+
+            if (!_contractLockText.gameObject.activeSelf) return;
+
+            // 계약 화면·일시정지로 timeScale이 0이어도 플래시는 흘러야 한다.
+            _lockFlashAge += Time.unscaledDeltaTime;
+            if (_lockFlashAge >= LockFlashDuration)
+            {
+                _contractLockText.gameObject.SetActive(false);
+                return;
+            }
+            float remaining = LockFlashDuration - _lockFlashAge;
+            float alpha = remaining >= LockFadeTail ? 1f : remaining / LockFadeTail;
+            var color = UiKit.TextAccent;
+            color.a = alpha;
+            _contractLockText.color = color;
+        }
+
+        /// <summary>
+        /// 무엇이 막혔는지까지 말해 준다 — "게이지 전체"와 "옵션만"은 대응이 다르다
+        /// (전자는 캡슐을 모을 이유가 없고, 후자는 커서를 다른 슬롯으로 옮기면 된다).
+        /// </summary>
+        static string LockMessage(PowerUpActivationResult result)
+        {
+            switch (result)
+            {
+                case PowerUpActivationResult.ContractOptionActivationBanned:
+                    return "CONTRACT LOCK - OPTION";
+                case PowerUpActivationResult.ContractShieldActivationBanned:
+                    return "CONTRACT LOCK - SHIELD";
+                default:
+                    return "CONTRACT LOCK";
             }
         }
 
