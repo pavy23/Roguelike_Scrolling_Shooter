@@ -204,6 +204,15 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(500, stages.Bosses[0].MaxHp);
             Assert.AreEqual(0, stages.Segments[0].Obstacles.Count);
             Assert.AreEqual(
+                1,
+                stages.Segments[0].ScrollSpeedMultiplierNumerator);
+            Assert.AreEqual(
+                1,
+                stages.Segments[0].ScrollSpeedMultiplierDenominator);
+            Assert.AreEqual(
+                0,
+                stages.Segments[0].PostMidbossOutcomes.Count);
+            Assert.AreEqual(
                 StageSegmentTemplate.DefaultWeight,
                 stages.Segments[0].Weight);
             Assert.IsNull(stages.Segments[0].ThemeId);
@@ -460,9 +469,12 @@ namespace Shmup.Core.Tests
             string waves = WavesJson.Replace(
                 @"""spawns"": [{ ""tick"": 10, ""enemyId"": ""elite_sine"", ""y"": -5.5 }]",
                 @"""spawns"": [{ ""tick"": 10, ""enemyId"": ""elite_sine"", ""y"": -5.5 }],
+    ""scrollSpeedMultiplier"": 1.5,
+    ""postMidbossOutcomes"": [""cleanKill""],
     ""obstacles"": [
       { ""type"": ""solid"", ""x"": 12.5, ""y"": -1.25, ""hp"": 0 },
-      { ""type"": ""breakable"", ""x"": 14, ""y"": 2.5, ""hp"": 30 }
+      { ""type"": ""breakable"", ""x"": 14, ""y"": 2.5, ""hp"": 30,
+        ""blocksEnemyBullets"": true, ""regenDelayTicks"": 180 }
     ]");
 
             GameDataSet data = GameDataParser.Parse(
@@ -484,11 +496,31 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(3584, template.Obstacles[1].X);
             Assert.AreEqual(640, template.Obstacles[1].Y);
             Assert.AreEqual(30, template.Obstacles[1].Hp);
+            Assert.IsFalse(template.Obstacles[0].BlocksEnemyBullets);
+            Assert.AreEqual(0, template.Obstacles[0].RegenDelayTicks);
+            Assert.IsTrue(template.Obstacles[1].BlocksEnemyBullets);
+            Assert.AreEqual(180, template.Obstacles[1].RegenDelayTicks);
+            Assert.AreEqual(3, template.ScrollSpeedMultiplierNumerator);
+            Assert.AreEqual(2, template.ScrollSpeedMultiplierDenominator);
+            Assert.AreEqual(1, template.PostMidbossOutcomes.Count);
+            Assert.AreEqual(
+                MidbossOutcomeKind.CleanKill,
+                template.PostMidbossOutcomes[0]);
 
-            StagePlan plan = new SegmentStageGenerator(
-                data.StageGeneration).Generate(9UL, 1, 1);
-            Assert.AreEqual(2, plan.Segments[0].Obstacles.Count);
-            Assert.AreEqual(30, plan.Segments[0].Obstacles[1].Hp);
+            StageSegment generated = template.CreateSegment(new Rng(9UL));
+            Assert.AreEqual(2, generated.Obstacles.Count);
+            Assert.AreEqual(30, generated.Obstacles[1].Hp);
+            Assert.IsTrue(
+                generated.Obstacles[1].BlocksEnemyBullets);
+            Assert.AreEqual(
+                180,
+                generated.Obstacles[1].RegenDelayTicks);
+            Assert.AreEqual(
+                3,
+                generated.ScrollSpeedMultiplierNumerator);
+            Assert.AreEqual(
+                2,
+                generated.ScrollSpeedMultiplierDenominator);
         }
 
         [Test]

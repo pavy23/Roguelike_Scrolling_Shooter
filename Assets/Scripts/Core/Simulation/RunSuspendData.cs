@@ -91,10 +91,10 @@ namespace Shmup.Core.Simulation
     public sealed class RunSuspendData
     {
         /// <summary>
-        /// Schema 23 records the seeded obstacle-jitter generation contract.
-        /// Earlier obstacle layouts are incompatible with boundary resume.
+        /// Schema 24 records post-midboss outcome state and the stage-overhaul
+        /// simulation contract. Earlier boundaries are intentionally rejected.
         /// </summary>
-        public const int CurrentSchemaVersion = 23;
+        public const int CurrentSchemaVersion = 24;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -293,5 +293,8 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 60)]
         public long bombsUsed;
+
+        [DataMember(Order = 61)]
+        public int lastMidbossOutcome;
     }
 }

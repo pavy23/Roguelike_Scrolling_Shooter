@@ -78,6 +78,7 @@ namespace Shmup.Core.Simulation
             FoldInt32(run.RewardRerollCost);
             FoldInt32((int)run.CurrentMissileFamily);
             FoldInt32((int)run.CurrentOptionFormation);
+            FoldInt32((int)run.LastMidbossOutcome);
             FoldStagePlan(run.StagePlan);
             FoldRewards(run.RewardOptions);
             FoldContracts(run.ContractOptions);
@@ -315,6 +316,8 @@ namespace Shmup.Core.Simulation
                 StageSegment segment = plan.Segments[i];
                 FoldString(segment.SegmentId);
                 FoldInt32(segment.LengthTicks);
+                FoldInt32(segment.ScrollSpeedMultiplierNumerator);
+                FoldInt32(segment.ScrollSpeedMultiplierDenominator);
                 FoldInt32(segment.EntryLaneMask);
                 FoldInt32(segment.ExitLaneMask);
                 SegmentEnvironmentDefinition environment =
@@ -351,6 +354,8 @@ namespace Shmup.Core.Simulation
                     FoldInt32(obstacle.X);
                     FoldInt32(obstacle.Y);
                     FoldInt32(obstacle.Hp);
+                    FoldBool(obstacle.BlocksEnemyBullets);
+                    FoldInt32(obstacle.RegenDelayTicks);
                     LaserAttackDefinition laser =
                         obstacle.LaserAttack;
                     FoldLaserDefinition(laser);
@@ -592,6 +597,30 @@ namespace Shmup.Core.Simulation
                 FoldInt32(obstacle.Y);
                 FoldInt32(obstacle.Hp);
             }
+            if (battle is BattleSim obstacleBattle)
+            {
+                FoldInt32(
+                    obstacleBattle.PendingObstacleRegenerations.Count);
+                for (int i = 0;
+                    i < obstacleBattle.PendingObstacleRegenerations.Count;
+                    i++)
+                {
+                    ObstacleRegenerationState pending =
+                        obstacleBattle.PendingObstacleRegenerations[i];
+                    FoldInt32(pending.Id);
+                    FoldInt32((int)pending.Type);
+                    FoldInt32(pending.X);
+                    FoldInt32(pending.Y);
+                    FoldInt32(pending.MaxHp);
+                    FoldBool(pending.BlocksEnemyBullets);
+                    FoldInt32(pending.RegenDelayTicks);
+                    FoldInt32(pending.RespawnAtTick);
+                }
+            }
+            else
+            {
+                FoldInt32(0);
+            }
 
             FoldInt32(battle.Capsules.Count);
             for (int i = 0; i < battle.Capsules.Count; i++)
@@ -647,6 +676,10 @@ namespace Shmup.Core.Simulation
 
             FoldBool(battle.BossActive);
             FoldBool(battle.BossEntering);
+            FoldInt32(
+                battle is BattleSim bossBattle
+                    ? bossBattle.BossDefeatElapsedTicks
+                    : 0);
             BossState boss = battle.Boss;
             FoldInt32(boss.Id);
             FoldInt32(boss.X);

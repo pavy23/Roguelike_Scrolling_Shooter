@@ -696,6 +696,213 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void EnemyBullets_AreErasedByExplicitBlockingObstacle()
+        {
+            var shooter = new EnemyDefinition(
+                "shielded_shooter",
+                "Shielded Shooter",
+                10,
+                0,
+                0,
+                EnemyMovePattern.Static,
+                0,
+                1,
+                1,
+                0,
+                0,
+                0,
+                0,
+                1,
+                1);
+            var blocker = new ObstacleSpawn(
+                ObstacleType.Breakable,
+                10,
+                0,
+                5,
+                null,
+                true,
+                0);
+            StageSegment segment = new StageSegment(
+                "enemy_bullet_block",
+                20,
+                new[] { new SpawnEvent(0, shooter.Id, 10, 0) },
+                1,
+                1,
+                new[] { 1 },
+                new[] { blocker });
+            BattleSimConfig config = CreateConfig();
+            config.EnemyBulletSpeedNumerator = 0;
+            config.EnemyBulletHalfWidth = 0;
+            config.EnemyBulletHalfHeight = 0;
+            config.ObstacleHalfWidth = 0;
+            config.ObstacleHalfHeight = 0;
+            var sim = CreateSim(
+                Plan(segment),
+                Content(shooter),
+                config,
+                0x101AUL);
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in none);
+
+            Assert.AreEqual(0, sim.Bullets.Count);
+            Assert.AreEqual(5, sim.Obstacles[0].Hp);
+            SimEvent blocked = FindEvent(
+                sim.EventsThisTick,
+                SimEventType.EnemyBulletBlocked);
+            Assert.AreEqual(sim.Obstacles[0].Id, blocked.Arg);
+        }
+
+        [Test]
+        public void RegeneratingObstacle_DefersWhilePlayerOverlapsThenRestoresMaxHp()
+        {
+            var wall = new ObstacleSpawn(
+                ObstacleType.Breakable,
+                0,
+                0,
+                1,
+                null,
+                false,
+                2);
+            BattleSimConfig config = CreateConfig();
+            config.PlayerInvulnerable = true;
+            config.ObstacleHalfWidth = 0;
+            config.ObstacleHalfHeight = 0;
+            var sim = CreateSim(
+                Plan(ObstacleSegment("regen", 20, wall)),
+                Content(),
+                config,
+                0x101BUL);
+            var fire = new InputCommand(0, 0, true);
+            InputCommand none = InputCommand.None;
+            var moveRight = new InputCommand(1, 0, false);
+
+            sim.Step(in fire);
+            sim.Step(in none);
+            Assert.AreEqual(0, sim.Obstacles.Count);
+            sim.Step(in none);
+            sim.Step(in none);
+            Assert.AreEqual(0, sim.Obstacles.Count);
+            sim.Step(in moveRight);
+
+            Assert.AreEqual(1, sim.Obstacles.Count);
+            Assert.AreEqual(1, sim.Obstacles[0].Hp);
+            Assert.AreEqual(0, sim.Obstacles[0].X);
+            SimEvent regenerated = FindEvent(
+                sim.EventsThisTick,
+                SimEventType.ObstacleRegenerated);
+            Assert.AreEqual(1, regenerated.Arg);
+        }
+
+        [Test]
+        public void SegmentScrollMultiplier_UsesExactPiecewiseRateWithoutBoundaryJump()
+        {
+            var fast = new StageSegment(
+                "fast",
+                2,
+                Array.Empty<SpawnEvent>(),
+                1,
+                1,
+                new[] { 1 },
+                new[] { new ObstacleSpawn(ObstacleType.Solid, 100, 0, 0) },
+                null,
+                3,
+                2);
+            StageSegment normal = Segment("normal", 2);
+            BattleSimConfig config = CreateConfig();
+            config.ScrollSpeedNumerator = 2;
+            config.ScrollSpeedDenominator = 1;
+            var sim = CreateSim(
+                Plan(fast, normal),
+                Content(),
+                config,
+                0x101CUL);
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in none);
+            Assert.AreEqual(3, sim.ScrollX);
+            Assert.AreEqual(97, sim.Obstacles[0].X);
+            sim.Step(in none);
+            Assert.AreEqual(6, sim.ScrollX);
+            Assert.AreEqual(94, sim.Obstacles[0].X);
+            sim.Step(in none);
+            Assert.AreEqual(8, sim.ScrollX);
+            Assert.AreEqual(92, sim.Obstacles[0].X);
+        }
+
+        [Test]
+        public void OmittedScrollMultiplier_PreservesLegacyRemainderAcrossSegments()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.ScrollSpeedNumerator = 1;
+            config.ScrollSpeedDenominator = 3;
+            var sim = CreateSim(
+                Plan(Segment("first", 2), Segment("second", 2)),
+                Content(),
+                config,
+                0x101DUL);
+
+            Assert.AreEqual(
+                BattleSim.ComputeScrollX(4, 1, 3),
+                sim.GetScrollXAtTick(4));
+            Assert.AreEqual(1L, sim.GetScrollXAtTick(4));
+        }
+
+        [Test]
+        public void MidBossDefeat_EmitsMarkerOnTheDefeatTickExactlyOnce()
+        {
+            StageSegment entry = Segment("mid_entry", 1);
+            var plan = new StagePlan(
+                new[] { entry },
+                "mid",
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                100000,
+                new[] { new BossPhase(60, 1, 0, 1) });
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpawnX = 100000;
+            config.PlayerMinX = 99999;
+            config.PlayerMaxX = 100001;
+            config.BulletDespawnX = 100001;
+            var sim = new BattleSim(
+                config,
+                new Rng(0x101DUL),
+                plan,
+                Content(),
+                PowerUpGauge.CreateDefault(),
+                BattleModifierStackSet.FromFlags(BattleModifier.None, 4),
+                null,
+                false,
+                true);
+            var fire = new InputCommand(0, 0, true);
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in fire);
+            sim.Step(in none);
+
+            Assert.IsTrue(sim.BossDefeated);
+            Assert.AreEqual(
+                1,
+                CountEvents(
+                    sim.EventsThisTick,
+                    SimEventType.MidBossDefeated));
+            SimEvent marker = FindEvent(
+                sim.EventsThisTick,
+                SimEventType.MidBossDefeated);
+            Assert.AreEqual(sim.BossDefeatElapsedTicks, marker.Arg);
+            sim.Step(in none);
+            Assert.AreEqual(
+                0,
+                CountEvents(
+                    sim.EventsThisTick,
+                    SimEventType.MidBossDefeated));
+        }
+
+        [Test]
         public void MaxObstacles_DeterministicallyCapsActiveList()
         {
             StagePlan plan = Plan(ObstacleSegment(

@@ -256,6 +256,10 @@ namespace Shmup.Core.Content
         [DataMember]
         public int? lengthTicks;
         [DataMember]
+        public decimal? scrollSpeedMultiplier;
+        [DataMember]
+        public string[] postMidbossOutcomes;
+        [DataMember]
         public int? entryLaneMask;
         [DataMember]
         public int? exitLaneMask;
@@ -526,6 +530,10 @@ namespace Shmup.Core.Content
         public decimal? y;
         [DataMember]
         public int? hp;
+        [DataMember]
+        public bool? blocksEnemyBullets;
+        [DataMember]
+        public int? regenDelayTicks;
         [DataMember]
         public LaserAttackDto laser;
     }
