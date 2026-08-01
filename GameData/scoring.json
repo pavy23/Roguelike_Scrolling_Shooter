@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "grazeRadiusSubUnits": 128,
   "grazeScore": 10,
-  "grazeGaugeCharge": 1,
+  "grazeGaugeCharge": 3,
   "multiplierGaugeRequirements": [30, 50, 80],
   "multiplierDecayTicks": 300
 }
