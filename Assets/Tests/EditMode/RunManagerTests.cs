@@ -202,6 +202,46 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void BombStatisticsAccumulateAcrossRoomsAndSuspend()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.StartingBombStock = 2;
+            var manager = new RunManager(
+                0xB094UL,
+                new TestStageGenerator(false, 2),
+                config,
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
+            var bomb = new InputCommand(
+                0,
+                0,
+                false,
+                false,
+                true);
+
+            manager.Step(in bomb);
+            manager.Step(InputCommand.None);
+
+            Assert.AreEqual(2, manager.RoomIndex);
+            Assert.AreEqual(1L, manager.Statistics.BombsUsed);
+            RunSuspendData suspend = manager.ExportSuspendData();
+            Assert.AreEqual(1L, suspend.bombsUsed);
+            BattleSimConfig resumeConfig = CreateConfig();
+            resumeConfig.StartingBombStock = 2;
+            RunManager resumed = RunManager.ResumeFromSuspendData(
+                suspend,
+                new TestStageGenerator(false, 2),
+                resumeConfig,
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
+            Assert.AreEqual(1L, resumed.Statistics.BombsUsed);
+
+            resumed.Step(in bomb);
+            resumed.Step(InputCommand.None);
+            Assert.AreEqual(2L, resumed.Statistics.BombsUsed);
+        }
+
+        [Test]
         public void StageTransitionCarriesCollectedCapsules()
         {
             BattleSimConfig config = CreateConfig();
@@ -282,6 +322,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(0L, manager.Statistics.Kills);
             Assert.AreEqual(0L, manager.Statistics.CapsulesCollected);
             Assert.AreEqual(0L, manager.Statistics.GrazeCount);
+            Assert.AreEqual(0L, manager.Statistics.BombsUsed);
             Assert.AreEqual(0, manager.Statistics.StagesCleared);
         }
 
@@ -496,6 +537,7 @@ namespace Shmup.Core.Tests
             AssertAll(() =>
             {
                 Assert.AreEqual(0, manager.Battle.BombStock);
+                Assert.AreEqual(1L, manager.Statistics.BombsUsed);
                 Assert.AreEqual(2, manager.Battle.PlayerX);
                 Assert.AreEqual(1, manager.Battle.PlayerY);
             });
@@ -665,6 +707,10 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 expected.Statistics.GrazeCount,
                 actual.Statistics.GrazeCount,
+                $"source tick {sourceTick}");
+            Assert.AreEqual(
+                expected.Statistics.BombsUsed,
+                actual.Statistics.BombsUsed,
                 $"source tick {sourceTick}");
             Assert.AreEqual(
                 expected.Statistics.StagesCleared,

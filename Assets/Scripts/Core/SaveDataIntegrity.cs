@@ -38,8 +38,7 @@ namespace Shmup.Core
             {
                 throw Corrupted("Run suspend checksum is missing or invalid.");
             }
-            if (source.schemaVersion
-                == RunSuspendData.CurrentSchemaVersion)
+            if (source.schemaVersion >= 21)
                 ValidateCurrentContractDestinations(
                     source.contractChoices,
                     "Run suspend");
@@ -48,6 +47,8 @@ namespace Shmup.Core
                 && !string.IsNullOrEmpty(source.checksum)
                 && !(source.schemaVersion == 13
                     && HasValidRunSuspendV13Checksum(source))
+                && !(source.schemaVersion == 21
+                    && HasValidRunSuspendV21Checksum(source))
                 && !(source.schemaVersion == 11
                     && HasValidRunSuspendV11Checksum(source))
                 && !(source.schemaVersion == 12
@@ -241,6 +242,10 @@ namespace Shmup.Core
                 stageStartScrollX =
                     source.schemaVersion >= 21
                         ? source.stageStartScrollX
+                        : 0L,
+                bombsUsed =
+                    source.schemaVersion >= 22
+                        ? source.bombsUsed
                         : 0L
             };
             Seal(migrated);
@@ -464,6 +469,13 @@ namespace Shmup.Core
 
         static string ComputeChecksum(RunSuspendData data)
         {
+            return ComputeChecksum(data, true);
+        }
+
+        static string ComputeChecksum(
+            RunSuspendData data,
+            bool includeBombsUsed)
+        {
             var hash = new CanonicalHash("RunSuspendData");
             hash.Add(data.schemaVersion);
             hash.Add(data.runSeed);
@@ -524,7 +536,19 @@ namespace Shmup.Core
             hash.Add(data.capsuleBalance);
             Add(ref hash, data.rewardDecisions);
             hash.Add(data.stageStartScrollX);
+            if (includeBombsUsed)
+                hash.Add(data.bombsUsed);
             return hash.ToString();
+        }
+
+        static bool HasValidRunSuspendV21Checksum(
+            RunSuspendData data)
+        {
+            return IsChecksum(data.checksum)
+                && string.Equals(
+                    data.checksum,
+                    ComputeChecksum(data, false),
+                    StringComparison.Ordinal);
         }
 
         static bool HasValidRunSuspendV13Checksum(

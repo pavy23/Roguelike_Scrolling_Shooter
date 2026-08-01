@@ -114,7 +114,10 @@ namespace Shmup.Core.Content
                         path + ".destinationKind"),
                     ParseContractEligibility(
                         item.eligibility,
-                        path + ".eligibility"));
+                        path + ".eligibility"),
+                    item.gaugeActivationBanned ?? false,
+                    item.optionActivationBanned ?? false,
+                    item.shieldActivationBanned ?? false);
             }
             return new ContractCatalog(
                 RequireText(

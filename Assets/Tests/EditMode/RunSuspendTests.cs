@@ -369,6 +369,27 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void SchemaTwentyOneSuspendMigratesBombsUsedToZero()
+        {
+            RunSuspendData legacy =
+                CreateRun(new BoundaryStageGenerator())
+                    .ExportSuspendData();
+            legacy.schemaVersion = 21;
+            legacy.checksum = null;
+            legacy.bombsUsed = 99;
+
+            RunSuspendData migrated =
+                SaveDataIntegrity.MigrateAndValidate(legacy);
+
+            Assert.AreEqual(
+                RunSuspendData.CurrentSchemaVersion,
+                migrated.schemaVersion);
+            Assert.AreEqual(0L, migrated.bombsUsed);
+            Assert.IsTrue(
+                SaveDataIntegrity.HasValidChecksum(migrated));
+        }
+
+        [Test]
         public void CurrentSuspendChecksumMismatch_IsClearlyRejected()
         {
             RunSuspendData corrupted =
@@ -574,6 +595,7 @@ namespace Shmup.Core.Tests
                 expected.capsulesCollected,
                 actual.capsulesCollected);
             Assert.AreEqual(expected.grazeCount, actual.grazeCount);
+            Assert.AreEqual(expected.bombsUsed, actual.bombsUsed);
             Assert.AreEqual(
                 expected.stagesCleared,
                 actual.stagesCleared);
