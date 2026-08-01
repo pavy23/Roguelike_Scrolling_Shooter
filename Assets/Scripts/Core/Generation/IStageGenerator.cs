@@ -42,6 +42,37 @@ namespace Shmup.Core.Generation
         Closing = 1
     }
 
+    public enum MidbossOutcomeKind : byte
+    {
+        Default = 0,
+        CleanKill = 1,
+        Attrition = 2,
+        PartFocus = 3
+    }
+
+    public static class MidbossOutcomeEvaluator
+    {
+        public static MidbossOutcomeKind Evaluate(
+            int defeatElapsedTicks,
+            int cleanKillMaxTicks,
+            bool partFocusDestroyed)
+        {
+            if (defeatElapsedTicks < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(defeatElapsedTicks));
+            if (cleanKillMaxTicks < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(cleanKillMaxTicks));
+            if (partFocusDestroyed)
+                return MidbossOutcomeKind.PartFocus;
+            if (cleanKillMaxTicks == 0)
+                return MidbossOutcomeKind.Default;
+            return defeatElapsedTicks <= cleanKillMaxTicks
+                ? MidbossOutcomeKind.CleanKill
+                : MidbossOutcomeKind.Attrition;
+        }
+    }
+
     /// <summary>
     /// Optional route extension for section-specific data knobs. Legacy route
     /// generators keep using IRouteStageGenerator unchanged.
@@ -61,6 +92,29 @@ namespace Shmup.Core.Generation
             string themeId,
             EncounterType encounterType,
             StageRouteSection section);
+    }
+
+    /// <summary>
+    /// Optional route extension for outcome-filtered post-midboss generation.
+    /// Implementations must keep Default bit-identical to section generation.
+    /// </summary>
+    public interface IMidbossOutcomeRouteStageGenerator
+    {
+        bool CanGenerateRouteForSection(
+            string themeId,
+            int stageIndex,
+            int difficulty,
+            EncounterType encounterType,
+            StageRouteSection section,
+            MidbossOutcomeKind outcome);
+        StagePlan GenerateRouteForSection(
+            ulong seed,
+            int stageIndex,
+            int difficulty,
+            string themeId,
+            EncounterType encounterType,
+            StageRouteSection section,
+            MidbossOutcomeKind outcome);
     }
 
     public enum ColossalBossKind
@@ -1117,8 +1171,16 @@ namespace Shmup.Core.Generation
             int exitLaneMask,
             IReadOnlyList<int> traversableLaneMasks,
             IReadOnlyList<ObstacleSpawn> obstacles,
-            SegmentEnvironmentDefinition environment = null)
+            SegmentEnvironmentDefinition environment = null,
+            int scrollSpeedMultiplierNumerator = 1,
+            int scrollSpeedMultiplierDenominator = 1)
         {
+            if (scrollSpeedMultiplierNumerator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(scrollSpeedMultiplierNumerator));
+            if (scrollSpeedMultiplierDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(scrollSpeedMultiplierDenominator));
             SegmentId = segmentId ?? throw new ArgumentNullException(nameof(segmentId));
             LengthTicks = lengthTicks;
             Spawns = CopySpawns(spawns);
@@ -1128,6 +1190,10 @@ namespace Shmup.Core.Generation
             Obstacles = CopyObstacles(obstacles);
             Environment =
                 environment ?? SegmentEnvironmentDefinition.None;
+            ScrollSpeedMultiplierNumerator =
+                scrollSpeedMultiplierNumerator;
+            ScrollSpeedMultiplierDenominator =
+                scrollSpeedMultiplierDenominator;
         }
 
         public string SegmentId { get; }
@@ -1138,6 +1204,8 @@ namespace Shmup.Core.Generation
         public IReadOnlyList<int> TraversableLaneMasks { get; }
         public IReadOnlyList<ObstacleSpawn> Obstacles { get; }
         public SegmentEnvironmentDefinition Environment { get; }
+        public int ScrollSpeedMultiplierNumerator { get; }
+        public int ScrollSpeedMultiplierDenominator { get; }
 
         static IReadOnlyList<SpawnEvent> CopySpawns(IReadOnlyList<SpawnEvent> source)
         {
@@ -1202,7 +1270,7 @@ namespace Shmup.Core.Generation
     public sealed class ObstacleSpawn
     {
         public ObstacleSpawn(ObstacleType type, int x, int y, int hp)
-            : this(type, x, y, hp, null)
+            : this(type, x, y, hp, null, false, 0)
         {
         }
 
@@ -1212,6 +1280,18 @@ namespace Shmup.Core.Generation
             int y,
             int hp,
             Simulation.LaserAttackDefinition laserAttack)
+            : this(type, x, y, hp, laserAttack, false, 0)
+        {
+        }
+
+        public ObstacleSpawn(
+            ObstacleType type,
+            int x,
+            int y,
+            int hp,
+            Simulation.LaserAttackDefinition laserAttack,
+            bool blocksEnemyBullets,
+            int regenDelayTicks)
         {
             if (!Enum.IsDefined(typeof(ObstacleType), type))
                 throw new ArgumentOutOfRangeException(nameof(type));
@@ -1229,12 +1309,21 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException(
                     "Only laser emitters can carry a laser profile.",
                     nameof(laserAttack));
+            if (regenDelayTicks < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(regenDelayTicks));
+            if (regenDelayTicks > 0 && type != ObstacleType.Breakable)
+                throw new ArgumentException(
+                    "Only breakable obstacles can regenerate.",
+                    nameof(regenDelayTicks));
 
             Type = type;
             X = x;
             Y = y;
             Hp = hp;
             LaserAttack = laserAttack;
+            BlocksEnemyBullets = blocksEnemyBullets;
+            RegenDelayTicks = regenDelayTicks;
         }
 
         public ObstacleType Type { get; }
@@ -1242,5 +1331,7 @@ namespace Shmup.Core.Generation
         public int Y { get; }
         public int Hp { get; }
         public Simulation.LaserAttackDefinition LaserAttack { get; }
+        public bool BlocksEnemyBullets { get; }
+        public int RegenDelayTicks { get; }
     }
 }

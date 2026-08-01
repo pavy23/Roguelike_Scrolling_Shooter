@@ -1719,6 +1719,7 @@ namespace Shmup.Core.Simulation
             State = RunState.Playing;
             CompletionGrade = RunCompletionGrade.None;
             SelectedColossalBoss = ColossalBossKind.None;
+            LastMidbossOutcome = MidbossOutcomeKind.Default;
             EliteRoomsCleared = 0;
             NoHitBiomesCleared = 0;
             RareEncountersCleared = 0;
@@ -1778,6 +1779,7 @@ namespace Shmup.Core.Simulation
         public ColossalBossKind SelectedColossalBoss { get; private set; }
         public ColossalBossKind LastColossalBossAtRunStart =>
             _lastColossalBossAtRunStart;
+        public MidbossOutcomeKind LastMidbossOutcome { get; private set; }
         public int EliteRoomsCleared { get; private set; }
         public int NoHitBiomesCleared { get; private set; }
         public int RareEncountersCleared { get; private set; }
@@ -2085,6 +2087,8 @@ namespace Shmup.Core.Simulation
                     (int)SelectedColossalBoss,
                 lastColossalBossAtRunStart =
                     (int)_lastColossalBossAtRunStart,
+                lastMidbossOutcome =
+                    (int)LastMidbossOutcome,
                 hasStageStartContinuity = true,
                 stageStartPlayerX =
                     _stageStartContinuity.PlayerX,
@@ -2237,6 +2241,8 @@ namespace Shmup.Core.Simulation
                 (ColossalBossKind)data.selectedColossalBoss;
             manager._lastColossalBossAtRunStart =
                 (ColossalBossKind)data.lastColossalBossAtRunStart;
+            manager.LastMidbossOutcome =
+                (MidbossOutcomeKind)data.lastMidbossOutcome;
             manager.CompletionGrade =
                 RunCompletionGrade.None;
             manager.State = RunState.Playing;
@@ -2414,8 +2420,11 @@ namespace Shmup.Core.Simulation
                     && RareEncountersCleared < int.MaxValue)
                     RareEncountersCleared++;
                 if (IsMidBossSection)
+                {
+                    RecordMidbossOutcome((BattleSim)Battle);
                     BeginRewardSelection(
                         RewardSelectionKind.MidStage);
+                }
                 else
                     AdvanceAfterRegularSection();
             }
@@ -2449,6 +2458,24 @@ namespace Shmup.Core.Simulation
                     + $"{optionCount} choices.");
             _rewardOptions = options;
             State = RunState.AwaitingReward;
+        }
+
+        void RecordMidbossOutcome(BattleSim battle)
+        {
+            if (battle == null)
+                throw new ArgumentNullException(nameof(battle));
+            long threshold = 0;
+            for (int i = 0;
+                i + 1 < StagePlan.BossPhases.Count;
+                i++)
+                threshold += StagePlan.BossPhases[i].DurationTicks;
+            int cleanKillMaxTicks = threshold >= int.MaxValue
+                ? int.MaxValue
+                : (int)threshold;
+            LastMidbossOutcome = MidbossOutcomeEvaluator.Evaluate(
+                battle.BossDefeatElapsedTicks,
+                cleanKillMaxTicks,
+                false);
         }
 
         void CompleteRun(RunCompletionGrade grade)
@@ -3387,6 +3414,19 @@ namespace Shmup.Core.Simulation
             EncounterType encounterType,
             int roomIndex)
         {
+            StageRouteSection section = GetRouteSection(roomIndex);
+            if (generator is IMidbossOutcomeRouteStageGenerator outcomeGenerator)
+            {
+                return outcomeGenerator.CanGenerateRouteForSection(
+                    themeId,
+                    stageIndex,
+                    difficulty,
+                    encounterType,
+                    section,
+                    section == StageRouteSection.Closing
+                        ? LastMidbossOutcome
+                        : MidbossOutcomeKind.Default);
+            }
             if (generator is ISectionRouteStageGenerator sectionGenerator)
             {
                 return sectionGenerator.CanGenerateRouteForSection(
@@ -3394,7 +3434,7 @@ namespace Shmup.Core.Simulation
                     stageIndex,
                     difficulty,
                     encounterType,
-                    GetRouteSection(roomIndex));
+                    section);
             }
             return generator.CanGenerateRoute(
                 themeId,
@@ -3412,6 +3452,20 @@ namespace Shmup.Core.Simulation
             EncounterType encounterType,
             int roomIndex)
         {
+            StageRouteSection section = GetRouteSection(roomIndex);
+            if (generator is IMidbossOutcomeRouteStageGenerator outcomeGenerator)
+            {
+                return outcomeGenerator.GenerateRouteForSection(
+                    seed,
+                    stageIndex,
+                    difficulty,
+                    themeId,
+                    encounterType,
+                    section,
+                    section == StageRouteSection.Closing
+                        ? LastMidbossOutcome
+                        : MidbossOutcomeKind.Default);
+            }
             if (generator is ISectionRouteStageGenerator sectionGenerator)
             {
                 return sectionGenerator.GenerateRouteForSection(
@@ -3420,7 +3474,7 @@ namespace Shmup.Core.Simulation
                     difficulty,
                     themeId,
                     encounterType,
-                    GetRouteSection(roomIndex));
+                    section);
             }
             return generator.GenerateRoute(
                 seed,
@@ -3471,6 +3525,7 @@ namespace Shmup.Core.Simulation
             State = RunState.Playing;
             CompletionGrade = RunCompletionGrade.None;
             SelectedColossalBoss = ColossalBossKind.None;
+            LastMidbossOutcome = MidbossOutcomeKind.Default;
             _lastColossalBossAtRunStart =
                 _metaState == null
                     ? ColossalBossKind.None
@@ -3577,6 +3632,7 @@ namespace Shmup.Core.Simulation
             BiomeIndex++;
             RoomIndex = 1;
             IsBiomeBoss = false;
+            LastMidbossOutcome = MidbossOutcomeKind.Default;
             State = RunState.Playing;
             BuildCurrentStage();
         }
@@ -3906,6 +3962,9 @@ namespace Shmup.Core.Simulation
                 || !Enum.IsDefined(
                     typeof(ColossalBossKind),
                     data.lastColossalBossAtRunStart)
+                || !Enum.IsDefined(
+                    typeof(MidbossOutcomeKind),
+                    (MidbossOutcomeKind)data.lastMidbossOutcome)
                 || (hiddenBiomePosition
                     && data.selectedColossalBoss
                         == (int)ColossalBossKind.None)
@@ -4805,7 +4864,8 @@ namespace Shmup.Core.Simulation
                 PowerUpGauge,
                 ModifierStacks,
                 _pendingBattleContinuity,
-                ShouldPrepareBossRoomBoundary());
+                ShouldPrepareBossRoomBoundary(),
+                IsMidBossSection);
             _pendingBattleContinuity = null;
             _preparedRouteOptions = Array.Empty<RouteOption>();
             CaptureStageStart();
@@ -4916,7 +4976,9 @@ namespace Shmup.Core.Simulation
                     segment.ExitLaneMask,
                     segment.TraversableLaneMasks,
                     segment.Obstacles,
-                    segment.Environment);
+                    segment.Environment,
+                    segment.ScrollSpeedMultiplierNumerator,
+                    segment.ScrollSpeedMultiplierDenominator);
             }
 
             StageGimmickDefinition gimmick = source.Gimmick;

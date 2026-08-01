@@ -47,10 +47,11 @@ namespace Shmup.Core.Simulation
     public sealed class InputRecordingData
     {
         /// <summary>
-        /// Schema 21 records the seeded obstacle-jitter generation contract.
+        /// Schema 22 records the stage-overhaul simulation contract (obstacle
+        /// bullet blocking/regeneration and piecewise scroll speed).
         /// Earlier recordings reproduce a different obstacle layout.
         /// </summary>
-        public const int CurrentSchemaVersion = 21;
+        public const int CurrentSchemaVersion = 22;
 
         [DataMember(Order = 0)]
         public int schemaVersion;

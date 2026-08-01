@@ -381,6 +381,16 @@ namespace Shmup.Core.Content
                     throw Error(
                         obstaclePath + ".hp",
                         "must be zero for a laser emitter.");
+                int regenDelayTicks = obstacle.regenDelayTicks ?? 0;
+                if (regenDelayTicks < 0)
+                    throw Error(
+                        obstaclePath + ".regenDelayTicks",
+                        "cannot be negative.");
+                if (regenDelayTicks > 0
+                    && type != ObstacleType.Breakable)
+                    throw Error(
+                        obstaclePath + ".regenDelayTicks",
+                        "requires a breakable obstacle.");
 
                 obstacles[i] = new ObstacleSpawn(
                     type,
@@ -393,8 +403,15 @@ namespace Shmup.Core.Content
                     hp,
                     ParseLaser(
                         obstacle.laser,
-                        obstaclePath + ".laser"));
+                        obstaclePath + ".laser"),
+                    obstacle.blocksEnemyBullets ?? false,
+                    regenDelayTicks);
             }
+
+            ExactFraction scrollSpeedMultiplier =
+                ParseScrollSpeedMultiplier(
+                    source.scrollSpeedMultiplier,
+                    path + ".scrollSpeedMultiplier");
 
             return new StageSegmentTemplate(
                 RequireText(source.id, path + ".id"),
@@ -412,7 +429,58 @@ namespace Shmup.Core.Content
                 ParseSegmentWeight(source.weight, path + ".weight"),
                 ParseSegmentEnvironment(
                     source.environment,
-                    path + ".environment"));
+                    path + ".environment"),
+                ParseMidbossOutcomes(
+                    source.postMidbossOutcomes,
+                    path + ".postMidbossOutcomes"),
+                scrollSpeedMultiplier.Numerator,
+                scrollSpeedMultiplier.Denominator);
+        }
+
+        static ExactFraction ParseScrollSpeedMultiplier(
+            decimal? source,
+            string path)
+        {
+            if (!source.HasValue)
+                return new ExactFraction(1, 1);
+            if (source.Value <= 0)
+                throw Error(path, "must be positive.");
+            return DecimalToFraction(source.Value, path);
+        }
+
+        static MidbossOutcomeKind[] ParseMidbossOutcomes(
+            string[] source,
+            string path)
+        {
+            if (source == null)
+                return Array.Empty<MidbossOutcomeKind>();
+            if (source.Length == 0)
+                throw Error(path, "must contain at least one outcome when present.");
+
+            var outcomes = new MidbossOutcomeKind[source.Length];
+            for (int i = 0; i < outcomes.Length; i++)
+            {
+                string itemPath = $"{path}[{i}]";
+                string value = RequireText(source[i], itemPath);
+                MidbossOutcomeKind outcome;
+                if (string.Equals(value, "default", StringComparison.Ordinal))
+                    outcome = MidbossOutcomeKind.Default;
+                else if (string.Equals(value, "cleanKill", StringComparison.Ordinal))
+                    outcome = MidbossOutcomeKind.CleanKill;
+                else if (string.Equals(value, "attrition", StringComparison.Ordinal))
+                    outcome = MidbossOutcomeKind.Attrition;
+                else if (string.Equals(value, "partFocus", StringComparison.Ordinal))
+                    outcome = MidbossOutcomeKind.PartFocus;
+                else
+                    throw Error(
+                        itemPath,
+                        "must be 'default', 'cleanKill', 'attrition', or 'partFocus'.");
+                for (int earlier = 0; earlier < i; earlier++)
+                    if (outcomes[earlier] == outcome)
+                        throw Error(itemPath, $"duplicates outcome '{value}'.");
+                outcomes[i] = outcome;
+            }
+            return outcomes;
         }
 
         static SegmentEnvironmentDefinition ParseSegmentEnvironment(

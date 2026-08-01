@@ -25,6 +25,89 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void PostMidbossOutcome_SelectsTaggedPoolAndFallsBackToDefault()
+        {
+            var defaultSegment = new StageSegmentTemplate(
+                "fortress_default",
+                1,
+                5,
+                60,
+                Center,
+                Center,
+                new[] { Center },
+                Array.Empty<SpawnEvent>(),
+                Array.Empty<ObstacleSpawn>(),
+                "fortress",
+                10);
+            var cleanSegment = new StageSegmentTemplate(
+                "fortress_clean",
+                1,
+                5,
+                60,
+                Center,
+                Center,
+                new[] { Center },
+                Array.Empty<SpawnEvent>(),
+                Array.Empty<ObstacleSpawn>(),
+                "fortress",
+                10,
+                null,
+                new[] { MidbossOutcomeKind.CleanKill });
+            var generator = new SegmentStageGenerator(
+                new StageGenerationCatalog(
+                    3,
+                    1,
+                    Center,
+                    new[] { defaultSegment, cleanSegment },
+                    new[] { Boss("fortress_boss", Center, "fortress") },
+                    new[] { "fortress" },
+                    null,
+                    1));
+
+            StagePlan first = generator.GeneratePostMidbossHalf(
+                0x101UL,
+                3,
+                2,
+                "fortress",
+                MidbossOutcomeKind.CleanKill);
+            StagePlan second = generator.GeneratePostMidbossHalf(
+                0x101UL,
+                3,
+                2,
+                "fortress",
+                MidbossOutcomeKind.CleanKill);
+            StagePlan fallback = generator.GeneratePostMidbossHalf(
+                0x101UL,
+                3,
+                2,
+                "fortress",
+                MidbossOutcomeKind.Attrition);
+
+            Assert.AreEqual("fortress_clean", first.Segments[0].SegmentId);
+            AssertPlansEqual(first, second);
+            Assert.AreEqual(
+                "fortress_default",
+                fallback.Segments[0].SegmentId);
+        }
+
+        [Test]
+        public void MidbossOutcomeEvaluator_PrioritizesPartThenUsesTickThreshold()
+        {
+            Assert.AreEqual(
+                MidbossOutcomeKind.PartFocus,
+                MidbossOutcomeEvaluator.Evaluate(999, 100, true));
+            Assert.AreEqual(
+                MidbossOutcomeKind.CleanKill,
+                MidbossOutcomeEvaluator.Evaluate(100, 100, false));
+            Assert.AreEqual(
+                MidbossOutcomeKind.Attrition,
+                MidbossOutcomeEvaluator.Evaluate(101, 100, false));
+            Assert.AreEqual(
+                MidbossOutcomeKind.Default,
+                MidbossOutcomeEvaluator.Evaluate(101, 0, false));
+        }
+
+        [Test]
         public void NormalGenerationNeverSelectsHiddenOnlyColossalBosses()
         {
             var catalog = new StageGenerationCatalog(
@@ -857,6 +940,12 @@ namespace Shmup.Core.Tests
                 StageSegment actualSegment = actual.Segments[i];
                 Assert.AreEqual(expectedSegment.SegmentId, actualSegment.SegmentId);
                 Assert.AreEqual(expectedSegment.LengthTicks, actualSegment.LengthTicks);
+                Assert.AreEqual(
+                    expectedSegment.ScrollSpeedMultiplierNumerator,
+                    actualSegment.ScrollSpeedMultiplierNumerator);
+                Assert.AreEqual(
+                    expectedSegment.ScrollSpeedMultiplierDenominator,
+                    actualSegment.ScrollSpeedMultiplierDenominator);
                 Assert.AreEqual(expectedSegment.EntryLaneMask, actualSegment.EntryLaneMask);
                 Assert.AreEqual(expectedSegment.ExitLaneMask, actualSegment.ExitLaneMask);
                 CollectionAssert.AreEqual(
@@ -897,6 +986,12 @@ namespace Shmup.Core.Tests
                     Assert.AreEqual(
                         expectedObstacle.Hp,
                         actualObstacle.Hp);
+                    Assert.AreEqual(
+                        expectedObstacle.BlocksEnemyBullets,
+                        actualObstacle.BlocksEnemyBullets);
+                    Assert.AreEqual(
+                        expectedObstacle.RegenDelayTicks,
+                        actualObstacle.RegenDelayTicks);
                 }
             }
         }

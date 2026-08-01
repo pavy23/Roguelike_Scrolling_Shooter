@@ -103,7 +103,13 @@ namespace Shmup.Core.Simulation
         /// EntityId = boss id, X/Y = hold point, Arg = movement warning ticks.
         /// Emitted at the start of every lungeReturn cycle.
         /// </summary>
-        BossMovementTelegraphed = 34
+        BossMovementTelegraphed = 34,
+        /// <summary>EntityId = defeated mid-boss id, Arg = combat ticks.</summary>
+        MidBossDefeated = 35,
+        /// <summary>EntityId = regenerated obstacle id, X/Y = restored point, Arg = HP.</summary>
+        ObstacleRegenerated = 36,
+        /// <summary>EntityId = erased enemy-bullet id, Arg = blocking obstacle id.</summary>
+        EnemyBulletBlocked = 37
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -623,6 +629,55 @@ namespace Shmup.Core.Simulation
         public int Y { get; }
         /// <summary>Remaining HP for breakable obstacles; zero for solid obstacles.</summary>
         public int Hp { get; }
+    }
+
+    /// <summary>
+    /// Destroyed breakable obstacle that still owns its capacity slot until its
+    /// deterministic respawn tick. It is non-colliding while in this list.
+    /// </summary>
+    public readonly struct ObstacleRegenerationState
+    {
+        public ObstacleRegenerationState(
+            int id,
+            ObstacleType type,
+            int x,
+            int y,
+            int maxHp,
+            bool blocksEnemyBullets,
+            int regenDelayTicks,
+            int respawnAtTick)
+        {
+            Id = id;
+            Type = type;
+            X = x;
+            Y = y;
+            MaxHp = maxHp;
+            BlocksEnemyBullets = blocksEnemyBullets;
+            RegenDelayTicks = regenDelayTicks;
+            RespawnAtTick = respawnAtTick;
+        }
+
+        public int Id { get; }
+        public ObstacleType Type { get; }
+        public int X { get; }
+        public int Y { get; }
+        public int MaxHp { get; }
+        public bool BlocksEnemyBullets { get; }
+        public int RegenDelayTicks { get; }
+        public int RespawnAtTick { get; }
+
+        public ObstacleRegenerationState WithRespawnAtTick(int tick)
+        {
+            return new ObstacleRegenerationState(
+                Id,
+                Type,
+                X,
+                Y,
+                MaxHp,
+                BlocksEnemyBullets,
+                RegenDelayTicks,
+                tick);
+        }
     }
 
     /// <summary>
@@ -1213,8 +1268,8 @@ namespace Shmup.Core.Simulation
         IReadOnlyList<OptionState> Options { get; }
         IReadOnlyList<EnemyState> Enemies { get; }
         /// <summary>
-        /// Stable read-only obstacle view. Enemy bullets intentionally pass through
-        /// obstacles so terrain cannot erase hostile fire or create safe zones.
+        /// Stable read-only active-obstacle view. Only obstacles explicitly marked
+        /// BlocksEnemyBullets erase hostile projectiles.
         /// </summary>
         IReadOnlyList<ObstacleState> Obstacles { get; }
         IReadOnlyList<CapsuleState> Capsules { get; }
@@ -1378,6 +1433,12 @@ namespace Shmup.Core.Simulation
         readonly int _capsuleMagnetSpeedNumerator;
         readonly int _capsuleMagnetSpeedDenominator;
         readonly int _scrollSpeedNumerator, _scrollSpeedDenominator;
+        readonly long[] _segmentScrollStartOffsets;
+        readonly int[] _segmentScrollSpeedNumerators;
+        readonly int[] _segmentScrollSpeedDenominators;
+        readonly int _stageScrollTicks;
+        readonly long _stageScrollEndOffset;
+        readonly bool _usesSegmentScrollMultipliers;
         readonly int _maxObstacles, _obstacleHalfWidth, _obstacleHalfHeight;
         readonly int _obstacleContactDamage, _breakableObstacleScore;
         readonly int _enemyHpMultiplierNumerator;
@@ -1434,6 +1495,12 @@ namespace Shmup.Core.Simulation
         readonly List<ObstacleState> _obstacles;
         readonly List<int> _obstacleAges;
         readonly List<LaserAttackDefinition> _obstacleLaserAttacks;
+        readonly List<bool> _obstacleBlocksEnemyBullets;
+        readonly List<int> _obstacleRegenDelayTicks;
+        readonly List<int> _obstacleMaxHps;
+        readonly List<ObstacleRegenerationState> _pendingObstacleRegens;
+        readonly ReadOnlyCollection<ObstacleRegenerationState>
+            _readOnlyPendingObstacleRegens;
         readonly List<long> _obstacleMotionXRemainders;
         readonly List<long> _obstacleMotionYRemainders;
         readonly List<long> _obstacleVelocityXNumerators;
@@ -1500,10 +1567,12 @@ namespace Shmup.Core.Simulation
         readonly ReadOnlyCollection<BossPartState> _readOnlyBossParts;
         readonly int[] _bossPartFireCooldowns;
         readonly int[] _bossPartRegenerationRemaining;
+        readonly bool[] _bossPartsEverDestroyed;
         readonly bool[] _bossPartContactHitThisCycle;
         readonly EnemyDefinition[] _bossPartSpawnDefinitions;
         readonly int _stageTotalTicks;
         bool _bossSpawned, _bossDefeated;
+        readonly bool _isMidBossBattle;
         int _bossId, _bossX, _bossY, _bossHp, _bossPhase, _bossAge, _bossFireCooldown;
         int _bossPhaseAge;
         int _bossMovementAnchorY;
@@ -1582,6 +1651,7 @@ namespace Shmup.Core.Simulation
                     4),
                 false,
                 null,
+                false,
                 false)
         {
         }
@@ -1604,6 +1674,7 @@ namespace Shmup.Core.Simulation
                     4),
                 true,
                 null,
+                false,
                 false)
         {
         }
@@ -1626,6 +1697,7 @@ namespace Shmup.Core.Simulation
                     4),
                 true,
                 null,
+                false,
                 false)
         {
         }
@@ -1646,6 +1718,7 @@ namespace Shmup.Core.Simulation
                 modifierStacks,
                 true,
                 null,
+                false,
                 false)
         {
         }
@@ -1658,7 +1731,8 @@ namespace Shmup.Core.Simulation
             PowerUpGauge powerUpGauge,
             BattleModifierStackSet modifierStacks,
             BattleContinuityState continuityState,
-            bool preparesBossRoomBoundary = false)
+            bool preparesBossRoomBoundary = false,
+            bool isMidBossBattle = false)
             : this(
                 config,
                 rng,
@@ -1668,7 +1742,8 @@ namespace Shmup.Core.Simulation
                 modifierStacks,
                 true,
                 continuityState,
-                preparesBossRoomBoundary)
+                preparesBossRoomBoundary,
+                isMidBossBattle)
         {
         }
 
@@ -1681,7 +1756,8 @@ namespace Shmup.Core.Simulation
             BattleModifierStackSet modifierStacks,
             bool stageEnabled,
             BattleContinuityState continuityState,
-            bool preparesBossRoomBoundary)
+            bool preparesBossRoomBoundary,
+            bool isMidBossBattle)
         {
             if (config == null) throw new ArgumentNullException(nameof(config));
             if (rng == null) throw new ArgumentNullException(nameof(rng));
@@ -1807,6 +1883,7 @@ namespace Shmup.Core.Simulation
                 config.CapsuleMagnetSpeedDenominator;
             _scrollSpeedNumerator = config.ScrollSpeedNumerator;
             _scrollSpeedDenominator = config.ScrollSpeedDenominator;
+            _isMidBossBattle = stageEnabled && isMidBossBattle;
             _maxObstacles = config.MaxObstacles;
             _obstacleHalfWidth = config.ObstacleHalfWidth;
             _obstacleHalfHeight = config.ObstacleHalfHeight;
@@ -1953,6 +2030,8 @@ namespace Shmup.Core.Simulation
                 new int[_bossPartDefinitions.Count];
             _bossPartRegenerationRemaining =
                 new int[_bossPartDefinitions.Count];
+            _bossPartsEverDestroyed =
+                new bool[_bossPartDefinitions.Count];
             _bossPartContactHitThisCycle =
                 new bool[_bossPartDefinitions.Count];
             _bossPartSpawnDefinitions =
@@ -1967,6 +2046,17 @@ namespace Shmup.Core.Simulation
                 _stageSegments = stagePlan.Segments;
                 _segmentStartTicks =
                     BuildSegmentStartTicks(stagePlan);
+                BuildSegmentScrollProfile(
+                    stagePlan,
+                    _scrollSpeedNumerator,
+                    _scrollSpeedDenominator,
+                    out _segmentScrollStartOffsets,
+                    out _segmentScrollSpeedNumerators,
+                    out _segmentScrollSpeedDenominators,
+                    out _stageScrollTicks,
+                    out _stageScrollEndOffset);
+                _usesSegmentScrollMultipliers =
+                    HasSegmentScrollMultipliers(stagePlan);
                 _visionObscured =
                     stagePlan.Gimmick.VisionObscured;
                 int configuredTimeLimit =
@@ -2024,6 +2114,12 @@ namespace Shmup.Core.Simulation
             {
                 _stageSegments = Array.Empty<StageSegment>();
                 _segmentStartTicks = Array.Empty<int>();
+                _segmentScrollStartOffsets = Array.Empty<long>();
+                _segmentScrollSpeedNumerators = Array.Empty<int>();
+                _segmentScrollSpeedDenominators = Array.Empty<int>();
+                _stageScrollTicks = 0;
+                _stageScrollEndOffset = 0;
+                _usesSegmentScrollMultipliers = false;
                 _visionObscured = false;
                 _timeLimitTicks = 0;
                 _bulletSpeedNumerator = useLaserProfile
@@ -2144,6 +2240,16 @@ namespace Shmup.Core.Simulation
             _obstacleAges = new List<int>(_maxObstacles);
             _obstacleLaserAttacks =
                 new List<LaserAttackDefinition>(_maxObstacles);
+            _obstacleBlocksEnemyBullets =
+                new List<bool>(_maxObstacles);
+            _obstacleRegenDelayTicks =
+                new List<int>(_maxObstacles);
+            _obstacleMaxHps =
+                new List<int>(_maxObstacles);
+            _pendingObstacleRegens =
+                new List<ObstacleRegenerationState>(_maxObstacles);
+            _readOnlyPendingObstacleRegens =
+                _pendingObstacleRegens.AsReadOnly();
             _obstacleMotionXRemainders = new List<long>(_maxObstacles);
             _obstacleMotionYRemainders = new List<long>(_maxObstacles);
             _obstacleVelocityXNumerators = new List<long>(_maxObstacles);
@@ -2291,6 +2397,8 @@ namespace Shmup.Core.Simulation
         public IReadOnlyList<OptionState> Options => _readOnlyOptions;
         public IReadOnlyList<EnemyState> Enemies => _readOnlyEnemies;
         public IReadOnlyList<ObstacleState> Obstacles => _readOnlyObstacles;
+        public IReadOnlyList<ObstacleRegenerationState>
+            PendingObstacleRegenerations => _readOnlyPendingObstacleRegens;
         public IReadOnlyList<CapsuleState> Capsules => _readOnlyCapsules;
         public IReadOnlyList<BombPickupState> BombPickups =>
             _readOnlyBombPickups;
@@ -2324,6 +2432,19 @@ namespace Shmup.Core.Simulation
         /// <summary>보스전이 예정된 스테이지인지 (RunManager가 종료 조건 분기에 쓴다).</summary>
         public bool HasBossBattle => _bossMaxHp > 0;
         public bool BossDefeated => _bossDefeated;
+        public int BossDefeatElapsedTicks { get; private set; }
+        public bool WasBossPartDestroyed(string partId)
+        {
+            if (partId == null)
+                throw new ArgumentNullException(nameof(partId));
+            for (int i = 0; i < _bossPartDefinitions.Count; i++)
+                if (string.Equals(
+                        _bossPartDefinitions[i].PartId,
+                        partId,
+                        StringComparison.Ordinal))
+                    return _bossPartsEverDestroyed[i];
+            return false;
+        }
         /// <summary>
         /// True when this regular room must drain before the following boss room.
         /// </summary>
@@ -2417,13 +2538,41 @@ namespace Shmup.Core.Simulation
             return total;
         }
 
-        /// <summary>Returns scroll at any tick using only immutable speed and the tick argument.</summary>
+        /// <summary>
+        /// Returns piecewise segment scroll at any tick. Segment rates are exact
+        /// rational products and offsets remain continuous at every boundary.
+        /// </summary>
         public long GetScrollXAtTick(int tick)
         {
+            if (tick < 0)
+                throw new ArgumentOutOfRangeException(nameof(tick));
+            if (!_usesSegmentScrollMultipliers)
+                return checked(
+                    _scrollBaseOffset
+                    + ComputeScrollX(
+                        tick,
+                        _scrollSpeedNumerator,
+                        _scrollSpeedDenominator));
+            for (int i = 0; i < _segmentStartTicks.Length; i++)
+            {
+                int startTick = _segmentStartTicks[i];
+                int endTick = checked(
+                    startTick + _stageSegments[i].LengthTicks);
+                if (tick > endTick)
+                    continue;
+                return checked(
+                    _scrollBaseOffset
+                    + _segmentScrollStartOffsets[i]
+                    + ComputeScrollX(
+                        tick - startTick,
+                        _segmentScrollSpeedNumerators[i],
+                        _segmentScrollSpeedDenominators[i]));
+            }
             return checked(
                 _scrollBaseOffset
+                + _stageScrollEndOffset
                 + ComputeScrollX(
-                    tick,
+                    tick - _stageScrollTicks,
                     _scrollSpeedNumerator,
                     _scrollSpeedDenominator));
         }
@@ -2470,6 +2619,7 @@ namespace Shmup.Core.Simulation
             AdvanceBullets();
             AdvanceEnemies();
             AdvanceObstacles();
+            AdvanceObstacleRegeneration();
             AdvanceCapsules();
             AdvanceBombPickups();
             SpawnScheduledThroughTick(Tick);
@@ -2482,6 +2632,7 @@ namespace Shmup.Core.Simulation
             RefreshLaserSegments();
             ResolvePlayerLaserEnemyCollisions();
             ResolvePlayerLaserBossCollisions();
+            ResolveEnemyBulletObstacleCollisions();
             ResolveEnemyBulletPlayerCollisions();
             ResolveLaserPlayerCollisions();
             ResolveEnemyPlayerCollisions();
@@ -4122,7 +4273,8 @@ namespace Shmup.Core.Simulation
                     _scheduledObstacles[_nextScheduledObstacle++];
                 if (scheduled.Tick >= _fieldCleanupStartTick)
                     continue;
-                if (_obstacles.Count >= _maxObstacles)
+                if (_obstacles.Count + _pendingObstacleRegens.Count
+                    >= _maxObstacles)
                 {
                     EmitEvent(
                         SimEventType.ObstacleCapacityExceeded,
@@ -4138,15 +4290,16 @@ namespace Shmup.Core.Simulation
 
                 ObstacleSpawn obstacle = scheduled.Obstacle;
                 int obstacleId = _nextObstacleId++;
-                _obstacles.Add(new ObstacleState(
+                AddActiveObstacle(
                     obstacleId,
                     obstacle.Type,
                     obstacle.X,
                     obstacle.Y,
-                    obstacle.Hp));
-                _obstacleAges.Add(0);
-                _obstacleLaserAttacks.Add(obstacle.LaserAttack);
-                AddDefaultObstacleMotion();
+                    obstacle.Hp,
+                    obstacle.Hp,
+                    obstacle.LaserAttack,
+                    obstacle.BlocksEnemyBullets,
+                    obstacle.RegenDelayTicks);
                 if (obstacle.LaserAttack != null)
                     TryStartLaser(
                         LaserSourceKind.Terrain,
@@ -4155,6 +4308,26 @@ namespace Shmup.Core.Simulation
                         obstacle.X,
                         obstacle.Y);
             }
+        }
+
+        void AddActiveObstacle(
+            int id,
+            ObstacleType type,
+            int x,
+            int y,
+            int hp,
+            int maxHp,
+            LaserAttackDefinition laserAttack,
+            bool blocksEnemyBullets,
+            int regenDelayTicks)
+        {
+            _obstacles.Add(new ObstacleState(id, type, x, y, hp));
+            _obstacleAges.Add(0);
+            _obstacleLaserAttacks.Add(laserAttack);
+            _obstacleBlocksEnemyBullets.Add(blocksEnemyBullets);
+            _obstacleRegenDelayTicks.Add(regenDelayTicks);
+            _obstacleMaxHps.Add(maxHp);
+            AddDefaultObstacleMotion();
         }
 
         void SpawnBossEnemy(
@@ -4631,7 +4804,8 @@ namespace Shmup.Core.Simulation
 
         void TrySpawnBossScrap(Generation.BossPhase phase)
         {
-            if (_obstacles.Count >= _maxObstacles)
+            if (_obstacles.Count + _pendingObstacleRegens.Count
+                >= _maxObstacles)
             {
                 EmitEvent(
                     SimEventType.ObstacleCapacityExceeded,
@@ -4652,6 +4826,9 @@ namespace Shmup.Core.Simulation
                 phase.SignatureObstacleHp));
             _obstacleAges.Add(0);
             _obstacleLaserAttacks.Add(null);
+            _obstacleBlocksEnemyBullets.Add(false);
+            _obstacleRegenDelayTicks.Add(0);
+            _obstacleMaxHps.Add(phase.SignatureObstacleHp);
             _obstacleMotionXRemainders.Add(0);
             _obstacleMotionYRemainders.Add(0);
             _obstacleVelocityXNumerators.Add(
@@ -5497,6 +5674,7 @@ namespace Shmup.Core.Simulation
                 appliedDamage);
             _bossPartRegenerationRemaining[partIndex] =
                 definition.RegenerationTicks;
+            _bossPartsEverDestroyed[partIndex] = true;
             _bossPartFireCooldowns[partIndex] =
                 definition.Attack.IntervalTicks;
             _bossPartContactHitThisCycle[partIndex] = false;
@@ -5549,6 +5727,7 @@ namespace Shmup.Core.Simulation
         {
             _bossDefeated = true;
             _bossHp = 0;
+            BossDefeatElapsedTicks = _bossAge;
             int awardedScore =
                 RecordKillScore((long)_bossRuntimeMaxHp * 2);
             EmitEvent(
@@ -5557,6 +5736,13 @@ namespace Shmup.Core.Simulation
                 x,
                 y,
                 awardedScore);
+            if (_isMidBossBattle)
+                EmitEvent(
+                    SimEventType.MidBossDefeated,
+                    _bossId,
+                    x,
+                    y,
+                    BossDefeatElapsedTicks);
             AdvanceKillCombo();
             EmitEvent(
                 SimEventType.StageCleared,
@@ -5914,6 +6100,113 @@ namespace Shmup.Core.Simulation
             }
         }
 
+        void AdvanceObstacleRegeneration()
+        {
+            int index = 0;
+            while (index < _pendingObstacleRegens.Count)
+            {
+                ObstacleRegenerationState pending =
+                    _pendingObstacleRegens[index];
+                if (Tick < pending.RespawnAtTick)
+                {
+                    index++;
+                    continue;
+                }
+                if (IsRoomBoundaryCleanupActive)
+                {
+                    _pendingObstacleRegens.RemoveAt(index);
+                    continue;
+                }
+                if (IsObstacleRespawnOccupied(pending.X, pending.Y))
+                {
+                    if (pending.RespawnAtTick < int.MaxValue)
+                        _pendingObstacleRegens[index] =
+                            pending.WithRespawnAtTick(
+                                pending.RespawnAtTick + 1);
+                    index++;
+                    continue;
+                }
+
+                AddActiveObstacle(
+                    pending.Id,
+                    pending.Type,
+                    pending.X,
+                    pending.Y,
+                    pending.MaxHp,
+                    pending.MaxHp,
+                    null,
+                    pending.BlocksEnemyBullets,
+                    pending.RegenDelayTicks);
+                _pendingObstacleRegens.RemoveAt(index);
+                EmitEvent(
+                    SimEventType.ObstacleRegenerated,
+                    pending.Id,
+                    pending.X,
+                    pending.Y,
+                    pending.MaxHp);
+            }
+        }
+
+        bool IsObstacleRespawnOccupied(int x, int y)
+        {
+            if (_playerAlive
+                && Intersects(
+                    PlayerX,
+                    PlayerY,
+                    _playerHalfWidth,
+                    _playerHalfHeight,
+                    x,
+                    y,
+                    _obstacleHalfWidth,
+                    _obstacleHalfHeight))
+                return true;
+            for (int i = 0; i < _enemies.Count; i++)
+            {
+                EnemyState enemy = _enemies[i];
+                EnemyDefinition definition = _enemyDefinitions[i];
+                if (Intersects(
+                    enemy.X,
+                    enemy.Y,
+                    definition.HalfWidth,
+                    definition.HalfHeight,
+                    x,
+                    y,
+                    _obstacleHalfWidth,
+                    _obstacleHalfHeight))
+                    return true;
+            }
+            if (BossActive
+                && Intersects(
+                    _bossX,
+                    _bossY,
+                    _bossHalfWidth,
+                    _bossHalfHeight,
+                    x,
+                    y,
+                    _obstacleHalfWidth,
+                    _obstacleHalfHeight))
+                return true;
+            for (int i = 0; i < _bossPartStates.Length; i++)
+            {
+                BossPartState part = _bossPartStates[i];
+                if (part.Destroyed)
+                    continue;
+                BossPartDefinition definition =
+                    _bossPartDefinitions[i];
+                if (Intersects(
+                    part.X,
+                    part.Y,
+                    definition.HalfWidth,
+                    definition.HalfHeight,
+                    x,
+                    y,
+                    _obstacleHalfWidth,
+                    _obstacleHalfHeight))
+                    return true;
+            }
+            return false;
+        }
+
         static long GreatestCommonDivisor(long left, long right)
         {
             left = Math.Abs(left);
@@ -5932,6 +6225,9 @@ namespace Shmup.Core.Simulation
             _obstacles.RemoveAt(index);
             _obstacleAges.RemoveAt(index);
             _obstacleLaserAttacks.RemoveAt(index);
+            _obstacleBlocksEnemyBullets.RemoveAt(index);
+            _obstacleRegenDelayTicks.RemoveAt(index);
+            _obstacleMaxHps.RemoveAt(index);
             _obstacleMotionXRemainders.RemoveAt(index);
             _obstacleMotionYRemainders.RemoveAt(index);
             _obstacleVelocityXNumerators.RemoveAt(index);
@@ -6511,6 +6807,61 @@ namespace Shmup.Core.Simulation
             }
         }
 
+        void ResolveEnemyBulletObstacleCollisions()
+        {
+            int bulletIndex = 0;
+            while (bulletIndex < _bullets.Count)
+            {
+                BulletState bullet = _bullets[bulletIndex];
+                if (bullet.Faction != BulletFaction.Enemy)
+                {
+                    bulletIndex++;
+                    continue;
+                }
+
+                int obstacleIndex = -1;
+                int bulletHalfWidth = ScaleProjectileHitbox(
+                    _enemyBulletHalfWidth,
+                    bullet.CollisionScalePercent);
+                int bulletHalfHeight = ScaleProjectileHitbox(
+                    _enemyBulletHalfHeight,
+                    bullet.CollisionScalePercent);
+                for (int i = 0; i < _obstacles.Count; i++)
+                {
+                    if (!_obstacleBlocksEnemyBullets[i])
+                        continue;
+                    ObstacleState obstacle = _obstacles[i];
+                    if (Intersects(
+                        bullet.X,
+                        bullet.Y,
+                        bulletHalfWidth,
+                        bulletHalfHeight,
+                        obstacle.X,
+                        obstacle.Y,
+                        _obstacleHalfWidth,
+                        _obstacleHalfHeight))
+                    {
+                        obstacleIndex = i;
+                        break;
+                    }
+                }
+                if (obstacleIndex < 0)
+                {
+                    bulletIndex++;
+                    continue;
+                }
+
+                ObstacleState blocker = _obstacles[obstacleIndex];
+                RemoveBulletAt(bulletIndex);
+                EmitEvent(
+                    SimEventType.EnemyBulletBlocked,
+                    bullet.Id,
+                    bullet.X,
+                    bullet.Y,
+                    blocker.Id);
+            }
+        }
+
         void ApplyDamageToObstacleAt(
             int obstacleIndex,
             int damage,
@@ -6536,6 +6887,24 @@ namespace Shmup.Core.Simulation
                 return;
             }
 
+            int regenDelayTicks =
+                _obstacleRegenDelayTicks[obstacleIndex];
+            if (regenDelayTicks > 0)
+            {
+                if (regenDelayTicks > int.MaxValue - Tick)
+                    throw new InvalidOperationException(
+                        "The obstacle regeneration tick exceeds the simulation range.");
+                _pendingObstacleRegens.Add(
+                    new ObstacleRegenerationState(
+                        obstacle.Id,
+                        obstacle.Type,
+                        obstacle.X,
+                        obstacle.Y,
+                        _obstacleMaxHps[obstacleIndex],
+                        _obstacleBlocksEnemyBullets[obstacleIndex],
+                        regenDelayTicks,
+                        Tick + regenDelayTicks));
+            }
             RemoveObstacleAt(obstacleIndex);
             int awardedScore = AwardScore(_breakableObstacleScore);
             EmitEvent(
@@ -8155,6 +8524,87 @@ namespace Shmup.Core.Simulation
                 startTick += stagePlan.Segments[i].LengthTicks;
             }
             return result;
+        }
+
+        static void BuildSegmentScrollProfile(
+            StagePlan stagePlan,
+            int baseNumerator,
+            int baseDenominator,
+            out long[] startOffsets,
+            out int[] speedNumerators,
+            out int[] speedDenominators,
+            out int totalTicks,
+            out long endOffset)
+        {
+            int count = stagePlan.Segments.Count;
+            startOffsets = new long[count];
+            speedNumerators = new int[count];
+            speedDenominators = new int[count];
+            long offset = 0;
+            long ticks = 0;
+            for (int i = 0; i < count; i++)
+            {
+                StageSegment segment = stagePlan.Segments[i];
+                long leftNumerator = baseNumerator;
+                long leftDenominator = baseDenominator;
+                long rightNumerator =
+                    segment.ScrollSpeedMultiplierNumerator;
+                long rightDenominator =
+                    segment.ScrollSpeedMultiplierDenominator;
+                long crossA = GreatestCommonDivisor(
+                    leftNumerator,
+                    rightDenominator);
+                long crossB = GreatestCommonDivisor(
+                    rightNumerator,
+                    leftDenominator);
+                leftNumerator /= crossA;
+                rightDenominator /= crossA;
+                rightNumerator /= crossB;
+                leftDenominator /= crossB;
+                long numerator = checked(
+                    leftNumerator * rightNumerator);
+                long denominator = checked(
+                    leftDenominator * rightDenominator);
+                long divisor = GreatestCommonDivisor(
+                    numerator,
+                    denominator);
+                numerator /= divisor;
+                denominator /= divisor;
+                if (numerator > int.MaxValue
+                    || denominator > int.MaxValue)
+                    throw new ArgumentException(
+                        "A segment scroll-speed product exceeds the supported rational range.",
+                        nameof(stagePlan));
+
+                startOffsets[i] = offset;
+                speedNumerators[i] = (int)numerator;
+                speedDenominators[i] = (int)denominator;
+                offset = checked(
+                    offset
+                    + ComputeScrollX(
+                        segment.LengthTicks,
+                        speedNumerators[i],
+                        speedDenominators[i]));
+                ticks = checked(ticks + segment.LengthTicks);
+            }
+            if (ticks > int.MaxValue)
+                throw new ArgumentException(
+                    "Stage scroll timeline exceeds the tick range.",
+                    nameof(stagePlan));
+            totalTicks = (int)ticks;
+            endOffset = offset;
+        }
+
+        static bool HasSegmentScrollMultipliers(StagePlan stagePlan)
+        {
+            for (int i = 0; i < stagePlan.Segments.Count; i++)
+            {
+                StageSegment segment = stagePlan.Segments[i];
+                if (segment.ScrollSpeedMultiplierNumerator
+                        != segment.ScrollSpeedMultiplierDenominator)
+                    return true;
+            }
+            return false;
         }
 
         static int CompareScheduledSpawns(ScheduledSpawn left, ScheduledSpawn right)

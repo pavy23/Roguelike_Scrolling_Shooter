@@ -30,7 +30,8 @@ namespace Shmup.Core
                 || source.schemaVersion == 19
                 || source.schemaVersion == 20
                 || source.schemaVersion == 21
-                || source.schemaVersion == 22)
+                || source.schemaVersion == 22
+                || source.schemaVersion == 23)
                 throw Unsupported(
                     "run suspend",
                     source.schemaVersion);
@@ -248,7 +249,11 @@ namespace Shmup.Core
                 bombsUsed =
                     source.schemaVersion >= 22
                         ? source.bombsUsed
-                        : 0L
+                        : 0L,
+                lastMidbossOutcome =
+                    source.schemaVersion >= 24
+                        ? source.lastMidbossOutcome
+                        : 0
             };
             Seal(migrated);
             return migrated;
@@ -274,7 +279,8 @@ namespace Shmup.Core
                 || source.schemaVersion == 17
                 || source.schemaVersion == 18
                 || source.schemaVersion == 19
-                || source.schemaVersion == 20)
+                || source.schemaVersion == 20
+                || source.schemaVersion == 21)
                 throw Unsupported(
                     "input recording",
                     source.schemaVersion);
@@ -541,6 +547,7 @@ namespace Shmup.Core
             hash.Add(data.stageStartScrollX);
             if (includeBombsUsed)
                 hash.Add(data.bombsUsed);
+            hash.Add(data.lastMidbossOutcome);
             return hash.ToString();
         }
 
