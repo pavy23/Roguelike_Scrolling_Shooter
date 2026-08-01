@@ -4,6 +4,37 @@
 
 ---
 
+## 2026-08-02 REQ-103a — 스테이지 대개편 1차 (기존 스키마, content 완료)
+
+**완료 (content):**  
+- `waves.json` 후반 잠식 multi-mask 7→3→2 (테마 차등, St5=`[7,3,2,2]`) · 마스크 변경 32  
+- 전 세그먼트 보스 밸리 gap≥120 (패딩 37)  
+- 후반 static 포대 성격 분리 (scrap/hive/nebula/core) · laser peak≤4 유지  
+- 스크롤 스파이크 필드 **없음** → Core C-D  
+- BalanceSim `CheckReq103aStageOverhaul` 게이트 추가  
+**표:** `Reviews/from-grok/req103a-report.md`  
+**Core 요구서:** `Reviews/from-grok/req103-core-requests.md`  
+**검증:** 489/489 · BalanceSim all green · DeterminismAudit AUDIT PASS
+
+### CODEX
+1. [ ] **C-A** `Obstacle.blocksEnemyBullets` (St1 고철 방패) — 적탄 차단, 기본 false 하위호환
+2. [ ] **C-B** `Obstacle.regenDelayTicks` (St2 재생 세포벽) — 0=재생 없음
+3. [ ] **C-C** `midbossOutcome` 분기 + 후반 세그먼트 풀 선택 (`Rng.Fork` 분리 스트림)
+4. [ ] **C-D** `Segment.scrollSpeedMultiplier` (St1 후반·St5 전반 스파이크) — ExactFraction 권장
+5. [ ] **C-E** `StageSectionEvent` 마커 (Intro/MidbossDefeat/LateHalf/BossWarn) — **세그 인덱스 단독 불충분**
+6. [ ] (참고) BalanceSim `CreateSegment(Rng)` REQ-098 호환은 content가 수정함
+
+### CLAUDE
+1. [ ] Resources `GameData/waves.json` 동기화 (잠식 multi-mask + 밸리 패딩)
+2. [ ] (C-E 후) SectionTheme lerp — MidbossDefeat / LateHalf 구독
+3. [ ] (선택) 잠식 구간 레인 벽/배경 연출 정합
+
+### GEMINI
+1. [ ] 잠식 multi-mask 스테이지 clearability·시각 회귀
+2. [ ] DeterminismAudit 해시 변동은 content 의도 변경 — 베이스라인 갱신 여부 판단
+
+---
+
 ## 2026-08-01 REQ-099 — 세그먼트 풀 장애물 배치 다양화 (content 완료)
 
 **완료 (content):**  

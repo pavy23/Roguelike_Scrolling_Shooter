@@ -266,6 +266,8 @@ static class Program
         failures += CheckTerminalContractsAndReroll(data);
         Console.WriteLine();
         failures += CheckStageShuffleClearability(data);
+        Console.WriteLine();
+        failures += CheckReq103aStageOverhaul(data, generator);
 
         Console.WriteLine();
         if (failures == 0)
@@ -1755,9 +1757,12 @@ static class Program
         StageBossTemplate boss,
         int segmentsPerStage)
     {
+        // REQ-098: CreateSegment requires obstacle-jitter Rng (fixed seed for
+        // worst-case density probe reproducibility).
+        var jitterRng = new Rng(0xD3A5177FUL);
         var segments = new StageSegment[segmentsPerStage];
         for (int i = 0; i < segmentsPerStage; i++)
-            segments[i] = densest.CreateSegment();
+            segments[i] = densest.CreateSegment(jitterRng.Fork(i));
 
         return new StagePlan(
             segments,
@@ -7730,6 +7735,188 @@ static class Program
 
         if (failures == 0)
             Console.WriteLine("PASS: REQ-075 enemy laser profiles.");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-103a stage overhaul (existing schema): boss-prep spawn valley, late
+    /// encroachment multi-mask staircase (7→3→2 theme-scaled), and clearability
+    /// of encroachment segments under seed assemblies.
+    /// </summary>
+    static int CheckReq103aStageOverhaul(
+        GameDataSet data,
+        SegmentStageGenerator generator)
+    {
+        int failures = 0;
+        const int ValleyMinTicks = 120;
+        const int ValleyMaxTicks = 180;
+        // Lane bits for laneCount=3.
+        const int MaskOpen = 7;
+        const int MaskTwo = 3;
+        const int MaskCenter = 2;
+
+        StageGenerationCatalog catalog = data.StageGeneration;
+        Console.WriteLine(
+            "REQ-103a stage overhaul (valley + encroachment, provisional §7):");
+
+        int valleyOk = 0;
+        int valleyShort = 0;
+        int lateMulti = 0;
+        int lateTotal = 0;
+        int coreMaxStair = 0;
+        int scrapMild = 0;
+        int scrapLate = 0;
+
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            int lastSpawn = 0;
+            for (int i = 0; i < seg.Spawns.Count; i++)
+            {
+                int tick = seg.Spawns[i].Tick;
+                if (tick > lastSpawn)
+                    lastSpawn = tick;
+            }
+
+            int gap = lastSpawn == 0
+                ? seg.LengthTicks
+                : seg.LengthTicks - lastSpawn;
+            if (lastSpawn > 0 && gap < ValleyMinTicks)
+            {
+                Console.WriteLine(
+                    $"FAIL 103a: '{seg.SegmentId}' boss-valley gap {gap} "
+                    + $"< {ValleyMinTicks} (len={seg.LengthTicks} last={lastSpawn}).");
+                failures++;
+                valleyShort++;
+            }
+            else if (lastSpawn > 0 && gap >= ValleyMinTicks)
+            {
+                valleyOk++;
+                if (gap > ValleyMaxTicks + 60)
+                {
+                    // Soft note only — generous valleys are OK; flag extreme slack.
+                    Console.WriteLine(
+                        $"  note valley generous: '{seg.SegmentId}' gap={gap}");
+                }
+            }
+
+            bool lateBand = seg.DifficultyMin >= 3;
+            if (lateBand)
+            {
+                lateTotal++;
+                if (seg.TraversableLaneMasks.Count >= 2)
+                    lateMulti++;
+                // Path existence is enforced by StageSegmentTemplate.Validate at parse
+                // time (entry→masks→exit). Assembly IsClearable covers stitched plans.
+            }
+
+            // Theme intensity samples.
+            if (string.Equals(seg.ThemeId, "core", StringComparison.Ordinal)
+                && seg.DifficultyMin >= 3
+                && seg.TraversableLaneMasks.Count >= 3)
+            {
+                // Expect final step to center (2) for St5 max encroachment.
+                int lastMask = seg.TraversableLaneMasks[
+                    seg.TraversableLaneMasks.Count - 1];
+                if (lastMask == MaskCenter)
+                    coreMaxStair++;
+            }
+
+            if (string.Equals(seg.ThemeId, "scrapyard", StringComparison.Ordinal)
+                && seg.DifficultyMin >= 3)
+            {
+                scrapLate++;
+                // St1 late should not hard-lock to center-only single mask;
+                // mild 7→3 staircase preferred (final may be 3, not forced 2).
+                int lastMask = seg.TraversableLaneMasks[
+                    seg.TraversableLaneMasks.Count - 1];
+                if (lastMask == MaskTwo || lastMask == MaskOpen)
+                    scrapMild++;
+            }
+        }
+
+        Console.WriteLine(
+            $"  valley gap≥{ValleyMinTicks}: {valleyOk} segs · short={valleyShort}");
+        Console.WriteLine(
+            $"  late dMin≥3 multi-mask: {lateMulti}/{lateTotal} "
+            + $"(need ≥ max(1, lateTotal*2/3))");
+        Console.WriteLine(
+            $"  core late max-stair (len≥3 ends@2): {coreMaxStair} · "
+            + $"scrap late mild: {scrapMild}/{scrapLate}");
+
+        int lateMultiNeed = lateTotal == 0 ? 0 : Math.Max(1, (lateTotal * 2) / 3);
+        if (lateMulti < lateMultiNeed)
+        {
+            Console.WriteLine(
+                $"FAIL 103a: late multi-mask {lateMulti} < need {lateMultiNeed}.");
+            failures++;
+        }
+
+        if (coreMaxStair < 2)
+        {
+            Console.WriteLine(
+                $"FAIL 103a: core max encroachment stairs {coreMaxStair} < 2 "
+                + "(St5 signature 7→3→2).");
+            failures++;
+        }
+
+        // Seed assemblies must remain clearable under multi-mask redesign.
+        const ulong seed = 0x103A0E77UL;
+        int assemblyFails = 0;
+        for (int stage = 1; stage <= 5; stage++)
+        {
+            int difficulty = stage; // default curve stage==diff
+            try
+            {
+                StagePlan plan = generator.Generate(seed, stage, difficulty);
+                if (!StagePlanClearability.IsClearable(plan))
+                {
+                    Console.WriteLine(
+                        $"FAIL 103a: plan not clearable stage={stage} "
+                        + $"theme={plan.ThemeId} segs=[{string.Join(",", SegmentIds(plan))}]");
+                    failures++;
+                    assemblyFails++;
+                    continue;
+                }
+
+                // Last segment before boss should carry valley gap.
+                if (plan.Segments.Count > 0)
+                {
+                    StageSegment last = plan.Segments[plan.Segments.Count - 1];
+                    int lastTick = 0;
+                    for (int i = 0; i < last.Spawns.Count; i++)
+                        if (last.Spawns[i].Tick > lastTick)
+                            lastTick = last.Spawns[i].Tick;
+                    int gap = lastTick == 0
+                        ? last.LengthTicks
+                        : last.LengthTicks - lastTick;
+                    if (lastTick > 0 && gap < ValleyMinTicks)
+                    {
+                        Console.WriteLine(
+                            $"FAIL 103a: assembled last seg '{last.SegmentId}' "
+                            + $"valley gap {gap} < {ValleyMinTicks} (stage={stage}).");
+                        failures++;
+                    }
+                }
+
+                Console.WriteLine(
+                    $"  OK assemble stage={stage} theme={plan.ThemeId,-10} "
+                    + $"segs=[{string.Join(",", SegmentIds(plan))}]");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"FAIL 103a: assemble stage={stage}: {ex.Message}");
+                failures++;
+                assemblyFails++;
+            }
+        }
+
+        if (failures == 0)
+            Console.WriteLine(
+                "PASS: REQ-103a valley + encroachment + clearability.");
+        else
+            Console.WriteLine(
+                $"FAIL: REQ-103a ({failures} issues, assemblyFails={assemblyFails}).");
         return failures;
     }
 
