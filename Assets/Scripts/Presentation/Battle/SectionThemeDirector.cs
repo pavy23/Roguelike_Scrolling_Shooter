@@ -152,6 +152,12 @@ namespace Shmup.Presentation.Battle
         /// <summary>개발용 구간 미리보기 (F7). null이면 실제 진행을 따른다.</summary>
         SectionKind? _previewSection;
 
+        // 중간보스 격파 = Late 진입 (REQ-101 C-E). 아래 MidBossDefeat* 값은 룩 테이블의
+        // enterShake/enterFlash에 **덧대는** 하한이다 — 테마가 더 세게 잡았으면 그쪽을 쓴다.
+        const float MidBossDefeatShake = 0.6f;
+        const float MidBossDefeatFlashSeconds = 0.4f;
+        static readonly Color MidBossDefeatFlash = new Color(1f, 0.97f, 0.88f, 0.6f);
+
         void Awake()
         {
             _from.SetNeutral();
@@ -246,11 +252,23 @@ namespace Shmup.Presentation.Battle
         void SyncSection(float dt)
         {
             string themeId = _director.CurrentThemeId;
-            SectionKind section = _previewSection ?? ToKind(_director.StageSection);
+
+            // 폴링만으로는 전환이 늦다: 중간보스를 잡아도 Core의 구간 상태는 보상 선택이
+            // 끝나고 AdvanceRoom이 돌 때까지 MidBoss다. Core가 격파 프레임에 내는
+            // MidBossDefeated(REQ-101 C-E)를 BattleDirector가 신호로 걸어 두면
+            // **격파한 그 프레임에** Late 룩이 시작한다 (설계 원칙 2: 경계는 사건이다).
+            bool defeatDriven = _director.MidBossDefeatSignaled;
+            SectionKind section = _previewSection
+                ?? (defeatDriven ? SectionKind.Late : ToKind(_director.StageSection));
 
             bool themeChanged = !_initialized
                 || !string.Equals(themeId, _currentThemeId, System.StringComparison.Ordinal);
             bool sectionChanged = !_initialized || section != _currentSection;
+            // 격파로 앞당겨 들어온 Late — 나중에 폴링이 따라잡아도 다시 전환하지 않는다
+            // (section 값이 이미 Late라 sectionChanged가 false다).
+            bool midBossDefeatEntry =
+                sectionChanged && defeatDriven && !_previewSection.HasValue
+                && section == SectionKind.Late;
 
             _sectionElapsed += dt;
 
@@ -282,9 +300,17 @@ namespace Shmup.Presentation.Battle
                 if (_previewSection.HasValue) _blendDuration = Mathf.Min(_blendDuration, 1.5f);
 
                 // 경계를 사건으로 만든다 (설계 원칙 2) — 중간보스 격파·요새 진입.
-                if (_juice != null && theme.enterShake > 0f)
-                    _juice.Shake(theme.enterShake);
-                if (theme.enterFlash.a > 0f)
+                // 격파 진입은 구간이 넘어갔다는 신호 자체라, 룩 테이블에 섬광이 없는
+                // 테마(scrapyard·hive·core)에서도 반드시 번쩍인다. FlashReduced 게이트는
+                // TriggerFlash가 피크 알파에 0.35를 곱해 처리한다 — 여기서 또 곱하지 않는다.
+                float shake = midBossDefeatEntry
+                    ? Mathf.Max(theme.enterShake, MidBossDefeatShake)
+                    : theme.enterShake;
+                if (_juice != null && shake > 0f)
+                    _juice.Shake(shake);
+                if (midBossDefeatEntry && theme.enterFlash.a < MidBossDefeatFlash.a)
+                    TriggerFlash(MidBossDefeatFlash, MidBossDefeatFlashSeconds);
+                else if (theme.enterFlash.a > 0f)
                     TriggerFlash(theme.enterFlash, theme.enterFlashSeconds);
             }
 

@@ -96,6 +96,20 @@ namespace Shmup.Presentation.Battle
         readonly Dictionary<int, float> _obstacleHitFlashes = new Dictionary<int, float>(32);
         const float ObstacleHitFlashSeconds = 0.12f;
         static readonly Color ObstacleHitFlashColor = new Color(1f, 0.72f, 0.25f, 1f);
+
+        // 재생벽 (REQ-101 C-B). regenDelayTicks 장애물은 파괴된 뒤 **같은 entity id로**
+        // 다시 나타난다 — 그대로 두면 스폰 페이드와 구분이 안 되어 "장애물이 두 번 스폰됐다"로
+        // 읽힌다. 파괴(ObstacleDestroyed)와 재생(ObstacleRegenerated)을 눈으로 가르는 것이
+        // 이 연출의 목적이다: 작게 시작해 자라나고, 자라는 동안만 초록으로 물든다.
+        // hive 세포벽 정체성 — 부서진 자리가 스스로 아무는 느낌.
+        readonly Dictionary<int, float> _obstacleRegenAges = new Dictionary<int, float>(16);
+        const float ObstacleRegenSeconds = 0.3f;
+        const float ObstacleRegenStartScale = 0.3f;
+        static readonly Color ObstacleRegenColor = new Color(0.42f, 1f, 0.55f, 1f);
+
+        // 적탄 차단 스파크는 같은 틱에 여러 발이 먹혀도 1회만 찍는다 — 벽 하나가
+        // 탄막을 통째로 소거하는 프레임이 흔해서, 발당 1회면 스파크가 벽을 뒤덮는다.
+        bool _blockSparkThisTick;
         readonly Dictionary<int, Transform> _optionViews = new Dictionary<int, Transform>(4);
         readonly Dictionary<int, SpriteRenderer> _enemyRenderers = new Dictionary<int, SpriteRenderer>(32);
         readonly Dictionary<int, Color> _enemyDeathTints = new Dictionary<int, Color>(32);   // 테마별 폭발 틴트
@@ -773,6 +787,7 @@ namespace Shmup.Presentation.Battle
             var events = freshEvents ? battle.EventsThisTick : System.ReadOnlySpan<SimEvent>.Empty;
             if (_sfx != null)
                 _sfx.PlayEvents(events);
+            _blockSparkThisTick = false;
             for (int i = 0; i < events.Length; i++)
             {
                 var e = events[i];
@@ -904,6 +919,26 @@ namespace Shmup.Presentation.Battle
                     case SimEventType.ObstacleDamaged:
                         _obstacleHitFlashes[e.EntityId] = ObstacleHitFlashSeconds;
                         break;
+                    case SimEventType.EnemyBulletBlocked:
+                        // 탄이 왜 사라졌는지만 알린다 (REQ-101 C-A). X/Y는 Core가 준
+                        // 소거 지점 = 장애물 표면이라 뷰가 위치를 추정하지 않는다.
+                        if (!_blockSparkThisTick && _gimmickView != null)
+                        {
+                            _blockSparkThisTick = true;
+                            _gimmickView.FlashBulletBlock(SimView.ToWorld(e.X, e.Y));
+                        }
+                        break;
+                    case SimEventType.ObstacleRegenerated:
+                        // 재생은 스폰이 아니다 — SyncObstacles가 이 표시를 보고
+                        // 기본 페이드 대신 "자라나는" 연출로 갈아탄다 (REQ-101 C-B).
+                        _obstacleRegenAges[e.EntityId] = 0f;
+                        break;
+                    case SimEventType.MidBossDefeated:
+                        // 구간이 넘어가는 프레임을 정확히 집는다 (REQ-101 C-E).
+                        // RunStageSection 폴링은 보상 화면을 지나 AdvanceRoom이 돌아야
+                        // Closing이 되므로, 배경 전환이 격파보다 수 초 늦게 시작했다.
+                        _midBossDefeatSignaled = true;
+                        break;
                 }
             }
             RefreshBattle();
@@ -927,6 +962,8 @@ namespace Shmup.Presentation.Battle
             if (_obstaclePool != null) ReleaseAll(_obstacleViews, _obstaclePool);
             _enemyRenderers.Clear();
             _enemyDeathTints.Clear();
+            _obstacleRegenAges.Clear();      // Id 공간이 새로 시작한다 — 재생 표시 잔류 금지
+            _midBossDefeatSignaled = false;  // 다음 스테이지의 중간보스를 위해 초기화
             _lastHp = -1;   // 배틀 교체 직후 HP 차이를 피격 플래시로 오인하지 않게
 
             _sim = battle;
@@ -1022,11 +1059,19 @@ namespace Shmup.Presentation.Battle
             {
                 var obstacle = obstacles[i];
                 _aliveIds.Add(obstacle.Id);
+                // 재생(REQ-101 C-B)은 같은 id로 다시 등장한다. 뷰는 파괴 시점에 반납됐으므로
+                // 여기서 새로 얻는데, 이때 스폰 페이드가 아니라 성장 연출을 걸어야 한다.
+                bool regenerating = _obstacleRegenAges.TryGetValue(obstacle.Id, out float regenAge)
+                    && regenAge < ObstacleRegenSeconds;
+
                 if (!_obstacleViews.TryGetValue(obstacle.Id, out var view))
                 {
                     view = _obstaclePool.Acquire();
                     if (view == null) continue;
                     _obstacleViews.Add(obstacle.Id, view);
+                    // 풀은 스케일을 되돌리지 않는다 — 성장 연출이 남긴 값이 다음
+                    // 장애물에 새지 않게 획득 시점에 확실히 원복한다.
+                    view.localScale = Vector3.one;
                     var renderer = view.GetComponent<SpriteRenderer>();
                     if (renderer != null)
                     {
@@ -1036,9 +1081,10 @@ namespace Shmup.Presentation.Battle
                         // 그대로 그리면 끊기듯 나타난다 ("장애물이 끊기듯 등장", 2026-07-31).
                         // 시뮬 판정은 스폰 즉시 유효하지만, 페이드는 짧아(0.35s) 판정과
                         // 표시의 어긋남이 문제되기 전에 끝난다.
-                        renderer.color = new Color(1f, 1f, 1f, 0f);
+                        // 재생은 알파가 아니라 스케일로 알린다 — 처음부터 불투명하게 자란다.
+                        renderer.color = regenerating ? Color.white : new Color(1f, 1f, 1f, 0f);
                     }
-                    _obstacleFadeAges[obstacle.Id] = 0f;
+                    _obstacleFadeAges[obstacle.Id] = regenerating ? ObstacleFadeSeconds : 0f;
                 }
                 view.localPosition = SimView.ToWorld(obstacle.X, obstacle.Y);
 
@@ -1046,7 +1092,7 @@ namespace Shmup.Presentation.Battle
                     && age < ObstacleFadeSeconds;
                 bool flashing = _obstacleHitFlashes.TryGetValue(obstacle.Id, out float flash)
                     && flash > 0f;
-                if (fading || flashing)
+                if (fading || flashing || regenerating)
                 {
                     var stateRenderer = view.GetComponent<SpriteRenderer>();
                     if (fading)
@@ -1061,12 +1107,43 @@ namespace Shmup.Presentation.Battle
                         if (flash <= 0f) _obstacleHitFlashes.Remove(obstacle.Id);
                         else _obstacleHitFlashes[obstacle.Id] = flash;
                     }
+
+                    float regenT = 1f;
+                    if (regenerating)
+                    {
+                        regenAge += Time.deltaTime;
+                        regenT = Mathf.Clamp01(regenAge / ObstacleRegenSeconds);
+                        // 마지막 프레임에 정확히 원 스케일/원 색으로 복귀시키고 키를 뺀다.
+                        if (regenAge >= ObstacleRegenSeconds)
+                        {
+                            _obstacleRegenAges.Remove(obstacle.Id);
+                            view.localScale = Vector3.one;
+                        }
+                        else
+                        {
+                            _obstacleRegenAges[obstacle.Id] = regenAge;
+                            // 감속 곡선(sin ease-out) — 처음에 훅 부풀고 마지막에 멎는다.
+                            // 선형이면 "커진다"가 아니라 "늘어난다"로 읽힌다 (0.3 → 1.0).
+                            float eased = Mathf.Sin(regenT * Mathf.PI * 0.5f);
+                            float scale = Mathf.Lerp(ObstacleRegenStartScale, 1f, eased);
+                            view.localScale = new Vector3(scale, scale, 1f);
+                        }
+                    }
+
                     if (stateRenderer != null)
                     {
                         // 피격 플래시(앰버)와 스폰 페이드(알파)는 독립 축 — 동시여도 겹친다
                         float flashT = flashing
                             ? Mathf.Clamp01(flash / ObstacleHitFlashSeconds) : 0f;
                         var c = Color.Lerp(Color.white, ObstacleHitFlashColor, flashT);
+                        // 재생 틴트는 초록에서 흰색으로 빠진다 — 세포벽이 아무는 신호.
+                        // 접근성(플래시 감소)에서는 채도만 낮춘다. 정보 자체는 남겨야 한다.
+                        if (regenerating)
+                        {
+                            float tint = (1f - regenT)
+                                * (_juice != null && _juice.FlashReduced ? 0.5f : 1f);
+                            c = Color.Lerp(c, ObstacleRegenColor, tint);
+                        }
                         c.a = fading ? Mathf.Clamp01(age / ObstacleFadeSeconds) : 1f;
                         stateRenderer.color = c;
                     }
@@ -1080,10 +1157,14 @@ namespace Shmup.Presentation.Battle
             for (int i = 0; i < _retiredIds.Count; i++)
             {
                 int id = _retiredIds[i];
-                _obstaclePool.Release(_obstacleViews[id]);
+                var retired = _obstacleViews[id];
+                // 성장 도중 파괴될 수 있다 — 반납 전에 원 스케일로 되돌린다.
+                if (retired != null) retired.localScale = Vector3.one;
+                _obstaclePool.Release(retired);
                 _obstacleViews.Remove(id);
                 _obstacleFadeAges.Remove(id);
                 _obstacleHitFlashes.Remove(id);
+                _obstacleRegenAges.Remove(id);
             }
         }
 
@@ -1255,6 +1336,17 @@ namespace Shmup.Presentation.Battle
         /// <summary>스테이지 내부 진행 구간 — 전반/중간보스/후반/보스 연출을 가른다.</summary>
         public RunStageSection StageSection =>
             _run != null ? _run.StageSection : RunStageSection.Opening;
+
+        bool _midBossDefeatSignaled;
+
+        /// <summary>
+        /// 중간보스를 격파했지만 Core의 구간 상태는 아직 MidBoss인 동안 true
+        /// (격파 → 보상 선택 → AdvanceRoom 사이). SectionThemeDirector가 이 신호로
+        /// Late 룩 전환을 **격파 프레임에** 시작한다 — 보상 화면을 기다리지 않는다.
+        /// 구간이 실제로 넘어가면 저절로 false가 되므로 소비자가 리셋할 필요가 없다.
+        /// </summary>
+        public bool MidBossDefeatSignaled =>
+            _midBossDefeatSignaled && StageSection == RunStageSection.MidBoss;
 
         /// <summary>지속 레이저 상태 (REQ-042) — LaserBeamView가 선분으로 그린다.</summary>
         public IReadOnlyList<LaserState> Lasers => _sim?.Lasers;
