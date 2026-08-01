@@ -261,6 +261,8 @@ static class Program
         Console.WriteLine();
         failures += CheckSectorContractsAndCostedRewards(data);
         Console.WriteLine();
+        failures += CheckSpartanContracts(data);
+        Console.WriteLine();
         failures += CheckTerminalContractsAndReroll(data);
         Console.WriteLine();
         failures += CheckStageShuffleClearability(data);
@@ -5694,17 +5696,23 @@ static class Program
             string dest = c.DestinationKind == ContractDestinationKind.NextStage
                 ? ""
                 : $" dest={c.DestinationKind}";
+            string bans = "";
+            if (c.GaugeActivationBanned) bans += " banG";
+            if (c.OptionActivationBanned) bans += " banO";
+            if (c.ShieldActivationBanned) bans += " banS";
             Console.WriteLine(
-                $"  {c.Id,-16} tier={c.RiskTier,-8} dens×{density:F2} "
+                $"  {c.Id,-18} tier={c.RiskTier,-8} dens×{density:F2} "
                 + $"cap×{capsules:F2} gim×{gimmick:F2} "
                 + $"score×{score:F2} Δcards={c.RewardOptionCountDelta:+#;-#;0} "
-                + $"bombG={(c.GuaranteedBombDrop ? 1 : 0)} w={c.Weight}{dest}");
+                + $"bombG={(c.GuaranteedBombDrop ? 1 : 0)} w={c.Weight}{bans}{dest}");
         }
 
-        if (specialty < 6 || specialty > 10)
+        // REQ-095: base 8 specialty + 3 SPARTAN self-constraint cards → 11.
+        // Keep room for one more specialty without a new gate rewrite.
+        if (specialty < 6 || specialty > 12)
         {
             Console.WriteLine(
-                $"FAIL contracts: nextStage specialty count {specialty} outside 6..10.");
+                $"FAIL contracts: nextStage specialty count {specialty} outside 6..12.");
             failures++;
         }
 
@@ -5926,6 +5934,315 @@ static class Program
             Console.WriteLine("PASS: REQ-071 contracts + costed rewards.");
         else
             Console.WriteLine($"FAIL: REQ-071 ({failures} failure(s)).");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-095: SPARTAN self-constraint contracts (gauge/option/shield ban)
+    /// integrity, score EV band vs existing high-risk routes, and weight
+    /// rarity so extreme cards are not frequent specialty candidates.
+    /// </summary>
+    static int CheckSpartanContracts(GameDataSet data)
+    {
+        int failures = 0;
+        Console.WriteLine(
+            "REQ-095 SPARTAN self-constraint contracts (provisional §7):");
+
+        ContractCatalog contracts = data.Contracts;
+        if (contracts == null)
+        {
+            Console.WriteLine("FAIL spartan: waves.json.contracts missing.");
+            return 1;
+        }
+
+        ContractDefinition spartan = contracts.Find("spartan_protocol");
+        ContractDefinition noOption = contracts.Find("no_option_run");
+        ContractDefinition bareHull = contracts.Find("bare_hull");
+        if (spartan == null || noOption == null || bareHull == null)
+        {
+            Console.WriteLine(
+                "FAIL spartan: missing id(s) "
+                + $"(spartan={spartan != null} no_option={noOption != null} "
+                + $"bare_hull={bareHull != null}).");
+            return 1;
+        }
+
+        // Axis integrity: exclusive ban flags, nextStage, no density trade.
+        failures += CheckOneSpartanAxis(
+            spartan,
+            wantGauge: true,
+            wantOption: false,
+            wantShield: false,
+            wantTier: ContractRiskTier.Extreme,
+            scoreMin: 1.5,
+            scoreMax: 1.75,
+            weightMax: 1);
+        failures += CheckOneSpartanAxis(
+            noOption,
+            wantGauge: false,
+            wantOption: true,
+            wantShield: false,
+            wantTier: ContractRiskTier.High,
+            scoreMin: 1.2,
+            scoreMax: 1.4,
+            weightMax: 2);
+        failures += CheckOneSpartanAxis(
+            bareHull,
+            wantGauge: false,
+            wantOption: false,
+            wantShield: true,
+            wantTier: ContractRiskTier.High,
+            scoreMin: 1.3,
+            scoreMax: 1.5,
+            weightMax: 2);
+
+        // Severity ordering: full ban ≥ shield ban ≥ option ban on score mult.
+        double scoreSpartan = ScoreMult(spartan);
+        double scoreBare = ScoreMult(bareHull);
+        double scoreNoOpt = ScoreMult(noOption);
+        if (!(scoreSpartan + 1e-9 >= scoreBare
+              && scoreBare + 1e-9 >= scoreNoOpt))
+        {
+            Console.WriteLine(
+                $"FAIL spartan: score order must be "
+                + $"spartan({scoreSpartan:F2}) ≥ bare({scoreBare:F2}) "
+                + $"≥ no_option({scoreNoOpt:F2}).");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine(
+                $"  score severity order: spartan×{scoreSpartan:F2} "
+                + $"≥ bare×{scoreBare:F2} ≥ no_opt×{scoreNoOpt:F2} [ok]");
+        }
+
+        // Weight rarity vs standard specialty pool (nextStage only).
+        int specialtyWeight = 0;
+        int extremeSpecialtyWeight = 0;
+        int maxNonExtremeSpecialtyWeight = 0;
+        for (int i = 0; i < contracts.All.Count; i++)
+        {
+            ContractDefinition c = contracts.All[i];
+            if (c.DestinationKind != ContractDestinationKind.NextStage)
+                continue;
+            if (ReferenceEquals(c, contracts.Standard))
+                continue;
+            specialtyWeight += c.Weight;
+            if (c.RiskTier == ContractRiskTier.Extreme)
+                extremeSpecialtyWeight += c.Weight;
+            else if (c.Weight > maxNonExtremeSpecialtyWeight)
+                maxNonExtremeSpecialtyWeight = c.Weight;
+        }
+
+        // Extreme nextStage (spartan) must stay the rarest tier by total weight
+        // and strictly below the heaviest common specialty card weight.
+        if (extremeSpecialtyWeight > 2
+            || spartan.Weight > 1
+            || extremeSpecialtyWeight >= maxNonExtremeSpecialtyWeight)
+        {
+            Console.WriteLine(
+                $"FAIL spartan: extreme specialty weight "
+                + $"{extremeSpecialtyWeight} (spartan w={spartan.Weight}) "
+                + "must stay ≤2 total, spartan w≤1, and below max non-extreme "
+                + $"specialty weight {maxNonExtremeSpecialtyWeight}.");
+            failures++;
+        }
+
+        // Candidate share for one weighted specialty pick (standard always offered).
+        double pSpartan = spartan.Weight / (double)specialtyWeight;
+        double pNoOpt = noOption.Weight / (double)specialtyWeight;
+        double pBare = bareHull.Weight / (double)specialtyWeight;
+        double pSpartanSeries = pSpartan + pNoOpt + pBare;
+        // With optionCount 2..3 → 1 or 2 specialty slots (approx equal).
+        // P(card appears) ≈ 0.5*p + 0.5*(1-(1-p)^2) for small p without-replacement ≈ p*(1.5-p).
+        double offerSpartan = pSpartan * (1.5 - pSpartan);
+        double offerSeries = pSpartanSeries * (1.5 - pSpartanSeries * 0.5);
+
+        Console.WriteLine(
+            $"  specialty weight sum={specialtyWeight} "
+            + $"(extreme sum={extremeSpecialtyWeight})");
+        Console.WriteLine(
+            $"  one-slot pick P: spartan={pSpartan:P1} "
+            + $"no_option={pNoOpt:P1} bare={pBare:P1} "
+            + $"series={pSpartanSeries:P1}");
+        Console.WriteLine(
+            $"  approx offer P (1–2 slots): spartan≈{offerSpartan:P1} "
+            + $"series≈{offerSeries:P1}");
+
+        // Extreme full-ban must stay rare on the offer board.
+        if (offerSpartan > 0.08)
+        {
+            Console.WriteLine(
+                $"FAIL spartan: approx offer P {offerSpartan:P1} > 8% "
+                + "— extreme card too frequent vs standard routes.");
+            failures++;
+        }
+
+        // Whole SPARTAN series should not dominate the specialty deck.
+        if (pSpartanSeries > 0.25)
+        {
+            Console.WriteLine(
+                $"FAIL spartan: series one-slot share {pSpartanSeries:P1} > 25% "
+                + "— self-constraint cards crowd out density/economy trades.");
+            failures++;
+        }
+
+        // Risk-adjusted score EV sketch vs existing high-risk score cards.
+        // Severity heuristic (provisional §7): density trade + ban severity.
+        // survivalFactor = 1 - 0.35 * severity; adjEV = score × survivalFactor.
+        var peers = new List<(string Id, double Score, double Severity, double AdjEv)>();
+        for (int i = 0; i < contracts.All.Count; i++)
+        {
+            ContractDefinition c = contracts.All[i];
+            if (c.DestinationKind != ContractDestinationKind.NextStage)
+                continue;
+            if (ReferenceEquals(c, contracts.Standard))
+                continue;
+            double dens = c.EnemyDensityDenominator == 0
+                ? 1.0
+                : c.EnemyDensityNumerator
+                    / (double)c.EnemyDensityDenominator;
+            double score = ScoreMult(c);
+            double severity = Math.Max(0.0, dens - 1.0); // density pressure
+            if (c.GaugeActivationBanned) severity += 0.75;
+            else
+            {
+                if (c.OptionActivationBanned) severity += 0.40;
+                if (c.ShieldActivationBanned) severity += 0.25;
+            }
+            // Capsule drought is a soft growth tax.
+            double caps = c.CapsuleDropDenominator == 0
+                ? 1.0
+                : c.CapsuleDropNumerator
+                    / (double)c.CapsuleDropDenominator;
+            if (caps < 1.0)
+                severity += (1.0 - caps) * 0.35;
+            severity = Math.Min(1.0, severity);
+            double adj = score * (1.0 - 0.35 * severity);
+            peers.Add((c.Id, score, severity, adj));
+        }
+
+        peers.Sort((a, b) => b.AdjEv.CompareTo(a.AdjEv));
+        Console.WriteLine("  risk-adjusted score EV (score×(1-0.35·severity)):");
+        double minAdj = double.MaxValue;
+        double maxAdj = double.MinValue;
+        double spartanAdj = 0, bareAdj = 0, noOptAdj = 0;
+        double scrapAdj = 0, riskLaneAdj = 0, escortAdj = 0;
+        for (int i = 0; i < peers.Count; i++)
+        {
+            var p = peers[i];
+            if (p.AdjEv < minAdj) minAdj = p.AdjEv;
+            if (p.AdjEv > maxAdj) maxAdj = p.AdjEv;
+            if (p.Id == "spartan_protocol") spartanAdj = p.AdjEv;
+            if (p.Id == "bare_hull") bareAdj = p.AdjEv;
+            if (p.Id == "no_option_run") noOptAdj = p.AdjEv;
+            if (p.Id == "scrap_bounty") scrapAdj = p.AdjEv;
+            if (p.Id == "risk_lane") riskLaneAdj = p.AdjEv;
+            if (p.Id == "escort_run") escortAdj = p.AdjEv;
+            string mark = p.Id is "spartan_protocol" or "no_option_run" or "bare_hull"
+                ? " *"
+                : "";
+            Console.WriteLine(
+                $"    {p.Id,-18} score×{p.Score:F2} sev={p.Severity:F2} "
+                + $"adjEV={p.AdjEv:F3}{mark}");
+        }
+
+        // SPARTAN adjEV should sit inside the existing high-risk score band
+        // (between soft low drydock and top scrap_bounty), not above scrap by much
+        // and not below "free-ish" low-risk adjusted scores as pure bait.
+        double bandLo = Math.Min(riskLaneAdj, escortAdj) * 0.90;
+        double bandHi = Math.Max(scrapAdj, escortAdj) * 1.12;
+        Console.WriteLine(
+            $"  EV band vs peers: lo={bandLo:F3} hi={bandHi:F3} "
+            + $"(scrap={scrapAdj:F3} risk_lane={riskLaneAdj:F3} "
+            + $"escort={escortAdj:F3})");
+
+        if (spartanAdj < bandLo || spartanAdj > bandHi
+            || bareAdj < bandLo || bareAdj > bandHi
+            || noOptAdj < bandLo || noOptAdj > bandHi)
+        {
+            Console.WriteLine(
+                $"FAIL spartan: adjEV out of peer band "
+                + $"(spartan={spartanAdj:F3} bare={bareAdj:F3} "
+                + $"no_opt={noOptAdj:F3}).");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine(
+                $"  adjEV in peer band: spartan={spartanAdj:F3} "
+                + $"bare={bareAdj:F3} no_opt={noOptAdj:F3} [ok]");
+        }
+
+        // Full ban should not dominate scrap_bounty adjEV (density+score chase).
+        if (spartanAdj > scrapAdj * 1.08)
+        {
+            Console.WriteLine(
+                $"FAIL spartan: adjEV {spartanAdj:F3} dominates scrap_bounty "
+                + $"{scrapAdj:F3} by >8% — lower score mult or raise severity.");
+            failures++;
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-095 SPARTAN contracts.");
+        else
+            Console.WriteLine($"FAIL: REQ-095 ({failures} failure(s)).");
+        return failures;
+    }
+
+    static double ScoreMult(ContractDefinition c)
+    {
+        if (c.ScoreMultiplierDenominator == 0)
+            return 1.0;
+        return c.ScoreMultiplierNumerator
+            / (double)c.ScoreMultiplierDenominator;
+    }
+
+    static int CheckOneSpartanAxis(
+        ContractDefinition c,
+        bool wantGauge,
+        bool wantOption,
+        bool wantShield,
+        ContractRiskTier wantTier,
+        double scoreMin,
+        double scoreMax,
+        int weightMax)
+    {
+        int failures = 0;
+        double score = ScoreMult(c);
+        double dens = c.EnemyDensityDenominator == 0
+            ? 1.0
+            : c.EnemyDensityNumerator
+                / (double)c.EnemyDensityDenominator;
+        bool banOk =
+            c.GaugeActivationBanned == wantGauge
+            && c.OptionActivationBanned == wantOption
+            && c.ShieldActivationBanned == wantShield;
+        bool axisOk =
+            banOk
+            && c.DestinationKind == ContractDestinationKind.NextStage
+            && c.RiskTier == wantTier
+            && dens >= 0.99 && dens <= 1.01
+            && score + 1e-9 >= scoreMin
+            && score - 1e-9 <= scoreMax
+            && c.Weight >= 1
+            && c.Weight <= weightMax
+            && c.RewardOptionCountDelta == 0
+            && !c.GuaranteedBombDrop;
+        Console.WriteLine(
+            $"  {c.Id,-18} tier={c.RiskTier} dens×{dens:F2} "
+            + $"score×{score:F2} w={c.Weight} "
+            + $"banG={c.GaugeActivationBanned} banO={c.OptionActivationBanned} "
+            + $"banS={c.ShieldActivationBanned} "
+            + $"[{(axisOk ? "ok" : "BAD")}]");
+        if (!axisOk)
+        {
+            Console.WriteLine(
+                $"FAIL spartan: '{c.Id}' axis/score/weight mismatch "
+                + $"(want tier={wantTier} dens≈1 score {scoreMin:F2}..{scoreMax:F2} "
+                + $"w≤{weightMax} exclusive ban flags).");
+            failures++;
+        }
         return failures;
     }
 

@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-08-01 REQ-095 — SPARTAN 자기 제약 계약 (content 완료)
+
+**완료 (content):**  
+- `waves.json` contracts: `spartan_protocol` (ban gauge, ×1.6, extreme, w=1) / `no_option_run` (ban option, ×1.3, high, w=2) / `bare_hull` (ban shield, ×1.4, high, w=2)  
+- BalanceSim REQ-095 EV·희소성 게이트 (specialty 상한 6..12)  
+- 골든 카탈로그 11→14 + ban 축 검산  
+**표:** `Reviews/from-grok/req095-report.md`  
+**검증:** 477/477 · BalanceSim all green · DeterminismAudit AUDIT PASS
+
+### CLAUDE
+1. [ ] Resources `GameData/waves.json` 동기화 (SPARTAN 3계약)
+2. [ ] 계약 카드 UI 한 줄 카피 (NO GAUGE / NO OPTION / NO SHIELD + score mult)
+3. [ ] 발동 거부 `Contract*Banned` → “CONTRACT LOCK” 피드백 (REQ-094 관측)
+
+### CODEX
+- 없음 (ActivationBanned 축은 REQ-094 완료).
+
+---
+
 ## 2026-07-31 REQ-081 — 출발선 통일 + 미사일 5계열 (content 완료)
 
 **완료 (content):**  

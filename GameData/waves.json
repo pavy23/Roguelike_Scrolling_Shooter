@@ -88,6 +88,27 @@
         "scoreMultiplier": 1.4
       },
       {
+        "id": "spartan_protocol",
+        "weight": 1,
+        "riskTier": "extreme",
+        "gaugeActivationBanned": true,
+        "scoreMultiplier": 1.6
+      },
+      {
+        "id": "no_option_run",
+        "weight": 2,
+        "riskTier": "high",
+        "optionActivationBanned": true,
+        "scoreMultiplier": 1.3
+      },
+      {
+        "id": "bare_hull",
+        "weight": 2,
+        "riskTier": "high",
+        "shieldActivationBanned": true,
+        "scoreMultiplier": 1.4
+      },
+      {
         "id": "end_run",
         "weight": 1,
         "riskTier": "safe",

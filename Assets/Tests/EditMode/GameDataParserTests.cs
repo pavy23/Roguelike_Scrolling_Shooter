@@ -1432,8 +1432,12 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(5, data.Rewards.RerollCost);
             Assert.IsNotNull(data.Contracts);
             Assert.AreEqual("standard_route", data.Contracts.Standard.Id);
-            // 1 standard + 8 nextStage specialty + end_run + uncharted (REQ-073).
-            Assert.AreEqual(11, data.Contracts.All.Count);
+            // 1 standard + 11 nextStage specialty (8 base + 3 SPARTAN REQ-095)
+            // + end_run + uncharted.
+            Assert.AreEqual(14, data.Contracts.All.Count);
+            Assert.IsTrue(data.Contracts.Find("spartan_protocol").GaugeActivationBanned);
+            Assert.IsTrue(data.Contracts.Find("no_option_run").OptionActivationBanned);
+            Assert.IsTrue(data.Contracts.Find("bare_hull").ShieldActivationBanned);
             Assert.IsNotNull(data.Contracts.EndRun);
             Assert.AreEqual(
                 ContractDestinationKind.EndRun,
