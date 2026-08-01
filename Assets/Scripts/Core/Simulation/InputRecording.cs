@@ -47,11 +47,10 @@ namespace Shmup.Core.Simulation
     public sealed class InputRecordingData
     {
         /// <summary>
-        /// Schema 19 records contract destination themes. Schema 18 is rejected
-        /// because a replay cannot reproduce route-driven theme swaps without
-        /// that decision payload.
+        /// Schema 20 records room-boundary scroll continuity in deterministic
+        /// state hashes. Schema 19 recordings use the old zero-reset semantics.
         /// </summary>
-        public const int CurrentSchemaVersion = 19;
+        public const int CurrentSchemaVersion = 20;
 
         [DataMember(Order = 0)]
         public int schemaVersion;

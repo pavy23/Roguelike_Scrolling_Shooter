@@ -27,7 +27,8 @@ namespace Shmup.Core
                 || source.schemaVersion == 16
                 || source.schemaVersion == 17
                 || source.schemaVersion == 18
-                || source.schemaVersion == 19)
+                || source.schemaVersion == 19
+                || source.schemaVersion == 20)
                 throw Unsupported(
                     "run suspend",
                     source.schemaVersion);
@@ -236,7 +237,11 @@ namespace Shmup.Core
                 rewardDecisions =
                     source.schemaVersion >= 14
                         ? Clone(source.rewardDecisions)
-                        : Array.Empty<RewardDecisionData>()
+                        : Array.Empty<RewardDecisionData>(),
+                stageStartScrollX =
+                    source.schemaVersion >= 21
+                        ? source.stageStartScrollX
+                        : 0L
             };
             Seal(migrated);
             return migrated;
@@ -260,7 +265,8 @@ namespace Shmup.Core
                 || source.schemaVersion == 15
                 || source.schemaVersion == 16
                 || source.schemaVersion == 17
-                || source.schemaVersion == 18)
+                || source.schemaVersion == 18
+                || source.schemaVersion == 19)
                 throw Unsupported(
                     "input recording",
                     source.schemaVersion);
@@ -517,6 +523,7 @@ namespace Shmup.Core
             hash.Add(data.capsuleDropWeightReduction);
             hash.Add(data.capsuleBalance);
             Add(ref hash, data.rewardDecisions);
+            hash.Add(data.stageStartScrollX);
             return hash.ToString();
         }
 

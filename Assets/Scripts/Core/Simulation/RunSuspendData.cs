@@ -91,11 +91,10 @@ namespace Shmup.Core.Simulation
     public sealed class RunSuspendData
     {
         /// <summary>
-        /// Schema 20 records the destination theme bound to every contract.
-        /// Schema 19 is rejected because it cannot reproduce route-driven theme
-        /// swaps under the new simulation semantics.
+        /// Schema 21 records the carried room-boundary scroll offset. Schema 20
+        /// is rejected because it would restart parallax at zero on resume.
         /// </summary>
-        public const int CurrentSchemaVersion = 20;
+        public const int CurrentSchemaVersion = 21;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -288,5 +287,8 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 58)]
         public RewardDecisionData[] rewardDecisions;
+
+        [DataMember(Order = 59)]
+        public long stageStartScrollX;
     }
 }

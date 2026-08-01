@@ -1916,6 +1916,8 @@ namespace Shmup.Core.Simulation
                     _stageStartContinuity.ComboGauge,
                 stageStartTicksSinceLastKill =
                     _stageStartContinuity.TicksSinceLastKill,
+                stageStartScrollX =
+                    _stageStartContinuity.ScrollX,
                 activeContractId =
                     ActiveContract?.Id,
                 contractChoices = contractChoices,
@@ -2133,7 +2135,8 @@ namespace Shmup.Core.Simulation
                         data.stageStartPlayerY,
                         data.stageStartMultiplierLevel,
                         data.stageStartComboGauge,
-                        data.stageStartTicksSinceLastKill);
+                        data.stageStartTicksSinceLastKill,
+                        data.stageStartScrollX);
             }
             manager.BuildCurrentStage();
 
@@ -2206,7 +2209,10 @@ namespace Shmup.Core.Simulation
                 && Battle is BattleSim midBossBattle
                 && midBossBattle.HasBossBattle
                     ? midBossBattle.BossDefeated
-                    : Battle.Tick >= _stageLengthTicks;
+                    : Battle.Tick >= _stageLengthTicks
+                        && (!(Battle is BattleSim roomBattle)
+                            || !roomBattle.PreparesBossRoomBoundary
+                            || roomBattle.IsRoomBoundaryReady);
             if (sectionCleared)
             {
                 IncrementRoomsCleared();
@@ -3376,7 +3382,14 @@ namespace Shmup.Core.Simulation
             if (BiomeIndex >= BiomeCount)
                 throw new InvalidOperationException(
                     "The biome counter is already at the campaign boundary.");
-            _pendingBattleContinuity = null;
+            _pendingBattleContinuity =
+                new BattleContinuityState(
+                    _battleConfig.PlayerSpawnX,
+                    _battleConfig.PlayerSpawnY,
+                    0,
+                    0,
+                    0,
+                    Battle.ScrollX);
             AccumulateCompletedBattle();
             BiomeIndex++;
             RoomIndex = 1;
@@ -3813,7 +3826,8 @@ namespace Shmup.Core.Simulation
                 && (data.stageStartMultiplierLevel < 0
                     || data.stageStartMultiplierLevel > 3
                     || data.stageStartComboGauge < 0
-                    || data.stageStartTicksSinceLastKill < 0))
+                    || data.stageStartTicksSinceLastKill < 0
+                    || data.stageStartScrollX < 0))
             {
                 throw new ArgumentException(
                     "Suspend room-continuity state is invalid.",
@@ -4593,10 +4607,27 @@ namespace Shmup.Core.Simulation
                 _battleContent,
                 PowerUpGauge,
                 ModifierStacks,
-                _pendingBattleContinuity);
+                _pendingBattleContinuity,
+                ShouldPrepareBossRoomBoundary());
             _pendingBattleContinuity = null;
             _preparedRouteOptions = Array.Empty<RouteOption>();
             CaptureStageStart();
+        }
+
+        bool ShouldPrepareBossRoomBoundary()
+        {
+            if (IsBiomeBoss)
+                return false;
+            if (IsHiddenBiome)
+                return RoomIndex
+                    >= RunProgressionConfig.HiddenRooms;
+            bool precedesMidBoss =
+                RoomsPerBiome
+                    >= RunProgressionConfig.DefaultRoomsPerBiome
+                && RoomIndex == 1;
+            bool precedesBiomeBoss =
+                RoomIndex >= RoomsPerBiome;
+            return precedesMidBoss || precedesBiomeBoss;
         }
 
         void ResetEnemyHpScale()

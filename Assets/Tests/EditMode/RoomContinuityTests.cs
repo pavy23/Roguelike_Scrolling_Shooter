@@ -101,6 +101,8 @@ namespace Shmup.Core.Tests
         public void SuspendAtCarriedRoomBoundaryRestoresContinuity()
         {
             BattleSimConfig config = CreateConfig();
+            config.ScrollSpeedNumerator = 3;
+            config.ScrollSpeedDenominator = 2;
             var manager = CreateManager(0x6505UL, config);
             InputCommand input =
                 InputCommand.Analog(3, -2, false);
@@ -108,10 +110,13 @@ namespace Shmup.Core.Tests
             manager.Step(in input);
             RunSuspendData data = manager.ExportSuspendData();
 
+            BattleSimConfig resumeConfig = CreateConfig();
+            resumeConfig.ScrollSpeedNumerator = 3;
+            resumeConfig.ScrollSpeedDenominator = 2;
             RunManager resumed = RunManager.ResumeFromSuspendData(
                 data,
                 new ShortStageGenerator(false),
-                CreateConfig(),
+                resumeConfig,
                 CreateContent(),
                 PowerUpGauge.CreateDefault());
 
@@ -123,6 +128,290 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 manager.Battle.TicksSinceLastKill,
                 resumed.Battle.TicksSinceLastKill);
+            Assert.AreEqual(3L, data.stageStartScrollX);
+            Assert.AreEqual(manager.Battle.ScrollX, resumed.Battle.ScrollX);
+        }
+
+        [Test]
+        public void ScrollContinuesAtRoomBoundary()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.ScrollSpeedNumerator = 3;
+            config.ScrollSpeedDenominator = 2;
+            var manager = CreateManager(0x6507UL, config);
+
+            manager.Step(InputCommand.None);
+            manager.Step(InputCommand.None);
+
+            Assert.AreEqual(2, manager.RoomIndex);
+            Assert.AreEqual(3L, manager.Battle.ScrollX);
+            Assert.AreEqual(
+                3L,
+                ((BattleSim)manager.Battle).GetScrollXAtTick(0));
+        }
+
+        [Test]
+        public void ScrollContinuesAcrossBiomeBoundary()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.ScrollSpeedNumerator = 2;
+            var manager = CreateManager(0x650AUL, config);
+
+            manager.Step(InputCommand.None);
+            manager.Step(InputCommand.None);
+            manager.Step(InputCommand.None);
+            manager.Step(InputCommand.None);
+            Assert.AreEqual(RunState.AwaitingReward, manager.State);
+            Assert.IsTrue(manager.ChooseReward(0));
+
+            manager.Step(InputCommand.None);
+            manager.Step(InputCommand.None);
+            Assert.IsTrue(manager.IsBiomeBoss);
+            manager.Step(InputCommand.None);
+            Assert.AreEqual(RunState.AwaitingReward, manager.State);
+            Assert.IsTrue(manager.ChooseReward(0));
+            Assert.IsTrue(manager.ChooseContract(0));
+
+            Assert.AreEqual(2, manager.BiomeIndex);
+            Assert.AreEqual(1, manager.RoomIndex);
+            Assert.AreEqual(14L, manager.Battle.ScrollX);
+            Assert.AreEqual(config.PlayerSpawnX, manager.Battle.PlayerX);
+            Assert.AreEqual(config.PlayerSpawnY, manager.Battle.PlayerY);
+        }
+
+        [Test]
+        public void PreBossRoomSuppressesLateSpawnsAndDrainsBeforeBoundary()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.ScrollSpeedNumerator = 3;
+            config.ScrollSpeedDenominator = 2;
+            var manager = new RunManager(
+                0x6508UL,
+                new BoundaryStageGenerator(),
+                config,
+                CreateBoundaryContent(),
+                PowerUpGauge.CreateDefault());
+            BattleSim opening = (BattleSim)manager.Battle;
+
+            for (int tick = 0; tick < 20; tick++)
+                manager.Step(InputCommand.None);
+            Assert.AreEqual(1, opening.Enemies.Count);
+
+            for (int tick = 20; tick < 79; tick++)
+            {
+                manager.Step(InputCommand.None);
+                if (tick == 39)
+                    Assert.AreEqual(0, opening.Enemies.Count);
+            }
+
+            Assert.AreEqual(79, opening.Tick);
+            Assert.AreEqual(118L, opening.ScrollX);
+            Assert.AreEqual(0, opening.Enemies.Count);
+
+            manager.Step(InputCommand.None);
+
+            Assert.AreEqual(2, manager.RoomIndex);
+            Assert.AreEqual(0, opening.Enemies.Count);
+            Assert.AreEqual(120L, opening.ScrollX);
+            Assert.AreEqual(120L, manager.Battle.ScrollX);
+            Assert.AreEqual(0, manager.Battle.Enemies.Count);
+        }
+
+        [Test]
+        public void CleanupWindowSuppressesCapsuleAndBombDrops()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpawnX = 0;
+            config.PlayerBulletSpeedPerTick = 10;
+            config.CapsuleNoDropWeight = 0;
+            config.BombNoDropWeight = 0;
+            config.MaxBombPickups = 4;
+            var enemy = new EnemyDefinition(
+                "drop_target",
+                "Drop Target",
+                1,
+                0,
+                0,
+                EnemyMovePattern.Static,
+                0,
+                1,
+                0,
+                0,
+                0,
+                1,
+                0,
+                1,
+                1,
+                0,
+                1,
+                0,
+                1,
+                null);
+            var weapon =
+                new WeaponDefinition("drop_shot", 1, 1, 10, 1, 0, 0);
+            var content = new BattleContent(
+                new[] { enemy },
+                new[] { weapon },
+                weapon.Id);
+            var segment = new StageSegment(
+                "drop_cleanup",
+                80,
+                new[]
+                {
+                    new SpawnEvent(0, enemy.Id, 522, 0)
+                },
+                1,
+                1,
+                new[] { 1 });
+            var plan = new StagePlan(
+                new[] { segment },
+                string.Empty,
+                1,
+                1,
+                1);
+            var sim = new BattleSim(
+                config,
+                new Rng(0x6510UL),
+                plan,
+                content,
+                PowerUpGauge.CreateDefault(),
+                BattleModifierStackSet.FromFlags(
+                    BattleModifier.None,
+                    4),
+                null,
+                true);
+
+            for (int tick = 0; tick < 18; tick++)
+                sim.Step(InputCommand.None);
+            sim.Step(new InputCommand(0, 0, true));
+            sim.Step(InputCommand.None);
+
+            Assert.AreEqual(1L, sim.Statistics.Kills);
+            Assert.AreEqual(0, sim.Capsules.Count);
+            Assert.AreEqual(0, sim.BombPickups.Count);
+        }
+
+        [Test]
+        public void BoundaryWaitsForResidualHostileBulletsToExit()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.MaxEnemyBullets = 64;
+            config.EnemyBulletSpeedNumerator = 0;
+            config.BulletDespawnX = 100000;
+            config.PlayerSpawnY = 100;
+            var manager = new RunManager(
+                0x6511UL,
+                new BoundaryStageGenerator(),
+                config,
+                CreateBoundaryContent(),
+                PowerUpGauge.CreateDefault());
+            BattleSim opening = (BattleSim)manager.Battle;
+
+            for (int tick = 0; tick < 80; tick++)
+                manager.Step(InputCommand.None);
+
+            Assert.AreEqual(1, manager.RoomIndex);
+            Assert.AreEqual(80, opening.Tick);
+            Assert.Greater(opening.Bullets.Count, 0);
+
+            for (int guard = 0;
+                guard < 300 && manager.RoomIndex == 1;
+                guard++)
+                manager.Step(InputCommand.None);
+
+            Assert.AreEqual(2, manager.RoomIndex);
+            Assert.AreEqual(0, opening.Enemies.Count);
+            Assert.AreEqual(0, opening.Bullets.Count);
+        }
+
+        [Test]
+        public void TimedMidBossHoverMeanRemainsNearSpawnAnchor()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerMinY = -4096;
+            config.PlayerMaxY = 4096;
+            config.EnemyDespawnX = -4096;
+            var phases = new[]
+            {
+                new BossPhase(
+                    999, 1, 0, 1,
+                    BossMovementPattern.Stationary,
+                    0, 1, 1,
+                    BossPartVulnerability.Legacy,
+                    120, 0),
+                new BossPhase(
+                    999, 1, 0, 1,
+                    BossMovementPattern.VerticalSine,
+                    256, 1, 90,
+                    BossPartVulnerability.Legacy,
+                    105, 0)
+            };
+            StagePlan plan = new StagePlan(
+                new[]
+                {
+                    new StageSegment(
+                        "entry",
+                        1,
+                        new SpawnEvent[0],
+                        1,
+                        1,
+                        new[] { 1 })
+                },
+                "mid",
+                1,
+                1,
+                1,
+                100000,
+                16,
+                16,
+                0,
+                phases);
+            var sim = new BattleSim(
+                config,
+                new Rng(0x6509UL),
+                plan,
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
+
+            for (int tick = 0;
+                tick < 512
+                    && (!sim.BossActive || sim.BossEntering);
+                tick++)
+                sim.Step(InputCommand.None);
+
+            const int windowTicks = 450;
+            long windowSum = 0;
+            int maxAbsWindowMean = 0;
+            int minY = sim.Boss.Y;
+            int maxY = sim.Boss.Y;
+            for (int tick = 0; tick < 4500; tick++)
+            {
+                sim.Step(InputCommand.None);
+                windowSum += sim.Boss.Y;
+                minY = System.Math.Min(minY, sim.Boss.Y);
+                maxY = System.Math.Max(maxY, sim.Boss.Y);
+                if ((tick + 1) % windowTicks == 0)
+                {
+                    int mean = (int)(windowSum / windowTicks);
+                    maxAbsWindowMean = System.Math.Max(
+                        maxAbsWindowMean,
+                        System.Math.Abs(mean));
+                    TestContext.WriteLine(
+                        "window={0} meanY={1}",
+                        (tick + 1) / windowTicks,
+                        mean);
+                    windowSum = 0;
+                }
+            }
+            TestContext.WriteLine(
+                "minY={0} maxY={1} maxAbsMean={2}",
+                minY,
+                maxY,
+                maxAbsWindowMean);
+
+            Assert.LessOrEqual(maxAbsWindowMean, 256);
+            Assert.GreaterOrEqual(minY, -256);
+            Assert.LessOrEqual(maxY, 256);
         }
 
         [Test]
@@ -271,6 +560,75 @@ namespace Shmup.Core.Tests
                 weapon.Id);
         }
 
+        static BattleContent CreateBoundaryContent()
+        {
+            var regular = new EnemyDefinition(
+                "boundary_target",
+                "Boundary Target",
+                1000,
+                0,
+                0,
+                EnemyMovePattern.Static,
+                0,
+                1,
+                1,
+                0,
+                0,
+                0,
+                0,
+                1,
+                1);
+            var phases = new[]
+            {
+                new BossPhase(
+                    999, 1, 0, 1,
+                    BossMovementPattern.Stationary,
+                    0, 1, 1,
+                    BossPartVulnerability.Legacy,
+                    120, 0),
+                new BossPhase(
+                    999, 1, 0, 1,
+                    BossMovementPattern.VerticalSine,
+                    64, 1, 90,
+                    BossPartVulnerability.Legacy,
+                    105, 0)
+            };
+            var profile = new MidBossProfile(
+                "boundary",
+                1,
+                1,
+                99,
+                phases);
+            var midBoss = new EnemyDefinition(
+                "mini_boundary",
+                "Boundary Mid",
+                1000,
+                0,
+                0,
+                EnemyMovePattern.Static,
+                0,
+                1,
+                999,
+                16,
+                16,
+                0,
+                0,
+                1,
+                1,
+                0,
+                1,
+                0,
+                0,
+                null,
+                profile);
+            var weapon =
+                new WeaponDefinition("shot", 1, 1, 0, 1, 0, 0);
+            return new BattleContent(
+                new[] { regular, midBoss },
+                new[] { weapon },
+                weapon.Id);
+        }
+
         sealed class ShortStageGenerator : IStageGenerator
         {
             readonly bool _spawnTarget;
@@ -304,6 +662,47 @@ namespace Shmup.Core.Tests
                     1,
                     1,
                     1);
+            }
+        }
+
+        sealed class BoundaryStageGenerator : IStageGenerator
+        {
+            public StagePlan Generate(
+                ulong seed,
+                int stageIndex,
+                int difficulty)
+            {
+                var segment = new StageSegment(
+                    "boundary",
+                    80,
+                    new[]
+                    {
+                        new SpawnEvent(
+                            0,
+                            "boundary_target",
+                            1000,
+                            0),
+                        new SpawnEvent(
+                            40,
+                            "boundary_target",
+                            1000,
+                            0)
+                    },
+                    1,
+                    1,
+                    new[] { 1 });
+                return new StagePlan(
+                    new[] { segment },
+                    "none",
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    0,
+                    0,
+                    null,
+                    "boundary");
             }
         }
     }

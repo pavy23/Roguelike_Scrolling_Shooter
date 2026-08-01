@@ -1239,6 +1239,23 @@ namespace Shmup.Core.Simulation
             int multiplierLevel,
             int comboGauge,
             int ticksSinceLastKill)
+            : this(
+                playerX,
+                playerY,
+                multiplierLevel,
+                comboGauge,
+                ticksSinceLastKill,
+                0L)
+        {
+        }
+
+        public BattleContinuityState(
+            int playerX,
+            int playerY,
+            int multiplierLevel,
+            int comboGauge,
+            int ticksSinceLastKill,
+            long scrollX)
         {
             if (multiplierLevel < 0)
                 throw new ArgumentOutOfRangeException(
@@ -1249,11 +1266,14 @@ namespace Shmup.Core.Simulation
             if (ticksSinceLastKill < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(ticksSinceLastKill));
+            if (scrollX < 0)
+                throw new ArgumentOutOfRangeException(nameof(scrollX));
             PlayerX = playerX;
             PlayerY = playerY;
             MultiplierLevel = multiplierLevel;
             ComboGauge = comboGauge;
             TicksSinceLastKill = ticksSinceLastKill;
+            ScrollX = scrollX;
         }
 
         public int PlayerX { get; }
@@ -1261,6 +1281,8 @@ namespace Shmup.Core.Simulation
         public int MultiplierLevel { get; }
         public int ComboGauge { get; }
         public int TicksSinceLastKill { get; }
+        /// <summary>Absolute parallax scroll at the captured room boundary.</summary>
+        public long ScrollX { get; }
     }
 
     /// <summary>Deterministic integer-only combat and generated-stage simulation.</summary>
@@ -1456,7 +1478,8 @@ namespace Shmup.Core.Simulation
         // 보스 (REQ-007). _bossMaxHp == 0 이면 이 스테이지에 보스전 없음.
         readonly int _bossMaxHp, _bossRuntimeMaxHp;
         readonly int _bossHalfWidth, _bossHalfHeight, _bossHoldX;
-        readonly int _bossSpawnX, _bossCleanupStartTick;
+        readonly int _bossSpawnX, _fieldCleanupStartTick;
+        readonly bool _preparesBossRoomBoundary;
         readonly IReadOnlyList<Generation.BossPhase> _bossPhases;
         readonly IReadOnlyList<BossPartDefinition> _bossPartDefinitions;
         readonly BossPartState[] _bossPartStates;
@@ -1471,6 +1494,7 @@ namespace Shmup.Core.Simulation
         int _bossPhaseAge;
         int _bossMovementAnchorY;
         int _bossMovementPhaseOffsetTicks;
+        int _bossMovementTransitionOffsetY;
         int _bossVelocityY;
         bool _bossPhaseTelegraphPending;
         bool _bossBurstAwaitingVolley;
@@ -1481,6 +1505,8 @@ namespace Shmup.Core.Simulation
         const int BossHoverAmplitude = 3 * SimSpace.SubUnitsPerWorldUnit;
         const int BossGlideSpeedPerTick = 64;
         public const int BossSpawnSuppressionLeadTicks = 40;
+        public const int RoomBoundaryCleanupLeadTicks = 60;
+        const int BossMovementRecenterTicks = 30;
         const int BossRetreatSpeedPerTick = 2 * SimSpace.SubUnitsPerWorldUnit;
         const byte EnemyMovementDiveTargetLocked = 1;
         const byte EnemyMovementBossRetreat = 2;
@@ -1497,6 +1523,7 @@ namespace Shmup.Core.Simulation
         long _shotsFired, _shotsHit, _kills, _capsulesCollected, _grazeCount;
 
         long _playerXRemainder, _playerYRemainder;
+        readonly long _scrollBaseOffset;
         long _driftXRemainder, _driftYRemainder;
         StageEnvironmentState _environment;
         int _currentEnvironmentSegmentIndex = -1;
@@ -1532,7 +1559,8 @@ namespace Shmup.Core.Simulation
                     BattleModifier.None,
                     4),
                 false,
-                null)
+                null,
+                false)
         {
         }
 
@@ -1553,7 +1581,8 @@ namespace Shmup.Core.Simulation
                     BattleModifier.None,
                     4),
                 true,
-                null)
+                null,
+                false)
         {
         }
 
@@ -1574,7 +1603,8 @@ namespace Shmup.Core.Simulation
                     activeModifiers,
                     4),
                 true,
-                null)
+                null,
+                false)
         {
         }
 
@@ -1593,7 +1623,8 @@ namespace Shmup.Core.Simulation
                 powerUpGauge,
                 modifierStacks,
                 true,
-                null)
+                null,
+                false)
         {
         }
 
@@ -1604,7 +1635,8 @@ namespace Shmup.Core.Simulation
             BattleContent content,
             PowerUpGauge powerUpGauge,
             BattleModifierStackSet modifierStacks,
-            BattleContinuityState continuityState)
+            BattleContinuityState continuityState,
+            bool preparesBossRoomBoundary = false)
             : this(
                 config,
                 rng,
@@ -1613,7 +1645,8 @@ namespace Shmup.Core.Simulation
                 powerUpGauge,
                 modifierStacks,
                 true,
-                continuityState)
+                continuityState,
+                preparesBossRoomBoundary)
         {
         }
 
@@ -1625,7 +1658,8 @@ namespace Shmup.Core.Simulation
             PowerUpGauge powerUpGauge,
             BattleModifierStackSet modifierStacks,
             bool stageEnabled,
-            BattleContinuityState continuityState)
+            BattleContinuityState continuityState,
+            bool preparesBossRoomBoundary)
         {
             if (config == null) throw new ArgumentNullException(nameof(config));
             if (rng == null) throw new ArgumentNullException(nameof(rng));
@@ -2004,9 +2038,20 @@ namespace Shmup.Core.Simulation
                     (long)SimSpace.PlayfieldHalfWidthSubUnits
                     + GetBossLeftExtent()
                     + 1));
-            _bossCleanupStartTick = Math.Max(
-                0,
-                _stageTotalTicks - BossSpawnSuppressionLeadTicks);
+            _preparesBossRoomBoundary =
+                stageEnabled && preparesBossRoomBoundary;
+            int cleanupLeadTicks = _preparesBossRoomBoundary
+                ? RoomBoundaryCleanupLeadTicks
+                : _bossMaxHp > 0
+                    ? BossSpawnSuppressionLeadTicks
+                    : 0;
+            _fieldCleanupStartTick = cleanupLeadTicks == 0
+                ? int.MaxValue
+                : _stageTotalTicks > cleanupLeadTicks
+                    ? _stageTotalTicks - cleanupLeadTicks
+                    : _stageTotalTicks == int.MaxValue
+                        ? int.MaxValue
+                        : _stageTotalTicks + 1;
 
             int bulletCapacity = _maxBullets + _maxEnemyBullets;
             _bullets = new List<BulletState>(bulletCapacity);
@@ -2151,6 +2196,9 @@ namespace Shmup.Core.Simulation
                     Math.Min(
                         _playerMaxY,
                         continuityState.PlayerY));
+            _scrollBaseOffset = continuityState == null
+                ? 0L
+                : continuityState.ScrollX;
             if (continuityState != null)
             {
                 _multiplierLevel =
@@ -2187,7 +2235,8 @@ namespace Shmup.Core.Simulation
                 PlayerY,
                 _multiplierLevel,
                 _comboGauge,
-                _ticksSinceLastKill);
+                _ticksSinceLastKill,
+                ScrollX);
         }
         public BattleStatistics Statistics => new BattleStatistics(
             _shotsFired,
@@ -2251,6 +2300,26 @@ namespace Shmup.Core.Simulation
         /// <summary>보스전이 예정된 스테이지인지 (RunManager가 종료 조건 분기에 쓴다).</summary>
         public bool HasBossBattle => _bossMaxHp > 0;
         public bool BossDefeated => _bossDefeated;
+        /// <summary>
+        /// True when this regular room must drain before the following boss room.
+        /// </summary>
+        public bool PreparesBossRoomBoundary =>
+            _preparesBossRoomBoundary;
+        /// <summary>
+        /// True after all hostile and collectible transient state has exited.
+        /// Player-owned projectiles do not block a room transition.
+        /// </summary>
+        public bool IsRoomBoundaryReady =>
+            !_preparesBossRoomBoundary
+            || (_enemies.Count == 0
+                && CountEnemyBullets() == 0
+                && _obstacles.Count == 0
+                && _capsules.Count == 0
+                && _bombPickups.Count == 0
+                && _lasers.Count == 0);
+        bool IsRoomBoundaryCleanupActive =>
+            _preparesBossRoomBoundary
+            && Tick >= _fieldCleanupStartTick;
 
         void ResolveBossPartRuntimeData()
         {
@@ -2313,7 +2382,12 @@ namespace Shmup.Core.Simulation
         /// <summary>Returns scroll at any tick using only immutable speed and the tick argument.</summary>
         public long GetScrollXAtTick(int tick)
         {
-            return ComputeScrollX(tick, _scrollSpeedNumerator, _scrollSpeedDenominator);
+            return checked(
+                _scrollBaseOffset
+                + ComputeScrollX(
+                    tick,
+                    _scrollSpeedNumerator,
+                    _scrollSpeedDenominator));
         }
 
         /// <summary>Pure integer scroll function: floor(tick * numerator / denominator).</summary>
@@ -3691,6 +3765,9 @@ namespace Shmup.Core.Simulation
                 int nextYRemainder = (int)(accumulatedY % yDenominator);
                 long nextX = bullet.X + (long)deltaX;
                 long nextYLong = bullet.Y + (long)deltaY;
+                if (bullet.Faction == BulletFaction.Enemy
+                    && IsRoomBoundaryCleanupActive)
+                    nextX -= BossRetreatSpeedPerTick;
                 if (bullet.Kind == BulletKind.Missile
                     && _missileFamily == MissileFamily.SpreadBomb
                     && nextYLong
@@ -3910,12 +3987,12 @@ namespace Shmup.Core.Simulation
                 bool retreatingForBoss =
                     (_enemyMovementFlags[index]
                         & EnemyMovementBossRetreat) != 0;
-                if (_bossMaxHp > 0
-                    && Tick >= _bossCleanupStartTick
+                if (Tick >= _fieldCleanupStartTick
                     && (!_bossSpawned || retreatingForBoss))
                 {
                     _enemyMovementFlags[index] |=
                         EnemyMovementBossRetreat;
+                    retreatingForBoss = true;
                     nextX -= BossRetreatSpeedPerTick;
                 }
                 int y = state.Y;
@@ -3963,7 +4040,8 @@ namespace Shmup.Core.Simulation
                 _enemies[index] = new EnemyState(state.Id, state.DefinitionId, x, y, state.Hp);
 
                 // 터렛류 조준 사격 (REQ-007 요청 1): fireIntervalTicks > 0 인 정의만.
-                if (definition.LaserAttack != null
+                if (!retreatingForBoss
+                    && definition.LaserAttack != null
                     && age % definition.LaserAttack.CycleIntervalTicks
                         == 0)
                 {
@@ -3974,7 +4052,8 @@ namespace Shmup.Core.Simulation
                         x,
                         y);
                 }
-                else if (definition.LaserAttack == null
+                else if (!retreatingForBoss
+                    && definition.LaserAttack == null
                     && definition.FireIntervalTicks > 0
                     && age % definition.FireIntervalTicks == 0)
                     SpawnEnemyAimedBullet(
@@ -3990,8 +4069,7 @@ namespace Shmup.Core.Simulation
                 && _scheduledSpawns[_nextScheduledSpawn].Tick <= tick)
             {
                 ScheduledSpawn spawn = _scheduledSpawns[_nextScheduledSpawn++];
-                if (_bossMaxHp > 0
-                    && spawn.Tick >= _bossCleanupStartTick)
+                if (spawn.Tick >= _fieldCleanupStartTick)
                 {
                     continue;
                 }
@@ -4003,6 +4081,8 @@ namespace Shmup.Core.Simulation
             {
                 ScheduledObstacle scheduled =
                     _scheduledObstacles[_nextScheduledObstacle++];
+                if (scheduled.Tick >= _fieldCleanupStartTick)
+                    continue;
                 if (_obstacles.Count >= _maxObstacles)
                 {
                     EmitEvent(
@@ -4105,6 +4185,7 @@ namespace Shmup.Core.Simulation
                 _bossPhaseAge = 0;
                 _bossMovementAnchorY = _bossY;
                 _bossMovementPhaseOffsetTicks = 0;
+                _bossMovementTransitionOffsetY = 0;
                 _bossVelocityY = 0;
                 Generation.BossPhase initialPhase =
                     _bossPhases[0];
@@ -4566,6 +4647,8 @@ namespace Shmup.Core.Simulation
             bool legacyVerticalMovementActive)
         {
             int previousY = _bossY;
+            int transitionOffset =
+                GetBossMovementTransitionOffset();
             switch (phase.MovementPattern)
             {
                 case BossMovementPattern.LegacyHover:
@@ -4573,18 +4656,23 @@ namespace Shmup.Core.Simulation
                     if (_bossPartDefinitions.Count > 0
                         && !legacyVerticalMovementActive)
                     {
-                        _bossY = _bossMovementAnchorY;
+                        _bossY = SaturateToInt(
+                            (long)_bossMovementAnchorY
+                            + transitionOffset);
                         break;
                     }
                     int tick = _bossPhaseAge
                         + _bossMovementPhaseOffsetTicks;
                     _bossY = SaturateToInt(
                         (long)_bossMovementAnchorY
-                        + ComputeLegacyHoverOffset(tick));
+                        + ComputeLegacyHoverOffset(tick)
+                        + transitionOffset);
                     break;
                 }
                 case BossMovementPattern.Stationary:
-                    _bossY = _bossMovementAnchorY;
+                    _bossY = SaturateToInt(
+                        (long)_bossMovementAnchorY
+                        + transitionOffset);
                     break;
                 case BossMovementPattern.VerticalSine:
                 {
@@ -4593,7 +4681,8 @@ namespace Shmup.Core.Simulation
                         + ComputeVerticalSineOffset(
                             phase,
                             _bossPhaseAge
-                                + _bossMovementPhaseOffsetTicks));
+                                + _bossMovementPhaseOffsetTicks)
+                        + transitionOffset);
                     break;
                 }
                 default:
@@ -4609,38 +4698,25 @@ namespace Shmup.Core.Simulation
             Generation.BossPhase phase)
         {
             int carriedVelocity = _bossVelocityY;
+            int currentOffset = SaturateToInt(
+                (long)_bossY - _bossMovementAnchorY);
             int phaseOffset = FindClosestMovementPhase(
                 phase,
+                SaturateToInt(
+                    (long)currentOffset + carriedVelocity),
                 carriedVelocity);
-            int firstOffset = ComputeMovementOffset(
-                phase,
-                phaseOffset);
             _bossMovementPhaseOffsetTicks = phaseOffset;
-            _bossMovementAnchorY = SaturateToInt(
-                (long)_bossY
+            _bossMovementTransitionOffsetY = SaturateToInt(
+                (long)currentOffset
                 + carriedVelocity
-                - firstOffset);
-            int amplitude = GetMovementAmplitude(phase);
-            int minimumAnchor = SaturateToInt(
-                (long)_playerMinY
-                + _bossHalfHeight
-                + amplitude);
-            int maximumAnchor = SaturateToInt(
-                (long)_playerMaxY
-                - _bossHalfHeight
-                - amplitude);
-            if (minimumAnchor <= maximumAnchor)
-            {
-                _bossMovementAnchorY = Math.Max(
-                    minimumAnchor,
-                    Math.Min(
-                        maximumAnchor,
-                        _bossMovementAnchorY));
-            }
+                - ComputeMovementOffset(
+                    phase,
+                    phaseOffset));
         }
 
         static int FindClosestMovementPhase(
             Generation.BossPhase phase,
+            int targetOffset,
             int velocity)
         {
             int period;
@@ -4661,7 +4737,8 @@ namespace Shmup.Core.Simulation
             }
 
             int bestTick = 0;
-            long bestError = long.MaxValue;
+            long bestPositionError = long.MaxValue;
+            long bestVelocityError = long.MaxValue;
             for (int tick = 0; tick < period; tick++)
             {
                 int offset =
@@ -4669,15 +4746,33 @@ namespace Shmup.Core.Simulation
                 long candidateVelocity =
                     (long)ComputeMovementOffset(phase, tick + 1)
                     - offset;
-                long error = Math.Abs(
+                long positionError = Math.Abs(
+                    (long)offset - targetOffset);
+                long velocityError = Math.Abs(
                     candidateVelocity - velocity);
-                if (error < bestError)
+                if (velocityError < bestVelocityError
+                    || (velocityError == bestVelocityError
+                        && positionError < bestPositionError))
                 {
-                    bestError = error;
+                    bestPositionError = positionError;
+                    bestVelocityError = velocityError;
                     bestTick = tick;
                 }
             }
             return bestTick;
+        }
+
+        int GetBossMovementTransitionOffset()
+        {
+            if (_bossMovementTransitionOffsetY == 0
+                || _bossPhaseAge >= BossMovementRecenterTicks)
+                return 0;
+            int remaining =
+                BossMovementRecenterTicks - _bossPhaseAge;
+            return SaturateToInt(
+                (long)_bossMovementTransitionOffsetY
+                * remaining
+                / BossMovementRecenterTicks);
         }
 
         static int ComputeMovementOffset(
@@ -4692,25 +4787,6 @@ namespace Shmup.Core.Simulation
                     return ComputeLegacyHoverOffset(tick);
                 case BossMovementPattern.VerticalSine:
                     return ComputeVerticalSineOffset(phase, tick);
-                default:
-                    throw new InvalidOperationException(
-                        "Unknown boss movement pattern.");
-            }
-        }
-
-        static int GetMovementAmplitude(
-            Generation.BossPhase phase)
-        {
-            switch (phase.MovementPattern)
-            {
-                case BossMovementPattern.Stationary:
-                    return 0;
-                case BossMovementPattern.LegacyHover:
-                    return BossHoverAmplitude;
-                case BossMovementPattern.VerticalSine:
-                    return SaturateToInt(
-                        (long)phase.MovementAmplitudeNumerator
-                        / phase.MovementAmplitudeDenominator);
                 default:
                     throw new InvalidOperationException(
                         "Unknown boss movement pattern.");
@@ -5429,7 +5505,11 @@ namespace Shmup.Core.Simulation
             while (index < _capsules.Count)
             {
                 CapsuleState capsule = _capsules[index];
-                int nextX = SaturateToInt(capsule.X - scrollDelta);
+                long cleanupRetreat = IsRoomBoundaryCleanupActive
+                    ? BossRetreatSpeedPerTick
+                    : 0L;
+                int nextX = SaturateToInt(
+                    capsule.X - scrollDelta - cleanupRetreat);
                 int nextY = capsule.Y;
                 if (_capsuleMagnetRadiusSubUnits > 0
                     && _capsuleMagnetSpeedNumerator > 0
@@ -5504,7 +5584,11 @@ namespace Shmup.Core.Simulation
             while (index < _bombPickups.Count)
             {
                 BombPickupState pickup = _bombPickups[index];
-                int nextX = SaturateToInt(pickup.X - scrollDelta);
+                long cleanupRetreat = IsRoomBoundaryCleanupActive
+                    ? BossRetreatSpeedPerTick
+                    : 0L;
+                int nextX = SaturateToInt(
+                    pickup.X - scrollDelta - cleanupRetreat);
                 int nextY = pickup.Y;
                 if (_capsuleMagnetRadiusSubUnits > 0
                     && _capsuleMagnetSpeedNumerator > 0
@@ -5624,6 +5708,8 @@ namespace Shmup.Core.Simulation
                 long nextX = obstacle.X
                     - scrollDelta
                     + accumulatedX / commonDenominator;
+                if (IsRoomBoundaryCleanupActive)
+                    nextX -= BossRetreatSpeedPerTick;
                 long nextY = obstacle.Y
                     + accumulatedY / commonDenominator;
                 if (nextX < _enemyDespawnX
@@ -7164,6 +7250,8 @@ namespace Shmup.Core.Simulation
 
         void TryDropCapsule(EnemyDefinition definition, int x, int y)
         {
+            if (IsRoomBoundaryCleanupActive)
+                return;
             int baseWeight = Math.Max(
                 0,
                 definition.DropWeight
@@ -7195,7 +7283,8 @@ namespace Shmup.Core.Simulation
 
         void TryDropBomb(EnemyDefinition definition, int x, int y)
         {
-            if (definition.BombDropWeight == 0
+            if (IsRoomBoundaryCleanupActive
+                || definition.BombDropWeight == 0
                 || _bombPickups.Count >= _maxBombPickups)
                 return;
             long scaledWeight = ScalePositiveRatioSaturated(

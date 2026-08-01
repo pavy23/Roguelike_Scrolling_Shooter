@@ -254,6 +254,10 @@ namespace Shmup.Core.Tests
 
             run.Step(in none);
             run.Step(in none);
+            for (int guard = 0;
+                guard < 100 && run.RoomIndex == 1;
+                guard++)
+                run.Step(in none);
 
             AssertAll(() =>
             {
