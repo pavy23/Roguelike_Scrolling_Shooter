@@ -91,10 +91,10 @@ namespace Shmup.Core.Simulation
     public sealed class RunSuspendData
     {
         /// <summary>
-        /// Schema 21 records the carried room-boundary scroll offset. Schema 20
-        /// is rejected because it would restart parallax at zero on resume.
+        /// Schema 22 records run-cumulative bomb activations. Schema 21 remains
+        /// migratable and initializes that newly observable statistic to zero.
         /// </summary>
-        public const int CurrentSchemaVersion = 21;
+        public const int CurrentSchemaVersion = 22;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -290,5 +290,8 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 59)]
         public long stageStartScrollX;
+
+        [DataMember(Order = 60)]
+        public long bombsUsed;
     }
 }

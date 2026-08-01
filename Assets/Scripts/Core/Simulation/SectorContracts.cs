@@ -33,7 +33,10 @@ namespace Shmup.Core.Simulation
         GuaranteedBombDrop = 3,
         GimmickIntensityMultiplier = 4,
         RewardOptionCountDelta = 5,
-        ScoreMultiplier = 6
+        ScoreMultiplier = 6,
+        GaugeActivationBanned = 7,
+        OptionActivationBanned = 8,
+        ShieldActivationBanned = 9
     }
 
     public readonly struct ContractEffectView
@@ -84,7 +87,10 @@ namespace Shmup.Core.Simulation
             ContractDestinationKind destinationKind =
                 ContractDestinationKind.NextStage,
             ContractEligibility eligibility =
-                ContractEligibility.Always)
+                ContractEligibility.Always,
+            bool gaugeActivationBanned = false,
+            bool optionActivationBanned = false,
+            bool shieldActivationBanned = false)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException(
@@ -158,6 +164,9 @@ namespace Shmup.Core.Simulation
             ScoreMultiplierDenominator = scoreMultiplierDenominator;
             DestinationKind = destinationKind;
             Eligibility = eligibility;
+            GaugeActivationBanned = gaugeActivationBanned;
+            OptionActivationBanned = optionActivationBanned;
+            ShieldActivationBanned = shieldActivationBanned;
             _effects = Array.AsReadOnly(BuildEffects());
         }
 
@@ -178,6 +187,9 @@ namespace Shmup.Core.Simulation
         public int ScoreMultiplierDenominator { get; }
         public ContractDestinationKind DestinationKind { get; }
         public ContractEligibility Eligibility { get; }
+        public bool GaugeActivationBanned { get; }
+        public bool OptionActivationBanned { get; }
+        public bool ShieldActivationBanned { get; }
         public IReadOnlyList<ContractEffectView> Effects => _effects;
 
         public bool IsEligible(
@@ -210,11 +222,14 @@ namespace Shmup.Core.Simulation
                 == GimmickIntensityDenominator
             && RewardOptionCountDelta == 0
             && ScoreMultiplierNumerator
-                == ScoreMultiplierDenominator;
+                == ScoreMultiplierDenominator
+            && !GaugeActivationBanned
+            && !OptionActivationBanned
+            && !ShieldActivationBanned;
 
         ContractEffectView[] BuildEffects()
         {
-            var effects = new List<ContractEffectView>(7);
+            var effects = new List<ContractEffectView>(10);
             AddMultiplier(
                 effects,
                 ContractEffectType.EnemyDensityMultiplier,
@@ -248,6 +263,18 @@ namespace Shmup.Core.Simulation
                 ContractEffectType.ScoreMultiplier,
                 ScoreMultiplierNumerator,
                 ScoreMultiplierDenominator);
+            if (GaugeActivationBanned)
+                effects.Add(new ContractEffectView(
+                    ContractEffectType.GaugeActivationBanned,
+                    1));
+            if (OptionActivationBanned)
+                effects.Add(new ContractEffectView(
+                    ContractEffectType.OptionActivationBanned,
+                    1));
+            if (ShieldActivationBanned)
+                effects.Add(new ContractEffectView(
+                    ContractEffectType.ShieldActivationBanned,
+                    1));
             return effects.ToArray();
         }
 

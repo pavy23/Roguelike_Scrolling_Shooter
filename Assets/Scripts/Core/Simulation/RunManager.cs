@@ -660,6 +660,7 @@ namespace Shmup.Core.Simulation
             long kills,
             long capsulesCollected,
             long grazeCount,
+            long bombsUsed,
             int stagesCleared,
             int roomsCleared)
         {
@@ -668,6 +669,7 @@ namespace Shmup.Core.Simulation
             Kills = kills;
             CapsulesCollected = capsulesCollected;
             GrazeCount = grazeCount;
+            BombsUsed = bombsUsed;
             StagesCleared = stagesCleared;
             RoomsCleared = roomsCleared;
         }
@@ -677,6 +679,7 @@ namespace Shmup.Core.Simulation
         public long Kills { get; }
         public long CapsulesCollected { get; }
         public long GrazeCount { get; }
+        public long BombsUsed { get; }
         public int StagesCleared { get; }
         public int BiomesCleared => StagesCleared;
         public int RoomsCleared { get; }
@@ -904,6 +907,7 @@ namespace Shmup.Core.Simulation
         long _completedKills;
         long _completedCapsulesCollected;
         long _completedGrazeCount;
+        long _completedBombsUsed;
         int _stagesCleared;
         int _roomsCleared;
         bool _activateHeld;
@@ -916,6 +920,7 @@ namespace Shmup.Core.Simulation
         long _stageStartKills;
         long _stageStartCapsulesCollected;
         long _stageStartGrazeCount;
+        long _stageStartBombsUsed;
         int _stageStartStagesCleared;
         int _stageStartRoomsCleared;
         int _stageStartPlayerLife;
@@ -1652,6 +1657,7 @@ namespace Shmup.Core.Simulation
                         _completedCapsulesCollected,
                         battle.CapsulesCollected),
                     AddSaturated(_completedGrazeCount, battle.GrazeCount),
+                    AddSaturated(_completedBombsUsed, battle.BombsUsed),
                     _stagesCleared,
                     _roomsCleared);
             }
@@ -1866,6 +1872,7 @@ namespace Shmup.Core.Simulation
                 kills = _stageStartKills,
                 capsulesCollected = _stageStartCapsulesCollected,
                 grazeCount = _stageStartGrazeCount,
+                bombsUsed = _stageStartBombsUsed,
                 stagesCleared = _stageStartStagesCleared,
                 roomsCleared = _stageStartRoomsCleared,
                 powerUpLevels =
@@ -2078,6 +2085,7 @@ namespace Shmup.Core.Simulation
                 data.capsulesCollected;
             manager._capsuleBalance = data.capsuleBalance;
             manager._completedGrazeCount = data.grazeCount;
+            manager._completedBombsUsed = data.bombsUsed;
             manager._stagesCleared = data.stagesCleared;
             manager._roomsCleared = data.roomsCleared;
             manager.CurrentPrimaryWeaponFamily =
@@ -2584,6 +2592,7 @@ namespace Shmup.Core.Simulation
                 && BiomeIndex != BiomeCount)
                 return false;
             ActiveContract = selected;
+            ApplyContractActivationBans(selected);
             if (selected.DestinationKind
                 == ContractDestinationKind.NextStage)
                 ApplyContractDestination(
@@ -3321,6 +3330,7 @@ namespace Shmup.Core.Simulation
             _completedKills = 0;
             _completedCapsulesCollected = 0;
             _completedGrazeCount = 0;
+            _completedBombsUsed = 0;
             _stagesCleared = 0;
             _roomsCleared = 0;
             _pendingBattleContinuity = null;
@@ -3436,6 +3446,9 @@ namespace Shmup.Core.Simulation
             _completedGrazeCount = AddSaturated(
                 _completedGrazeCount,
                 battle.GrazeCount);
+            _completedBombsUsed = AddSaturated(
+                _completedBombsUsed,
+                battle.BombsUsed);
         }
 
         void IncrementStagesCleared()
@@ -3566,6 +3579,15 @@ namespace Shmup.Core.Simulation
             _battleConfig.ContractGuaranteesBombDrop = false;
             _battleConfig.ContractScoreMultiplierNumerator = 1;
             _battleConfig.ContractScoreMultiplierDenominator = 1;
+            PowerUpGauge.SetContractActivationBans(false, false, false);
+        }
+
+        void ApplyContractActivationBans(ContractDefinition contract)
+        {
+            PowerUpGauge.SetContractActivationBans(
+                contract != null && contract.GaugeActivationBanned,
+                contract != null && contract.OptionActivationBanned,
+                contract != null && contract.ShieldActivationBanned);
         }
 
         static bool TryMultiply(long left, long right, out long result)
@@ -3735,7 +3757,8 @@ namespace Shmup.Core.Simulation
                 || data.shotsHit < 0
                 || data.kills < 0
                 || data.capsulesCollected < 0
-                || data.grazeCount < 0)
+                || data.grazeCount < 0
+                || data.bombsUsed < 0)
             {
                 throw new ArgumentException(
                     "Suspend score and statistics cannot be negative.",
@@ -4182,6 +4205,7 @@ namespace Shmup.Core.Simulation
                 ActiveContract.ScoreMultiplierNumerator;
             _battleConfig.ContractScoreMultiplierDenominator =
                 ActiveContract.ScoreMultiplierDenominator;
+            ApplyContractActivationBans(ActiveContract);
         }
 
         void RestoreContractDestination(ContractChoiceData data)
@@ -5212,6 +5236,7 @@ namespace Shmup.Core.Simulation
             _stageStartCapsuleBalance =
                 _capsuleBalance;
             _stageStartGrazeCount = _completedGrazeCount;
+            _stageStartBombsUsed = _completedBombsUsed;
             _stageStartStagesCleared = _stagesCleared;
             _stageStartRoomsCleared = _roomsCleared;
             _stageStartPlayerLife = Battle.PlayerHp;

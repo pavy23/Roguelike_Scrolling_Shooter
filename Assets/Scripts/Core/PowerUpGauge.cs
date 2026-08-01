@@ -66,7 +66,10 @@ namespace Shmup.Core
         NoSelection = 0,
         SlotMaxed = 1,
         ProgressAdded = 2,
-        LevelIncreased = 3
+        LevelIncreased = 3,
+        ContractGaugeActivationBanned = 4,
+        ContractOptionActivationBanned = 5,
+        ContractShieldActivationBanned = 6
     }
 
     /// <summary>
@@ -311,6 +314,9 @@ namespace Shmup.Core
         }
 
         public int Cursor { get; private set; } = NoSelection;
+        public bool GaugeActivationBanned { get; private set; }
+        public bool OptionActivationBanned { get; private set; }
+        public bool ShieldActivationBanned { get; private set; }
         public int GaugeSlotCount => _gaugeSlots.Length;
         public IReadOnlyList<PowerUpSlotDefinition> GaugeSlots =>
             _readOnlyGaugeSlots;
@@ -404,6 +410,9 @@ namespace Shmup.Core
                 if (Cursor == NoSelection)
                     return false;
                 PowerUpSlot slot = _gaugeSlots[Cursor].Slot;
+                if (GetContractBanResult(slot)
+                    != PowerUpActivationResult.NoSelection)
+                    return false;
                 return _levels[(int)slot]
                     < _maxLevels[(int)slot];
             }
@@ -431,6 +440,13 @@ namespace Shmup.Core
             }
 
             PowerUpSlot slot = _gaugeSlots[Cursor].Slot;
+            PowerUpActivationResult contractBan =
+                GetContractBanResult(slot);
+            if (contractBan != PowerUpActivationResult.NoSelection)
+            {
+                LastActivationResult = contractBan;
+                return LastActivationResult;
+            }
             int stateIndex = (int)slot;
             if (_levels[stateIndex] >= _maxLevels[stateIndex])
             {
@@ -468,6 +484,34 @@ namespace Shmup.Core
             LastActivationResult =
                 PowerUpActivationResult.LevelIncreased;
             return LastActivationResult;
+        }
+
+        /// <summary>
+        /// Applies the active stage contract without consuming the current
+        /// selection. Capsule collection and cursor movement remain available.
+        /// </summary>
+        public void SetContractActivationBans(
+            bool gaugeActivationBanned,
+            bool optionActivationBanned,
+            bool shieldActivationBanned)
+        {
+            GaugeActivationBanned = gaugeActivationBanned;
+            OptionActivationBanned = optionActivationBanned;
+            ShieldActivationBanned = shieldActivationBanned;
+        }
+
+        PowerUpActivationResult GetContractBanResult(PowerUpSlot slot)
+        {
+            if (GaugeActivationBanned)
+                return PowerUpActivationResult
+                    .ContractGaugeActivationBanned;
+            if (slot == PowerUpSlot.Option && OptionActivationBanned)
+                return PowerUpActivationResult
+                    .ContractOptionActivationBanned;
+            if (slot == PowerUpSlot.Shield && ShieldActivationBanned)
+                return PowerUpActivationResult
+                    .ContractShieldActivationBanned;
+            return PowerUpActivationResult.NoSelection;
         }
 
         public int[] ExportLevels() => (int[])_levels.Clone();

@@ -29,6 +29,7 @@ namespace Shmup.Core.Tests
 
             Step(sim, new InputCommand(0, 0, false, false, true));
             Assert.AreEqual(1, sim.BombStock);
+            Assert.AreEqual(1L, sim.Statistics.BombsUsed);
             Assert.IsTrue(HasEvent(
                 sim.EventsThisTick,
                 SimEventType.BombActivated));
@@ -36,10 +37,12 @@ namespace Shmup.Core.Tests
             Step(sim, InputCommand.None);
             Step(sim, new InputCommand(0, 0, false, false, true));
             Assert.AreEqual(0, sim.BombStock);
+            Assert.AreEqual(2L, sim.Statistics.BombsUsed);
             Step(sim, InputCommand.None);
             Step(sim, new InputCommand(0, 0, false, false, true));
 
             Assert.AreEqual(0, sim.BombStock);
+            Assert.AreEqual(2L, sim.Statistics.BombsUsed);
             Assert.IsTrue(HasEvent(
                 sim.EventsThisTick,
                 SimEventType.BombActivationRejectedEmpty));

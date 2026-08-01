@@ -60,6 +60,7 @@ namespace Shmup.Core.Simulation
             FoldInt64(statistics.Kills);
             FoldInt64(statistics.CapsulesCollected);
             FoldInt64(statistics.GrazeCount);
+            FoldInt64(statistics.BombsUsed);
             FoldInt32(statistics.StagesCleared);
             FoldInt32(statistics.RoomsCleared);
 
@@ -190,6 +191,10 @@ namespace Shmup.Core.Simulation
         void FoldPowerUpGauge(PowerUpGauge gauge)
         {
             FoldInt32(gauge.Cursor);
+            FoldInt32((int)gauge.LastActivationResult);
+            FoldBool(gauge.GaugeActivationBanned);
+            FoldBool(gauge.OptionActivationBanned);
+            FoldBool(gauge.ShieldActivationBanned);
             for (int i = 0; i < PowerUpGauge.SlotCount; i++)
             {
                 var slot = (PowerUpSlot)i;
@@ -500,6 +505,7 @@ namespace Shmup.Core.Simulation
             FoldInt64(statistics.Kills);
             FoldInt64(statistics.CapsulesCollected);
             FoldInt64(statistics.GrazeCount);
+            FoldInt64(statistics.BombsUsed);
             FoldInt32(battle.MultiplierLevel);
             FoldInt32(battle.ScoreMultiplier);
             FoldInt32(battle.ComboGauge);

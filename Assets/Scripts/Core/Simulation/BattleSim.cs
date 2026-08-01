@@ -188,13 +188,15 @@ namespace Shmup.Core.Simulation
             long shotsHit,
             long kills,
             long capsulesCollected,
-            long grazeCount)
+            long grazeCount,
+            long bombsUsed)
         {
             ShotsFired = shotsFired;
             ShotsHit = shotsHit;
             Kills = kills;
             CapsulesCollected = capsulesCollected;
             GrazeCount = grazeCount;
+            BombsUsed = bombsUsed;
         }
 
         public long ShotsFired { get; }
@@ -202,6 +204,7 @@ namespace Shmup.Core.Simulation
         public long Kills { get; }
         public long CapsulesCollected { get; }
         public long GrazeCount { get; }
+        public long BombsUsed { get; }
     }
 
     public enum BulletFaction { Player = 0, Enemy = 1 }
@@ -1533,6 +1536,7 @@ namespace Shmup.Core.Simulation
         readonly long[] _enemyScanDistances;
         int _eventCount;
         long _shotsFired, _shotsHit, _kills, _capsulesCollected, _grazeCount;
+        long _bombsUsed;
 
         long _playerXRemainder, _playerYRemainder;
         readonly long _scrollBaseOffset;
@@ -2255,7 +2259,8 @@ namespace Shmup.Core.Simulation
             _shotsHit,
             _kills,
             _capsulesCollected,
-            _grazeCount);
+            _grazeCount,
+            _bombsUsed);
         public long ScrollX => GetScrollXAtTick(Tick);
         public int PlayerX { get; private set; }
         public int PlayerY { get; private set; }
@@ -3004,6 +3009,7 @@ namespace Shmup.Core.Simulation
             }
 
             BombStock--;
+            IncrementSaturated(ref _bombsUsed);
             EmitEvent(
                 SimEventType.BombStockChanged,
                 0,

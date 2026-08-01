@@ -134,10 +134,91 @@ namespace Shmup.Core.Tests
                 () => new InputPlayback(old));
         }
 
+        [Test]
+        public void ContractActivationBansSurviveSuspendAndReplay()
+        {
+            ContractCatalog contracts = CreateRestrictionContracts();
+            RewardCatalog rewards = CreateBothPoolRewards();
+            RunManager source = CreateRun(0x7094UL, rewards, contracts);
+            DriveToMainReward(source);
+            Assert.IsTrue(source.ChooseReward(0));
+            Assert.IsTrue(source.ChooseContract(1));
+
+            Assert.IsTrue(source.ActiveContract.GaugeActivationBanned);
+            Assert.IsTrue(source.ActiveContract.OptionActivationBanned);
+            Assert.IsTrue(source.ActiveContract.ShieldActivationBanned);
+            Assert.IsFalse(source.ActiveContract.IsNeutral);
+            Assert.IsTrue(HasEffect(
+                source.ActiveContract,
+                ContractEffectType.GaugeActivationBanned));
+            Assert.IsTrue(HasEffect(
+                source.ActiveContract,
+                ContractEffectType.OptionActivationBanned));
+            Assert.IsTrue(HasEffect(
+                source.ActiveContract,
+                ContractEffectType.ShieldActivationBanned));
+
+            RunSuspendData suspend = source.ExportSuspendData();
+            RunManager resumed = ResumeRun(
+                suspend,
+                rewards,
+                contracts);
+            Assert.IsTrue(resumed.PowerUpGauge.GaugeActivationBanned);
+            Assert.IsTrue(resumed.PowerUpGauge.OptionActivationBanned);
+            Assert.IsTrue(resumed.PowerUpGauge.ShieldActivationBanned);
+
+            var recorder = new InputRecorder();
+            var activate = new InputCommand(0, 0, false, true);
+            recorder.Record(in activate);
+            source.Step(in activate);
+            foreach (InputCommand input in new InputPlayback(recorder.Export()))
+                resumed.Step(in input);
+
+            Assert.AreEqual(
+                PowerUpActivationResult.ContractGaugeActivationBanned,
+                source.PowerUpGauge.LastActivationResult);
+            Assert.AreEqual(
+                source.PowerUpGauge.LastActivationResult,
+                resumed.PowerUpGauge.LastActivationResult);
+            AssertRunHashEqual(source, resumed);
+        }
+
         static RunManager CreateRun(
             ulong seed,
             RewardCatalog rewards,
             ContractCatalog contracts)
+        {
+            BattleSimConfig config = CreateConfig();
+            BattleContent content = CreateContent();
+            return new RunManager(
+                seed,
+                new ContractTestGenerator(),
+                config,
+                content,
+                PowerUpGauge.CreateDefault(),
+                rewards,
+                contracts);
+        }
+
+        static RunManager ResumeRun(
+            RunSuspendData data,
+            RewardCatalog rewards,
+            ContractCatalog contracts)
+        {
+            return RunManager.ResumeFromSuspendData(
+                data,
+                new ContractTestGenerator(),
+                CreateConfig(),
+                CreateContent(),
+                PowerUpGauge.CreateDefault(),
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                null,
+                contracts);
+        }
+
+        static BattleSimConfig CreateConfig()
         {
             BattleSimConfig config =
                 BattleSimConfig.CreateDefault();
@@ -153,6 +234,11 @@ namespace Shmup.Core.Tests
             config.MaxShieldStock = 5;
             config.StartingBombStock = 3;
             config.MaxBombStock = 3;
+            return config;
+        }
+
+        static BattleContent CreateContent()
+        {
             var weapon = new WeaponDefinition(
                 "contract_test_shot",
                 1,
@@ -165,14 +251,7 @@ namespace Shmup.Core.Tests
                 Array.Empty<EnemyDefinition>(),
                 new[] { weapon },
                 weapon.Id);
-            return new RunManager(
-                seed,
-                new ContractTestGenerator(),
-                config,
-                content,
-                PowerUpGauge.CreateDefault(),
-                rewards,
-                contracts);
+            return content;
         }
 
         static void DriveToMainReward(RunManager run)
@@ -330,6 +409,39 @@ namespace Shmup.Core.Tests
                         scoreMultiplierNumerator: 3,
                         scoreMultiplierDenominator: 2)
                 });
+        }
+
+        static ContractCatalog CreateRestrictionContracts()
+        {
+            return new ContractCatalog(
+                "standard_route",
+                2,
+                2,
+                new[]
+                {
+                    new ContractDefinition(
+                        "standard_route",
+                        1,
+                        ContractRiskTier.Safe),
+                    new ContractDefinition(
+                        "spartan_lock",
+                        1,
+                        ContractRiskTier.Extreme,
+                        scoreMultiplierNumerator: 2,
+                        gaugeActivationBanned: true,
+                        optionActivationBanned: true,
+                        shieldActivationBanned: true)
+                });
+        }
+
+        static bool HasEffect(
+            ContractDefinition contract,
+            ContractEffectType effectType)
+        {
+            for (int i = 0; i < contract.Effects.Count; i++)
+                if (contract.Effects[i].Type == effectType)
+                    return true;
+            return false;
         }
 
         static void AssertRunHashEqual(

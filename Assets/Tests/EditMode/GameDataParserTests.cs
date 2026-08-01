@@ -713,7 +713,10 @@ namespace Shmup.Core.Tests
         ""guaranteedBombDrop"": true,
         ""gimmickIntensityMultiplier"": 1.5,
         ""rewardOptionCountDelta"": 1,
-        ""scoreMultiplier"": 1.5
+        ""scoreMultiplier"": 1.5,
+        ""gaugeActivationBanned"": true,
+        ""optionActivationBanned"": true,
+        ""shieldActivationBanned"": true
       }
     ]
   },
@@ -748,6 +751,10 @@ namespace Shmup.Core.Tests
                 "standard_route",
                 data.Contracts.Standard.Id);
             Assert.AreEqual(2, data.Contracts.All.Count);
+            Assert.IsTrue(data.Contracts.All[1].GaugeActivationBanned);
+            Assert.IsTrue(data.Contracts.All[1].OptionActivationBanned);
+            Assert.IsTrue(data.Contracts.All[1].ShieldActivationBanned);
+            Assert.AreEqual(10, data.Contracts.All[1].Effects.Count);
             Assert.AreEqual(
                 RewardPool.Mid,
                 data.Rewards.All[0].Pool);

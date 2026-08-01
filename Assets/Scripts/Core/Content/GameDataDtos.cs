@@ -309,6 +309,12 @@ namespace Shmup.Core.Content
         public int? rewardOptionCountDelta;
         [DataMember]
         public decimal? scoreMultiplier;
+        [DataMember]
+        public bool? gaugeActivationBanned;
+        [DataMember]
+        public bool? optionActivationBanned;
+        [DataMember]
+        public bool? shieldActivationBanned;
     }
 
     [DataContract]

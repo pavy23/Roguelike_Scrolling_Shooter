@@ -250,7 +250,66 @@ namespace Shmup.Core.Tests
             });
         }
 
+        [Test]
+        public void ContractGaugeBanRejectsWithoutConsumingSelection()
+        {
+            PowerUpGauge gauge = PowerUpGauge.CreateDefault();
+            gauge.Collect();
+            int selectedCursor = gauge.Cursor;
+            gauge.SetContractActivationBans(true, false, false);
+
+            PowerUpActivationResult result = gauge.ActivateDetailed();
+
+            Assert.AreEqual(
+                PowerUpActivationResult.ContractGaugeActivationBanned,
+                result);
+            Assert.AreEqual(selectedCursor, gauge.Cursor);
+            Assert.AreEqual(0, gauge.GetLevel(PowerUpSlot.Speed));
+            Assert.IsFalse(gauge.CanActivate);
+            gauge.Collect();
+            Assert.AreNotEqual(selectedCursor, gauge.Cursor);
+        }
+
+        [Test]
+        public void ContractSlotBansOnlyRejectTheirOwnSlots()
+        {
+            PowerUpGauge optionGauge = PowerUpGauge.CreateDefault();
+            Select(optionGauge, PowerUpSlot.Option);
+            optionGauge.SetContractActivationBans(false, true, false);
+            Assert.AreEqual(
+                PowerUpActivationResult.ContractOptionActivationBanned,
+                optionGauge.ActivateDetailed());
+            Assert.AreEqual(
+                PowerUpSlot.Option,
+                optionGauge.SelectedSlot);
+
+            PowerUpGauge shieldGauge = PowerUpGauge.CreateDefault();
+            Select(shieldGauge, PowerUpSlot.Shield);
+            shieldGauge.SetContractActivationBans(false, false, true);
+            Assert.AreEqual(
+                PowerUpActivationResult.ContractShieldActivationBanned,
+                shieldGauge.ActivateDetailed());
+            Assert.AreEqual(
+                PowerUpSlot.Shield,
+                shieldGauge.SelectedSlot);
+
+            PowerUpGauge allowedGauge = PowerUpGauge.CreateDefault();
+            allowedGauge.Collect();
+            allowedGauge.SetContractActivationBans(false, true, true);
+            Assert.AreEqual(
+                PowerUpActivationResult.LevelIncreased,
+                allowedGauge.ActivateDetailed());
+        }
+
         static void SelectAndActivate(
+            PowerUpGauge gauge,
+            PowerUpSlot slot)
+        {
+            Select(gauge, slot);
+            gauge.ActivateDetailed();
+        }
+
+        static void Select(
             PowerUpGauge gauge,
             PowerUpSlot slot)
         {
@@ -267,7 +326,6 @@ namespace Shmup.Core.Tests
                     nameof(slot));
             for (int i = 0; i <= gaugeIndex; i++)
                 gauge.Collect();
-            gauge.ActivateDetailed();
         }
 
         static void AssertAll(Action assert) => assert();
