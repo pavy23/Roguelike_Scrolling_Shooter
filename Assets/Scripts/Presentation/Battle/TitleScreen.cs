@@ -81,9 +81,26 @@ namespace Shmup.Presentation.Battle
             SceneManager.LoadScene("Battle");
         }
 
+        /// <summary>
+        /// 새 시드 생성. TickCount 단독은 부팅 후 시간이 길수록 상위 자릿수가 고정돼
+        /// (예: 전부 4294xxxxxx) "맨날 같은 시드"로 체감된다 — 사람 지적 2026-08-01.
+        /// 시계·GUID를 곱셈 해시로 섞어 자릿수 전체가 움직이게 한다. 시드 '선택'은
+        /// Presentation 소관이라 여기서 섞어도 결정론(같은 시드 = 같은 런)과 무관하다.
+        /// </summary>
+        internal static uint NewRandomSeed()
+        {
+            unchecked
+            {
+                uint mixed = (uint)System.Environment.TickCount * 2654435761u;
+                mixed ^= (uint)System.DateTime.Now.Ticks;
+                mixed ^= (uint)System.Guid.NewGuid().GetHashCode() * 2246822519u;
+                return mixed;
+            }
+        }
+
         void RerollSeed()
         {
-            _seedText = ((uint)System.Environment.TickCount).ToString();
+            _seedText = NewRandomSeed().ToString();
         }
 
         // ── 글로벌 랭킹 (P1 스코어보드) ────────────────────────────────────────
@@ -250,7 +267,7 @@ namespace Shmup.Presentation.Battle
 
         void Start()
         {
-            _seedText = ((uint)System.Environment.TickCount).ToString();
+            _seedText = NewRandomSeed().ToString();
 
             var canvas = UiKit.CreateCanvas("TitleCanvas", 50);
             canvas.transform.SetParent(transform, false);
@@ -460,7 +477,7 @@ namespace Shmup.Presentation.Battle
         {
             DevArgs.RuntimeSeed = long.TryParse(_seedText, out long seed)
                 ? seed
-                : (uint)System.Environment.TickCount;
+                : NewRandomSeed();
             DevArgs.RuntimeDaily = false;
             SceneManager.LoadScene("Battle");
         }

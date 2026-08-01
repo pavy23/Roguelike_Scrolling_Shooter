@@ -362,7 +362,8 @@ namespace Shmup.Presentation.Battle
         {
             // 완주(RunCleared) 후에도 새 런을 시작할 수 있어야 한다 (REQ-031)
             if (_run == null || !_run.IsFinished) return;
-            ulong newSeed = (uint)System.Environment.TickCount ^ ((ulong)(uint)_run.RunNumber << 32);
+            // TickCount 단독은 자릿수가 굳어 보인다 — 타이틀과 같은 혼합 시드 사용
+            ulong newSeed = TitleScreen.NewRandomSeed() ^ ((ulong)(uint)_run.RunNumber << 32);
             _run.Restart(newSeed);
             Seed = (long)newSeed;
             IsDailyRun = false;   // 재출격은 새 시드다 — 더 이상 데일리 런이 아니다
