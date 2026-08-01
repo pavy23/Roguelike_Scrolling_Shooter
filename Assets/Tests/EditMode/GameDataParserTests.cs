@@ -1403,7 +1403,7 @@ namespace Shmup.Core.Tests
             Assert.IsNotNull(
                 data.BattleContent.FindMissileFamily(
                     MissileFamily.Homing));
-            Assert.AreEqual(38, data.StageGeneration.Segments.Count);
+            Assert.AreEqual(48, data.StageGeneration.Segments.Count);
             bool hasLeviathan = false;
             bool hasBroodmother = false;
             for (int i = 0;

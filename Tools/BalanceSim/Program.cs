@@ -62,11 +62,11 @@ static class Program
 
     // REQ-026 theme coverage (provisional §7).
     const int MinThemeTaggedSegments = 5;
-    const int MinStage1CandidateSegments = 6;
+    const int MinStage1CandidateSegments = 10; // REQ-099: stage-1 pool ≥10
     const int ThemeDiffAssemblySeedCount = 8;
 
     // Segment weights (REQ-029, provisional §7).
-    const int ExpectedSegmentCount = 38;
+    const int ExpectedSegmentCount = 48;
     const int DefaultSegmentWeight = StageSegmentTemplate.DefaultWeight;
     const int MinWeightedLowCount = 4;   // spectacle / maze / dense
     const int MaxWeightedLow = 5;        // weight ≤ this counts as low

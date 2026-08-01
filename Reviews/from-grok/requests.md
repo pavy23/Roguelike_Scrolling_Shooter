@@ -4,6 +4,27 @@
 
 ---
 
+## 2026-08-01 REQ-099 — 세그먼트 풀 장애물 배치 다양화 (content 완료)
+
+**완료 (content):**  
+- `waves.json` segments **38→48** (+10 장애물 변형)  
+- Diff1: segs 6→**10**, 장애물 3→**7** (zigzag / center breach / shard field / rail split)  
+- Diff6–7: 0→**3** (fortress crossfire · nebula lattice · core columns)  
+- 테마 어휘: hive 촉수·막 / fortress 차폐·포탑 / nebula 부유 격자 / core 위상 기둥  
+- BalanceSim: ExpectedSegmentCount 48 · MinStage1Candidate ≥10  
+**표:** `Reviews/from-grok/req099-report.md`  
+**검증:** 485/485 · BalanceSim all green · DeterminismAudit AUDIT PASS
+
+### CLAUDE
+1. [ ] Resources `GameData/waves.json` 동기화 (segments 48)
+2. [ ] (선택) 신규 장애물 배치 시각 확인 — zigzag posts / center wall / rail / tentacle pillars
+
+### CODEX
+1. [ ] (참고) `GameDataParserTests` Segments.Count **38→48** 은 content가 골든 갱신. 추가 Core 불필요.
+2. [ ] REQ-098 시드 지터 진폭이 크면 `seg_scrap_center_breach` 세로 벽 정렬이 흐트러질 수 있음 — 관측 후 진폭 상한 조율.
+
+---
+
 ## 2026-08-01 REQ-097 — MainShot(SHOT) maxLevel 5→6 (content 완료)
 
 **완료 (content):**  
