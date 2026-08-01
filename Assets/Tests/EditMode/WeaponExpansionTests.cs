@@ -709,6 +709,42 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void OptionFormationRewardRepositionsAndKeepsWeaponsAcrossRoomTransition()
+        {
+            RunManager run = CreateFormationRewardRun(3);
+            AdvanceToReward(run);
+
+            Assert.AreEqual(2, run.RoomIndex);
+            Assert.IsFalse(run.IsBiomeBoss);
+            Assert.AreEqual(RewardSelectionKind.MidStage, run.RewardSelectionKind);
+            Assert.AreEqual(OptionFormation.Fixed, run.RewardOptions[0].OptionFormation);
+            Assert.IsTrue(run.ChooseReward(0));
+
+            Assert.AreEqual(1, run.BiomeIndex);
+            Assert.AreEqual(3, run.RoomIndex);
+            AssertFormationWeapons(run);
+        }
+
+        [Test]
+        public void OptionFormationRewardPersistsAndKeepsWeaponsAcrossBiomeTransition()
+        {
+            RunManager run = CreateFormationRewardRun(1);
+            AdvanceToReward(run);
+
+            Assert.AreEqual(1, run.BiomeIndex);
+            Assert.IsTrue(run.IsBiomeBoss);
+            Assert.AreEqual(RewardSelectionKind.Main, run.RewardSelectionKind);
+            Assert.AreEqual(OptionFormation.Fixed, run.RewardOptions[0].OptionFormation);
+            Assert.IsTrue(run.ChooseReward(0));
+            Assert.AreEqual(RunState.AwaitingContract, run.State);
+            Assert.IsTrue(run.ChooseContract(0));
+
+            Assert.AreEqual(2, run.BiomeIndex);
+            Assert.AreEqual(1, run.RoomIndex);
+            AssertFormationWeapons(run);
+        }
+
+        [Test]
         public void WeaponsV4PrimaryMetadataAndRewardV2ParseEndToEnd()
         {
             string root = FindRepositoryRoot();
@@ -1251,6 +1287,98 @@ namespace Shmup.Core.Tests
                 new RunProgressionConfig(2, 1));
         }
 
+        static RunManager CreateFormationRewardRun(int roomsPerBiome)
+        {
+            return new RunManager(
+                0x100UL,
+                new FormationRewardStageGenerator(),
+                Config(),
+                ExpandedContent(),
+                Gauge(
+                    missileLevel: 1,
+                    optionLevel: PowerUpGauge.MaximumOptionCount),
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                FormationRewards(),
+                ShipDefinition.CreateDefault(),
+                1,
+                1,
+                new RunProgressionConfig(2, roomsPerBiome));
+        }
+
+        static RewardCatalog FormationRewards()
+        {
+            return new RewardCatalog(
+                RunManager.RewardOptionCount,
+                new[]
+                {
+                    FormationReward("mid_fixed_a", RewardPool.Mid),
+                    FormationReward("mid_fixed_b", RewardPool.Mid),
+                    FormationReward("main_fixed_a", RewardPool.Main),
+                    FormationReward("main_fixed_b", RewardPool.Main),
+                    FormationReward("main_fixed_c", RewardPool.Main)
+                });
+        }
+
+        static RewardDefinition FormationReward(string id, RewardPool pool)
+        {
+            return new RewardDefinition(
+                id,
+                RewardType.OptionFormation,
+                PowerUpSlot.Option,
+                1,
+                1,
+                1,
+                99,
+                optionFormation: OptionFormation.Fixed,
+                pool: pool);
+        }
+
+        static void AdvanceToReward(RunManager run)
+        {
+            var fire = new InputCommand(0, 0, true);
+            for (int tick = 0;
+                tick < 5000 && run.State != RunState.AwaitingReward;
+                tick++)
+                run.Step(in fire);
+            Assert.AreEqual(RunState.AwaitingReward, run.State);
+        }
+
+        static void AssertFormationWeapons(RunManager run)
+        {
+            Assert.AreEqual(OptionFormation.Fixed, run.CurrentOptionFormation);
+            Assert.AreEqual(RunState.Playing, run.State);
+            var battle = (BattleSim)run.Battle;
+            Assert.AreEqual(PowerUpGauge.MaximumOptionCount, battle.Options.Count);
+            int[] expectedXs = { 192, 192, 192, 192, 192, 192 };
+            int[] expectedYs = { 384, -384, 704, -704, 1024, -1024 };
+            for (int i = 0; i < battle.Options.Count; i++)
+            {
+                Assert.AreEqual(battle.PlayerX + expectedXs[i], battle.Options[i].X);
+                Assert.AreEqual(battle.PlayerY + expectedYs[i], battle.Options[i].Y);
+            }
+
+            var fire = new InputCommand(0, 0, true);
+            run.Step(in fire);
+
+            Assert.AreSame(battle, run.Battle);
+            Assert.AreEqual(
+                PowerUpGauge.MaximumOptionCount + 1,
+                CountBullets(battle, BulletKind.MainShot));
+            Assert.AreEqual(
+                PowerUpGauge.MaximumOptionCount + 1,
+                CountBullets(battle, BulletKind.Missile));
+        }
+
+        static int CountBullets(BattleSim sim, BulletKind kind)
+        {
+            int count = 0;
+            for (int i = 0; i < sim.Bullets.Count; i++)
+                if (sim.Bullets[i].Kind == kind)
+                    count++;
+            return count;
+        }
+
         static RunManager CreateHomingShipRewardRun()
         {
             var ship = new ShipDefinition(
@@ -1510,8 +1638,8 @@ namespace Shmup.Core.Tests
                 new OptionFormationDefinition(
                     OptionFormation.Fixed,
                     0,
-                    new[] { 192, 192, 192, 192 },
-                    new[] { 384, -384, 704, -704 },
+                    new[] { 192, 192, 192, 192, 192, 192 },
+                    new[] { 384, -384, 704, -704, 1024, -1024 },
                     0,
                     0,
                     1),
@@ -1601,6 +1729,39 @@ namespace Shmup.Core.Tests
                 var segment = new StageSegment(
                     "reward",
                     1,
+                    Array.Empty<SpawnEvent>(),
+                    1,
+                    1,
+                    new[] { 1 });
+                return new StagePlan(
+                    new[] { segment },
+                    "boss",
+                    1,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    100,
+                    Phases);
+            }
+        }
+
+        sealed class FormationRewardStageGenerator : IStageGenerator
+        {
+            static readonly BossPhase[] Phases =
+            {
+                new BossPhase(999, 1, 1, 1)
+            };
+
+            public StagePlan Generate(
+                ulong seed,
+                int stageIndex,
+                int difficulty)
+            {
+                var segment = new StageSegment(
+                    "formation_reward",
+                    200,
                     Array.Empty<SpawnEvent>(),
                     1,
                     1,

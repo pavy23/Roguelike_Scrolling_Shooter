@@ -249,7 +249,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void SixOptionMirrorVolleyTruncatesInStableIndexOrderAtBulletBudget()
+        public void SixOptionMainVolleyWaitsRatherThanTruncatingAtBulletBudget()
         {
             BattleSimConfig config = CreateConfig();
             config.PlayerSpeedPerTick = 0;
@@ -278,26 +278,12 @@ namespace Shmup.Core.Tests
 
             AssertOption(first.Options[4], 5, 50, 0);
             AssertOption(first.Options[5], 6, 60, 0);
-            Assert.AreEqual(4, first.Bullets.Count);
-            int[] expectedXs = { 0, 10, 20, 30 };
-            for (int i = 0; i < expectedXs.Length; i++)
-            {
-                AssertBullet(
-                    first.Bullets[i],
-                    BulletKind.MainShot,
-                    expectedXs[i],
-                    0);
-                AssertBullet(
-                    second.Bullets[i],
-                    BulletKind.MainShot,
-                    expectedXs[i],
-                    0);
-                Assert.AreEqual(first.Bullets[i].Id, second.Bullets[i].Id);
-            }
+            Assert.AreEqual(0, first.Bullets.Count);
+            Assert.AreEqual(0, second.Bullets.Count);
         }
 
         [Test]
-        public void OptionMissileVolleyMirrorsInIndexOrderAndTruncatesAtBulletBudget()
+        public void OptionMissileVolleyWaitsRatherThanTruncatingAtBulletBudget()
         {
             BattleSimConfig config = CreateConfig();
             config.PlayerSpeedPerTick = 0;
@@ -318,19 +304,53 @@ namespace Shmup.Core.Tests
 
             Step(sim, 0, 0, true);
 
-            Assert.AreEqual(10, sim.Bullets.Count);
-            Assert.AreEqual(3, CountBullets(sim.Bullets, BulletKind.Missile));
-            int[] expectedXs = { 0, 10, 20 };
-            int[] expectedPercents = { 100, 37, 37 };
-            for (int i = 0; i < expectedXs.Length; i++)
+            Assert.AreEqual(7, sim.Bullets.Count);
+            Assert.AreEqual(0, CountBullets(sim.Bullets, BulletKind.Missile));
+            for (int i = 0; i < sim.Bullets.Count; i++)
             {
-                BulletState missile = sim.Bullets[7 + i];
                 AssertBullet(
-                    missile,
-                    BulletKind.Missile,
-                    expectedXs[i],
+                    sim.Bullets[i],
+                    BulletKind.MainShot,
+                    i == 0 ? 0 : i * 10,
                     0);
-                Assert.AreEqual(expectedPercents[i], missile.DamagePercent);
+            }
+        }
+
+        [Test]
+        public void SixOptionsAtHighestFireRateSpawnOnlyCompleteMainShotVolleys()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerSpeedPerTick = 0;
+            config.PlayerBulletSpeedPerTick = 0;
+            config.OptionFormation = OptionFormation.Fixed;
+            config.OptionFixedOffsetXs = new[] { 10, 20, 30, 40, 50, 60 };
+            config.OptionFixedOffsetYs = new[] { 0, 0, 0, 0, 0, 0 };
+            config.MaxBullets = 64;
+            config.MainShotRapidFireStartLevel = 2;
+            config.MainShotFireIntervalReductionPerLevel = 1;
+            config.MainShotMinimumFireIntervalTicks = 4;
+            var gauge = new PowerUpGauge(new[] { 6, 3, 6, 3 });
+            gauge.ImportLevels(new[] { 6, 0, 6, 0 });
+            BattleSim sim = CreateSim(
+                config,
+                gauge,
+                EmptyPlan(),
+                Content(Weapon(baseDamage: 1, interval: 8, speed: 0)),
+                0x100UL);
+            var fire = new InputCommand(0, 0, true);
+
+            for (int tick = 0; tick < 40; tick++)
+                sim.Step(in fire);
+
+            Assert.AreEqual(63, sim.Bullets.Count);
+            Assert.AreEqual(63L, sim.Statistics.ShotsFired);
+            for (int emitter = 0; emitter <= PowerUpGauge.MaximumOptionCount; emitter++)
+            {
+                int emitterX = emitter * 10;
+                Assert.AreEqual(
+                    9,
+                    CountBulletsAtX(sim.Bullets, BulletKind.MainShot, emitterX),
+                    $"emitter {emitter} must receive every admitted volley");
             }
         }
 
@@ -620,6 +640,18 @@ namespace Shmup.Core.Tests
             int count = 0;
             for (int i = 0; i < bullets.Count; i++)
                 if (bullets[i].Kind == kind)
+                    count++;
+            return count;
+        }
+
+        static int CountBulletsAtX(
+            IReadOnlyList<BulletState> bullets,
+            BulletKind kind,
+            int x)
+        {
+            int count = 0;
+            for (int i = 0; i < bullets.Count; i++)
+                if (bullets[i].Kind == kind && bullets[i].X == x)
                     count++;
             return count;
         }

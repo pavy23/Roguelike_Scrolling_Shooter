@@ -2498,11 +2498,11 @@ namespace Shmup.Core.Simulation
                 if (_beamDamagePerTick == 0
                     && _cooldown == 0
                     && _burstShotsRemaining == 0
-                    && CountPlayerBullets() < _maxBullets)
+                    && HasCapacityForMainShotVolley())
                     SpawnMainShotVolley(false);
                 if (_missileLevel > 0
                     && _missileCooldown == 0
-                    && CountPlayerBullets() < _maxBullets)
+                    && HasCapacityForMissileVolley())
                     SpawnMissileVolley();
             }
         }
@@ -7502,7 +7502,7 @@ namespace Shmup.Core.Simulation
                 throw new InvalidOperationException("The bullet id counter is exhausted.");
             SpawnMainShotFrom(PlayerX, PlayerY);
             EmitEvent(SimEventType.PlayerFired, 0, PlayerX, PlayerY, (int)BulletKind.MainShot);
-            for (int i = 0; i < _options.Count && CountPlayerBullets() < _maxBullets; i++)
+            for (int i = 0; i < _options.Count; i++)
                 SpawnMainShotFrom(_options[i].X, _options[i].Y);
             if (burstContinuation)
                 return;
@@ -7522,22 +7522,17 @@ namespace Shmup.Core.Simulation
         {
             if (_playerWeaponType != WeaponType.Spread)
             {
-                if (CountPlayerBullets() < _maxBullets)
-                {
-                    SpawnBullet(BulletKind.MainShot, x, y);
-                    ApplyMainShotVelocity(
-                        _bullets.Count - 1,
-                        _bulletSpeedNumerator,
-                        0,
-                        _bulletSpeedDenominator);
-                }
+                SpawnBullet(BulletKind.MainShot, x, y);
+                ApplyMainShotVelocity(
+                    _bullets.Count - 1,
+                    _bulletSpeedNumerator,
+                    0,
+                    _bulletSpeedDenominator);
                 return;
             }
 
-            int available = Math.Max(0, _maxBullets - CountPlayerBullets());
-            int shots = Math.Min(_spreadWays, available);
             int spreadStep = GetCurrentSpreadStepLutSlots();
-            for (int i = 0; i < shots; i++)
+            for (int i = 0; i < _spreadWays; i++)
             {
                 int rotation;
                 if (_mainShotAngleLutSlots.Length != 0)
@@ -7639,7 +7634,7 @@ namespace Shmup.Core.Simulation
                 _burstCooldownTicks--;
             if (_burstCooldownTicks > 0)
                 return;
-            if (CountPlayerBullets() >= _maxBullets)
+            if (!HasCapacityForMainShotVolley())
             {
                 _burstCooldownTicks = 1;
                 return;
@@ -7655,9 +7650,7 @@ namespace Shmup.Core.Simulation
         {
             SpawnBullet(BulletKind.Missile, PlayerX, PlayerY);
             EmitEvent(SimEventType.PlayerFired, 0, PlayerX, PlayerY, (int)BulletKind.Missile);
-            for (int i = 0;
-                i < _options.Count && CountPlayerBullets() < _maxBullets;
-                i++)
+            for (int i = 0; i < _options.Count; i++)
             {
                 SpawnBullet(
                     BulletKind.Missile,
@@ -7671,6 +7664,26 @@ namespace Shmup.Core.Simulation
                 _missileRapidFireStartLevel,
                 _missileFireIntervalReductionPerLevel,
                 _missileMinimumFireIntervalTicks);
+        }
+
+        bool HasCapacityForMainShotVolley()
+        {
+            int shotsPerEmitter =
+                _playerWeaponType == WeaponType.Spread ? _spreadWays : 1;
+            return HasCapacityForPlayerVolley(shotsPerEmitter);
+        }
+
+        bool HasCapacityForMissileVolley()
+        {
+            return HasCapacityForPlayerVolley(1);
+        }
+
+        bool HasCapacityForPlayerVolley(int shotsPerEmitter)
+        {
+            // A volley is one deterministic unit: the player and every option
+            // either fire together or all wait for enough budget.
+            long required = (long)(_options.Count + 1) * shotsPerEmitter;
+            return required <= (long)_maxBullets - CountPlayerBullets();
         }
 
         void SpawnBullet(
