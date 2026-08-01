@@ -18,7 +18,7 @@ namespace Shmup.Core.Tests
             InputCommand fire = new InputCommand(0, 0, true);
 
             GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < WarmupTicks; i++)
+            for (int i = 0; i < 30; i++)
                 run.Step(in fire);
 
             bool sawCombat = false;
@@ -254,8 +254,8 @@ namespace Shmup.Core.Tests
                         120,
                         new[]
                         {
-                            new SpawnEvent(105, enemy.Id, 600, 300),
-                            new SpawnEvent(110, enemy.Id, 700, -300)
+                            new SpawnEvent(35, enemy.Id, 600, 300),
+                            new SpawnEvent(40, enemy.Id, 700, -300)
                         },
                         1,
                         1,
