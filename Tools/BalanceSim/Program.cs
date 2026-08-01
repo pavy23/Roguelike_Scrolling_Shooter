@@ -126,7 +126,8 @@ static class Program
     const int OptionMissileMaxBodies = 1 + 6; // ship + Option max 6
     const double OptionMissileTotalMultiplierMax = 4.5; // body 100% + 6×50% = 4.0
     const double WeaponEvolutionL3OverL1Min = 1.15;
-    const double WeaponEvolutionL3OverL1Max = 4.5; // no per-level damage axis yet
+    // REQ-093: Cross Fire 5-way + burst2 → analytical L3/L1 = 5.0 (double front + down).
+    const double WeaponEvolutionL3OverL1Max = 5.25;
 
     // REQ-060 stage-1 / curve clearability (provisional §7).
     // Mid-skill hit uptime on large hitboxes; not god-run, not death spiral.
@@ -6585,13 +6586,14 @@ static class Program
             + $"exclusive full needs ~{exclusiveFull / Math.Max(1.0, fullRoomEv):F1} "
             + "stages (all-in L6 only)");
 
-        // Closing must be 1.5×..2.0× opening segment count.
+        // Closing band: 1.5×..2.5× opening. REQ-093 extends to 7 segs (~83s @ 60Hz)
+        // so midboss→boss pressure has room (was 5 segs / 59s).
         double closeRatio = closeSegs / (double)openSegs;
-        if (closeRatio < 1.5 || closeRatio > 2.0)
+        if (closeRatio < 1.5 || closeRatio > 2.5)
         {
             Console.WriteLine(
                 $"FAIL gauge: closing/open segment ratio {closeRatio:F2} "
-                + "outside [1.5, 2.0].");
+                + "outside [1.5, 2.5].");
             failures++;
         }
 
@@ -6908,12 +6910,22 @@ static class Program
                         "FAIL evo: Double L2 must be Tail Guard (3-way incl. LUT 32 rear).");
                     failures++;
                 }
-                if (l3.SpreadWays != 4
+                // REQ-093: true cross front/up/down/rear + front dense (double 0) + burst.
+                // Core angles are signed [-32,32]: +5 ≈ +28°, -5 ≈ -28° (unsigned 59 ≡ -5), 32 = rear.
+                bool crossHasDown = false;
+                for (int a = 0; a < l3.ShotAngleLutSlots.Count; a++)
+                {
+                    if (l3.ShotAngleLutSlots[a] == -5)
+                        crossHasDown = true;
+                }
+                if (l3.SpreadWays != 5
                     || l3.BurstCount < 2
-                    || l3.ShotAngleLutSlots.Count != 4)
+                    || l3.ShotAngleLutSlots.Count != 5
+                    || !crossHasDown)
                 {
                     Console.WriteLine(
-                        "FAIL evo: Double L3 must be Cross Fire (4-way + burst≥2).");
+                        "FAIL evo: Double L3 must be Cross Fire "
+                        + "(5-way incl. LUT -5 down + burst≥2).");
                     failures++;
                 }
             }
@@ -6925,13 +6937,17 @@ static class Program
                         "FAIL evo: Triple L2 must be Pulse Fan (5-way + pulse).");
                     failures++;
                 }
+                // REQ-093 BURNER: wider pulse envelope than L2 for visual punch.
                 if (!l3.HasPulse
                     || l3.InertiaVelocityPercent < 1
                     || l3.MinimumFireIntervalTicks
-                        > def.MinimumFireIntervalTicks - 1)
+                        > def.MinimumFireIntervalTicks - 1
+                    || l3.PulseMaxStepLutSlots < l2.PulseMaxStepLutSlots
+                    || l3.PulseMinStepLutSlots > l2.PulseMinStepLutSlots)
                 {
                     Console.WriteLine(
-                        "FAIL evo: Triple L3 must add inertia + min interval -1.");
+                        "FAIL evo: Triple L3 BURNER must add inertia + minInt-1 "
+                        + "+ wider pulse than L2.");
                     failures++;
                 }
             }
@@ -6996,14 +7012,15 @@ static class Program
     }
 
     /// <summary>
-    /// REQ-088/087: phase-1 has no signature; phase 2–3 carry per-boss signatures
-    /// and denser projectile vocabulary toward later stages.
+    /// REQ-088/087 + REQ-093: Core reserves signatures for phase index ≥1
+    /// ("phase 2 or later"). p1 is the weak-but-present intro, p2 denser.
+    /// boss_storm p1/p2 fire heavy energy balls as Nebula identity.
     /// </summary>
     static int CheckBossBulletVocabulary(GameDataSet data)
     {
         int failures = 0;
         Console.WriteLine(
-            "REQ-088 boss bullet vocabulary placement (provisional §7):");
+            "REQ-093 boss bullet vocabulary placement (provisional §7):");
 
         var expected = new Dictionary<string, BossSignaturePattern>(
             StringComparer.Ordinal)
@@ -7045,10 +7062,12 @@ static class Program
             BossPhase p1 = boss.Phases[1];
             BossPhase p2 = boss.Phases[2];
 
+            // Core contract: signaturePatternId reserved for phase 2+ (index ≥1).
             if (p0.SignaturePattern != BossSignaturePattern.None)
             {
                 Console.WriteLine(
-                    $"FAIL vocab: '{id}' p0 must have no signature (learn phase).");
+                    $"FAIL vocab: '{id}' p0 must have no signature "
+                    + "(Core: reserved for phase 2+).");
                 failures++;
             }
 
@@ -7065,6 +7084,28 @@ static class Program
                 Console.WriteLine(
                     $"FAIL vocab: '{id}' p0 projectileKind should stay normal.");
                 failures++;
+            }
+
+            // Frequency: p1 (weak intro sig) faster than p0; p2 faster still.
+            if (p1.FireIntervalTicks >= p0.FireIntervalTicks
+                || p2.FireIntervalTicks >= p1.FireIntervalTicks)
+            {
+                Console.WriteLine(
+                    $"FAIL vocab: '{id}' fireInterval must tighten p0→p1→p2 "
+                    + $"({p0.FireIntervalTicks}/{p1.FireIntervalTicks}/{p2.FireIntervalTicks}).");
+                failures++;
+            }
+
+            // Nebula: large energy balls (heavy) on signature combat phases.
+            if (string.Equals(id, "boss_storm", StringComparison.Ordinal))
+            {
+                if (p1.ProjectileKind != BossProjectileKind.Heavy
+                    || p2.ProjectileKind != BossProjectileKind.Heavy)
+                {
+                    Console.WriteLine(
+                        "FAIL vocab: boss_storm p1/p2 must use heavy energy bullets.");
+                    failures++;
+                }
             }
 
             // Later stages denser mix: count non-normal kinds across p1+p2.
@@ -7100,7 +7141,7 @@ static class Program
         }
 
         if (failures == 0)
-            Console.WriteLine("PASS: REQ-088 boss bullet vocabulary.");
+            Console.WriteLine("PASS: REQ-093 boss bullet vocabulary.");
         return failures;
     }
 

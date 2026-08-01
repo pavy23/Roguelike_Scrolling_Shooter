@@ -16,7 +16,7 @@ namespace Shmup.Core.Tests
             PrimaryWeaponFamily.Double,
             2,
             3,
-            4)]
+            5)]
         [TestCase(
             "interceptor",
             PowerUpSlot.Triple,

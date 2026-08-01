@@ -1477,9 +1477,19 @@ namespace Shmup.Core.Tests
                 MissileFamily.Homing,
                 data.FindShip("bulwark").StartingMissileFamily.Value);
             Assert.AreEqual(2, data.FindShip("bulwark").MaxHp.Value);
+            // REQ-093: ship starting option formations (schema v4).
+            Assert.AreEqual(
+                OptionFormation.Trail,
+                data.FindShip("starter").StartingOptionFormation.Value);
+            Assert.AreEqual(
+                OptionFormation.Fixed,
+                data.FindShip("interceptor").StartingOptionFormation.Value);
+            Assert.AreEqual(
+                OptionFormation.Orbit,
+                data.FindShip("bulwark").StartingOptionFormation.Value);
             Assert.IsTrue(data.FindShip("starter").HasCustomPowerUpGauge);
             Assert.AreEqual(
-                5,
+                7,
                 data.StageGeneration.ClosingSegmentsPerStage);
             Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Speed));
             Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Missile));
@@ -1512,10 +1522,11 @@ namespace Shmup.Core.Tests
             for (int i = 0; i < closing.Segments.Count; i++)
                 closingTicks = checked(
                     closingTicks + closing.Segments[i].LengthTicks);
-            Assert.AreEqual(5, closing.Segments.Count);
+            Assert.AreEqual(7, closing.Segments.Count);
             Assert.Greater(closingTicks, 0);
+            // REQ-093: 7 segs ≈ 75–90s band (was 5 segs / 59s @ REQ-092 observation).
             TestContext.Progress.WriteLine(
-                $"REQ092 closing seed=123456789 theme=scrapyard "
+                $"REQ093 closing seed=123456789 theme=scrapyard "
                 + $"segments={closing.Segments.Count} ticks={closingTicks}");
 
             ulong[] reportedDuplicateSeeds = { 42UL, 20260729UL };
