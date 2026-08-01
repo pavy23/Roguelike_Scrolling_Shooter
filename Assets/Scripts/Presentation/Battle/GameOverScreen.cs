@@ -22,13 +22,24 @@ namespace Shmup.Presentation.Battle
         int _shownRun = int.MinValue;
         bool _shownCleared;
 
+        /// <summary>스코어보드 제출 상태. Sending/Done에서는 버튼이 다시 눌리지 않는다.</summary>
+        enum SubmitState { Idle, Sending, Done }
+
+        const string SubmitIdleLabel = "SUBMIT SCORE";
+
+        Button _submitButton;
+        Text _submitLabel;
+        SubmitState _submitState;
+
         void Start()
         {
             var canvas = UiKit.CreateCanvas("GameOverCanvas", 90);
             canvas.transform.SetParent(transform, false);
             _root = canvas.gameObject;
 
-            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(400f, 180f));
+            // 제출 버튼 한 줄이 늘어난 만큼 패널을 키운다 (요약 텍스트는 전부 상단 앵커라
+            // 위치가 그대로고, 힌트는 하단 앵커라 바닥에 붙어 따라 내려간다).
+            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(400f, 224f));
 
             _titleText = UiKit.CreateCornerText(panel, _fontBold, UiText.GameOverTitle, 22, UiKit.TextDanger,
                 new Vector2(0.5f, 1f), new Vector2(0f, -14f), TextAnchor.UpperCenter, "Title");
@@ -44,16 +55,26 @@ namespace Shmup.Presentation.Battle
                 UiText.GameOverHints, 11, UiKit.TextDim,
                 new Vector2(0.5f, 0f), new Vector2(0f, 16f), TextAnchor.LowerCenter, "Hints");
 
-            if (UiPlatform.TouchMode)
+            bool touch = UiPlatform.TouchMode;
+            if (touch)
             {
                 _hintsText.gameObject.SetActive(false);
                 _retryButton = UiKit.CreateTouchButton(panel, _font, "REDEPLOY", 11,
-                    new Vector2(0.5f, 0f), new Vector2(-66f, 12f), new Vector2(124f, 36f),
+                    new Vector2(0.5f, 0f), new Vector2(-66f, 58f), new Vector2(124f, 36f),
                     Retry, "RetryButton", accent: true);
                 UiKit.CreateTouchButton(panel, _font, "TITLE", 11,
-                    new Vector2(0.5f, 0f), new Vector2(66f, 12f), new Vector2(124f, 36f),
+                    new Vector2(0.5f, 0f), new Vector2(66f, 58f), new Vector2(124f, 36f),
                     ToTitle, "TitleButton");
             }
+
+            // 글로벌 스코어보드 제출 (P1). 앰버 CTA는 화면당 하나(REDEPLOY)라는 원칙을
+            // 지켜 헤어라인 셀로 둔다 — 제출은 선택지지 이 화면의 주 동작이 아니다.
+            _submitButton = UiKit.CreateTouchButton(panel, _font, SubmitIdleLabel, 11,
+                new Vector2(0.5f, 0f),
+                touch ? new Vector2(0f, 14f) : new Vector2(0f, 48f),
+                touch ? new Vector2(256f, 36f) : new Vector2(160f, 30f),
+                SubmitScore, "SubmitButton");
+            _submitLabel = _submitButton.GetComponentInChildren<Text>();
 
             _dim = UiKit.CreateDim(canvas.transform, Color.clear, "Tint");
             _dim.transform.SetAsFirstSibling();
@@ -69,6 +90,84 @@ namespace Shmup.Presentation.Battle
         static void ToTitle()
         {
             UnityEngine.SceneManagement.SceneManager.LoadScene("Title");
+        }
+
+        /// <summary>
+        /// 스코어보드 제출. 이름이 없으면 먼저 받고(폰 브라우저는 window.prompt), 그다음
+        /// 비동기 제출이다. 실패해도 화면은 그대로 살아 있고 버튼만 재시도로 바뀐다 —
+        /// 네트워크 사정이 재출격을 막으면 안 된다.
+        /// </summary>
+        void SubmitScore()
+        {
+            if (_submitState != SubmitState.Idle) return;
+            if (_director == null || !_director.IsRunFinished) return;
+
+            // 리플레이 재생은 기록의 재현일 뿐 새 기록이 아니다 — 보드에 올리지 않는다.
+            if (_director.ReplayMode)
+            {
+                _submitState = SubmitState.Done;
+                SetSubmitLabel("REPLAY — NO SUBMIT");
+                if (_submitButton != null) _submitButton.interactable = false;
+                return;
+            }
+
+            string playerName = ScoreboardClient.PlayerName;
+            if (string.IsNullOrEmpty(playerName))
+            {
+                playerName = ScoreboardClient.SanitizeName(NamePrompt.Ask(playerName));
+                if (string.IsNullOrEmpty(playerName))
+                {
+                    // 취소했거나 2자 미만이다. 상태는 Idle로 두어 다시 누를 수 있게 한다.
+                    SetSubmitLabel("NAME 2-10 CHARS");
+                    return;
+                }
+                ScoreboardClient.PlayerName = playerName;
+            }
+
+            _submitState = SubmitState.Sending;
+            SetSubmitLabel("SENDING...");
+            ScoreboardClient.Submit(new ScoreSubmission
+            {
+                Score = _director.TotalScore,
+                Seed = _director.Seed.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Ship = _director.ShipId,
+                Difficulty = _director.DifficultyLabel,
+                Grade = GradeLabel(_director.CompletionGrade),
+                // TODO: 리플레이 검증 해시. Core에 "이 런의 결과 해시"를 내주는 API가 없어
+                // 비워 둔다 (Reviews/from-claude/requests.md REQ-093 — CODEX 요청).
+                ReplayHash = "",
+                Daily = _director.IsDailyRun
+            }, OnSubmitDone);
+        }
+
+        void OnSubmitDone(int rank, string error)
+        {
+            // 응답이 늦게 오면 화면이 이미 파괴됐을 수 있다 (재출격/타이틀 복귀).
+            if (this == null || _submitButton == null) return;
+            if (error != null)
+            {
+                _submitState = SubmitState.Idle;
+                SetSubmitLabel("RETRY SUBMIT");
+                return;
+            }
+            _submitState = SubmitState.Done;
+            SetSubmitLabel(rank > 0 ? $"RANK #{rank}" : "SUBMITTED");
+            _submitButton.interactable = false;
+        }
+
+        void SetSubmitLabel(string text)
+        {
+            if (_submitLabel != null) _submitLabel.text = text;
+        }
+
+        static string GradeLabel(Shmup.Core.Simulation.RunCompletionGrade grade)
+        {
+            switch (grade)
+            {
+                case Shmup.Core.Simulation.RunCompletionGrade.PerfectClear: return "PERFECT";
+                case Shmup.Core.Simulation.RunCompletionGrade.StandardClear: return "CLEAR";
+                default: return "KIA";
+            }
         }
 
         void Update()
@@ -93,6 +192,13 @@ namespace Shmup.Presentation.Battle
                 {
                     var label = _retryButton.GetComponentInChildren<Text>();
                     if (label != null) label.text = cleared ? "NEW RUN" : "REDEPLOY";
+                }
+                // 새 런의 결과다 — 지난 런의 제출 결과(RANK #n)를 그대로 두면 오독된다.
+                if (_submitButton != null)
+                {
+                    _submitState = SubmitState.Idle;
+                    _submitButton.interactable = true;
+                    SetSubmitLabel(SubmitIdleLabel);
                 }
                 if (_dim != null)
                     _dim.color = cleared

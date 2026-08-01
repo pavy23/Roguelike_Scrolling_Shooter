@@ -1,0 +1,8 @@
+name = "rss-scoreboard"
+main = "src/worker.js"
+compatibility_date = "2026-07-01"
+account_id = "eb56ec40f4036a0d84cc28aad1420555"
+
+[[kv_namespaces]]
+binding = "SCORES"
+id = "151ca99fab2146dead5355a480a7413c"

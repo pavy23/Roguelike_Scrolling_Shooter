@@ -32,6 +32,14 @@ namespace Shmup.Presentation.Battle
         Text _difficultyText;
         Text _difficultyButtonLabel;
 
+        // 글로벌 랭킹 패널 (P1). 처음 눌렀을 때 한 번만 조립한다 — 타이틀에 온 사람 중
+        // 보드를 여는 쪽이 소수라 로드 시점에 미리 만들 이유가 없다.
+        GameObject _rankingRoot;
+        Text _rankingBody;
+
+        /// <summary>보드 표시 줄 수. 100줄을 다 받아도 화면에는 상위 10줄만 올린다.</summary>
+        const int RankingRows = 10;
+
         void RefreshDifficultyText()
         {
             if (_difficultyText != null)
@@ -49,6 +57,8 @@ namespace Shmup.Presentation.Battle
         void StartDailyRun()
         {
             DevArgs.RuntimeSeed = (long)Shmup.Core.DailySeed.FromDate(_dailyDateInt);
+            // 스코어보드가 데일리 보드로 가르는 유일한 근거 — 시드와 같은 채널로 넘긴다.
+            DevArgs.RuntimeDaily = true;
             SceneManager.LoadScene("Battle");
         }
 
@@ -58,6 +68,7 @@ namespace Shmup.Presentation.Battle
             // 저장 파일은 삭제하지 않는다 — 복원이 성공한 뒤 BattleDirector가 지운다
             BattleDirector.PendingResume = _suspended;
             DevArgs.RuntimeSeed = (long)_suspended.runSeed;
+            DevArgs.RuntimeDaily = false;
             SceneManager.LoadScene("Battle");
         }
 
@@ -66,12 +77,112 @@ namespace Shmup.Presentation.Battle
             if (_replay == null) return;
             BattleDirector.PendingReplay = _replay;
             DevArgs.RuntimeSeed = _replay.seed;
+            DevArgs.RuntimeDaily = false;
             SceneManager.LoadScene("Battle");
         }
 
         void RerollSeed()
         {
             _seedText = ((uint)System.Environment.TickCount).ToString();
+        }
+
+        // ── 글로벌 랭킹 (P1 스코어보드) ────────────────────────────────────────
+
+        void ToggleRanking()
+        {
+            if (_rankingRoot == null) BuildRankingPanel();
+            if (_rankingRoot == null) return;
+            bool open = !_rankingRoot.activeSelf;
+            _rankingRoot.SetActive(open);
+            // 열 때마다 새로 받는다 — 데일리 보드는 하루 종일 움직인다.
+            if (open) RequestRanking();
+        }
+
+        void CloseRanking()
+        {
+            if (_rankingRoot != null) _rankingRoot.SetActive(false);
+        }
+
+        /// <summary>
+        /// 계기판 언어 그대로: 딤 + 헤어라인 패널 + 앰버 룰 한 줄. 이 모달 안에서
+        /// 유일한 동작이 CLOSE라 여기서는 그쪽이 주 동작(챔퍼 블록)이다.
+        /// </summary>
+        void BuildRankingPanel()
+        {
+            var canvas = UiKit.CreateCanvas("RankingCanvas", 60);
+            canvas.transform.SetParent(transform, false);
+            _rankingRoot = canvas.gameObject;
+
+            UiKit.CreateDim(canvas.transform, new Color(0f, 0.01f, 0.05f, 0.72f));
+            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(320f, 250f));
+
+            UiKit.CreateCornerText(panel, _fontBold, "DAILY RANKING", 14, UiKit.TextMain,
+                new Vector2(0.5f, 1f), new Vector2(0f, -12f), TextAnchor.UpperCenter, "RankTitle");
+            UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -34f), 260f,
+                UiKit.TextAccent, "RankRule");
+
+            _rankingBody = UiKit.CreateCornerText(panel, _font, "", 10, UiKit.TextDim,
+                new Vector2(0.5f, 1f), new Vector2(0f, -44f), TextAnchor.UpperLeft, "RankBody");
+            _rankingBody.rectTransform.sizeDelta = new Vector2(280f, 150f);
+
+            UiKit.CreateTouchButton(panel, _font, "CLOSE", 11,
+                new Vector2(0.5f, 0f), new Vector2(0f, 12f), new Vector2(140f, 34f),
+                CloseRanking, "RankClose", accent: true);
+
+            _rankingRoot.SetActive(false);
+        }
+
+        void RequestRanking()
+        {
+            if (_rankingBody == null) return;
+            _rankingBody.text = "LOADING...";
+            _rankingBody.color = UiKit.TextDim;
+            ScoreboardClient.FetchBoard(true, OnRankingLoaded);
+        }
+
+        /// <summary>
+        /// 서버가 없거나 회선이 끊겨도 타이틀은 멀쩡해야 한다 — 실패는 OFFLINE 한 단어로
+        /// 끝내고 이유는 개발 빌드 로그(ScoreboardClient)에만 남긴다.
+        /// </summary>
+        void OnRankingLoaded(ScoreboardEntry[] entries, string error)
+        {
+            // 응답이 늦게 오면 이미 Battle 씬으로 넘어가 이 화면이 없을 수 있다.
+            if (this == null || _rankingBody == null) return;
+
+            if (error != null || entries == null)
+            {
+                _rankingBody.text = "OFFLINE";
+                _rankingBody.color = UiKit.TextDim;
+                return;
+            }
+            if (entries.Length == 0)
+            {
+                _rankingBody.text = "NO ENTRIES YET";
+                _rankingBody.color = UiKit.TextDim;
+                return;
+            }
+
+            var sb = new System.Text.StringBuilder(256);
+            int count = Mathf.Min(RankingRows, entries.Length);
+            for (int i = 0; i < count; i++)
+            {
+                var entry = entries[i];
+                if (entry == null) continue;
+                if (sb.Length > 0) sb.Append('\n');
+                sb.Append((i + 1).ToString().PadLeft(2));
+                sb.Append("  ");
+                sb.Append(Clip(entry.n, 10).PadRight(10));
+                sb.Append(' ');
+                sb.Append(entry.s.ToString("N0").PadLeft(10));
+            }
+            _rankingBody.text = sb.ToString();
+            _rankingBody.color = UiKit.TextMain;
+        }
+
+        static string Clip(string value, int max)
+        {
+            if (string.IsNullOrEmpty(value)) return "?";
+            return value.Length <= max ? value : value.Substring(0, max);
         }
 
         /// <summary>
@@ -114,6 +225,11 @@ namespace Shmup.Presentation.Battle
             UiKit.CreateTouchButton(parent, _font, "NEW SEED", 10,
                 new Vector2(1f, 1f), new Vector2(-10f, -150f), new Vector2(112f, h),
                 RerollSeed, "SeedButton");
+
+            // 글로벌 랭킹 (P1): 오늘의 데일리 보드 top 10. 시드 값 표시 아래에 둔다.
+            UiKit.CreateTouchButton(parent, _font, "RANKING", 10,
+                new Vector2(1f, 1f), new Vector2(-10f, -214f), new Vector2(112f, h),
+                ToggleRanking, "RankingButton");
 
             // 시드 값은 그 버튼 바로 아래로 옮긴다 — 원래 자리(하단 중앙)는 LAUNCH와 격납고가 쓴다.
             if (_seedValueText != null)
@@ -262,6 +378,10 @@ namespace Shmup.Presentation.Battle
                 }
             }
 
+            // 랭킹이 열려 있는 동안에는 출격/시드 편집 입력을 받지 않는다 —
+            // 모달 위에서 스페이스가 그대로 출격으로 새면 보드를 읽다가 런이 시작된다.
+            if (_rankingRoot != null && _rankingRoot.activeSelf) return;
+
             var keyboard = Keyboard.current;
             var gamepad = Gamepad.current;
 
@@ -341,6 +461,7 @@ namespace Shmup.Presentation.Battle
             DevArgs.RuntimeSeed = long.TryParse(_seedText, out long seed)
                 ? seed
                 : (uint)System.Environment.TickCount;
+            DevArgs.RuntimeDaily = false;
             SceneManager.LoadScene("Battle");
         }
     }

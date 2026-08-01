@@ -306,6 +306,37 @@ namespace Shmup.Presentation.Battle
         /// <summary>현재 런의 시드. --seed=N 커맨드라인 → 타이틀 입력 → 인스펙터 순으로 결정되고, 재시작 시 갱신된다.</summary>
         public long Seed { get; private set; }
 
+        /// <summary>
+        /// 이번 런이 데일리 시드로 시작됐는가 (스코어보드 보드 분리용). 타이틀이 DevArgs로
+        /// 알려 준 값을 Awake에서 한 번 굳힌다 — 재출격은 새 시드라 데일리가 아니다.
+        /// </summary>
+        public bool IsDailyRun { get; private set; }
+
+        /// <summary>이번 런에 탄 기체 id (스코어보드 표시용). 이어하기/리플레이도 기록 당시 기체를 따른다.</summary>
+        public string ShipId => _run != null && _run.Ship != null ? _run.Ship.Id : null;
+
+        /// <summary>완주 등급 (미완주 = None). 결과 요약과 스코어보드 제출이 읽는다.</summary>
+        public RunCompletionGrade CompletionGrade =>
+            _run != null ? _run.CompletionGrade : RunCompletionGrade.None;
+
+        /// <summary>
+        /// 난이도 라벨. 타이틀의 <see cref="DifficultySelect"/> 값이 아니라 런에 굳어 있는
+        /// 배율에서 되짚는다 — 이어하기/리플레이 도중 타이틀 선택이 바뀌어도 표시가 어긋나지 않는다.
+        /// </summary>
+        public string DifficultyLabel
+        {
+            get
+            {
+                if (_run == null) return DifficultySelect.Label;
+                int numerator = _run.DifficultyMultiplierNumerator;
+                int denominator = _run.DifficultyMultiplierDenominator;
+                if (numerator == 3 && denominator == 4) return "EASY";
+                if (numerator == 5 && denominator == 4) return "HARD";
+                if (numerator == denominator) return "NORMAL";
+                return $"{numerator}/{denominator}";
+            }
+        }
+
         /// <summary>파워업 게이지 (Core/RunManager 소유). HUD가 읽어서 그린다. 재시작 시 승계 적용된 새 인스턴스로 바뀐다.</summary>
         public PowerUpGauge Gauge => _run?.PowerUpGauge;
 
@@ -334,6 +365,7 @@ namespace Shmup.Presentation.Battle
             ulong newSeed = (uint)System.Environment.TickCount ^ ((ulong)(uint)_run.RunNumber << 32);
             _run.Restart(newSeed);
             Seed = (long)newSeed;
+            IsDailyRun = false;   // 재출격은 새 시드다 — 더 이상 데일리 런이 아니다
             ResetRunSummary();
             RefreshBattle();
             SyncViews();
@@ -451,6 +483,13 @@ namespace Shmup.Presentation.Battle
                     diffDen);
             }
             _sim = _run.Battle;
+
+            // 데일리 표식은 "타이틀의 DAILY RUN으로 시작한 신규 런"에만 붙인다.
+            // --seed 강제, 이어하기, 리플레이는 시드가 데일리와 같아도 같은 조건의 런이 아니다.
+            IsDailyRun = DevArgs.RuntimeDaily
+                && DevArgs.OverrideSeed == null
+                && !_replayMode
+                && pending == null;
 
             ApplyShipSprite(selectedShip != null ? selectedShip.Id : null);
             if (_sfx != null && selectedShip != null)
