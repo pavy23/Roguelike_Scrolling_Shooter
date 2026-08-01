@@ -94,19 +94,17 @@ namespace Shmup.Core.Tests
             int previousLaserId = MaximumPlayerLaserId(battle.Lasers);
             run.Step(new InputCommand(0, 0, true, true));
             battle = (BattleSim)run.Battle;
-            Assert.Multiple(() =>
-            {
-                Assert.AreEqual(expectedLevel, gauge.GetLevel(weaponSlot));
-                Assert.AreEqual(
-                    PowerUpWeaponModeFor(weaponSlot),
-                    gauge.ActiveWeaponMode);
-                Assert.AreEqual(
-                    expectedFamily,
-                    battle.EquippedPrimaryWeaponFamily);
-                Assert.AreEqual(
-                    expectedLevel,
-                    battle.PrimaryWeaponEvolutionLevel);
-            });
+            // Unity 내장 NUnit에는 Assert.Multiple이 없다 (dotnet-vs-unity 컴파일 함정)
+            Assert.AreEqual(expectedLevel, gauge.GetLevel(weaponSlot));
+            Assert.AreEqual(
+                PowerUpWeaponModeFor(weaponSlot),
+                gauge.ActiveWeaponMode);
+            Assert.AreEqual(
+                expectedFamily,
+                battle.EquippedPrimaryWeaponFamily);
+            Assert.AreEqual(
+                expectedLevel,
+                battle.PrimaryWeaponEvolutionLevel);
 
             int originX = battle.PlayerX;
             int originY = battle.PlayerY;
