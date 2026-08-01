@@ -321,6 +321,93 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void LungeReturnHoldsForTelegraphThenLungesAndReturns()
+        {
+            var phase = new BossPhase(
+                999, 1, 0, 1,
+                BossMovementPattern.LungeReturn,
+                120, 1, 10,
+                BossPartVulnerability.Legacy,
+                movementTelegraphTicks: 3);
+            BattleSim sim = CreateBossSim(
+                bossMaxHp: 100,
+                holdX: 300,
+                phases: new[] { phase });
+            InputCommand none = InputCommand.None;
+            for (int tick = 0;
+                tick < 300
+                    && (!sim.BossActive || sim.Boss.X != 300);
+                tick++)
+                sim.Step(in none);
+
+            var xs = new int[10];
+            bool telegraphed = false;
+            for (int tick = 0; tick < xs.Length; tick++)
+            {
+                sim.Step(in none);
+                xs[tick] = sim.Boss.X;
+                telegraphed |= HasEvent(
+                    sim.EventsThisTick,
+                    SimEventType.BossMovementTelegraphed);
+            }
+
+            Assert.AreEqual(3, phase.MovementTelegraphTicks);
+            Assert.IsTrue(telegraphed);
+            Assert.AreEqual(300, xs[0]);
+            Assert.AreEqual(300, xs[1]);
+            Assert.AreEqual(300, xs[2]);
+            Assert.Less(Minimum(xs), 300);
+            Assert.AreEqual(300, xs[9]);
+        }
+
+        [Test]
+        public void FigureEightUsesBothAxesAndIsDeterministic()
+        {
+            var phase = new BossPhase(
+                999, 1, 0, 1,
+                BossMovementPattern.FigureEight,
+                256, 1, 16,
+                BossPartVulnerability.Legacy);
+            BattleSim first = CreateBossSim(
+                bossMaxHp: 100,
+                holdX: 300,
+                phases: new[] { phase });
+            BattleSim second = CreateBossSim(
+                bossMaxHp: 100,
+                holdX: 300,
+                phases: new[] { phase });
+            InputCommand none = InputCommand.None;
+            for (int tick = 0; tick < 300; tick++)
+            {
+                first.Step(in none);
+                second.Step(in none);
+                if (first.BossActive && first.Boss.X == 300)
+                    break;
+            }
+
+            int minX = int.MaxValue;
+            int maxX = int.MinValue;
+            int minY = int.MaxValue;
+            int maxY = int.MinValue;
+            for (int tick = 0; tick < 32; tick++)
+            {
+                first.Step(in none);
+                second.Step(in none);
+                minX = Math.Min(minX, first.Boss.X);
+                maxX = Math.Max(maxX, first.Boss.X);
+                minY = Math.Min(minY, first.Boss.Y);
+                maxY = Math.Max(maxY, first.Boss.Y);
+                Assert.AreEqual(first.Boss.X, second.Boss.X);
+                Assert.AreEqual(first.Boss.Y, second.Boss.Y);
+            }
+
+            Assert.Less(minX, 300);
+            Assert.Greater(maxX, 300);
+            Assert.Less(minY, 0);
+            Assert.Greater(maxY, 0);
+        }
+
+        [Test]
         public void TurretDefinitionsFireAtConfiguredInterval()
         {
             EnemyDefinition turret = new EnemyDefinition(
@@ -774,6 +861,14 @@ namespace Shmup.Core.Tests
                 if (sim.Bullets[i].Faction == faction)
                     count++;
             return count;
+        }
+
+        static int Minimum(IReadOnlyList<int> values)
+        {
+            int result = int.MaxValue;
+            for (int i = 0; i < values.Count; i++)
+                result = Math.Min(result, values[i]);
+            return result;
         }
 
         sealed class FixedPlanGenerator : IStageGenerator

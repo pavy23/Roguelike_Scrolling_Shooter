@@ -616,6 +616,8 @@ namespace Shmup.Core.Content
                     : new ExactFraction(0, 1);
             int movementPeriodTicks =
                 phase.movementPeriodTicks ?? 1;
+            int movementTelegraphTicks =
+                phase.movementTelegraphTicks ?? 0;
             if (movementAmplitude.Numerator < 0)
                 throw Error(
                     phasePath + ".movementAmplitude",
@@ -631,6 +633,29 @@ namespace Shmup.Core.Content
                 throw Error(
                     phasePath + ".movementAmplitude",
                     "must be positive for verticalSine.");
+            }
+            if ((movementPattern == BossMovementPattern.LungeReturn
+                    || movementPattern == BossMovementPattern.FigureEight)
+                && movementAmplitude.Numerator < 1)
+            {
+                throw Error(
+                    phasePath + ".movementAmplitude",
+                    "must be positive for lungeReturn and figureEight.");
+            }
+            if (movementTelegraphTicks < 0
+                || movementTelegraphTicks >= movementPeriodTicks)
+            {
+                throw Error(
+                    phasePath + ".movementTelegraphTicks",
+                    "must be non-negative and shorter than movementPeriodTicks.");
+            }
+            if (movementPattern == BossMovementPattern.LungeReturn
+                && (movementTelegraphTicks < 1
+                    || movementPeriodTicks - movementTelegraphTicks < 3))
+            {
+                throw Error(
+                    phasePath + ".movementTelegraphTicks",
+                    "lungeReturn requires a positive telegraph and at least three movement ticks.");
             }
             int durationTicks = phase.durationTicks ?? 0;
             int telegraphTicks = phase.telegraphTicks ?? 0;
@@ -722,7 +747,8 @@ namespace Shmup.Core.Content
                 signatureGravity.Numerator,
                 signatureGravity.Denominator,
                 signatureHomingTurn,
-                bossLaser);
+                bossLaser,
+                movementTelegraphTicks);
         }
 
         static BossProjectileKind ParseBossProjectileKind(
@@ -916,6 +942,10 @@ namespace Shmup.Core.Content
                     return BossMovementPattern.Stationary;
                 case "verticalSine":
                     return BossMovementPattern.VerticalSine;
+                case "lungeReturn":
+                    return BossMovementPattern.LungeReturn;
+                case "figureEight":
+                    return BossMovementPattern.FigureEight;
                 default:
                     throw Error(
                         path,

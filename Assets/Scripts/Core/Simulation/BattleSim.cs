@@ -98,7 +98,12 @@ namespace Shmup.Core.Simulation
         /// EntityId = obstacle id, X/Y = impact point, Arg = remaining HP.
         /// Destructive hits emit ObstacleDestroyed instead.
         /// </summary>
-        ObstacleDamaged = 33
+        ObstacleDamaged = 33,
+        /// <summary>
+        /// EntityId = boss id, X/Y = hold point, Arg = movement warning ticks.
+        /// Emitted at the start of every lungeReturn cycle.
+        /// </summary>
+        BossMovementTelegraphed = 34
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -1494,7 +1499,9 @@ namespace Shmup.Core.Simulation
         int _bossPhaseAge;
         int _bossMovementAnchorY;
         int _bossMovementPhaseOffsetTicks;
+        int _bossMovementTransitionOffsetX;
         int _bossMovementTransitionOffsetY;
+        int _bossVelocityX;
         int _bossVelocityY;
         bool _bossPhaseTelegraphPending;
         bool _bossBurstAwaitingVolley;
@@ -4204,7 +4211,9 @@ namespace Shmup.Core.Simulation
                 _bossPhaseAge = 0;
                 _bossMovementAnchorY = _bossY;
                 _bossMovementPhaseOffsetTicks = 0;
+                _bossMovementTransitionOffsetX = 0;
                 _bossMovementTransitionOffsetY = 0;
+                _bossVelocityX = 0;
                 _bossVelocityY = 0;
                 Generation.BossPhase initialPhase =
                     _bossPhases[0];
@@ -4223,7 +4232,7 @@ namespace Shmup.Core.Simulation
                 return;
             }
 
-            if (_bossX > _bossHoldX)
+            if (_bossAge == 0 && _bossX > _bossHoldX)
             {
                 _bossX = Math.Max(
                     _bossHoldX,
@@ -4665,9 +4674,30 @@ namespace Shmup.Core.Simulation
             Generation.BossPhase phase,
             bool legacyVerticalMovementActive)
         {
+            int previousX = _bossX;
             int previousY = _bossY;
-            int transitionOffset =
-                GetBossMovementTransitionOffset();
+            int transitionOffsetX =
+                GetBossMovementTransitionOffset(
+                    _bossMovementTransitionOffsetX);
+            int transitionOffsetY =
+                GetBossMovementTransitionOffset(
+                    _bossMovementTransitionOffsetY);
+            int tick = _bossPhaseAge
+                + _bossMovementPhaseOffsetTicks;
+            if (phase.MovementPattern == BossMovementPattern.LungeReturn
+                && PositiveModulo(tick, phase.MovementPeriodTicks) == 0)
+            {
+                EmitEvent(
+                    SimEventType.BossMovementTelegraphed,
+                    _bossId,
+                    _bossHoldX,
+                    _bossMovementAnchorY,
+                    phase.MovementTelegraphTicks);
+            }
+            _bossX = SaturateToInt(
+                (long)_bossHoldX
+                + ComputeMovementOffsetX(phase, tick)
+                + transitionOffsetX);
             switch (phase.MovementPattern)
             {
                 case BossMovementPattern.LegacyHover:
@@ -4677,31 +4707,34 @@ namespace Shmup.Core.Simulation
                     {
                         _bossY = SaturateToInt(
                             (long)_bossMovementAnchorY
-                            + transitionOffset);
+                            + transitionOffsetY);
                         break;
                     }
-                    int tick = _bossPhaseAge
-                        + _bossMovementPhaseOffsetTicks;
                     _bossY = SaturateToInt(
                         (long)_bossMovementAnchorY
                         + ComputeLegacyHoverOffset(tick)
-                        + transitionOffset);
+                        + transitionOffsetY);
                     break;
                 }
                 case BossMovementPattern.Stationary:
                     _bossY = SaturateToInt(
                         (long)_bossMovementAnchorY
-                        + transitionOffset);
+                        + transitionOffsetY);
                     break;
                 case BossMovementPattern.VerticalSine:
+                case BossMovementPattern.FigureEight:
                 {
                     _bossY = SaturateToInt(
                         (long)_bossMovementAnchorY
-                        + ComputeVerticalSineOffset(
-                            phase,
-                            _bossPhaseAge
-                                + _bossMovementPhaseOffsetTicks)
-                        + transitionOffset);
+                        + ComputeMovementOffsetY(phase, tick)
+                        + transitionOffsetY);
+                    break;
+                }
+                case BossMovementPattern.LungeReturn:
+                {
+                    _bossY = SaturateToInt(
+                        (long)_bossMovementAnchorY
+                        + transitionOffsetY);
                     break;
                 }
                 default:
@@ -4709,6 +4742,8 @@ namespace Shmup.Core.Simulation
                         $"Unknown boss movement pattern "
                         + $"{phase.MovementPattern}.");
             }
+            _bossVelocityX = SaturateToInt(
+                (long)_bossX - previousX);
             _bossVelocityY = SaturateToInt(
                 (long)_bossY - previousY);
         }
@@ -4716,27 +4751,39 @@ namespace Shmup.Core.Simulation
         void ConfigureBossMovementPhase(
             Generation.BossPhase phase)
         {
-            int carriedVelocity = _bossVelocityY;
-            int currentOffset = SaturateToInt(
+            int currentOffsetX = SaturateToInt(
+                (long)_bossX - _bossHoldX);
+            int currentOffsetY = SaturateToInt(
                 (long)_bossY - _bossMovementAnchorY);
             int phaseOffset = FindClosestMovementPhase(
                 phase,
                 SaturateToInt(
-                    (long)currentOffset + carriedVelocity),
-                carriedVelocity);
+                    (long)currentOffsetX + _bossVelocityX),
+                SaturateToInt(
+                    (long)currentOffsetY + _bossVelocityY),
+                _bossVelocityX,
+                _bossVelocityY);
             _bossMovementPhaseOffsetTicks = phaseOffset;
+            _bossMovementTransitionOffsetX = SaturateToInt(
+                (long)currentOffsetX
+                + _bossVelocityX
+                - ComputeMovementOffsetX(
+                    phase,
+                    phaseOffset));
             _bossMovementTransitionOffsetY = SaturateToInt(
-                (long)currentOffset
-                + carriedVelocity
-                - ComputeMovementOffset(
+                (long)currentOffsetY
+                + _bossVelocityY
+                - ComputeMovementOffsetY(
                     phase,
                     phaseOffset));
         }
 
         static int FindClosestMovementPhase(
             Generation.BossPhase phase,
-            int targetOffset,
-            int velocity)
+            int targetOffsetX,
+            int targetOffsetY,
+            int velocityX,
+            int velocityY)
         {
             int period;
             switch (phase.MovementPattern)
@@ -4748,6 +4795,8 @@ namespace Shmup.Core.Simulation
                         SineLut.Length << BossHoverPeriodShift;
                     break;
                 case BossMovementPattern.VerticalSine:
+                case BossMovementPattern.LungeReturn:
+                case BossMovementPattern.FigureEight:
                     period = phase.MovementPeriodTicks;
                     break;
                 default:
@@ -4760,15 +4809,20 @@ namespace Shmup.Core.Simulation
             long bestVelocityError = long.MaxValue;
             for (int tick = 0; tick < period; tick++)
             {
-                int offset =
-                    ComputeMovementOffset(phase, tick);
-                long candidateVelocity =
-                    (long)ComputeMovementOffset(phase, tick + 1)
-                    - offset;
-                long positionError = Math.Abs(
-                    (long)offset - targetOffset);
-                long velocityError = Math.Abs(
-                    candidateVelocity - velocity);
+                int offsetX = ComputeMovementOffsetX(phase, tick);
+                int offsetY = ComputeMovementOffsetY(phase, tick);
+                long candidateVelocityX =
+                    (long)ComputeMovementOffsetX(phase, tick + 1)
+                    - offsetX;
+                long candidateVelocityY =
+                    (long)ComputeMovementOffsetY(phase, tick + 1)
+                    - offsetY;
+                long positionError =
+                    Math.Abs((long)offsetX - targetOffsetX)
+                    + Math.Abs((long)offsetY - targetOffsetY);
+                long velocityError =
+                    Math.Abs(candidateVelocityX - velocityX)
+                    + Math.Abs(candidateVelocityY - velocityY);
                 if (velocityError < bestVelocityError
                     || (velocityError == bestVelocityError
                         && positionError < bestPositionError))
@@ -4781,35 +4835,112 @@ namespace Shmup.Core.Simulation
             return bestTick;
         }
 
-        int GetBossMovementTransitionOffset()
+        int GetBossMovementTransitionOffset(int transitionOffset)
         {
-            if (_bossMovementTransitionOffsetY == 0
+            if (transitionOffset == 0
                 || _bossPhaseAge >= BossMovementRecenterTicks)
                 return 0;
             int remaining =
                 BossMovementRecenterTicks - _bossPhaseAge;
             return SaturateToInt(
-                (long)_bossMovementTransitionOffsetY
+                (long)transitionOffset
                 * remaining
                 / BossMovementRecenterTicks);
         }
 
-        static int ComputeMovementOffset(
+        static int ComputeMovementOffsetX(
             Generation.BossPhase phase,
             int tick)
         {
             switch (phase.MovementPattern)
             {
                 case BossMovementPattern.Stationary:
+                case BossMovementPattern.LegacyHover:
+                case BossMovementPattern.VerticalSine:
+                    return 0;
+                case BossMovementPattern.LungeReturn:
+                    return ComputeLungeReturnOffsetX(phase, tick);
+                case BossMovementPattern.FigureEight:
+                    return ComputeFigureEightOffsetX(phase, tick);
+                default:
+                    throw new InvalidOperationException(
+                        "Unknown boss movement pattern.");
+            }
+        }
+
+        static int ComputeMovementOffsetY(
+            Generation.BossPhase phase,
+            int tick)
+        {
+            switch (phase.MovementPattern)
+            {
+                case BossMovementPattern.Stationary:
+                case BossMovementPattern.LungeReturn:
                     return 0;
                 case BossMovementPattern.LegacyHover:
                     return ComputeLegacyHoverOffset(tick);
                 case BossMovementPattern.VerticalSine:
+                case BossMovementPattern.FigureEight:
                     return ComputeVerticalSineOffset(phase, tick);
                 default:
                     throw new InvalidOperationException(
                         "Unknown boss movement pattern.");
             }
+        }
+
+        static int ComputeLungeReturnOffsetX(
+            Generation.BossPhase phase,
+            int tick)
+        {
+            int phaseTick = PositiveModulo(
+                tick,
+                phase.MovementPeriodTicks);
+            if (phaseTick < phase.MovementTelegraphTicks)
+                return 0;
+
+            int movementTicks = phase.MovementPeriodTicks
+                - phase.MovementTelegraphTicks;
+            int elapsed = phaseTick - phase.MovementTelegraphTicks;
+            int outboundTicks = movementTicks / 2;
+            int returnTicks = movementTicks - 1 - outboundTicks;
+            long numerator;
+            long denominator;
+            if (elapsed <= outboundTicks)
+            {
+                numerator = (long)phase.MovementAmplitudeNumerator
+                    * elapsed;
+                denominator = (long)phase.MovementAmplitudeDenominator
+                    * outboundTicks;
+            }
+            else
+            {
+                numerator = (long)phase.MovementAmplitudeNumerator
+                    * (movementTicks - 1 - elapsed);
+                denominator = (long)phase.MovementAmplitudeDenominator
+                    * returnTicks;
+            }
+            return -SaturateToInt(numerator / denominator);
+        }
+
+        static int ComputeFigureEightOffsetX(
+            Generation.BossPhase phase,
+            int tick)
+        {
+            int phaseTick = PositiveModulo(
+                tick,
+                phase.MovementPeriodTicks);
+            int lutIndex = (int)(
+                (long)phaseTick * SineLut.Length
+                / phase.MovementPeriodTicks);
+            int doubledIndex = (lutIndex * 2) % SineLut.Length;
+            long numerator =
+                (long)phase.MovementAmplitudeNumerator
+                * SineLut[doubledIndex];
+            long denominator =
+                (long)phase.MovementAmplitudeDenominator
+                * SineScale
+                * 2;
+            return SaturateToInt(numerator / denominator);
         }
 
         static int ComputeLegacyHoverOffset(int tick)

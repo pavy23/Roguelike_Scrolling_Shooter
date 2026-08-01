@@ -340,6 +340,52 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void ShipOptionFormationSeedsRunSuspendAndReplay()
+        {
+            var ship = new ShipDefinition(
+                "orbit_ship",
+                "Orbit Ship",
+                1,
+                1,
+                new int[PowerUpGauge.SlotCount],
+                0,
+                WeaponType.Vulcan,
+                null,
+                null,
+                null,
+                MissileFamily.Straight,
+                OptionFormation.Orbit);
+            RunManager run = CreateRewardRun(ship);
+
+            Assert.AreEqual(
+                OptionFormation.Orbit,
+                run.CurrentOptionFormation);
+            RunSuspendData suspend = run.ExportSuspendData();
+            Assert.AreEqual(
+                (int)OptionFormation.Orbit,
+                suspend.optionFormation);
+            RunManager resumed = RunManager.ResumeFromSuspendData(
+                suspend,
+                new RewardStageGenerator(),
+                Config(),
+                ExpandedContent(),
+                Gauge(),
+                SwitchRewards(),
+                ship);
+            Assert.AreEqual(
+                OptionFormation.Orbit,
+                resumed.CurrentOptionFormation);
+
+            var recorder = new InputRecorder(resumed);
+            InputCommand none = InputCommand.None;
+            recorder.Record(in none);
+            var playback = new InputPlayback(recorder.Export());
+            Assert.AreEqual(
+                OptionFormation.Orbit,
+                playback.OptionFormation);
+        }
+
+        [Test]
         public void WeaponsV3AndSwitchRewardsParseIntoRuntimeCatalogs()
         {
             string root = FindRepositoryRoot();
@@ -1184,6 +1230,11 @@ namespace Shmup.Core.Tests
 
         static RunManager CreateRewardRun()
         {
+            return CreateRewardRun(ShipDefinition.CreateDefault());
+        }
+
+        static RunManager CreateRewardRun(ShipDefinition ship)
+        {
             BattleContent content = ExpandedContent();
             return new RunManager(
                 123UL,
@@ -1194,7 +1245,7 @@ namespace Shmup.Core.Tests
                 new MetaProgression(1, 1),
                 StageDifficultyCurve.CreateDefault(),
                 SwitchRewards(),
-                ShipDefinition.CreateDefault(),
+                ship,
                 1,
                 1,
                 new RunProgressionConfig(2, 1));

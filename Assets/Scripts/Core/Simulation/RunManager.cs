@@ -1414,6 +1414,13 @@ namespace Shmup.Core.Simulation
                     $"Ship '{_ship.Id}' references an unavailable "
                     + "missile family.",
                     nameof(ship));
+            if (_ship.StartingOptionFormation.HasValue
+                && _battleContent.FindOptionFormation(
+                    _ship.StartingOptionFormation.Value) == null)
+                throw new ArgumentException(
+                    $"Ship '{_ship.Id}' references an unavailable "
+                    + "option formation.",
+                    nameof(ship));
             NormalizeDifficultyMultiplier(
                 difficultyMultiplierNumerator,
                 difficultyMultiplierDenominator,
@@ -1537,7 +1544,8 @@ namespace Shmup.Core.Simulation
                 _ship.StartingMissileFamily
                 ?? _battleContent.DefaultMissileFamily;
             CurrentOptionFormation =
-                _battleContent.DefaultOptionFormation;
+                _ship.StartingOptionFormation
+                ?? _battleContent.DefaultOptionFormation;
             ApplyCurrentLoadoutProfiles();
 
             _runSeed = runSeed;

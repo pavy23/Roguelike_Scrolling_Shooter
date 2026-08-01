@@ -5,7 +5,9 @@ namespace Shmup.Core.Content
 {
     public static partial class GameDataParser
     {
-        const int SupportedShipsSchemaVersion = 3;
+        const int SupportedShipsSchemaVersion = 4;
+        const int ShipMissileFamilySchemaVersion = 3;
+        const int ShipOptionFormationSchemaVersion = 4;
 
         static ShipDefinition[] ParseShips(ShipsDto root, int[] powerUpMaxLevels)
         {
@@ -89,7 +91,7 @@ namespace Shmup.Core.Content
                             allowZero: false),
                     gaugeWeaponFamily,
                     gaugeSlots,
-                    schemaVersion >= SupportedShipsSchemaVersion
+                    schemaVersion >= ShipMissileFamilySchemaVersion
                         ? ParseShipMissileFamily(
                             item.missileFamily,
                             path + ".missileFamily")
@@ -97,7 +99,13 @@ namespace Shmup.Core.Content
                             ? (MissileFamily?)null
                             : ParseShipMissileFamily(
                                 item.missileFamily,
-                                path + ".missileFamily"));
+                                path + ".missileFamily"),
+                    schemaVersion < ShipOptionFormationSchemaVersion
+                        || item.optionFormation == null
+                        ? (OptionFormation?)null
+                        : ParseOptionFormation(
+                            item.optionFormation,
+                            path + ".optionFormation"));
                 for (int previous = 0; previous < i; previous++)
                 {
                     if (string.Equals(

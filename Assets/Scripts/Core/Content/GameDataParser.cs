@@ -12,7 +12,7 @@ namespace Shmup.Core.Content
     /// <summary>
     /// Unity-free parser for enemies.json schema v2/v3, weapons.json schema v2-v7,
     /// waves.json schema v2,
-    /// rewards.json schema v1-v5, optional ships.json schema v1-v3, optional
+    /// rewards.json schema v1-v5, optional ships.json schema v1-v4, optional
     /// scoring.json schema v1, and optional player.json schema v1 tuning.
     /// Decimal source values are converted with decimal arithmetic only.
     /// </summary>

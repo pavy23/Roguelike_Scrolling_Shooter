@@ -1121,6 +1121,98 @@ namespace Shmup.Core.Tests
                 swift.StartingPowerUpLevels);
             Assert.AreEqual(1000L, swift.UnlockCost);
             Assert.IsFalse(data.Ships is ShipDefinition[]);
+            Assert.IsFalse(swift.StartingOptionFormation.HasValue);
+        }
+
+        [Test]
+        public void Parse_ShipsV4ReadsOptionalStartingOptionFormation()
+        {
+            string shipsV4 = ShipsJson
+                .Replace(
+                    @"""schemaVersion"": 1",
+                    @"""schemaVersion"": 4")
+                .Replace(
+                    @"""unlockCost"": 0",
+                    @"""unlockCost"": 0,
+      ""missileFamily"": ""straight"",
+      ""optionFormation"": ""fixed""")
+                .Replace(
+                    @"""unlockCost"": 1000",
+                    @"""unlockCost"": 1000,
+      ""missileFamily"": ""straight"",
+      ""optionFormation"": ""orbit""");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson,
+                RewardsJson,
+                shipsV4);
+
+            Assert.AreEqual(
+                OptionFormation.Fixed,
+                data.FindShip("starter").StartingOptionFormation);
+            Assert.AreEqual(
+                OptionFormation.Orbit,
+                data.FindShip("swift").StartingOptionFormation);
+
+            GameDataSet legacy = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson,
+                RewardsJson,
+                shipsV4.Replace(
+                    "\"schemaVersion\": 4",
+                    "\"schemaVersion\": 3"));
+            Assert.IsFalse(
+                legacy.FindShip("starter")
+                    .StartingOptionFormation.HasValue);
+
+            GameDataParseException error =
+                Assert.Throws<GameDataParseException>(
+                    () => GameDataParser.Parse(
+                        EnemiesJson,
+                        WeaponsJson,
+                        WavesJson,
+                        RewardsJson,
+                        shipsV4.Replace(
+                            "\"optionFormation\": \"fixed\"",
+                            "\"optionFormation\": \"wedge\"")));
+            StringAssert.Contains(
+                "ships.json.ships[0].optionFormation",
+                error.Message);
+        }
+
+        [Test]
+        public void Parse_BossMovementVocabularyReadsLungeAndFigureEight()
+        {
+            string enemies = EnemiesV3Json
+                .Replace(
+                    "\"movementPattern\": \"stationary\"",
+                    "\"movementPattern\": \"lungeReturn\",\n"
+                    + "            \"movementAmplitude\": 3.0,\n"
+                    + "            \"movementPeriodTicks\": 30,\n"
+                    + "            \"movementTelegraphTicks\": 6")
+                .Replace(
+                    "\"movementPattern\": \"verticalSine\"",
+                    "\"movementPattern\": \"figureEight\"");
+
+            GameDataSet data = GameDataParser.Parse(
+                enemies,
+                WeaponsJson,
+                WavesJson.Replace("elite_sine", "dive_enemy"));
+            MidBossProfile profile =
+                data.BattleContent.FindEnemy("dive_enemy").MidBossProfile;
+
+            Assert.AreEqual(
+                BossMovementPattern.LungeReturn,
+                profile.Phases[0].MovementPattern);
+            Assert.AreEqual(768, profile.Phases[0].MovementAmplitudeNumerator);
+            Assert.AreEqual(30, profile.Phases[0].MovementPeriodTicks);
+            Assert.AreEqual(6, profile.Phases[0].MovementTelegraphTicks);
+            Assert.AreEqual(
+                BossMovementPattern.FigureEight,
+                profile.Phases[1].MovementPattern);
         }
 
         [Test]
@@ -1408,6 +1500,23 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(first.BossId, second.BossId);
             for (int i = 0; i < first.Segments.Count; i++)
                 Assert.AreEqual(first.Segments[i].SegmentId, second.Segments[i].SegmentId);
+
+            StagePlan closing = generator.GenerateRouteForSection(
+                123456789UL,
+                1,
+                3,
+                "scrapyard",
+                EncounterType.Normal,
+                StageRouteSection.Closing);
+            int closingTicks = 0;
+            for (int i = 0; i < closing.Segments.Count; i++)
+                closingTicks = checked(
+                    closingTicks + closing.Segments[i].LengthTicks);
+            Assert.AreEqual(5, closing.Segments.Count);
+            Assert.Greater(closingTicks, 0);
+            TestContext.Progress.WriteLine(
+                $"REQ092 closing seed=123456789 theme=scrapyard "
+                + $"segments={closing.Segments.Count} ticks={closingTicks}");
 
             ulong[] reportedDuplicateSeeds = { 42UL, 20260729UL };
             for (int seedIndex = 0;

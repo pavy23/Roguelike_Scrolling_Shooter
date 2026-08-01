@@ -83,7 +83,8 @@ namespace Shmup.Core
             int? startingShieldStock,
             PrimaryWeaponFamily? gaugeWeaponFamily,
             IReadOnlyList<PowerUpSlot> gaugeSlots,
-            MissileFamily? startingMissileFamily = null)
+            MissileFamily? startingMissileFamily = null,
+            OptionFormation? startingOptionFormation = null)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Ship id cannot be null or empty.", nameof(id));
@@ -120,6 +121,12 @@ namespace Shmup.Core
                     startingMissileFamily.Value))
                 throw new ArgumentOutOfRangeException(
                     nameof(startingMissileFamily));
+            if (startingOptionFormation.HasValue
+                && !Enum.IsDefined(
+                    typeof(OptionFormation),
+                    startingOptionFormation.Value))
+                throw new ArgumentOutOfRangeException(
+                    nameof(startingOptionFormation));
             if (gaugeWeaponFamily.HasValue
                 && (gaugeWeaponFamily.Value
                         == PrimaryWeaponFamily.Vulcan
@@ -158,6 +165,7 @@ namespace Shmup.Core
             StartingShieldStock = startingShieldStock;
             GaugeWeaponFamily = gaugeWeaponFamily;
             StartingMissileFamily = startingMissileFamily;
+            StartingOptionFormation = startingOptionFormation;
             _gaugeSlots = CopyGaugeSlots(
                 gaugeSlots,
                 gaugeWeaponFamily);
@@ -196,6 +204,11 @@ namespace Shmup.Core
         /// global default for schema v1/v2 ships.
         /// </summary>
         public MissileFamily? StartingMissileFamily { get; }
+        /// <summary>
+        /// Ship-owned starting option formation. Null preserves weapons.json's
+        /// global default for legacy ships and omitted schema-v4 fields.
+        /// </summary>
+        public OptionFormation? StartingOptionFormation { get; }
 
         public int[] ExportStartingPowerUpLevels()
         {

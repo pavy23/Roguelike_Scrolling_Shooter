@@ -575,6 +575,8 @@ namespace Shmup.Core.Content
         [DataMember]
         public int? movementPeriodTicks;
         [DataMember]
+        public int? movementTelegraphTicks;
+        [DataMember]
         public string partVulnerability;
         [DataMember]
         public int? durationTicks;
@@ -751,6 +753,8 @@ namespace Shmup.Core.Content
         public string[] powerUpGaugeSlots;
         [DataMember]
         public string missileFamily;
+        [DataMember]
+        public string optionFormation;
     }
 
     [DataContract]

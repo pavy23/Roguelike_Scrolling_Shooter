@@ -98,7 +98,16 @@ namespace Shmup.Core.Generation
         /// <summary>Preserves the pre-REQ-054 fixed hover behavior.</summary>
         LegacyHover = 0,
         Stationary = 1,
-        VerticalSine = 2
+        VerticalSine = 2,
+        /// <summary>
+        /// Holds for MovementTelegraphTicks, lunges toward the player's X side,
+        /// then returns to BossHoldX within MovementPeriodTicks.
+        /// </summary>
+        LungeReturn = 3,
+        /// <summary>
+        /// Vertical figure-eight driven entirely by the integer sine LUT.
+        /// </summary>
+        FigureEight = 4
     }
 
     public enum BossFirePattern
@@ -189,7 +198,8 @@ namespace Shmup.Core.Generation
             int signatureGravityNumerator = 0,
             int signatureGravityDenominator = 1,
             int signatureHomingTurnLutSlotsPerTick = 0,
-            Simulation.LaserAttackDefinition laserAttack = null)
+            Simulation.LaserAttackDefinition laserAttack = null,
+            int movementTelegraphTicks = 0)
         {
             if (fireIntervalTicks < 1)
                 throw new ArgumentOutOfRangeException(nameof(fireIntervalTicks));
@@ -218,6 +228,22 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException(
                     "Vertical sine movement requires positive amplitude.",
                     nameof(movementAmplitudeNumerator));
+            if ((movementPattern == BossMovementPattern.LungeReturn
+                    || movementPattern == BossMovementPattern.FigureEight)
+                && movementAmplitudeNumerator < 1)
+                throw new ArgumentException(
+                    "Lunge-return and figure-eight movement require positive amplitude.",
+                    nameof(movementAmplitudeNumerator));
+            if (movementTelegraphTicks < 0
+                || movementTelegraphTicks >= movementPeriodTicks)
+                throw new ArgumentOutOfRangeException(
+                    nameof(movementTelegraphTicks));
+            if (movementPattern == BossMovementPattern.LungeReturn
+                && (movementTelegraphTicks < 1
+                    || movementPeriodTicks - movementTelegraphTicks < 3))
+                throw new ArgumentException(
+                    "Lunge-return movement requires a positive telegraph and at least three movement ticks.",
+                    nameof(movementTelegraphTicks));
             if (!Enum.IsDefined(
                     typeof(BossPartVulnerability),
                     partVulnerability))
@@ -335,6 +361,7 @@ namespace Shmup.Core.Generation
             SignatureHomingTurnLutSlotsPerTick =
                 signatureHomingTurnLutSlotsPerTick;
             LaserAttack = laserAttack;
+            MovementTelegraphTicks = movementTelegraphTicks;
         }
 
         public int FireIntervalTicks { get; }
@@ -345,6 +372,11 @@ namespace Shmup.Core.Generation
         public int MovementAmplitudeNumerator { get; }
         public int MovementAmplitudeDenominator { get; }
         public int MovementPeriodTicks { get; }
+        /// <summary>
+        /// Movement-only warning window. LungeReturn remains at its hold
+        /// position for this many ticks at the start of every movement cycle.
+        /// </summary>
+        public int MovementTelegraphTicks { get; }
         public BossPartVulnerability PartVulnerability { get; }
         /// <summary>
         /// Positive values opt the whole phase list into deterministic time
