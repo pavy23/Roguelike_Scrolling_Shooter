@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "ships": [
     {
       "id": "starter",
@@ -12,6 +12,7 @@
       "startingShieldStock": 1,
       "gaugeWeaponFamily": "double",
       "missileFamily": "downward_drop",
+      "optionFormation": "trail",
       "powerUpGaugeSlots": [
         "Speed",
         "MainShot",
@@ -32,6 +33,7 @@
       "startingShieldStock": 0,
       "gaugeWeaponFamily": "triple",
       "missileFamily": "straight",
+      "optionFormation": "fixed",
       "powerUpGaugeSlots": [
         "Speed",
         "MainShot",
@@ -52,6 +54,7 @@
       "startingShieldStock": 2,
       "gaugeWeaponFamily": "laser",
       "missileFamily": "homing",
+      "optionFormation": "orbit",
       "powerUpGaugeSlots": [
         "Speed",
         "MainShot",

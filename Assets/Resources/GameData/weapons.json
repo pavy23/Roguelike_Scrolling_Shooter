@@ -92,8 +92,8 @@
         },
         {
           "level": 3,
-          "spreadWays": 4,
-          "shotAngleLutSlots": [0, 0, 5, 32],
+          "spreadWays": 5,
+          "shotAngleLutSlots": [0, 0, 5, -5, 32],
           "burstCount": 2,
           "burstIntervalTicks": 1
         }
@@ -166,9 +166,9 @@
           "spreadWays": 5,
           "spreadStepLutSlots": 4,
           "shotAngleLutSlots": [],
-          "pulseMinStepLutSlots": 2,
-          "pulseMaxStepLutSlots": 6,
-          "pulsePeriodTicks": 12,
+          "pulseMinStepLutSlots": 1,
+          "pulseMaxStepLutSlots": 10,
+          "pulsePeriodTicks": 10,
           "burstCount": 2,
           "burstIntervalTicks": 1,
           "inertiaVelocityPercent": 50,
@@ -313,7 +313,7 @@
         "slot": "Speed",
         "nameKey": "Speed",
         "maxLevel": 6,
-        "speedBonusPerLevel": 1.0,
+        "speedBonusPerLevel": 1.5,
         "costCurve": {
           "baseCost": 1,
           "linearGrowth": 0,
