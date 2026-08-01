@@ -39,3 +39,6 @@ Tools/CoreStandalone/obj/
 sysinfo.txt
 *.stackdump
 crashlytics-build.properties
+
+Tools/DeterminismAudit/bin/
+Tools/DeterminismAudit/obj/
