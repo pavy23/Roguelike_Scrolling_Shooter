@@ -33,6 +33,15 @@ namespace Shmup.Presentation.Battle
         /// <summary>치트를 쓴 런. 개발 검증 주행이 보드에 섞이지 않게 제출 자체를 닫는다.</summary>
         const string SubmitCheatLabel = "DEV RUN - NO SUBMIT";
 
+        /// <summary>
+        /// 시드를 직접 지정한 런. 같은 판을 반복 연습해 만든 점수라 랜덤 시드 기록과
+        /// 같은 보드에 세울 수 없다 — 막히는 이유가 치트와 다르므로 문면도 다르다.
+        /// </summary>
+        const string SubmitSeededLabel = "SEEDED RUN - NO SUBMIT";
+
+        /// <summary>재생은 기록의 재현일 뿐 새 기록이 아니다.</summary>
+        const string SubmitReplayLabel = "REPLAY - NO SUBMIT";
+
         Button _submitButton;
         Text _submitLabel;
         SubmitState _submitState;
@@ -108,20 +117,13 @@ namespace Shmup.Presentation.Battle
             if (_submitState != SubmitState.Idle) return;
             if (_director == null || !_director.IsRunFinished) return;
 
-            // 치트를 쓴 런은 기록이 아니다 (Update가 이미 버튼을 닫지만, 제출 경로 자체를 막는다).
-            if (_director.CheatUsed)
+            // 애초에 보드에 오를 수 없는 런은 여기서 끝낸다 (Update가 이미 버튼을 닫아
+            // 두지만, 제출 경로 자체를 막아야 다른 입력으로 새는 길이 없다).
+            string blocked = BlockedSubmitLabel();
+            if (blocked != null)
             {
                 _submitState = SubmitState.Done;
-                SetSubmitLabel(SubmitCheatLabel);
-                if (_submitButton != null) _submitButton.interactable = false;
-                return;
-            }
-
-            // 리플레이 재생은 기록의 재현일 뿐 새 기록이 아니다 — 보드에 올리지 않는다.
-            if (_director.ReplayMode)
-            {
-                _submitState = SubmitState.Done;
-                SetSubmitLabel("REPLAY — NO SUBMIT");
+                SetSubmitLabel(blocked);
                 if (_submitButton != null) _submitButton.interactable = false;
                 return;
             }
@@ -168,6 +170,20 @@ namespace Shmup.Presentation.Battle
                 Graze = ToInt(runStats.GrazeCount),
                 MaxCombo = _director.BestMultiplier
             }, OnSubmitDone);
+        }
+
+        /// <summary>
+        /// 이 런이 글로벌 보드에 오를 수 없다면 그 이유를 담은 버튼 문면, 오를 수 있으면 null.
+        /// 세 경우 다 "제출 실패"가 아니라 "제출 대상이 아님"이라 버튼이 눌리지 않는다 —
+        /// 이유가 서로 다르므로 문면도 갈라 놓는다.
+        /// </summary>
+        string BlockedSubmitLabel()
+        {
+            if (_director == null) return null;
+            if (_director.CheatUsed) return SubmitCheatLabel;
+            if (_director.IsSeededRun) return SubmitSeededLabel;
+            if (_director.ReplayMode) return SubmitReplayLabel;
+            return null;
         }
 
         /// <summary>
@@ -246,9 +262,12 @@ namespace Shmup.Presentation.Battle
                 // 새 런의 결과다 — 지난 런의 제출 결과(RANK #n)를 그대로 두면 오독된다.
                 if (_submitButton != null)
                 {
-                    _submitState = SubmitState.Idle;
-                    _submitButton.interactable = true;
-                    SetSubmitLabel(_director.IsDailyRun ? SubmitDailyLabel : SubmitIdleLabel);
+                    // 제출이 막힌 런이면 눌러 보게 두지 않는다: 이유를 여기서 읽히게 한다.
+                    string blocked = BlockedSubmitLabel();
+                    _submitState = blocked != null ? SubmitState.Done : SubmitState.Idle;
+                    _submitButton.interactable = blocked == null;
+                    SetSubmitLabel(blocked
+                        ?? (_director.IsDailyRun ? SubmitDailyLabel : SubmitIdleLabel));
                 }
                 if (_dim != null)
                     _dim.color = cleared
@@ -261,21 +280,26 @@ namespace Shmup.Presentation.Battle
                     $"SCORE  {_director.TotalScore:D8}   (run {_director.RunNumber}, stage {_director.StageIndex})";
                 _statsText.text =
                     $"KILLS {stats.Kills}   CAPSULES {stats.CapsulesCollected}   ACC {accuracy:0.#}%   SHOTS {stats.ShotsFired}";
-                // BOMBS는 보드의 NB(노봄) 뱃지와 같은 값이다 — 여기서 0을 확인할 수
-                // 있어야 뱃지가 왜 붙었는지/안 붙었는지 납득이 된다.
+                // BOMBS는 보드 BOMB 칸과 같은 값이다 — 여기서 0을 확인할 수 있어야
+                // 보드에서 그 0이 왜 앰버로 강조됐는지 납득이 된다.
                 _extraText.text =
                     $"BEST COMBO x{_director.BestMultiplier}   GRAZE {stats.GrazeCount}"
                     + $"   BOMBS {stats.BombsUsed}";
                 _modifierText.text = DescribeModifiers(_director.ActiveModifiers);
             }
 
-            // 치트는 게임오버 화면이 떠 있는 동안에도 눌릴 수 있으므로 런 전환 블록 밖에서
-            // 매 프레임 확인한다 (bool 비교 한 번 — 할당 없음).
-            if (_director.CheatUsed && _submitState != SubmitState.Done)
+            // 치트는 게임오버 화면이 떠 있는 동안에도 눌릴 수 있다 — 런 전환 블록 밖에서
+            // 매 프레임 다시 본다 (프로퍼티 몇 개 비교 — 할당 없음).
+            // 시드/리플레이 낙인은 런 시작에 굳지만 같은 문으로 통과시켜 경로를 하나로 둔다.
+            if (_submitState != SubmitState.Done)
             {
-                _submitState = SubmitState.Done;
-                if (_submitButton != null) _submitButton.interactable = false;
-                SetSubmitLabel(SubmitCheatLabel);
+                string blocked = BlockedSubmitLabel();
+                if (blocked != null)
+                {
+                    _submitState = SubmitState.Done;
+                    if (_submitButton != null) _submitButton.interactable = false;
+                    SetSubmitLabel(blocked);
+                }
             }
 
             var keyboard = Keyboard.current;

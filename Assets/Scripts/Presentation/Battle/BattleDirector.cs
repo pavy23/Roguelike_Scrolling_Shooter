@@ -125,6 +125,19 @@ namespace Shmup.Presentation.Battle
         SpritePool _obstaclePool;
         readonly Dictionary<int, Transform> _obstacleViews = new Dictionary<int, Transform>(32);
 
+        /// <summary>
+        /// 레이저탄만 앞으로 밀어 그리는 거리 (월드 단위, 12px @ PPU16).
+        ///
+        /// Core는 모든 주무기탄을 **기체 중심**(PlayerX/PlayerY)에서 낳는다. 벌컨탄(8px)은
+        /// 그래도 금방 기수 밖으로 나오지만, 레이저탄 스프라이트는 20px짜리 줄기라 48px
+        /// 기체 실루엣(탄은 sortingOrder 5, 기체는 10 — 탄이 뒤다) 안에 통째로 묻힌 채
+        /// 태어나고 두어 프레임 뒤 기수 앞에 툭 나타난다 (사람 지적 2026-08-01).
+        /// 스폰 위치는 Core 소관이라 건드리지 않고, **그림만** 기수 끝으로 밀어
+        /// "기수에서 앞으로 나간다"로 읽히게 한다. 28u/s 기준 히트 지점보다 2프레임
+        /// 못 되게 앞서므로 판정 어긋남은 눈에 잡히지 않는다.
+        /// </summary>
+        const float LaserBoltMuzzleLead = 0.75f;
+
         // 무기 계열별 주무기 탄 스프라이트 (REQ-022): laser/spread가 없으면 vulcan 폴백
         [SerializeField] Sprite _laserShotSprite;
         [SerializeField] Sprite _spreadShotSprite;
@@ -317,6 +330,17 @@ namespace Shmup.Presentation.Battle
         public bool IsDailyRun { get; private set; }
 
         /// <summary>
+        /// 이번 런이 **지정된 시드**로 시작됐는가 (스코어보드 공정성). 타이틀에서 손으로
+        /// 친 시드와 커맨드라인 <c>--seed=N</c>은 성격이 같다 — 같은 판을 몇 번이고
+        /// 연습한 뒤 최고 기록만 올릴 수 있는 런이다. 치트 런과 같은 경로로 제출을 닫는다.
+        ///
+        /// 이어하기·리플레이는 제외한다: 이어하기 시드는 그 런이 시작될 때 정해졌고,
+        /// 리플레이는 새 기록이 아니라 기록의 재현이라 제출 경로가 원래 닫혀 있다.
+        /// 재출격은 새 랜덤 시드라 낙인이 풀린다.
+        /// </summary>
+        public bool IsSeededRun { get; private set; }
+
+        /// <summary>
         /// 이번 런에서 개발용 치트(F9/F10/F11)를 한 번이라도 썼는가.
         /// 개발 검증 주행이 글로벌 보드를 오염시키면 안 되므로 GameOverScreen이 이 값을 보고
         /// 제출을 막는다. 재출격/새 런에서 초기화된다 — 오염되는 것은 그 런 하나뿐이다.
@@ -419,6 +443,7 @@ namespace Shmup.Presentation.Battle
             _run.Restart(newSeed);
             Seed = (long)newSeed;
             IsDailyRun = false;   // 재출격은 새 시드다 — 더 이상 데일리 런이 아니다
+            IsSeededRun = false;  // 위에서 뽑은 랜덤 시드다 — 지정 시드 낙인도 풀린다
             CheatUsed = false;    // 새 런은 깨끗하다 — 치트 낙인은 그 런에만 남는다
             // 단, 개발 플래그는 RunManager에 굳어 있어 재출격해도 그대로다 (REQ-096).
             if (_run.DevFlagsActive) MarkCheatUsed();
@@ -566,6 +591,12 @@ namespace Shmup.Presentation.Battle
             // --seed 강제, 이어하기, 리플레이는 시드가 데일리와 같아도 같은 조건의 런이 아니다.
             IsDailyRun = DevArgs.RuntimeDaily
                 && DevArgs.OverrideSeed == null
+                && !_replayMode
+                && pending == null;
+
+            // 지정 시드 낙인 (스코어보드 공정성). 타이틀 손입력과 --seed=N을 같이 본다 —
+            // 둘 다 "같은 판을 다시 돌릴 수 있는" 런이다. 이어하기/리플레이는 제외.
+            IsSeededRun = (DevArgs.RuntimeSeeded || DevArgs.OverrideSeed != null)
                 && !_replayMode
                 && pending == null;
 
@@ -1335,7 +1366,11 @@ namespace Shmup.Presentation.Battle
                     view.localScale = Vector3.one * ScaleForBulletKind(bullet.Kind);
                 }
 
-                view.localPosition = SimView.ToWorld(bullet.X, bullet.Y);
+                var world = SimView.ToWorld(bullet.X, bullet.Y);
+                if (bullet.Kind == BulletKind.MainShot
+                    && _shownWeaponType == Shmup.Core.WeaponType.Laser)
+                    world.x += LaserBoltMuzzleLead;
+                view.localPosition = world;
             }
 
             ReleaseDeadViews(_bulletViews, _bulletPool);

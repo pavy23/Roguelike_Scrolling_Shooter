@@ -26,6 +26,15 @@ namespace Shmup.Presentation.Battle
         string _seedText;
         Text _promptText, _seedValueText, _continueText;
         string _shownSeed;
+
+        /// <summary>
+        /// 지금 칸에 있는 시드를 사람이 직접 쳐 넣었는가 (스코어보드 공정성).
+        /// 같은 시드를 손으로 넣으면 같은 판을 몇 번이고 연습할 수 있고, 그렇게 만든
+        /// 점수가 랜덤 시드 기록과 같은 보드에 서면 보드가 무의미해진다.
+        /// 리롤(랜덤)로 되돌리면 다시 꺼진다 — 낙인은 출격 시점의 값으로 굳는다.
+        /// </summary>
+        bool _seedManual;
+        bool _shownSeedManual;
         Shmup.Core.Simulation.RunSuspendData _suspended;
         ReplayFileData _replay;
         int _dailyDateInt;
@@ -41,6 +50,30 @@ namespace Shmup.Presentation.Battle
 
         /// <summary>보드 표시 줄 수. 100줄을 다 받아도 화면에는 상위 10줄만 올린다.</summary>
         const int RankingRows = 10;
+
+        // ── 보드 컬럼 폭 ──────────────────────────────────────────────────────
+        //
+        // "1 PAVY 123,450 ST 3-2 NB" 한 줄로는 뭐가 뭔지 알 수 없다는 지적(2026-08-01).
+        // 컬럼 폭을 상수 한 벌로 뽑아 **헤더와 본문이 같은 자릿수**를 쓰게 한다 —
+        // 둘을 따로 적어 두면 언젠가 반드시 어긋난다.
+        const int ColRank = 2;
+        const int ColPilot = 10;   // ScoreboardClient.NameMaxLength와 같다
+        const int ColScore = 10;
+        const int ColStage = 5;    // "10-4" / "CLR" / "PFT"
+        const int ColShip = 4;
+        const int ColBomb = 4;
+
+        /// <summary>
+        /// 컬럼 라벨 줄. 계기판 라벨 관례대로 전부 대문자이고, 본문보다 어두운 색으로
+        /// 그려 기록보다 먼저 읽히지 않게 한다 (색은 BuildRankingPanel이 준다).
+        /// </summary>
+        static readonly string RankingHeader =
+            "#".PadLeft(ColRank) + "  "
+            + "PILOT".PadRight(ColPilot) + " "
+            + "SCORE".PadLeft(ColScore) + "  "
+            + "STG".PadRight(ColStage) + " "
+            + "SHIP".PadRight(ColShip) + " "
+            + "BOMB".PadLeft(ColBomb);
 
         void RefreshDifficultyText()
         {
@@ -61,6 +94,8 @@ namespace Shmup.Presentation.Battle
             DevArgs.RuntimeSeed = (long)Shmup.Core.DailySeed.FromDate(_dailyDateInt);
             // 스코어보드가 데일리 보드로 가르는 유일한 근거 — 시드와 같은 채널로 넘긴다.
             DevArgs.RuntimeDaily = true;
+            // 데일리는 전원이 같은 시드로 겨루는 판이다 — 손으로 친 시드와 성격이 정반대다.
+            DevArgs.RuntimeSeeded = false;
             SceneManager.LoadScene("Battle");
         }
 
@@ -71,6 +106,9 @@ namespace Shmup.Presentation.Battle
             BattleDirector.PendingResume = _suspended;
             DevArgs.RuntimeSeed = (long)_suspended.runSeed;
             DevArgs.RuntimeDaily = false;
+            // 이어하기의 시드는 그 런이 시작될 때 이미 정해진 값이다 — 지금 칸에 뭐가
+            // 적혀 있든 상관없다 (BattleDirector도 이어하기 런은 낙인에서 뺀다).
+            DevArgs.RuntimeSeeded = false;
             SceneManager.LoadScene("Battle");
         }
 
@@ -80,6 +118,7 @@ namespace Shmup.Presentation.Battle
             BattleDirector.PendingReplay = _replay;
             DevArgs.RuntimeSeed = _replay.seed;
             DevArgs.RuntimeDaily = false;
+            DevArgs.RuntimeSeeded = false;   // 재생은 기록의 재현 — 제출 경로가 원래 닫혀 있다
             SceneManager.LoadScene("Battle");
         }
 
@@ -103,6 +142,8 @@ namespace Shmup.Presentation.Battle
         void RerollSeed()
         {
             _seedText = NewRandomSeed().ToString();
+            // 랜덤으로 다시 뽑았으면 손으로 친 흔적은 사라진다 — 제출 자격도 돌아온다.
+            _seedManual = false;
         }
 
         // ── 글로벌 랭킹 (P1 스코어보드) ────────────────────────────────────────
@@ -133,18 +174,27 @@ namespace Shmup.Presentation.Battle
             _rankingRoot = canvas.gameObject;
 
             UiKit.CreateDim(canvas.transform, new Color(0f, 0.01f, 0.05f, 0.72f));
-            // P1.5: 한 줄 끝에 문맥(기체·도달·NB)이 붙어 320px로는 점수가 잘린다.
-            // 헤어라인 패널 언어는 그대로 두고 폭만 넓힌다.
-            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(380f, 250f));
+            // 컬럼 6개(순위·파일럿·점수·스테이지·기체·봄)를 고정폭으로 세우려면 380px로는
+            // 모자란다. 헤어라인 패널 언어는 그대로 두고 폭·높이만 키운다.
+            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(440f, 288f));
 
             UiKit.CreateCornerText(panel, _fontBold, "DAILY RANKING", 14, UiKit.TextMain,
                 new Vector2(0.5f, 1f), new Vector2(0f, -12f), TextAnchor.UpperCenter, "RankTitle");
-            UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -34f), 320f,
+            UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -34f), 380f,
                 UiKit.TextAccent, "RankRule");
 
+            // 컬럼 라벨은 본문과 **같은 폰트·크기·좌표·폭**이어야 자릿수가 맞는다.
+            var header = UiKit.CreateCornerText(panel, _font, RankingHeader, 10, UiKit.TextDim,
+                new Vector2(0.5f, 1f), new Vector2(0f, -44f), TextAnchor.UpperLeft, "RankHeader");
+            header.rectTransform.sizeDelta = new Vector2(400f, 14f);
+            // 라벨과 기록을 가르는 헤어라인. 앰버는 위 룰 하나로 족하다 —
+            // 액센트는 화면당 하나라는 계기판 원칙을 여기서도 지킨다.
+            UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -58f), 400f,
+                UiKit.PanelBorder, "RankHeaderRule");
+
             _rankingBody = UiKit.CreateCornerText(panel, _font, "", 10, UiKit.TextDim,
-                new Vector2(0.5f, 1f), new Vector2(0f, -44f), TextAnchor.UpperLeft, "RankBody");
-            _rankingBody.rectTransform.sizeDelta = new Vector2(340f, 150f);
+                new Vector2(0.5f, 1f), new Vector2(0f, -64f), TextAnchor.UpperLeft, "RankBody");
+            _rankingBody.rectTransform.sizeDelta = new Vector2(400f, 168f);
 
             UiKit.CreateTouchButton(panel, _font, "CLOSE", 11,
                 new Vector2(0.5f, 0f), new Vector2(0f, 12f), new Vector2(140f, 34f),
@@ -183,19 +233,14 @@ namespace Shmup.Presentation.Battle
                 return;
             }
 
-            var sb = new System.Text.StringBuilder(256);
+            var sb = new System.Text.StringBuilder(512);
             int count = Mathf.Min(RankingRows, entries.Length);
             for (int i = 0; i < count; i++)
             {
                 var entry = entries[i];
                 if (entry == null) continue;
                 if (sb.Length > 0) sb.Append('\n');
-                sb.Append((i + 1).ToString().PadLeft(2));
-                sb.Append("  ");
-                sb.Append(Clip(entry.n, 10).PadRight(10));
-                sb.Append(' ');
-                sb.Append(entry.s.ToString("N0").PadLeft(10));
-                AppendContext(sb, entry);
+                AppendRow(sb, i + 1, entry);
             }
             _rankingBody.text = sb.ToString();
             _rankingBody.color = UiKit.TextMain;
@@ -206,38 +251,71 @@ namespace Shmup.Presentation.Battle
         const string BadgeClose = "</color>";
 
         /// <summary>
-        /// 점수 뒤에 붙는 짧은 문맥: 기체 약칭 + 도달 지점 + 노봄 뱃지.
-        /// "얼마나 갔나 / 무엇으로 / 봄을 썼나"가 순위표에서 바로 읽혀야 한다.
-        ///
-        /// P1.5 이전 기록에는 이 값들이 아예 없다 (서버가 키를 뺀다 → 전부 0).
-        /// 스테이지 번호는 1부터라 <c>st &lt;= 0</c>이 곧 구 항목이고, 그때는 칸을
-        /// 비운다 — 0으로 그리면 "1스테이지에서 죽었다"는 거짓말이 된다.
+        /// 보드 한 줄: 순위 · 파일럿 · 점수 · 달성 스테이지 · 기체 · 봄 사용 횟수.
+        /// 헤더(<see cref="RankingHeader"/>)와 같은 컬럼 상수를 쓰고, 값이 없는 칸은
+        /// '-'로 채워 자릿수를 지킨다 — 칸을 비우면 다음 컬럼이 밀려 헤더와 어긋난다.
         /// </summary>
-        static void AppendContext(System.Text.StringBuilder sb, ScoreboardEntry entry)
+        static void AppendRow(System.Text.StringBuilder sb, int rank, ScoreboardEntry entry)
         {
-            if (entry.st <= 0) return;
+            // P1.5 이전 기록에는 상세 통계가 아예 없다 (서버가 키를 뺀다 → 전부 0).
+            // 스테이지 번호는 1부터라 st <= 0이 곧 구 항목이고, 그때 0을 그리면
+            // "1스테이지에서 봄 0개로 죽었다"는 거짓말이 된다.
+            bool detailed = entry.st > 0;
 
+            sb.Append(rank.ToString().PadLeft(ColRank));
             sb.Append("  ");
-            sb.Append(ScoreboardClient.ShipAbbrev(entry.sh));
+            sb.Append(Clip(entry.n, ColPilot).PadRight(ColPilot));
             sb.Append(' ');
-            // 완주는 도달 좌표보다 등급이 정보다 — "5-4"보다 "CLEAR"가 크다.
-            if (entry.g == "PERFECT" || entry.g == "CLEAR")
-                sb.Append(entry.g);
-            else
-            {
-                sb.Append(entry.st);
-                sb.Append('-');
-                sb.Append(entry.rm > 0 ? entry.rm : 1);
-            }
+            sb.Append(entry.s.ToString("N0").PadLeft(ColScore));
+            sb.Append("  ");
+            sb.Append(StageCell(entry, detailed).PadRight(ColStage));
+            sb.Append(' ');
+            sb.Append(ShipCell(entry).PadRight(ColShip));
+            sb.Append(' ');
+            AppendBombCell(sb, entry, detailed);
+        }
 
-            // 봄을 한 번도 안 쓴 런은 같은 점수라도 다른 주행이다.
-            if (entry.bb == 0)
+        /// <summary>
+        /// 달성 지점. 완주는 도달 좌표보다 등급이 정보다 — "5-4"보다 "CLR"이 크고,
+        /// 무피격 완주(PFT)는 그보다 더 크다.
+        /// </summary>
+        static string StageCell(ScoreboardEntry entry, bool detailed)
+        {
+            if (!detailed) return "-";
+            if (entry.g == "PERFECT") return "PFT";
+            if (entry.g == "CLEAR") return "CLR";
+            return entry.st.ToString() + "-" + (entry.rm > 0 ? entry.rm : 1).ToString();
+        }
+
+        /// <summary>기체 약칭 (ST/IC/BW). id가 비면 공백보다 '-'가 "없다"로 읽힌다.</summary>
+        static string ShipCell(ScoreboardEntry entry)
+        {
+            string ship = ScoreboardClient.ShipAbbrev(entry.sh);
+            return string.IsNullOrEmpty(ship) || ship.Trim().Length == 0 ? "-" : ship;
+        }
+
+        /// <summary>
+        /// 봄 사용 횟수. 0은 "봄을 한 번도 안 쓴 주행"이라 같은 점수라도 다른 기록이다 —
+        /// 예전 NB 뱃지를 대신해 숫자 0 자체를 앰버로 강조한다.
+        /// 색 태그는 폭에 잡히지 않으므로 패딩을 **태그 안쪽**에 넣어야 정렬이 유지된다.
+        /// </summary>
+        static void AppendBombCell(
+            System.Text.StringBuilder sb, ScoreboardEntry entry, bool detailed)
+        {
+            if (!detailed)
             {
-                sb.Append(' ');
-                sb.Append(BadgeOpen);
-                sb.Append("NB");
-                sb.Append(BadgeClose);
+                sb.Append("-".PadLeft(ColBomb));
+                return;
             }
+            string cell = entry.bb.ToString().PadLeft(ColBomb);
+            if (entry.bb != 0)
+            {
+                sb.Append(cell);
+                return;
+            }
+            sb.Append(BadgeOpen);
+            sb.Append(cell);
+            sb.Append(BadgeClose);
         }
 
         static string Clip(string value, int max)
@@ -503,32 +581,43 @@ namespace Shmup.Presentation.Battle
             if (_promptText != null && _promptText.enabled != promptVisible)
                 _promptText.enabled = promptVisible;
 
-            if (_seedValueText != null && !ReferenceEquals(_shownSeed, _seedText))
+            if (_seedValueText != null
+                && (!ReferenceEquals(_shownSeed, _seedText) || _shownSeedManual != _seedManual))
             {
                 _shownSeed = _seedText;
-                _seedValueText.text = string.Format(
+                _shownSeedManual = _seedManual;
+                string line = string.Format(
                     UiPlatform.TouchMode ? UiText.SeedFormatTouch : UiText.SeedFormat, _seedText);
+                // 제출이 막힌 사실은 런이 끝난 뒤가 아니라 **출격 전에** 알려야 한다.
+                _seedValueText.text = _seedManual ? line + UiText.SeedManualSuffix : line;
+                _seedValueText.color = _seedManual ? UiKit.TextAccent : UiKit.TextDim;
             }
         }
 
         void EditSeed(Keyboard keyboard)
         {
             if (keyboard.backspaceKey.wasPressedThisFrame && _seedText.Length > 0)
+            {
                 _seedText = _seedText.Substring(0, _seedText.Length - 1);
+                _seedManual = true;
+            }
             for (Key key = Key.Digit1; key <= Key.Digit0; key++)
             {
                 if (!keyboard[key].wasPressedThisFrame || _seedText.Length >= 12) continue;
                 int digit = key == Key.Digit0 ? 0 : key - Key.Digit1 + 1;
                 _seedText += (char)('0' + digit);
+                _seedManual = true;
             }
         }
 
         void StartRun()
         {
-            DevArgs.RuntimeSeed = long.TryParse(_seedText, out long seed)
-                ? seed
-                : NewRandomSeed();
+            bool parsed = long.TryParse(_seedText, out long seed);
+            DevArgs.RuntimeSeed = parsed ? seed : NewRandomSeed();
             DevArgs.RuntimeDaily = false;
+            // 수동 시드 낙인은 **출격 시점**에 굳는다: 만졌다가 리롤로 되돌렸으면 랜덤이고,
+            // 파싱이 깨진 문자열이면 어차피 새로 뽑은 랜덤이라 수동이 아니다.
+            DevArgs.RuntimeSeeded = _seedManual && parsed;
             SceneManager.LoadScene("Battle");
         }
     }

@@ -38,6 +38,10 @@ namespace Shmup.Presentation.Battle
                 if (_age < _titleSeconds) return;
                 _launched = true;
                 DevArgs.RuntimeSeed = 20260729;
+                // 영상용 고정 시드 = 지정 시드 런이다. 오토파일럿 주행이 보드에
+                // 올라갈 일은 없지만, 낙인을 세워 두는 쪽이 규칙에 일관된다.
+                DevArgs.RuntimeDaily = false;
+                DevArgs.RuntimeSeeded = true;
                 SceneManager.LoadScene("Battle");
                 return;
             }

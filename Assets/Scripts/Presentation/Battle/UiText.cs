@@ -44,6 +44,12 @@ namespace Shmup.Presentation.Battle
         // 타이틀
         public const string LaunchPrompt = "PRESS SPACE / (A) TO LAUNCH";
         public const string SeedFormat = "SEED  {0}_   (type digits, backspace to edit)";
+
+        /// <summary>
+        /// 손으로 친 시드 표시. 같은 시드를 반복 연습해 만든 점수는 글로벌 보드에
+        /// 올리지 않는다 — 그 사실을 출격 전에 알려야 한 판을 헛되이 돌리지 않는다.
+        /// </summary>
+        public const string SeedManualSuffix = "   [MANUAL SEED - NO SUBMIT]";
         public const string ContinueFormat = "[C]/(X) CONTINUE - stage {0}, score {1}";
 
         /// <summary>

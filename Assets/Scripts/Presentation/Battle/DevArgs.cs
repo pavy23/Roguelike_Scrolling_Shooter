@@ -74,6 +74,19 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         public static bool RuntimeDaily;
 
+        /// <summary>
+        /// 이번 런의 시드를 타이틀에서 **사람이 직접 쳐 넣었는가** (스코어보드 공정성).
+        ///
+        /// 시드를 손으로 고정하면 같은 판을 몇 번이고 연습한 뒤 최고 기록만 올릴 수 있다 —
+        /// 랜덤 시드로 한 번에 뚫은 기록과 같은 보드에 서면 보드가 의미를 잃는다.
+        /// 그래서 치트 런과 같은 취급으로 제출을 닫는다. 리롤(랜덤)·데일리·리플레이·
+        /// 이어하기는 여기에 해당하지 않는다.
+        ///
+        /// 데일리 표식과 마찬가지로 "시드를 무엇으로 골랐나"라는 타이틀의 선택이라
+        /// Presentation 소관이고, 시드와 같은 채널로 넘겨야 두 값이 어긋나지 않는다.
+        /// </summary>
+        public static bool RuntimeSeeded;
+
         public static long? OverrideSeed
         {
             get
