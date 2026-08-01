@@ -189,7 +189,7 @@
           "y": -4
         }
       ],
-      "intent": "잡몹 라인 리듬 — 스치듯 처리하며 레인 감각"
+      "intent": "REQ103a mid | masks[7] | theme=shared | 잡몹 라인 리듬 — 스치듯 처리하며 레인 감각"
     },
     {
       "id": "seg_sine_pair",
@@ -254,7 +254,7 @@
           "y": -4.75
         }
       ],
-      "intent": "상하 사인 회피 — 중앙 통로 위치 선정"
+      "intent": "REQ103a early-open | masks[2] | theme=shared | 상하 사인 회피 — 중앙 통로 위치 선정"
     },
     {
       "id": "seg_turret_floor",
@@ -338,14 +338,14 @@
           "hp": 20
         }
       ],
-      "intent": "바닥 강화형 포탑 회피 + 상부 잡몹 정리"
+      "intent": "REQ103a mid | masks[6] | theme=shared | 바닥 강화형 포탑 회피 + 상부 잡몹 정리"
     },
     {
       "id": "seg_swarm_fast",
       "difficultyMin": 2,
       "difficultyMax": 3,
       "weight": 5,
-      "lengthTicks": 600,
+      "lengthTicks": 656,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -463,14 +463,14 @@
           "hp": 15
         }
       ],
-      "intent": "고속 잡몹 폭주 — 순수 회피 리듬"
+      "intent": "REQ103a mid | masks[7] | theme=shared | valley | 고속 잡몹 폭주 — 순수 회피 리듬"
     },
     {
       "id": "seg_mixed_mid",
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 11,
-      "lengthTicks": 720,
+      "lengthTicks": 790,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -568,7 +568,7 @@
           "hp": 25
         }
       ],
-      "intent": "잡몹 리듬 속 중형 앵커 화력 집중"
+      "intent": "REQ103a mid | masks[7] | theme=shared | valley | 잡몹 리듬 속 중형 앵커 화력 집중"
     },
     {
       "id": "seg_turret_ceiling",
@@ -658,7 +658,7 @@
           "hp": 15
         }
       ],
-      "intent": "천장 강화형 포탑 회피 + 하부 잡몹"
+      "intent": "REQ103a mid | masks[3] | theme=shared | 천장 강화형 포탑 회피 + 하부 잡몹"
     },
     {
       "id": "seg_sandwich",
@@ -669,6 +669,8 @@
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
+        7,
+        3,
         2
       ],
       "spawns": [
@@ -784,18 +786,18 @@
           "hp": 30
         }
       ],
-      "intent": "상하 사격 압박 속 중형 격파 (위치+화력)"
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=shared | 상하 사격 압박 속 중형 격파 (위치+화력)"
     },
     {
       "id": "seg_sine_rush",
       "difficultyMin": 1,
       "difficultyMax": 3,
       "weight": 10,
-      "lengthTicks": 660,
+      "lengthTicks": 730,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        6
+        7
       ],
       "spawns": [
         {
@@ -869,18 +871,19 @@
           "y": 0
         }
       ],
-      "intent": "사인 잡몹 러시 — 초반 친화(중형 앵커 제거, 리듬 학습)"
+      "intent": "REQ103a mid | masks[7] | theme=shared | valley | 사인 잡몹 러시 — 초반 친화(중형 앵커 제거, 리듬 학습)"
     },
     {
       "id": "seg_hive_spore_cloud",
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 8,
-      "lengthTicks": 720,
+      "lengthTicks": 790,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        7
+        7,
+        3
       ],
       "theme": "hive",
       "spawns": [
@@ -1011,18 +1014,19 @@
           "hp": 25
         }
       ],
-      "intent": "잡몹 점유 후 중형 앵커 피날레"
+      "intent": "REQ103a mid | masks[7→3] | theme=hive | valley | 잡몹 점유 후 중형 앵커 피날레"
     },
     {
       "id": "seg_hive_lancer_rush",
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 4,
-      "lengthTicks": 660,
+      "lengthTicks": 710,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        2
+        7,
+        3
       ],
       "theme": "hive",
       "spawns": [
@@ -1173,18 +1177,19 @@
           "hp": 20
         }
       ],
-      "intent": "랜서 잡몹 러시 순수 회피"
+      "intent": "REQ103a mid | masks[7→3] | theme=hive | valley | 랜서 잡몹 러시 순수 회피"
     },
     {
       "id": "seg_fortress_sentry_grid",
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 5,
-      "lengthTicks": 900,
+      "lengthTicks": 970,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        6
+        7,
+        3
       ],
       "theme": "fortress",
       "spawns": [
@@ -1360,7 +1365,7 @@
           "hp": 35
         }
       ],
-      "intent": "강화형 격자 사격 회피 + 중형"
+      "intent": "REQ103a mid | masks[7→3] | theme=fortress | valley | 강화형 격자 사격 회피 + 중형"
     },
     {
       "id": "seg_fortress_interceptor_assault",
@@ -1371,6 +1376,8 @@
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
+        7,
+        3,
         2
       ],
       "theme": "fortress",
@@ -1558,14 +1565,14 @@
           "hp": 40
         }
       ],
-      "intent": "잡몹 러시 폭주 — 회피 우선"
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | 잡몹 러시 폭주 — 회피 우선"
     },
     {
       "id": "seg_nebula_wisp_storm",
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 4,
-      "lengthTicks": 780,
+      "lengthTicks": 850,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -1712,7 +1719,7 @@
           "hp": 35
         }
       ],
-      "intent": "잡몹 폭풍 회피 후 중형·중형",
+      "intent": "REQ103a mid | masks[7] | theme=nebula | valley | 잡몹 폭풍 회피 후 중형·중형",
       "environment": {
         "drift": {
           "xPerSecond": 0.35,
@@ -1725,11 +1732,11 @@
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 5,
-      "lengthTicks": 720,
+      "lengthTicks": 790,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        2
+        7
       ],
       "theme": "nebula",
       "spawns": [
@@ -1862,7 +1869,7 @@
           "hp": 40
         }
       ],
-      "intent": "리본 회피 동선 + 중형 앵커",
+      "intent": "REQ103a mid | masks[7] | theme=nebula | valley | 리본 회피 동선 + 중형 앵커",
       "environment": {
         "drift": {
           "xPerSecond": -0.28,
@@ -1875,11 +1882,13 @@
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 3,
-      "lengthTicks": 900,
+      "lengthTicks": 970,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        6
+        7,
+        3,
+        2
       ],
       "theme": "core",
       "spawns": [
@@ -2018,7 +2027,7 @@
           "hp": 48
         }
       ],
-      "intent": "중형 벽 돌파 + 중형",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=core | valley | 중형 벽 돌파 + 중형",
       "environment": {
         "drift": {
           "xPerSecond": 0.3,
@@ -2035,6 +2044,9 @@
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
+        7,
+        3,
+        2,
         2
       ],
       "theme": "core",
@@ -2086,12 +2098,12 @@
         },
         {
           "tick": 390,
-          "enemyId": "rift_blade",
+          "enemyId": "prism_beamer",
           "y": 4.5
         },
         {
           "tick": 430,
-          "enemyId": "rift_blade",
+          "enemyId": "prism_beamer",
           "y": -4.5
         },
         {
@@ -2131,13 +2143,13 @@
         },
         {
           "tick": 560,
-          "enemyId": "interceptor_rush",
-          "y": 1
+          "enemyId": "phase_disc",
+          "y": 4.5
         },
         {
           "tick": 600,
-          "enemyId": "interceptor_rush",
-          "y": -1
+          "enemyId": "phase_disc",
+          "y": -4.5
         },
         {
           "tick": 660,
@@ -2222,7 +2234,7 @@
           "hp": 55
         }
       ],
-      "intent": "잡몹 가틀릿 속 중형 연속 처리"
+      "intent": "REQ103a late-encroach | masks[7→3→2→2] | theme=core | static+ | 잡몹 가틀릿 속 중형 연속 처리"
     },
     {
       "id": "seg_scrap_debris_line",
@@ -2330,14 +2342,14 @@
           "hp": 35
         }
       ],
-      "intent": "스크랩 잡몹 직선 리듬"
+      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | 스크랩 잡몹 직선 리듬"
     },
     {
       "id": "seg_scrap_pipe_dash",
       "difficultyMin": 1,
       "difficultyMax": 2,
       "weight": 11,
-      "lengthTicks": 600,
+      "lengthTicks": 640,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -2454,14 +2466,14 @@
           "hp": 34
         }
       ],
-      "intent": "대시 잡몹 회피 — 반응 속도"
+      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | valley | 대시 잡몹 회피 — 반응 속도"
     },
     {
       "id": "seg_scrap_skimmer_weave",
       "difficultyMin": 1,
       "difficultyMax": 3,
       "weight": 10,
-      "lengthTicks": 660,
+      "lengthTicks": 717,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -2583,18 +2595,19 @@
           "hp": 26
         }
       ],
-      "intent": "스킴 잡몹 직조 회피 동선"
+      "intent": "REQ103a mid | masks[2] | theme=scrapyard | valley | 스킴 잡몹 직조 회피 동선"
     },
     {
       "id": "seg_scrap_junk_corridor",
       "difficultyMin": 2,
       "difficultyMax": 4,
       "weight": 7,
-      "lengthTicks": 720,
+      "lengthTicks": 810,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        7
+        7,
+        3
       ],
       "theme": "scrapyard",
       "spawns": [
@@ -2723,7 +2736,7 @@
           "hp": 42
         }
       ],
-      "intent": "강화형 조준 + 통로 압박"
+      "intent": "REQ103a mid | masks[7→3] | theme=scrapyard | valley | 강화형 조준 + 통로 압박"
     },
     {
       "id": "seg_scrap_tumbler_pack",
@@ -2734,7 +2747,8 @@
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        7
+        7,
+        3
       ],
       "theme": "scrapyard",
       "spawns": [
@@ -2884,18 +2898,20 @@
           "hp": 55
         }
       ],
-      "intent": "강화형 텀블러 팩 조준 강요"
+      "intent": "REQ103a mid | masks[7→3] | theme=scrapyard | 강화형 텀블러 팩 조준 강요"
     },
     {
       "id": "seg_scrap_rust_gauntlet",
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 4,
-      "lengthTicks": 780,
+      "lengthTicks": 910,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        6
+        7,
+        3,
+        3
       ],
       "theme": "scrapyard",
       "spawns": [
@@ -2951,8 +2967,8 @@
         },
         {
           "tick": 380,
-          "enemyId": "junk_roller",
-          "y": -1.5
+          "enemyId": "turret_ground",
+          "y": -4.5
         },
         {
           "tick": 440,
@@ -2966,12 +2982,12 @@
         },
         {
           "tick": 560,
-          "enemyId": "rust_skimmer",
+          "enemyId": "turret_ground",
           "y": 3.5
         },
         {
           "tick": 600,
-          "enemyId": "rust_skimmer",
+          "enemyId": "turret_ground",
           "y": -3.5
         },
         {
@@ -2986,13 +3002,13 @@
         },
         {
           "tick": 740,
-          "enemyId": "pipe_rat",
-          "y": 2
+          "enemyId": "turret_ground",
+          "y": 4.5
         },
         {
           "tick": 760,
-          "enemyId": "pipe_rat",
-          "y": -2
+          "enemyId": "turret_ground",
+          "y": -4.5
         }
       ],
       "obstacles": [
@@ -3057,14 +3073,14 @@
           "hp": 42
         }
       ],
-      "intent": "중형 앵커 가틀릿 — 화력 집중"
+      "intent": "REQ103a late-encroach | masks[7→3→3] | theme=scrapyard | valley | static+ | 중형 앵커 가틀릿 — 화력 집중"
     },
     {
       "id": "seg_hive_brood_wave",
       "difficultyMin": 2,
       "difficultyMax": 4,
       "weight": 10,
-      "lengthTicks": 720,
+      "lengthTicks": 830,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -3198,18 +3214,19 @@
           "hp": 25
         }
       ],
-      "intent": "강화형 브루드 사격 조준"
+      "intent": "REQ103a mid | masks[7] | theme=hive | valley | 강화형 브루드 사격 조준"
     },
     {
       "id": "seg_hive_hornet_dive",
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 7,
-      "lengthTicks": 660,
+      "lengthTicks": 730,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        7
+        7,
+        3
       ],
       "theme": "hive",
       "spawns": [
@@ -3340,17 +3357,19 @@
           "hp": 20
         }
       ],
-      "intent": "다이브 잡몹 회피 리듬"
+      "intent": "REQ103a mid | masks[7→3] | theme=hive | valley | 다이브 잡몹 회피 리듬"
     },
     {
       "id": "seg_hive_organic_pulse",
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 6,
-      "lengthTicks": 780,
+      "lengthTicks": 850,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
+        7,
+        3,
         2
       ],
       "theme": "hive",
@@ -3417,18 +3436,18 @@
         },
         {
           "tick": 460,
-          "enemyId": "spore_drifter",
-          "y": -1
+          "enemyId": "hive_tentacle",
+          "y": -4.5
         },
         {
           "tick": 500,
-          "enemyId": "lancer_dart",
-          "y": 2
+          "enemyId": "hive_tentacle",
+          "y": 4.5
         },
         {
           "tick": 540,
-          "enemyId": "sting_hornet",
-          "y": -3
+          "enemyId": "hive_tentacle",
+          "y": -4.5
         },
         {
           "tick": 700,
@@ -3462,7 +3481,7 @@
           "hp": 30
         }
       ],
-      "intent": "중형 위협 + 중형 화력 집중",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=hive | valley | static+ | 중형 위협 + 중형 화력 집중",
       "environment": {
         "corridor": {
           "startMinY": -9.0,
@@ -3478,11 +3497,13 @@
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 5,
-      "lengthTicks": 780,
+      "lengthTicks": 850,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        6
+        7,
+        3,
+        2
       ],
       "theme": "hive",
       "spawns": [
@@ -3528,8 +3549,8 @@
         },
         {
           "tick": 360,
-          "enemyId": "lancer_dart",
-          "y": 2
+          "enemyId": "hive_tentacle",
+          "y": 4.5
         },
         {
           "tick": 400,
@@ -3543,13 +3564,13 @@
         },
         {
           "tick": 520,
-          "enemyId": "spore_drifter",
-          "y": 3
+          "enemyId": "hive_tentacle",
+          "y": 4.5
         },
         {
           "tick": 560,
-          "enemyId": "sting_hornet",
-          "y": -3
+          "enemyId": "hive_tentacle",
+          "y": -4.5
         },
         {
           "tick": 700,
@@ -3583,7 +3604,7 @@
           "hp": 30
         }
       ],
-      "intent": "좁은 구간 중형 격파 목표",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=hive | valley | static+ | 좁은 구간 중형 격파 목표",
       "environment": {
         "corridor": {
           "startMinY": -8.5,
@@ -3599,11 +3620,12 @@
       "difficultyMin": 2,
       "difficultyMax": 4,
       "weight": 9,
-      "lengthTicks": 780,
+      "lengthTicks": 850,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        7
+        7,
+        3
       ],
       "theme": "fortress",
       "spawns": [
@@ -3774,18 +3796,20 @@
           "hp": 40
         }
       ],
-      "intent": "강화형 박격 라인 조준"
+      "intent": "REQ103a mid | masks[7→3] | theme=fortress | valley | 강화형 박격 라인 조준"
     },
     {
       "id": "seg_fortress_turret_cross",
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 6,
-      "lengthTicks": 840,
+      "lengthTicks": 910,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        6
+        7,
+        3,
+        2
       ],
       "theme": "fortress",
       "spawns": [
@@ -3962,18 +3986,20 @@
           "hp": 40
         }
       ],
-      "intent": "교차 포탑 위치 선정 + 중형"
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 교차 포탑 위치 선정 + 중형"
     },
     {
       "id": "seg_fortress_drone_lattice",
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 5,
-      "lengthTicks": 840,
+      "lengthTicks": 910,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        7
+        7,
+        3,
+        2
       ],
       "theme": "fortress",
       "spawns": [
@@ -4201,17 +4227,19 @@
           "hp": 45
         }
       ],
-      "intent": "강화형 드론 격자 압박"
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 강화형 드론 격자 압박"
     },
     {
       "id": "seg_fortress_armored_gate",
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 3,
-      "lengthTicks": 900,
+      "lengthTicks": 970,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
+        7,
+        3,
         2
       ],
       "theme": "fortress",
@@ -4425,14 +4453,14 @@
           "hp": 50
         }
       ],
-      "intent": "중형·중형 화력 집중 관문"
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 중형·중형 화력 집중 관문"
     },
     {
       "id": "seg_nebula_echo_ribbon",
       "difficultyMin": 2,
       "difficultyMax": 4,
       "weight": 9,
-      "lengthTicks": 720,
+      "lengthTicks": 830,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -4562,7 +4590,7 @@
           "hp": 30
         }
       ],
-      "intent": "강화형 에코 조준 리본",
+      "intent": "REQ103a mid | masks[7] | theme=nebula | valley | 강화형 에코 조준 리본",
       "environment": {
         "drift": {
           "xPerSecond": 0.12,
@@ -4575,7 +4603,7 @@
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 7,
-      "lengthTicks": 720,
+      "lengthTicks": 790,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -4701,7 +4729,7 @@
           "hp": 30
         }
       ],
-      "intent": "잡몹·강화 혼합 + 중형",
+      "intent": "REQ103a mid | masks[7] | theme=nebula | valley | 잡몹·강화 혼합 + 중형",
       "environment": {
         "drift": {
           "xPerSecond": -0.42,
@@ -4714,10 +4742,12 @@
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 6,
-      "lengthTicks": 780,
+      "lengthTicks": 850,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
+        7,
+        3,
         2
       ],
       "theme": "nebula",
@@ -4754,12 +4784,12 @@
         },
         {
           "tick": 360,
-          "enemyId": "echo_wisp",
+          "enemyId": "phase_disc",
           "y": 3.5
         },
         {
           "tick": 420,
-          "enemyId": "void_moth",
+          "enemyId": "phase_disc",
           "y": -3.5
         },
         {
@@ -4769,13 +4799,13 @@
         },
         {
           "tick": 540,
-          "enemyId": "wisp_spark",
-          "y": 2
+          "enemyId": "phase_disc",
+          "y": 4.5
         },
         {
           "tick": 600,
-          "enemyId": "wisp_spark",
-          "y": -2
+          "enemyId": "phase_disc",
+          "y": -4.5
         },
         {
           "tick": 700,
@@ -4821,7 +4851,7 @@
           "hp": 35
         }
       ],
-      "intent": "중형 드리프트 화력 집중",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=nebula | valley | static+ | 중형 드리프트 화력 집중",
       "environment": {
         "drift": {
           "xPerSecond": 0.7,
@@ -4834,11 +4864,13 @@
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 5,
-      "lengthTicks": 780,
+      "lengthTicks": 850,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        6
+        7,
+        3,
+        2
       ],
       "theme": "nebula",
       "spawns": [
@@ -4874,8 +4906,8 @@
         },
         {
           "tick": 380,
-          "enemyId": "void_moth",
-          "y": -1
+          "enemyId": "phase_disc",
+          "y": -4.5
         },
         {
           "tick": 440,
@@ -4889,13 +4921,13 @@
         },
         {
           "tick": 560,
-          "enemyId": "wisp_spark",
-          "y": 3
+          "enemyId": "phase_disc",
+          "y": 4.5
         },
         {
           "tick": 620,
-          "enemyId": "wisp_spark",
-          "y": -3
+          "enemyId": "phase_disc",
+          "y": -4.5
         },
         {
           "tick": 700,
@@ -4951,7 +4983,7 @@
           "hp": 40
         }
       ],
-      "intent": "중형 프리즘 + 중형 목표",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=nebula | valley | static+ | 중형 프리즘 + 중형 목표",
       "environment": {
         "drift": {
           "xPerSecond": -0.4,
@@ -4964,11 +4996,12 @@
       "difficultyMin": 2,
       "difficultyMax": 4,
       "weight": 8,
-      "lengthTicks": 720,
+      "lengthTicks": 800,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        7
+        7,
+        3
       ],
       "theme": "core",
       "spawns": [
@@ -5105,7 +5138,7 @@
           "hp": 45
         }
       ],
-      "intent": "잡몹 칼날 회피 + 강화형 사격",
+      "intent": "REQ103a mid | masks[7→3] | theme=core | valley | 잡몹 칼날 회피 + 강화형 사격",
       "environment": {
         "drift": {
           "xPerSecond": -0.35,
@@ -5118,11 +5151,12 @@
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 7,
-      "lengthTicks": 780,
+      "lengthTicks": 850,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        7
+        7,
+        3
       ],
       "theme": "core",
       "spawns": [
@@ -5268,7 +5302,7 @@
           "hp": 45
         }
       ],
-      "intent": "강화형 원반 조준 + 중형",
+      "intent": "REQ103a mid | masks[7→3] | theme=core | valley | 강화형 원반 조준 + 중형",
       "environment": {
         "corridor": {
           "startMinY": -9.0,
@@ -5284,11 +5318,13 @@
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 4,
-      "lengthTicks": 840,
+      "lengthTicks": 910,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        6
+        7,
+        3,
+        2
       ],
       "theme": "core",
       "spawns": [
@@ -5437,7 +5473,7 @@
           }
         }
       ],
-      "intent": "중형 배터리 화력 집중",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=core | valley | 중형 배터리 화력 집중",
       "environment": {
         "drift": {
           "xPerSecond": 0.5,
@@ -5450,10 +5486,13 @@
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 4,
-      "lengthTicks": 840,
+      "lengthTicks": 910,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
+        7,
+        3,
+        2,
         2
       ],
       "theme": "core",
@@ -5495,13 +5534,13 @@
         },
         {
           "tick": 380,
-          "enemyId": "interceptor_rush",
-          "y": 1
+          "enemyId": "prism_beamer",
+          "y": 4.5
         },
         {
           "tick": 420,
-          "enemyId": "interceptor_rush",
-          "y": -1
+          "enemyId": "prism_beamer",
+          "y": -4.5
         },
         {
           "tick": 460,
@@ -5588,7 +5627,7 @@
           "hp": 48
         }
       ],
-      "intent": "전 티어 혼합 최종 가틀릿",
+      "intent": "REQ103a late-encroach | masks[7→3→2→2] | theme=core | valley | static+ | 전 티어 혼합 최종 가틀릿",
       "environment": {
         "corridor": {
           "startMinY": -8.5,
@@ -5608,7 +5647,7 @@
       "difficultyMin": 1,
       "difficultyMax": 2,
       "weight": 10,
-      "lengthTicks": 600,
+      "lengthTicks": 650,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -5724,7 +5763,7 @@
           "hp": 22
         }
       ],
-      "intent": "상하 지그재그 기둥 — 레인 교대 회피",
+      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | valley | 상하 지그재그 기둥 — 레인 교대 회피",
       "theme": "scrapyard"
     },
     {
@@ -5732,7 +5771,7 @@
       "difficultyMin": 1,
       "difficultyMax": 3,
       "weight": 10,
-      "lengthTicks": 640,
+      "lengthTicks": 710,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -5854,7 +5893,7 @@
           "hp": 25
         }
       ],
-      "intent": "중앙 파괴벽 뚫기 — 커버 클리어 후 전진",
+      "intent": "REQ103a mid | masks[7] | theme=scrapyard | valley | 중앙 파괴벽 뚫기 — 커버 클리어 후 전진",
       "theme": "scrapyard"
     },
     {
@@ -5990,7 +6029,7 @@
           "hp": 24
         }
       ],
-      "intent": "흩어진 파편밭 — 넓은 y 스팬 회피 동선",
+      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | 흩어진 파편밭 — 넓은 y 스팬 회피 동선",
       "theme": "scrapyard"
     },
     {
@@ -5998,7 +6037,7 @@
       "difficultyMin": 1,
       "difficultyMax": 2,
       "weight": 9,
-      "lengthTicks": 600,
+      "lengthTicks": 690,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -6114,7 +6153,7 @@
           "hp": 26
         }
       ],
-      "intent": "상하 레일 분리 — 중앙 통로 유지 훈련",
+      "intent": "REQ103a early-open | masks[2] | theme=scrapyard | valley | 상하 레일 분리 — 중앙 통로 유지 훈련",
       "theme": "scrapyard"
     },
     {
@@ -6232,7 +6271,7 @@
           "hp": 24
         }
       ],
-      "intent": "하이브 촉수 기둥 지그재그 — 상하 교대 압박",
+      "intent": "REQ103a mid | masks[7] | theme=hive | 하이브 촉수 기둥 지그재그 — 상하 교대 압박",
       "theme": "hive"
     },
     {
@@ -6240,10 +6279,12 @@
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 6,
-      "lengthTicks": 700,
+      "lengthTicks": 750,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
+        7,
+        3,
         2
       ],
       "spawns": [
@@ -6294,8 +6335,8 @@
         },
         {
           "tick": 400,
-          "enemyId": "lancer_dart",
-          "y": 2.0
+          "enemyId": "hive_tentacle",
+          "y": 4.5
         },
         {
           "tick": 450,
@@ -6309,13 +6350,13 @@
         },
         {
           "tick": 560,
-          "enemyId": "sting_hornet",
-          "y": 3.0
+          "enemyId": "hive_tentacle",
+          "y": 4.5
         },
         {
           "tick": 600,
-          "enemyId": "lancer_dart",
-          "y": -3.0
+          "enemyId": "hive_tentacle",
+          "y": -4.5
         }
       ],
       "obstacles": [
@@ -6350,7 +6391,7 @@
           "hp": 28
         }
       ],
-      "intent": "유기 막 벽 관통 — 중앙 클리어 강요",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=hive | valley | static+ | 유기 막 벽 관통 — 중앙 클리어 강요",
       "theme": "hive"
     },
     {
@@ -6358,11 +6399,12 @@
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 7,
-      "lengthTicks": 720,
+      "lengthTicks": 790,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        7
+        7,
+        3
       ],
       "spawns": [
         {
@@ -6488,7 +6530,7 @@
           }
         }
       ],
-      "intent": "요새 차폐벽+포탑 — 방패 파괴 후 돌파",
+      "intent": "REQ103a mid | masks[7→3] | theme=fortress | valley | 요새 차폐벽+포탑 — 방패 파괴 후 돌파",
       "theme": "fortress"
     },
     {
@@ -6496,10 +6538,12 @@
       "difficultyMin": 4,
       "difficultyMax": 7,
       "weight": 5,
-      "lengthTicks": 780,
+      "lengthTicks": 850,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
+        7,
+        3,
         2
       ],
       "spawns": [
@@ -6638,7 +6682,7 @@
           }
         }
       ],
-      "intent": "요새 교차사격 골목 — 차폐·레이저 동시 압박",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 요새 교차사격 골목 — 차폐·레이저 동시 압박",
       "theme": "fortress"
     },
     {
@@ -6646,11 +6690,13 @@
       "difficultyMin": 3,
       "difficultyMax": 7,
       "weight": 6,
-      "lengthTicks": 720,
+      "lengthTicks": 790,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        7
+        7,
+        3,
+        2
       ],
       "spawns": [
         {
@@ -6695,8 +6741,8 @@
         },
         {
           "tick": 370,
-          "enemyId": "wisp_spark",
-          "y": -1.5
+          "enemyId": "phase_disc",
+          "y": -4.5
         },
         {
           "tick": 420,
@@ -6705,8 +6751,8 @@
         },
         {
           "tick": 470,
-          "enemyId": "echo_wisp",
-          "y": -3.0
+          "enemyId": "phase_disc",
+          "y": -4.5
         },
         {
           "tick": 530,
@@ -6715,8 +6761,8 @@
         },
         {
           "tick": 590,
-          "enemyId": "void_moth",
-          "y": 2.0
+          "enemyId": "phase_disc",
+          "y": 4.5
         },
         {
           "tick": 640,
@@ -6768,7 +6814,7 @@
           "hp": 32
         }
       ],
-      "intent": "성운 부유 격자 — 대각 결정 회피",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=nebula | valley | static+ | 성운 부유 격자 — 대각 결정 회피",
       "theme": "nebula"
     },
     {
@@ -6776,11 +6822,14 @@
       "difficultyMin": 4,
       "difficultyMax": 7,
       "weight": 5,
-      "lengthTicks": 800,
+      "lengthTicks": 890,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
-        7
+        7,
+        3,
+        2,
+        2
       ],
       "spawns": [
         {
@@ -6855,13 +6904,13 @@
         },
         {
           "tick": 720,
-          "enemyId": "interceptor_rush",
-          "y": 2.0
+          "enemyId": "prism_beamer",
+          "y": 4.5
         },
         {
           "tick": 740,
-          "enemyId": "interceptor_rush",
-          "y": -2.0
+          "enemyId": "prism_beamer",
+          "y": -4.5
         }
       ],
       "obstacles": [
@@ -6922,7 +6971,7 @@
           }
         }
       ],
-      "intent": "코어 위상 기둥 — 후반 조밀 통로",
+      "intent": "REQ103a late-encroach | masks[7→3→2→2] | theme=core | valley | static+ | 코어 위상 기둥 — 후반 조밀 통로",
       "theme": "core"
     }
   ],
