@@ -271,41 +271,92 @@ def normalize(x: np.ndarray, peak: float = 1.0) -> np.ndarray:
 # SNES 편성으로 새로 정했다.
 
 THEMES = {
+    # ── 스테이지 5곡 (arr 키가 있으면 arrange_staged가 맡는다) ────────────────
+    # 사람 지시: 1=경쾌, 2=잔잔, 3·4=긴장(단 서로 달라야), 5=웅장.
+
     "scrapyard": dict(
-        bpm=132, bars=16,
-        progression=[-24, -28, -33, -26, -24, -28, -29, -29],   # Am F C G / Am F E E
-        scale=[0, 3, 5, 7, 10, 12],                             # 마이너 펜타토닉
-        lead="lead", pad="strings", echo=(150, 0.34),
-        drums="rock", motif_seed=11,
+        # 1면 — 경쾌. 믹솔리디안(장음계에 b7)이라 밝은데 팝하지 않고 모험적이다.
+        # I-bVII-IV가 계속 돌아 "출격" 느낌을 만든다. 셔플 햇 + 옥타브 베이스가
+        # 통통 튀는 추진력을 준다.
+        bpm=140, bars=16, motif_seed=11,
+        scale=[0, 2, 4, 5, 7, 9, 10, 12],                       # A 믹솔리디안
+        chords_a=[(-24, "maj"), (-24, "maj"), (-26, "maj"), (-26, "maj"),
+                  (-31, "maj"), (-31, "maj"), (-26, "maj"), (-24, "maj")],
+        # B절: 상대단조(F#m)로 한 번 그늘을 지웠다가 다시 밝게 나온다
+        chords_b=[(-27, "min"), (-27, "min"), (-31, "maj"), (-31, "maj"),
+                  (-26, "maj"), (-26, "maj"), (-29, "min"), (-24, "maj")],
+        pad="strings", echo=(150, 0.34),
+        arr=dict(lead_voice="square25", lead_mode="motif", bass="octave_bounce",
+                 arp="pingpong8", drums="shuffle", swing=0.28, hat=1.0,
+                 lead_gain=0.34),
     ),
     "hive": dict(
-        bpm=112, bars=16,
-        progression=[-26, -26, -30, -25, -26, -26, -31, -25],   # 프리지안 압박
-        scale=[0, 1, 3, 5, 7, 8, 12],
-        lead="bell", pad="pad", echo=(210, 0.44),
-        drums="tribal", motif_seed=23,
+        # 2면 — 잔잔. 도리안은 단조인데 6도가 장이라 어둡지 않고 '낯설게 아름답다'.
+        # 아르페지오를 아예 빼고 온음표 베이스 + 삼각 리드의 긴 프레이즈만 남긴다.
+        # 여백이 이 곡의 내용이다.
+        bpm=88, bars=16, motif_seed=23,
+        scale=[0, 2, 3, 5, 7, 9, 10, 12],                       # A 도리안
+        chords_a=[(-24, "min7"), (-24, "min7"), (-22, "min7"), (-22, "min7"),
+                  (-19, "maj"), (-19, "maj"), (-26, "maj7"), (-26, "maj7")],
+        # B절: 도리안 특유의 장4도(D)를 앞세워 살짝 떠오른다
+        chords_b=[(-28, "maj7"), (-28, "maj7"), (-19, "maj"), (-19, "maj"),
+                  (-24, "min7"), (-24, "min7"), (-26, "sus4"), (-26, "maj")],
+        pad="pad", echo=(260, 0.46),
+        arr=dict(lead_voice="triangle", lead_mode="sustain", bass="whole",
+                 arp="droplet", drums="ambient", swing=0.0, hat=0.0,
+                 lead_gain=0.30, pad_gain=0.34),
     ),
     "fortress": dict(
-        bpm=148, bars=16,
-        progression=[-24, -24, -27, -29, -24, -24, -22, -29],   # 드라이빙
-        scale=[0, 3, 5, 6, 7, 10, 12],                          # 블루스 마이너
-        lead="brass", pad="brass", echo=(120, 0.28),
-        drums="march", motif_seed=37,
+        # 3면 — 긴장 A(쫓기는 긴장). 프리지안 도미넌트(하모닉 마이너 5음 시작):
+        # 장3도 위에 b2가 얹혀 '기계적 위압'이 난다. bII-I 왕복이 심장박동.
+        # 16분 아르페지오가 쉬지 않고 돌고 그 위에 듀티 0.5 리드가 길게 버틴다.
+        bpm=150, bars=16, motif_seed=37,
+        scale=[0, 1, 4, 5, 7, 8, 10, 12],                       # E 프리지안 도미넌트
+        chords_a=[(-29, "maj"), (-29, "maj"), (-28, "maj"), (-28, "maj"),
+                  (-29, "maj"), (-24, "min"), (-28, "maj"), (-29, "maj")],
+        # B절: 4도(Am)로 올라가 압박을 한 단계 조인 뒤 되돌아온다
+        chords_b=[(-24, "min"), (-24, "min"), (-26, "maj"), (-26, "maj"),
+                  (-28, "maj"), (-28, "maj"), (-29, "maj"), (-29, "maj")],
+        pad="brass", echo=(115, 0.26),
+        arr=dict(lead_voice="square50", lead_mode="hold", bass="driving8",
+                 arp="dense16", drums="drive", swing=0.0, hat=1.0,
+                 lead_gain=0.30, pad_gain=0.22),
     ),
     "nebula": dict(
-        bpm=100, bars=16,
-        progression=[-21, -26, -19, -24, -21, -26, -14, -24],   # 부유하는 메이저7
-        scale=[0, 2, 4, 7, 9, 12],
-        lead="bell", pad="pad", echo=(280, 0.5),
-        drums="sparse", motif_seed=53,
+        # 4면 — 긴장 B(숨죽이는 긴장). 3면과 정반대의 방법으로 조인다: 밀도가 아니라
+        # 불안정한 화성으로. 증3화음이 반음씩 내려가면 '어디에도 안 착지'하고,
+        # 홀톤 스케일은 이끔음이 없어 해결을 기대할 수 없다. 햇 대신 노이즈 스웰.
+        bpm=124, bars=16, motif_seed=53,
+        scale=[0, 2, 4, 6, 8, 10, 12],                          # 홀톤
+        chords_a=[(-24, "aug"), (-24, "aug"), (-25, "aug"), (-25, "aug"),
+                  (-26, "aug"), (-26, "aug"), (-27, "aug"), (-27, "aug")],
+        # B절: 같은 하강을 한 옥타브 위 폭으로 — 조여드는 느낌만 남기고 착지는 없다
+        chords_b=[(-22, "aug"), (-22, "aug"), (-23, "aug"), (-23, "aug"),
+                  (-24, "aug"), (-24, "aug"), (-25, "aug"), (-25, "aug")],
+        pad="pad", echo=(300, 0.52),
+        arr=dict(lead_voice="square25", lead_mode="tremolo", bass="chromatic_fall",
+                 arp="swell", drums="pulse", swing=0.0, hat=0.0,
+                 lead_gain=0.26, pad_gain=0.30),
     ),
     "core": dict(
-        bpm=160, bars=16,
-        progression=[-24, -23, -24, -22, -24, -23, -19, -17],   # 반음 상승 압박
-        scale=[0, 1, 4, 5, 8, 11, 12],                          # 더블 하모닉
-        lead="brass", pad="strings", echo=(135, 0.32),
-        drums="march", motif_seed=71,
+        # 5면 — 웅장. 하모닉 마이너로 비장하게 가되 마지막 마디에서 동명 장조로
+        # 끝낸다(픽카르디 종지) — 절망이 아니라 결의로 읽힌다. 빠르게 가지 않는다:
+        # 웅장함은 속도가 아니라 무게에서 나오므로 128bpm 하프타임 드럼에
+        # 옥타브 유니즌 브라스와 5도 스트링을 겹친다.
+        bpm=128, bars=16, motif_seed=71,
+        scale=[0, 2, 3, 5, 7, 8, 11, 12],                       # A 하모닉 마이너
+        chords_a=[(-24, "min"), (-24, "min"), (-28, "maj"), (-28, "maj"),
+                  (-26, "maj"), (-26, "maj"), (-29, "maj"), (-29, "maj")],
+        # B절 마지막 두 마디가 픽카르디: A단조 곡이 A장3화음으로 선다
+        chords_b=[(-24, "min"), (-28, "maj"), (-26, "maj"), (-29, "maj"),
+                  (-24, "min"), (-28, "maj"), (-24, "maj"), (-24, "maj")],
+        pad="strings", echo=(145, 0.36),
+        arr=dict(lead_voice="octave", lead_mode="anthem", bass="whole_octave",
+                 arp="fifth_pad", drums="epic", swing=0.0, hat=1.0,
+                 lead_gain=0.32, pad_gain=0.34),
     ),
+
+    # ── 유지 대상 (arr 키 없음 → arrange_classic, 시드 0 결과 불변) ───────────
     "boss": dict(
         bpm=172, bars=16,
         progression=[-24, -24, -18, -19, -24, -24, -17, -12],   # 5도 도약 전투
@@ -406,7 +457,27 @@ def drum_pattern(style: str, step: int, bar: int,
 
 
 def arrange(theme_name: str, seed: int) -> tuple[np.ndarray, np.ndarray]:
-    """한 곡을 스테레오로 편곡한다."""
+    """한 곡을 스테레오로 편곡한다.
+
+    편곡 엔진이 둘이다:
+      - ``arrange_staged``  : 스테이지 5곡. 편곡 축(리드 음색·베이스 패턴·햇 밀도·
+        멜로디 리듬·A/B 구성)을 테마마다 다르게 준다.
+      - ``arrange_classic`` : boss·title. 사람이 "유지"로 못박은 두 곡이라
+        기존 골격을 **한 줄도 건드리지 않고** 그대로 쓴다 (시드 0 재현 보장).
+    """
+    if "arr" in THEMES[theme_name]:
+        return arrange_staged(theme_name, seed)
+    return arrange_classic(theme_name, seed)
+
+
+def arrange_classic(theme_name: str, seed: int) -> tuple[np.ndarray, np.ndarray]:
+    """단일 편곡 골격 (boss·title 전용).
+
+    모든 트랙이 이 골격 하나를 공유해서 "스테이지 음악이 다 비슷비슷"이 됐다
+    (사람 지적 2026-08-02) — 스케일과 악기만 바뀌고 베이스 8분 펄스·벨 핑퐁
+    아르페지오·마디당 모티프가 전부 같았다. 스테이지 5곡은 arrange_staged로
+    옮겼고, 여기는 유지 대상인 두 곡을 위해 남는다.
+    """
     cfg = THEMES[theme_name]
     rng = np.random.default_rng(seed + cfg["motif_seed"])
 
@@ -525,6 +596,377 @@ def arrange(theme_name: str, seed: int) -> tuple[np.ndarray, np.ndarray]:
     peak = max(float(np.max(np.abs(left))), float(np.max(np.abs(right))), 1e-9)
     gain = min(gain, 0.97 / peak)          # 클리핑 방지가 라우드니스보다 우선
     return left * gain * MASTER, right * gain * MASTER
+
+
+# ── 스테이지 편곡 엔진 ───────────────────────────────────────────────────────
+#
+# "스테이지 음악이 다 비슷비슷. 1=경쾌, 2=잔잔, 3·4=긴장, 5=웅장" (사람, 2026-08-02).
+#
+# 진단: 프리셋(진행·스케일·악기)만 바꾸고 **편곡은 하나**였다. 어떤 곡이든
+# 베이스는 8분 펄스, 아르페지오는 벨 핑퐁 8분, 멜로디는 모티프 변주, 드럼은
+# 8스텝 — 스케일이 달라도 골격이 같으면 같은 곡으로 들린다. 그래서 프리셋이
+# 아니라 **편곡 축**을 늘린다:
+#
+#   lead_voice  리드 파형/듀티      square25 · triangle · square50 · tremolo · octave
+#   lead_mode   멜로디 리듬          motif · sustain · hold · tremolo · anthem
+#   bass        베이스 패턴          octave_bounce · whole · driving8 · chromatic_fall
+#                                    · whole_octave
+#   arp         화성 움직임          pingpong8 · none · dense16 · swell · fifth_pad
+#   drums/hat/swing  리듬 밀도와 그루브
+#   chords_a/b  A절·B절 코드 (2부 구성)
+#
+# 코드는 (근음, 성질) 쌍으로 준다 — 예전의 "루트 음정으로 3도를 추정" 휴리스틱은
+# 픽카르디 종지(core)나 증3화음(nebula) 같은 의도적 화성을 표현할 수 없었다.
+
+CHORD_TONES = {
+    "maj": [0, 4, 7],
+    "min": [0, 3, 7],
+    "min7": [0, 3, 7, 10],
+    "maj7": [0, 4, 7, 11],
+    "dom7": [0, 4, 7, 10],
+    "aug": [0, 4, 8],
+    "sus4": [0, 5, 7],
+}
+
+
+# ── 리드 음색 ────────────────────────────────────────────────────────────────
+
+def voice_square(f: float, dur: float, vel: float = 1.0, duty: float = 0.25) -> np.ndarray:
+    """칩 스퀘어 리드. duty 0.25는 밝고 코를 찌르는 소리, 0.5는 두껍고 공격적."""
+    n = int(dur * SR)
+    if n < 8:
+        return np.zeros(0)
+    fv = vibrato(f, n, 8.0, 5.4, delay_s=0.09)
+    x = sq(phase(fv, n), duty) + 0.35 * np.sin(phase(fv, n))
+    x = lp(x, 5200)
+    x = saturate(x * 0.8, 1.4)
+    return x * env_adsr(n, 0.012, 0.07, 0.82, 0.10) * vel
+
+
+def voice_triangle(f: float, dur: float, vel: float = 1.0) -> np.ndarray:
+    """부드러운 삼각 리드. 느린 어택 + 긴 릴리스라 서스테인 프레이즈에 맞다."""
+    n = int(dur * SR)
+    if n < 8:
+        return np.zeros(0)
+    fv = vibrato(f, n, 6.0, 3.8, delay_s=0.22)
+    x = tri(phase(fv, n)) + 0.22 * np.sin(phase(fv * 2.0, n))
+    x = lp(x, 3200)
+    return x * env_adsr(n, 0.075, 0.16, 0.86, 0.30) * vel
+
+
+def voice_octave(f: float, dur: float, vel: float = 1.0) -> np.ndarray:
+    """옥타브 유니즌 브라스. 같은 선율을 두 옥타브로 겹치면 무게가 생긴다."""
+    a = inst_brass(f, dur, vel)
+    b = inst_brass(f * 2.0, dur, vel * 0.55)
+    n = min(len(a), len(b))
+    if n == 0:
+        return np.zeros(0)
+    return a[:n] + b[:n]
+
+
+LEAD_VOICES = {
+    "square25": lambda f, d, v: voice_square(f, d, v, 0.25),
+    "square50": lambda f, d, v: voice_square(f, d, v, 0.5),
+    "triangle": voice_triangle,
+    "octave": voice_octave,
+    "bell": inst_bell,
+}
+
+
+def noise_swell(dur: float, vel: float, rng: np.random.Generator,
+                cutoff: float = 2600.0) -> np.ndarray:
+    """롱 노이즈 스웰. 햇 대신 깔면 박자가 아니라 '기압'이 흐른다 (nebula)."""
+    n = int(dur * SR)
+    if n < 32:
+        return np.zeros(0)
+    x = hp(rng.uniform(-1, 1, n), cutoff)
+    env = np.linspace(0.0, 1.0, n) ** 2.6
+    tail = max(1, int(n * 0.12))
+    env[-tail:] *= np.linspace(1.0, 0.0, tail)
+    return x * env * vel
+
+
+# ── 리듬 (16스텝 그리드) ─────────────────────────────────────────────────────
+
+def drum16(style: str, step: int, bar: int, rng: np.random.Generator
+           ) -> list[tuple[str, float]]:
+    """16분 스텝별 드럼. 스테이지 곡은 8스텝으로는 밀도 차를 못 만든다."""
+    hits: list[tuple[str, float]] = []
+    fill = (bar % 8 == 7)
+
+    if style == "shuffle":                       # scrapyard — 경쾌한 셔플
+        if step in (0, 10):
+            hits.append(("kick", 1.0))
+        if step == 6 and bar % 4 == 3:
+            hits.append(("kick", 0.8))
+        if step in (4, 12):
+            hits.append(("snare", 0.85))
+        if step % 2 == 0:                        # 8분 햇 (배치 때 스윙이 걸린다)
+            hits.append(("hat", 0.42 if step % 4 == 0 else 0.24))
+    elif style == "ambient":                     # hive — 거의 없음
+        if step == 0 and bar % 2 == 0:
+            hits.append(("kick", 0.55))
+        if step == 8 and bar % 4 == 2:
+            hits.append(("tom", 0.32))
+    elif style == "drive":                       # fortress — 촘촘
+        if step in (0, 6, 8, 14):
+            hits.append(("kick", 1.0 if step in (0, 8) else 0.75))
+        if step in (4, 12):
+            hits.append(("snare", 0.9))
+        hits.append(("hat", 0.34 if step % 4 == 0 else 0.17))
+    elif style == "pulse":                       # nebula — 심장박동만
+        if step == 0:
+            hits.append(("kick", 0.7))
+        if step == 3:
+            hits.append(("kick", 0.4))           # 두 번째 박동 (숨죽인 긴장)
+        if step == 8 and bar % 4 == 3:
+            hits.append(("snare", 0.4))
+    elif style == "epic":                        # core — 하프타임, 무겁게
+        if step in (0, 11):
+            hits.append(("kick", 1.0 if step == 0 else 0.7))
+        if step == 8:
+            hits.append(("snare", 0.95))
+        if step == 0 and bar % 4 == 0:
+            hits.append(("hat", 0.5))            # 마디 머리 오픈햇 = 심벌 대용
+        if fill and step >= 12:
+            hits.append(("tom", 0.6 + 0.12 * (step - 12)))
+    return hits
+
+
+# ── 레이어 ───────────────────────────────────────────────────────────────────
+
+def bass_line(kind: str, root: int, beat: float, bar: int) -> list[tuple[int, float, float, float]]:
+    """(반음, 시작(박), 길이(박), 벨로시티) 목록을 돌려준다."""
+    lo = root - 12
+    if kind == "octave_bounce":                  # 통통 튀는 옥타브 (scrapyard)
+        out = []
+        for k in range(8):
+            p = lo if k % 2 == 0 else lo + 12
+            out.append((p, k * 0.5, 0.46, 0.95 if k % 2 == 0 else 0.6))
+        if bar % 4 == 3:                         # 마디 끝 5도 픽업
+            out.append((lo + 7, 3.75, 0.22, 0.7))
+        return out
+    if kind == "whole":                          # 온음표 (hive)
+        return [(lo, 0.0, 3.9, 0.8)]
+    if kind == "driving8":                       # 드라이빙 8분 (fortress)
+        out = [(lo, k * 0.5, 0.46, 1.0 if k % 2 == 0 else 0.72) for k in range(8)]
+        out[7] = (lo + 7, 3.5, 0.46, 0.85)
+        return out
+    if kind == "chromatic_fall":                 # 반음 하강 (nebula)
+        return [(lo - i, i * 1.0, 0.95, 0.85 - 0.05 * i) for i in range(4)]
+    if kind == "whole_octave":                   # 온음표 + 옥타브 강타 (core)
+        return [(lo, 0.0, 3.9, 0.85),
+                (lo + 12, 0.0, 0.9, 0.7),
+                (lo + 12, 2.0, 0.9, 0.6)]
+    return [(lo, 0.0, 3.9, 0.8)]
+
+
+def melody_phrase(mode: str, motif, bar: int, section: str, scale: list[int],
+                  rng: np.random.Generator) -> list[tuple[int, float, float, float]]:
+    """(반음, 시작(박), 길이(박), 벨로시티). 리듬이 곡의 성격을 절반은 정한다."""
+    if mode == "motif":                          # 경쾌한 모티프 변주 (scrapyard)
+        phrase = vary_motif(motif, bar, rng)
+        out, at = [], 0.0
+        for pitch, dur in phrase:
+            if at >= 4.0:
+                break
+            out.append((pitch, at, min(dur, 4.0 - at) * 0.92, 0.85 if dur >= 1.0 else 0.74))
+            at += dur
+        return out
+
+    if mode == "sustain":                        # 긴 서스테인 프레이즈 (hive)
+        if bar % 4 == 3:                         # 네 마디마다 통째로 쉰다 — 여백이 잔잔함이다
+            return []
+        a = motif[0][0]
+        b = motif[min(2, len(motif) - 1)][0]
+        if section == "B":
+            a, b = a + 12, b + 5
+        return [(a, 0.0, 1.9, 0.62), (b, 2.0, 1.85, 0.55)]
+
+    if mode == "hold":                           # 아르페지오 위에 얹는 긴 강음 (fortress)
+        if bar % 2 == 0:
+            return [(motif[0][0], 0.0, 1.4, 0.9), (motif[1][0], 1.5, 2.4, 0.85)]
+        return [(motif[min(2, len(motif) - 1)][0], 0.5, 3.2, 0.88)]
+
+    if mode == "tremolo":                        # 같은 음 16분 반복 (nebula)
+        base = motif[bar % len(motif)][0]
+        nxt = base + (2 if section == "A" else -2)
+        out = []
+        for k in range(8):                       # 앞 2박: 트레몰로
+            out.append((base, k * 0.25, 0.22, 0.42 + 0.05 * (k % 2)))
+        for k in range(8):                       # 뒤 2박: 반음/온음 이동
+            out.append((nxt, 2.0 + k * 0.25, 0.22, 0.40 + 0.05 * (k % 2)))
+        return out
+
+    if mode == "anthem":                         # 옥타브 유니즌 장음 (core)
+        if bar % 4 == 3:
+            return [(motif[0][0] - 5, 0.0, 1.9, 0.9), (motif[0][0], 2.0, 1.9, 0.95)]
+        pitch = motif[bar % len(motif)][0]
+        return [(pitch, 0.0, 3.6, 0.92)]
+
+    return []
+
+
+def master(left: np.ndarray, right: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """arrange_classic과 동일한 마스터 체인 (피크 → 새추 → RMS 정렬)."""
+    peak = max(float(np.max(np.abs(left))), float(np.max(np.abs(right))), 1e-9)
+    left, right = left / peak, right / peak
+    left, right = saturate(left * 0.9, 1.25), saturate(right * 0.9, 1.25)
+    rms = float(np.sqrt(np.mean(np.concatenate([left, right]) ** 2)))
+    gain = TARGET_RMS / max(rms, 1e-9)
+    peak = max(float(np.max(np.abs(left))), float(np.max(np.abs(right))), 1e-9)
+    gain = min(gain, 0.97 / peak)
+    return left * gain * MASTER, right * gain * MASTER
+
+
+def arrange_staged(theme_name: str, seed: int) -> tuple[np.ndarray, np.ndarray]:
+    """스테이지 곡 편곡. 테마마다 편곡 축이 달라 골격 자체가 다른 곡이 된다."""
+    cfg = THEMES[theme_name]
+    arr = cfg["arr"]
+    rng = np.random.default_rng(seed + cfg["motif_seed"])
+
+    bpm, bars = cfg["bpm"], cfg["bars"]
+    beat = 60.0 / bpm
+    bar_len = beat * 4
+    total = int(bar_len * bars * SR) + SR
+
+    left, right = np.zeros(total), np.zeros(total)
+
+    def place(buf: np.ndarray, sig: np.ndarray, at: float, gain: float) -> None:
+        i = int(at * SR)
+        if i < 0 or i >= len(buf) or len(sig) == 0:
+            return
+        end = min(len(buf), i + len(sig))
+        buf[i:end] += sig[:end - i] * gain
+
+    def stereo_place(sig: np.ndarray, at: float, gain: float, pan: float) -> None:
+        ang = (pan * 0.5 + 0.5) * (np.pi / 2)
+        place(left, sig, at, gain * float(np.cos(ang)))
+        place(right, sig, at, gain * float(np.sin(ang)))
+
+    swing = arr.get("swing", 0.0)
+
+    def swung(beats: float) -> float:
+        """8분 뒷박을 뒤로 밀어 셔플을 만든다 (0.0이면 스트레이트)."""
+        if swing <= 0.0:
+            return beats * beat
+        # 8분 그리드에서 홀수 번째(뒷박)만 민다
+        idx = beats / 0.5
+        if abs(idx - round(idx)) < 1e-6 and int(round(idx)) % 2 == 1:
+            return (beats + swing * 0.5) * beat
+        return beats * beat
+
+    scale = cfg["scale"]
+    lead_voice = LEAD_VOICES[arr["lead_voice"]]
+    pad_inst = INSTRUMENTS[cfg["pad"]]
+    motif = make_motif(scale, rng)
+
+    for bar in range(bars):
+        t0 = bar * bar_len
+        section = "A" if bar < bars // 2 else "B"
+        chords = cfg["chords_a"] if section == "A" else cfg["chords_b"]
+        root, quality = chords[bar % len(chords)]
+        tones = CHORD_TONES[quality]
+        intro = (bar < 2)                        # 도입 2마디는 얇게
+
+        # --- 베이스 ---
+        for p, at, dur, vel in bass_line(arr["bass"], root, beat, bar):
+            stereo_place(inst_bass(note_hz(p), beat * dur, vel),
+                         t0 + at * beat, 0.44, 0.0)
+
+        # --- 패드/화성 ---
+        chord = [root + i for i in tones]
+        if not intro:
+            chord.append(root + 12)
+        for ci, p in enumerate(chord):
+            pan = -0.55 + 1.1 * (ci / max(1, len(chord) - 1))
+            stereo_place(pad_inst(note_hz(p), bar_len * 0.98, 0.32 if intro else 0.46),
+                         t0, arr.get("pad_gain", 0.3), pan)
+
+        # --- 화성 움직임 (아르페지오 / 스웰 / 5도 겹) ---
+        kind = arr["arp"]
+        if kind == "pingpong8" and not intro:
+            notes = [root + 12 + t for t in tones] + [root + 24]
+            for k in range(8):
+                stereo_place(inst_bell(note_hz(notes[k % len(notes)]), beat * 0.5, 0.3),
+                             t0 + swung(k * 0.5), 0.22, -0.7 if k % 2 == 0 else 0.7)
+        elif kind == "dense16":
+            notes = [root + 12 + t for t in tones] + [root + 24] \
+                + [root + 12 + t for t in reversed(tones)]
+            for k in range(16):
+                stereo_place(
+                    voice_square(note_hz(notes[k % len(notes)]), beat * 0.24,
+                                 0.34 if k % 4 == 0 else 0.24, 0.125),
+                    t0 + k * beat * 0.25, 0.20, -0.6 if k % 2 == 0 else 0.6)
+        elif kind == "swell":
+            stereo_place(noise_swell(bar_len * 0.98, 0.62 if section == "B" else 0.46, rng),
+                         t0, 0.33, -0.25)
+            stereo_place(noise_swell(bar_len * 0.6, 0.34, rng, cutoff=1200.0),
+                         t0 + bar_len * 0.35, 0.24, 0.45)
+        elif kind == "droplet" and bar % 2 == 1:
+            # 두 마디에 한 방울. 밀도는 최소로 두되 완전한 무(無)는 답답하다 —
+            # 긴 에코가 이 한 음을 공간으로 펼친다 (hive).
+            stereo_place(inst_bell(note_hz(root + 24 + tones[bar // 2 % len(tones)]),
+                                   beat * 1.6, 0.52),
+                         t0 + beat * (1.0 if section == "A" else 2.5),
+                         0.28, -0.5 if bar % 4 == 1 else 0.5)
+        elif kind == "fifth_pad" and not intro:
+            for p, pan in ((root + 7, -0.6), (root + 19, 0.6)):
+                stereo_place(inst_strings(note_hz(p), bar_len * 0.98, 0.5), t0, 0.26, pan)
+
+        # --- 리드 ---
+        if not intro:
+            for pitch, at, dur, vel in melody_phrase(
+                    arr["lead_mode"], motif, bar, section, scale, rng):
+                length = min(beat * dur, bar_len - at * beat)
+                if length <= 0:
+                    continue
+                stereo_place(lead_voice(note_hz(root + 24 + pitch), length, vel),
+                             t0 + swung(at), arr.get("lead_gain", 0.34), 0.12)
+
+        # --- 드럼 ---
+        for k in range(16):
+            for name, vel in drum16(arr["drums"], k, bar, rng):
+                if name == "hat":
+                    vel *= arr.get("hat", 1.0)
+                    if vel <= 0.01:
+                        continue
+                at = t0 + (swung(k * 0.25) if swing > 0 else k * beat * 0.25)
+                if name == "kick":
+                    stereo_place(drum_kick(vel), at, 0.5, 0.0)
+                elif name == "snare":
+                    stereo_place(drum_snare(vel, rng), at, 0.34, -0.08)
+                elif name == "hat":
+                    stereo_place(drum_hat(vel, k % 16 == 0 and arr["drums"] == "epic", rng),
+                                 at, 0.26, 0.35)
+                elif name == "tom":
+                    stereo_place(drum_tom(150 + 40 * (k % 4), vel), at, 0.3, -0.3)
+
+    d_ms, fb = cfg["echo"]
+    left = echo(left, d_ms, fb)
+    right = echo(right, d_ms * 1.14, fb)
+
+    # 루프 이음새: 에코 꼬리를 앞으로 접어 넣어 루프가 끊기지 않게 한다.
+    loop_n = int(bar_len * bars * SR)
+    for buf in (left, right):
+        tail = buf[loop_n:].copy()
+        if len(tail):
+            m = min(len(tail), loop_n)
+            buf[:m] += tail[:m] * 0.85
+    left, right = left[:loop_n], right[:loop_n]
+
+    # 루프 이음새의 표본 단차를 없앤다. 에코 꼬리를 접어 넣어도 마지막 표본과 첫
+    # 표본의 값은 여전히 다르고, 그 단차가 매 루프마다 광대역 '틱'으로 들린다
+    # (기존 scrapyard 단차 0.095). 양 끝에 3ms 레이즈드코사인을 걸면 x[0]≈x[-1]≈0이
+    # 되어 단차가 사라진다 — 140bpm 곡에서 3ms는 강박 킥에 완전히 묻힌다.
+    fade = int(0.003 * SR)
+    if fade * 2 < loop_n:
+        ramp = 0.5 - 0.5 * np.cos(np.linspace(0.0, np.pi, fade))
+        for buf in (left, right):
+            buf[:fade] *= ramp
+            buf[-fade:] *= ramp[::-1]
+
+    return master(left, right)
 
 
 # ── 출력 ─────────────────────────────────────────────────────────────────────

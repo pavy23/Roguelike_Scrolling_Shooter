@@ -31,12 +31,23 @@ namespace Shmup.Presentation.Battle
         Text _timerText;
         float _wallFlash;
 
+        // 스프라이트 스케일 1이 만드는 월드 크기. px_white는 2px/PPU16 = 0.125u라
+        // localScale에 월드 길이를 그대로 넣으면 1/8 크기로 그려진다 (2026-08-02 수정).
+        float _unitX = 1f, _unitY = 1f;
+
         static readonly Color WallColor = new Color(0.42f, 0.26f, 0.30f, 0.95f);
         static readonly Color WallFlashColor = new Color(1f, 0.5f, 0.45f, 1f);
 
         void Start()
         {
             var parent = _root != null ? _root : transform;
+
+            if (_pixelSprite != null)
+            {
+                Vector3 size = _pixelSprite.bounds.size;
+                if (size.x > 0.0001f) _unitX = size.x;
+                if (size.y > 0.0001f) _unitY = size.y;
+            }
 
             _wallTop = CreateWall(parent, "CorridorWallTop");
             _wallBottom = CreateWall(parent, "CorridorWallBottom");
@@ -97,8 +108,8 @@ namespace Shmup.Presentation.Battle
             float width =
                 2f * SimSpace.PlayfieldHalfWidthSubUnits / SimSpace.SubUnitsPerWorldUnit;
 
-            PlaceWall(_wallTop, maxY, fieldHalf, width);
-            PlaceWall(_wallBottom, -fieldHalf, minY, width);
+            PlaceWall(_wallTop, maxY, fieldHalf, width, _unitX, _unitY);
+            PlaceWall(_wallBottom, -fieldHalf, minY, width, _unitX, _unitY);
 
             // 벽에 닿으면 번쩍여서 "여기가 벽이다"를 알린다.
             if (_wallFlash > 0f)
@@ -115,11 +126,12 @@ namespace Shmup.Presentation.Battle
             }
         }
 
-        static void PlaceWall(SpriteRenderer renderer, float fromY, float toY, float width)
+        static void PlaceWall(
+            SpriteRenderer renderer, float fromY, float toY, float width, float unitX, float unitY)
         {
             float height = Mathf.Max(0f, toY - fromY);
             renderer.transform.localPosition = new Vector3(0f, (fromY + toY) * 0.5f, 0f);
-            renderer.transform.localScale = new Vector3(width, height, 1f);
+            renderer.transform.localScale = new Vector3(width / unitX, height / unitY, 1f);
         }
 
         /// <summary>벽 접촉 이벤트를 받아 번쩍임을 예약한다 (BattleDirector가 호출).</summary>

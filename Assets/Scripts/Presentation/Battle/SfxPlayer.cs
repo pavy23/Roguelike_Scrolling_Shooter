@@ -6,8 +6,10 @@ namespace Shmup.Presentation.Battle
 {
     /// <summary>
     /// Core 시뮬 이벤트(REQ-005)를 효과음으로 번역한다. 순수 표현 — 게임 상태에 영향 없음.
-    /// 채택음은 Tools/SfxGen (타입, 시드 0) 산출물. 같은 틱에 같은 소리는 1회만 재생해
-    /// 다중 격파 시 볼륨 폭주를 막는다.
+    /// 채택음은 Tools/SfxGen/sfxgen_snes.py 산출물이고, 획득·강화 차임만
+    /// Tools/SfxGen/sfxgen_chime.py 후보 a(유리 벨 완전5도)로 교체했다
+    /// ("파워업과 봄 아이템 ... 사운드가 너무 거슬려", 2026-08-02).
+    /// 같은 틱에 같은 소리는 1회만 재생해 다중 격파 시 볼륨 폭주를 막는다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class SfxPlayer : MonoBehaviour
@@ -81,23 +83,29 @@ namespace Shmup.Presentation.Battle
                         PlayOnce(4, _explosion, 1f);
                         break;
                     case SimEventType.CapsulePicked:
-                        PlayOnce(5, _pickup, 0.9f);
+                        // 오토파이어로 캡슐을 연달아 먹는 구간이 있어 이 소리가 가장 자주
+                        // 울린다 — 0.9는 과했다. 차임 자체도 피크 0.6으로 낮게 만들었다.
+                        PlayOnce(5, _pickup, 0.5f);
                         break;
                     case SimEventType.PowerUpLevelChanged:
-                        PlayOnce(6, _powerup, 1f);
+                        PlayOnce(6, _powerup, 0.6f);
                         break;
                     case SimEventType.BossSpawned:
-                        PlayOnce(7, _powerup, 0.7f);
+                        // 보스 등장은 획득 차임이 아니라 경보다. 차임을 얌전하게 바꾼 뒤
+                        // 강화음으로 보스를 알리면 "좋은 일"처럼 들린다 (2026-08-02).
+                        PlayOnce(7, _warning, 0.85f);
                         break;
                     case SimEventType.BossPhaseChanged:
                         PlayOnce(8, _hit, 1f);
                         break;
                     case SimEventType.StageCleared:
-                        PlayOnce(9, _powerup, 1f);
+                        // 클리어는 BgmPlayer가 5.5초 팡파르(jingle_clear)를 0.9로 울린다.
+                        // 여기서는 그 위에 얹는 짧은 확인음 정도로만 남긴다.
+                        PlayOnce(9, _powerup, 0.45f);
                         break;
                     case SimEventType.BombAcquired:
                         // 캡슐보다 귀한 획득이라 pickup이 아니라 powerup 계열로 알린다.
-                        PlayOnce(10, _powerup, 0.85f);
+                        PlayOnce(10, _powerup, 0.55f);
                         break;
                     case SimEventType.BombActivationRejectedEmpty:
                         // 재고 없이 눌렀다 — 짧고 작게. 버튼이 죽지 않았음을 알리는 정도다.

@@ -19,6 +19,7 @@ import wave as wavemod
 import numpy as np
 
 import bgmgen_snes as B
+import sfxgen_chime as C
 
 SR = B.SR
 
@@ -77,30 +78,19 @@ def sfx_explosion() -> np.ndarray:
 
 
 def sfx_pickup() -> np.ndarray:
-    """캡슐 획득: 밝은 2음 상승 차임 (FM 벨) — 짧고 기분 좋게."""
-    a = B.inst_bell(B.note_hz(7), 0.12, 0.9)    # E5
-    b = B.inst_bell(B.note_hz(12), 0.22, 1.0)   # A5
-    n = int(0.30 * SR)
-    x = np.zeros(n)
-    x[:len(a)] += a
-    off = int(0.08 * SR)
-    x[off:off + len(b)] += b[:n - off]
-    return norm(x)
+    """캡슐 획득: 얌전한 2음 상승 차임 (유리 벨, 완전5도).
+
+    첫 버전은 FM 벨(모듈레이션 지수 2.4) 2음이라 어택이 금속적이었고, 파워업은
+    4음 아르페지오 + 6kHz 반짝임이라 더 날카로웠다. 사람 피드백으로 교체했다 —
+    "파워업과 봄 아이템 먹고 적용했을 때 사운드가 너무 거슬려. 좀 더 얌전하지만
+    고급진 파워업 사운드로" (2026-08-02). 후보 비교와 파라미터는 sfxgen_chime.py.
+    """
+    return C.pickup_a()
 
 
 def sfx_powerup() -> np.ndarray:
-    """레벨업/게이지 발동: 상승 아르페지오 + 반짝임 — '강해졌다'가 들려야 한다."""
-    notes = [0, 4, 7, 12]                        # 장3화음 상행
-    n = int(0.55 * SR)
-    x = np.zeros(n)
-    for i, semi in enumerate(notes):
-        tone = B.inst_bell(B.note_hz(semi + 12), 0.18, 0.85)
-        off = int(i * 0.09 * SR)
-        end = min(n, off + len(tone))
-        x[off:end] += tone[:end - off]
-    shimmer = B.hp(rng_for("powerup").uniform(-1, 1, n), 6000) \
-        * np.linspace(0, 1, n) * env_exp(0.55, 4.0) * 0.25
-    return norm(x + shimmer)
+    """레벨업/봄 획득: 같은 유리 벨 2음에 5도 받침만 얹는다 — 승격이되 조용하게."""
+    return C.powerup_a()
 
 
 def sfx_warning() -> np.ndarray:
