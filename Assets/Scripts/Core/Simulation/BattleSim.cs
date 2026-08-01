@@ -1506,6 +1506,11 @@ namespace Shmup.Core.Simulation
         const int BossGlideSpeedPerTick = 64;
         public const int BossSpawnSuppressionLeadTicks = 40;
         public const int RoomBoundaryCleanupLeadTicks = 60;
+        /// <summary>
+        /// Deterministic upper bound for draining a regular room before a boss.
+        /// A malformed or stationary transient must never stall progression forever.
+        /// </summary>
+        public const int RoomBoundaryMaximumWaitTicks = 300;
         const int BossMovementRecenterTicks = 30;
         const int BossRetreatSpeedPerTick = 2 * SimSpace.SubUnitsPerWorldUnit;
         const byte EnemyMovementDiveTargetLocked = 1;
@@ -2311,12 +2316,26 @@ namespace Shmup.Core.Simulation
         /// </summary>
         public bool IsRoomBoundaryReady =>
             !_preparesBossRoomBoundary
+            || RoomBoundaryWaitLimitReached
             || (_enemies.Count == 0
                 && CountEnemyBullets() == 0
                 && _obstacles.Count == 0
                 && _capsules.Count == 0
                 && _bombPickups.Count == 0
-                && _lasers.Count == 0);
+                && CountHostileLasers() == 0);
+        /// <summary>
+        /// Ticks spent beyond the scheduled room end while transient state drains.
+        /// </summary>
+        public int RoomBoundaryWaitTicks =>
+            !_preparesBossRoomBoundary || Tick <= _stageTotalTicks
+                ? 0
+                : Tick - _stageTotalTicks;
+        /// <summary>
+        /// True when the deterministic drain deadline forces the next boundary.
+        /// </summary>
+        public bool RoomBoundaryWaitLimitReached =>
+            _preparesBossRoomBoundary
+            && RoomBoundaryWaitTicks >= RoomBoundaryMaximumWaitTicks;
         bool IsRoomBoundaryCleanupActive =>
             _preparesBossRoomBoundary
             && Tick >= _fieldCleanupStartTick;
@@ -7558,6 +7577,15 @@ namespace Shmup.Core.Simulation
             int count = 0;
             for (int i = 0; i < _bullets.Count; i++)
                 if (_bullets[i].Faction == BulletFaction.Enemy)
+                    count++;
+            return count;
+        }
+
+        int CountHostileLasers()
+        {
+            int count = 0;
+            for (int i = 0; i < _lasers.Count; i++)
+                if (_lasers[i].SourceKind != LaserSourceKind.Player)
                     count++;
             return count;
         }

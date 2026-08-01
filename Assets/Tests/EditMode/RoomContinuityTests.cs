@@ -325,6 +325,68 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void BoundaryIgnoresContinuouslyFiringPlayerBeam()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerWeaponType = WeaponType.Laser;
+            config.PlayerWeaponFamily = PrimaryWeaponFamily.Laser;
+            var gauge = new PowerUpGauge(new[] { 5, 3, 4, 3 });
+            gauge.GrantLevels(PowerUpSlot.MainShot, 3);
+            gauge.GrantLevels(PowerUpSlot.Laser, 3);
+            var manager = new RunManager(
+                0UL,
+                new BoundaryStageGenerator(),
+                config,
+                CreateBoundaryLaserContent(),
+                gauge);
+            BattleSim opening = (BattleSim)manager.Battle;
+            var firing = new InputCommand(0, 0, true);
+
+            for (int tick = 0; tick < 80; tick++)
+                manager.Step(in firing);
+
+            Assert.AreEqual(2, manager.RoomIndex);
+            Assert.AreEqual(1, opening.Lasers.Count);
+            Assert.AreEqual(
+                LaserSourceKind.Player,
+                opening.Lasers[0].SourceKind);
+        }
+
+        [Test]
+        public void BoundaryForcesProgressAtDeterministicWaitLimit()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.EnemyDespawnX = int.MinValue;
+            var manager = new RunManager(
+                0UL,
+                new BoundaryStageGenerator(),
+                config,
+                CreateBoundaryContent(),
+                PowerUpGauge.CreateDefault());
+            BattleSim opening = (BattleSim)manager.Battle;
+            int transitionTick = 80
+                + BattleSim.RoomBoundaryMaximumWaitTicks;
+
+            for (int tick = 0; tick < transitionTick - 1; tick++)
+                manager.Step(InputCommand.None);
+
+            Assert.AreEqual(1, manager.RoomIndex);
+            Assert.AreEqual(
+                BattleSim.RoomBoundaryMaximumWaitTicks - 1,
+                opening.RoomBoundaryWaitTicks);
+            Assert.IsFalse(opening.RoomBoundaryWaitLimitReached);
+            Assert.Greater(opening.Enemies.Count, 0);
+
+            manager.Step(InputCommand.None);
+
+            Assert.AreEqual(2, manager.RoomIndex);
+            Assert.AreEqual(
+                BattleSim.RoomBoundaryMaximumWaitTicks,
+                opening.RoomBoundaryWaitTicks);
+            Assert.IsTrue(opening.RoomBoundaryWaitLimitReached);
+        }
+
+        [Test]
         public void TimedMidBossHoverMeanRemainsNearSpawnAnchor()
         {
             BattleSimConfig config = CreateConfig();
@@ -627,6 +689,45 @@ namespace Shmup.Core.Tests
                 new[] { regular, midBoss },
                 new[] { weapon },
                 weapon.Id);
+        }
+
+        static BattleContent CreateBoundaryLaserContent()
+        {
+            BattleContent baseContent = CreateBoundaryContent();
+            int[] angles = { 0 };
+            var levels = new[]
+            {
+                new PrimaryWeaponLevelDefinition(
+                    1, 1, 1, 1, 0, angles),
+                new PrimaryWeaponLevelDefinition(
+                    2, 1, 1, 1, 0, angles),
+                new PrimaryWeaponLevelDefinition(
+                    3, 1, 1, 1, 0, angles,
+                    beamDamagePerTick: 1,
+                    beamLength: 2000,
+                    beamStartHalfWidth: 1,
+                    beamGrowthPerTick: 1,
+                    beamMaxHalfWidth: 4)
+            };
+            var laser = new PrimaryWeaponFamilyDefinition(
+                PrimaryWeaponFamily.Laser,
+                "Laser",
+                "Boundary regression laser.",
+                WeaponType.Laser,
+                1, 1, 1, 1, 0,
+                1, 1, 0, 0, 1, 1, 0,
+                angles,
+                levels);
+            return new BattleContent(
+                baseContent.Enemies,
+                baseContent.Weapons,
+                baseContent.PlayerWeapon.Id,
+                new[]
+                {
+                    baseContent.FindPrimaryWeaponFamily(
+                        PrimaryWeaponFamily.Double),
+                    laser
+                });
         }
 
         sealed class ShortStageGenerator : IStageGenerator
