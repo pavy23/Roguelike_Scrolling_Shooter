@@ -27,6 +27,12 @@ namespace Shmup.Presentation.Battle
 
         const string SubmitIdleLabel = "SUBMIT SCORE";
 
+        /// <summary>데일리는 전원이 같은 시드로 겨루는 별도 보드다 — 어디에 올리는지 라벨로 밝힌다.</summary>
+        const string SubmitDailyLabel = "SUBMIT DAILY SCORE";
+
+        /// <summary>치트를 쓴 런. 개발 검증 주행이 보드에 섞이지 않게 제출 자체를 닫는다.</summary>
+        const string SubmitCheatLabel = "DEV RUN - NO SUBMIT";
+
         Button _submitButton;
         Text _submitLabel;
         SubmitState _submitState;
@@ -101,6 +107,15 @@ namespace Shmup.Presentation.Battle
         {
             if (_submitState != SubmitState.Idle) return;
             if (_director == null || !_director.IsRunFinished) return;
+
+            // 치트를 쓴 런은 기록이 아니다 (Update가 이미 버튼을 닫지만, 제출 경로 자체를 막는다).
+            if (_director.CheatUsed)
+            {
+                _submitState = SubmitState.Done;
+                SetSubmitLabel(SubmitCheatLabel);
+                if (_submitButton != null) _submitButton.interactable = false;
+                return;
+            }
 
             // 리플레이 재생은 기록의 재현일 뿐 새 기록이 아니다 — 보드에 올리지 않는다.
             if (_director.ReplayMode)
@@ -198,7 +213,7 @@ namespace Shmup.Presentation.Battle
                 {
                     _submitState = SubmitState.Idle;
                     _submitButton.interactable = true;
-                    SetSubmitLabel(SubmitIdleLabel);
+                    SetSubmitLabel(_director.IsDailyRun ? SubmitDailyLabel : SubmitIdleLabel);
                 }
                 if (_dim != null)
                     _dim.color = cleared
@@ -214,6 +229,15 @@ namespace Shmup.Presentation.Battle
                 _extraText.text =
                     $"BEST COMBO x{_director.BestMultiplier}   GRAZE {stats.GrazeCount}";
                 _modifierText.text = DescribeModifiers(_director.ActiveModifiers);
+            }
+
+            // 치트는 게임오버 화면이 떠 있는 동안에도 눌릴 수 있으므로 런 전환 블록 밖에서
+            // 매 프레임 확인한다 (bool 비교 한 번 — 할당 없음).
+            if (_director.CheatUsed && _submitState != SubmitState.Done)
+            {
+                _submitState = SubmitState.Done;
+                if (_submitButton != null) _submitButton.interactable = false;
+                SetSubmitLabel(SubmitCheatLabel);
             }
 
             var keyboard = Keyboard.current;

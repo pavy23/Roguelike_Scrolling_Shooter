@@ -132,7 +132,9 @@ namespace Shmup.Presentation.Battle
 
             // 진단 오버레이 (REQ-045 조작 회귀 추적용 — 원인 확정 후 제거한다).
             // 폰에서 무엇이 들어오는지 눈으로 확인할 방법이 없어서 화면에 직접 찍는다.
-            if (touchDevice && _showInputDebug)
+            // 릴리스에서는 인스펙터 토글이 켜져 있어도 띄우지 않는다 — 배포판에 남은
+            // 진단 오버레이는 개발 흔적으로 읽힌다 (사람 피드백 2026-08-01).
+            if (touchDevice && _showInputDebug && DevArgs.DevMode)
             {
                 _debugText = UiKit.CreateCornerText(canvas.transform, _font, "", 9,
                     new Color(0.6f, 1f, 0.7f, 0.95f), new Vector2(0f, 0f),

@@ -29,6 +29,8 @@ namespace Shmup.Presentation.Battle
         Shmup.Core.Simulation.RunSuspendData _suspended;
         ReplayFileData _replay;
         int _dailyDateInt;
+        /// <summary>오늘(UTC)의 MM-dd. 데일리 안내/버튼이 같은 문자열을 쓰도록 한 번만 만든다.</summary>
+        string _dailyDateLabel = "";
         Text _difficultyText;
         Text _difficultyButtonLabel;
 
@@ -217,10 +219,14 @@ namespace Shmup.Presentation.Battle
             _difficultyButtonLabel = difficulty.GetComponentInChildren<Text>();
             y -= step;
 
-            UiKit.CreateTouchButton(parent, _font, "DAILY RUN", 10,
-                new Vector2(0f, 1f), new Vector2(10f, y), new Vector2(w, h),
+            // 데일리는 "다른 시드로 한 판"이 아니라 모두가 같은 시드로 겨루는 스코어링
+            // 챌린지다 — 두 줄로 성격(GLOBAL SEED)과 오늘 날짜를 함께 읽히게 한다.
+            const float dailyH = 40f;
+            UiKit.CreateTouchButton(parent, _font,
+                string.Format(UiText.DailyButtonTouch, _dailyDateLabel), 9,
+                new Vector2(0f, 1f), new Vector2(10f, y), new Vector2(w, dailyH),
                 StartDailyRun, "DailyButton");
-            y -= step;
+            y -= step + (dailyH - h);
 
             if (_suspended != null)
             {
@@ -348,8 +354,10 @@ namespace Shmup.Presentation.Battle
             // 데일리 런 (REQ-018): 날짜는 Presentation이 읽고 Core는 순수 해시만
             var todayUtc = System.DateTime.UtcNow;
             _dailyDateInt = todayUtc.Year * 10000 + todayUtc.Month * 100 + todayUtc.Day;
+            _dailyDateLabel = todayUtc.ToString(
+                "MM-dd", System.Globalization.CultureInfo.InvariantCulture);
             var daily = UiKit.CreateCornerText(canvas.transform, _font,
-                $"[D]/(RB) DAILY RUN {todayUtc:MM-dd}", 11, UiKit.TextMain,
+                string.Format(UiText.DailyFormat, _dailyDateLabel), 11, UiKit.TextMain,
                 new Vector2(0f, 0.5f), new Vector2(14f, 12f), TextAnchor.MiddleLeft, "Daily");
             UiKit.AddShadow(daily);
 

@@ -45,7 +45,19 @@ namespace Shmup.Presentation.Battle
         public const string LaunchPrompt = "PRESS SPACE / (A) TO LAUNCH";
         public const string SeedFormat = "SEED  {0}_   (type digits, backspace to edit)";
         public const string ContinueFormat = "[C]/(X) CONTINUE - stage {0}, score {1}";
-        public const string DailyFormat = "[D]/(RB) DAILY RUN {0}";
+
+        /// <summary>
+        /// 데일리는 "그냥 다른 시드로 한 판"이 아니라 **모두가 같은 시드로 겨루는 스코어링
+        /// 챌린지**다. 그 성격이 이름에서 읽히지 않으면 왜 눌러야 하는지 알 수 없다. {0} = MM-dd.
+        /// </summary>
+        public const string DailyFormat = "[D]/(RB) DAILY CHALLENGE {0} · GLOBAL SEED";
+        public const string DailyButtonTouch = "DAILY CHALLENGE\n{0} · GLOBAL SEED";
+
+        /// <summary>전투 HUD의 데일리 표식 — "지금 무슨 모드인가"가 런 내내 읽혀야 한다.</summary>
+        public const string DailyBadge = "DAILY";
+
+        /// <summary>데일리 런의 첫 바이옴 배너 윗줄 (첫 배너에만 — 매번이면 소음이다).</summary>
+        public const string DailyBannerHeader = "DAILY CHALLENGE";
         public const string ReplayFormat = "[V]/(LB) REPLAY - {0}";
         public const string DifficultyFormat = "[T] DIFFICULTY  < {0} >";
 

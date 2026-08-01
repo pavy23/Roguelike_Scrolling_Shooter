@@ -25,16 +25,34 @@ namespace Shmup.Presentation.Battle
         Text _contractText;
         string _shownContractId;
         Text _bannerText;
+        Text _bannerDailyText;
+        RectTransform _bannerRect;
         GameObject _bannerRoot;
         int _shownBiome = -1, _shownRoom = -1;
         RunStageSection _shownSection = (RunStageSection)(-1);
         int _bannerBiome = -1;
         float _bannerAge = float.MaxValue;
+        bool _bannerDailyShown;
+
+        /// <summary>데일리 표식 (좌상단, STAGE 바로 위). 데일리 런에서만 켜진다.</summary>
+        Text _dailyBadge;
+
+        /// <summary>배너 기본 높이와, 윗줄이 붙은 데일리 첫 배너의 높이.</summary>
+        const float BannerHeight = 44f;
+        const float BannerHeightDaily = 60f;
 
         void Start()
         {
             var canvas = UiKit.CreateCanvas("ProgressCanvas", 43);
             canvas.transform.SetParent(transform, false);
+
+            // 데일리 뱃지 — 진행도 바로 위. "지금 어떤 모드인가"를 런 내내 알 수 있어야 한다
+            // (사람 피드백 2026-08-01). 앰버 한 색 액센트라 계기판 언어를 깨지 않는다.
+            _dailyBadge = UiKit.CreateCornerText(canvas.transform, _font, UiText.DailyBadge, 9,
+                UiKit.TextAccent, new Vector2(0f, 1f), new Vector2(8f, -16f),
+                TextAnchor.UpperLeft, "DailyBadge");
+            UiKit.AddShadow(_dailyBadge, 1f);
+            _dailyBadge.gameObject.SetActive(false);
 
             _progressText = UiKit.CreateCornerText(canvas.transform, _font, "", 11,
                 UiKit.TextDim, new Vector2(0f, 1f), new Vector2(8f, -30f),
@@ -57,14 +75,21 @@ namespace Shmup.Presentation.Battle
             var rect = image.rectTransform;
             rect.anchorMin = new Vector2(0f, 0.5f);
             rect.anchorMax = new Vector2(1f, 0.5f);
-            rect.sizeDelta = new Vector2(0f, 44f);
-            // 띠 위아래 금색 룰 — 밋밋한 반투명 사각형이 아니라 연출된 배너로 읽힌다
+            rect.sizeDelta = new Vector2(0f, BannerHeight);
+            // 띠 위아래 금색 룰 — 밋밋한 반투명 사각형이 아니라 연출된 배너로 읽힌다.
+            // 룰은 상/하단 앵커라 배너가 높아져도 그대로 가장자리에 붙는다.
             UiKit.CreateRule(rect, new Vector2(0.5f, 1f), Vector2.zero, 460f,
                 UiKit.TextAccent, "RuleTop");
             UiKit.CreateRule(rect, new Vector2(0.5f, 0f), Vector2.zero, 460f,
                 UiKit.TextAccent, "RuleBottom");
             _bannerText = UiKit.CreateTextStretch(rect, _fontBold, "", 20,
                 UiKit.TextAccent, TextAnchor.MiddleCenter, 0f, "BannerText");
+            // 데일리 런의 **첫** 배너에만 붙는 윗줄. 매 바이옴마다 반복하면 소음이 된다.
+            _bannerDailyText = UiKit.CreateCornerText(rect, _font, UiText.DailyBannerHeader, 10,
+                UiKit.TextAccent, new Vector2(0.5f, 1f), new Vector2(0f, -6f),
+                TextAnchor.UpperCenter, "BannerDaily");
+            _bannerDailyText.gameObject.SetActive(false);
+            _bannerRect = rect;
             _bannerRoot = band;
             _bannerRoot.SetActive(false);
         }
@@ -72,6 +97,11 @@ namespace Shmup.Presentation.Battle
         void Update()
         {
             if (_director == null || _progressText == null) return;
+
+            // 데일리 뱃지는 런 내내 고정이지만 director가 Awake에서 굳히므로 상태만 맞춘다.
+            bool daily = _director.IsDailyRun;
+            if (_dailyBadge != null && _dailyBadge.gameObject.activeSelf != daily)
+                _dailyBadge.gameObject.SetActive(daily);
 
             int biome = _director.BiomeIndex;
             int room = _director.RoomIndex;
@@ -117,6 +147,8 @@ namespace Shmup.Presentation.Battle
                 _bannerBiome = biome;
                 _bannerAge = 0f;
                 _bannerText.text = $"BIOME {biome}  -  {ThemeName(_director.CurrentThemeId)}";
+                // 데일리라는 사실은 첫 스테이지 배너에서 한 번만 선언한다.
+                SetBannerDailyHeader(daily && biome == 1);
             }
 
             if (_bannerAge < BannerSeconds)
@@ -128,11 +160,30 @@ namespace Shmup.Presentation.Battle
                 var color = UiKit.TextAccent;
                 color.a = fade;
                 _bannerText.color = color;
+                if (_bannerDailyShown && _bannerDailyText != null)
+                    _bannerDailyText.color = color;
             }
             else if (_bannerRoot.activeSelf)
             {
                 _bannerRoot.SetActive(false);
             }
+        }
+
+        /// <summary>
+        /// 배너 윗줄(DAILY CHALLENGE) 켜기/끄기. 켜지면 띠를 그만큼 키우고 본문을 아래 칸으로
+        /// 밀어 두 줄이 겹치지 않게 한다 — 배너 조립은 그대로 두고 배치만 바꾼다.
+        /// </summary>
+        void SetBannerDailyHeader(bool on)
+        {
+            if (_bannerDailyText == null || _bannerRect == null) return;
+            if (_bannerDailyShown == on) return;
+            _bannerDailyShown = on;
+            _bannerDailyText.gameObject.SetActive(on);
+            _bannerRect.sizeDelta = new Vector2(
+                0f, on ? BannerHeightDaily : BannerHeight);
+            var textRect = _bannerText.rectTransform;
+            textRect.offsetMax = new Vector2(
+                textRect.offsetMax.x, on ? -(BannerHeightDaily - BannerHeight) : 0f);
         }
 
         /// <summary>

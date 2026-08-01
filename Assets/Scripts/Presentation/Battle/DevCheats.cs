@@ -4,20 +4,24 @@ using UnityEngine.InputSystem;
 namespace Shmup.Presentation.Battle
 {
     /// <summary>
-    /// 개발용 치트 + 오버레이. 빌드/에디터 공통으로 동작한다.
+    /// 개발용 치트 + 오버레이. **<see cref="DevArgs.DevMode"/>일 때만 존재한다.**
     ///
     /// - F9: 캡슐 획득(게이지 커서 전진), F10: 활성화 — 캡슐 드롭이 시뮬레이션에
     ///   연결되기 전(REQ-001 이후 교체)까지 HUD를 손으로 시험하기 위한 임시 입력이다.
     ///   이것은 dev 스캐폴딩이지 게임플레이 경로가 아니다.
     /// - 좌상단 오버레이: 현재 시드 / 틱 / 조작 안내. "시드 12345에서 2분 지점" 식의
     ///   재현 가능한 플레이 테스트 리포트를 위해 시드를 항상 표시한다.
+    ///
+    /// 릴리스에서는 컴포넌트 자체를 꺼 버린다 — 글로벌 스코어보드가 생긴 뒤로 F9/F10/F11이
+    /// 그대로 살아 있으면 보드를 오염시키는 문이 된다. 개발 모드에서 치트를 실제로 쓰면
+    /// <see cref="BattleDirector.CheatUsed"/>를 세워 그 런의 제출을 스스로 막는다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class DevCheats : MonoBehaviour
     {
         [SerializeField] BattleDirector _director;
 
-        /// <summary>F3으로 오버레이 표시 전환. 릴리스에서 기본 숨김 (개발 빌드는 기본 표시).</summary>
+        /// <summary>F3으로 오버레이 표시 전환. 개발 모드에서만 의미가 있고 기본 표시다.</summary>
         static bool _overlayVisible;
         static bool _overlayDefaultResolved;
 
@@ -25,21 +29,43 @@ namespace Shmup.Presentation.Battle
 
         void Awake()
         {
+            // 릴리스: 치트도 오버레이도 없다. 컴포넌트를 끄면 Update/OnGUI가 아예 돌지 않는다.
+            if (!DevArgs.DevMode)
+            {
+                enabled = false;
+                return;
+            }
             // Debug.isDebugBuild는 필드 초기화 시점에 호출할 수 없다 (Unity 제약)
             if (_overlayDefaultResolved) return;
             _overlayDefaultResolved = true;
-            _overlayVisible = Debug.isDebugBuild || Application.isEditor;
+            _overlayVisible = true;
         }
 
         void Update()
         {
+            if (!DevArgs.DevMode) return;
+
             var keyboard = Keyboard.current;
             if (keyboard == null || _director == null || _director.Gauge == null) return;
 
+            // F3은 표시 전환일 뿐이라 치트가 아니다 — 제출을 막지 않는다.
             if (keyboard.f3Key.wasPressedThisFrame) _overlayVisible = !_overlayVisible;
-            if (keyboard.f9Key.wasPressedThisFrame) _director.Gauge.Collect();
-            if (keyboard.f10Key.wasPressedThisFrame) _director.Gauge.Activate();
-            if (keyboard.f11Key.wasPressedThisFrame) _director.DevFastForward(600);   // 10초 스킵
+
+            if (keyboard.f9Key.wasPressedThisFrame)
+            {
+                _director.Gauge.Collect();
+                _director.MarkCheatUsed();
+            }
+            if (keyboard.f10Key.wasPressedThisFrame)
+            {
+                _director.Gauge.Activate();
+                _director.MarkCheatUsed();
+            }
+            if (keyboard.f11Key.wasPressedThisFrame)
+            {
+                _director.DevFastForward(600);   // 10초 스킵
+                _director.MarkCheatUsed();
+            }
             // 게임오버 입력/표시는 GameOverScreen(UGUI)으로 이관됨
         }
 
@@ -51,7 +77,7 @@ namespace Shmup.Presentation.Battle
 
         void OnGUI()
         {
-            if (_director == null || !_overlayVisible) return;
+            if (_director == null || !_overlayVisible || !DevArgs.DevMode) return;
 
             if (_style == null)
                 _style = new GUIStyle(GUI.skin.label)

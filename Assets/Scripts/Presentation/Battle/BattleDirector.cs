@@ -312,6 +312,16 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         public bool IsDailyRun { get; private set; }
 
+        /// <summary>
+        /// 이번 런에서 개발용 치트(F9/F10/F11)를 한 번이라도 썼는가.
+        /// 개발 검증 주행이 글로벌 보드를 오염시키면 안 되므로 GameOverScreen이 이 값을 보고
+        /// 제출을 막는다. 재출격/새 런에서 초기화된다 — 오염되는 것은 그 런 하나뿐이다.
+        /// </summary>
+        public bool CheatUsed { get; private set; }
+
+        /// <summary>DevCheats가 치트를 실제로 실행한 순간 호출한다 (되돌릴 수 없다).</summary>
+        public void MarkCheatUsed() => CheatUsed = true;
+
         /// <summary>이번 런에 탄 기체 id (스코어보드 표시용). 이어하기/리플레이도 기록 당시 기체를 따른다.</summary>
         public string ShipId => _run != null && _run.Ship != null ? _run.Ship.Id : null;
 
@@ -367,6 +377,7 @@ namespace Shmup.Presentation.Battle
             _run.Restart(newSeed);
             Seed = (long)newSeed;
             IsDailyRun = false;   // 재출격은 새 시드다 — 더 이상 데일리 런이 아니다
+            CheatUsed = false;    // 새 런은 깨끗하다 — 치트 낙인은 그 런에만 남는다
             ResetRunSummary();
             RefreshBattle();
             SyncViews();
