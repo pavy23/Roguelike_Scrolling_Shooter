@@ -80,6 +80,36 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void PlayerInvulnerablePreservesGrazeScoreAndStatistics()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.PlayerInvulnerable = true;
+            config.GrazeExtraRadiusSubUnits = 128;
+            config.GrazeScore = 7;
+            config.GrazeComboGaugeGain = 1;
+            config.EnemyBulletSpeedNumerator = 0;
+            config.EnemyBulletHalfWidth = 0;
+            config.EnemyBulletHalfHeight = 0;
+            config.MaxEnemyBullets = 1;
+            BattleSim sim = CreateTurretSim(config, 0, 128);
+            InputCommand none = InputCommand.None;
+
+            sim.Step(in none);
+
+            Assert.IsTrue(sim.IsPlayerAlive);
+            Assert.AreEqual(3, sim.ShieldStock);
+            Assert.AreEqual(7L, sim.Score);
+            Assert.AreEqual(1L, sim.Statistics.GrazeCount);
+            Assert.AreEqual(1, sim.ComboGauge);
+            Assert.IsTrue(ContainsEvent(
+                sim.EventsThisTick,
+                SimEventType.GrazeScored));
+            Assert.IsFalse(ContainsEvent(
+                sim.EventsThisTick,
+                SimEventType.PlayerHit));
+        }
+
+        [Test]
         public void KillsAdvanceMultiplierAndEnemyKilledArgUsesAwardedScore()
         {
             BattleSimConfig config = CreateConfig();

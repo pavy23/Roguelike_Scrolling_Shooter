@@ -33,6 +33,155 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void DevRunStartsAtRequestedStageWithNaturalDifficulty()
+        {
+            var generator = new TestStageGenerator(false, 10);
+            var gauge = PowerUpGauge.CreateDefault();
+            var manager = new RunManager(
+                0x96UL,
+                generator,
+                CreateConfig(),
+                CreateContent(),
+                gauge,
+                new RunConfig(3));
+
+            Assert.AreEqual(3, manager.StageIndex);
+            Assert.AreEqual(3, manager.BiomeIndex);
+            Assert.AreEqual(1, manager.RoomIndex);
+            Assert.AreEqual(3, manager.Difficulty);
+            Assert.IsTrue(manager.DevFlagsActive);
+            Assert.AreEqual(0, manager.Statistics.StagesCleared);
+            Assert.AreEqual(0, manager.Statistics.RoomsCleared);
+            Assert.AreEqual(3, generator.Calls[0].StageIndex);
+            Assert.AreEqual(3, generator.Calls[0].Difficulty);
+            for (int i = 0; i < PowerUpGauge.SlotCount; i++)
+                Assert.AreEqual(
+                    0,
+                    gauge.GetLevel((PowerUpSlot)i));
+        }
+
+        [Test]
+        public void PlayerInvulnerableIgnoresHitsAndMarksDevRun()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.StartingShieldStock = 1;
+            config.PlayerInvulnerable = true;
+            var manager = new RunManager(
+                0x9601UL,
+                new ShieldHitStageGenerator(),
+                config,
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
+            InputCommand none = InputCommand.None;
+
+            Step(manager, 5, in none);
+
+            Assert.IsTrue(manager.DevFlagsActive);
+            Assert.IsTrue(manager.Battle.IsPlayerAlive);
+            Assert.AreEqual(1, manager.Battle.PlayerHp);
+            Assert.AreEqual(1, manager.Battle.ShieldStock);
+            Assert.AreEqual(RunState.Playing, manager.State);
+            Assert.AreEqual(5, manager.Battle.Tick);
+        }
+
+        [Test]
+        public void DefaultDevFlagsPreserveLegacyHashAndSuspendContract()
+        {
+            var legacy = new RunManager(
+                0x9602UL,
+                new TestStageGenerator(false, 10),
+                CreateConfig(),
+                CreateContent(),
+                PowerUpGauge.CreateDefault());
+            var explicitDefault = new RunManager(
+                0x9602UL,
+                new TestStageGenerator(false, 10),
+                CreateConfig(),
+                CreateContent(),
+                PowerUpGauge.CreateDefault(),
+                RunConfig.CreateDefault());
+            var legacyHash = new DeterminismAuditHasher();
+            var explicitHash = new DeterminismAuditHasher();
+
+            legacyHash.FoldRunState(legacy);
+            explicitHash.FoldRunState(explicitDefault);
+
+            Assert.IsFalse(new BattleSimConfig().PlayerInvulnerable);
+            Assert.AreEqual(1, RunConfig.CreateDefault().StartStageIndex);
+            Assert.IsFalse(legacy.DevFlagsActive);
+            Assert.IsFalse(explicitDefault.DevFlagsActive);
+            Assert.AreEqual(legacyHash.Hash, explicitHash.Hash);
+            Assert.DoesNotThrow(() => legacy.ExportSuspendData());
+            Assert.DoesNotThrow(
+                () => explicitDefault.ExportSuspendData());
+        }
+
+        [Test]
+        public void DevRunsRejectSuspendExportWithoutChangingSchema()
+        {
+            var manager = new RunManager(
+                0x9603UL,
+                new TestStageGenerator(false, 10),
+                CreateConfig(),
+                CreateContent(),
+                PowerUpGauge.CreateDefault(),
+                new RunConfig(3));
+
+            InvalidOperationException exception = Assert.Throws<
+                InvalidOperationException>(
+                () => manager.ExportSuspendData());
+
+            StringAssert.Contains(
+                "Developer runs cannot be suspended",
+                exception.Message);
+        }
+
+        [Test]
+        public void StartStageMustFitConfiguredProgression()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => new RunConfig(0));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new RunManager(
+                    0x9604UL,
+                    new TestStageGenerator(false, 10),
+                    CreateConfig(),
+                    CreateContent(),
+                    PowerUpGauge.CreateDefault(),
+                    new MetaProgression(1, 1),
+                    StageDifficultyCurve.CreateDefault(),
+                    null,
+                    null,
+                    1,
+                    1,
+                    new RunProgressionConfig(2, 1),
+                    new RunConfig(3)));
+        }
+
+        [Test]
+        public void DevRunRestartReturnsToConfiguredStartStage()
+        {
+            var manager = new RunManager(
+                0x9605UL,
+                new TestStageGenerator(true, 5),
+                CreateConfig(),
+                CreateContent(),
+                PowerUpGauge.CreateDefault(),
+                new RunConfig(3));
+            InputCommand none = InputCommand.None;
+
+            manager.Step(in none);
+            Assert.AreEqual(RunState.RunOver, manager.State);
+
+            manager.Restart(0x9606UL);
+
+            Assert.AreEqual(RunState.Playing, manager.State);
+            Assert.AreEqual(3, manager.StageIndex);
+            Assert.AreEqual(1, manager.RoomIndex);
+            Assert.IsTrue(manager.DevFlagsActive);
+        }
+
+        [Test]
         public void ShieldOneToZeroSurvivesThenNextEffectiveHitEndsRun()
         {
             BattleSimConfig config = CreateConfig();

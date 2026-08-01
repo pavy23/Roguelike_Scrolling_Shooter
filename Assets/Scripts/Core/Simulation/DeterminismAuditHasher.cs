@@ -53,6 +53,10 @@ namespace Shmup.Core.Simulation
             FoldInt32(run.DifficultyMultiplierNumerator);
             FoldInt32(run.DifficultyMultiplierDenominator);
             FoldInt64(run.TotalScore);
+            // Preserve every production hash byte-for-byte while still making
+            // non-production runs distinct when the QA gate is active.
+            if (run.DevFlagsActive)
+                FoldBool(true);
 
             RunStatistics statistics = run.Statistics;
             FoldInt64(statistics.ShotsFired);

@@ -649,6 +649,31 @@ namespace Shmup.Core.Simulation
     }
 
     /// <summary>
+    /// Optional run-start overrides reserved for developer and QA workflows.
+    /// Production runs use <see cref="CreateDefault"/>.
+    /// </summary>
+    public sealed class RunConfig
+    {
+        public const int DefaultStartStageIndex = 1;
+
+        public RunConfig(
+            int startStageIndex = DefaultStartStageIndex)
+        {
+            if (startStageIndex < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(startStageIndex));
+            StartStageIndex = startStageIndex;
+        }
+
+        public int StartStageIndex { get; }
+
+        public static RunConfig CreateDefault()
+        {
+            return new RunConfig();
+        }
+    }
+
+    /// <summary>
     /// Read-only counters accumulated across the current run.
     /// Accuracy is intentionally left to consumers as ShotsHit / ShotsFired.
     /// </summary>
@@ -864,6 +889,8 @@ namespace Shmup.Core.Simulation
         readonly ShipDefinition _ship;
         readonly int _difficultyMultiplierNumerator;
         readonly int _difficultyMultiplierDenominator;
+        readonly int _startStageIndex;
+        readonly bool _devFlagsActive;
         readonly int[] _powerUpMaxLevels;
         readonly int _initialShieldStock;
         readonly int _initialBombStock;
@@ -975,6 +1002,32 @@ namespace Shmup.Core.Simulation
             BattleSimConfig battleConfig,
             BattleContent battleContent,
             PowerUpGauge powerUpGauge,
+            RunConfig runConfig)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                null,
+                null,
+                1,
+                1,
+                null,
+                true,
+                null,
+                runConfig)
+        {
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
             RewardCatalog rewards,
             ContractCatalog contracts)
             : this(
@@ -1003,6 +1056,34 @@ namespace Shmup.Core.Simulation
             PowerUpGauge powerUpGauge,
             RewardCatalog rewards,
             ContractCatalog contracts,
+            RunConfig runConfig)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                null,
+                1,
+                1,
+                null,
+                true,
+                contracts,
+                runConfig)
+        {
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            RewardCatalog rewards,
+            ContractCatalog contracts,
             ShipDefinition ship)
             : this(
                 runSeed,
@@ -1019,6 +1100,36 @@ namespace Shmup.Core.Simulation
                 null,
                 true,
                 contracts)
+        {
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            RewardCatalog rewards,
+            ShipDefinition ship,
+            int difficultyMultiplierNumerator,
+            int difficultyMultiplierDenominator,
+            RunConfig runConfig)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                ship,
+                difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator,
+                null,
+                true,
+                null,
+                runConfig)
         {
         }
 
@@ -1376,6 +1487,39 @@ namespace Shmup.Core.Simulation
         {
         }
 
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            MetaProgression metaProgression,
+            StageDifficultyCurve difficultyCurve,
+            RewardCatalog rewards,
+            ShipDefinition ship,
+            int difficultyMultiplierNumerator,
+            int difficultyMultiplierDenominator,
+            RunProgressionConfig progressionConfig,
+            RunConfig runConfig)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                metaProgression,
+                difficultyCurve,
+                rewards,
+                ship,
+                difficultyMultiplierNumerator,
+                difficultyMultiplierDenominator,
+                progressionConfig,
+                true,
+                null,
+                runConfig)
+        {
+        }
+
         RunManager(
             ulong runSeed,
             IStageGenerator stageGenerator,
@@ -1390,7 +1534,8 @@ namespace Shmup.Core.Simulation
             int difficultyMultiplierDenominator,
             RunProgressionConfig progressionConfig,
             bool buildInitialStage,
-            ContractCatalog contracts = null)
+            ContractCatalog contracts = null,
+            RunConfig runConfig = null)
         {
             _stageGenerator = stageGenerator
                 ?? throw new ArgumentNullException(nameof(stageGenerator));
@@ -1406,6 +1551,18 @@ namespace Shmup.Core.Simulation
                 ?? throw new ArgumentNullException(nameof(difficultyCurve));
             _progressionConfig =
                 progressionConfig ?? RunProgressionConfig.CreateDefault();
+            RunConfig resolvedRunConfig =
+                runConfig ?? RunConfig.CreateDefault();
+            if (resolvedRunConfig.StartStageIndex
+                > _progressionConfig.BiomeCount)
+                throw new ArgumentOutOfRangeException(
+                    nameof(runConfig),
+                    $"Start stage must be in 1.."
+                    + $"{_progressionConfig.BiomeCount}.");
+            _startStageIndex = resolvedRunConfig.StartStageIndex;
+            _devFlagsActive =
+                _startStageIndex != RunConfig.DefaultStartStageIndex
+                || _battleConfig.PlayerInvulnerable;
             _rewards = rewards ?? BuiltInRewards;
             _contracts = contracts ?? BuiltInContracts;
             ModifierStacks = new BattleModifierStackSet(
@@ -1555,7 +1712,7 @@ namespace Shmup.Core.Simulation
 
             _runSeed = runSeed;
             RunNumber = 1;
-            BiomeIndex = 1;
+            BiomeIndex = _startStageIndex;
             RoomIndex = 1;
             IsBiomeBoss = false;
             IsHiddenBiome = false;
@@ -1637,6 +1794,11 @@ namespace Shmup.Core.Simulation
         public bool IsFinished =>
             State == RunState.RunOver || State == RunState.RunCleared;
         public ulong RunSeed => _runSeed;
+        /// <summary>
+        /// True when a QA-only start stage or player invulnerability override is
+        /// active. Presentation must treat such a run as cheat-marked.
+        /// </summary>
+        public bool DevFlagsActive => _devFlagsActive;
         public ShipDefinition Ship => _ship;
         public int DifficultyMultiplierNumerator =>
             _difficultyMultiplierNumerator;
@@ -1765,6 +1927,9 @@ namespace Shmup.Core.Simulation
         /// </summary>
         public RunSuspendData ExportSuspendData()
         {
+            if (DevFlagsActive)
+                throw new InvalidOperationException(
+                    "Developer runs cannot be suspended.");
             if (State != RunState.Playing)
                 throw new InvalidOperationException(
                     "Suspend data can only be exported while a stage is playing.");
@@ -3299,7 +3464,7 @@ namespace Shmup.Core.Simulation
             _runSeed = newRunSeed;
             ResetStageThemeOrder(newRunSeed);
             RunNumber++;
-            BiomeIndex = 1;
+            BiomeIndex = _startStageIndex;
             RoomIndex = 1;
             IsBiomeBoss = false;
             IsHiddenBiome = false;

@@ -939,6 +939,11 @@ namespace Shmup.Core.Simulation
             ProvisionalMaxShieldStock;
         public int PlayerHitInvulnerabilityTicks { get; set; } =
             DefaultPlayerHitInvulnerabilityTicks;
+        /// <summary>
+        /// QA-only gate. Incoming hits and time-limit expiration cannot consume
+        /// shield stock or kill the player while enabled.
+        /// </summary>
+        public bool PlayerInvulnerable { get; set; }
         public int StartingBombStock { get; set; }
         public int MaxBombStock { get; set; } = ProvisionalMaxBombStock;
         public int BombInvulnerabilityTicks { get; set; } =
@@ -1462,6 +1467,7 @@ namespace Shmup.Core.Simulation
         readonly int _enemyBulletDamage, _maxEnemyBullets;
         int _maxShieldStock;
         readonly int _playerHitInvulnerabilityTicks;
+        readonly bool _playerInvulnerable;
         int _maxBombStock;
         readonly int _bombInvulnerabilityTicks;
         readonly int _bombEffectRadiusSubUnits;
@@ -1845,6 +1851,7 @@ namespace Shmup.Core.Simulation
             _maxShieldStock = config.MaxShieldStock;
             _playerHitInvulnerabilityTicks =
                 config.PlayerHitInvulnerabilityTicks;
+            _playerInvulnerable = config.PlayerInvulnerable;
             _maxBombStock = config.MaxBombStock;
             _bombInvulnerabilityTicks =
                 config.BombInvulnerabilityTicks;
@@ -3328,7 +3335,7 @@ namespace Shmup.Core.Simulation
                 PlayerX,
                 PlayerY,
                 _timeLimitTicks);
-            if (!_playerAlive)
+            if (!_playerAlive || _playerInvulnerable)
                 return;
             ShieldStock = 0;
             _playerAlive = false;
@@ -7326,6 +7333,7 @@ namespace Shmup.Core.Simulation
         {
             if (incomingDamage <= 0
                 || !_playerAlive
+                || _playerInvulnerable
                 || _playerInvulnerabilityTicksRemaining > 0)
                 return false;
 
