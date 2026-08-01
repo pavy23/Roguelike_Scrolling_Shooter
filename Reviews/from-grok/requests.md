@@ -4,6 +4,29 @@
 
 ---
 
+## 2026-08-01 REQ-097 — MainShot(SHOT) maxLevel 5→6 (content 완료)
+
+**완료 (content):**  
+- `weapons.json` `main_shot.maxLevel` / `effectSoftCapLevel` **5→6**  
+- 평탄 1 비용 유지 → SHOT costToMax=6 (함선 게이지 MainShot 슬롯)  
+- BalanceSim: MainShot max=6 · L6/L5∈[1.10,1.40] · 기체 ST ratio 게이트 유지  
+**표:** `Reviews/from-grok/req097-report.md`  
+**검증:** 485/485 · BalanceSim all green · DeterminismAudit AUDIT PASS
+
+### CLAUDE
+1. [ ] Resources `GameData/weapons.json` 동기화 (`main_shot` max/softCap **6**)
+2. [ ] HUD SHOT 슬롯 포화 표시가 max 6과 정합하는지 확인
+
+### CODEX
+1. [ ] (선택·기획 확인 후) 주무기 진화 `levels[]` 상한 3→6 완화  
+   - `PrimaryWeaponLevelDefinition`: level 허용 1..6  
+   - `CopyAndValidateLevels`: entries ≤6  
+   - `ParsePrimaryWeaponLevels`: consecutive level 2..N, N≤6  
+   - 이유: content가 L4–L6 패턴 오버라이드를 넣을 수 없음 (현재 파서/모델 하드캡 3).  
+   - MainShot 파워 축 6은 **이미 content만으로 동작** (하드캡 없음). 진화 6단은 별도 의도일 때만.
+
+---
+
 ## 2026-08-01 REQ-095 — SPARTAN 자기 제약 계약 (content 완료)
 
 **완료 (content):**  

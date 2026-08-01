@@ -2943,12 +2943,16 @@ static class Program
             }
         }
 
+        // REQ-097: MainShot (SHOT) maxLevel 6, flat-1 cost (1 capsule = 1 level).
+        const int ExpectedMainShotMax = 6;
         PowerUpSlotDefinition mainShotDef = gauge.GaugeSlots[1];
         if (mainShotDef.Slot != PowerUpSlot.MainShot
-            || mainShotDef.MaxLevel < 1)
+            || mainShotDef.MaxLevel != ExpectedMainShotMax)
         {
             Console.WriteLine(
-                $"FAIL ships: {ship.Id} MainShot slot missing or maxLevel 0.");
+                $"FAIL ships: {ship.Id} MainShot maxLevel expected "
+                + $"{ExpectedMainShotMax}, got "
+                + $"{(mainShotDef.Slot == PowerUpSlot.MainShot ? mainShotDef.MaxLevel : 0)}.");
             failures++;
         }
         if (mainShotDef.CostCurve.BaseCost != 1
@@ -2960,6 +2964,16 @@ static class Program
                 + $"(got {mainShotDef.CostCurve.BaseCost}+"
                 + $"{mainShotDef.CostCurve.LinearGrowth}L+"
                 + $"{mainShotDef.CostCurve.QuadraticGrowth}L²).");
+            failures++;
+        }
+        int mainCostToMax = 0;
+        for (int lv = 0; lv < mainShotDef.MaxLevel; lv++)
+            mainCostToMax += mainShotDef.CostCurve.GetCostForCurrentLevel(lv);
+        if (mainCostToMax != ExpectedMainShotMax)
+        {
+            Console.WriteLine(
+                $"FAIL ships: {ship.Id} MainShot costToMax expected "
+                + $"{ExpectedMainShotMax} (flat-1), got {mainCostToMax}.");
             failures++;
         }
 
@@ -7121,8 +7135,61 @@ static class Program
             failures++;
         }
 
+        // REQ-097: shared MainShot power axis maxLevel 6 + L5→L6 uplift (no collapse).
+        WeaponDefinition mainWeapon =
+            data.BattleContent.FindWeapon(PowerUpSlot.MainShot);
+        if (mainWeapon == null)
+        {
+            Console.WriteLine("FAIL primary: missing main_shot weapon.");
+            failures++;
+        }
+        else if (mainWeapon.MaxLevel != 6
+            || mainWeapon.EffectSoftCapLevel != 6)
+        {
+            Console.WriteLine(
+                $"FAIL primary: main_shot maxLevel/effectSoftCap expected 6/6, "
+                + $"got {mainWeapon.MaxLevel}/{mainWeapon.EffectSoftCapLevel}.");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine(
+                "  REQ-097 MainShot L1–L6 theoretical ST DPS (vulcan base axis):");
+            double prev = 0;
+            for (int lv = 1; lv <= 6; lv++)
+            {
+                double dps = TheoreticalMainShotDps(mainWeapon, lv);
+                string step = lv == 1
+                    ? ""
+                    : $" ({dps / Math.Max(0.001, prev):F2}× vs L{lv - 1})";
+                Console.WriteLine($"    L{lv}: {dps:F1}{step}");
+                if (lv > 1 && dps + 0.01 < prev)
+                {
+                    Console.WriteLine(
+                        $"FAIL primary: MainShot DPS not non-decreasing at L{lv}.");
+                    failures++;
+                }
+                prev = dps;
+            }
+            double dps5 = TheoreticalMainShotDps(mainWeapon, 5);
+            double dps6 = TheoreticalMainShotDps(mainWeapon, 6);
+            double uplift = dps5 <= 0 ? 0 : dps6 / dps5;
+            // Clear step up (damage axis; fire rate already at min at L5) but not runaway.
+            if (uplift < 1.10 || uplift > 1.40)
+            {
+                Console.WriteLine(
+                    $"FAIL primary: MainShot L6/L5={uplift:F2} outside [1.10,1.40].");
+                failures++;
+            }
+            else
+            {
+                Console.WriteLine(
+                    $"  MainShot L6/L5={uplift:F2} (band [1.10,1.40]).");
+            }
+        }
+
         if (failures == 0)
-            Console.WriteLine("PASS: REQ-075 primary family DPS table.");
+            Console.WriteLine("PASS: REQ-075/097 primary family DPS + MainShot L6.");
         return failures;
     }
 

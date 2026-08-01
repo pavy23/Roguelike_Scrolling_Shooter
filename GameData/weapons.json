@@ -10,8 +10,8 @@
       "projectileSpeed": 20,
       "projectileHalfWidth": 0.375,
       "projectileHalfHeight": 0.140625,
-      "maxLevel": 5,
-      "effectSoftCapLevel": 5
+      "maxLevel": 6,
+      "effectSoftCapLevel": 6
     },
     {
       "id": "missile",
