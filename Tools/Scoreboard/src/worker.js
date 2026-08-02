@@ -36,6 +36,19 @@ async function sha256hex(text) {
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// KV 값이 손상돼도(예: BOM이 붙은 수동 편집 — 2026-08-02 실제 발생) 보드
+// 전체가 500으로 죽지 않게 한다. 텍스트로 읽어 BOM을 벗기고 직접 파싱.
+async function readBoard(env, key) {
+  const raw = await env.SCORES.get(key, 'text');
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw.replace(/^﻿/, ''));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function utcDateKey(now) {
   const d = new Date(now);
   return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
@@ -70,7 +83,7 @@ export default {
       else if (part === 'daily') key = `daily:${utcDateKey(Date.now())}`;
       else if (/^daily\/\d{8}$/.test(part)) key = `daily:${part.slice(6)}`;
       else return json({ error: 'unknown board' }, 404, headers);
-      const list = (await env.SCORES.get(key, 'json')) || [];
+      const list = await readBoard(env, key);
       return json({ board: key, entries: list }, 200, headers);
     }
 
@@ -114,7 +127,7 @@ export default {
         else if (seed === String(dailySeedFor(yesterdayKey))) boardKey = `daily:${yesterdayKey}`;
         else return json({ error: 'seed does not match any recent daily' }, 400, headers);
       }
-      const list = (await env.SCORES.get(boardKey, 'json')) || [];
+      const list = await readBoard(env, boardKey);
 
       // P1.5 상세 통계 (선택 필드 — 없으면 생략, 음수/비정상은 버림)
       const stat = (v, max) => (Number.isFinite(Number(v)) && Number(v) >= 0 && Number(v) <= max)
@@ -125,7 +138,8 @@ export default {
         st: stat(body.stage, 99), rm: stat(body.room, 99),
         op: stat(body.options, 9), lv: stat(body.levels, 99),
         bb: stat(body.bombs, 999), gz: stat(body.graze, 999999),
-        mx: stat(body.maxCombo, 99),
+        mx: stat(body.maxCombo, 99), ht: stat(body.hitsTaken, 999),
+        cu: stat(body.continuesUsed, 9),
       };
 
       // 같은 토큰의 기존 기록은 최고 점수 하나만 남긴다
