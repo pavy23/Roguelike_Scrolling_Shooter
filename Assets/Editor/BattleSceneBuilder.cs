@@ -1068,9 +1068,10 @@ namespace Shmup.EditorTools
             });
             // 레이저 포탑 (ObstacleType.LaserEmitter). 테마와 무관하게 한 실루엣이다 —
             // "저건 쏘는 것"은 스테이지가 바뀌어도 같은 모양으로 읽혀야 한다.
-            SetReference(director, "_obstacleEmitterSprite", WriteExternalOrPixelSprite(
+            var laserTurretSprite = WriteExternalOrPixelSprite(
                 LaserTurretSpritePath, "obstacle_laser_turret.png",
-                LaserTurretPixels, LaserTurretPalette));
+                LaserTurretPixels, LaserTurretPalette);
+            SetReference(director, "_obstacleEmitterSprite", laserTurretSprite);
 
             // UI 픽셀 폰트 (Galmuri, OFL — Assets/Fonts/Galmuri-LICENSE-OFL.txt)
             var uiFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Galmuri9.ttf");
@@ -1166,6 +1167,27 @@ namespace Shmup.EditorTools
             SetReference(partsView, "_director", director);
             SetReference(partsView, "_root", partsRoot.transform);
 
+            // St3 거대 전함 (REQ-110/111). 전용 함체 아트가 아직 없어서 **조립**한다:
+            // px_white 판으로 어두운 실루엣을 깔고 그 위에 기존 스프라이트를 파츠 위치에
+            // 얹는다 (함미=boss_fortress · 포탑=obstacle_laser_turret · 함수=boss_core).
+            // art-input/warship_hull.png(권장 320×160, PPU16 → 20×10 유닛)이 들어오면
+            // _hullSprite가 채워져 실루엣 판을 통째로 대체한다 — 씬 재생성만으로 교체된다.
+            var warshipRoot = new GameObject("Warship");
+            warshipRoot.transform.SetParent(battleRoot.transform, false);
+            var warshipView = battleRoot.AddComponent<WarshipView>();
+            SetReference(warshipView, "_director", director);
+            SetReference(warshipView, "_root", warshipRoot.transform);
+            SetReference(warshipView, "_pixelSprite", whiteSprite);
+            SetReference(warshipView, "_hullSprite",
+                LoadExternalSprite("warship_hull.png", "warship_hull"));
+            SetReference(warshipView, "_sternSprite",
+                LoadExternalSprite("boss_fortress.png", "boss_fortress"));
+            SetReference(warshipView, "_turretSprite", laserTurretSprite);
+            SetReference(warshipView, "_coreSprite",
+                LoadExternalSprite("boss_core.png", "boss_core"));
+            // 전함이 떠 있는 동안 범용 파츠 오버레이는 비켜난다 (회색 사각 이중 표시 방지)
+            SetReference(partsView, "_warshipView", warshipView);
+
             // 적·지형 지속 레이저 (REQ-042). Core가 선분과 4단계를 노출하고 여기서 그린다.
             var laserRoot = new GameObject("Lasers");
             laserRoot.transform.SetParent(battleRoot.transform, false);
@@ -1223,6 +1245,8 @@ namespace Shmup.EditorTools
             SetReference(director, "_juice", juice);
             SetReference(options, "_juice", juice);
             SetReference(lowHp, "_juice", juice);
+            // 전함 그룹 전환 흔들림 (함미 전멸 = 중간보스 격파와 같은 무게)
+            SetReference(warshipView, "_juice", juice);
 
             // 머즐 플래시: 기체 코 앞에 고정, PlayerFired 이벤트로 director가 깜빡인다
             var muzzleSprite = LoadExternalSprite("fx_muzzle_00.png", "fx_muzzle_00");
@@ -1255,7 +1279,7 @@ namespace Shmup.EditorTools
             SetReferenceArray(sectionThemes, "_themeRoots", themeRoots);
             CreateSectionArtSlots(sectionThemes);
 
-            CreateHud(director, hudSlotSprite, hudPipSprite, sectionThemes);
+            CreateHud(director, hudSlotSprite, hudPipSprite, sectionThemes, warshipView);
             CreateSfx(director);
             CreateBgm(director);
 
@@ -1674,7 +1698,7 @@ namespace Shmup.EditorTools
         /// </summary>
         static void CreateHud(
             BattleDirector director, Sprite slotSprite, Sprite pipSprite,
-            SectionThemeDirector sectionThemes)
+            SectionThemeDirector sectionThemes, WarshipView warshipView)
         {
             var hudRoot = new GameObject("Hud");
 
@@ -1687,6 +1711,7 @@ namespace Shmup.EditorTools
             var cheats = hudRoot.AddComponent<DevCheats>();
             SetReference(cheats, "_director", director);
             SetReference(cheats, "_sectionThemes", sectionThemes);   // F7 구간 룩 미리보기
+            SetReference(cheats, "_warship", warshipView);           // 전함 그룹/포탑 잔량 한 조각
         }
 
         /// <summary>

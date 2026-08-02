@@ -20,6 +20,13 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Transform _root;
         [SerializeField] Sprite _markSprite;        // 1px 흰색 사각 (틴트로 재사용)
 
+        /// <summary>
+        /// St3 거대 전함(REQ-110/111)이 화면에 있는 동안은 이 범용 오버레이가 비켜난다.
+        /// 전함은 파츠마다 실제 스프라이트를 얹으므로 그 위에 회색 사각까지 겹치면
+        /// 포탑이 뭉개지고, 파괴/무적 표현이 두 컴포넌트에서 이중으로 나온다.
+        /// </summary>
+        [SerializeField] WarshipView _warshipView;
+
         void Awake()
         {
             if (_markSprite != null) return;
@@ -44,7 +51,8 @@ namespace Shmup.Presentation.Battle
         {
             if (_director == null || _root == null || _markSprite == null) return;
             var parts = _director.BossParts;
-            bool active = _director.BossActive && parts != null && parts.Count > 0;
+            bool active = _director.BossActive && parts != null && parts.Count > 0
+                && (_warshipView == null || !_warshipView.Active);
             if (!active)
             {
                 if (_overlays.Count > 0) HideAll();

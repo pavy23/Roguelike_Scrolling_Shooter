@@ -1,0 +1,427 @@
+using System.Collections.Generic;
+using Shmup.Core.Generation;
+using Shmup.Core.Simulation;
+using UnityEngine;
+
+namespace Shmup.Presentation.Battle
+{
+    /// <summary>
+    /// St3 거대 전함 뷰 (REQ-110/111 관측 소비).
+    ///
+    /// Core는 이 전함을 **멀티파트 보스 + 3단 파츠 그룹**(함미 추진기 / 함체 포탑 라인 /
+    /// 함수 코어)으로 노출한다. 파츠 위치·HP·무적은 <see cref="BattleDirector.BossParts"/>가,
+    /// 그룹 순서와 역할은 <see cref="BattleDirector.WarshipEncounter"/>(waves.json 계약)가 준다.
+    /// 여기서는 **그리기만** 한다 — 어떤 그룹이 열리는지는 Core가 정한다.
+    ///
+    /// 함체 아트가 아직 없다. 새로 그리지 않고 **조립**한다 (art-sample-approval:
+    /// 조형급 아트의 절차 생성 금지):
+    ///   1. 실루엣 — px_white 판 3장(중앙 척추 + 상/하 갑판 레일)을 파츠 오프셋에서
+    ///      산출한 크기로 깔아 "길고 어두운 함체"의 윤곽만 만든다. 조형이 아니라 그림자다.
+    ///   2. 하드포인트 — 기존 스프라이트를 파츠 위치에 그대로 얹는다.
+    ///      함미=boss_fortress, 포탑=obstacle_laser_turret, 함수=boss_core.
+    ///   3. 아트 슬롯 — art-input/warship_hull.png이 들어오면 1의 판 3장을 그 한 장이
+    ///      대체한다(하드포인트는 그대로). 씬 재생성만으로 교체된다.
+    ///
+    /// 그룹 피드백은 **Core가 말한 것만** 말한다:
+    ///   - 파괴된 파츠      → 그을린 잔해 (함체는 계속 남는다)
+    ///   - 무적인 파츠      → 깊은 암전 + 청록 맥동 ("지금은 못 깎는다")
+    ///   - 다음 그룹 파츠   → 옅은 암전 ("아직 이 차례가 아니다" — 무적과 구분되는 세기)
+    ///   - 그룹이 넘어간 순간 → 짧은 백색 플래시 + 흔들림
+    /// 함미 그룹이 전멸하는 프레임은 중간보스 격파와 같은 무게로 친다(흔들림 0.6) —
+    /// Core의 MidBossDefeated 연출 상수와 같은 값이다.
+    /// </summary>
+    [DisallowMultipleComponent]
+    public sealed class WarshipView : MonoBehaviour
+    {
+        // 정렬: 장애물(9~12) 위, 보스 본체(15) 아래에 함체를 깔고,
+        // 하드포인트는 보스 본체 위에 얹는다. 파츠가 함체에 묻히면 조준할 곳이 사라진다.
+        const int HullOrder = 13;
+        const int HardpointOrder = 16;
+
+        const float HitFlashSeconds = 0.09f;
+        const float ActivateFlashSeconds = 0.32f;
+
+        /// <summary>함체 판 여백(월드 유닛). 파츠가 실루엣 가장자리에 걸리면 배가 짧아 보인다.</summary>
+        const float HullPadX = 2f;
+        const float SpineHalfHeight = 2.6f;
+        const float DeckThickness = 1.6f;
+
+        static readonly Color HullTint = new Color(0.10f, 0.11f, 0.14f, 0.96f);
+        static readonly Color DeckTint = new Color(0.16f, 0.17f, 0.21f, 0.96f);
+        static readonly Color Scorched = new Color(0.13f, 0.12f, 0.14f, 1f);
+        static readonly Color DeepDim = new Color(0.30f, 0.34f, 0.42f, 1f);
+        static readonly Color MildDim = new Color(0.62f, 0.64f, 0.68f, 1f);
+        static readonly Color GatePulse = new Color(0.35f, 0.85f, 1f, 1f);
+
+        [SerializeField] BattleDirector _director;
+        [SerializeField] Transform _root;
+        [SerializeField] JuiceDirector _juice;
+
+        [Tooltip("px_white — 함체 실루엣 판. 없으면 실루엣 없이 하드포인트만 그린다.")]
+        [SerializeField] Sprite _pixelSprite;
+        [Tooltip("아트 슬롯: art-input/warship_hull.png. 있으면 실루엣 판을 대체한다.")]
+        [SerializeField] Sprite _hullSprite;
+        [Tooltip("함미 추진기 블록 — 기존 boss_fortress 재사용.")]
+        [SerializeField] Sprite _sternSprite;
+        [Tooltip("함체 포탑 — 기존 obstacle_laser_turret 재사용.")]
+        [SerializeField] Sprite _turretSprite;
+        [Tooltip("함수 코어 — 기존 boss_core 재사용.")]
+        [SerializeField] Sprite _coreSprite;
+
+        SpriteRenderer _hullArt;
+        SpriteRenderer _spine;
+        SpriteRenderer _deckTop;
+        SpriteRenderer _deckBottom;
+        readonly List<SpriteRenderer> _hardpoints = new List<SpriteRenderer>(8);
+        readonly List<int> _partGroup = new List<int>(8);
+        readonly List<int> _lastHp = new List<int>(8);
+        readonly List<float> _hitFlash = new List<float>(8);
+        readonly List<float> _activateFlash = new List<float>(8);
+        readonly List<bool> _wasInvulnerable = new List<bool>(8);
+
+        WarshipEncounterDefinition _definition;
+        bool _visible;
+        int _focusGroup;
+        int _lastFocusGroup = -1;
+
+        float _unitX = 1f;
+        float _unitY = 1f;
+
+        // ── 개발 오버레이 관측값 ──────────────────────────────────────────────
+
+        /// <summary>전함 뷰가 지금 화면을 소유하고 있는가 (BossPartsView가 이 값으로 비켜난다).</summary>
+        public bool Active => _visible;
+
+        /// <summary>현재 열려 있는 파츠 그룹 index (0=함미, 1=함체, 2=함수).</summary>
+        public int FocusGroupIndex => _focusGroup;
+
+        public int GroupCount => _definition != null ? _definition.Groups.Count : 0;
+
+        public string FocusGroupId =>
+            _definition != null && _focusGroup >= 0 && _focusGroup < _definition.Groups.Count
+                ? _definition.Groups[_focusGroup].GroupId
+                : null;
+
+        /// <summary>남은 함체 포탑 수 (전투 중 파괴하면 함수 개막 밀도가 줄어든다).</summary>
+        public int AttritionAlive { get; private set; }
+
+        public int AttritionTotal { get; private set; }
+
+        void Update()
+        {
+            var definition = _director != null ? _director.WarshipEncounter : null;
+            var parts = _director != null ? _director.BossParts : null;
+            bool active = definition != null
+                && _director.BossActive
+                && parts != null && parts.Count > 0;
+
+            if (!active)
+            {
+                if (_visible) Hide();
+                return;
+            }
+
+            if (!ReferenceEquals(definition, _definition) || _partGroup.Count != parts.Count)
+                Rebuild(definition, parts);
+
+            Vector3 bossWorld = _director.BossWorldPosition;
+            SyncHull(parts, bossWorld);
+            SyncHardpoints(parts);
+            _visible = true;
+        }
+
+        // ── 조립 ──────────────────────────────────────────────────────────────
+
+        void Rebuild(WarshipEncounterDefinition definition, IReadOnlyList<BossPartState> parts)
+        {
+            _definition = definition;
+            _lastFocusGroup = -1;
+            _focusGroup = 0;
+
+            // 하드포인트 렌더러는 **버리지 않는다** — 방마다 GameObject를 새로 만들면
+            // 런 하나에 수십 개가 쌓인다 (게임 루프 Instantiate 금지, CLAUDE.md).
+            for (int i = 0; i < _hardpoints.Count; i++)
+                SetEnabled(_hardpoints[i], false);
+            _partGroup.Clear();
+            _lastHp.Clear();
+            _hitFlash.Clear();
+            _activateFlash.Clear();
+            _wasInvulnerable.Clear();
+
+            if (_pixelSprite != null)
+            {
+                Vector3 unit = _pixelSprite.bounds.size;
+                // localScale에 월드 길이를 그대로 넣으면 스프라이트 자체 크기만큼 곱해진다
+                // (LaserBeamView와 같은 함정 — px_white는 2px/PPU16 = 0.125 유닛이다).
+                _unitX = Mathf.Max(0.0001f, unit.x);
+                _unitY = Mathf.Max(0.0001f, unit.y);
+            }
+
+            AttritionTotal = 0;
+            for (int i = 0; i < parts.Count; i++)
+            {
+                int group = FindGroup(definition, parts[i].PartId);
+                _partGroup.Add(group);
+                _lastHp.Add(parts[i].Hp);
+                _hitFlash.Add(float.MaxValue);
+                _activateFlash.Add(float.MaxValue);
+                // 등장 중에는 Core가 모든 파츠를 무적으로 잠근다. 첫 관측을 무적으로
+                // 잡아 두면 잠금이 풀리는 프레임이 그대로 "열렸다" 플래시가 된다.
+                _wasInvulnerable.Add(true);
+                BindHardpoint(definition, parts[i], group, i);
+                if (group == 1) AttritionTotal++;
+            }
+            AttritionAlive = AttritionTotal;
+        }
+
+        static int FindGroup(WarshipEncounterDefinition definition, string partId)
+        {
+            var groups = definition.Groups;
+            for (int g = 0; g < groups.Count; g++)
+                for (int m = 0; m < groups[g].PartIds.Count; m++)
+                    if (string.Equals(groups[g].PartIds[m], partId, System.StringComparison.Ordinal))
+                        return g;
+            return groups.Count - 1;
+        }
+
+        void BindHardpoint(
+            WarshipEncounterDefinition definition,
+            BossPartState part,
+            int group,
+            int index)
+        {
+            Sprite sprite = _turretSprite;
+            // 함미는 좌우를 뒤집어 건다. 같은 boss_fortress 실루엣이 함체 중앙(보스
+            // 본체 렌더러)과 함미에 두 번 서면 "요새가 두 개"로 읽힌다 — 뒤집으면
+            // 진행 방향 반대편을 보는 후미부로 읽힌다.
+            bool flip = false;
+            if (group >= 0 && group < definition.Groups.Count)
+            {
+                switch (definition.Groups[group].Role)
+                {
+                    case WarshipGroupRole.MidbossGate:
+                        sprite = _sternSprite;
+                        flip = true;
+                        break;
+                    case WarshipGroupRole.FinalCore: sprite = _coreSprite; break;
+                    default: sprite = _turretSprite; break;
+                }
+            }
+            if (sprite == null) { sprite = _turretSprite; flip = false; }
+
+            while (_hardpoints.Count <= index)
+            {
+                var go = new GameObject($"WarshipHardpoint_{_hardpoints.Count:D2}");
+                go.transform.SetParent(_root != null ? _root : transform, false);
+                var created = go.AddComponent<SpriteRenderer>();
+                created.sortingOrder = HardpointOrder;
+                created.enabled = false;
+                _hardpoints.Add(created);
+            }
+
+            var renderer = _hardpoints[index];
+            if (renderer == null) return;
+            renderer.name = $"WarshipHardpoint_{index:D2}_{part.PartId}";
+            renderer.sprite = sprite;
+            renderer.flipX = flip;
+            renderer.color = Color.white;
+            renderer.enabled = sprite != null;
+        }
+
+        SpriteRenderer EnsurePlate(SpriteRenderer existing, string name, Sprite sprite, int order)
+        {
+            if (existing != null) return existing;
+            if (sprite == null) return null;
+            var go = new GameObject(name);
+            go.transform.SetParent(_root != null ? _root : transform, false);
+            var renderer = go.AddComponent<SpriteRenderer>();
+            renderer.sprite = sprite;
+            renderer.sortingOrder = order;
+            return renderer;
+        }
+
+        // ── 함체 ──────────────────────────────────────────────────────────────
+
+        void SyncHull(IReadOnlyList<BossPartState> parts, Vector3 bossWorld)
+        {
+            // 함체 크기는 파츠 배치에서 뽑는다 — waves.json이 파츠를 옮기면 실루엣도 따라간다.
+            float minX = float.MaxValue, maxX = float.MinValue;
+            float maxY = 0f;
+            for (int i = 0; i < parts.Count; i++)
+            {
+                Vector3 local = SimView.ToWorld(parts[i].X, parts[i].Y) - bossWorld;
+                if (local.x < minX) minX = local.x;
+                if (local.x > maxX) maxX = local.x;
+                float absY = Mathf.Abs(local.y);
+                if (absY > maxY) maxY = absY;
+            }
+            if (minX > maxX) return;
+
+            float left = minX - HullPadX;
+            float right = maxX + HullPadX;
+            float centerX = (left + right) * 0.5f;
+            float width = right - left;
+
+            if (_hullSprite != null)
+            {
+                // 아트 슬롯이 채워졌다 — 한 장이 실루엣 전체를 대신한다. 픽셀 아트라
+                // 늘리지 않고 원본 크기 그대로 보스 중심에 건다.
+                _hullArt = EnsurePlate(_hullArt, "WarshipHull", _hullSprite, HullOrder);
+                if (_hullArt != null)
+                {
+                    _hullArt.transform.localPosition = bossWorld;
+                    _hullArt.color = Color.white;
+                    _hullArt.enabled = true;
+                }
+                SetEnabled(_spine, false);
+                SetEnabled(_deckTop, false);
+                SetEnabled(_deckBottom, false);
+                return;
+            }
+
+            if (_pixelSprite == null) return;
+            _spine = EnsurePlate(_spine, "WarshipSpine", _pixelSprite, HullOrder);
+            _deckTop = EnsurePlate(_deckTop, "WarshipDeckTop", _pixelSprite, HullOrder);
+            _deckBottom = EnsurePlate(_deckBottom, "WarshipDeckBottom", _pixelSprite, HullOrder);
+
+            PlacePlate(_spine, bossWorld + new Vector3(centerX, 0f, 0f),
+                width, SpineHalfHeight * 2f, HullTint);
+            // 갑판 레일은 척추보다 짧게 — 함수/함미가 뾰족해 보이는 최소한의 실루엣 변화다.
+            float deckWidth = Mathf.Max(1f, width - HullPadX * 2f);
+            float deckY = Mathf.Max(SpineHalfHeight + DeckThickness * 0.5f, maxY);
+            PlacePlate(_deckTop, bossWorld + new Vector3(centerX, deckY, 0f),
+                deckWidth, DeckThickness, DeckTint);
+            PlacePlate(_deckBottom, bossWorld + new Vector3(centerX, -deckY, 0f),
+                deckWidth, DeckThickness, DeckTint);
+        }
+
+        void PlacePlate(SpriteRenderer renderer, Vector3 position, float width, float height, Color tint)
+        {
+            if (renderer == null) return;
+            renderer.transform.localPosition = position;
+            renderer.transform.localScale = new Vector3(width / _unitX, height / _unitY, 1f);
+            if (renderer.color != tint) renderer.color = tint;
+            if (!renderer.enabled) renderer.enabled = true;
+        }
+
+        // ── 파츠 그룹 ─────────────────────────────────────────────────────────
+
+        void SyncHardpoints(IReadOnlyList<BossPartState> parts)
+        {
+            int groupCount = _definition.Groups.Count;
+
+            // 열려 있는 그룹 = 아직 살아 있는 파츠를 가진 **가장 앞선** 그룹.
+            // Core의 그룹 게이트(함미 전멸 → 함체 → 함수)를 그대로 따라간다.
+            int focus = groupCount - 1;
+            for (int g = 0; g < groupCount; g++)
+            {
+                bool alive = false;
+                for (int i = 0; i < parts.Count; i++)
+                    if (_partGroup[i] == g && !parts[i].Destroyed) { alive = true; break; }
+                if (alive) { focus = g; break; }
+            }
+            _focusGroup = focus;
+
+            if (_lastFocusGroup >= 0 && focus > _lastFocusGroup)
+            {
+                // 그룹이 넘어갔다. 새로 열린 그룹만 번쩍인다 — 화면 전체를 씻으면
+                // "무엇이 열렸는지"가 사라진다.
+                for (int i = 0; i < parts.Count; i++)
+                    if (_partGroup[i] == focus) _activateFlash[i] = 0f;
+                if (_juice != null)
+                {
+                    // 함미(중간보스 게이트) 전멸은 중간보스 격파와 같은 무게다.
+                    bool sternFell = _lastFocusGroup == 0;
+                    _juice.Shake(sternFell ? 0.6f : 0.35f);
+                    if (sternFell) _juice.Hitstop(0.08f);
+                }
+            }
+            _lastFocusGroup = focus;
+
+            int attritionAlive = 0;
+            float dt = Time.deltaTime;
+
+            for (int i = 0; i < parts.Count; i++)
+            {
+                var part = parts[i];
+                var renderer = _hardpoints[i];
+                if (_partGroup[i] == 1 && !part.Destroyed) attritionAlive++;
+                if (renderer == null) continue;
+
+                renderer.transform.localPosition = SimView.ToWorld(part.X, part.Y);
+
+                if (_lastHp[i] > part.Hp && !part.Destroyed) _hitFlash[i] = 0f;
+                _lastHp[i] = part.Hp;
+
+                // 무적 해제 = 이 파츠가 지금 열렸다. 그룹 전환 플래시와 같은 연출로
+                // 묶는다 — 등장 종료(전 파츠)와 코어 게이트 개방(함수)이 둘 다 여기다.
+                if (_wasInvulnerable[i] && !part.Invulnerable && !part.Destroyed)
+                    _activateFlash[i] = 0f;
+                _wasInvulnerable[i] = part.Invulnerable;
+
+                Color tint;
+                if (part.Destroyed)
+                    tint = Scorched;
+                else if (part.Invulnerable)
+                {
+                    // 무적은 "아직 열리지 않았다"의 가장 강한 상태 — 암전에 청록 맥동을
+                    // 얹어 다음 그룹의 옅은 암전과 확실히 갈라 놓는다.
+                    float pulse = (Mathf.Sin(Time.time * 4.5f) + 1f) * 0.5f;
+                    tint = Color.Lerp(DeepDim, GatePulse, 0.18f + pulse * 0.14f);
+                }
+                else if (_partGroup[i] > focus)
+                    tint = MildDim;
+                else
+                    tint = Color.white;
+
+                float activate = _activateFlash[i];
+                if (activate < ActivateFlashSeconds)
+                {
+                    _activateFlash[i] = activate + dt;
+                    float t = 1f - Mathf.Clamp01(activate / ActivateFlashSeconds);
+                    if (_juice != null && _juice.FlashReduced) t *= 0.4f;
+                    tint = Color.Lerp(tint, Color.white, t);
+                }
+
+                float hit = _hitFlash[i];
+                if (hit < HitFlashSeconds)
+                {
+                    _hitFlash[i] = hit + dt;
+                    tint = Color.Lerp(Color.white, tint, Mathf.Clamp01(hit / HitFlashSeconds));
+                }
+
+                if (renderer.color != tint) renderer.color = tint;
+                if (!renderer.enabled && renderer.sprite != null) renderer.enabled = true;
+            }
+
+            AttritionAlive = attritionAlive;
+        }
+
+        // ── 정리 ──────────────────────────────────────────────────────────────
+
+        void Hide()
+        {
+            _visible = false;
+            _definition = null;
+            _lastFocusGroup = -1;
+            SetEnabled(_hullArt, false);
+            SetEnabled(_spine, false);
+            SetEnabled(_deckTop, false);
+            SetEnabled(_deckBottom, false);
+            for (int i = 0; i < _hardpoints.Count; i++)
+                SetEnabled(_hardpoints[i], false);
+            _partGroup.Clear();
+            _lastHp.Clear();
+            _hitFlash.Clear();
+            _activateFlash.Clear();
+            _wasInvulnerable.Clear();
+            AttritionAlive = 0;
+            AttritionTotal = 0;
+        }
+
+        static void SetEnabled(SpriteRenderer renderer, bool on)
+        {
+            if (renderer != null && renderer.enabled != on) renderer.enabled = on;
+        }
+    }
+}

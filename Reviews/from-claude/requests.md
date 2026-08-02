@@ -1425,3 +1425,49 @@ Presentation이 재고를 줄일 방법이 아예 없다 (구매만 public).
 제안: worker.js의 `stat()` 목록에 `cu: stat(body.continuesUsed, 8)`을 추가하고,
 보드 행에서 `cu > 0`이면 점수 옆에 흐린 `C2` 뱃지를 붙인다. 무컨티뉴 기록과 같은
 칸에서 겨루되 문맥은 남는다. 서버 배포는 사람/오케스트레이터 몫이라 요청만 남긴다.
+
+---
+
+## REQ-112 (CODEX): WarshipEncounter가 실제 전투에서 돌지 않는다 — 관측 경로 없음
+
+**무엇이 필요한가**
+
+`BattleSim`이 `StagePlan.WarshipEncounter`를 받아 `WarshipEncounter` 상태 기계를
+실제로 굴리고, 그 상태를 관측으로 내보내 줬으면 한다. 최소한 이 셋:
+
+- `IBattleSim.WarshipActiveGroupIndex` (WARNING 중이면 -1)
+- `IBattleSim.WarshipDestroyedAttritionParts` / `WarshipCoreOpeningWays`
+- `SimEventType.WarshipWarningStarted` / `WarshipGroupActivated` /
+  `WarshipCoreBattleStarted` 를 **BattleSim의 이벤트 스트림에** 실어 줄 것
+
+**왜 (지금 상태)**
+
+REQ-110은 `Assets/Scripts/Core/Simulation/WarshipEncounter.cs`에 완결된 3막 상태
+기계를 만들었지만, `BattleSim`은 이 타입을 **전혀 참조하지 않는다** — 참조하는 것은
+`SimEventType`에 추가된 열거값 3개(41~43)뿐이고, 이 값들을 발행하는 코드도
+`BattleSim`에는 없다. 실제 St3 보스룸은 기존 멀티파트 경로로만 돈다:
+
+- 그룹 게이트가 없다. `BossPartVulnerability.Legacy` + `IsBossCoreGated`라
+  **함미(engine)와 포탑 4문이 처음부터 동시에 피격 가능**하고, 코어만 나머지가
+  전멸할 때까지 무적이다. REQ-110의 "함미 → 함체(720틱) → 함수" 순서는 런타임에
+  존재하지 않는다.
+- `advanceAfterTicks 720`(함체 시간 게이트)이 아무 데서도 소비되지 않는다.
+- 함미 전멸 프레임에 `MidBossDefeated`가 나오지 않는다 (REQ-110 §3의 접속점).
+- `CoreOpeningWays`(포탑 4문 파괴 → 9/5/3 way 분기, REQ-111의 핵심 보상)가
+  **탄막에 반영되지 않는다.** 포탑을 다 부수든 하나도 안 부수든 코어 개막은 9way다.
+- 서스펜드(`WarshipEncounterSuspendData`)를 채울 주체도 없다.
+
+**Presentation의 현재 대응 (REQ-112, 임시)**
+
+`Assets/Scripts/Presentation/Battle/WarshipView.cs`는 Core가 주는 것만 읽어
+그린다: 그룹 소속은 `StagePlan.WarshipEncounter.Groups`(정의), 상태는
+`BossParts`(위치·HP·무적). "열린 그룹"은 **아직 살아 있는 파츠를 가진 가장 앞선
+그룹**으로 표시하고, 실제 피격 가능 여부는 `BossPartState.Invulnerable`을 그대로
+따른다 — 뷰가 Core보다 앞서 말하지 않게 두 신호의 세기를 분리했다(옅은 암전 =
+"아직 차례가 아니다", 깊은 암전+맥동 = "Core가 무적이라 한다").
+
+BattleSim이 위 관측을 내보내면 뷰의 파생 로직(`SyncHardpoints`의 focus 계산)을
+그 값으로 바로 교체할 수 있다. 그때까지는 연출만 3막처럼 보이고 **규칙은 2막**이다.
+
+검증 제안: 포탑 0문/4문 파괴 두 런에서 코어 개막 way 수가 9와 3으로 갈리는지,
+함미 전멸 틱에 `MidBossDefeated`가 정확히 한 번 나오는지.

@@ -45,8 +45,10 @@ namespace Shmup.Presentation.Battle
         [SerializeField] int _particleSortingOrder = 2;
         [Tooltip("섬광 — 전경 실루엣(55) 위, 피격 플래시(90) 아래. 순간 연출이라 전부 덮는다.")]
         [SerializeField] int _flashSortingOrder = 60;
-        [Tooltip("랜드마크 슬롯 — 중경(-85) 앞, 워시 뒤.")]
-        [SerializeField] int _landmarkSortingOrder = -84;
+        // -83인 이유: 크로스페이드 고스트가 원본 order+1에 서므로 중경(-85)의 고스트가
+        // -84를 쓴다. 랜드마크는 그 한 칸 위에 둬야 중경 교체 중에도 앞에 남는다.
+        [Tooltip("랜드마크 슬롯 — 중경(-85)과 그 고스트(-84) 앞, 워시 뒤.")]
+        [SerializeField] int _landmarkSortingOrder = -83;
 
         // 화면(=플레이필드) 크기. 640×360 / PPU 16 = 40 × 22.5u.
         const float HalfWidth = 20f;
@@ -133,6 +135,34 @@ namespace Shmup.Presentation.Battle
         SpriteRenderer _landmark;
 
         readonly Dictionary<string, Sprite> _slots = new Dictionary<string, Sprite>();
+
+        // ── 스프라이트 크로스페이드 ───────────────────────────────────────────────
+        // 구간 진입 프레임에 스프라이트를 즉시 갈아 끼우면 "팝"이 보인다. 리페인트된
+        // 배경은 원본과 형태가 아예 달라 더 심하다. 그래서 나가는 스프라이트를 타일마다
+        // 하나씩 붙인 **고스트 렌더러**에 남겨 알파 아웃하고, 들어오는 쪽은 본체에
+        // 즉시 꽂아 둔다. 고스트가 본체 **위**(order+1)에 서기 때문에
+        // 합성 결과 = new·t + old·(1-t) 로 정확한 디졸브가 되고 — 둘 다 반투명하게
+        // 만드는 방식과 달리 — 중간에 배경이 비쳐 어두워지는 구간이 없다.
+        //
+        // 고스트는 생성 후 파괴하지 않는다. 타일 렌더러당 1개를 사전(_ghosts)에 캐시해
+        // 재사용하고, 쓰지 않을 때는 enabled=false로만 재운다 (게임 루프 Instantiate 금지).
+        const float FadeSecondsMin = 2f;
+        const float FadeSecondsMax = 3f;
+        const float FadeSecondsLong = 5f;    // 롱블렌드(MidBoss 14~20초) 구간
+        const float LongBlendThreshold = 10f;
+        const int GhostSortingOffset = 1;
+
+        readonly Dictionary<SpriteRenderer, SpriteRenderer> _ghosts =
+            new Dictionary<SpriteRenderer, SpriteRenderer>();
+
+        Sprite[] _layerShownSprite;   // 본체에 꽂아 둔 스프라이트 (들어오는 쪽)
+        Sprite[] _layerFadeFrom;      // 고스트가 들고 있는 스프라이트 (나가는 쪽)
+        float[] _layerFadeT;          // 0=교체 직후, 1=완료
+        float _fadeSeconds = FadeSecondsMin;
+
+        Sprite _landmarkShown;
+        Sprite _landmarkFadeFrom;
+        float _landmarkFadeT = 1f;
 
         string _currentThemeId;
         SectionKind _currentSection;
@@ -223,7 +253,7 @@ namespace Shmup.Presentation.Battle
             SyncBinding();
             SyncSection(dt);
             AdvanceBlend(dt);
-            ApplyLook();
+            ApplyLook(dt);
             TickFlash(dt);
             if (_particles != null) _particles.Tick(dt);
         }
@@ -291,6 +321,10 @@ namespace Shmup.Presentation.Battle
                 _blendDuration = 1f;
                 _current.CopyFrom(_target);
                 if (_particles != null) _particles.Clear();
+                // 스테이지 교체 = 화면이 보이지 않는 순간. 여기서 디졸브를 걸면 보상 화면이
+                // 끝난 뒤 남은 페이드가 재생된다 — 즉시 스냅이 맞다.
+                _fadeSeconds = 0f;
+                ClearGhosts();
             }
             else
             {
@@ -298,6 +332,13 @@ namespace Shmup.Presentation.Battle
                 _blendDuration = Mathf.Max(0.05f, theme.enterSeconds);
                 // F7 미리보기는 20초를 기다릴 수 없다 — 눈으로 확인하는 용도라 빠르게 넘긴다.
                 if (_previewSection.HasValue) _blendDuration = Mathf.Min(_blendDuration, 1.5f);
+
+                // 디졸브 길이는 틴트 블렌드와 별개다. 짧은 사건성 전환(Late 3.5s·Boss 4s)은
+                // 2~3초, 롱블렌드(MidBoss 14~20초)는 5초까지 늘려 "형태가 스미는" 시간을 준다.
+                _fadeSeconds = _blendDuration >= LongBlendThreshold
+                    ? FadeSecondsLong
+                    : Mathf.Clamp(_blendDuration, FadeSecondsMin, FadeSecondsMax);
+                if (_previewSection.HasValue) _fadeSeconds = Mathf.Min(_fadeSeconds, 1.5f);
 
                 // 경계를 사건으로 만든다 (설계 원칙 2) — 중간보스 격파·요새 진입.
                 // 격파 진입은 구간이 넘어갔다는 신호 자체라, 룩 테이블에 섬광이 없는
@@ -353,7 +394,13 @@ namespace Shmup.Presentation.Battle
             _boundParallax = null;
             _layerRenderers = null;
             _layerOriginalSprites = null;
+            _layerShownSprite = null;
+            _layerFadeFrom = null;
+            _layerFadeT = null;
             _landmark = null;
+            _landmarkShown = null;
+            _landmarkFadeFrom = null;
+            _landmarkFadeT = 1f;
             if (active == null) return;
 
             _boundParallax = active.GetComponent<ParallaxBackground>();
@@ -363,24 +410,43 @@ namespace Shmup.Presentation.Battle
             int layers = _boundParallax.LayerCount;
             _layerRenderers = new SpriteRenderer[layers][];
             _layerOriginalSprites = new Sprite[layers];
+            _layerShownSprite = new Sprite[layers];
+            _layerFadeFrom = new Sprite[layers];
+            _layerFadeT = new float[layers];
             for (int i = 0; i < layers; i++)
             {
+                _layerFadeT[i] = 1f;
                 var layer = _boundParallax.GetLayer(i);
                 if (layer == null)
                 {
                     _layerRenderers[i] = System.Array.Empty<SpriteRenderer>();
                     continue;
                 }
-                _layerRenderers[i] = layer.GetComponentsInChildren<SpriteRenderer>(true);
+                // 고스트도 SpriteRenderer라 GetComponentsInChildren에 딸려 온다 — 배제한다.
+                // (지금은 고스트가 붙기 전에 바인딩되지만, 테마 루트를 껐다 켜면 걸린다.)
+                var found = layer.GetComponentsInChildren<SpriteRenderer>(true);
+                int keep = 0;
+                for (int k = 0; k < found.Length; k++)
+                    if (!IsGhost(found[k])) found[keep++] = found[k];
+                if (keep != found.Length) System.Array.Resize(ref found, keep);
+                _layerRenderers[i] = found;
                 if (_layerRenderers[i].Length > 0)
                     _layerOriginalSprites[i] = _layerRenderers[i][0].sprite;
+                _layerShownSprite[i] = _layerOriginalSprites[i];
+                // 고스트를 여기서 미리 만든다 — 전투 중 첫 전환 프레임에 GameObject를
+                // 만들지 않기 위해서다. 바인딩은 스테이지 경계(보상 화면)에서만 일어난다.
+                for (int r = 0; r < _layerRenderers[i].Length; r++) GetGhost(_layerRenderers[i][r]);
             }
 
             var landmark = active.transform.Find("Landmark");
             if (landmark != null)
             {
                 _landmark = landmark.GetComponent<SpriteRenderer>();
-                if (_landmark != null) _landmark.sortingOrder = _landmarkSortingOrder;
+                if (_landmark != null)
+                {
+                    _landmark.sortingOrder = _landmarkSortingOrder;
+                    GetGhost(_landmark);
+                }
             }
         }
 
@@ -388,6 +454,7 @@ namespace Shmup.Presentation.Battle
         /// 틴트가 남아 있으면 안 된다.</summary>
         void RestoreBoundRoot()
         {
+            ClearGhosts();
             if (_layerRenderers == null) return;
             for (int i = 0; i < _layerRenderers.Length; i++)
             {
@@ -406,16 +473,79 @@ namespace Shmup.Presentation.Battle
             if (_landmark != null) _landmark.enabled = false;
         }
 
-        // ── 적용 ──────────────────────────────────────────────────────────────────
+        // ── 크로스페이드 (고스트 렌더러) ──────────────────────────────────────────
 
-        void ApplyLook()
+        static bool IsGhost(SpriteRenderer renderer) =>
+            renderer != null && renderer.gameObject.name == GhostName;
+
+        const string GhostName = "__XFadeGhost";
+
+        /// <summary>타일 렌더러에 딸린 고스트를 가져온다(없으면 한 번만 만든다).
+        /// 부모의 자식이라 패럴랙스 래핑·스케일을 그대로 따라간다.</summary>
+        SpriteRenderer GetGhost(SpriteRenderer host)
         {
-            ApplyLayers();
-            ApplyWash();
-            ApplyLandmark();
+            if (host == null) return null;
+            if (_ghosts.TryGetValue(host, out var ghost) && ghost != null) return ghost;
+
+            var go = new GameObject(GhostName);
+            go.transform.SetParent(host.transform, false);
+            ghost = go.AddComponent<SpriteRenderer>();
+            ghost.sortingLayerID = host.sortingLayerID;
+            ghost.sortingOrder = host.sortingOrder + GhostSortingOffset;
+            ghost.enabled = false;
+            _ghosts[host] = ghost;
+            return ghost;
         }
 
-        void ApplyLayers()
+        /// <summary>고스트를 한 프레임분 반영한다. 파괴하지 않고 재우기만 한다.</summary>
+        void DriveGhost(SpriteRenderer host, Sprite from, Color tint, float alpha, bool wanted)
+        {
+            if (host == null) return;
+            if (!wanted || from == null || alpha <= 0.004f)
+            {
+                if (_ghosts.TryGetValue(host, out var sleeping) && sleeping != null && sleeping.enabled)
+                    sleeping.enabled = false;
+                return;
+            }
+
+            var ghost = GetGhost(host);
+            if (ghost == null) return;
+            if (ghost.sprite != from) ghost.sprite = from;
+            // 정렬은 본체를 따라간다 — 씬 빌더가 order를 바꿔도 어긋나지 않는다.
+            int order = host.sortingOrder + GhostSortingOffset;
+            if (ghost.sortingOrder != order) ghost.sortingOrder = order;
+            if (ghost.sortingLayerID != host.sortingLayerID) ghost.sortingLayerID = host.sortingLayerID;
+            var color = tint;
+            color.a = tint.a * alpha;
+            ghost.color = color;
+            if (!ghost.enabled) ghost.enabled = true;
+        }
+
+        void ClearGhosts()
+        {
+            foreach (var pair in _ghosts)
+                if (pair.Value != null) pair.Value.enabled = false;
+        }
+
+        static void AdvanceFade(ref float t, float dt, float duration)
+        {
+            if (t >= 1f) return;
+            t = duration <= 0.0001f ? 1f : Mathf.Clamp01(t + dt / duration);
+        }
+
+        /// <summary>디졸브는 선형이면 중간이 흐리다 — smoothstep으로 양 끝을 붙인다.</summary>
+        static float Ease(float t) => t * t * (3f - 2f * t);
+
+        // ── 적용 ──────────────────────────────────────────────────────────────────
+
+        void ApplyLook(float dt)
+        {
+            ApplyLayers(dt);
+            ApplyWash();
+            ApplyLandmark(dt);
+        }
+
+        void ApplyLayers(float dt)
         {
             if (_boundParallax == null || _layerRenderers == null) return;
 
@@ -429,21 +559,39 @@ namespace Shmup.Presentation.Battle
 
                 Color tint = _current.tint[role];
                 bool visible = tint.a > 0.004f;
+
+                BeginLayerFade(i, ResolveLayerSprite(i, (BgLayerRole)role));
+                AdvanceFade(ref _layerFadeT[i], dt, _fadeSeconds);
+
+                Sprite shown = _layerShownSprite[i];
+                Sprite from = _layerFadeFrom[i];
+                float ghostAlpha = 1f - Ease(_layerFadeT[i]);
+                bool fading = visible && from != null && ghostAlpha > 0.004f;
+
                 for (int r = 0; r < renderers.Length; r++)
                 {
-                    if (renderers[r] == null) continue;
-                    if (renderers[r].enabled != visible) renderers[r].enabled = visible;
-                    if (visible) renderers[r].color = tint;
+                    var sr = renderers[r];
+                    if (sr == null) continue;
+                    if (sr.enabled != visible) sr.enabled = visible;
+                    if (visible)
+                    {
+                        // 들어오는 스프라이트는 처음부터 불투명하다. 고스트가 그 **위**에서
+                        // 사라지므로 결과는 new·t + old·(1-t) — 중간에 배경이 비치지 않는다.
+                        if (shown != null && sr.sprite != shown) sr.sprite = shown;
+                        sr.color = tint;
+                    }
+                    DriveGhost(sr, from, tint, ghostAlpha, fading);
                 }
 
+                if (!fading && from != null && _layerFadeT[i] >= 1f) _layerFadeFrom[i] = null;
+
                 _boundParallax.SetFactorMultiplier(i, _current.scrollMul[role]);
-                ApplyLayerSpriteSlot(i, (BgLayerRole)role, renderers);
             }
         }
 
-        /// <summary>원경 교체 슬롯. 지금은 테이블이 전부 null이라 항상 원본이 유지된다 —
-        /// art-input에 파일이 들어오고 룩 테이블에 키를 적는 순간 살아난다.</summary>
-        void ApplyLayerSpriteSlot(int layerIndex, BgLayerRole role, SpriteRenderer[] renderers)
+        /// <summary>원경/전경 교체 슬롯을 스프라이트로 푼다. 키가 없거나 아트가 빠졌으면
+        /// 테마 원본으로 돌아간다.</summary>
+        Sprite ResolveLayerSprite(int layerIndex, BgLayerRole role)
         {
             string slot = null;
             if (_targetTheme != null && _targetTheme.layers != null)
@@ -458,11 +606,21 @@ namespace Shmup.Presentation.Battle
             if (!string.IsNullOrEmpty(slot)) _slots.TryGetValue(slot, out wanted);
             if (wanted == null && _layerOriginalSprites != null)
                 wanted = _layerOriginalSprites[layerIndex];
-            if (wanted == null) return;
+            return wanted;
+        }
 
-            for (int r = 0; r < renderers.Length; r++)
-                if (renderers[r] != null && renderers[r].sprite != wanted)
-                    renderers[r].sprite = wanted;
+        /// <summary>교체가 필요하면 이전 스프라이트를 고스트로 넘기고 디졸브를 시작한다.</summary>
+        void BeginLayerFade(int layerIndex, Sprite wanted)
+        {
+            if (wanted == null) return;
+            Sprite shown = _layerShownSprite[layerIndex];
+            if (shown == wanted) return;
+
+            // 디졸브 도중 또 바뀌면 현재 고스트를 버리고 방금 것을 새 고스트로 삼는다
+            // (고스트를 겹겹이 쌓지 않는다 — 렌더러 수가 폭발한다).
+            _layerFadeFrom[layerIndex] = shown;
+            _layerShownSprite[layerIndex] = wanted;
+            _layerFadeT[layerIndex] = shown == null || _fadeSeconds <= 0.0001f ? 1f : 0f;
         }
 
         void ApplyWash()
@@ -479,7 +637,7 @@ namespace Shmup.Presentation.Battle
             if (visible) _wash.color = color;
         }
 
-        void ApplyLandmark()
+        void ApplyLandmark(float dt)
         {
             if (_landmark == null) return;
 
@@ -487,19 +645,46 @@ namespace Shmup.Presentation.Battle
             if (_targetTheme != null && !string.IsNullOrEmpty(_targetTheme.landmarkSlot))
                 _slots.TryGetValue(_targetTheme.landmarkSlot, out wanted);
 
-            bool visible = wanted != null;
-            if (_landmark.enabled != visible) _landmark.enabled = visible;
-            if (!visible) return;
+            // 랜드마크는 켜짐/꺼짐 자체가 팝이다 (허공에 난파선이 툭 나타난다).
+            // 나타남은 알파 인, 사라짐은 고스트 알파 아웃, 교체는 디졸브로 처리한다.
+            if (wanted != _landmarkShown)
+            {
+                _landmarkFadeFrom = _landmarkShown;
+                _landmarkShown = wanted;
+                _landmarkFadeT = _fadeSeconds <= 0.0001f ? 1f : 0f;
+            }
+            AdvanceFade(ref _landmarkFadeT, dt, _fadeSeconds);
 
-            if (_landmark.sprite != wanted) _landmark.sprite = wanted;
-            // 접근감: 구간 경과에 따라 커진다 (St5 최심부의 거대 코어).
-            float grow = _targetTheme.landmarkGrowSeconds > 0.01f
-                ? Mathf.Clamp01(_sectionElapsed / _targetTheme.landmarkGrowSeconds)
-                : 1f;
-            float scale = Mathf.Lerp(
-                _targetTheme.landmarkScaleStart, _targetTheme.landmarkScaleEnd, grow);
-            _landmark.transform.localScale = new Vector3(scale, scale, 1f);
-            _landmark.color = _current.tint[(int)BgLayerRole.Far];
+            float t = Ease(_landmarkFadeT);
+            Color tint = _current.tint[(int)BgLayerRole.Far];
+            bool visible = _landmarkShown != null;
+
+            if (visible)
+            {
+                if (_landmark.sprite != _landmarkShown) _landmark.sprite = _landmarkShown;
+                var color = tint;
+                // 새로 들어오는 랜드마크는 뒤에 받쳐 줄 이전 그림이 없을 수도 있다 —
+                // 그 경우(고스트 없음)에는 본체가 직접 알파 인 한다.
+                if (_landmarkFadeFrom == null) color.a = tint.a * t;
+                _landmark.color = color;
+
+                // 접근감: 구간 경과에 따라 커진다 (St5 최심부의 거대 코어).
+                float grow = _targetTheme.landmarkGrowSeconds > 0.01f
+                    ? Mathf.Clamp01(_sectionElapsed / _targetTheme.landmarkGrowSeconds)
+                    : 1f;
+                float scale = Mathf.Lerp(
+                    _targetTheme.landmarkScaleStart, _targetTheme.landmarkScaleEnd, grow);
+                _landmark.transform.localScale = new Vector3(scale, scale, 1f);
+            }
+
+            // 고스트는 본체의 자식 렌더러라 본체가 꺼져도 계속 그려진다 —
+            // 랜드마크가 사라지는 전환도 툭 꺼지지 않고 스러진다.
+            float ghostAlpha = 1f - t;
+            bool ghostWanted = _landmarkFadeFrom != null && ghostAlpha > 0.004f;
+            DriveGhost(_landmark, _landmarkFadeFrom, tint, ghostAlpha, ghostWanted);
+            if (!ghostWanted) _landmarkFadeFrom = null;
+
+            if (_landmark.enabled != visible) _landmark.enabled = visible;
         }
 
         // ── 섬광 (낙뢰 · 진입 스냅) ───────────────────────────────────────────────

@@ -22,6 +22,9 @@ namespace Shmup.Presentation.Battle
         [SerializeField] BattleDirector _director;
         [SerializeField] SectionThemeDirector _sectionThemes;
 
+        /// <summary>St3 거대 전함(REQ-110/111) 파츠 그룹 상태 — 없으면 표시하지 않는다.</summary>
+        [SerializeField] WarshipView _warship;
+
         /// <summary>F3으로 오버레이 표시 전환. 개발 모드에서만 의미가 있고 기본 표시다.</summary>
         static bool _overlayVisible;
         static bool _overlayDefaultResolved;
@@ -121,6 +124,11 @@ namespace Shmup.Presentation.Battle
             // 합류 순간에 문자열이 재조립되지 않아 표시가 최대 0.5초 늦는다.
             bool ghostLive = _director.GhostActive;
             bool ghostRec = _director.HasGhostRecording;
+            // 전함(REQ-110/111): 그룹이 넘어가는 프레임과 포탑 잔량은 0.5초 양자화에
+            // 묻히면 안 된다 — 함수 개막 밀도가 이 숫자로 정해지므로 실측이 필요하다.
+            bool warshipOn = _warship != null && _warship.Active;
+            int warshipGroup = warshipOn ? _warship.FocusGroupIndex : 0;
+            int warshipTurrets = warshipOn ? _warship.AttritionAlive : 0;
             long key = ((long)_director.RunNumber << 48)
                      ^ ((long)_director.StageIndex << 40)
                      ^ ((long)_director.PlayerHp << 32)
@@ -128,6 +136,9 @@ namespace Shmup.Presentation.Battle
                      ^ ((long)(int)_director.StageSection << 20)
                      ^ ((ghostLive ? 1L : 0L) << 19)
                      ^ ((ghostRec ? 1L : 0L) << 18)
+                     ^ ((warshipOn ? 1L : 0L) << 17)
+                     ^ ((long)warshipGroup << 15)
+                     ^ ((long)warshipTurrets << 12)
                      ^ (long)(_director.Tick / 30);
             if (key != _overlayKey)
             {
@@ -140,8 +151,13 @@ namespace Shmup.Presentation.Battle
                 // 만들 수가 없다. 그래서 프리뷰 대신 **지금 자격이 있는지**를 적는다:
                 // rec = St1 기록 보유(최종 구간에 닿으면 뜬다), live = 지금 재생 중.
                 string ghost = ghostLive ? "   ghost:live" : ghostRec ? "   ghost:rec" : "";
+                // 전함 한 조각: 열린 그룹(1=함미 2=함체 3=함수)과 남은 포탑 수.
+                // 포탑을 몇 개 남겼는지가 함수 개막 탄막 밀도를 정한다 (REQ-111).
+                string warship = warshipOn
+                    ? $"   warship {_warship.FocusGroupId} {warshipGroup + 1}/{_warship.GroupCount}   turret {warshipTurrets}/{_warship.AttritionTotal}"
+                    : "";
                 _overlayText =
-                    $"run {_director.RunNumber}   stage {_director.StageIndex}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{section}{ghost}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --god survives)";
+                    $"run {_director.RunNumber}   stage {_director.StageIndex}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{section}{ghost}{warship}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --god survives)";
             }
             GUI.Label(new Rect(8, 4, Screen.width - 16, _style.fontSize * 3), _overlayText, _style);
         }

@@ -313,6 +313,16 @@ namespace Shmup.Presentation.Battle
         public IReadOnlyList<BossPartState> BossParts =>
             _sim != null ? _sim.BossParts : null;
 
+        /// <summary>
+        /// St3 거대 전함 정의 (REQ-110/111). 이 방의 보스가 전함이면 파츠 3그룹
+        /// (함미/함체/함수)의 순서와 역할이 들어 있고, 아니면 null이다 —
+        /// WarshipView가 이 값 하나로 자기 차례인지 판단한다.
+        /// 파츠의 위치·HP·무적은 <see cref="BossParts"/>가 준다. 여기 정의는
+        /// 그룹 소속을 읽기 위한 **읽기 전용 계약**이고 뷰는 상태를 굴리지 않는다.
+        /// </summary>
+        public WarshipEncounterDefinition WarshipEncounter =>
+            _run != null && _run.StagePlan != null ? _run.StagePlan.WarshipEncounter : null;
+
         /// <summary>플레이어 기체의 월드 좌표 (터치 드래그 조작이 목표 방향을 계산할 때 쓴다).</summary>
         public Vector2 PlayerWorldPosition =>
             _sim != null ? (Vector2)SimView.ToWorld(_sim.PlayerX, _sim.PlayerY) : Vector2.zero;
@@ -1172,6 +1182,20 @@ namespace Shmup.Presentation.Battle
                         // 기록이 끝났거나 최종 보스가 먼저 끝났다. 사라지는 이유는
                         // 화면에 설명하지 않는다 — 시간이 다 됐다는 페이드면 족하다.
                         if (_ghostView != null) _ghostView.OnEnded();
+                        break;
+                    case SimEventType.BossPartDestroyed:
+                        // 멀티파트 보스의 파츠가 떨어졌다. 지금까지 아무 연출도 없어서
+                        // 큰 파츠가 조용히 사라졌다 — 거대 전함(REQ-110/111)에서는
+                        // 함미·포탑 파괴가 전투의 마디라 반드시 사건으로 읽혀야 한다.
+                        // 기존 폭발을 그대로 쓴다. **스코어 팝업은 띄우지 않는다** —
+                        // Core는 파츠 파괴에 점수를 주지 않으므로(격파 시 EnemyKilled로
+                        // 한 번에 준다) 여기서 숫자를 띄우면 합계와 어긋난다.
+                        SpawnExplosion(SimView.ToWorld(e.X, e.Y), 1.5f);
+                        if (_juice != null)
+                        {
+                            _juice.Shake(0.25f);
+                            _juice.Hitstop(0.05f);
+                        }
                         break;
                     case SimEventType.MidBossDefeated:
                         // 구간이 넘어가는 프레임을 정확히 집는다 (REQ-101 C-E).
