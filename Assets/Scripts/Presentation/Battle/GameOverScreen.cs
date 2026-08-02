@@ -17,10 +17,23 @@ namespace Shmup.Presentation.Battle
 
         GameObject _root;
         Text _titleText, _scoreText, _statsText, _extraText, _modifierText, _hintsText;
-        Button _retryButton;
+        Text _bonusText, _continueWarning;
+        Button _retryButton, _titleButton, _continueButton;
+        Text _continueLabel;
         Image _dim;
         int _shownRun = int.MinValue;
         bool _shownCleared;
+
+        /// <summary>컨티뉴 버튼이 지금 화면에 있는가. 있고 없고에 따라 버튼 열이 재배치된다.</summary>
+        bool _continueShown;
+        int _shownContinueStock = -1;
+
+        /// <summary>버튼 열 좌표. 컨티뉴가 끼면 두 칸이 양옆으로 밀린다.</summary>
+        const float TouchButtonY = 58f;
+        const float TouchButtonSpread = 66f;
+        const float TouchButtonSpreadWide = 132f;
+        const float SubmitY = 48f;
+        const float SubmitSpread = 84f;
 
         /// <summary>스코어보드 제출 상태. Sending/Done에서는 버튼이 다시 눌리지 않는다.</summary>
         enum SubmitState { Idle, Sending, Done }
@@ -54,7 +67,9 @@ namespace Shmup.Presentation.Battle
 
             // 제출 버튼 한 줄이 늘어난 만큼 패널을 키운다 (요약 텍스트는 전부 상단 앵커라
             // 위치가 그대로고, 힌트는 하단 앵커라 바닥에 붙어 따라 내려간다).
-            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(400f, 224f));
+            // 288 = 상단 요약 6줄(보너스 줄 포함, ~154px) + 하단 3단(경고·버튼열·제출,
+            // ~114px) + 여유. 컨티뉴 줄이 붙으면서 224로는 두 블록이 겹친다.
+            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(400f, 288f));
 
             _titleText = UiKit.CreateCornerText(panel, _fontBold, UiText.GameOverTitle, 22, UiKit.TextDanger,
                 new Vector2(0.5f, 1f), new Vector2(0f, -14f), TextAnchor.UpperCenter, "Title");
@@ -66,6 +81,10 @@ namespace Shmup.Presentation.Battle
                 new Vector2(0.5f, 1f), new Vector2(0f, -96f), TextAnchor.UpperCenter, "Extra");
             _modifierText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextAccent,
                 new Vector2(0.5f, 1f), new Vector2(0f, -118f), TextAnchor.UpperCenter, "Modifiers");
+            // 실드 보너스(REQ-105)와 컨티뉴 사용 표시(REQ-104). 둘 다 "이 점수가 어떻게
+            // 만들어졌는가"에 대한 단서라 점수 줄과 같은 앰버 계열로 한 줄에 둔다.
+            _bonusText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextAccent,
+                new Vector2(0.5f, 1f), new Vector2(0f, -140f), TextAnchor.UpperCenter, "Bonus");
             _hintsText = UiKit.CreateCornerText(panel, _font,
                 UiText.GameOverHints, 11, UiKit.TextDim,
                 new Vector2(0.5f, 0f), new Vector2(0f, 16f), TextAnchor.LowerCenter, "Hints");
@@ -75,18 +94,33 @@ namespace Shmup.Presentation.Battle
             {
                 _hintsText.gameObject.SetActive(false);
                 _retryButton = UiKit.CreateTouchButton(panel, _font, "REDEPLOY", 11,
-                    new Vector2(0.5f, 0f), new Vector2(-66f, 58f), new Vector2(124f, 36f),
-                    Retry, "RetryButton", accent: true);
-                UiKit.CreateTouchButton(panel, _font, "TITLE", 11,
-                    new Vector2(0.5f, 0f), new Vector2(66f, 58f), new Vector2(124f, 36f),
-                    ToTitle, "TitleButton");
+                    new Vector2(0.5f, 0f), new Vector2(-TouchButtonSpread, TouchButtonY),
+                    new Vector2(124f, 36f), Retry, "RetryButton", accent: true);
+                _titleButton = UiKit.CreateTouchButton(panel, _font, "TITLE", 11,
+                    new Vector2(0.5f, 0f), new Vector2(TouchButtonSpread, TouchButtonY),
+                    new Vector2(124f, 36f), ToTitle, "TitleButton");
             }
+
+            // 컨티뉴 (REQ-104). 재고가 있고 Core가 허용할 때만 나타난다 — 데일리 런과
+            // 최종전 판돈 정산 뒤에는 Core가 거절하므로 여기서 조건을 다시 쓰지 않는다.
+            // 키보드에서도 클릭이 되도록 항상 버튼으로 만든다(단축키는 [C]/(X)).
+            _continueButton = UiKit.CreateTouchButton(panel, _font, "CONTINUE", 11,
+                new Vector2(0.5f, 0f),
+                touch ? new Vector2(0f, TouchButtonY) : new Vector2(SubmitSpread, SubmitY),
+                touch ? new Vector2(124f, 36f) : new Vector2(160f, 30f),
+                UseContinue, "ContinueButton");
+            _continueLabel = _continueButton.GetComponentInChildren<Text>();
+            _continueWarning = UiKit.CreateCornerText(panel, _font, UiText.ContinueWarning, 9,
+                UiKit.TextDanger, new Vector2(0.5f, 0f),
+                new Vector2(0f, touch ? 100f : 82f), TextAnchor.LowerCenter, "ContinueWarning");
+            _continueButton.gameObject.SetActive(false);
+            _continueWarning.gameObject.SetActive(false);
 
             // 글로벌 스코어보드 제출 (P1). 앰버 CTA는 화면당 하나(REDEPLOY)라는 원칙을
             // 지켜 헤어라인 셀로 둔다 — 제출은 선택지지 이 화면의 주 동작이 아니다.
             _submitButton = UiKit.CreateTouchButton(panel, _font, SubmitIdleLabel, 11,
                 new Vector2(0.5f, 0f),
-                touch ? new Vector2(0f, 14f) : new Vector2(0f, 48f),
+                touch ? new Vector2(0f, 14f) : new Vector2(0f, SubmitY),
                 touch ? new Vector2(256f, 36f) : new Vector2(160f, 30f),
                 SubmitScore, "SubmitButton");
             _submitLabel = _submitButton.GetComponentInChildren<Text>();
@@ -100,6 +134,47 @@ namespace Shmup.Presentation.Battle
         void Retry()
         {
             if (_director != null) _director.RestartRun();
+        }
+
+        /// <summary>
+        /// 컨티뉴 사용. 성공하면 런이 다시 Playing으로 돌아가므로 다음 프레임에
+        /// 이 패널은 스스로 닫힌다 — 여기서 화면을 직접 끄지 않는다.
+        /// 실패(재고 소진·데일리·판돈 정산 뒤)는 Core 판정이고, 그 경우 버튼은
+        /// 애초에 떠 있지 않다.
+        /// </summary>
+        void UseContinue()
+        {
+            if (_director == null) return;
+            if (!_director.UseContinue()) return;
+            // 이어간 런의 결과는 새 요약이다 — 지난 사망의 표시를 재사용하지 않는다.
+            _shownRun = int.MinValue;
+            _shownContinueStock = -1;
+        }
+
+        /// <summary>
+        /// 컨티뉴 버튼을 넣고 빼면서 같은 줄의 이웃을 재배치한다. 버튼만 감추면
+        /// 가운데가 빈 두 칸이 남아 "뭔가 사라진 자리"로 읽힌다.
+        /// </summary>
+        void SetContinueVisible(bool visible)
+        {
+            if (_continueShown == visible) return;
+            _continueShown = visible;
+            if (_continueButton != null)
+                _continueButton.gameObject.SetActive(visible);
+            if (_continueWarning != null)
+                _continueWarning.gameObject.SetActive(visible);
+
+            float spread = visible ? TouchButtonSpreadWide : TouchButtonSpread;
+            if (_retryButton != null)
+                _retryButton.GetComponent<RectTransform>().anchoredPosition =
+                    new Vector2(-spread, TouchButtonY);
+            if (_titleButton != null)
+                _titleButton.GetComponent<RectTransform>().anchoredPosition =
+                    new Vector2(spread, TouchButtonY);
+            // 키보드/패드 레이아웃에서는 제출 버튼이 컨티뉴와 한 줄을 나눠 쓴다.
+            if (!UiPlatform.TouchMode && _submitButton != null)
+                _submitButton.GetComponent<RectTransform>().anchoredPosition =
+                    new Vector2(visible ? -SubmitSpread : 0f, SubmitY);
         }
 
         static void ToTitle()
@@ -168,7 +243,10 @@ namespace Shmup.Presentation.Battle
                 Levels = GaugeLevelTotal(gauge),
                 Bombs = ToInt(runStats.BombsUsed),
                 Graze = ToInt(runStats.GrazeCount),
-                MaxCombo = _director.BestMultiplier
+                MaxCombo = _director.BestMultiplier,
+                // 피격 수 (REQ-105). 적을수록 좋은 유일한 통계라 보드에서 0이 강조된다 —
+                // BOMB 0과 같은 문법이다. 상한(999)은 클라이언트가 먼저 자른다.
+                HitsTaken = ToInt(runStats.HitsTaken)
             }, OnSubmitDone);
         }
 
@@ -252,7 +330,9 @@ namespace Shmup.Presentation.Battle
                 bool cleared = _shownCleared;
                 _titleText.text = cleared ? UiText.RunClearedTitle : UiText.GameOverTitle;
                 _titleText.color = cleared ? UiKit.TextAccent : UiKit.TextDanger;
-                _hintsText.text = cleared ? UiText.RunClearedHints : UiText.GameOverHints;
+                _hintsText.text = cleared
+                    ? UiText.RunClearedHints
+                    : (CanContinue() ? UiText.GameOverHintsContinue : UiText.GameOverHints);
                 // 완주 뒤에는 파워업을 승계하지 않으므로 "재출격"이 아니라 새 런이다.
                 if (_retryButton != null)
                 {
@@ -280,12 +360,13 @@ namespace Shmup.Presentation.Battle
                     $"SCORE  {_director.TotalScore:D8}   (run {_director.RunNumber}, stage {_director.StageIndex})";
                 _statsText.text =
                     $"KILLS {stats.Kills}   CAPSULES {stats.CapsulesCollected}   ACC {accuracy:0.#}%   SHOTS {stats.ShotsFired}";
-                // BOMBS는 보드 BOMB 칸과 같은 값이다 — 여기서 0을 확인할 수 있어야
-                // 보드에서 그 0이 왜 앰버로 강조됐는지 납득이 된다.
+                // BOMBS/HITS는 보드 BOMB·HIT 칸과 같은 값이다 — 여기서 0을 확인할 수
+                // 있어야 보드에서 그 0이 왜 앰버로 강조됐는지 납득이 된다.
                 _extraText.text =
                     $"BEST COMBO x{_director.BestMultiplier}   GRAZE {stats.GrazeCount}"
-                    + $"   BOMBS {stats.BombsUsed}";
+                    + $"   BOMBS {stats.BombsUsed}   HITS {stats.HitsTaken}";
                 _modifierText.text = DescribeModifiers(_director.ActiveModifiers);
+                _bonusText.text = DescribeBonuses();
             }
 
             // 치트는 게임오버 화면이 떠 있는 동안에도 눌릴 수 있다 — 런 전환 블록 밖에서
@@ -302,14 +383,71 @@ namespace Shmup.Presentation.Battle
                 }
             }
 
+            // 컨티뉴 가능 여부는 Core 판정이고 화면이 떠 있는 동안 바뀌지 않지만,
+            // 첫 프레임에 런 전환 블록이 이미 지나갔을 수 있어 여기서 매 프레임 맞춘다
+            // (bool 비교 — 바뀔 때만 배치가 움직인다).
+            bool canContinue = CanContinue();
+            SetContinueVisible(canContinue);
+            if (canContinue)
+            {
+                int stock = _director.ContinueStock;
+                if (stock != _shownContinueStock)
+                {
+                    _shownContinueStock = stock;
+                    if (_continueLabel != null)
+                        _continueLabel.text =
+                            string.Format(UiText.ContinueButtonFormat, stock);
+                }
+            }
+
             var keyboard = Keyboard.current;
             var gamepad = Gamepad.current;
             bool restart = (keyboard != null && keyboard.enterKey.wasPressedThisFrame)
                         || (gamepad != null && gamepad.buttonSouth.wasPressedThisFrame);
             bool toTitle = (keyboard != null && keyboard.rKey.wasPressedThisFrame)
                         || (gamepad != null && gamepad.buttonEast.wasPressedThisFrame);
-            if (restart) Retry();
+            bool continueRun = canContinue
+                && ((keyboard != null && keyboard.cKey.wasPressedThisFrame)
+                    || (gamepad != null && gamepad.buttonWest.wasPressedThisFrame));
+            if (continueRun) UseContinue();
+            else if (restart) Retry();
             else if (toTitle) ToTitle();
+        }
+
+        /// <summary>
+        /// Core가 지금 컨티뉴를 허용하는가. 재생 중에는 관객이 결정을 내릴 수 없으므로
+        /// (기록된 결정만 재현된다) 화면에서도 닫는다.
+        /// </summary>
+        bool CanContinue()
+        {
+            return _director != null
+                && !_director.ReplayMode
+                && _director.ContinueAvailability.CanUse;
+        }
+
+        /// <summary>
+        /// 점수에 얹힌 보너스 줄. 클리어 실드 보너스(REQ-105)와 컨티뉴 사용 횟수를
+        /// 같이 세운다 — 둘 다 "이 숫자가 왜 이렇게 나왔는가"의 설명이다.
+        ///
+        /// 컨티뉴 사용은 보드 스키마에 실어 보낼 칸이 아직 없어(서버 필드 미배포)
+        /// 이 요약에만 남는다. 보드 표기는 후속 제안으로 넘겼다.
+        /// </summary>
+        string DescribeBonuses()
+        {
+            if (_director == null) return "";
+            long shieldBonus = _director.RunClearShieldBonus;
+            int continues = _director.ContinuesUsed;
+            if (shieldBonus <= 0 && continues <= 0) return "";
+            var sb = new System.Text.StringBuilder(48);
+            if (shieldBonus > 0)
+                sb.Append(string.Format(
+                    UiText.ShieldBonusFormat, shieldBonus.ToString("N0")));
+            if (continues > 0)
+            {
+                if (sb.Length > 0) sb.Append("   ");
+                sb.Append(string.Format(UiText.ContinuedFormat, continues));
+            }
+            return sb.ToString();
         }
 
         static string DescribeModifiers(Shmup.Core.Simulation.BattleModifier modifiers)

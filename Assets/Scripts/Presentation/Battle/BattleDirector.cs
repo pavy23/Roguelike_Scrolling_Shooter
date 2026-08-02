@@ -77,6 +77,7 @@ namespace Shmup.Presentation.Battle
         RunManager _run;
         MetaState _meta;              // 함선 해금 메타 (저장 채널: MetaSave)
         int _lastCreditedRunNumber;   // 런당 1회만 점수 적립
+        bool _wagerStockSaved;        // 최종전 판돈 정산 뒤 메타 재고 저장 1회
         IBattleSim _sim;   // 매 스텝 _run.Battle로 갱신 — 스테이지 전환/재시작 시 인스턴스가 교체된다
         SpritePool _bulletPool;
         SpritePool _enemyPool;
@@ -325,8 +326,10 @@ namespace Shmup.Presentation.Battle
         readonly List<int> _recordedContractChoices = new List<int>(8);
         int _replayContractCursor;
         bool _replayMode;
+        InputPlayback _playbackSource;
         InputPlayback.Enumerator _playback;
         int _replayChoiceCursor;
+        int _replayContinueCursor;
         bool _replayStreamEnded;
         float _replayEndTimer = 3f;
         string _recordShipId;
@@ -493,9 +496,69 @@ namespace Shmup.Presentation.Battle
             CheatUsed = false;    // 새 런은 깨끗하다 — 치트 낙인은 그 런에만 남는다
             // 단, 개발 플래그는 RunManager에 굳어 있어 재출격해도 그대로다 (REQ-096).
             if (_run.DevFlagsActive) MarkCheatUsed();
+            // 재출격부터는 다른 런의 입력이다 — 지난 런 스트림에 이어 붙이면 재생이
+            // 어긋난다. 직전 런의 리플레이는 종료 시점에 이미 저장돼 있다.
+            _recordingActive = false;
+            _wagerStockSaved = false;   // 새 런의 판돈은 다시 정산된다
             ResetRunSummary();
             RefreshBattle();
             SyncViews();
+        }
+
+        // ── 컨티뉴 경제 (REQ-104) ────────────────────────────────────────────────
+        // 재고·가격·거절 사유는 전부 Core 판정이다. 화면은 물어보고 그리기만 한다.
+
+        /// <summary>이 런에 남은 컨티뉴 재고 (메타 재고와 연동된 값).</summary>
+        public int ContinueStock => _run?.ContinueStock ?? 0;
+
+        /// <summary>지금 컨티뉴를 쓸 수 있는가 + 못 쓴다면 그 이유 (Core 관측).</summary>
+        public ContinueAvailability ContinueAvailability =>
+            _run != null ? _run.ContinueAvailability : default;
+
+        /// <summary>이 런에서 컨티뉴를 쓴 횟수 (요약의 CONTINUED xN).</summary>
+        public int ContinuesUsed => _run != null ? _run.Statistics.ContinuesUsed : 0;
+
+        /// <summary>최종전 판돈이 정산됐는가 (진입 경계에서 Core가 1회 처리).</summary>
+        public bool FinalWagerCommitted => _run != null && _run.FinalWagerCommitted;
+
+        /// <summary>판돈으로 실드가 된 컨티뉴 수.</summary>
+        public int FinalWagerShieldGranted => _run?.FinalWagerShieldGranted ?? 0;
+
+        /// <summary>실드 상한을 넘겨 점수로 환산된 컨티뉴 수.</summary>
+        public int FinalWagerOverflowConverted => _run?.FinalWagerOverflowConverted ?? 0;
+
+        /// <summary>초과 컨티뉴가 만든 점수.</summary>
+        public long FinalWagerScoreBonus => _run?.FinalWagerScoreBonus ?? 0;
+
+        /// <summary>런 클리어 시 잔여 실드가 만든 보너스 점수 (REQ-105).</summary>
+        public long RunClearShieldBonus => _run?.RunClearShieldBonus ?? 0;
+
+        /// <summary>
+        /// 컨티뉴 사용: 죽은 자리의 구간을 처음부터 다시 시작한다. 점수는 0으로
+        /// 리셋되고 파워업은 기본 상태로 돌아가되 바이옴/방/계약/난이도는 유지된다 —
+        /// 판정과 상태 복구는 전부 Core(TryUseContinue) 소관이다.
+        ///
+        /// Presentation이 할 일은 셋뿐이다: 교체된 배틀 인스턴스로 뷰를 다시 잡고,
+        /// 메타 재고 차감을 디스크에 남기고, 점수 적립 기록을 열어 두는 것.
+        /// </summary>
+        public bool UseContinue()
+        {
+            if (_run == null || _replayMode) return false;
+            if (!_run.TryUseContinue()) return false;
+
+            // Core가 이미 메타 재고를 차감했다 — 저장으로 굳혀야 게임을 껐다 켜도
+            // 쓴 컨티뉴가 되살아나지 않는다.
+            if (_meta != null) MetaSave.Save(_meta);
+
+            // 사망 시점에 이번 런 점수를 이미 적립했다. 컨티뉴는 점수를 0으로 되돌리고
+            // 런을 이어가므로, 다음 종료에서 새로 쌓은 점수도 적립돼야 한다 —
+            // "런당 1회" 잠금을 여기서 푼다 (이중 적립이 아니라 이어붙이기다).
+            _lastCreditedRunNumber = 0;
+
+            ResetRunSummary();
+            RefreshBattle();
+            SyncViews();
+            return true;
         }
 
         /// <summary>서브유닛 ScrollX의 월드 단위 값. 배경 패럴랙스가 읽는다.</summary>
@@ -533,7 +596,9 @@ namespace Shmup.Presentation.Battle
             {
                 _replayMode = true;
                 selectedShip = data.FindShip(pendingReplay.shipId) ?? selectedShip;
-                _playback = new InputPlayback(pendingReplay.recording).GetEnumerator();
+                _playbackSource = new InputPlayback(pendingReplay.recording);
+                _playback = _playbackSource.GetEnumerator();
+                _replayContinueCursor = 0;
                 _recordedChoices.Clear();
                 if (pendingReplay.rewardChoices != null)
                     _recordedChoices.AddRange(pendingReplay.rewardChoices);
@@ -592,6 +657,15 @@ namespace Shmup.Presentation.Battle
                 if (_run != null)
                     RunSave.Delete();   // 복원 성공 후에만 소비 (심사 지적 반영)
             }
+            // 데일리 표식은 "타이틀의 DAILY RUN으로 시작한 신규 런"에만 붙인다.
+            // --seed 강제, 이어하기, 리플레이는 시드가 데일리와 같아도 같은 조건의 런이 아니다.
+            // Core가 컨티뉴 재고를 데일리에서 0으로 강제하려면 런을 만들기 **전에**
+            // 알아야 하므로 판정을 생성 앞으로 끌어올렸다.
+            bool dailyRun = DevArgs.RuntimeDaily
+                && DevArgs.OverrideSeed == null
+                && !_replayMode
+                && pending == null;
+
             if (_run == null)
             {
                 // 난이도 배율 (REQ-020): 새 런은 타이틀 선택, 리플레이는 기록 당시 값
@@ -614,17 +688,46 @@ namespace Shmup.Presentation.Battle
                     runConfig = new RunConfig(
                         Mathf.Clamp(DevArgs.OverrideStartStage.Value, 1, lastStage));
                 }
-                _run = new RunManager(
-                    (ulong)Seed,
-                    new SegmentStageGenerator(data.StageGeneration),
-                    config,
-                    data.BattleContent,
-                    data.CreatePowerUpGauge(selectedShip),
-                    data.Rewards,
-                    selectedShip,
-                    diffNum,
-                    diffDen,
-                    runConfig);
+                // 리플레이는 기록 당시의 컨티뉴 조건(초기 재고·데일리·경제 수치)까지
+                // 재현해야 한다 — 최종전 판돈이 실드/점수를 바꾸므로 초기 재고가 다르면
+                // 같은 입력이어도 결과가 갈린다 (REQ-104).
+                else if (_replayMode && _playbackSource != null)
+                    runConfig = _playbackSource.CreateRunConfig();
+                // 데일리는 모두가 같은 조건으로 겨루는 판이라 컨티뉴가 들어오면 안 된다.
+                // Core에 데일리임을 선언하면 재고가 0으로 강제되고 거절 사유도
+                // NoStock이 아니라 DailyRun으로 정확해진다.
+                else if (dailyRun)
+                    runConfig = new RunConfig(isDailyRun: true);
+
+                // 평범한 신규 런에만 MetaState를 붙인다. 붙는 순간 Core가 격납고에서
+                // 산 컨티뉴 재고를 런 재고로 읽고, 컨티뉴 사용/최종전 판돈에서 메타
+                // 재고까지 같이 차감한다 (Presentation에는 재고를 줄일 API가 없다).
+                // 개발 시작-스테이지 런과 리플레이·데일리는 붙이지 않는다 — 그 런의
+                // 컨티뉴가 진짜 재고를 먹으면 안 된다.
+                bool attachMeta = runConfig == null && _meta != null;
+                _run = attachMeta
+                    ? new RunManager(
+                        (ulong)Seed,
+                        new SegmentStageGenerator(data.StageGeneration),
+                        config,
+                        data.BattleContent,
+                        data.CreatePowerUpGauge(selectedShip),
+                        data.Rewards,
+                        selectedShip,
+                        diffNum,
+                        diffDen,
+                        _meta)
+                    : new RunManager(
+                        (ulong)Seed,
+                        new SegmentStageGenerator(data.StageGeneration),
+                        config,
+                        data.BattleContent,
+                        data.CreatePowerUpGauge(selectedShip),
+                        data.Rewards,
+                        selectedShip,
+                        diffNum,
+                        diffDen,
+                        runConfig);
             }
             _sim = _run.Battle;
 
@@ -633,12 +736,9 @@ namespace Shmup.Presentation.Battle
             // 올라갈 이유가 없다. 판정은 Core(DevFlagsActive)가 하고 여기선 따르기만 한다.
             if (_run.DevFlagsActive) MarkCheatUsed();
 
-            // 데일리 표식은 "타이틀의 DAILY RUN으로 시작한 신규 런"에만 붙인다.
-            // --seed 강제, 이어하기, 리플레이는 시드가 데일리와 같아도 같은 조건의 런이 아니다.
-            IsDailyRun = DevArgs.RuntimeDaily
-                && DevArgs.OverrideSeed == null
-                && !_replayMode
-                && pending == null;
+            // 데일리 판정은 런 생성 앞에서 이미 내렸다 (Core에 선언해야 하므로).
+            // 이어하기로 복원된 런은 Core가 저장에서 데일리 여부를 되살린다.
+            IsDailyRun = dailyRun || _run.IsDailyRun;
 
             // 지정 시드 낙인 (스코어보드 공정성). 타이틀 손입력과 --seed=N을 같이 본다 —
             // 둘 다 "같은 판을 다시 돌릴 수 있는" 런이다. 이어하기/리플레이는 제외.
@@ -653,7 +753,11 @@ namespace Shmup.Presentation.Battle
             // 라이브 신규 런만 녹화한다 (리플레이/이어하기 런은 제외 — 첫 목숨 기준)
             if (!_replayMode && pending == null)
             {
-                _recorder = new InputRecorder();
+                // 런에 묶인 녹화기: 난이도·캠페인 길이·컨티뉴 조건(초기 재고, 데일리,
+                // 경제 수치)과 컨티뉴 결정 틱을 Core에서 직접 읽는다. 인자 없는
+                // 생성자는 그 값들을 전부 기본값으로 굳혀서, 컨티뉴를 들고 최종전에
+                // 들어간 런의 리플레이가 판돈 실드 없이 재생돼 어긋난다 (REQ-104).
+                _recorder = new InputRecorder(_run);
                 _recordingActive = true;
                 _recordedChoices.Clear();
                 _recordedRoutes.Clear();
@@ -713,6 +817,25 @@ namespace Shmup.Presentation.Battle
             }
         }
 
+        /// <summary>
+        /// 이 틱에 기록된 컨티뉴 결정이 있으면 재현한다. 결정 틱은 엄격한 오름차순이라
+        /// 커서 하나로 충분하다. 재생 런에는 MetaState를 붙이지 않으므로 실제 재고를
+        /// 먹지 않는다 — 기록 당시의 초기 재고(CreateRunConfig)만 소비한다.
+        /// </summary>
+        void ReplayContinueIfRecorded()
+        {
+            if (_playbackSource == null) return;
+            var decisions = _playbackSource.ContinueDecisions;
+            if (decisions == null || _replayContinueCursor >= decisions.Count) return;
+            if (decisions[_replayContinueCursor].SimulationTick != _run.SimulationTicksElapsed)
+                return;
+            _replayContinueCursor++;
+            if (!_run.TryUseContinue()) return;
+            ResetRunSummary();
+            RefreshBattle();
+            SyncViews();
+        }
+
         void FixedUpdate()
         {
             if (_run == null) return;
@@ -749,6 +872,11 @@ namespace Shmup.Presentation.Battle
                             ? _recordedContractChoices[_replayContractCursor++] : 0;
                         _run.ChooseContract(choice);
                     }
+                    // 컨티뉴 결정 재현 (REQ-104). 컨티뉴는 일반 입력 틱이 아니라
+                    // RunOver에서 내리는 별도 결정이라 누적 시뮬 틱으로 기록된다 —
+                    // 그 틱에 도달했고 런이 실제로 끝나 있을 때만 적용한다.
+                    else if (_run.State == RunState.RunOver)
+                        ReplayContinueIfRecorded();
                     // 경로 선택 재현은 없어졌다 (REQ-054). 구버전 리플레이의 route
                     // payload는 열리기만 하고, 재생은 현 빌드 규칙을 따른다.
                 }
@@ -781,7 +909,18 @@ namespace Shmup.Presentation.Battle
             _run.Step(command);
             DetectContractLock(in command, playingBefore);
 
+            // 최종전 판돈 (REQ-104): Core가 최종 보스 진입에서 남은 컨티뉴를 전부
+            // 회수해 메타 재고까지 비웠다. 런이 끝나기 전에 저장해 두지 않으면
+            // 그 사이의 강제 종료가 이미 실드로 바꾼 컨티뉴를 되살린다.
+            if (!_wagerStockSaved && _run.FinalWagerCommitted)
+            {
+                _wagerStockSaved = true;
+                if (_meta != null && !_replayMode) MetaSave.Save(_meta);
+            }
+
             // 런 종료(사망 또는 완주) 시 점수를 메타 재화로 1회 적립. 리플레이는 비적립.
+            // 컨티뉴로 이어간 런은 UseContinue가 이 잠금을 다시 열어, 컨티뉴 뒤에 새로
+            // 쌓은 점수도 종료 시점에 이어 적립된다 (컨티뉴는 점수를 0으로 되돌린다).
             if (_run.IsFinished
                 && !_replayMode
                 && _meta != null
@@ -792,10 +931,12 @@ namespace Shmup.Presentation.Battle
                 MetaSave.Save(_meta);
                 RunSave.Delete();   // 런 종료 — 이어하기 무효화
 
-                // 첫 목숨 녹화 종료 → 마지막 런 리플레이 저장
+                // 마지막 런 리플레이 저장. 녹화는 여기서 접지 않는다 — 컨티뉴로 런이
+                // 이어지면 같은 스트림이 계속 자라고, 다음 종료에서 컨티뉴 결정까지
+                // 담긴 완전한 리플레이로 덮어쓴다. 녹화를 접는 곳은 재출격(RestartRun)
+                // 하나뿐이다: 거기서부터는 다른 런의 입력이라 한 파일에 담을 수 없다.
                 if (_recordingActive)
                 {
-                    _recordingActive = false;
                     ReplaySave.Save(new ReplayFileData
                     {
                         seed = Seed,

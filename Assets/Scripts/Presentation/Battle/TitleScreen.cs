@@ -76,6 +76,9 @@ namespace Shmup.Presentation.Battle
         const int ColShip = 4;
         const int ColBomb = 4;
 
+        /// <summary>피격 수 (REQ-105). 서버 상한이 999라 세 자리 + 여백 한 칸.</summary>
+        const int ColHit = 4;
+
         /// <summary>
         /// 컬럼 라벨 줄. 계기판 라벨 관례대로 전부 대문자이고, 본문보다 어두운 색으로
         /// 그려 기록보다 먼저 읽히지 않게 한다 (색은 BuildRankingPanel이 준다).
@@ -86,7 +89,8 @@ namespace Shmup.Presentation.Battle
             + "SCORE".PadLeft(ColScore) + "  "
             + "STG".PadRight(ColStage) + " "
             + "SHIP".PadRight(ColShip) + " "
-            + "BOMB".PadLeft(ColBomb);
+            + "BOMB".PadLeft(ColBomb) + " "
+            + "HIT".PadLeft(ColHit);
 
         void RefreshDifficultyText()
         {
@@ -161,6 +165,12 @@ namespace Shmup.Presentation.Battle
 
         // ── 글로벌 랭킹 (P1 스코어보드) ────────────────────────────────────────
 
+        /// <summary>
+        /// 랭킹 모달이 떠 있는가. 같은 GameObject의 격납고가 이 값을 보고 입력을 멈춘다 —
+        /// 보드를 읽는 동안 뒤에서 함선이 바뀌거나 크레딧이 나가면 안 된다.
+        /// </summary>
+        public bool RankingOpen => _rankingRoot != null && _rankingRoot.activeSelf;
+
         void ToggleRanking()
         {
             if (_rankingRoot == null) BuildRankingPanel();
@@ -187,27 +197,28 @@ namespace Shmup.Presentation.Battle
             _rankingRoot = canvas.gameObject;
 
             UiKit.CreateDim(canvas.transform, new Color(0f, 0.01f, 0.05f, 0.72f));
-            // 컬럼 6개(순위·파일럿·점수·스테이지·기체·봄)를 고정폭으로 세우려면 380px로는
-            // 모자란다. 헤어라인 패널 언어는 그대로 두고 폭·높이만 키운다.
-            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(440f, 288f));
+            // 컬럼 7개(순위·파일럿·점수·스테이지·기체·봄·피격)를 고정폭으로 세우려면
+            // 380px로는 모자란다. HIT 칸이 붙으면서 한 줄이 42자 → 47자가 됐으므로
+            // 같은 비율로 폭만 다시 키운다. 헤어라인 패널 언어는 그대로다.
+            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(500f, 288f));
 
             UiKit.CreateCornerText(panel, _fontBold, "DAILY RANKING", 14, UiKit.TextMain,
                 new Vector2(0.5f, 1f), new Vector2(0f, -12f), TextAnchor.UpperCenter, "RankTitle");
-            UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -34f), 380f,
+            UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -34f), 440f,
                 UiKit.TextAccent, "RankRule");
 
             // 컬럼 라벨은 본문과 **같은 폰트·크기·좌표·폭**이어야 자릿수가 맞는다.
             var header = UiKit.CreateCornerText(panel, _font, RankingHeader, 10, UiKit.TextDim,
                 new Vector2(0.5f, 1f), new Vector2(0f, -44f), TextAnchor.UpperLeft, "RankHeader");
-            header.rectTransform.sizeDelta = new Vector2(400f, 14f);
+            header.rectTransform.sizeDelta = new Vector2(460f, 14f);
             // 라벨과 기록을 가르는 헤어라인. 앰버는 위 룰 하나로 족하다 —
             // 액센트는 화면당 하나라는 계기판 원칙을 여기서도 지킨다.
-            UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -58f), 400f,
+            UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -58f), 460f,
                 UiKit.PanelBorder, "RankHeaderRule");
 
             _rankingBody = UiKit.CreateCornerText(panel, _font, "", 10, UiKit.TextDim,
                 new Vector2(0.5f, 1f), new Vector2(0f, -64f), TextAnchor.UpperLeft, "RankBody");
-            _rankingBody.rectTransform.sizeDelta = new Vector2(400f, 168f);
+            _rankingBody.rectTransform.sizeDelta = new Vector2(460f, 168f);
 
             UiKit.CreateTouchButton(panel, _font, "CLOSE", 11,
                 new Vector2(0.5f, 0f), new Vector2(0f, 12f), new Vector2(140f, 34f),
@@ -264,7 +275,7 @@ namespace Shmup.Presentation.Battle
         const string BadgeClose = "</color>";
 
         /// <summary>
-        /// 보드 한 줄: 순위 · 파일럿 · 점수 · 달성 스테이지 · 기체 · 봄 사용 횟수.
+        /// 보드 한 줄: 순위 · 파일럿 · 점수 · 달성 스테이지 · 기체 · 봄 · 피격 수.
         /// 헤더(<see cref="RankingHeader"/>)와 같은 컬럼 상수를 쓰고, 값이 없는 칸은
         /// '-'로 채워 자릿수를 지킨다 — 칸을 비우면 다음 컬럼이 밀려 헤더와 어긋난다.
         /// </summary>
@@ -286,6 +297,34 @@ namespace Shmup.Presentation.Battle
             sb.Append(ShipCell(entry).PadRight(ColShip));
             sb.Append(' ');
             AppendBombCell(sb, entry, detailed);
+            sb.Append(' ');
+            AppendHitCell(sb, entry);
+        }
+
+        /// <summary>
+        /// 허용한 피격 수 (REQ-105). **적을수록 좋은** 유일한 칸이라 0을 앰버로 강조한다 —
+        /// BOMB 0과 같은 문법이다(무피격 완주는 봄 없는 완주만큼 어렵다).
+        ///
+        /// 구 항목 판정은 다른 칸과 다르다: 0이 정상 값이라 <c>st &lt;= 0</c> 같은
+        /// 자리 여유가 없어, 서버 응답에 <c>ht</c> 키가 있었는지를 그대로 쓴다
+        /// (ScoreboardClient가 없는 기록에 -1을 심어 준다).
+        /// </summary>
+        static void AppendHitCell(System.Text.StringBuilder sb, ScoreboardEntry entry)
+        {
+            if (!entry.HasHits)
+            {
+                sb.Append("-".PadLeft(ColHit));
+                return;
+            }
+            string cell = entry.ht.ToString().PadLeft(ColHit);
+            if (entry.ht != 0)
+            {
+                sb.Append(cell);
+                return;
+            }
+            sb.Append(BadgeOpen);
+            sb.Append(cell);
+            sb.Append(BadgeClose);
         }
 
         /// <summary>

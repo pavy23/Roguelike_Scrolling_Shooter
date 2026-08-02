@@ -29,6 +29,44 @@ namespace Shmup.Presentation.Battle
         public const string RunClearedHints =
             "[ENTER] / (A) NEW RUN      [R] / (B) TITLE";
 
+        // 컨티뉴 (REQ-104). 격납고에서 크레딧으로 사 둔 재고를 죽은 자리에서 쓴다.
+        /// <summary>{0} = 남은 재고. 몇 번 더 쓸 수 있는지가 버튼에서 바로 읽혀야 한다.</summary>
+        public const string ContinueButtonFormat = "CONTINUE  ({0} LEFT)";
+
+        /// <summary>
+        /// 컨티뉴는 공짜가 아니다 — 이번 런에서 쌓은 점수를 전부 버린다. 누르기 전에
+        /// 알려야 하는 조건이라 버튼 옆이 아니라 버튼 위 한 줄로 세운다.
+        /// </summary>
+        public const string ContinueWarning =
+            "CONTINUE RESTARTS THIS SECTOR - SCORE RESETS TO 0";
+        public const string GameOverHintsContinue =
+            "[ENTER] / (A) REDEPLOY      [C] / (X) CONTINUE      [R] / (B) TITLE";
+
+        /// <summary>{0} = 사용 횟수. 컨티뉴로 이어간 런임을 요약에 남긴다.</summary>
+        public const string ContinuedFormat = "CONTINUED x{0}";
+
+        /// <summary>{0} = 보너스 점수 (REQ-105 잔여 실드 환산).</summary>
+        public const string ShieldBonusFormat = "SHIELD BONUS +{0}";
+
+        // 격납고 컨티뉴 구매
+        /// <summary>{0} = 보유, {1} = 상한.</summary>
+        public const string HangarContinueStockFormat = "CONTINUE  {0}/{1}";
+
+        /// <summary>{0} = 다음 한 개 가격.</summary>
+        public const string HangarContinueBuyFormat = "BUY CONTINUE\n{0} cr";
+        public const string HangarContinueFull = "CONTINUE STOCK FULL";
+        public const string HangarContinueHint = "[B] BUY CONTINUE  {0} cr";
+
+        /// <summary>
+        /// 최종전 판돈 (REQ-104). 남은 컨티뉴는 최종 보스 진입에서 전부 회수돼
+        /// 실드와 점수로 바뀐다 — 사라진 게 아니라 걸린 것임을 그 자리에서 알린다.
+        /// {0} = 실드 증가분.
+        /// </summary>
+        public const string FinalWagerShieldFormat = "CONTINUES  →  SHIELD +{0}";
+
+        /// <summary>{0} = 점수로 환산된 컨티뉴 수, {1} = 그 점수.</summary>
+        public const string FinalWagerOverflowFormat = "+{0} OVER CAP  →  {1} PTS";
+
         // 보상 / 경로
         public const string RewardTitle = "STAGE CLEAR - CHOOSE REWARD";
 

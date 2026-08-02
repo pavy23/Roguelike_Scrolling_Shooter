@@ -4,29 +4,29 @@ using UnityEngine.UI;
 namespace Shmup.Presentation.Battle
 {
     /// <summary>
-    /// 마지막 목숨 경고: 붉은 비네트 맥동 + 주기적 경고음.
+    /// 마지막 목숨 경고: 붉은 가장자리 띠 맥동. **소리는 내지 않는다.**
     ///
     /// HP가 사라지고 실드 스톡이 유일한 내구도가 된 뒤로(REQ-040), 위험 신호는
     /// **스톡 0**이다 — 그 상태에서 한 번만 더 맞으면 즉사한다. 예전 `PlayerHp == 1`
     /// 조건은 이제 살아 있는 동안 항상 참이라(생존 1 / 사망 0 호환 프로퍼티) 쓸 수 없다.
+    ///
+    /// 스톡 0은 잠깐이 아니라 **런 후반 내내 이어지는 상태**다. 1.1초마다 울리던
+    /// 경고음은 그동안 쉬지 않고 반복돼 소음이 됐다(사람 지시 2026-08-02: "빨갛게
+    /// 깜빡거리기만 하고 소리는 끄자"). 위험 신호는 시각 채널만 쓴다 — 주변시로
+    /// 읽히는 가장자리 맥동은 사격음 위에 얹히지 않으면서도 계속 보인다.
     ///
     /// 순수 표현 — director의 상태를 읽기만 한다. 접근성(플래시 감소) 설정을 존중한다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class LowHpWarning : MonoBehaviour
     {
-        const float BeepInterval = 1.1f;
-
         [SerializeField] BattleDirector _director;
         [SerializeField] JuiceDirector _juice;
-        [SerializeField] AudioSource _source;
-        [SerializeField] AudioClip _warningClip;
 
         const float EdgeThickness = 10f;   // 640×360 기준 픽셀
 
         GameObject _root;
         Image[] _edges;
-        float _beepTimer;
 
         /// <summary>화면 한 변에 붙는 경고 띠. 두 앵커를 잇는 방향으로 늘어난다.</summary>
         static Image CreateEdge(
@@ -51,14 +51,6 @@ namespace Shmup.Presentation.Battle
 
         void Start()
         {
-            if (_source == null)
-            {
-                // 경고음 전용 소스 (SFX 스로틀·피치 랜덤과 분리)
-                _source = gameObject.AddComponent<AudioSource>();
-                _source.playOnAwake = false;
-                _source.spatialBlend = 0f;
-            }
-
             var canvas = UiKit.CreateCanvas("LowHpCanvas", 42);
             canvas.transform.SetParent(transform, false);
 
@@ -88,10 +80,7 @@ namespace Shmup.Presentation.Battle
             bool danger = !_director.IsRunFinished && _director.ShieldRemaining == 0
                           && Time.timeScale > 0f;
             if (_root.activeSelf != danger)
-            {
                 _root.SetActive(danger);
-                _beepTimer = 0f;
-            }
             if (!danger) return;
 
             // 띠는 좁으므로 전체 딤보다 진하게 써도 시야를 막지 않는다.
@@ -100,15 +89,6 @@ namespace Shmup.Presentation.Battle
             var color = new Color(0.95f, 0.08f, 0.12f, 0.25f + pulse * peak);
             for (int i = 0; i < _edges.Length; i++)
                 _edges[i].color = color;
-
-
-            _beepTimer -= Time.deltaTime;
-            if (_beepTimer <= 0f)
-            {
-                _beepTimer = BeepInterval;
-                if (_source != null && _warningClip != null)
-                    _source.PlayOneShot(_warningClip, 0.55f);
-            }
         }
     }
 }

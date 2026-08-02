@@ -1211,9 +1211,9 @@ namespace Shmup.EditorTools
                 LoadExternalSprite("fx_spawn_marker.png", "fx_spawn_marker"));
             SetReference(director, "_spawnTelegraph", telegraph);
 
+            // 실드 0 경고는 시각 전용이다 (사람 지시 2026-08-02) — 경고음 배선 없음.
             var lowHp = battleRoot.AddComponent<LowHpWarning>();
             SetReference(lowHp, "_director", director);
-            SetReference(lowHp, "_warningClip", LoadClip("sfx_warning"));
 
             // 주스 연출 허브 (M4+ 게임 필): 히트스톱·슬로모·화면 흔들림 + 접근성 토글
             var juice = battleRoot.AddComponent<JuiceDirector>();

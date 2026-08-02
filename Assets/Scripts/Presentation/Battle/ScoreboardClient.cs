@@ -30,6 +30,19 @@ namespace Shmup.Presentation.Battle
         public int bb;   // 사용한 봄 수 (0 = NO BOMB)
         public int gz;   // 그레이즈 누계
         public int mx;   // 최고 콤보 배율
+
+        /// <summary>
+        /// 허용한 피격 수 (REQ-105). **0이 최고 성적**이라 "값이 없음"과 구분해야 한다 —
+        /// 이 필드가 없던 시절의 기록에서 0을 그리면 무피격 주행이라는 거짓말이 된다.
+        /// 서버가 키 자체를 빼므로 <see cref="MissingHits"/>(-1)로 표시해 두고 화면은
+        /// 그 값을 '-'로 그린다. 채우는 곳은 <see cref="ScoreboardClient.MarkMissingHits"/>.
+        /// </summary>
+        public int ht;
+
+        /// <summary>이 기록에 <c>ht</c> 키가 아예 없었다는 표식.</summary>
+        public const int MissingHits = -1;
+
+        public bool HasHits => ht >= 0;
     }
 
     [Serializable]
@@ -60,6 +73,7 @@ namespace Shmup.Presentation.Battle
         public int bombs;
         public int graze;
         public int maxCombo;
+        public int hitsTaken;
     }
 
     [Serializable]
@@ -89,6 +103,9 @@ namespace Shmup.Presentation.Battle
         public int Bombs;
         public int Graze;
         public int MaxCombo;
+
+        /// <summary>허용한 피격 수 (REQ-105). 서버 필드 <c>ht</c>, 상한 999.</summary>
+        public int HitsTaken;
     }
 
     /// <summary>
@@ -227,7 +244,8 @@ namespace Shmup.Presentation.Battle
                 levels = Clamp(submission.Levels, 99),
                 bombs = Clamp(submission.Bombs, 999),
                 graze = Clamp(submission.Graze, 999999),
-                maxCombo = Clamp(submission.MaxCombo, 99)
+                maxCombo = Clamp(submission.MaxCombo, 99),
+                hitsTaken = Clamp(submission.HitsTaken, 999)
             };
             Host.StartCoroutine(SubmitRoutine(JsonUtility.ToJson(payload), onDone));
         }
@@ -334,7 +352,59 @@ namespace Shmup.Presentation.Battle
                     if (onDone != null) onDone(null, reason);
                     yield break;
                 }
+                MarkMissingHits(request.downloadHandler.text, board.entries);
                 if (onDone != null) onDone(board.entries, null);
+            }
+        }
+
+        /// <summary>
+        /// <c>ht</c> 키가 없는 기록을 <see cref="ScoreboardEntry.MissingHits"/>로 표시한다.
+        ///
+        /// JsonUtility는 없는 키를 0으로 채우는데, 피격 수는 **0이 최고 성적**이라
+        /// 그 0이 "무피격 완주"로 읽힌다. 다른 통계는 1부터 시작하는 스테이지 번호로
+        /// 구 항목을 가려낼 수 있었지만(<c>st &lt;= 0</c>), 피격 수에는 그런 여유가 없다.
+        /// 서버가 값이 없는 필드의 키 자체를 빼므로(JSON.stringify가 undefined를 지운다)
+        /// **원문에 키가 있었는지**가 유일하게 정확한 판정이다.
+        ///
+        /// 스캔은 entries 배열의 최상위 객체 경계만 센다 — 문자열 안의 중괄호와
+        /// 이스케이프를 건너뛰므로 이름에 <c>{</c>나 <c>"</c>가 들어 있어도 어긋나지 않는다.
+        /// 실패하면 아무것도 표시하지 않는다: 못 가려낸 구 항목이 0으로 보이는 것보다
+        /// 예외로 보드가 통째로 사라지는 쪽이 나쁘다.
+        /// </summary>
+        static void MarkMissingHits(string json, ScoreboardEntry[] entries)
+        {
+            if (string.IsNullOrEmpty(json) || entries == null) return;
+            int index = 0;
+            int depth = 0;
+            int objectStart = -1;
+            bool inString = false;
+            for (int i = 0; i < json.Length && index < entries.Length; i++)
+            {
+                char c = json[i];
+                if (inString)
+                {
+                    if (c == '\\') i++;            // 이스케이프 한 글자 건너뛰기
+                    else if (c == '"') inString = false;
+                    continue;
+                }
+                if (c == '"') { inString = true; continue; }
+                if (c == '{')
+                {
+                    depth++;
+                    // 배열 요소는 루트 객체({"entries":[...]}) 바로 안쪽 깊이 2다.
+                    if (depth == 2) objectStart = i;
+                    continue;
+                }
+                if (c != '}') continue;
+                depth--;
+                if (depth != 1 || objectStart < 0) continue;
+                // 부분 문자열을 뜨지 않고 구간만 훑는다 (보드 100줄 × 조회마다).
+                bool hasKey = json.IndexOf(
+                    "\"ht\"", objectStart, i - objectStart + 1, StringComparison.Ordinal) >= 0;
+                if (entries[index] != null && !hasKey)
+                    entries[index].ht = ScoreboardEntry.MissingHits;
+                objectStart = -1;
+                index++;
             }
         }
 

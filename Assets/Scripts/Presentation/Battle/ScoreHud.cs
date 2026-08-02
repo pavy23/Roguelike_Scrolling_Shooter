@@ -21,6 +21,8 @@ namespace Shmup.Presentation.Battle
             _text = UiKit.CreateCornerText(canvas.transform, _fontBold, "00000000", 16,
                 UiKit.TextAccent, new Vector2(1f, 1f), new Vector2(-8f, -4f),
                 TextAnchor.UpperRight, "Score");
+            // 우상단 정렬 + 우측 피벗이라 "x32"처럼 자릿수가 늘어도 왼쪽으로만 자란다 —
+            // 점수 줄(위)과 겹치지 않고 화면 밖으로도 밀리지 않는다 (REQ-105 32배 대응).
             _multiplierText = UiKit.CreateCornerText(canvas.transform, _fontBold, "x1", 12,
                 UiKit.TextDim, new Vector2(1f, 1f), new Vector2(-8f, -24f),
                 TextAnchor.UpperRight, "Multiplier");
@@ -55,6 +57,8 @@ namespace Shmup.Presentation.Battle
                 case 2: return "x2";
                 case 4: return "x4";
                 case 8: return "x8";
+                case 16: return "x16";   // REQ-105: 콤보 6단계 (1·2·4·8·16·32)
+                case 32: return "x32";
                 default: return "x" + multiplier;
             }
         }

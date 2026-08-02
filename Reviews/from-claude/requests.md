@@ -1385,3 +1385,43 @@ P1 글로벌 스코어보드(`Assets/Scripts/Presentation/Battle/ScoreboardClien
   (시드 / 난이도 배율 / 함선 / 최종 점수 / 클리어 등급 / 총 틱 정도).
 
 검증: 같은 시드·같은 입력 2회 실행의 해시 일치 테스트, 한 필드만 바꾸면 달라지는 테스트.
+
+---
+
+## REQ-104 후속 (CODEX): 이어하기 런에 MetaState를 붙일 방법
+
+**무엇이 필요한가**
+
+`RunManager.ResumeFromSuspendData(...)`에 `MetaState`를 넘길 오버로드, 또는
+복원한 런에 메타를 나중에 붙이는 공개 경로 (`AttachMetaState`는 private다).
+
+**왜 (재현 경로)**
+
+1. 컨티뉴 2개를 사고 런을 시작한다 → 런 재고 2, 메타 재고 2.
+2. 스테이지 경계에서 일시정지 → 타이틀 (`RunSave`에 런 재고 2가 저장된다).
+3. 이어하기로 복귀 → `ResumeFromSuspendData`에는 MetaState를 넘길 자리가 없어
+   `_metaState`가 null이다. 런 재고는 2로 복원된다.
+4. 컨티뉴를 쓰면 런 재고만 1로 줄고 **메타 재고는 2 그대로다.**
+5. 그 런을 끝내고 새 런을 시작하면 메타 재고 2가 다시 들어온다 — 무한 복제다.
+
+Presentation에서는 막을 수 없다: `MetaState.ConsumeContinues`가 internal이라
+Presentation이 재고를 줄일 방법이 아예 없다 (구매만 public).
+
+**임시 조치 (현재 빌드)**
+
+없음. 위 경로가 그대로 열려 있다. 이어하기에서 컨티뉴 UI를 막는 것도 답이 아니다 —
+"이어한 런에서는 산 컨티뉴를 못 쓴다"는 규칙이 되어 버린다.
+
+검증: 이어하기 → 컨티뉴 → 런 종료 → 새 런에서 초기 재고가 1인지.
+
+---
+
+## REQ-104 후속 (사람/서버): 스코어보드에 컨티뉴 사용 표기
+
+지금 스키마에는 컨티뉴 사용 여부를 실을 칸이 없다. Presentation은
+`RunStatistics.ContinuesUsed`를 게임오버 요약("CONTINUED x2")에만 표시하고 제출은
+그대로 허용한다 (사람 지시 2026-08-02).
+
+제안: worker.js의 `stat()` 목록에 `cu: stat(body.continuesUsed, 8)`을 추가하고,
+보드 행에서 `cu > 0`이면 점수 옆에 흐린 `C2` 뱃지를 붙인다. 무컨티뉴 기록과 같은
+칸에서 겨루되 문맥은 남는다. 서버 배포는 사람/오케스트레이터 몫이라 요청만 남긴다.

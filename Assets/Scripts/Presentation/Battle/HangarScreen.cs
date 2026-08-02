@@ -1,5 +1,6 @@
 using Shmup.Core;
 using Shmup.Core.Content;
+using Shmup.Core.Simulation;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -28,6 +29,19 @@ namespace Shmup.Presentation.Battle
         int _shownCursor = -1;
         long _shownCurrency = -1;
         string _shownSelected;
+
+        // 컨티뉴 재고 (REQ-104). 가격 사다리·상한·거절 사유는 전부 Core 판정이고,
+        // 여기서는 물어본 값을 그리고 구매 요청만 넘긴다.
+        Text _continueText;
+        Button _continueButton;
+        int _shownContinueStock = -1;
+
+        /// <summary>구매 실패 문면을 잠깐 띄우는 타이머 (크레딧 부족 등).</summary>
+        float _continueNoticeTimer;
+        string _continueNotice;
+
+        /// <summary>같은 GameObject의 타이틀 화면 (랭킹 모달 상태를 물어본다).</summary>
+        TitleScreen _title;
 
         void Start()
         {
@@ -59,6 +73,13 @@ namespace Shmup.Presentation.Battle
             rect.anchoredPosition = new Vector2(0f, 74f);
             _preview.enabled = false;
 
+            // 컨티뉴 재고 — 격납고 왼쪽 아래. 함선 정보(가운데)와 겹치지 않고,
+            // "출격 전에 사 두는 물건"이라는 점에서 해금과 같은 층위에 둔다.
+            _continueText = UiKit.CreateCornerText(canvas.transform, _font, "", 10,
+                UiKit.TextDim, new Vector2(0f, 0f), new Vector2(10f, 52f),
+                TextAnchor.LowerLeft, "ContinueStock");
+            _continueText.rectTransform.sizeDelta = new Vector2(220f, 28f);
+
             if (UiPlatform.TouchMode)
             {
                 UiKit.CreateTouchButton(canvas.transform, _fontBold, "◄", 16,
@@ -70,7 +91,38 @@ namespace Shmup.Presentation.Battle
                 _unlockButton = UiKit.CreateTouchButton(canvas.transform, _font, "UNLOCK", 10,
                     new Vector2(1f, 0f), new Vector2(-10f, 14f), new Vector2(104f, 34f),
                     TryUnlockCurrent, "HangarUnlock");
+                _continueButton = UiKit.CreateTouchButton(canvas.transform, _font, "BUY", 10,
+                    new Vector2(0f, 0f), new Vector2(10f, 14f), new Vector2(104f, 34f),
+                    TryBuyContinue, "HangarBuyContinue");
             }
+        }
+
+        /// <summary>
+        /// 컨티뉴 한 개 구매. 가격 사다리(2,000 + 1,000 × 보유)와 상한 8, 크레딧 검사는
+        /// 전부 Core(TryPurchaseContinue)가 한다 — 여기서 값을 다시 계산하지 않는다.
+        /// 거절 사유는 짧게 띄운다: 눌렀는데 아무 일도 안 일어나면 고장으로 읽힌다.
+        /// </summary>
+        void TryBuyContinue()
+        {
+            if (_meta == null) return;
+            var result = _meta.TryPurchaseContinue();
+            if (result.Purchased)
+            {
+                MetaSave.Save(_meta);
+                _continueNotice = null;
+                _continueNoticeTimer = 0f;
+            }
+            else
+            {
+                _continueNotice =
+                    result.RejectionReason
+                        == ContinuePurchaseRejectionReason.InsufficientCurrency
+                        ? $"NEED {result.Price:N0} cr"
+                        : UiText.HangarContinueFull;
+                _continueNoticeTimer = 2f;
+            }
+            _shownContinueStock = -1;   // 표시 갱신
+            _shownCurrency = -1;
         }
 
         void MoveCursor(int delta)
@@ -103,6 +155,17 @@ namespace Shmup.Presentation.Battle
         void Update()
         {
             if (_data == null || _meta == null || _data.Ships.Count == 0) return;
+
+            // 랭킹 모달이 떠 있으면 격납고는 입력을 받지 않는다 — 보드를 읽는 동안
+            // 화살표가 함선을 넘기거나 [B]가 크레딧을 쓰면 안 된다(타이틀도 같은 규칙).
+            if (_title == null) _title = GetComponent<TitleScreen>();
+            if (_title != null && _title.RankingOpen)
+            {
+                RefreshTexts(_data.Ships[_cursor]);
+                RefreshContinue();
+                return;
+            }
+
             var keyboard = Keyboard.current;
             var gamepad = Gamepad.current;
 
@@ -124,6 +187,22 @@ namespace Shmup.Presentation.Battle
                               || (gamepad != null && gamepad.buttonNorth.wasPressedThisFrame);
             if (unlockPressed)
                 TryUnlockCurrent();
+            // 컨티뉴 구매는 [B]. 패드는 dpad 아래로 — 함선 순환(좌/우)과 축이 갈려
+            // 기체를 넘기다 실수로 크레딧을 쓰는 일이 없다.
+            bool buyPressed = (keyboard != null && keyboard.bKey.wasPressedThisFrame)
+                           || (gamepad != null && gamepad.dpad.down.wasPressedThisFrame);
+            if (buyPressed)
+                TryBuyContinue();
+
+            if (_continueNoticeTimer > 0f)
+            {
+                _continueNoticeTimer -= Time.unscaledDeltaTime;
+                if (_continueNoticeTimer <= 0f)
+                {
+                    _continueNotice = null;
+                    _shownContinueStock = -1;
+                }
+            }
             if (_meta.IsUnlocked(ship.Id) && _meta.SelectedShipId != ship.Id)
             {
                 _meta.SelectShip(ship.Id);
@@ -131,6 +210,49 @@ namespace Shmup.Presentation.Battle
             }
 
             RefreshTexts(ship);
+            RefreshContinue();
+        }
+
+        /// <summary>
+        /// 컨티뉴 재고 줄 + 구매 버튼. 값이 바뀐 프레임에만 문자열을 만든다
+        /// (타이틀은 계속 떠 있는 화면이라 매 프레임 할당이 그대로 쓰레기가 된다).
+        /// </summary>
+        void RefreshContinue()
+        {
+            if (_continueText == null || _meta == null) return;
+            int stock = _meta.ContinueStock;
+            // 재고 말고는 이 줄을 바꾸는 게 없다. 구매 실패 문면은 스스로 -1을 심어
+            // 다음 프레임에 한 번 더 그린다.
+            if (stock == _shownContinueStock) return;
+            _shownContinueStock = stock;
+
+            int max = ContinueEconomyConfig.DefaultMaximumStock;
+            long price = _meta.GetContinuePurchasePrice();
+            bool full = stock >= max;
+            var sb = new System.Text.StringBuilder(64);
+            sb.Append(string.Format(UiText.HangarContinueStockFormat, stock, max));
+            if (_continueNotice != null)
+                sb.Append("   ").Append(_continueNotice);
+            else if (full)
+                sb.Append("   ").Append(UiText.HangarContinueFull);
+            else if (!UiPlatform.TouchMode)
+                sb.Append("   ").Append(
+                    string.Format(UiText.HangarContinueHint, price.ToString("N0")));
+            _continueText.text = sb.ToString();
+            // 재고가 있으면 "죽어도 이어서 갈 수 있다"는 사실 자체가 정보다 — 앰버로 켠다.
+            _continueText.color = stock > 0 ? UiKit.TextAccent : UiKit.TextDim;
+
+            if (_continueButton != null)
+            {
+                _continueButton.gameObject.SetActive(!full);
+                if (!full)
+                {
+                    var label = _continueButton.GetComponentInChildren<Text>();
+                    if (label != null)
+                        label.text = string.Format(
+                            UiText.HangarContinueBuyFormat, price.ToString("N0"));
+                }
+            }
         }
 
         void RefreshTexts(Core.ShipDefinition ship)

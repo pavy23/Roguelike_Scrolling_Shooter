@@ -34,6 +34,9 @@ namespace Shmup.Presentation.Battle
         float _bannerAge = float.MaxValue;
         bool _bannerDailyShown;
 
+        /// <summary>최종전 판돈 배너를 이미 띄웠는가 (런당 1회 — Core도 1회만 정산한다).</summary>
+        bool _wagerBannerShown;
+
         /// <summary>데일리 표식 (좌상단, STAGE 바로 위). 데일리 런에서만 켜진다.</summary>
         Text _dailyBadge;
 
@@ -141,6 +144,10 @@ namespace Shmup.Presentation.Battle
                 }
             }
 
+            // 재출격하면 판돈은 정산 전으로 돌아간다 — 다음 최종전에서 다시 알려야 한다.
+            if (_wagerBannerShown && !_director.FinalWagerCommitted)
+                _wagerBannerShown = false;
+
             // 바이옴이 바뀐 순간 배너
             if (biome != _bannerBiome && biome > 0 && !_director.IsRunFinished)
             {
@@ -149,6 +156,26 @@ namespace Shmup.Presentation.Battle
                 _bannerText.text = $"BIOME {biome}  -  {ThemeName(_director.CurrentThemeId)}";
                 // 데일리라는 사실은 첫 스테이지 배너에서 한 번만 선언한다.
                 SetBannerDailyHeader(daily && biome == 1);
+            }
+            // 최종전 판돈 (REQ-104). 최종 보스 진입 경계에서 Core가 남은 컨티뉴를
+            // 전부 회수해 실드와 점수로 바꾼다. 바이옴은 그대로라 진입 배너가 뜨지
+            // 않으므로, 재고가 조용히 사라진 것으로 보이지 않게 여기서 한 번 알린다.
+            else if (!_wagerBannerShown && _director.FinalWagerCommitted)
+            {
+                _wagerBannerShown = true;
+                int shields = _director.FinalWagerShieldGranted;
+                int overflow = _director.FinalWagerOverflowConverted;
+                if (shields > 0 || overflow > 0)
+                {
+                    _bannerAge = 0f;
+                    _bannerText.text = shields > 0
+                        ? string.Format(UiText.FinalWagerShieldFormat, shields)
+                        : string.Format(
+                            UiText.FinalWagerOverflowFormat,
+                            overflow,
+                            _director.FinalWagerScoreBonus.ToString("N0"));
+                    SetBannerDailyHeader(false);
+                }
             }
 
             if (_bannerAge < BannerSeconds)

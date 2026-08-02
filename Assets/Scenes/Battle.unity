@@ -810,8 +810,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Shmup.Presentation::Shmup.Presentation.Battle.LowHpWarning
   _director: {fileID: 82515969}
   _juice: {fileID: 82515975}
-  _source: {fileID: 0}
-  _warningClip: {fileID: 8300000, guid: 7e06ed3a5e85cb64e995c8ee9c762ac6, type: 3}
 --- !u!114 &82515981
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -18,6 +18,9 @@ namespace Shmup.Presentation.Battle
             public long totalCurrency;
             public string[] unlockedShipIds;
             public string selectedShipId;
+
+            /// <summary>구매한 컨티뉴 재고 (REQ-104). 구 저장에는 키가 없어 0으로 읽힌다.</summary>
+            public int continueStock;
         }
 
         static string SavePath => Path.Combine(Application.persistentDataPath, "meta.json");
@@ -32,12 +35,7 @@ namespace Shmup.Presentation.Battle
                 if (text != null)
                 {
                     var dto = JsonUtility.FromJson<MetaSaveDto>(text);
-                    var state = MetaState.FromData(new MetaStateData
-                    {
-                        totalCurrency = dto.totalCurrency,
-                        unlockedShipIds = dto.unlockedShipIds ?? Array.Empty<string>(),
-                        selectedShipId = dto.selectedShipId
-                    });
+                    var state = MetaState.FromData(ToCoreData(dto));
                     // 삭제된 함선을 선택 중인 구버전 저장 복구 (Core는 검증 예외를 낸다)
                     if (data.FindShip(state.SelectedShipId) == null)
                     {
@@ -53,6 +51,32 @@ namespace Shmup.Presentation.Battle
                 Debug.LogWarning($"[MetaSave] 저장 로드 실패({e.GetType().Name}) — 초기화. {e.Message}");
             }
             return CreateFresh(data, 0);
+        }
+
+        /// <summary>
+        /// 저장 DTO → Core 입력 DTO. 컨티뉴 재고는 **현행 스키마로 선언**해야 Core
+        /// 마이그레이션이 값을 살려 준다 — 레거시(schemaVersion 0)로 넣으면
+        /// <c>continueStock</c>이 구 저장 취급으로 0이 되어 구매한 재고가 사라진다.
+        /// 체크섬은 여기서 봉인한다: 이 파일은 원래부터 체크섬 없는 평문 DTO였고
+        /// (변조 방어는 로컬 저장에 애초에 없다) 봉인은 Core 검증을 통과시키는 절차다.
+        ///
+        /// 손으로 고친 파일의 범위 밖 재고는 예외가 아니라 클램프로 처리한다 —
+        /// Core 생성자가 던지면 상위 catch가 저장 **전체**를 초기화해 해금까지 날아간다.
+        /// </summary>
+        static MetaStateData ToCoreData(MetaSaveDto dto)
+        {
+            var data = new MetaStateData
+            {
+                totalCurrency = dto.totalCurrency,
+                unlockedShipIds = dto.unlockedShipIds ?? Array.Empty<string>(),
+                selectedShipId = dto.selectedShipId,
+                continueStock = Mathf.Clamp(
+                    dto.continueStock,
+                    0,
+                    Shmup.Core.Simulation.ContinueEconomyConfig.DefaultMaximumStock)
+            };
+            SaveDataIntegrity.Seal(data);
+            return data;
         }
 
         static bool IsUsable(string text)
@@ -71,12 +95,12 @@ namespace Shmup.Presentation.Battle
         static MetaState CreateFresh(GameDataSet data, long carryCurrency)
         {
             var defaultShip = data.DefaultShip;
-            return MetaState.FromData(new MetaStateData
+            return MetaState.FromData(ToCoreData(new MetaSaveDto
             {
                 totalCurrency = carryCurrency,
                 unlockedShipIds = new[] { defaultShip.Id },
                 selectedShipId = defaultShip.Id
-            });
+            }));
         }
 
         /// <summary>tmp 기록 → 기존 파일을 bak으로 승격 → 교체 (SafeFile).</summary>
@@ -87,7 +111,8 @@ namespace Shmup.Presentation.Battle
             {
                 totalCurrency = exported.totalCurrency,
                 unlockedShipIds = exported.unlockedShipIds,
-                selectedShipId = exported.selectedShipId
+                selectedShipId = exported.selectedShipId,
+                continueStock = exported.continueStock
             };
             SafeFile.Write(SavePath, JsonUtility.ToJson(dto, prettyPrint: true));
         }
