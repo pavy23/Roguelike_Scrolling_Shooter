@@ -81,6 +81,14 @@ namespace Shmup.Core.Simulation
         public int optionIndex;
     }
 
+    [Serializable]
+    [DataContract]
+    public sealed class ContinueDecisionData
+    {
+        [DataMember(Order = 0)]
+        public int simulationTick;
+    }
+
     /// <summary>
     /// Serializer-facing checkpoint for the beginning of a room or biome boss.
     /// Presentation owns file persistence. Exporting during a stage deliberately
@@ -91,10 +99,10 @@ namespace Shmup.Core.Simulation
     public sealed class RunSuspendData
     {
         /// <summary>
-        /// Schema 24 records post-midboss outcome state and the stage-overhaul
-        /// simulation contract. Earlier boundaries are intentionally rejected.
+        /// Schema 25 records REQ-104 continue decisions and final-wager state.
+        /// Schema 24 and other incompatible boundaries are rejected.
         /// </summary>
-        public const int CurrentSchemaVersion = 24;
+        public const int CurrentSchemaVersion = 25;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -296,5 +304,50 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 61)]
         public int lastMidbossOutcome;
+
+        [DataMember(Order = 62)]
+        public int continueStock;
+
+        [DataMember(Order = 63)]
+        public int initialContinueStock;
+
+        [DataMember(Order = 64)]
+        public int continuesUsed;
+
+        [DataMember(Order = 65)]
+        public bool isDailyRun;
+
+        [DataMember(Order = 66)]
+        public bool finalWagerCommitted;
+
+        [DataMember(Order = 67)]
+        public int finalWagerShieldGranted;
+
+        [DataMember(Order = 68)]
+        public int finalWagerOverflowConverted;
+
+        [DataMember(Order = 69)]
+        public long finalWagerScoreBonus;
+
+        [DataMember(Order = 70)]
+        public int simulationTicksElapsed;
+
+        [DataMember(Order = 71)]
+        public ContinueDecisionData[] continueDecisions;
+
+        [DataMember(Order = 72)]
+        public int continueMaximumStock;
+
+        [DataMember(Order = 73)]
+        public long continueFirstPurchasePrice;
+
+        [DataMember(Order = 74)]
+        public long continuePurchasePriceIncrease;
+
+        [DataMember(Order = 75)]
+        public int finalWagerShieldCap;
+
+        [DataMember(Order = 76)]
+        public long continueOverflowScoreBonus;
     }
 }

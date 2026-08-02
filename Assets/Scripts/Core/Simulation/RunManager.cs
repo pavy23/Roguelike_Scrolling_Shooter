@@ -657,15 +657,30 @@ namespace Shmup.Core.Simulation
         public const int DefaultStartStageIndex = 1;
 
         public RunConfig(
-            int startStageIndex = DefaultStartStageIndex)
+            int startStageIndex = DefaultStartStageIndex,
+            bool isDailyRun = false,
+            int initialContinueStock = 0,
+            ContinueEconomyConfig continueEconomy = null)
         {
             if (startStageIndex < 1)
                 throw new ArgumentOutOfRangeException(
                     nameof(startStageIndex));
+            ContinueEconomyConfig resolvedEconomy =
+                continueEconomy ?? ContinueEconomyConfig.CreateDefault();
+            if (initialContinueStock < 0
+                || initialContinueStock > resolvedEconomy.MaximumStock)
+                throw new ArgumentOutOfRangeException(
+                    nameof(initialContinueStock));
             StartStageIndex = startStageIndex;
+            IsDailyRun = isDailyRun;
+            InitialContinueStock = initialContinueStock;
+            ContinueEconomy = resolvedEconomy;
         }
 
         public int StartStageIndex { get; }
+        public bool IsDailyRun { get; }
+        public int InitialContinueStock { get; }
+        public ContinueEconomyConfig ContinueEconomy { get; }
 
         public static RunConfig CreateDefault()
         {
@@ -687,7 +702,8 @@ namespace Shmup.Core.Simulation
             long grazeCount,
             long bombsUsed,
             int stagesCleared,
-            int roomsCleared)
+            int roomsCleared,
+            int continuesUsed)
         {
             ShotsFired = shotsFired;
             ShotsHit = shotsHit;
@@ -697,6 +713,7 @@ namespace Shmup.Core.Simulation
             BombsUsed = bombsUsed;
             StagesCleared = stagesCleared;
             RoomsCleared = roomsCleared;
+            ContinuesUsed = continuesUsed;
         }
 
         public long ShotsFired { get; }
@@ -708,6 +725,7 @@ namespace Shmup.Core.Simulation
         public int StagesCleared { get; }
         public int BiomesCleared => StagesCleared;
         public int RoomsCleared { get; }
+        public int ContinuesUsed { get; }
     }
 
     /// <summary>
@@ -922,6 +940,11 @@ namespace Shmup.Core.Simulation
         readonly List<RewardDecision> _rewardDecisionHistory;
         readonly ReadOnlyCollection<RewardDecision>
             _rewardDecisionHistoryView;
+        readonly List<ContinueDecision> _continueDecisionHistory;
+        readonly ReadOnlyCollection<ContinueDecision>
+            _continueDecisionHistoryView;
+        readonly ContinueEconomyConfig _continueEconomy;
+        readonly bool _isDailyRun;
         MetaState _metaState;
         ColossalBossKind _lastColossalBossAtRunStart;
         BattleContinuityState _pendingBattleContinuity;
@@ -937,6 +960,14 @@ namespace Shmup.Core.Simulation
         long _completedBombsUsed;
         int _stagesCleared;
         int _roomsCleared;
+        int _continuesUsed;
+        int _continueStock;
+        int _initialContinueStockAtRunStart;
+        int _simulationTicksElapsed;
+        bool _finalWagerCommitted;
+        int _finalWagerShieldGranted;
+        int _finalWagerOverflowConverted;
+        long _finalWagerScoreBonus;
         bool _activateHeld;
         int[] _stageStartPowerUpLevels;
         int[] _stageStartPowerUpProgress;
@@ -966,6 +997,7 @@ namespace Shmup.Core.Simulation
         int _stageStartPlayerSpeedNumerator;
         int _stageStartPlayerSpeedDenominator;
         int _stageStartCapsuleBalance;
+        int _stageStartSimulationTicksElapsed;
         BattleContinuityState _stageStartContinuity;
         int _rewardSelectionsRemaining;
         int _rewardSelectionRound;
@@ -1147,10 +1179,26 @@ namespace Shmup.Core.Simulation
                 battleContent,
                 powerUpGauge)
         {
-            _metaState = metaState
-                ?? throw new ArgumentNullException(nameof(metaState));
-            _lastColossalBossAtRunStart =
-                metaState.LastColossalBoss;
+            AttachMetaState(metaState);
+        }
+
+        public RunManager(
+            ulong runSeed,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            MetaState metaState,
+            RunConfig runConfig)
+            : this(
+                runSeed,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                runConfig)
+        {
+            AttachMetaState(metaState);
         }
 
         /// <summary>
@@ -1239,10 +1287,7 @@ namespace Shmup.Core.Simulation
                 powerUpGauge,
                 progressionConfig)
         {
-            _metaState = metaState
-                ?? throw new ArgumentNullException(nameof(metaState));
-            _lastColossalBossAtRunStart =
-                metaState.LastColossalBoss;
+            AttachMetaState(metaState);
         }
 
         public RunManager(
@@ -1320,10 +1365,7 @@ namespace Shmup.Core.Simulation
                 difficultyMultiplierNumerator,
                 difficultyMultiplierDenominator)
         {
-            _metaState = metaState
-                ?? throw new ArgumentNullException(nameof(metaState));
-            SetLastColossalBossAtRunStart(
-                metaState.LastColossalBoss);
+            AttachMetaState(metaState);
         }
 
         /// <summary>
@@ -1560,6 +1602,12 @@ namespace Shmup.Core.Simulation
                     $"Start stage must be in 1.."
                     + $"{_progressionConfig.BiomeCount}.");
             _startStageIndex = resolvedRunConfig.StartStageIndex;
+            _isDailyRun = resolvedRunConfig.IsDailyRun;
+            _continueEconomy = resolvedRunConfig.ContinueEconomy;
+            _continueStock = _isDailyRun
+                ? 0
+                : resolvedRunConfig.InitialContinueStock;
+            _initialContinueStockAtRunStart = _continueStock;
             _devFlagsActive =
                 _startStageIndex != RunConfig.DefaultStartStageIndex
                 || _battleConfig.PlayerInvulnerable;
@@ -1656,6 +1704,10 @@ namespace Shmup.Core.Simulation
                 new List<RewardDecision>();
             _rewardDecisionHistoryView =
                 _rewardDecisionHistory.AsReadOnly();
+            _continueDecisionHistory =
+                new List<ContinueDecision>();
+            _continueDecisionHistoryView =
+                _continueDecisionHistory.AsReadOnly();
             _battleConfig.MainShotBaseDamage =
                 _battleContent.PlayerWeapon.BaseDamage;
             _battleConfig.FireIntervalTicks =
@@ -1801,6 +1853,31 @@ namespace Shmup.Core.Simulation
         /// active. Presentation must treat such a run as cheat-marked.
         /// </summary>
         public bool DevFlagsActive => _devFlagsActive;
+        public bool IsDailyRun => _isDailyRun;
+        public int ContinueStock => _continueStock;
+        public int InitialContinueStockAtRunStart =>
+            _initialContinueStockAtRunStart;
+        public ContinueEconomyConfig ContinueEconomy => _continueEconomy;
+        public bool FinalWagerCommitted => _finalWagerCommitted;
+        public int FinalWagerShieldGranted => _finalWagerShieldGranted;
+        public int FinalWagerOverflowConverted =>
+            _finalWagerOverflowConverted;
+        public long FinalWagerScoreBonus => _finalWagerScoreBonus;
+        public int SimulationTicksElapsed => _simulationTicksElapsed;
+        public ContinueAvailability ContinueAvailability
+        {
+            get
+            {
+                ContinueRejectionReason reason =
+                    GetContinueRejectionReason();
+                return new ContinueAvailability(
+                    reason == ContinueRejectionReason.None,
+                    reason,
+                    _continueStock);
+            }
+        }
+        public IReadOnlyList<ContinueDecision> ContinueDecisionHistory =>
+            _continueDecisionHistoryView;
         public ShipDefinition Ship => _ship;
         public int DifficultyMultiplierNumerator =>
             _difficultyMultiplierNumerator;
@@ -1823,7 +1900,8 @@ namespace Shmup.Core.Simulation
                     AddSaturated(_completedGrazeCount, battle.GrazeCount),
                     AddSaturated(_completedBombsUsed, battle.BombsUsed),
                     _stagesCleared,
-                    _roomsCleared);
+                    _roomsCleared,
+                    _continuesUsed);
             }
         }
         public int Difficulty { get; private set; }
@@ -2023,6 +2101,21 @@ namespace Shmup.Core.Simulation
                             decision.OptionIndex
                     };
             }
+            var continueDecisions =
+                new ContinueDecisionData[
+                    _continueDecisionHistory.Count];
+            for (int i = 0;
+                i < _continueDecisionHistory.Count;
+                i++)
+            {
+                continueDecisions[i] =
+                    new ContinueDecisionData
+                    {
+                        simulationTick =
+                            _continueDecisionHistory[i]
+                                .SimulationTick
+                    };
+            }
 
             var data = new RunSuspendData
             {
@@ -2111,7 +2204,31 @@ namespace Shmup.Core.Simulation
                 capsuleBalance =
                     _stageStartCapsuleBalance,
                 rewardDecisions =
-                    rewardDecisions
+                    rewardDecisions,
+                continueStock = _continueStock,
+                initialContinueStock =
+                    _initialContinueStockAtRunStart,
+                continuesUsed = _continuesUsed,
+                isDailyRun = _isDailyRun,
+                finalWagerCommitted = _finalWagerCommitted,
+                finalWagerShieldGranted =
+                    _finalWagerShieldGranted,
+                finalWagerOverflowConverted =
+                    _finalWagerOverflowConverted,
+                finalWagerScoreBonus = _finalWagerScoreBonus,
+                simulationTicksElapsed =
+                    _stageStartSimulationTicksElapsed,
+                continueDecisions = continueDecisions,
+                continueMaximumStock =
+                    _continueEconomy.MaximumStock,
+                continueFirstPurchasePrice =
+                    _continueEconomy.FirstPurchasePrice,
+                continuePurchasePriceIncrease =
+                    _continueEconomy.PurchasePriceIncrease,
+                finalWagerShieldCap =
+                    _continueEconomy.FinalWagerShieldCap,
+                continueOverflowScoreBonus =
+                    _continueEconomy.OverflowScoreBonus
             };
             SaveDataIntegrity.Seal(data);
             return data;
@@ -2219,7 +2336,17 @@ namespace Shmup.Core.Simulation
                     data.biomeCount,
                     data.roomsPerBiome),
                 false,
-                resolvedContracts);
+                resolvedContracts,
+                new RunConfig(
+                    RunConfig.DefaultStartStageIndex,
+                    data.isDailyRun,
+                    data.continueStock,
+                    new ContinueEconomyConfig(
+                        data.continueMaximumStock,
+                        data.continueFirstPurchasePrice,
+                        data.continuePurchasePriceIncrease,
+                        data.finalWagerShieldCap,
+                        data.continueOverflowScoreBonus)));
 
             manager._runSeed = data.runSeed;
             manager.RunNumber = data.runNumber;
@@ -2259,6 +2386,22 @@ namespace Shmup.Core.Simulation
             manager._completedBombsUsed = data.bombsUsed;
             manager._stagesCleared = data.stagesCleared;
             manager._roomsCleared = data.roomsCleared;
+            manager._continueStock = data.continueStock;
+            manager._initialContinueStockAtRunStart =
+                data.initialContinueStock;
+            manager._continuesUsed = data.continuesUsed;
+            manager._finalWagerCommitted =
+                data.finalWagerCommitted;
+            manager._finalWagerShieldGranted =
+                data.finalWagerShieldGranted;
+            manager._finalWagerOverflowConverted =
+                data.finalWagerOverflowConverted;
+            manager._finalWagerScoreBonus =
+                data.finalWagerScoreBonus;
+            manager._simulationTicksElapsed =
+                data.simulationTicksElapsed;
+            manager.RestoreContinueDecisionHistory(
+                data.continueDecisions);
             manager.CurrentPrimaryWeaponFamily =
                 data.primaryWeaponFamily < 0
                     ? PrimaryWeaponFamilyFor(
@@ -2343,6 +2486,9 @@ namespace Shmup.Core.Simulation
         {
             if (State != RunState.Playing)
                 return;
+            if (_simulationTicksElapsed == int.MaxValue)
+                throw new InvalidOperationException(
+                    "A run cannot exceed Int32.MaxValue simulation ticks.");
 
             bool activatePressed = input.Activate && !_activateHeld;
             _activateHeld = input.Activate;
@@ -2350,6 +2496,7 @@ namespace Shmup.Core.Simulation
             InputCommand battleInput =
                 input.WithActivate(activatePressed);
             Battle.Step(in battleInput);
+            _simulationTicksElapsed++;
             if (Battle is BattleSim weaponBattle
                 && weaponBattle.EquippedPrimaryWeaponFamily
                     != CurrentPrimaryWeaponFamily)
@@ -2428,6 +2575,51 @@ namespace Shmup.Core.Simulation
                 else
                     AdvanceAfterRegularSection();
             }
+        }
+
+        public bool TryUseContinue()
+        {
+            return TryUseContinue(out _);
+        }
+
+        public bool TryUseContinue(
+            out ContinueRejectionReason rejectionReason)
+        {
+            rejectionReason = GetContinueRejectionReason();
+            if (rejectionReason != ContinueRejectionReason.None)
+                return false;
+
+            _continueStock--;
+            _metaState?.ConsumeContinues(1);
+            if (_continuesUsed == int.MaxValue)
+                throw new InvalidOperationException(
+                    "The continue counter is exhausted.");
+            _continuesUsed++;
+            _continueDecisionHistory.Add(
+                new ContinueDecision(_simulationTicksElapsed));
+
+            AccumulateCurrentBattleStatisticsOnly();
+            _completedStageScore = 0;
+            ResetToBasicPowerState();
+            _pendingBattleContinuity = null;
+            _activateHeld = false;
+            State = RunState.Playing;
+            BuildCurrentStage();
+            rejectionReason = ContinueRejectionReason.None;
+            return true;
+        }
+
+        ContinueRejectionReason GetContinueRejectionReason()
+        {
+            if (State != RunState.RunOver)
+                return ContinueRejectionReason.RunNotOver;
+            if (_isDailyRun)
+                return ContinueRejectionReason.DailyRun;
+            if (_finalWagerCommitted)
+                return ContinueRejectionReason.FinalWagerCommitted;
+            if (_continueStock <= 0)
+                return ContinueRejectionReason.NoStock;
+            return ContinueRejectionReason.None;
         }
 
         void BeginRewardSelection(RewardSelectionKind kind)
@@ -3495,6 +3687,83 @@ namespace Shmup.Core.Simulation
                 : StageRouteSection.Default;
         }
 
+        void AttachMetaState(MetaState metaState)
+        {
+            _metaState = metaState
+                ?? throw new ArgumentNullException(nameof(metaState));
+            _lastColossalBossAtRunStart = metaState.LastColossalBoss;
+            _continueStock = _isDailyRun
+                ? 0
+                : metaState.ContinueStock;
+            if (_continueStock > _continueEconomy.MaximumStock)
+                throw new ArgumentException(
+                    "Meta continue stock exceeds the run economy cap.",
+                    nameof(metaState));
+            _initialContinueStockAtRunStart = _continueStock;
+        }
+
+        void AccumulateCurrentBattleStatisticsOnly()
+        {
+            BattleStatistics battle = Battle.Statistics;
+            _completedShotsFired = AddSaturated(
+                _completedShotsFired,
+                battle.ShotsFired);
+            _completedShotsHit = AddSaturated(
+                _completedShotsHit,
+                battle.ShotsHit);
+            _completedKills = AddSaturated(
+                _completedKills,
+                battle.Kills);
+            _completedCapsulesCollected = AddSaturated(
+                _completedCapsulesCollected,
+                battle.CapsulesCollected);
+            _completedGrazeCount = AddSaturated(
+                _completedGrazeCount,
+                battle.GrazeCount);
+            _completedBombsUsed = AddSaturated(
+                _completedBombsUsed,
+                battle.BombsUsed);
+        }
+
+        void ResetToBasicPowerState()
+        {
+            PowerUpGauge = PowerUpGauge.CreateEmptyWithSameRules();
+            ApplyShipStartingLevels(PowerUpGauge);
+            ApplyContractActivationBans(ActiveContract);
+            Array.Clear(
+                _rewardAcquisitionCounts,
+                0,
+                _rewardAcquisitionCounts.Length);
+            ModifierStacks = new BattleModifierStackSet(
+                _rewards.MaxCombinedModifierCost);
+
+            _battleConfig.MaxShieldStock = _initialMaxShieldStock;
+            _battleConfig.MaxBombStock = _initialMaxBombStock;
+            _battleConfig.StartingBombStock = _initialBombStock;
+            _battleConfig.CapsuleDropWeightReduction =
+                _initialCapsuleDropWeightReduction;
+            _battleConfig.FireIntervalTicks = _initialFireIntervalTicks;
+            _battleConfig.MainShotBaseDamage = _initialMainShotBaseDamage;
+            _battleConfig.PlayerSpeedNumerator =
+                _initialPlayerSpeedNumerator;
+            _battleConfig.PlayerSpeedDenominator =
+                _initialPlayerSpeedDenominator;
+
+            CurrentPrimaryWeaponFamily =
+                PrimaryWeaponFamilyFor(_ship.WeaponType);
+            ApplyPrimaryWeaponFamilyProfile(
+                CurrentPrimaryWeaponDefinition
+                ?? throw new InvalidOperationException(
+                    "The ship's primary weapon family is unavailable."));
+            CurrentMissileFamily =
+                _ship.StartingMissileFamily
+                ?? _battleContent.DefaultMissileFamily;
+            CurrentOptionFormation =
+                _ship.StartingOptionFormation
+                ?? _battleContent.DefaultOptionFormation;
+            ResetShieldStockForNewRun();
+        }
+
         public void Restart(ulong newRunSeed)
         {
             if (State != RunState.RunOver)
@@ -3542,6 +3811,7 @@ namespace Shmup.Core.Simulation
             _routeChoiceHistory.Clear();
             _contractChoiceHistory.Clear();
             _rewardDecisionHistory.Clear();
+            _continueDecisionHistory.Clear();
             ActiveContract = null;
             ResetContractBattleConfig();
             _completedStageScore = 0;
@@ -3553,6 +3823,18 @@ namespace Shmup.Core.Simulation
             _completedBombsUsed = 0;
             _stagesCleared = 0;
             _roomsCleared = 0;
+            _continuesUsed = 0;
+            _continueStock = _isDailyRun
+                ? 0
+                : _metaState == null
+                    ? _continueStock
+                    : _metaState.ContinueStock;
+            _initialContinueStockAtRunStart = _continueStock;
+            _simulationTicksElapsed = 0;
+            _finalWagerCommitted = false;
+            _finalWagerShieldGranted = 0;
+            _finalWagerOverflowConverted = 0;
+            _finalWagerScoreBonus = 0;
             _pendingBattleContinuity = null;
             _capsuleBalance = 0;
             Array.Clear(
@@ -3610,9 +3892,46 @@ namespace Shmup.Core.Simulation
         {
             CaptureBattleContinuity();
             AccumulateCompletedBattle();
+            if (!IsHiddenBiome && BiomeIndex == FinalStageIndex)
+                CommitFinalWager();
             IsBiomeBoss = true;
             State = RunState.Playing;
             BuildCurrentStage();
+        }
+
+        void CommitFinalWager()
+        {
+            if (_finalWagerCommitted)
+                throw new InvalidOperationException(
+                    "The final wager was already committed.");
+
+            _finalWagerCommitted = true;
+            int wagered = _continueStock;
+            _continueStock = 0;
+            _metaState?.ConsumeContinues(wagered);
+
+            int shieldCap =
+                _continueEconomy.FinalWagerShieldCap;
+            if (wagered > 0)
+            {
+                _battleConfig.MaxShieldStock = Math.Max(
+                    _battleConfig.MaxShieldStock,
+                    shieldCap);
+            }
+            int shieldRoom = Math.Max(
+                0,
+                shieldCap - _battleConfig.StartingShieldStock);
+            _finalWagerShieldGranted = Math.Min(wagered, shieldRoom);
+            _battleConfig.StartingShieldStock +=
+                _finalWagerShieldGranted;
+            _finalWagerOverflowConverted =
+                wagered - _finalWagerShieldGranted;
+            _finalWagerScoreBonus = MultiplySaturated(
+                _continueEconomy.OverflowScoreBonus,
+                _finalWagerOverflowConverted);
+            _completedStageScore = AddSaturated(
+                _completedStageScore,
+                _finalWagerScoreBonus);
         }
 
         void AdvanceBiome()
@@ -3689,6 +4008,15 @@ namespace Shmup.Core.Simulation
             return left > long.MaxValue - right
                 ? long.MaxValue
                 : left + right;
+        }
+
+        static long MultiplySaturated(long value, int multiplier)
+        {
+            if (value == 0 || multiplier == 0)
+                return 0;
+            return value > long.MaxValue / multiplier
+                ? long.MaxValue
+                : value * multiplier;
         }
 
         static int SaturatingAdd(int value, long amount)
@@ -3992,6 +4320,72 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     "Suspend capsule balance cannot be negative.",
                     nameof(data));
+            ContinueEconomyConfig continueEconomy;
+            try
+            {
+                continueEconomy = new ContinueEconomyConfig(
+                    data.continueMaximumStock,
+                    data.continueFirstPurchasePrice,
+                    data.continuePurchasePriceIncrease,
+                    data.finalWagerShieldCap,
+                    data.continueOverflowScoreBonus);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                throw new ArgumentException(
+                    "Suspend continue economy is invalid.",
+                    nameof(data));
+            }
+            if (data.continueStock < 0
+                || data.continueStock > continueEconomy.MaximumStock
+                || data.initialContinueStock < 0
+                || data.initialContinueStock > continueEconomy.MaximumStock
+                || data.continuesUsed < 0
+                || data.simulationTicksElapsed < 0
+                || data.finalWagerShieldGranted < 0
+                || data.finalWagerOverflowConverted < 0
+                || data.finalWagerScoreBonus < 0
+                || data.continueDecisions == null
+                || data.continueDecisions.Length != data.continuesUsed)
+                throw new ArgumentException(
+                    "Suspend continue state is invalid.",
+                    nameof(data));
+            long wagered = (long)data.finalWagerShieldGranted
+                + data.finalWagerOverflowConverted;
+            if ((!data.finalWagerCommitted
+                    && (wagered != 0
+                        || data.finalWagerScoreBonus != 0))
+                || (data.finalWagerCommitted
+                    && data.continueStock != 0)
+                || data.initialContinueStock
+                    != data.continueStock
+                        + data.continuesUsed
+                        + wagered
+                || data.finalWagerScoreBonus
+                    != MultiplySaturated(
+                        continueEconomy.OverflowScoreBonus,
+                        data.finalWagerOverflowConverted)
+                || (data.isDailyRun
+                    && (data.initialContinueStock != 0
+                        || data.continuesUsed != 0
+                        || wagered != 0)))
+                throw new ArgumentException(
+                    "Suspend continue accounting is invalid.",
+                    nameof(data));
+            int previousContinueTick = 0;
+            for (int i = 0; i < data.continueDecisions.Length; i++)
+            {
+                ContinueDecisionData decision =
+                    data.continueDecisions[i];
+                if (decision == null
+                    || decision.simulationTick <= previousContinueTick
+                    || decision.simulationTick
+                        > data.simulationTicksElapsed)
+                    throw new ArgumentException(
+                        "Suspend continue decision history is invalid.",
+                        nameof(data));
+                previousContinueTick = decision.simulationTick;
+            }
             if (!string.Equals(
                 data.shipId,
                 ship.Id,
@@ -4499,6 +4893,28 @@ namespace Shmup.Core.Simulation
                     == RewardDecisionKind.Select)
                     selected = true;
                 _rewardDecisionHistory.Add(decision);
+            }
+        }
+
+        void RestoreContinueDecisionHistory(
+            ContinueDecisionData[] decisions)
+        {
+            _continueDecisionHistory.Clear();
+            ContinueDecisionData[] source =
+                decisions ?? Array.Empty<ContinueDecisionData>();
+            int previousTick = 0;
+            for (int i = 0; i < source.Length; i++)
+            {
+                ContinueDecisionData data = source[i];
+                if (data == null
+                    || data.simulationTick <= previousTick
+                    || data.simulationTick
+                        > _simulationTicksElapsed)
+                    throw new ArgumentException(
+                        "Suspend continue decision history is invalid.");
+                _continueDecisionHistory.Add(
+                    new ContinueDecision(data.simulationTick));
+                previousTick = data.simulationTick;
             }
         }
 
@@ -5462,6 +5878,8 @@ namespace Shmup.Core.Simulation
                 _completedCapsulesCollected;
             _stageStartCapsuleBalance =
                 _capsuleBalance;
+            _stageStartSimulationTicksElapsed =
+                _simulationTicksElapsed;
             _stageStartGrazeCount = _completedGrazeCount;
             _stageStartBombsUsed = _completedBombsUsed;
             _stageStartStagesCleared = _stagesCleared;

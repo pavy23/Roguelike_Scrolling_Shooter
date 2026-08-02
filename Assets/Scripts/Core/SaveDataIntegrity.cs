@@ -31,7 +31,8 @@ namespace Shmup.Core
                 || source.schemaVersion == 20
                 || source.schemaVersion == 21
                 || source.schemaVersion == 22
-                || source.schemaVersion == 23)
+                || source.schemaVersion == 23
+                || source.schemaVersion == 24)
                 throw Unsupported(
                     "run suspend",
                     source.schemaVersion);
@@ -253,7 +254,50 @@ namespace Shmup.Core
                 lastMidbossOutcome =
                     source.schemaVersion >= 24
                         ? source.lastMidbossOutcome
-                        : 0
+                        : 0,
+                continueStock = source.schemaVersion >= 25
+                    ? source.continueStock
+                    : 0,
+                initialContinueStock = source.schemaVersion >= 25
+                    ? source.initialContinueStock
+                    : 0,
+                continuesUsed = source.schemaVersion >= 25
+                    ? source.continuesUsed
+                    : 0,
+                isDailyRun = source.schemaVersion >= 25
+                    && source.isDailyRun,
+                finalWagerCommitted = source.schemaVersion >= 25
+                    && source.finalWagerCommitted,
+                finalWagerShieldGranted = source.schemaVersion >= 25
+                    ? source.finalWagerShieldGranted
+                    : 0,
+                finalWagerOverflowConverted = source.schemaVersion >= 25
+                    ? source.finalWagerOverflowConverted
+                    : 0,
+                finalWagerScoreBonus = source.schemaVersion >= 25
+                    ? source.finalWagerScoreBonus
+                    : 0,
+                simulationTicksElapsed = source.schemaVersion >= 25
+                    ? source.simulationTicksElapsed
+                    : 0,
+                continueDecisions = source.schemaVersion >= 25
+                    ? Clone(source.continueDecisions)
+                    : Array.Empty<ContinueDecisionData>(),
+                continueMaximumStock = source.schemaVersion >= 25
+                    ? source.continueMaximumStock
+                    : ContinueEconomyConfig.DefaultMaximumStock,
+                continueFirstPurchasePrice = source.schemaVersion >= 25
+                    ? source.continueFirstPurchasePrice
+                    : ContinueEconomyConfig.DefaultFirstPurchasePrice,
+                continuePurchasePriceIncrease = source.schemaVersion >= 25
+                    ? source.continuePurchasePriceIncrease
+                    : ContinueEconomyConfig.DefaultPurchasePriceIncrease,
+                finalWagerShieldCap = source.schemaVersion >= 25
+                    ? source.finalWagerShieldCap
+                    : ContinueEconomyConfig.DefaultFinalWagerShieldCap,
+                continueOverflowScoreBonus = source.schemaVersion >= 25
+                    ? source.continueOverflowScoreBonus
+                    : ContinueEconomyConfig.DefaultOverflowScoreBonus
             };
             Seal(migrated);
             return migrated;
@@ -280,7 +324,8 @@ namespace Shmup.Core
                 || source.schemaVersion == 18
                 || source.schemaVersion == 19
                 || source.schemaVersion == 20
-                || source.schemaVersion == 21)
+                || source.schemaVersion == 21
+                || source.schemaVersion == 22)
                 throw Unsupported(
                     "input recording",
                     source.schemaVersion);
@@ -367,7 +412,30 @@ namespace Shmup.Core
                 rewardDecisions =
                     source.schemaVersion >= 13
                         ? Clone(source.rewardDecisions)
-                        : Array.Empty<RewardDecisionData>()
+                        : Array.Empty<RewardDecisionData>(),
+                initialContinueStock = source.schemaVersion >= 23
+                    ? source.initialContinueStock
+                    : 0,
+                isDailyRun = source.schemaVersion >= 23
+                    && source.isDailyRun,
+                continueDecisions = source.schemaVersion >= 23
+                    ? Clone(source.continueDecisions)
+                    : Array.Empty<ContinueDecisionData>(),
+                continueMaximumStock = source.schemaVersion >= 23
+                    ? source.continueMaximumStock
+                    : ContinueEconomyConfig.DefaultMaximumStock,
+                continueFirstPurchasePrice = source.schemaVersion >= 23
+                    ? source.continueFirstPurchasePrice
+                    : ContinueEconomyConfig.DefaultFirstPurchasePrice,
+                continuePurchasePriceIncrease = source.schemaVersion >= 23
+                    ? source.continuePurchasePriceIncrease
+                    : ContinueEconomyConfig.DefaultPurchasePriceIncrease,
+                finalWagerShieldCap = source.schemaVersion >= 23
+                    ? source.finalWagerShieldCap
+                    : ContinueEconomyConfig.DefaultFinalWagerShieldCap,
+                continueOverflowScoreBonus = source.schemaVersion >= 23
+                    ? source.continueOverflowScoreBonus
+                    : ContinueEconomyConfig.DefaultOverflowScoreBonus
             };
             Seal(migrated);
             return migrated;
@@ -380,6 +448,7 @@ namespace Shmup.Core
                 throw new ArgumentNullException(nameof(source));
             if (source.schemaVersion != 0
                 && source.schemaVersion != 1
+                && source.schemaVersion != 2
                 && source.schemaVersion
                     != MetaStateData.CurrentSchemaVersion)
             {
@@ -393,6 +462,12 @@ namespace Shmup.Core
             }
             if (source.schemaVersion == 1
                 && !HasValidLegacyMetaChecksum(source))
+            {
+                throw Corrupted(
+                    "Legacy meta state checksum is missing or invalid.");
+            }
+            if (source.schemaVersion == 2
+                && !HasValidMetaV2Checksum(source))
             {
                 throw Corrupted(
                     "Legacy meta state checksum is missing or invalid.");
@@ -412,6 +487,9 @@ namespace Shmup.Core
                 selectedShipId = source.selectedShipId,
                 lastColossalBoss = source.schemaVersion >= 2
                     ? source.lastColossalBoss
+                    : 0,
+                continueStock = source.schemaVersion >= 3
+                    ? source.continueStock
                     : 0
             };
             Seal(migrated);
@@ -548,6 +626,21 @@ namespace Shmup.Core
             if (includeBombsUsed)
                 hash.Add(data.bombsUsed);
             hash.Add(data.lastMidbossOutcome);
+            hash.Add(data.continueStock);
+            hash.Add(data.initialContinueStock);
+            hash.Add(data.continuesUsed);
+            hash.Add(data.isDailyRun);
+            hash.Add(data.finalWagerCommitted);
+            hash.Add(data.finalWagerShieldGranted);
+            hash.Add(data.finalWagerOverflowConverted);
+            hash.Add(data.finalWagerScoreBonus);
+            hash.Add(data.simulationTicksElapsed);
+            Add(ref hash, data.continueDecisions);
+            hash.Add(data.continueMaximumStock);
+            hash.Add(data.continueFirstPurchasePrice);
+            hash.Add(data.continuePurchasePriceIncrease);
+            hash.Add(data.finalWagerShieldCap);
+            hash.Add(data.continueOverflowScoreBonus);
             return hash.ToString();
         }
 
@@ -908,6 +1001,14 @@ namespace Shmup.Core
             hash.Add(data.lastColossalBossAtRunStart);
             Add(ref hash, data.contractChoices);
             Add(ref hash, data.rewardDecisions);
+            hash.Add(data.initialContinueStock);
+            hash.Add(data.isDailyRun);
+            Add(ref hash, data.continueDecisions);
+            hash.Add(data.continueMaximumStock);
+            hash.Add(data.continueFirstPurchasePrice);
+            hash.Add(data.continuePurchasePriceIncrease);
+            hash.Add(data.finalWagerShieldCap);
+            hash.Add(data.continueOverflowScoreBonus);
             return hash.ToString();
         }
 
@@ -1309,7 +1410,22 @@ namespace Shmup.Core
             hash.Add(data.unlockedShipIds);
             hash.Add(data.selectedShipId);
             hash.Add(data.lastColossalBoss);
+            hash.Add(data.continueStock);
             return hash.ToString();
+        }
+
+        static bool HasValidMetaV2Checksum(MetaStateData data)
+        {
+            var hash = new CanonicalHash("MetaStateData");
+            hash.Add(data.schemaVersion);
+            hash.Add(data.totalCurrency);
+            hash.Add(data.unlockedShipIds);
+            hash.Add(data.selectedShipId);
+            hash.Add(data.lastColossalBoss);
+            return string.Equals(
+                data.checksum,
+                hash.ToString(),
+                StringComparison.Ordinal);
         }
 
         static bool HasValidLegacyMetaChecksum(
@@ -1439,6 +1555,25 @@ namespace Shmup.Core
                 hash.Add(decision.selectionKind);
                 hash.Add(decision.decisionKind);
                 hash.Add(decision.optionIndex);
+            }
+        }
+
+        static void Add(
+            ref CanonicalHash hash,
+            ContinueDecisionData[] decisions)
+        {
+            if (decisions == null)
+            {
+                hash.Add(-1);
+                return;
+            }
+            hash.Add(decisions.Length);
+            for (int i = 0; i < decisions.Length; i++)
+            {
+                ContinueDecisionData decision = decisions[i];
+                hash.Add(decision != null);
+                if (decision != null)
+                    hash.Add(decision.simulationTick);
             }
         }
 
@@ -1636,6 +1771,25 @@ namespace Shmup.Core
                             item.decisionKind,
                         optionIndex =
                             item.optionIndex
+                    };
+            }
+            return copy;
+        }
+
+        static ContinueDecisionData[] Clone(
+            ContinueDecisionData[] source)
+        {
+            if (source == null)
+                return null;
+            var copy = new ContinueDecisionData[source.Length];
+            for (int i = 0; i < source.Length; i++)
+            {
+                ContinueDecisionData item = source[i];
+                copy[i] = item == null
+                    ? null
+                    : new ContinueDecisionData
+                    {
+                        simulationTick = item.simulationTick
                     };
             }
             return copy;
