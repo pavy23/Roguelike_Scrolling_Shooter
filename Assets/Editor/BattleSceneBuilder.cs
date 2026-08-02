@@ -926,6 +926,14 @@ namespace Shmup.EditorTools
             AddBossSprite("boss_fortress", LoadExternalSprite("boss_fortress.png", "boss_fortress"));
             AddBossSprite("boss_storm", LoadExternalSprite("boss_storm.png", "boss_storm"));
             AddBossSprite("boss_core", LoadExternalSprite("boss_core.png", "boss_core"));
+            // St5+ 순환 보스 — 아트는 art-input에 이미 있었는데 등록이 빠져 있었다.
+            // 등록이 없으면 ApplyBossSprite가 best=null로 이전 스프라이트를 유지해
+            // 브루드마더/리바이어던이 stage1 아트로 나온다.
+            // (boss_core_prism은 의도적으로 미등록 — prefix 매칭으로 boss_core를 물려받는다.)
+            AddBossSprite("boss_broodmother",
+                LoadExternalSprite("boss_broodmother.png", "boss_broodmother"));
+            AddBossSprite("boss_leviathan",
+                LoadExternalSprite("boss_leviathan.png", "boss_leviathan"));
             SetStringArray(director, "_bossSpritePrefixes", bossPrefixes.ToArray());
             SetReferenceArray(director, "_bossSprites", bossSprites.ToArray());
 
