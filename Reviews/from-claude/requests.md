@@ -1544,3 +1544,42 @@ St2 fortress 보스전에서 탄막을 뚫는 중인데 우상단 배율이 `×1
 **Presentation 쪽은 이상 없음**: 그레이즈 피드백(작은 스파크)은
 `BattleDirector.cs`의 `SimEventType.GrazeScored`에서 정상적으로 나오고,
 HUD 배율은 `MultiplierChanged`를 그대로 표시한다. 뷰가 아니라 규칙 문제다.
+
+---
+
+## REQ-123 (CODEX, 중간): dev 전용 히든 바이옴 직행 — 거대 보스 2종이 사실상 검증 불가
+
+**발단**: 미지의 구역 거대 보스 2종(`boss_leviathan`/`boss_broodmother`)의 스프라이트가
+`BattleSceneBuilder`에 등록되지 않아 **엉뚱한 그림(boss_stage1)으로 나오고 있었다**
+(2026-08-03 수정, 커밋 3aa2067). 고친 뒤 인게임 확인을 시도했는데 **도달 자체가 막혔다.**
+
+**왜 도달이 안 되나** (`RunManager`):
+
+- THE UNCHARTED는 `BeginFinalContractSelection`에서만 후보에 오른다 — **5바이옴 완주 후
+  최종 항로 선택 1회뿐**이다. 중간 항로(`GenerateContractOptions`)는
+  `DestinationKind != NextStage`를 전부 걸러내므로 절대 나오지 않는다.
+- 게다가 히든 조건 2/3(elite≥3 | noHit≥2 | rare≥1)까지 동시에 충족해야 한다.
+
+**실측**: headless(god 모드, F9/F10 파워업, F11 가속)로 완주를 시도했으나
+**St2 hive 보스에서 게임 내 시간 107분(tick 384,060)을 태우고도 못 넘겼다.**
+기체를 y=0에 고정한 채로는 코어만 때리는데 코어가 무적이라 진행이 0이다 —
+build27~30 테스터 보고서의 "hive 촉수 시간 부족"과 같은 벽이고, 원인은 시간이 아니라
+**세로 위치**였다(전함 함미 오판과 같은 계열의 함정).
+
+**요청**: dev 전용 진입점을 하나 만들어 달라. 릴리스에서는 꺼져 있어야 한다.
+
+- `RunManager`에 히든 바이옴에서 런을 시작하는 dev 경로 (예: `StartRun(..., bool startInHiddenBiome)`
+  또는 기존 `TryBeginHiddenBiome`을 dev 플래그로 강제 호출할 수 있는 훅)
+- 조건 카운터를 dev에서 주입할 수 있으면 더 좋다 (elite/noHit/rare 초기값)
+- Presentation 쪽 배선(`DevArgs`에 `--uncharted=1` 추가 → `?uncharted=1`)은 내가 한다.
+  이미 `--god`/`--stage=N`이 `RunManager.DevFlagsActive`로 제출을 막는 경로가 있으니
+  같은 취급이면 된다.
+
+**왜 필요한가**: 지금 구조에서는 거대 보스 2종의 **아트·파츠·3막 연출·격파 처리 전부가
+사실상 검증 불가**다. 위 스프라이트 버그도 그래서 오래 살아남았다. 완주 1회에
+게임 내 100분 이상이 드는 콘텐츠는 회귀 검증 대상에서 조용히 빠진다.
+
+**곁가지 관측 (GROK/사람 참고)**: hive 보스는 기체가 촉수 밴드 밖에 있으면 진행이
+완전히 0이 된다. 무적 코어만 때리는 상태가 화면상 "데미지가 들어가는 것처럼" 보여
+(피격 플래시는 난다) 플레이어가 자기가 헛치는 줄 모른다. 무적 파츠 피격 시 피드백을
+분리하는 것이 맞아 보인다 — 이건 내(Presentation) 소관이라 별도로 본다.

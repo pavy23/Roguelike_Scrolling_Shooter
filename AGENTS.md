@@ -87,3 +87,41 @@
 - 다른 에이전트 소유 영역에 변경이 필요하면 `Reviews/from-<자기이름>/requests.md`에 요청을 적는다 (무엇이, 왜, 제안 시그니처).
 - 요청을 받은 에이전트는 구현 후 같은 파일에 응답을 덧붙이고, 완료 항목은 체크한다.
 - 코드 리뷰 코멘트도 같은 폴더 구조를 쓴다.
+
+## 9. 호출 규약 — 누구를 어떤 채널로 부르는가 (2026-08-03 사람 지시로 추가)
+
+§2가 **누가 무엇을 소유하는지**를 정했다면, 이 절은 **실제로 어떻게 부르는지**를 정한다.
+채널이 문서에 없어 그동안 오케스트레이터가 타 역할을 직접 겸하는 일이 반복됐다.
+
+| 역할 | 호출 채널 | 작업 디렉토리 | 세션 이어가기 |
+|---|---|---|---|
+| **CODEX** (SIMULATION) | MCP `mcp__codex__codex` | `cwd`를 `..\wt-sim`으로 **반드시 지정** | `mcp__codex__codex-reply` |
+| **GROK** (CONTENT) | MCP `mcp__grok__grok_run` | `cwd`를 `..\wt-content`로 **반드시 지정** | `session_id` 부여 → `resume_id` |
+| **GEMINI** (QA) | 전용 MCP 없음 — 사람이 Gemini CLI로 직접 구동 | `..\wt-qa` | 해당 없음 |
+| **RENDERER / PLAYTESTER** | Claude Agent 서브에이전트 (**사람이 명시 요청할 때만** 스폰) | `main` | `SendMessage` |
+| **긴급 구조/2차 진단** | 스킬 `codex:rescue` | 현재 세션 | 스킬이 관리 |
+
+**cwd 지정이 규칙인 이유**: `grok_run`과 `codex`는 **파일 수정 권한을 가진 에이전트**를 띄운다.
+cwd를 안 주면 `main`에서 남의 소유 영역을 고칠 수 있다 — §2 위반이 사고로 일어난다.
+
+**호출 프롬프트에 반드시 포함할 것** (없으면 상대가 규칙을 모른 채 작업한다):
+1. 소유 경계 — "너는 `Assets/Scripts/Core/`만 만진다" 같은 한 줄
+2. 검증 명령 — CODEX는 `dotnet test`, GROK은 JSON 스키마 검증
+3. 커밋 규칙 — 자기 브랜치에만 커밋, 태스크 완료 = 커밋까지
+4. REQ 번호와 `Reviews/from-claude/requests.md`의 해당 절 (맥락을 통째로 붙여넣지 말고 참조로)
+
+**샌드박스/승인 정책**: `mcp__codex__codex`는 `sandbox: workspace-write`, `approval-policy: never`가
+기본 조합이다. `danger-full-access`는 쓰지 않는다.
+
+**Unity 조작 채널**: `unity` CLI(1.0.0-beta.3, 최신)가 표준이다 —
+빌드 `unity build --target WebGL --execute-method ...`, 테스트 `unity test --mode EditMode`,
+에디터 명령 `unity run --command ...`. **`Unity.exe -batchmode` 직접 호출은 금지**
+(파이프라인 우회 + `ProjectSettings.asset`의 `runInBackground`를 뒤집는 부작용).
+`unity list`/`unity command`와 unity-mcp 계열(`capture_game_view` 등)은 **에디터가 떠 있어야** 붙는다.
+
+**공유 PC 제약** (사람이 해제할 때까지): 화면에 창을 띄우는 도구를 쓰지 않는다 —
+검증은 headless 브라우저 + 파일 스크린샷, 빌드는 배치, 데스크톱 빌드 실행·브라우저 자동화 금지.
+
+**결과 수령 후**: 산출물을 `Reviews/from-<호출된-에이전트>/`에 기록하고, 커밋은 §2대로
+오케스트레이터가 검수 후 수행한다(Co-Authored-By 표기). 오케스트레이터 세션이 없을 때는
+호출자가 대행하되 커밋 메시지에 그 사실을 남긴다.
