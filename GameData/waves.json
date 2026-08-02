@@ -8793,11 +8793,11 @@
       "hp": 19600,
       "halfWidth": 10.0,
       "halfHeight": 5.0,
-      "holdX": 14.0,
+      "holdX": 12.0,
       "parts": [
         {
           "id": "engine",
-          "offsetX": 8.0,
+          "offsetX": 4.0,
           "offsetY": 0.0,
           "halfWidth": 2.5,
           "halfHeight": 2.0,
