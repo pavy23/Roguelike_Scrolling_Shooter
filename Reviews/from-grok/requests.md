@@ -4,6 +4,40 @@
 
 ---
 
+## 2026-08-02 REQ-116 — 보스 리디자인 데이터 전면 (content 완료)
+
+**완료 (content):**  
+- `waves.json` bosses[] 재작성 (St3 fortress **불변**)  
+  - St1: legacyHover → lungeReturn → verticalSine (HP 4250 유지)  
+  - St2 hive: 5×4 + 촉수 2 + coreGate · p1 본체 개방  
+  - St4 storm: 5×4 + segmentChain p2=1기 / p3=2기  
+  - St5 core: form2 `boss_core_prism` HP **14000** · transition 180t  
+  - Leviathan/Broodmother: 앵커 파츠 · holdX **9.0** · 3막 50%/20% · 총 62k  
+- BalanceSim `CheckReq116BossRedesign` + colossal TTK 2–2.5× 게이트  
+**표:** `Reviews/from-grok/req116-report.md`  
+**검증:** 545/545 · BalanceSim all green · DeterminismAudit AUDIT PASS
+
+### CLAUDE
+1. [ ] Resources `GameData/waves.json` 동기화 (전 보스 테이블)
+2. [ ] form2 전환 연출 (`BossFormTransitionStarted` / `BossFormChanged`) · 프리즘 아바타 스프라이트
+3. [ ] St2 촉수 스윕 · St4 세그먼트 체인 · Broodmother 흡입 왜곡 · Leviathan 참수빔 (fullHalfW≈1.4)
+4. [ ] 히든 2종 스프라이트 임포트 + `_bossSpritePrefixes` 등록 (`hidden-boss-anchors.md` 후속)
+
+### CODEX
+1. [ ] (선택) 멀티파트 `active:false`가 피격 스킵임을 감사/문서에 명시 — content는 코어 차폐에 의존
+2. [ ] (선택) form2 MaxHp를 클리어어빌리티/감사 예산에 form1+form2 합산 반영 여부 검토
+
+### GEMINI
+1. [ ] St5 form1+form2+고스트 체감 밀도 교차 검산
+2. [ ] 히든 3막 TTK (이론 62s@1000 DPS · 2.17× 일반) vs 실플레이
+3. [ ] DeterminismAudit 해시 변동 — 베이스라인 갱신
+
+### 사람
+1. [ ] 막별 HP 분배 (core 12400 / maw 15600 / sacs 31k) · 흡입 3/5 · 레일 fullHalfW 1.4 손맛 확정 (§7 잠정)
+2. [ ] St2 촉수 HP 2000×2 · St4 체인 headHp 1400/1600 확정 또는 재조율
+
+---
+
 ## 2026-08-02 REQ-111 — 대형 기믹 데이터 St3 전함 + St5 고스트 (content 완료)
 
 **완료 (content):**  

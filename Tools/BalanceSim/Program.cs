@@ -14,7 +14,8 @@
 // 12) Capsule drops after magnet: expected recovery band (REQ-029).
 // 13) Boss redesign: TTK 22–32s @ 4-room avg biome DPS, full-power ≥6s, 3 phases, threat mono.
 // 14) REQ-034: missile families + option formations ST DPS / situation roles / combo gates.
-// 15) REQ-035: colossal bosses (parts sum/core TTK 100–120s, full ≥40s, brood spawn cap, parity).
+// 15) REQ-035/116: colossal bosses (parts sum/core, 3-act TTK 2–2.5× normal, brood spawn, parity).
+// 16) REQ-116: boss redesign tables (St1 move ladder, St2 tentacles, St4 chains, St5 form2).
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -201,17 +202,24 @@ static class Program
     const double BombKillExpClearRatioMax = 1.40; // bomb splash kills never reseed kill_explosion
     const double BombKillExpVsBaselineWarn = 5.0;
 
-    // REQ-035 colossal bosses (provisional §7).
-    // Hidden biome after 5 biomes: mid firepower ~560 DPS → total-HP TTK ~110s.
-    // Raw full-power 1880 melts total HP in ~33s; multi-part retarget tax keeps
-    // effective ST near ~1500 → floor ≥40s. Gate uses effective full DPS.
+    // REQ-035/116 colossal bosses (provisional §7).
+    // Hidden after 5 biomes: endgame reach ~1000 DPS → total TTK ~62s ≈ 2.2–2.5×
+    // normal boss mid band (~25s). Multipart retarget tax → full-eff ~1500, floor ≥40s.
     const int ColossalTotalHp = 62_000;
-    const int ColossalCoreHp = 25_000;
-    const double ColossalExpectedDps = 560.0;
+    const int ColossalCoreHp = 12_400; // act3 20% of 62000
+    const double ColossalExpectedDps = 1000.0;
     const double ColossalFullPowerEffectiveDps = 1500.0;
-    const double ColossalTtkExpectedMin = 100.0;
-    const double ColossalTtkExpectedMax = 120.0;
+    const double ColossalTtkExpectedMin = 50.0;
+    const double ColossalTtkExpectedMax = 70.0;
     const double ColossalTtkFullMin = 40.0;
+    // REQ-116: 3-act fight TTK / mean normal-boss TTK band.
+    const double ColossalVsNormalTtkMinRatio = 2.0;
+    const double ColossalVsNormalTtkMaxRatio = 2.5;
+    const double ColossalHoldX = 9.0;
+    const double ColossalLeviHalfW = 9.8;
+    const double ColossalLeviHalfH = 10.0;
+    const double ColossalBroodHalfW = 9.25;
+    const double ColossalBroodHalfH = 9.3;
     // Soft parity: min-path (gates+core) TTK ratio between the two bosses.
     const double ColossalMinPathParityMaxRatio = 1.35;
     // Broodmother spawn: 3 sacs × interval 480t (8s) → concurrent peak over fight.
@@ -223,6 +231,16 @@ static class Program
         SegmentStageGenerator.LeviathanBossId,
         SegmentStageGenerator.BroodmotherBossId,
     };
+
+    // REQ-116 standard redesign anchors (provisional §7).
+    const double HiveHalfW = 5.0;
+    const double HiveHalfH = 4.0;
+    const double StormHalfW = 5.0;
+    const double StormHalfH = 4.0;
+    const int CoreForm1Hp = 28_000;
+    const int CoreForm2Hp = 14_000;
+    const int CoreForm2TransitionTicks = 180;
+    const double CoreForm2TotalVsForm1MaxRatio = 1.60; // 42000/28000 = 1.5
 
     static int Main()
     {
@@ -315,6 +333,8 @@ static class Program
         failures += CheckReq103bGimmickAxes(data, generator);
         Console.WriteLine();
         failures += CheckReq111WarshipAndGhost(data, generator);
+        Console.WriteLine();
+        failures += CheckReq116BossRedesign(data, generator);
 
         Console.WriteLine();
         if (failures == 0)
@@ -4893,10 +4913,12 @@ static class Program
             "threat mono · equal-split thresholds " +
             $"(standard bosses only; multipart/warship skipped → REQ-035/111)");
 
-        if (bosses.Count != expectedStandard || expectedStandard < 4)
+        // REQ-116: hive is multipart (tentacles); fortress is warship — standard
+        // body-only bosses may drop to 3 (stage1/storm/core).
+        if (bosses.Count != expectedStandard || expectedStandard < 3)
         {
             Console.WriteLine(
-                $"FAIL boss: expected {expectedStandard} standard bosses (≥4), " +
+                $"FAIL boss: expected {expectedStandard} standard bosses (≥3), " +
                 $"got {bosses.Count} (catalog total {allBosses.Count}).");
             return 1;
         }
@@ -5197,10 +5219,48 @@ static class Program
                 Console.WriteLine("  parity: min-path within soft band.");
             }
 
+            // REQ-116: 3-act TTK vs mean normal boss (exclude tutorial stage1).
+            double normalSum = 0.0;
+            int normalN = 0;
+            for (int i = 0; i < BossExpectedDps.Length; i++)
+            {
+                string bid = BossExpectedDps[i].Id;
+                if (string.Equals(bid, "boss_stage1", StringComparison.Ordinal))
+                    continue;
+                if (!byId.TryGetValue(bid, out StageBossTemplate nb))
+                    continue;
+                int fightHp = nb.MaxHp;
+                if (nb.Form2 != null)
+                    fightHp += nb.Form2.MaxHp;
+                normalSum += fightHp / BossExpectedDps[i].ExpectedDps;
+                normalN++;
+            }
+            if (normalN > 0)
+            {
+                double meanNormal = normalSum / normalN;
+                double colTtk = ColossalTotalHp / ColossalExpectedDps;
+                double vs = colTtk / meanNormal;
+                Console.WriteLine(
+                    $"  3-act vs normal: colossal TTK={colTtk:F1}s @ "
+                    + $"{ColossalExpectedDps:F0} DPS · mean normal fight TTK="
+                    + $"{meanNormal:F1}s · ratio={vs:F2} "
+                    + $"(gate [{ColossalVsNormalTtkMinRatio:F1},"
+                    + $"{ColossalVsNormalTtkMaxRatio:F1}])");
+                if (vs < ColossalVsNormalTtkMinRatio
+                    || vs > ColossalVsNormalTtkMaxRatio)
+                {
+                    Console.WriteLine(
+                        $"FAIL colossal: 3-act/normal TTK ratio {vs:F2} outside "
+                        + $"[{ColossalVsNormalTtkMinRatio:F1},"
+                        + $"{ColossalVsNormalTtkMaxRatio:F1}].");
+                    failures++;
+                }
+            }
+
             // Feel-difficulty note (subtractive vs additive) — always printed.
             Console.WriteLine(
                 "  feel: leviathan is subtractive (kill shield→core min path); " +
-                "broodmother is additive (sac gates + tentacle regen 20s + " +
+                "broodmother is additive (sac gates + tentacle regen + " +
                 "3× spawn). Same total/core HP keeps ST melt parity; " +
                 "time-pressure favors leviathan if player stalls on brood.");
         }
@@ -5346,6 +5406,67 @@ static class Program
             Console.WriteLine(
                 $"WARN colossal: '{id}' theme={boss.ThemeId} — prefer null theme " +
                 "so ThemeIds list stays 5 biomes; exclusivity needs Core filter.");
+        }
+
+        // REQ-116: 3-act phase gates at 50% / 20% remaining.
+        if (boss.Phases == null || boss.Phases.Count != 3)
+        {
+            Console.WriteLine(
+                $"FAIL colossal: '{id}' needs exactly 3 phases (3-act), " +
+                $"got {boss.Phases?.Count ?? 0}.");
+            failures++;
+        }
+        else
+        {
+            BossPhase p1 = boss.Phases[1];
+            BossPhase p2 = boss.Phases[2];
+            bool p1ok = p1.HasHpThreshold
+                && p1.HpThresholdNumerator * 2 == p1.HpThresholdDenominator;
+            bool p2ok = p2.HasHpThreshold
+                && p2.HpThresholdNumerator * 5 == p2.HpThresholdDenominator;
+            Console.WriteLine(
+                $"    act gates: p1={p1.HpThresholdNumerator}/{p1.HpThresholdDenominator} "
+                + $"p2={p2.HpThresholdNumerator}/{p2.HpThresholdDenominator} "
+                + $"[{(p1ok && p2ok ? "50/20 OK" : "BAD")}]");
+            if (!p1ok || !p2ok)
+            {
+                Console.WriteLine(
+                    $"FAIL colossal: '{id}' act thresholds must be 1/2 then 1/5 "
+                    + "(50% / 20% remaining).");
+                failures++;
+            }
+
+            // Entrance valley: act1 fire cadence slower than act2 (breathing room).
+            if (boss.Phases[0].FireIntervalTicks <= boss.Phases[1].FireIntervalTicks)
+            {
+                Console.WriteLine(
+                    $"FAIL colossal: '{id}' act1 fireInterval "
+                    + $"{boss.Phases[0].FireIntervalTicks} must exceed act2 "
+                    + $"{boss.Phases[1].FireIntervalTicks} (entrance valley).");
+                failures++;
+            }
+        }
+
+        // HoldX / halfExtents from hidden-boss-anchors.md
+        double holdWu = boss.HoldX / (double)SimSpace.SubUnitsPerWorldUnit;
+        double halfW = boss.HalfWidth / (double)SimSpace.SubUnitsPerWorldUnit;
+        double halfH = boss.HalfHeight / (double)SimSpace.SubUnitsPerWorldUnit;
+        bool isLevi = string.Equals(
+            id, SegmentStageGenerator.LeviathanBossId, StringComparison.Ordinal);
+        double wantHold = ColossalHoldX;
+        double wantW = isLevi ? ColossalLeviHalfW : ColossalBroodHalfW;
+        double wantH = isLevi ? ColossalLeviHalfH : ColossalBroodHalfH;
+        Console.WriteLine(
+            $"    layout holdX={holdWu:F2} half={halfW:F2}×{halfH:F2} "
+            + $"(want {wantHold:F1} / {wantW:F2}×{wantH:F2})");
+        if (Math.Abs(holdWu - wantHold) > 0.05
+            || Math.Abs(halfW - wantW) > 0.05
+            || Math.Abs(halfH - wantH) > 0.05)
+        {
+            Console.WriteLine(
+                $"FAIL colossal: '{id}' hold/halfExtents mismatch anchors "
+                + $"(hold {holdWu:F2} half {halfW:F2}×{halfH:F2}).");
+            failures++;
         }
 
         // Broodmother-specific spawn pressure.
@@ -9219,6 +9340,438 @@ static class Program
             Console.WriteLine("PASS: REQ-111 warship TTK + ghost review.");
         else
             Console.WriteLine($"FAIL: REQ-111 ({failures} issues).");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-116 boss redesign structural gates (provisional §7):
+    /// St1 movement ladder, St2 tentacles 5×4, St4 segment chains, St5 form2,
+    /// fortress untouched, colossal part vocab, St5 ghost+form2 density.
+    /// </summary>
+    static int CheckReq116BossRedesign(
+        GameDataSet data,
+        SegmentStageGenerator generator)
+    {
+        int failures = 0;
+        Console.WriteLine("REQ-116 boss redesign tables (provisional §7):");
+
+        var byId = new Dictionary<string, StageBossTemplate>(StringComparer.Ordinal);
+        IReadOnlyList<StageBossTemplate> bosses = data.StageGeneration.Bosses;
+        for (int i = 0; i < bosses.Count; i++)
+            byId[bosses[i].BossId] = bosses[i];
+
+        // --- St1: movement ladder only (size/HP locked) ---
+        if (!byId.TryGetValue("boss_stage1", out StageBossTemplate s1))
+        {
+            Console.WriteLine("FAIL 116: missing boss_stage1.");
+            failures++;
+        }
+        else
+        {
+            if (s1.MaxHp != BossStage1Hp)
+            {
+                Console.WriteLine(
+                    $"FAIL 116: stage1 hp {s1.MaxHp} != {BossStage1Hp}.");
+                failures++;
+            }
+            if (s1.Phases == null || s1.Phases.Count != 3)
+            {
+                Console.WriteLine("FAIL 116: stage1 needs 3 phases.");
+                failures++;
+            }
+            else
+            {
+                BossMovementPattern m0 = s1.Phases[0].MovementPattern;
+                BossMovementPattern m1 = s1.Phases[1].MovementPattern;
+                BossMovementPattern m2 = s1.Phases[2].MovementPattern;
+                Console.WriteLine(
+                    $"  stage1 move: {m0} → {m1} → {m2}");
+                if (m0 != BossMovementPattern.LegacyHover
+                    || m1 != BossMovementPattern.LungeReturn
+                    || m2 != BossMovementPattern.VerticalSine)
+                {
+                    Console.WriteLine(
+                        "FAIL 116: stage1 move must be "
+                        + "legacyHover → lungeReturn → verticalSine.");
+                    failures++;
+                }
+            }
+        }
+
+        // --- St2 hive: 5×4 + 2 tentacles + phase-gated core ---
+        if (!byId.TryGetValue("boss_hive", out StageBossTemplate hive))
+        {
+            Console.WriteLine("FAIL 116: missing boss_hive.");
+            failures++;
+        }
+        else
+        {
+            double hw = hive.HalfWidth / (double)SimSpace.SubUnitsPerWorldUnit;
+            double hh = hive.HalfHeight / (double)SimSpace.SubUnitsPerWorldUnit;
+            int tentacles = 0;
+            bool hasCore = false;
+            if (hive.Parts != null)
+            {
+                for (int i = 0; i < hive.Parts.Count; i++)
+                {
+                    BossPartDefinition p = hive.Parts[i];
+                    if (p.PartId != null
+                        && p.PartId.StartsWith("tentacle_", StringComparison.Ordinal))
+                        tentacles++;
+                    if (p.IsCore)
+                        hasCore = true;
+                }
+            }
+            Console.WriteLine(
+                $"  hive half={hw:F1}×{hh:F1} parts={hive.Parts?.Count ?? 0} "
+                + $"tentacles={tentacles} core={hasCore}");
+            if (Math.Abs(hw - HiveHalfW) > 0.05 || Math.Abs(hh - HiveHalfH) > 0.05)
+            {
+                Console.WriteLine(
+                    $"FAIL 116: hive halfExtents {hw:F1}×{hh:F1} "
+                    + $"!= {HiveHalfW}×{HiveHalfH}.");
+                failures++;
+            }
+            if (tentacles != 2 || !hasCore)
+            {
+                Console.WriteLine(
+                    "FAIL 116: hive needs 2 tentacle parts + core.");
+                failures++;
+            }
+            if (hive.Phases == null || hive.Phases.Count != 3
+                || !hive.Phases[1].HasHpThreshold
+                || !hive.Phases[2].HasHpThreshold)
+            {
+                Console.WriteLine(
+                    "FAIL 116: hive needs 3 phases with explicit HP thresholds.");
+                failures++;
+            }
+            // p0 uses Legacy coreGate (tentacles) so destroy→expose cannot soft-lock.
+            if (hive.Phases != null
+                && hive.Phases.Count > 0
+                && hive.Phases[0].PartVulnerability
+                    != BossPartVulnerability.Legacy)
+            {
+                Console.WriteLine(
+                    "FAIL 116: hive p0 must use legacy vulnerability "
+                    + "(core gated by tentacles).");
+                failures++;
+            }
+        }
+
+        // --- St3 fortress untouched ---
+        if (!byId.TryGetValue("boss_fortress", out StageBossTemplate fort)
+            || fort.WarshipEncounter == null
+            || fort.MaxHp != WarshipTotalHp)
+        {
+            Console.WriteLine(
+                "FAIL 116: boss_fortress warship must remain locked "
+                + $"(hp {WarshipTotalHp}).");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine(
+                $"  fortress warship locked hp={fort.MaxHp} "
+                + $"parts={fort.Parts.Count} (unchanged)");
+        }
+
+        // --- St4 storm: 5×4 + chain summon ladder ---
+        if (!byId.TryGetValue("boss_storm", out StageBossTemplate storm))
+        {
+            Console.WriteLine("FAIL 116: missing boss_storm.");
+            failures++;
+        }
+        else
+        {
+            double hw = storm.HalfWidth / (double)SimSpace.SubUnitsPerWorldUnit;
+            double hh = storm.HalfHeight / (double)SimSpace.SubUnitsPerWorldUnit;
+            int p1Chains = storm.Phases != null && storm.Phases.Count > 1
+                && storm.Phases[1].SegmentChain != null
+                ? storm.Phases[1].SegmentChain.SummonCount
+                : 0;
+            int p2Chains = storm.Phases != null && storm.Phases.Count > 2
+                && storm.Phases[2].SegmentChain != null
+                ? storm.Phases[2].SegmentChain.SummonCount
+                : 0;
+            int p1Segs = storm.Phases?[1].SegmentChain?.SegmentCount ?? 0;
+            int p2Segs = storm.Phases?[2].SegmentChain?.SegmentCount ?? 0;
+            Console.WriteLine(
+                $"  storm half={hw:F1}×{hh:F1} chain p1={p1Chains}×{p1Segs}seg "
+                + $"p2={p2Chains}×{p2Segs}seg");
+            if (Math.Abs(hw - StormHalfW) > 0.05 || Math.Abs(hh - StormHalfH) > 0.05)
+            {
+                Console.WriteLine(
+                    $"FAIL 116: storm halfExtents {hw:F1}×{hh:F1} "
+                    + $"!= {StormHalfW}×{StormHalfH}.");
+                failures++;
+            }
+            if (p1Chains != 1 || p2Chains != 2)
+            {
+                Console.WriteLine(
+                    $"FAIL 116: storm chain summonCount p1=1 p2=2 "
+                    + $"(got {p1Chains}/{p2Chains}).");
+                failures++;
+            }
+            if (p1Segs < 6 || p1Segs > 8 || p2Segs < 6 || p2Segs > 8)
+            {
+                Console.WriteLine(
+                    $"FAIL 116: storm segmentCount must be 6–8 "
+                    + $"(got {p1Segs}/{p2Segs}).");
+                failures++;
+            }
+            if (storm.Phases != null
+                && storm.Phases.Count > 0
+                && storm.Phases[0].SegmentChain != null)
+            {
+                Console.WriteLine(
+                    "FAIL 116: storm p0 must not summon chains (phase2+ only).");
+                failures++;
+            }
+        }
+
+        // --- St5 core: form1 28000 + form2 prism 14000 ---
+        if (!byId.TryGetValue("boss_core", out StageBossTemplate core))
+        {
+            Console.WriteLine("FAIL 116: missing boss_core.");
+            failures++;
+        }
+        else
+        {
+            BossFormDefinition form2 = core.Form2;
+            Console.WriteLine(
+                $"  core form1={core.MaxHp} form2="
+                + $"{(form2 == null ? "null" : form2.FormId + "/" + form2.MaxHp)} "
+                + $"transition={form2?.TransitionTicks ?? 0}t");
+            if (core.MaxHp != CoreForm1Hp)
+            {
+                Console.WriteLine(
+                    $"FAIL 116: core form1 hp {core.MaxHp} != {CoreForm1Hp}.");
+                failures++;
+            }
+            if (form2 == null)
+            {
+                Console.WriteLine("FAIL 116: core missing form2 prism avatar.");
+                failures++;
+            }
+            else
+            {
+                if (form2.MaxHp != CoreForm2Hp)
+                {
+                    Console.WriteLine(
+                        $"FAIL 116: form2 hp {form2.MaxHp} != {CoreForm2Hp}.");
+                    failures++;
+                }
+                if (form2.TransitionTicks != CoreForm2TransitionTicks)
+                {
+                    Console.WriteLine(
+                        $"FAIL 116: form2 transition {form2.TransitionTicks} "
+                        + $"!= {CoreForm2TransitionTicks}.");
+                    failures++;
+                }
+                if (form2.Phases == null || form2.Phases.Count < 1)
+                {
+                    Console.WriteLine("FAIL 116: form2 needs phase set.");
+                    failures++;
+                }
+                else
+                {
+                    bool hasPrism = false;
+                    bool hasRadial = false;
+                    for (int p = 0; p < form2.Phases.Count; p++)
+                    {
+                        BossPhase ph = form2.Phases[p];
+                        if (ph.SignaturePattern == BossSignaturePattern.PrismCore
+                            || ph.LaserAttack != null)
+                            hasPrism = true;
+                        if (ph.FirePattern == BossFirePattern.Radial
+                            || ph.FirePattern == BossFirePattern.Spiral)
+                            hasRadial = true;
+                    }
+                    if (!hasPrism || !hasRadial)
+                    {
+                        Console.WriteLine(
+                            "FAIL 116: form2 needs prism beam + radial/spiral mix.");
+                        failures++;
+                    }
+                }
+
+                double totalRatio =
+                    (core.MaxHp + form2.MaxHp) / (double)core.MaxHp;
+                Console.WriteLine(
+                    $"  core total fight hp={core.MaxHp + form2.MaxHp} "
+                    + $"ratio vs form1={totalRatio:F2} "
+                    + $"(max {CoreForm2TotalVsForm1MaxRatio:F2})");
+                if (totalRatio > CoreForm2TotalVsForm1MaxRatio)
+                {
+                    Console.WriteLine(
+                        $"FAIL 116: form1+form2 ratio {totalRatio:F2} > "
+                        + $"{CoreForm2TotalVsForm1MaxRatio:F2}.");
+                    failures++;
+                }
+
+                // Ghost density with form2 window: ghost share still bonus-only.
+                double stage5Reach = 1050.0;
+                for (int i = 0; i < BossExpectedDps.Length; i++)
+                    if (string.Equals(
+                            BossExpectedDps[i].Id,
+                            "boss_core",
+                            StringComparison.Ordinal))
+                        stage5Reach = BossExpectedDps[i].ExpectedDps;
+                double form1Ttk = core.MaxHp / stage5Reach;
+                double form2Ttk = form2.MaxHp / stage5Reach;
+                double transitionSec =
+                    form2.TransitionTicks / (double)SimSpace.TicksPerSecond;
+                double fightTtk = form1Ttk + form2Ttk + transitionSec;
+                GhostReplayConfig ghost = GhostReplayConfig.CreateDefault();
+                WeaponDefinition main = data.BattleContent.FindWeapon(
+                    PowerUpSlot.MainShot);
+                if (main != null)
+                {
+                    int ghostDmg = Damage.Compute(
+                        main.BaseDamage, GhostFixedWeaponLevel);
+                    double ghostDps = ghostDmg
+                        * (double)SimSpace.TicksPerSecond
+                        / Math.Max(1, GhostFireIntervalTicks);
+                    double ghostShare = ghostDps / stage5Reach;
+                    Console.WriteLine(
+                        $"  St5 ghost+form2: fightTTK≈{fightTtk:F1}s "
+                        + $"(f1={form1Ttk:F1}+f2={form2Ttk:F1}"
+                        + $"+tr={transitionSec:F1}) "
+                        + $"ghostShare={ghostShare:P1}");
+                    if (ghostShare > GhostMaxShareOfStage5Reach)
+                    {
+                        Console.WriteLine(
+                            $"FAIL 116: ghost share {ghostShare:P1} exceeds "
+                            + "bonus-only cap during form2 window.");
+                        failures++;
+                    }
+                }
+            }
+        }
+
+        // --- Leviathan part vocab from anchors ---
+        if (byId.TryGetValue(
+                SegmentStageGenerator.LeviathanBossId,
+                out StageBossTemplate levi))
+        {
+            string[] required =
+            {
+                "turret_spine", "head_cowl", "blade_limb_upper",
+                "blade_limb_lower", "rear_engine", "lower_launcher",
+                "shield_emitter", "railgun", "rib_gate", "core",
+            };
+            int missing = 0;
+            for (int r = 0; r < required.Length; r++)
+            {
+                bool found = false;
+                for (int i = 0; i < levi.Parts.Count; i++)
+                    if (string.Equals(
+                            levi.Parts[i].PartId,
+                            required[r],
+                            StringComparison.Ordinal))
+                    {
+                        found = true;
+                        break;
+                    }
+                if (!found)
+                    missing++;
+            }
+            bool hasRailLaser = false;
+            for (int p = 0; p < levi.Phases.Count; p++)
+            {
+                for (int r = 0; r < levi.Phases[p].PartRules.Count; r++)
+                {
+                    BossPhasePartRule rule = levi.Phases[p].PartRules[r];
+                    if (string.Equals(rule.PartId, "railgun", StringComparison.Ordinal)
+                        && rule.Attack != null
+                        && rule.Attack.Type == BossPartAttackType.Laser
+                        && rule.Attack.LaserAttack != null)
+                    {
+                        double fullW = rule.Attack.LaserAttack.FullHalfWidth
+                            / (double)SimSpace.SubUnitsPerWorldUnit;
+                        double endX = rule.Attack.LaserAttack.EndOffsetX
+                            / (double)SimSpace.SubUnitsPerWorldUnit;
+                        hasRailLaser = fullW >= 1.2 && fullW <= 1.6 && endX <= -25.0;
+                        Console.WriteLine(
+                            $"  leviathan railgun beam fullHalfW={fullW:F2} "
+                            + $"endOffsetX={endX:F1}");
+                    }
+                }
+            }
+            Console.WriteLine(
+                $"  leviathan parts={levi.Parts.Count} missingRequired={missing} "
+                + $"railLaser={(hasRailLaser ? "OK" : "BAD")}");
+            if (missing > 0 || !hasRailLaser)
+            {
+                Console.WriteLine(
+                    "FAIL 116: leviathan missing anchor parts or "
+                    + "railgun fullHalfWidth 1.2–1.6 / endOffset ≤ -25.");
+                failures++;
+            }
+        }
+
+        // --- Broodmother suction + regen ---
+        if (byId.TryGetValue(
+                SegmentStageGenerator.BroodmotherBossId,
+                out StageBossTemplate brood))
+        {
+            int regenParts = 0;
+            int sacs = 0;
+            bool hasSuction = false;
+            for (int i = 0; i < brood.Parts.Count; i++)
+            {
+                BossPartDefinition p = brood.Parts[i];
+                if (p.RegenerationTicks > 0)
+                    regenParts++;
+                if (p.Attack != null
+                    && p.Attack.Type == BossPartAttackType.SpawnEnemy)
+                    sacs++;
+            }
+            for (int p = 0; p < brood.Phases.Count; p++)
+            {
+                for (int r = 0; r < brood.Phases[p].PartRules.Count; r++)
+                {
+                    BossPhasePartRule rule = brood.Phases[p].PartRules[r];
+                    if (rule.Attack != null
+                        && rule.Attack.Type == BossPartAttackType.Suction
+                        && rule.Attack.EffectMaxSpeedNumerator > 0)
+                        hasSuction = true;
+                }
+            }
+            Console.WriteLine(
+                $"  broodmother parts={brood.Parts.Count} regen={regenParts} "
+                + $"sacs={sacs} suction={(hasSuction ? "OK" : "BAD")}");
+            if (regenParts < 2 || sacs < 3 || !hasSuction)
+            {
+                Console.WriteLine(
+                    "FAIL 116: broodmother needs ≥2 regen tentacles, "
+                    + "3 sacs, and suction with effectMaxSpeed.");
+                failures++;
+            }
+        }
+
+        // Smoke: generate still works for all stage bosses.
+        try
+        {
+            for (int stage = 1; stage <= 5; stage++)
+                generator.Generate(0x116UL, stage, stage);
+            generator.GenerateColossalBoss(
+                0x116UL, 5, 5, ColossalBossKind.Leviathan);
+            generator.GenerateColossalBoss(
+                0x116UL, 5, 5, ColossalBossKind.Broodmother);
+            Console.WriteLine("  generate smoke: stages1–5 + colossal OK");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"FAIL 116: generate threw: {ex.Message}");
+            failures++;
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-116 boss redesign tables.");
+        else
+            Console.WriteLine($"FAIL: REQ-116 ({failures} issues).");
         return failures;
     }
 
