@@ -209,6 +209,57 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void ContinuousGrazeKeepsMaximumMultiplierPastDecayWindow()
+        {
+            BattleSimConfig config = CreateConfig();
+            ConfigureOneKillPerLevel(config);
+            config.GrazeExtraRadiusSubUnits = 128;
+            config.GrazeComboGaugeGain = 1;
+            config.EnemyBulletSpeedNumerator = 0;
+            config.EnemyBulletHalfWidth = 0;
+            config.EnemyBulletHalfHeight = 0;
+            config.MaxEnemyBullets = config.ComboDecayTicks + 2;
+            EnemyDefinition turret = Turret();
+            int maximumLevel = config.ComboMultipliers.Length - 1;
+            var continuity = new BattleContinuityState(
+                0,
+                0,
+                maximumLevel,
+                0,
+                0);
+            var sim = new BattleSim(
+                config,
+                new Rng(0x122UL),
+                Plan(
+                    new[]
+                    {
+                        new SpawnEvent(0, turret.Id, 0, 128)
+                    },
+                    config.ComboDecayTicks + 10),
+                Content(turret),
+                PowerUpGauge.CreateDefault(),
+                BattleModifierStackSet.FromFlags(
+                    BattleModifier.None,
+                    4),
+                continuity);
+
+            for (int tick = 0;
+                tick <= config.ComboDecayTicks;
+                tick++)
+                sim.Step(InputCommand.None);
+
+            AssertAll(() =>
+            {
+                Assert.AreEqual(maximumLevel, sim.MultiplierLevel);
+                Assert.AreEqual(0, sim.ComboGauge);
+                Assert.AreEqual(0, sim.TicksSinceLastKill);
+                Assert.Greater(
+                    sim.Statistics.GrazeCount,
+                    config.ComboDecayTicks);
+            });
+        }
+
+        [Test]
         public void PlayerHitResetsMultiplierAndGauge()
         {
             BattleSimConfig config = CreateConfig();

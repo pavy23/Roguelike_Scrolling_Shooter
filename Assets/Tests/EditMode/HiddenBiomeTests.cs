@@ -61,6 +61,45 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void DevConfigStartsInHiddenBiomeAndInjectsConditionCounters()
+        {
+            const ulong seed = 0x123UL;
+            var runConfig = new RunConfig(
+                startInHiddenBiome: true,
+                initialEliteRoomsCleared: 3,
+                initialNoHitBiomesCleared: 2,
+                initialRareEncountersCleared: 1);
+            var run = new RunManager(
+                seed,
+                new HiddenGenerator(EncounterType.Normal),
+                Config(),
+                Content(),
+                PowerUpGauge.CreateDefault(),
+                runConfig);
+
+            Assert.AreEqual(RunState.Playing, run.State);
+            Assert.IsTrue(run.DevFlagsActive);
+            Assert.IsTrue(run.IsHiddenBiome);
+            Assert.IsFalse(run.IsBiomeBoss);
+            Assert.AreEqual(run.BiomeCount, run.BiomeIndex);
+            Assert.AreEqual(1, run.RoomIndex);
+            Assert.AreEqual(
+                RunStageSection.HiddenOpening,
+                run.StageSection);
+            Assert.AreEqual(3, run.EliteRoomsCleared);
+            Assert.AreEqual(2, run.NoHitBiomesCleared);
+            Assert.AreEqual(1, run.RareEncountersCleared);
+            Assert.AreEqual(3, run.HiddenConditionCount);
+            Assert.AreEqual(
+                RunManager.SelectColossalBoss(
+                    seed,
+                    ColossalBossKind.None),
+                run.SelectedColossalBoss);
+            Assert.Throws<InvalidOperationException>(
+                () => run.ExportSuspendData());
+        }
+
+        [Test]
         public void QualifiedRunAddsTwoRoomsAndProducesPerfectClear()
         {
             MetaState meta = MetaState.CreateDefault(

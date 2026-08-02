@@ -48,6 +48,58 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void InvulnerablePartConsumesBulletAndPublishesBlockedHit()
+        {
+            BossPartDefinition gate = Part(
+                "shield", 0, 400, 10, false, null);
+            BossPartDefinition core = Part(
+                "core", 0, 0, 20, true, new[] { "shield" });
+            BattleSim sim = CreateBattle(
+                new[] { gate, core },
+                Array.Empty<EnemyDefinition>());
+            AdvanceBossEntry(sim);
+            BossPartState invulnerablePart = sim.BossParts[1];
+            var fire = new InputCommand(0, 0, true);
+            InputCommand none = InputCommand.None;
+            SimEvent blocked = default;
+            bool observed = false;
+
+            sim.Step(in fire);
+            for (int tick = 0; tick < 10 && !observed; tick++)
+            {
+                sim.Step(in none);
+                ReadOnlySpan<SimEvent> events = sim.EventsThisTick;
+                for (int i = 0; i < events.Length; i++)
+                {
+                    if (events[i].Type
+                        != SimEventType.BossPartHitBlocked)
+                        continue;
+                    blocked = events[i];
+                    observed = true;
+                    break;
+                }
+            }
+
+            Assert.IsTrue(observed);
+            Assert.AreEqual(
+                49,
+                (int)SimEventType.SegmentChainDestroyed);
+            Assert.AreEqual(
+                50,
+                (int)SimEventType.BossPartHitBlocked);
+            Assert.AreEqual(invulnerablePart.Hp, sim.BossParts[1].Hp);
+            Assert.AreEqual(0, CountPlayerBullets(sim));
+            Assert.AreEqual(0L, sim.Statistics.ShotsHit);
+            Assert.Greater(blocked.EntityId, 0);
+            Assert.AreEqual(
+                invulnerablePart.X - core.HalfWidth,
+                blocked.X);
+            Assert.AreEqual(invulnerablePart.Y, blocked.Y);
+            Assert.AreEqual(0, blocked.Arg);
+            Assert.AreEqual(invulnerablePart.PartId, blocked.PartId);
+        }
+
+        [Test]
         public void PhaseCanOpenPartsAndMultipartDamageEmitsBothHpPhaseEvents()
         {
             BossPartDefinition wing = Part(
@@ -596,6 +648,16 @@ namespace Shmup.Core.Tests
             for (int i = 0; i < sim.Bullets.Count; i++)
                 if (sim.Bullets[i].Faction
                     == BulletFaction.Enemy)
+                    count++;
+            return count;
+        }
+
+        static int CountPlayerBullets(BattleSim sim)
+        {
+            int count = 0;
+            for (int i = 0; i < sim.Bullets.Count; i++)
+                if (sim.Bullets[i].Faction
+                    == BulletFaction.Player)
                     count++;
             return count;
         }
