@@ -2941,11 +2941,21 @@ namespace Shmup.Core.Simulation
         {
             if (tick < 0)
                 throw new ArgumentOutOfRangeException(nameof(tick));
+            // A warship boss replaces forward stage travel with its own
+            // deterministic approach/hold movement. Keep the room scroll at the
+            // last pre-boss frame so the player/camera reference does not keep
+            // advancing when WARNING activates. This is especially important for
+            // RunManager's one-tick boss-only room, whose inherited ScrollX must
+            // remain continuous with the preceding combat room.
+            int scrollTick = _warshipDefinition != null
+                && tick >= _stageTotalTicks
+                    ? Math.Max(0, _stageTotalTicks - 1)
+                    : tick;
             if (!_usesSegmentScrollMultipliers)
                 return checked(
                     _scrollBaseOffset
                     + ComputeScrollX(
-                        tick,
+                        scrollTick,
                         _scrollSpeedNumerator,
                         _scrollSpeedDenominator));
             for (int i = 0; i < _segmentStartTicks.Length; i++)
@@ -2953,13 +2963,13 @@ namespace Shmup.Core.Simulation
                 int startTick = _segmentStartTicks[i];
                 int endTick = checked(
                     startTick + _stageSegments[i].LengthTicks);
-                if (tick > endTick)
+                if (scrollTick > endTick)
                     continue;
                 return checked(
                     _scrollBaseOffset
                     + _segmentScrollStartOffsets[i]
                     + ComputeScrollX(
-                        tick - startTick,
+                        scrollTick - startTick,
                         _segmentScrollSpeedNumerators[i],
                         _segmentScrollSpeedDenominators[i]));
             }
@@ -2967,7 +2977,7 @@ namespace Shmup.Core.Simulation
                 _scrollBaseOffset
                 + _stageScrollEndOffset
                 + ComputeScrollX(
-                    tick - _stageScrollTicks,
+                    scrollTick - _stageScrollTicks,
                     _scrollSpeedNumerator,
                     _scrollSpeedDenominator));
         }
