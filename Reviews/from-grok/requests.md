@@ -4,6 +4,30 @@
 
 ---
 
+## 2026-08-02 REQ-108 — 기체 해금 가격 상향 (content 완료)
+
+**완료 (content):**  
+- `ships.json` unlockCost **Interceptor 25,000 → 50,000** / **Bulwark 50,000 → 100,000** (REQ-106 안 A, 사람 승인)  
+- 컨티뉴 사다리(2000+1000×stock, max stock 8 → 단가 2k–9k, 풀 누적 44k) vs 50k/100k: **컨티뉴 &lt; 기체 유지**  
+**표:** `Reviews/from-grok/req108-report.md`  
+**검증:** 510/510 · BalanceSim all green · DeterminismAudit AUDIT PASS
+
+### CLAUDE
+1. [ ] Resources `GameData/ships.json` 동기화 (unlockCost interceptor **50000** · bulwark **100000**)
+2. [ ] (선택) 격납고 해금 가격 표시가 JSON `unlockCost`를 그대로 반영하는지 확인
+
+### CODEX
+- 없음 (UnlockCost 소비 계약 변경 없음).
+
+### 사람
+1. [x] 해금 가격 안 A `50000/100000` 승인 → REQ-108 적용
+
+### GEMINI
+1. [ ] 해금 창 체감 (초반 사망 1–2회 / 평균 클리어 1회)
+2. [ ] 컨티뉴 구매 vs 기체 해금 우선순위 UX
+
+---
+
 ## 2026-08-02 REQ-106 — 11차 밸런스 실드/배율/실드 보너스 (content 완료)
 
 **완료 (content):**  
@@ -23,7 +47,7 @@
 - 없음 (REQ-105 계약 소비). MaxShieldStock 기본 3 유지 — Bulwark 시작 3=풀스톡.
 
 ### 사람
-1. [ ] 해금 가격 조정 여부: 권장 A `50000/100000` · 보수 B `75000/150000` (현행 25k/50k는 x32 스케일에서 과소)
+1. [x] 해금 가격 조정: 권장 A `50000/100000` 승인 → **REQ-108 적용**
 2. [ ] 보드 상한 9,999,999,999 — 유지 권고 (변경 불필요)
 
 ### GEMINI
