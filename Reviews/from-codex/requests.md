@@ -1797,3 +1797,31 @@ warshipPlan=<encounterId|null> warshipView=<bound|null> active=<true|false>
 ```
 
 상세 Core 증거: `Reviews/from-codex/req117-report.md`.
+
+---
+
+## [ ] REQ-120 → CLAUDE/RENDERER: build29 소실 프레임 Core 좌표·렌더 상태 동시 계측
+
+build29 테스터는 St1/St2/St3에서 하강 후 플레이어가 영구 소실됐다고 확인했지만,
+Core 실데이터 seed 2 시계열은 모든 일반 구간과 전함에서 `PlayerY=-2752`
+(-10.75u)에 멈췄다. 카메라 하단은 -2880(-11.25u)이고 `SimView`는 1/256
+직접 변환이므로 현재 실데이터에서 Core 중심은 화면 밖으로 나가지 않는다.
+
+REQ-120은 넓은 외부 설정까지 hitbox 포함 ±2784(±10.875u)로 방어했지만, 정상
+실데이터 동작은 바뀌지 않는다. 다음 WebGL 빌드에서 소실 프레임에 아래를 한 줄로
+동시 표시/기록해 실제 레이어를 확정해 달라.
+
+- [ ] Core `PlayerX`, `PlayerY` 및 `PlayerHp/alive`
+- [ ] 최종 소비 `InputCommand`의 digital/analog 모드와 Y 값
+- [ ] `_playerTransform.localPosition`, player `SpriteRenderer.enabled`, sprite 이름,
+  color alpha, sorting order
+- [ ] 600틱 하강 후 상승 입력으로 화면 복귀 여부와 fortress 함미 HP 감소
+
+제안 진단 포맷:
+
+```text
+player core=(-3328,-2752) world=(-13.0,-10.75) alive=true
+input=digital y=-1 renderer=on sprite=ship_anim_02 alpha=1 order=10
+```
+
+상세 Core 증거: `Reviews/from-codex/req120-report.md`.

@@ -15,6 +15,34 @@ namespace Shmup.Core.Simulation
         public const int PlayfieldHalfWidthSubUnits = 20 * SubUnitsPerWorldUnit;
         public const int PlayfieldHalfHeightSubUnits = 45 * SubUnitsPerWorldUnit / 4;
         public const int DespawnMarginSubUnits = 2 * SubUnitsPerWorldUnit;
+
+        /// <summary>
+        /// Lowest player-center Y that keeps the complete simulation hitbox in
+        /// the 640x360 playfield. Presentation may draw a larger sprite, but it
+        /// must never receive a Core center outside this visible range.
+        /// </summary>
+        public static int GetVisiblePlayerCenterMinY(int playerHalfHeight)
+        {
+            ValidatePlayerHalfHeight(playerHalfHeight);
+            return -PlayfieldHalfHeightSubUnits + playerHalfHeight;
+        }
+
+        /// <summary>
+        /// Highest player-center Y that keeps the complete simulation hitbox in
+        /// the 640x360 playfield.
+        /// </summary>
+        public static int GetVisiblePlayerCenterMaxY(int playerHalfHeight)
+        {
+            ValidatePlayerHalfHeight(playerHalfHeight);
+            return PlayfieldHalfHeightSubUnits - playerHalfHeight;
+        }
+
+        static void ValidatePlayerHalfHeight(int playerHalfHeight)
+        {
+            if (playerHalfHeight < 0
+                || playerHalfHeight > PlayfieldHalfHeightSubUnits)
+                throw new ArgumentOutOfRangeException(nameof(playerHalfHeight));
+        }
     }
 
     /// <summary>
@@ -2114,12 +2142,28 @@ namespace Shmup.Core.Simulation
             ValidateLoadoutConfig();
             _playerMinX = config.PlayerMinX;
             _playerMaxX = config.PlayerMaxX;
-            _playerMinY = config.PlayerMinY;
-            _playerMaxY = config.PlayerMaxY;
-            _bulletDespawnX = config.BulletDespawnX;
-            _enemyDespawnX = config.EnemyDespawnX;
             _playerHalfWidth = config.PlayerHalfWidth;
             _playerHalfHeight = config.PlayerHalfHeight;
+            if (stageEnabled)
+            {
+                int visibleMinY = SimSpace.GetVisiblePlayerCenterMinY(
+                    _playerHalfHeight);
+                int visibleMaxY = SimSpace.GetVisiblePlayerCenterMaxY(
+                    _playerHalfHeight);
+                _playerMinY = Math.Max(
+                    visibleMinY,
+                    Math.Min(visibleMaxY, config.PlayerMinY));
+                _playerMaxY = Math.Max(
+                    visibleMinY,
+                    Math.Min(visibleMaxY, config.PlayerMaxY));
+            }
+            else
+            {
+                _playerMinY = config.PlayerMinY;
+                _playerMaxY = config.PlayerMaxY;
+            }
+            _bulletDespawnX = config.BulletDespawnX;
+            _enemyDespawnX = config.EnemyDespawnX;
             _capsuleHalfWidth = config.CapsuleHalfWidth;
             _capsuleHalfHeight = config.CapsuleHalfHeight;
             _capsuleNoDropWeight = config.CapsuleNoDropWeight;
@@ -2577,13 +2621,12 @@ namespace Shmup.Core.Simulation
                     Math.Min(
                         _playerMaxX,
                         continuityState.PlayerX));
-            PlayerY = continuityState == null
+            int initialPlayerY = continuityState == null
                 ? config.PlayerSpawnY
-                : Math.Max(
-                    _playerMinY,
-                    Math.Min(
-                        _playerMaxY,
-                        continuityState.PlayerY));
+                : continuityState.PlayerY;
+            PlayerY = Math.Max(
+                _playerMinY,
+                Math.Min(_playerMaxY, initialPlayerY));
             _scrollBaseOffset = continuityState == null
                 ? 0L
                 : continuityState.ScrollX;
