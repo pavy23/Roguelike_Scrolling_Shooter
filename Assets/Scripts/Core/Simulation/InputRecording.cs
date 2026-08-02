@@ -47,11 +47,10 @@ namespace Shmup.Core.Simulation
     public sealed class InputRecordingData
     {
         /// <summary>
-        /// Schema 22 records the stage-overhaul simulation contract (obstacle
-        /// bullet blocking/regeneration and piecewise scroll speed).
-        /// Earlier recordings reproduce a different obstacle layout.
+        /// Schema 23 records REQ-104 continue inputs. Schema 22 recordings are
+        /// rejected because they cannot reproduce out-of-band continue use.
         /// </summary>
-        public const int CurrentSchemaVersion = 22;
+        public const int CurrentSchemaVersion = 23;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -97,6 +96,30 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 14)]
         public RewardDecisionData[] rewardDecisions;
+
+        [DataMember(Order = 15)]
+        public int initialContinueStock;
+
+        [DataMember(Order = 16)]
+        public bool isDailyRun;
+
+        [DataMember(Order = 17)]
+        public ContinueDecisionData[] continueDecisions;
+
+        [DataMember(Order = 18)]
+        public int continueMaximumStock;
+
+        [DataMember(Order = 19)]
+        public long continueFirstPurchasePrice;
+
+        [DataMember(Order = 20)]
+        public long continuePurchasePriceIncrease;
+
+        [DataMember(Order = 21)]
+        public int finalWagerShieldCap;
+
+        [DataMember(Order = 22)]
+        public long continueOverflowScoreBonus;
     }
 
     /// <summary>
@@ -424,10 +447,49 @@ namespace Shmup.Core.Simulation
                 lastColossalBossAtRunStart =
                     (int)_lastColossalBossAtRunStart,
                 contractChoices = exportedContractChoices,
-                rewardDecisions = exportedRewardDecisions
+                rewardDecisions = exportedRewardDecisions,
+                initialContinueStock = _routeSource == null
+                    ? 0
+                    : _routeSource.InitialContinueStockAtRunStart,
+                isDailyRun = _routeSource != null
+                    && _routeSource.IsDailyRun,
+                continueDecisions = ExportContinueDecisions(),
+                continueMaximumStock = GetContinueEconomy().MaximumStock,
+                continueFirstPurchasePrice =
+                    GetContinueEconomy().FirstPurchasePrice,
+                continuePurchasePriceIncrease =
+                    GetContinueEconomy().PurchasePriceIncrease,
+                finalWagerShieldCap =
+                    GetContinueEconomy().FinalWagerShieldCap,
+                continueOverflowScoreBonus =
+                    GetContinueEconomy().OverflowScoreBonus
             };
             SaveDataIntegrity.Seal(data);
             return data;
+        }
+
+        ContinueDecisionData[] ExportContinueDecisions()
+        {
+            IReadOnlyList<ContinueDecision> decisions =
+                _routeSource == null
+                    ? Array.Empty<ContinueDecision>()
+                    : _routeSource.ContinueDecisionHistory;
+            var exported = new ContinueDecisionData[decisions.Count];
+            for (int i = 0; i < decisions.Count; i++)
+            {
+                exported[i] = new ContinueDecisionData
+                {
+                    simulationTick = decisions[i].SimulationTick
+                };
+            }
+            return exported;
+        }
+
+        ContinueEconomyConfig GetContinueEconomy()
+        {
+            return _routeSource == null
+                ? ContinueEconomyConfig.CreateDefault()
+                : _routeSource.ContinueEconomy;
         }
 
         static int GetDifficultyNumerator(RunManager run)
@@ -540,6 +602,9 @@ namespace Shmup.Core.Simulation
         readonly RewardDecision[] _rewardDecisions;
         readonly IReadOnlyList<RewardDecision>
             _rewardDecisionView;
+        readonly ContinueDecision[] _continueDecisions;
+        readonly IReadOnlyList<ContinueDecision>
+            _continueDecisionView;
 
         public InputPlayback(InputRecordingData data)
         {
@@ -648,6 +713,26 @@ namespace Shmup.Core.Simulation
             }
             _rewardDecisionView =
                 Array.AsReadOnly(_rewardDecisions);
+            InitialContinueStock = data.initialContinueStock;
+            IsDailyRun = data.isDailyRun;
+            ContinueEconomy = new ContinueEconomyConfig(
+                data.continueMaximumStock,
+                data.continueFirstPurchasePrice,
+                data.continuePurchasePriceIncrease,
+                data.finalWagerShieldCap,
+                data.continueOverflowScoreBonus);
+            ContinueDecisionData[] serializedContinues =
+                data.continueDecisions
+                ?? Array.Empty<ContinueDecisionData>();
+            _continueDecisions =
+                new ContinueDecision[serializedContinues.Length];
+            for (int i = 0; i < _continueDecisions.Length; i++)
+            {
+                _continueDecisions[i] = new ContinueDecision(
+                    serializedContinues[i].simulationTick);
+            }
+            _continueDecisionView =
+                Array.AsReadOnly(_continueDecisions);
         }
 
         public int TotalTicks { get; }
@@ -660,12 +745,27 @@ namespace Shmup.Core.Simulation
         public MissileFamily MissileFamily { get; }
         public OptionFormation OptionFormation { get; }
         public ColossalBossKind LastColossalBossAtRunStart { get; }
+        public int InitialContinueStock { get; }
+        public bool IsDailyRun { get; }
+        public ContinueEconomyConfig ContinueEconomy { get; }
+        public IReadOnlyList<ContinueDecision> ContinueDecisions =>
+            _continueDecisionView;
         public IReadOnlyList<RouteChoice> RouteChoices =>
             _routeChoiceView;
         public IReadOnlyList<ContractChoice> ContractChoices =>
             _contractChoiceView;
         public IReadOnlyList<RewardDecision> RewardDecisions =>
             _rewardDecisionView;
+
+        public RunConfig CreateRunConfig(
+            int startStageIndex = RunConfig.DefaultStartStageIndex)
+        {
+            return new RunConfig(
+                startStageIndex,
+                IsDailyRun,
+                InitialContinueStock,
+                ContinueEconomy);
+        }
 
         public Enumerator GetEnumerator()
         {
@@ -722,6 +822,17 @@ namespace Shmup.Core.Simulation
             if (data.runs == null || data.runs.Length == 0)
                 throw Corrupted(
                     "The input recording must contain at least one run.");
+            if (data.initialContinueStock < 0
+                || data.initialContinueStock
+                    > data.continueMaximumStock)
+                throw Corrupted(
+                    "The input recording continue stock is invalid.");
+            ValidateContinueEconomy(data);
+            ValidateContinueDecisions(
+                data.continueDecisions,
+                data.totalTicks,
+                data.initialContinueStock,
+                data.isDailyRun);
             if (data.runs.Length > data.totalTicks)
                 throw Corrupted(
                     "The input recording has more runs than ticks.");
@@ -906,6 +1017,52 @@ namespace Shmup.Core.Simulation
                             "Input recording reward option index is invalid.");
                     sequenceSelected = true;
                 }
+            }
+        }
+
+        static void ValidateContinueDecisions(
+            ContinueDecisionData[] decisions,
+            int totalTicks,
+            int initialStock,
+            bool isDailyRun)
+        {
+            if (decisions == null)
+                throw Corrupted(
+                    "Input recording continue decisions cannot be null.");
+            if (isDailyRun && decisions.Length != 0)
+                throw Corrupted(
+                    "Daily recordings cannot contain continue decisions.");
+            if (decisions.Length > initialStock)
+                throw Corrupted(
+                    "Input recording uses more continues than its initial stock.");
+            int previousTick = 0;
+            for (int i = 0; i < decisions.Length; i++)
+            {
+                ContinueDecisionData decision = decisions[i];
+                if (decision == null
+                    || decision.simulationTick <= previousTick
+                    || decision.simulationTick > totalTicks)
+                    throw Corrupted(
+                        "Input recording continue decisions are invalid.");
+                previousTick = decision.simulationTick;
+            }
+        }
+
+        static void ValidateContinueEconomy(InputRecordingData data)
+        {
+            try
+            {
+                _ = new ContinueEconomyConfig(
+                    data.continueMaximumStock,
+                    data.continueFirstPurchasePrice,
+                    data.continuePurchasePriceIncrease,
+                    data.finalWagerShieldCap,
+                    data.continueOverflowScoreBonus);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                throw Corrupted(
+                    "The input recording continue economy is invalid.");
             }
         }
 

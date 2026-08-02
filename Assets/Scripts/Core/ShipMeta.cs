@@ -319,7 +319,7 @@ namespace Shmup.Core
     [DataContract]
     public sealed class MetaStateData
     {
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
 
         /// <summary>Zero denotes the legacy schema that had no version field.</summary>
         [DataMember(Order = 0)]
@@ -339,6 +339,9 @@ namespace Shmup.Core
 
         [DataMember(Order = 5)]
         public string checksum;
+
+        [DataMember(Order = 6)]
+        public int continueStock;
     }
 
     /// <summary>
@@ -367,6 +370,21 @@ namespace Shmup.Core
             IReadOnlyList<string> unlockedShipIds,
             string selectedShipId,
             ColossalBossKind lastColossalBoss)
+            : this(
+                totalCurrency,
+                unlockedShipIds,
+                selectedShipId,
+                lastColossalBoss,
+                0)
+        {
+        }
+
+        public MetaState(
+            long totalCurrency,
+            IReadOnlyList<string> unlockedShipIds,
+            string selectedShipId,
+            ColossalBossKind lastColossalBoss,
+            int continueStock)
         {
             if (totalCurrency < 0)
                 throw new ArgumentOutOfRangeException(nameof(totalCurrency));
@@ -385,6 +403,11 @@ namespace Shmup.Core
                     lastColossalBoss))
                 throw new ArgumentOutOfRangeException(
                     nameof(lastColossalBoss));
+            if (continueStock < 0
+                || continueStock
+                    > ContinueEconomyConfig.DefaultMaximumStock)
+                throw new ArgumentOutOfRangeException(
+                    nameof(continueStock));
 
             _unlockedShipIds = new List<string>(unlockedShipIds.Count);
             for (int i = 0; i < unlockedShipIds.Count; i++)
@@ -410,6 +433,7 @@ namespace Shmup.Core
             TotalCurrency = totalCurrency;
             SelectedShipId = selectedShipId;
             LastColossalBoss = lastColossalBoss;
+            ContinueStock = continueStock;
             _readOnlyUnlockedShipIds = _unlockedShipIds.AsReadOnly();
         }
 
@@ -417,6 +441,7 @@ namespace Shmup.Core
         public IReadOnlyList<string> UnlockedShipIds => _readOnlyUnlockedShipIds;
         public string SelectedShipId { get; private set; }
         public ColossalBossKind LastColossalBoss { get; private set; }
+        public int ContinueStock { get; private set; }
 
         public static MetaState CreateDefault(ShipDefinition startingShip)
         {
@@ -435,7 +460,8 @@ namespace Shmup.Core
                 data.totalCurrency,
                 data.unlockedShipIds,
                 data.selectedShipId,
-                (ColossalBossKind)data.lastColossalBoss);
+                (ColossalBossKind)data.lastColossalBoss,
+                data.continueStock);
         }
 
         public MetaStateData ExportData()
@@ -446,7 +472,8 @@ namespace Shmup.Core
                 totalCurrency = TotalCurrency,
                 unlockedShipIds = _unlockedShipIds.ToArray(),
                 selectedShipId = SelectedShipId,
-                lastColossalBoss = (int)LastColossalBoss
+                lastColossalBoss = (int)LastColossalBoss,
+                continueStock = ContinueStock
             };
             SaveDataIntegrity.Seal(data);
             return data;
@@ -458,6 +485,51 @@ namespace Shmup.Core
             if (score < 0)
                 throw new ArgumentOutOfRangeException(nameof(score));
             TotalCurrency = checked(TotalCurrency + score);
+        }
+
+        public long GetContinuePurchasePrice(
+            ContinueEconomyConfig config = null)
+        {
+            ContinueEconomyConfig resolved =
+                config ?? ContinueEconomyConfig.CreateDefault();
+            return resolved.GetPurchasePrice(ContinueStock);
+        }
+
+        public ContinuePurchaseResult TryPurchaseContinue(
+            ContinueEconomyConfig config = null)
+        {
+            ContinueEconomyConfig resolved =
+                config ?? ContinueEconomyConfig.CreateDefault();
+            if (ContinueStock >= resolved.MaximumStock)
+            {
+                return new ContinuePurchaseResult(
+                    false,
+                    ContinuePurchaseRejectionReason.StockFull,
+                    0);
+            }
+
+            long price = resolved.GetPurchasePrice(ContinueStock);
+            if (TotalCurrency < price)
+            {
+                return new ContinuePurchaseResult(
+                    false,
+                    ContinuePurchaseRejectionReason.InsufficientCurrency,
+                    price);
+            }
+
+            TotalCurrency -= price;
+            ContinueStock++;
+            return new ContinuePurchaseResult(
+                true,
+                ContinuePurchaseRejectionReason.None,
+                price);
+        }
+
+        internal void ConsumeContinues(int amount)
+        {
+            if (amount < 0 || amount > ContinueStock)
+                throw new ArgumentOutOfRangeException(nameof(amount));
+            ContinueStock -= amount;
         }
 
         public bool IsUnlocked(string shipId)

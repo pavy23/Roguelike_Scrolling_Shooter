@@ -53,6 +53,13 @@ namespace Shmup.Core.Simulation
             FoldInt32(run.DifficultyMultiplierNumerator);
             FoldInt32(run.DifficultyMultiplierDenominator);
             FoldInt64(run.TotalScore);
+            FoldBool(run.IsDailyRun);
+            FoldInt32(run.ContinueStock);
+            FoldBool(run.FinalWagerCommitted);
+            FoldInt32(run.FinalWagerShieldGranted);
+            FoldInt32(run.FinalWagerOverflowConverted);
+            FoldInt64(run.FinalWagerScoreBonus);
+            FoldInt32(run.SimulationTicksElapsed);
             // Preserve every production hash byte-for-byte while still making
             // non-production runs distinct when the QA gate is active.
             if (run.DevFlagsActive)
@@ -67,6 +74,15 @@ namespace Shmup.Core.Simulation
             FoldInt64(statistics.BombsUsed);
             FoldInt32(statistics.StagesCleared);
             FoldInt32(statistics.RoomsCleared);
+            FoldInt32(statistics.ContinuesUsed);
+            FoldInt32(run.ContinueDecisionHistory.Count);
+            for (int i = 0;
+                i < run.ContinueDecisionHistory.Count;
+                i++)
+            {
+                FoldInt32(
+                    run.ContinueDecisionHistory[i].SimulationTick);
+            }
 
             FoldShip(run.Ship);
             FoldPowerUpGauge(run.PowerUpGauge);
