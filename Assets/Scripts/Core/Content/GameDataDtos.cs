@@ -571,6 +571,29 @@ namespace Shmup.Core.Content
         public BossPartDto[] parts;
         [DataMember]
         public WarshipEncounterDto warship;
+        [DataMember]
+        public BossFormDto form2;
+    }
+
+    [DataContract]
+    internal sealed class BossFormDto
+    {
+        [DataMember]
+        public string id;
+        [DataMember]
+        public int? transitionTicks;
+        [DataMember]
+        public int? hp;
+        [DataMember]
+        public decimal? halfWidth;
+        [DataMember]
+        public decimal? halfHeight;
+        [DataMember]
+        public decimal? holdX;
+        [DataMember]
+        public BossPhaseDto[] phases;
+        [DataMember]
+        public BossPartDto[] parts;
     }
 
     [DataContract]
@@ -658,6 +681,23 @@ namespace Shmup.Core.Content
         public int? signatureHomingTurnLutSlotsPerTick;
         [DataMember]
         public LaserAttackDto bossLaser;
+        [DataMember]
+        public decimal? hpThreshold;
+        [DataMember]
+        public BossPhasePartRuleDto[] partRules;
+    }
+
+    [DataContract]
+    internal sealed class BossPhasePartRuleDto
+    {
+        [DataMember]
+        public string partId;
+        [DataMember]
+        public bool? active;
+        [DataMember]
+        public bool? invulnerable;
+        [DataMember]
+        public BossPartAttackDto attack;
     }
 
     [DataContract]
@@ -702,6 +742,8 @@ namespace Shmup.Core.Content
         public string spawnEnemyId;
         [DataMember]
         public int? contactDamage;
+        [DataMember]
+        public LaserAttackDto laser;
     }
 
     [DataContract]

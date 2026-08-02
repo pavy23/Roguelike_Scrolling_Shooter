@@ -208,6 +208,35 @@ namespace Shmup.Core.Generation
     }
 
     /// <summary>
+    /// Per-phase override for one multipart boss part. Parts without a rule keep
+    /// their legacy always-active state and the phase-wide vulnerability rule.
+    /// </summary>
+    public sealed class BossPhasePartRule
+    {
+        public BossPhasePartRule(
+            string partId,
+            bool active,
+            bool invulnerable,
+            BossPartAttackProfile attack = null)
+        {
+            if (string.IsNullOrEmpty(partId))
+                throw new ArgumentException(
+                    "Boss phase part id cannot be null or empty.",
+                    nameof(partId));
+            PartId = partId;
+            Active = active;
+            Invulnerable = invulnerable;
+            Attack = attack;
+        }
+
+        public string PartId { get; }
+        public bool Active { get; }
+        public bool Invulnerable { get; }
+        /// <summary>Null preserves the part's base attack profile.</summary>
+        public BossPartAttackProfile Attack { get; }
+    }
+
+    /// <summary>
     /// 보스 페이즈 하나의 발사 파라미터 (REQ-007). 속도는 서브유닛/틱 유리수.
     /// Ways는 홀짝 모두 조준축을 중심으로 대칭 배치된다.
     /// </summary>
@@ -253,7 +282,10 @@ namespace Shmup.Core.Generation
             int signatureGravityDenominator = 1,
             int signatureHomingTurnLutSlotsPerTick = 0,
             Simulation.LaserAttackDefinition laserAttack = null,
-            int movementTelegraphTicks = 0)
+            int movementTelegraphTicks = 0,
+            int hpThresholdNumerator = 0,
+            int hpThresholdDenominator = 1,
+            IReadOnlyList<BossPhasePartRule> partRules = null)
         {
             if (fireIntervalTicks < 1)
                 throw new ArgumentOutOfRangeException(nameof(fireIntervalTicks));
@@ -298,6 +330,16 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException(
                     "Lunge-return movement requires a positive telegraph and at least three movement ticks.",
                     nameof(movementTelegraphTicks));
+            if (hpThresholdNumerator < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(hpThresholdNumerator));
+            if (hpThresholdDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(hpThresholdDenominator));
+            if (hpThresholdNumerator > hpThresholdDenominator)
+                throw new ArgumentOutOfRangeException(
+                    nameof(hpThresholdNumerator),
+                    "HP threshold cannot exceed one.");
             if (!Enum.IsDefined(
                     typeof(BossPartVulnerability),
                     partVulnerability))
@@ -416,6 +458,27 @@ namespace Shmup.Core.Generation
                 signatureHomingTurnLutSlotsPerTick;
             LaserAttack = laserAttack;
             MovementTelegraphTicks = movementTelegraphTicks;
+            HpThresholdNumerator = hpThresholdNumerator;
+            HpThresholdDenominator = hpThresholdDenominator;
+            int ruleCount = partRules == null ? 0 : partRules.Count;
+            var rules = new BossPhasePartRule[ruleCount];
+            for (int i = 0; i < rules.Length; i++)
+            {
+                BossPhasePartRule rule = partRules[i]
+                    ?? throw new ArgumentException(
+                        "Boss phase part rules cannot contain null.",
+                        nameof(partRules));
+                for (int previous = 0; previous < i; previous++)
+                    if (string.Equals(
+                            rules[previous].PartId,
+                            rule.PartId,
+                            StringComparison.Ordinal))
+                        throw new ArgumentException(
+                            $"Duplicate boss phase part rule '{rule.PartId}'.",
+                            nameof(partRules));
+                rules[i] = rule;
+            }
+            PartRules = new ReadOnlyCollection<BossPhasePartRule>(rules);
         }
 
         public int FireIntervalTicks { get; }
@@ -456,6 +519,14 @@ namespace Shmup.Core.Generation
         public int SignatureGravityDenominator { get; }
         public int SignatureHomingTurnLutSlotsPerTick { get; }
         public Simulation.LaserAttackDefinition LaserAttack { get; }
+        /// <summary>
+        /// Exact remaining-HP threshold for entering this phase. A zero
+        /// numerator opts into legacy equal HP partitions.
+        /// </summary>
+        public int HpThresholdNumerator { get; }
+        public int HpThresholdDenominator { get; }
+        public bool HasHpThreshold => HpThresholdNumerator > 0;
+        public IReadOnlyList<BossPhasePartRule> PartRules { get; }
     }
 
     public enum BossPartAttackType
@@ -466,7 +537,8 @@ namespace Shmup.Core.Generation
         MeleeCharge = 3,
         VerticalMovement = 4,
         SpawnEnemy = 5,
-        Suction = 6
+        Suction = 6,
+        Laser = 7
     }
 
     /// <summary>
@@ -510,7 +582,8 @@ namespace Shmup.Core.Generation
             int effectSpeedNumerator,
             int effectSpeedDenominator,
             string spawnEnemyId,
-            int contactDamage)
+            int contactDamage,
+            Simulation.LaserAttackDefinition laserAttack = null)
         {
             if (!Enum.IsDefined(typeof(BossPartAttackType), type))
                 throw new ArgumentOutOfRangeException(nameof(type));
@@ -547,6 +620,15 @@ namespace Shmup.Core.Generation
                 && effectSpeedNumerator < 1)
                 throw new ArgumentException(
                     "Suction requires a positive effect speed.");
+            if (type == BossPartAttackType.Laser
+                && (intervalTicks < 1 || laserAttack == null))
+                throw new ArgumentException(
+                    "Laser attacks require an interval and laser profile.");
+            if (type == BossPartAttackType.Laser
+                && intervalTicks != laserAttack.CycleIntervalTicks)
+                throw new ArgumentException(
+                    "Laser attack interval must match its laser cycle interval.",
+                    nameof(intervalTicks));
             if (type != BossPartAttackType.SpawnEnemy
                 && spawnEnemyId != null)
                 throw new ArgumentException(
@@ -557,6 +639,10 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException(
                     "Only melee-charge attacks may specify contact damage.",
                     nameof(contactDamage));
+            if (type != BossPartAttackType.Laser && laserAttack != null)
+                throw new ArgumentException(
+                    "Only laser attacks may specify a laser profile.",
+                    nameof(laserAttack));
 
             Type = type;
             IntervalTicks = intervalTicks;
@@ -567,6 +653,7 @@ namespace Shmup.Core.Generation
             EffectSpeedDenominator = effectSpeedDenominator;
             SpawnEnemyId = spawnEnemyId;
             ContactDamage = contactDamage;
+            LaserAttack = laserAttack;
         }
 
         public BossPartAttackType Type { get; }
@@ -578,6 +665,7 @@ namespace Shmup.Core.Generation
         public int EffectSpeedDenominator { get; }
         public string SpawnEnemyId { get; }
         public int ContactDamage { get; }
+        public Simulation.LaserAttackDefinition LaserAttack { get; }
     }
 
     /// <summary>
@@ -656,6 +744,197 @@ namespace Shmup.Core.Generation
         public IReadOnlyList<string> CoreGatePartIds => _coreGatePartIds;
         public BossPartAttackProfile Attack { get; }
         public int RegenerationTicks { get; }
+    }
+
+    /// <summary>
+    /// Optional replacement body spawned after the first boss form is defeated.
+    /// TransitionTicks is an invulnerable presentation window with no active body.
+    /// </summary>
+    public sealed class BossFormDefinition
+    {
+        public BossFormDefinition(
+            string formId,
+            int transitionTicks,
+            int maxHp,
+            int halfWidth,
+            int halfHeight,
+            int holdX,
+            IReadOnlyList<BossPhase> phases,
+            IReadOnlyList<BossPartDefinition> parts = null)
+        {
+            if (string.IsNullOrEmpty(formId))
+                throw new ArgumentException(
+                    "Boss form id cannot be null or empty.", nameof(formId));
+            if (transitionTicks < 1)
+                throw new ArgumentOutOfRangeException(nameof(transitionTicks));
+            if (maxHp < 1)
+                throw new ArgumentOutOfRangeException(nameof(maxHp));
+            if (halfWidth < 1)
+                throw new ArgumentOutOfRangeException(nameof(halfWidth));
+            if (halfHeight < 1)
+                throw new ArgumentOutOfRangeException(nameof(halfHeight));
+
+            FormId = formId;
+            TransitionTicks = transitionTicks;
+            MaxHp = maxHp;
+            HalfWidth = halfWidth;
+            HalfHeight = halfHeight;
+            HoldX = holdX;
+            Phases = CopyPhases(phases);
+            Parts = CopyParts(parts);
+            ValidatePartsAndPhases(Parts, Phases, MaxHp);
+        }
+
+        public string FormId { get; }
+        public int TransitionTicks { get; }
+        public int MaxHp { get; }
+        public int HalfWidth { get; }
+        public int HalfHeight { get; }
+        public int HoldX { get; }
+        public IReadOnlyList<BossPhase> Phases { get; }
+        public IReadOnlyList<BossPartDefinition> Parts { get; }
+
+        static IReadOnlyList<BossPhase> CopyPhases(
+            IReadOnlyList<BossPhase> source)
+        {
+            if (source == null || source.Count == 0)
+                throw new ArgumentException(
+                    "A boss form requires at least one phase.", nameof(source));
+            var copy = new BossPhase[source.Count];
+            for (int i = 0; i < copy.Length; i++)
+                copy[i] = source[i] ?? throw new ArgumentException(
+                    "Boss phases cannot contain null.", nameof(source));
+            return new ReadOnlyCollection<BossPhase>(copy);
+        }
+
+        static IReadOnlyList<BossPartDefinition> CopyParts(
+            IReadOnlyList<BossPartDefinition> source)
+        {
+            if (source == null || source.Count == 0)
+                return Array.Empty<BossPartDefinition>();
+            var copy = new BossPartDefinition[source.Count];
+            for (int i = 0; i < copy.Length; i++)
+                copy[i] = source[i] ?? throw new ArgumentException(
+                    "Boss parts cannot contain null.", nameof(source));
+            return new ReadOnlyCollection<BossPartDefinition>(copy);
+        }
+
+        internal static void ValidatePartsAndPhases(
+            IReadOnlyList<BossPartDefinition> parts,
+            IReadOnlyList<BossPhase> phases,
+            int maxHp)
+        {
+            int coreCount = 0;
+            long totalHp = 0;
+            for (int i = 0; i < parts.Count; i++)
+            {
+                BossPartDefinition part = parts[i];
+                totalHp += part.MaxHp;
+                if (part.IsCore)
+                    coreCount++;
+                for (int previous = 0; previous < i; previous++)
+                    if (string.Equals(
+                            parts[previous].PartId,
+                            part.PartId,
+                            StringComparison.Ordinal))
+                        throw new ArgumentException(
+                            $"Duplicate boss part id '{part.PartId}'.");
+            }
+            if (parts.Count != 0 && coreCount != 1)
+                throw new ArgumentException(
+                    "A multipart boss requires exactly one core.");
+            if (parts.Count != 0 && totalHp != maxHp)
+                throw new ArgumentException(
+                    "Multipart boss HP must equal the sum of its part HP.");
+            for (int i = 0; i < parts.Count; i++)
+            {
+                BossPartDefinition part = parts[i];
+                for (int gate = 0;
+                    gate < part.CoreGatePartIds.Count;
+                    gate++)
+                {
+                    bool found = false;
+                    for (int candidate = 0;
+                        candidate < parts.Count;
+                        candidate++)
+                        if (candidate != i
+                            && string.Equals(
+                                parts[candidate].PartId,
+                                part.CoreGatePartIds[gate],
+                                StringComparison.Ordinal))
+                        {
+                            found = true;
+                            break;
+                        }
+                    if (!found)
+                        throw new ArgumentException(
+                            "Boss core gate references unknown part "
+                            + $"'{part.CoreGatePartIds[gate]}'.");
+                }
+            }
+
+            bool explicitThresholds = phases.Count > 1
+                && phases[1].HasHpThreshold;
+            bool timed = phases.Count > 0
+                && phases[0].DurationTicks > 0;
+            for (int phaseIndex = 0; phaseIndex < phases.Count; phaseIndex++)
+            {
+                BossPhase phase = phases[phaseIndex];
+                if ((phase.DurationTicks > 0) != timed)
+                    throw new ArgumentException(
+                        "Boss phases cannot mix timed and HP-based progression.");
+                if (timed && phase.HasHpThreshold)
+                    throw new ArgumentException(
+                        "Timed boss phases cannot define HP thresholds.");
+                if (phaseIndex == 0
+                    && phase.HasHpThreshold
+                    && phase.HpThresholdNumerator
+                        != phase.HpThresholdDenominator)
+                    throw new ArgumentException(
+                        "The first boss phase HP threshold must be one when present.");
+                if (phaseIndex > 0
+                    && phase.HasHpThreshold != explicitThresholds)
+                    throw new ArgumentException(
+                        "HP-based boss phases cannot mix explicit and equal thresholds.");
+                if (explicitThresholds
+                    && phaseIndex == 1
+                    && phase.HpThresholdNumerator
+                        >= phase.HpThresholdDenominator)
+                    throw new ArgumentException(
+                        "The first boss transition HP threshold must be below one.");
+                if (explicitThresholds && phaseIndex > 1)
+                {
+                    BossPhase previous = phases[phaseIndex - 1];
+                    if ((long)phase.HpThresholdNumerator
+                            * previous.HpThresholdDenominator
+                        >= (long)previous.HpThresholdNumerator
+                            * phase.HpThresholdDenominator)
+                        throw new ArgumentException(
+                            "Boss phase HP thresholds must strictly decrease.");
+                }
+                for (int ruleIndex = 0;
+                    ruleIndex < phase.PartRules.Count;
+                    ruleIndex++)
+                {
+                    string partId = phase.PartRules[ruleIndex].PartId;
+                    bool found = false;
+                    for (int partIndex = 0;
+                        partIndex < parts.Count;
+                        partIndex++)
+                        if (string.Equals(
+                                parts[partIndex].PartId,
+                                partId,
+                                StringComparison.Ordinal))
+                        {
+                            found = true;
+                            break;
+                        }
+                    if (!found)
+                        throw new ArgumentException(
+                            $"Boss phase references unknown part '{partId}'.");
+                }
+            }
+        }
     }
 
     /// <summary>Ordered segments followed by a boss. Pure data — no Unity types.</summary>
@@ -921,7 +1200,8 @@ namespace Shmup.Core.Generation
             EncounterType encounterType,
             IReadOnlyList<BossPartDefinition> bossParts,
             StageGimmickDefinition gimmick = null,
-            WarshipEncounterDefinition warshipEncounter = null)
+            WarshipEncounterDefinition warshipEncounter = null,
+            BossFormDefinition form2 = null)
         {
             if (bossMaxHp < 0)
                 throw new ArgumentOutOfRangeException(nameof(bossMaxHp));
@@ -949,15 +1229,24 @@ namespace Shmup.Core.Generation
             BossPhases = CopyPhases(bossPhases);
             BossParts = CopyParts(bossParts);
             ValidateParts(BossParts, BossMaxHp);
+            BossFormDefinition.ValidatePartsAndPhases(
+                BossParts,
+                BossPhases,
+                BossMaxHp);
             ThemeId = themeId;
             RequestedThemeId = requestedThemeId;
             EncounterType = encounterType;
             Gimmick = gimmick ?? StageGimmickDefinition.None;
             WarshipEncounter = warshipEncounter;
+            Form2 = form2;
             if (WarshipEncounter != null && BossParts.Count == 0)
                 throw new ArgumentException(
                     "A warship encounter requires multipart boss parts.",
                     nameof(warshipEncounter));
+            if (WarshipEncounter != null && Form2 != null)
+                throw new ArgumentException(
+                    "Warship encounters cannot define a second boss form.",
+                    nameof(form2));
             WarshipEncounter?.ValidateParts(BossParts);
             if (Gimmick.ThemeId != null
                 && !string.Equals(
@@ -1000,6 +1289,7 @@ namespace Shmup.Core.Generation
         public EncounterType EncounterType { get; }
         public StageGimmickDefinition Gimmick { get; }
         public WarshipEncounterDefinition WarshipEncounter { get; }
+        public BossFormDefinition Form2 { get; }
         /// <summary>Provisional per-encounter enemy HP scaling.</summary>
         public int EncounterEnemyHpMultiplierNumerator =>
             EncounterType == EncounterType.Rare

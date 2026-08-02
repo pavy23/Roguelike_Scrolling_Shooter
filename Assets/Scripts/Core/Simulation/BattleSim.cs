@@ -124,7 +124,11 @@ namespace Shmup.Core.Simulation
         /// <summary>EntityId = encounter id, PartId = group id, Arg = group index.</summary>
         WarshipGroupActivated = 42,
         /// <summary>EntityId = encounter id, PartId = core group id, Arg = opening ways.</summary>
-        WarshipCoreBattleStarted = 43
+        WarshipCoreBattleStarted = 43,
+        /// <summary>EntityId = defeated form id, Arg = invulnerable transition ticks.</summary>
+        BossFormTransitionStarted = 44,
+        /// <summary>EntityId = new form id, Arg = zero-based form index, PartId = content form id.</summary>
+        BossFormChanged = 45
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -188,8 +192,8 @@ namespace Shmup.Core.Simulation
         /// </summary>
         public int Arg { get; }
         /// <summary>
-        /// Stable boss-part id for BossPartDestroyed/BossPartRegenerated;
-        /// null for all legacy events.
+        /// Stable boss-part id for part events, or boss-form content id for
+        /// BossFormTransitionStarted/BossFormChanged; null for legacy events.
         /// </summary>
         public string PartId { get; }
         /// <summary>Projectile vocabulary for boss telegraphs; legacy events use MainShot.</summary>
@@ -316,6 +320,29 @@ namespace Shmup.Core.Simulation
             int phase,
             BossMovementPattern movementPattern,
             BossPartVulnerability partVulnerability)
+            : this(
+                id,
+                x,
+                y,
+                hp,
+                maxHp,
+                phase,
+                movementPattern,
+                partVulnerability,
+                0)
+        {
+        }
+
+        public BossState(
+            int id,
+            int x,
+            int y,
+            int hp,
+            int maxHp,
+            int phase,
+            BossMovementPattern movementPattern,
+            BossPartVulnerability partVulnerability,
+            int formIndex)
         {
             Id = id;
             X = x;
@@ -325,6 +352,7 @@ namespace Shmup.Core.Simulation
             Phase = phase;
             MovementPattern = movementPattern;
             PartVulnerability = partVulnerability;
+            FormIndex = formIndex;
         }
 
         public int Id { get; }
@@ -335,6 +363,7 @@ namespace Shmup.Core.Simulation
         public int Phase { get; }
         public BossMovementPattern MovementPattern { get; }
         public BossPartVulnerability PartVulnerability { get; }
+        public int FormIndex { get; }
     }
 
     /// <summary>
@@ -485,6 +514,29 @@ namespace Shmup.Core.Simulation
             bool destroyed,
             bool isCore,
             bool coreGated)
+            : this(
+                partId,
+                x,
+                y,
+                hp,
+                maxHp,
+                destroyed,
+                true,
+                isCore,
+                coreGated)
+        {
+        }
+
+        internal BossPartState(
+            string partId,
+            int x,
+            int y,
+            int hp,
+            int maxHp,
+            bool destroyed,
+            bool active,
+            bool isCore,
+            bool coreGated)
         {
             PartId = partId;
             X = x;
@@ -492,6 +544,7 @@ namespace Shmup.Core.Simulation
             Hp = hp;
             MaxHp = maxHp;
             Destroyed = destroyed;
+            Active = active;
             IsCore = isCore;
             Invulnerable = coreGated;
         }
@@ -502,6 +555,8 @@ namespace Shmup.Core.Simulation
         public int Hp { get; }
         public int MaxHp { get; }
         public bool Destroyed { get; }
+        /// <summary>False while the current phase keeps this part hidden.</summary>
+        public bool Active { get; }
         public bool IsCore { get; }
         /// <summary>
         /// True while the current boss phase prevents damage to this part.
@@ -786,7 +841,9 @@ namespace Shmup.Core.Simulation
         Enemy = 0,
         Terrain = 1,
         Player = 2,
-        Boss = 3
+        Boss = 3,
+        /// <summary>SourceEntityId is the zero-based current boss-part index.</summary>
+        BossPart = 4
     }
 
     public enum LaserPhase
@@ -1359,6 +1416,14 @@ namespace Shmup.Core.Simulation
         /// hold point. Entry is non-firing and invulnerable.
         /// </summary>
         bool BossEntering { get; }
+        bool BossTransitioning { get; }
+        int BossTransitionTicksRemaining { get; }
+        /// <summary>
+        /// Zero for the original body, one for form2. RunSuspendData remains a
+        /// room-boundary restart; deterministic input replay reconstructs this
+        /// value, the phase index, and the transition countdown at any tick.
+        /// </summary>
+        int BossFormIndex { get; }
         BossState Boss { get; }
         /// <summary>Stable allocation-free view of multipart boss state.</summary>
         IReadOnlyList<BossPartState> BossParts { get; }
@@ -1632,19 +1697,20 @@ namespace Shmup.Core.Simulation
         readonly int _shieldBonusScorePerStock;
 
         // 보스 (REQ-007). _bossMaxHp == 0 이면 이 스테이지에 보스전 없음.
-        readonly int _bossMaxHp, _bossRuntimeMaxHp;
-        readonly int _bossHalfWidth, _bossHalfHeight, _bossHoldX;
-        readonly int _bossSpawnX, _fieldCleanupStartTick;
+        int _bossMaxHp, _bossRuntimeMaxHp;
+        int _bossHalfWidth, _bossHalfHeight, _bossHoldX;
+        int _bossSpawnX;
+        readonly int _fieldCleanupStartTick;
         readonly bool _preparesBossRoomBoundary;
-        readonly IReadOnlyList<Generation.BossPhase> _bossPhases;
-        readonly IReadOnlyList<BossPartDefinition> _bossPartDefinitions;
-        readonly BossPartState[] _bossPartStates;
-        readonly ReadOnlyCollection<BossPartState> _readOnlyBossParts;
-        readonly int[] _bossPartFireCooldowns;
-        readonly int[] _bossPartRegenerationRemaining;
-        readonly bool[] _bossPartsEverDestroyed;
-        readonly bool[] _bossPartContactHitThisCycle;
-        readonly EnemyDefinition[] _bossPartSpawnDefinitions;
+        IReadOnlyList<Generation.BossPhase> _bossPhases;
+        IReadOnlyList<BossPartDefinition> _bossPartDefinitions;
+        BossPartState[] _bossPartStates;
+        ReadOnlyCollection<BossPartState> _readOnlyBossParts;
+        int[] _bossPartFireCooldowns;
+        int[] _bossPartRegenerationRemaining;
+        bool[] _bossPartsEverDestroyed;
+        bool[] _bossPartContactHitThisCycle;
+        EnemyDefinition[] _bossPartSpawnDefinitions;
         readonly WarshipEncounterDefinition _warshipDefinition;
         readonly IReadOnlyList<BossPartDefinition>
             _warshipRuntimePartDefinitions;
@@ -1664,8 +1730,11 @@ namespace Shmup.Core.Simulation
         bool _bossPhaseTelegraphPending;
         bool _bossBurstAwaitingVolley;
         int _bossPatternVolleyIndex;
-        readonly bool _bossUsesTimedPattern;
+        bool _bossUsesTimedPattern;
         int _bossSuctionXRemainder, _bossSuctionYRemainder;
+        int _bossFormIndex;
+        int _bossTransitionTicksRemaining;
+        readonly BossFormDefinition _bossForm2;
 
         const int BossHoverAmplitude = 3 * SimSpace.SubUnitsPerWorldUnit;
         const int BossGlideSpeedPerTick = 64;
@@ -2071,6 +2140,7 @@ namespace Shmup.Core.Simulation
             _dropRng = rng.Fork(DropRngStream);
             _bombDropRng = rng.Fork(BombDropRngStream);
             _bossPatternRng = rng.Fork(BossPatternRngStream);
+            _bossForm2 = stageEnabled ? stagePlan.Form2 : null;
 
             if (stageEnabled && stagePlan.BossMaxHp > 0)
             {
@@ -2518,6 +2588,11 @@ namespace Shmup.Core.Simulation
             && (_warshipEncounter != null
                 ? _warshipEncounter.WarningActive
                 : _bossX > _bossHoldX);
+        public bool BossTransitioning =>
+            _bossTransitionTicksRemaining > 0;
+        public int BossTransitionTicksRemaining =>
+            _bossTransitionTicksRemaining;
+        public int BossFormIndex => _bossFormIndex;
         public BossState Boss => new BossState(
             _bossId,
             _bossX,
@@ -2530,7 +2605,8 @@ namespace Shmup.Core.Simulation
                 : _bossPhases[_bossPhase].MovementPattern,
             _bossPhases.Count == 0
                 ? BossPartVulnerability.Legacy
-                : _bossPhases[_bossPhase].PartVulnerability);
+                : _bossPhases[_bossPhase].PartVulnerability,
+            _bossFormIndex);
         public IReadOnlyList<BossPartState> BossParts =>
             _readOnlyBossParts;
         public int WarshipActiveGroupIndex =>
@@ -2594,6 +2670,10 @@ namespace Shmup.Core.Simulation
         }
         /// <summary>보스전이 예정된 스테이지인지 (RunManager가 종료 조건 분기에 쓴다).</summary>
         public bool HasBossBattle => _bossMaxHp > 0;
+        /// <summary>
+        /// True only after the final configured form is defeated. It remains
+        /// false throughout the form-transition window.
+        /// </summary>
         public bool BossDefeated => _bossDefeated;
         public int BossDefeatElapsedTicks { get; private set; }
         public bool WasBossPartDestroyed(string partId)
@@ -2657,10 +2737,11 @@ namespace Shmup.Core.Simulation
                     scaledMaxHp,
                     scaledMaxHp,
                     false,
+                    IsBossPartActive(i),
                     definition.IsCore,
                     false);
                 _bossPartFireCooldowns[i] =
-                    definition.Attack.IntervalTicks;
+                    GetBossPartAttack(i).IntervalTicks;
                 if (definition.Attack.Type
                     == BossPartAttackType.SpawnEnemy)
                 {
@@ -2713,6 +2794,19 @@ namespace Shmup.Core.Simulation
                         $"Boss phase {i} references unknown brood enemy "
                         + $"'{phase.SignatureSpawnEnemyId}'.",
                         nameof(_battleContent));
+                for (int rule = 0; rule < phase.PartRules.Count; rule++)
+                {
+                    BossPartAttackProfile attack =
+                        phase.PartRules[rule].Attack;
+                    if (attack != null
+                        && attack.Type == BossPartAttackType.SpawnEnemy
+                        && _battleContent.FindEnemy(
+                            attack.SpawnEnemyId) == null)
+                        throw new ArgumentException(
+                            $"Boss phase {i} part '{phase.PartRules[rule].PartId}' "
+                            + $"references unknown enemy '{attack.SpawnEnemyId}'.",
+                            nameof(_battleContent));
+                }
             }
         }
 
@@ -4665,6 +4759,13 @@ namespace Shmup.Core.Simulation
         /// </summary>
         void UpdateBoss()
         {
+            if (_bossTransitionTicksRemaining > 0)
+            {
+                _bossTransitionTicksRemaining--;
+                if (_bossTransitionTicksRemaining == 0)
+                    SpawnSecondBossForm();
+                return;
+            }
             if (_bossMaxHp == 0 || _bossDefeated) return;
 
             if (!_bossSpawned)
@@ -4812,6 +4913,9 @@ namespace Shmup.Core.Simulation
                 && phase.TelegraphTicks > 0;
             _bossPatternVolleyIndex = 0;
             RefreshBossPartPositions();
+            for (int i = 0; i < _bossPartDefinitions.Count; i++)
+                _bossPartFireCooldowns[i] =
+                    GetBossPartAttack(i).IntervalTicks;
             if (emitChanged)
             {
                 EmitEvent(
@@ -5486,7 +5590,7 @@ namespace Shmup.Core.Simulation
                 int maxHp = ScaleEnemyHp(definition.MaxHp);
                 aggregateHp = SaturatingAddDamage(aggregateHp, maxHp);
                 _bossPartFireCooldowns[i] =
-                    definition.Attack.IntervalTicks;
+                    GetBossPartAttack(i).IntervalTicks;
                 _bossPartRegenerationRemaining[i] = 0;
                 _bossPartContactHitThisCycle[i] = false;
                 _bossPartStates[i] = new BossPartState(
@@ -5496,6 +5600,7 @@ namespace Shmup.Core.Simulation
                     maxHp,
                     maxHp,
                     false,
+                    IsBossPartActive(i),
                     definition.IsCore,
                     false);
             }
@@ -5514,10 +5619,11 @@ namespace Shmup.Core.Simulation
             int chargeOffset = 0;
             for (int i = 0; i < _bossPartDefinitions.Count; i++)
             {
-                if (_bossPartStates[i].Destroyed)
+                if (_bossPartStates[i].Destroyed
+                    || !IsBossPartActive(i))
                     continue;
                 BossPartAttackProfile attack =
-                    _bossPartDefinitions[i].Attack;
+                    GetBossPartAttack(i);
                 if (attack.Type == BossPartAttackType.VerticalMovement)
                     verticalMovementActive = true;
                 else if (attack.Type == BossPartAttackType.MeleeCharge)
@@ -5553,10 +5659,12 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < _bossPartDefinitions.Count; i++)
             {
                 BossPartState state = _bossPartStates[i];
-                if (state.Destroyed || IsBossPartInvulnerable(i))
+                if (state.Destroyed
+                    || !state.Active
+                    || IsBossPartInvulnerable(i))
                     continue;
                 BossPartAttackProfile attack =
-                    _bossPartDefinitions[i].Attack;
+                    GetBossPartAttack(i);
                 switch (attack.Type)
                 {
                     case BossPartAttackType.None:
@@ -5651,6 +5759,7 @@ namespace Shmup.Core.Simulation
                     restored.Hp,
                     restored.MaxHp,
                     restored.Destroyed,
+                    restored.Active,
                     definition.IsCore,
                     restored.Invulnerable);
                 aggregateHp = SaturatingAddDamage(
@@ -5709,13 +5818,14 @@ namespace Shmup.Core.Simulation
                     previous.MaxHp,
                     previous.MaxHp,
                     false,
+                    IsBossPartActive(i),
                     previous.IsCore,
                     false);
                 _bossHp = SaturatingAddDamage(
                     _bossHp,
                     previous.MaxHp);
                 _bossPartFireCooldowns[i] =
-                    _bossPartDefinitions[i].Attack.IntervalTicks;
+                    GetBossPartAttack(i).IntervalTicks;
                 _bossPartContactHitThisCycle[i] = false;
                 EmitBossPartEvent(
                     SimEventType.BossPartRegenerated,
@@ -5732,6 +5842,9 @@ namespace Shmup.Core.Simulation
                 BossPartDefinition definition =
                     _bossPartDefinitions[i];
                 BossPartState state = _bossPartStates[i];
+                bool active = _warshipEncounter != null
+                    ? _warshipEncounter.IsPartActive(definition.PartId)
+                    : IsBossPartActive(i);
                 _bossPartStates[i] = new BossPartState(
                     state.PartId,
                     SaturateToInt((long)_bossX + definition.OffsetX),
@@ -5739,6 +5852,7 @@ namespace Shmup.Core.Simulation
                     state.Hp,
                     state.MaxHp,
                     state.Destroyed,
+                    active,
                     state.IsCore,
                     IsBossPartInvulnerable(i));
             }
@@ -5751,6 +5865,9 @@ namespace Shmup.Core.Simulation
                     _bossPartDefinitions[partIndex].PartId);
             if (BossEntering)
                 return true;
+            BossPhasePartRule rule = FindBossPhasePartRule(partIndex);
+            if (rule != null)
+                return !rule.Active || rule.Invulnerable;
             BossPartVulnerability vulnerability =
                 _bossPhases[_bossPhase].PartVulnerability;
             switch (vulnerability)
@@ -5767,6 +5884,36 @@ namespace Shmup.Core.Simulation
                         $"Unknown boss part vulnerability "
                         + $"{vulnerability}.");
             }
+        }
+
+        bool IsBossPartActive(int partIndex)
+        {
+            BossPhasePartRule rule = FindBossPhasePartRule(partIndex);
+            return rule == null || rule.Active;
+        }
+
+        BossPartAttackProfile GetBossPartAttack(int partIndex)
+        {
+            BossPhasePartRule rule = FindBossPhasePartRule(partIndex);
+            return rule != null && rule.Attack != null
+                ? rule.Attack
+                : _bossPartDefinitions[partIndex].Attack;
+        }
+
+        BossPhasePartRule FindBossPhasePartRule(int partIndex)
+        {
+            if (_bossPhases.Count == 0)
+                return null;
+            string partId = _bossPartDefinitions[partIndex].PartId;
+            IReadOnlyList<BossPhasePartRule> rules =
+                _bossPhases[_bossPhase].PartRules;
+            for (int i = 0; i < rules.Count; i++)
+                if (string.Equals(
+                        rules[i].PartId,
+                        partId,
+                        StringComparison.Ordinal))
+                    return rules[i];
+            return null;
         }
 
         bool IsBossCoreGated(int partIndex)
@@ -5801,10 +5948,20 @@ namespace Shmup.Core.Simulation
             BossPartAttackProfile attack)
         {
             BossPartState part = _bossPartStates[partIndex];
+            if (attack.Type == BossPartAttackType.Laser)
+            {
+                TryStartLaser(
+                    LaserSourceKind.BossPart,
+                    partIndex,
+                    attack.LaserAttack,
+                    part.X,
+                    part.Y);
+                return;
+            }
             if (attack.Type == BossPartAttackType.SpawnEnemy)
             {
                 SpawnBossEnemy(
-                    _bossPartSpawnDefinitions[partIndex],
+                    _battleContent.FindEnemy(attack.SpawnEnemyId),
                     part.X,
                     part.Y);
                 return;
@@ -6029,7 +6186,7 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < _bossPartDefinitions.Count; i++)
             {
                 BossPartState part = _bossPartStates[i];
-                if (part.Destroyed)
+                if (part.Destroyed || !part.Active)
                     continue;
                 BossPartDefinition definition =
                     _bossPartDefinitions[i];
@@ -6069,6 +6226,7 @@ namespace Shmup.Core.Simulation
                 hp,
                 part.MaxHp,
                 hp == 0,
+                part.Active,
                 part.IsCore,
                 false);
             if (_warshipEncounter != null)
@@ -6146,20 +6304,141 @@ namespace Shmup.Core.Simulation
             if (_bossUsesTimedPattern)
                 return;
             int phaseCount = _bossPhases.Count;
-            int nextPhase = Math.Min(
-                phaseCount - 1,
-                (int)((long)(_bossRuntimeMaxHp - _bossHp)
-                    * phaseCount / _bossRuntimeMaxHp));
+            int nextPhase;
+            if (phaseCount > 1 && _bossPhases[1].HasHpThreshold)
+            {
+                nextPhase = _bossPhase;
+                for (int i = _bossPhase + 1; i < phaseCount; i++)
+                {
+                    Generation.BossPhase candidate = _bossPhases[i];
+                    if ((long)_bossHp * candidate.HpThresholdDenominator
+                        > (long)_bossRuntimeMaxHp
+                            * candidate.HpThresholdNumerator)
+                        break;
+                    nextPhase = i;
+                }
+            }
+            else
+            {
+                nextPhase = Math.Min(
+                    phaseCount - 1,
+                    (int)((long)(_bossRuntimeMaxHp - _bossHp)
+                        * phaseCount / _bossRuntimeMaxHp));
+            }
             if (nextPhase <= _bossPhase)
                 return;
             EnterBossPhase(nextPhase, true);
         }
 
+        void SpawnSecondBossForm()
+        {
+            ConfigureSecondBossForm();
+            if (_nextEnemyId == int.MaxValue)
+                throw new InvalidOperationException(
+                    "The enemy id counter is exhausted.");
+            _bossFormIndex = 1;
+            _bossSpawned = true;
+            _bossId = _nextEnemyId++;
+            _bossX = _bossHoldX;
+            _bossY = 0;
+            _bossHp = _bossMaxHp;
+            _bossPhase = 0;
+            _bossAge = 0;
+            _bossPhaseAge = 0;
+            _bossMovementAnchorY = _bossY;
+            _bossMovementPhaseOffsetTicks = 0;
+            _bossMovementTransitionOffsetX = 0;
+            _bossMovementTransitionOffsetY = 0;
+            _bossVelocityX = 0;
+            _bossVelocityY = 0;
+            _bossSuctionXRemainder = 0;
+            _bossSuctionYRemainder = 0;
+            Generation.BossPhase initialPhase = _bossPhases[0];
+            _bossFireCooldown = initialPhase.TelegraphTicks > 0
+                ? initialPhase.TelegraphTicks
+                : initialPhase.FireIntervalTicks;
+            _bossPhaseTelegraphPending = initialPhase.TelegraphTicks > 0;
+            _bossBurstAwaitingVolley =
+                initialPhase.FirePattern == BossFirePattern.Burst
+                && initialPhase.TelegraphTicks > 0;
+            _bossPatternVolleyIndex = 0;
+            InitializeBossParts();
+            EmitBossFormEvent(
+                SimEventType.BossFormChanged,
+                _bossId,
+                _bossX,
+                _bossY,
+                _bossFormIndex,
+                _bossForm2.FormId);
+            EmitEvent(
+                SimEventType.BossSpawned,
+                _bossId,
+                _bossX,
+                _bossY,
+                0);
+        }
+
+        void ConfigureSecondBossForm()
+        {
+            const int u = SimSpace.SubUnitsPerWorldUnit;
+            _bossMaxHp = ScaleEnemyHp(_bossForm2.MaxHp);
+            _bossHalfWidth = _bossForm2.HalfWidth;
+            _bossHalfHeight = _bossForm2.HalfHeight;
+            _bossHoldX = _bossForm2.HoldX != 0
+                ? _bossForm2.HoldX
+                : 14 * u;
+            _bossPhases = _bossForm2.Phases;
+            _bossPartDefinitions = _bossForm2.Parts;
+            _bossUsesTimedPattern = ResolveTimedBossPattern(_bossPhases);
+            ValidateBossPhaseRuntimeData();
+            _bossPartStates =
+                new BossPartState[_bossPartDefinitions.Count];
+            _readOnlyBossParts = Array.AsReadOnly(_bossPartStates);
+            _bossPartFireCooldowns =
+                new int[_bossPartDefinitions.Count];
+            _bossPartRegenerationRemaining =
+                new int[_bossPartDefinitions.Count];
+            _bossPartsEverDestroyed =
+                new bool[_bossPartDefinitions.Count];
+            _bossPartContactHitThisCycle =
+                new bool[_bossPartDefinitions.Count];
+            _bossPartSpawnDefinitions =
+                new EnemyDefinition[_bossPartDefinitions.Count];
+            ResolveBossPartRuntimeData();
+            _bossRuntimeMaxHp = _bossPartStates.Length == 0
+                ? _bossMaxHp
+                : SumBossPartMaxHp();
+            _bossSpawnX = Math.Max(
+                _bossHoldX,
+                SaturateToInt(
+                    (long)SimSpace.PlayfieldHalfWidthSubUnits
+                    + GetBossLeftExtent()
+                    + 1));
+        }
+
+        void EmitBossFormEvent(
+            SimEventType type,
+            int entityId,
+            int x,
+            int y,
+            int arg,
+            string formId)
+        {
+            if (_eventCount == _events.Length)
+                throw new InvalidOperationException(
+                    "The preallocated simulation event buffer is exhausted.");
+            _events[_eventCount++] = new SimEvent(
+                type,
+                entityId,
+                x,
+                y,
+                arg,
+                formId);
+        }
+
         bool DefeatBoss(int x, int y)
         {
-            _bossDefeated = true;
             _bossHp = 0;
-            BossDefeatElapsedTicks = _bossAge;
             int awardedScore =
                 RecordKillScore((long)_bossRuntimeMaxHp * 2);
             EmitEvent(
@@ -6168,6 +6447,25 @@ namespace Shmup.Core.Simulation
                 x,
                 y,
                 awardedScore);
+            AdvanceKillCombo();
+            if (_bossFormIndex == 0 && _bossForm2 != null)
+            {
+                int defeatedFormId = _bossId;
+                _bossSpawned = false;
+                _bossTransitionTicksRemaining =
+                    _bossForm2.TransitionTicks;
+                EmitBossFormEvent(
+                    SimEventType.BossFormTransitionStarted,
+                    defeatedFormId,
+                    x,
+                    y,
+                    _bossTransitionTicksRemaining,
+                    _bossForm2.FormId);
+                return false;
+            }
+
+            _bossDefeated = true;
+            BossDefeatElapsedTicks = _bossAge;
             if (_isMidBossBattle)
                 EmitEvent(
                     SimEventType.MidBossDefeated,
@@ -6175,7 +6473,6 @@ namespace Shmup.Core.Simulation
                     x,
                     y,
                     BossDefeatElapsedTicks);
-            AdvanceKillCombo();
             EmitEvent(
                 SimEventType.StageCleared,
                 _bossId,
@@ -6621,7 +6918,7 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < _bossPartStates.Length; i++)
             {
                 BossPartState part = _bossPartStates[i];
-                if (part.Destroyed)
+                if (part.Destroyed || !part.Active)
                     continue;
                 BossPartDefinition definition =
                     _bossPartDefinitions[i];
@@ -6854,6 +7151,17 @@ namespace Shmup.Core.Simulation
                 y = _bossY;
                 return _bossSpawned && !_bossDefeated
                     && sourceEntityId == _bossId;
+            }
+            else if (kind == LaserSourceKind.BossPart)
+            {
+                if (sourceEntityId >= 0
+                    && sourceEntityId < _bossPartStates.Length)
+                {
+                    BossPartState part = _bossPartStates[sourceEntityId];
+                    x = part.X;
+                    y = part.Y;
+                    return BossActive && part.Active && !part.Destroyed;
+                }
             }
             else
             {
@@ -7156,7 +7464,7 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < _bossPartDefinitions.Count; i++)
             {
                 BossPartState part = _bossPartStates[i];
-                if (part.Destroyed)
+                if (part.Destroyed || !part.Active)
                     continue;
                 BossPartDefinition definition =
                     _bossPartDefinitions[i];
@@ -7924,6 +8232,7 @@ namespace Shmup.Core.Simulation
                 {
                     BossPartState part = _bossPartStates[i];
                     if (part.Destroyed
+                        || !part.Active
                         || SquaredDistanceSaturated(
                             centerX,
                             centerY,
