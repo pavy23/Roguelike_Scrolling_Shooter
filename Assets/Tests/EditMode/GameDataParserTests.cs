@@ -2056,6 +2056,105 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(2, closing.Segments.Count);
         }
 
+        [Test]
+        public void Parse_WarshipSchemaCarriesGroupsPartsAndDensityIntoPlan()
+        {
+            string waves = WavesJson.Replace(
+                @"""entryLaneMask"": 7, ""hp"": 500",
+                @"""entryLaneMask"": 7, ""hp"": 500,
+    ""parts"": [
+      { ""id"": ""stern"", ""offsetX"": -8, ""halfWidth"": 1,
+        ""halfHeight"": 1, ""hp"": 100 },
+      { ""id"": ""turret_a"", ""offsetX"": -2, ""halfWidth"": 1,
+        ""halfHeight"": 1, ""hp"": 100,
+        ""attack"": { ""type"": ""aimedSpread"", ""intervalTicks"": 60,
+          ""ways"": 3, ""bulletSpeed"": 4.0 } },
+      { ""id"": ""turret_b"", ""offsetX"": 2, ""halfWidth"": 1,
+        ""halfHeight"": 1, ""hp"": 100 },
+      { ""id"": ""core"", ""offsetX"": 8, ""halfWidth"": 2,
+        ""halfHeight"": 2, ""hp"": 200, ""isCore"": true }
+    ],
+    ""warship"": {
+      ""id"": ""fortress_warship"", ""eventEntityId"": 110,
+      ""warningTicks"": 180, ""originX"": 24, ""originY"": 0,
+      ""scrollSpeedPerSecond"": 3.0,
+      ""baseCoreOpeningWays"": 9, ""waysReductionPerTurret"": 2,
+      ""minimumCoreOpeningWays"": 3,
+      ""groups"": [
+        { ""id"": ""stern"", ""role"": ""midbossGate"",
+          ""partIds"": [""stern""] },
+        { ""id"": ""hull"", ""role"": ""attritionLine"",
+          ""partIds"": [""turret_a"", ""turret_b""],
+          ""advanceAfterTicks"": 600 },
+        { ""id"": ""bow"", ""role"": ""finalCore"",
+          ""partIds"": [""core""] }
+      ]
+    }");
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                waves);
+            StageBossTemplate boss = data.StageGeneration.Bosses[0];
+            StagePlan plan = new SegmentStageGenerator(
+                data.StageGeneration).Generate(110UL, 1, 1);
+
+            Assert.IsNotNull(boss.WarshipEncounter);
+            Assert.AreEqual(3, boss.WarshipEncounter.Groups.Count);
+            Assert.AreEqual(
+                WarshipGroupRole.AttritionLine,
+                boss.WarshipEncounter.Groups[1].Role);
+            Assert.AreEqual(600, boss.WarshipEncounter.Groups[1].AdvanceAfterTicks);
+            Assert.AreEqual(4, boss.Parts.Count);
+            Assert.IsNotNull(plan.WarshipEncounter);
+            Assert.AreEqual(9, plan.WarshipEncounter.BaseCoreOpeningWays);
+            Assert.AreEqual(2, plan.WarshipEncounter.WaysReductionPerTurret);
+            Assert.AreEqual(3, plan.WarshipEncounter.MinimumCoreOpeningWays);
+            Assert.AreEqual(768, plan.WarshipEncounter.ScrollSpeedNumerator);
+            Assert.AreEqual(60, plan.WarshipEncounter.ScrollSpeedDenominator);
+            Assert.AreEqual(
+                BossPartAttackType.AimedSpread,
+                plan.BossParts[1].Attack.Type);
+        }
+
+        [Test]
+        public void Parse_WarshipRejectsPartInMultipleGroups()
+        {
+            string waves = WavesJson.Replace(
+                @"""entryLaneMask"": 7, ""hp"": 500",
+                @"""entryLaneMask"": 7, ""hp"": 500,
+    ""parts"": [
+      { ""id"": ""stern"", ""halfWidth"": 1, ""halfHeight"": 1,
+        ""hp"": 100 },
+      { ""id"": ""turret"", ""halfWidth"": 1, ""halfHeight"": 1,
+        ""hp"": 100 },
+      { ""id"": ""core"", ""halfWidth"": 1, ""halfHeight"": 1,
+        ""hp"": 300, ""isCore"": true }
+    ],
+    ""warship"": {
+      ""id"": ""bad"", ""warningTicks"": 0,
+      ""originX"": 0, ""originY"": 0, ""scrollSpeedPerSecond"": 0,
+      ""baseCoreOpeningWays"": 3, ""waysReductionPerTurret"": 1,
+      ""minimumCoreOpeningWays"": 1,
+      ""groups"": [
+        { ""id"": ""a"", ""role"": ""midbossGate"",
+          ""partIds"": [""stern""] },
+        { ""id"": ""b"", ""role"": ""attritionLine"",
+          ""partIds"": [""stern"", ""turret""],
+          ""advanceAfterTicks"": 1 },
+        { ""id"": ""c"", ""role"": ""finalCore"",
+          ""partIds"": [""core""] }
+      ]
+    }");
+
+            GameDataParseException error =
+                Assert.Throws<GameDataParseException>(
+                    () => GameDataParser.Parse(
+                        EnemiesJson,
+                        WeaponsJson,
+                        waves));
+            StringAssert.Contains("belongs to multiple groups", error.Message);
+        }
+
         static string FindRepositoryRoot()
         {
             // Unity 내장 NUnit은 WorkDirectory를 채우지 않는다 — 그 경우 프로젝트 루트인

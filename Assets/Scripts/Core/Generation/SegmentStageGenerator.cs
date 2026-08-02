@@ -658,7 +658,8 @@ namespace Shmup.Core.Generation
             int holdX,
             IReadOnlyList<BossPhase> phases,
             string themeId,
-            IReadOnlyList<BossPartDefinition> parts)
+            IReadOnlyList<BossPartDefinition> parts,
+            WarshipEncounterDefinition warshipEncounter = null)
         {
             BossId = bossId ?? throw new ArgumentNullException(nameof(bossId));
             StageIndexMin = stageIndexMin;
@@ -673,6 +674,7 @@ namespace Shmup.Core.Generation
             Phases = CopyPhases(phases);
             Parts = CopyParts(parts);
             ThemeId = themeId;
+            WarshipEncounter = warshipEncounter;
         }
 
         public string BossId { get; }
@@ -688,6 +690,7 @@ namespace Shmup.Core.Generation
         public IReadOnlyList<BossPhase> Phases { get; }
         public IReadOnlyList<BossPartDefinition> Parts { get; }
         public string ThemeId { get; }
+        public WarshipEncounterDefinition WarshipEncounter { get; }
 
         internal bool Supports(int stageIndex, int difficulty)
         {
@@ -718,6 +721,10 @@ namespace Shmup.Core.Generation
             if (HalfWidth < 0 || HalfHeight < 0)
                 throw new ArgumentException("Boss hitbox dimensions cannot be negative.");
             ValidateParts();
+            if (WarshipEncounter != null && Parts.Count == 0)
+                throw new ArgumentException(
+                    "A warship encounter requires multipart boss parts.");
+            WarshipEncounter?.ValidateParts(Parts);
             StagePlanClearability.ValidateLaneMask(
                 EntryLaneMask, validLanes, nameof(EntryLaneMask));
         }
@@ -1124,7 +1131,8 @@ namespace Shmup.Core.Generation
                 selected.ThemeId,
                 EncounterType.Normal,
                 selected.Parts,
-                _catalog.FindGimmick(selected.ThemeId));
+                _catalog.FindGimmick(selected.ThemeId),
+                selected.WarshipEncounter);
         }
 
         static string GetColossalBossId(ColossalBossKind kind)
@@ -1254,7 +1262,8 @@ namespace Shmup.Core.Generation
                 requestedThemeId,
                 encounterType,
                 selectedBoss.Parts,
-                _catalog.FindGimmick(themeId));
+                _catalog.FindGimmick(themeId),
+                selectedBoss.WarshipEncounter);
             return ApplyEncounterPlan(normalPlan, encounterType);
         }
 
@@ -1323,6 +1332,8 @@ namespace Shmup.Core.Generation
             int bossHoldX = source.BossHoldX;
             IReadOnlyList<BossPhase> bossPhases = source.BossPhases;
             IReadOnlyList<BossPartDefinition> bossParts = source.BossParts;
+            WarshipEncounterDefinition warshipEncounter =
+                source.WarshipEncounter;
 
             if (encounterType == EncounterType.Supply)
             {
@@ -1333,6 +1344,7 @@ namespace Shmup.Core.Generation
                 bossHoldX = 0;
                 bossPhases = Array.Empty<BossPhase>();
                 bossParts = Array.Empty<BossPartDefinition>();
+                warshipEncounter = null;
             }
             else if (encounterType == EncounterType.Hazard)
             {
@@ -1354,7 +1366,8 @@ namespace Shmup.Core.Generation
                 source.RequestedThemeId,
                 encounterType,
                 bossParts,
-                source.Gimmick);
+                source.Gimmick,
+                warshipEncounter);
         }
 
         static IReadOnlyList<StageSegment> AddHazardObstacles(

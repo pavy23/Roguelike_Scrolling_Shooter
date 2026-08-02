@@ -295,6 +295,7 @@ namespace Shmup.Core.Simulation
             FoldString(plan.Gimmick.ThemeId);
             FoldBool(plan.Gimmick.VisionObscured);
             FoldInt32(plan.Gimmick.TimeLimitTicks);
+            FoldWarshipDefinition(plan.WarshipEncounter);
 
             FoldInt32(plan.BossPhases.Count);
             for (int i = 0; i < plan.BossPhases.Count; i++)
@@ -407,6 +408,78 @@ namespace Shmup.Core.Simulation
                         obstacle.LaserAttack;
                     FoldLaserDefinition(laser);
                 }
+            }
+        }
+
+        void FoldWarshipDefinition(WarshipEncounterDefinition definition)
+        {
+            FoldBool(definition != null);
+            if (definition == null)
+                return;
+            FoldString(definition.EncounterId);
+            FoldInt32(definition.EventEntityId);
+            FoldInt32(definition.WarningTicks);
+            FoldInt32(definition.OriginX);
+            FoldInt32(definition.OriginY);
+            FoldInt32(definition.ScrollSpeedNumerator);
+            FoldInt32(definition.ScrollSpeedDenominator);
+            FoldInt32(definition.BaseCoreOpeningWays);
+            FoldInt32(definition.WaysReductionPerTurret);
+            FoldInt32(definition.MinimumCoreOpeningWays);
+            FoldInt32(definition.Groups.Count);
+            for (int i = 0; i < definition.Groups.Count; i++)
+            {
+                WarshipPartGroupDefinition group = definition.Groups[i];
+                FoldString(group.GroupId);
+                FoldInt32((int)group.Role);
+                FoldInt32(group.AdvanceAfterTicks);
+                FoldInt32(group.PartIds.Count);
+                for (int part = 0; part < group.PartIds.Count; part++)
+                    FoldString(group.PartIds[part]);
+            }
+        }
+
+        public void FoldWarshipEncounterState(WarshipEncounter encounter)
+        {
+            if (encounter == null)
+                throw new ArgumentNullException(nameof(encounter));
+            FoldWarshipDefinition(encounter.Definition);
+            FoldInt32(encounter.Tick);
+            FoldInt64(encounter.ScrollOffset);
+            FoldInt64(encounter.ScrollRemainder);
+            FoldInt32(encounter.ActiveGroupIndex);
+            FoldInt32(encounter.ActiveGroupElapsedTicks);
+            FoldBool(encounter.WarningActive);
+            FoldBool(encounter.MidbossDefeated);
+            FoldBool(encounter.CoreBattleActive);
+            FoldBool(encounter.Completed);
+            FoldInt32(encounter.DestroyedAttritionParts);
+            FoldInt32(encounter.TotalAttritionParts);
+            FoldInt32(encounter.CoreOpeningWays);
+            FoldInt32(encounter.Parts.Count);
+            for (int i = 0; i < encounter.Parts.Count; i++)
+            {
+                WarshipPartState part = encounter.Parts[i];
+                FoldString(part.PartId);
+                FoldString(part.GroupId);
+                FoldInt32((int)part.GroupRole);
+                FoldInt32(part.X);
+                FoldInt32(part.Y);
+                FoldInt32(part.Hp);
+                FoldInt32(part.MaxHp);
+                FoldBool(part.Active);
+            }
+            ArraySegment<SimEvent> events = encounter.EventsThisTick;
+            FoldInt32(events.Count);
+            for (int i = 0; i < events.Count; i++)
+            {
+                SimEvent simEvent = events.Array[events.Offset + i];
+                FoldInt32((int)simEvent.Type);
+                FoldInt32(simEvent.EntityId);
+                FoldInt32(simEvent.X);
+                FoldInt32(simEvent.Y);
+                FoldInt32(simEvent.Arg);
+                FoldString(simEvent.PartId);
             }
         }
 

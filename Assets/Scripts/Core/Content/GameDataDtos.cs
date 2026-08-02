@@ -569,6 +569,46 @@ namespace Shmup.Core.Content
         public BossPhaseDto[] phases;
         [DataMember]
         public BossPartDto[] parts;
+        [DataMember]
+        public WarshipEncounterDto warship;
+    }
+
+    [DataContract]
+    internal sealed class WarshipEncounterDto
+    {
+        [DataMember]
+        public string id;
+        [DataMember]
+        public int? eventEntityId;
+        [DataMember]
+        public int? warningTicks;
+        [DataMember]
+        public decimal? originX;
+        [DataMember]
+        public decimal? originY;
+        [DataMember]
+        public decimal? scrollSpeedPerSecond;
+        [DataMember]
+        public int? baseCoreOpeningWays;
+        [DataMember]
+        public int? waysReductionPerTurret;
+        [DataMember]
+        public int? minimumCoreOpeningWays;
+        [DataMember]
+        public WarshipPartGroupDto[] groups;
+    }
+
+    [DataContract]
+    internal sealed class WarshipPartGroupDto
+    {
+        [DataMember]
+        public string id;
+        [DataMember]
+        public string role;
+        [DataMember]
+        public string[] partIds;
+        [DataMember]
+        public int? advanceAfterTicks;
     }
 
     [DataContract]
