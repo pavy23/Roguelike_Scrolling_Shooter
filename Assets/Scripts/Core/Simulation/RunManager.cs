@@ -660,7 +660,8 @@ namespace Shmup.Core.Simulation
             int startStageIndex = DefaultStartStageIndex,
             bool isDailyRun = false,
             int initialContinueStock = 0,
-            ContinueEconomyConfig continueEconomy = null)
+            ContinueEconomyConfig continueEconomy = null,
+            GhostReplayConfig ghostReplay = null)
         {
             if (startStageIndex < 1)
                 throw new ArgumentOutOfRangeException(
@@ -675,12 +676,14 @@ namespace Shmup.Core.Simulation
             IsDailyRun = isDailyRun;
             InitialContinueStock = initialContinueStock;
             ContinueEconomy = resolvedEconomy;
+            GhostReplay = ghostReplay ?? GhostReplayConfig.CreateDefault();
         }
 
         public int StartStageIndex { get; }
         public bool IsDailyRun { get; }
         public int InitialContinueStock { get; }
         public ContinueEconomyConfig ContinueEconomy { get; }
+        public GhostReplayConfig GhostReplay { get; }
 
         public static RunConfig CreateDefault()
         {
@@ -824,6 +827,7 @@ namespace Shmup.Core.Simulation
         public const int MaximumContractOptionCount = 3;
         public const int MinimumRouteOptionCount = 2;
         public const int MaximumRouteOptionCount = 3;
+        public const int StageOneGhostEntityId = 1;
 
         static readonly RewardCatalog BuiltInRewards = new RewardCatalog(
             RewardOptionCount,
@@ -948,6 +952,8 @@ namespace Shmup.Core.Simulation
             _continueDecisionHistoryView;
         readonly ContinueEconomyConfig _continueEconomy;
         readonly bool _isDailyRun;
+        readonly GhostReplayConfig _ghostReplayConfig;
+        readonly InputRecorder _stageOneGhostRecorder;
         MetaState _metaState;
         ColossalBossKind _lastColossalBossAtRunStart;
         BattleContinuityState _pendingBattleContinuity;
@@ -1011,6 +1017,17 @@ namespace Shmup.Core.Simulation
         int _capsuleBalance;
         IReadOnlyList<ContractOption> _contractOptions =
             Array.Empty<ContractOption>();
+        bool _ghostRecordingHasStartState;
+        bool _ghostRecordingFinalized;
+        GhostRecordingStartState _ghostRecordingStartState;
+        int _stageStartGhostRecordedTicks;
+        bool _stageStartGhostRecordingFinalized;
+        GhostState _stageStartGhostState;
+        GhostState _ghostState;
+        int _ghostPlaybackRunIndex;
+        int _ghostPlaybackRunTicksRemaining;
+        InputCommand _ghostPlaybackCommand;
+        int _ghostFixedShotDamage;
 
         public RunManager(
             ulong runSeed,
@@ -1609,6 +1626,9 @@ namespace Shmup.Core.Simulation
             _startStageIndex = resolvedRunConfig.StartStageIndex;
             _isDailyRun = resolvedRunConfig.IsDailyRun;
             _continueEconomy = resolvedRunConfig.ContinueEconomy;
+            _ghostReplayConfig = resolvedRunConfig.GhostReplay;
+            _stageOneGhostRecorder = new InputRecorder(
+                _ghostReplayConfig.MaximumInputRuns);
             _continueStock = _isDailyRun
                 ? 0
                 : resolvedRunConfig.InitialContinueStock;
@@ -1870,6 +1890,29 @@ namespace Shmup.Core.Simulation
         public long FinalWagerScoreBonus => _finalWagerScoreBonus;
         public long RunClearShieldBonus { get; private set; }
         public int SimulationTicksElapsed => _simulationTicksElapsed;
+        public GhostReplayConfig GhostReplayConfig => _ghostReplayConfig;
+        public GhostState Ghost => _ghostState;
+        public bool HasStageOneGhostRecording =>
+            _ghostRecordingHasStartState
+            && _ghostRecordingFinalized
+            && _stageOneGhostRecorder.TotalTicks > 0;
+        public bool StageOneGhostRecordingFinalized =>
+            _ghostRecordingFinalized;
+        public bool StageOneGhostRecordingStarted =>
+            _ghostRecordingHasStartState;
+        public int StageOneGhostRecordedTicks =>
+            _stageOneGhostRecorder.TotalTicks;
+        public int StageOneGhostRecordedRunCount =>
+            _stageOneGhostRecorder.RunCount;
+        public ulong StageOneGhostRecordingHash =>
+            _stageOneGhostRecorder.DeterminismHash;
+        public GhostRecordingStartState StageOneGhostRecordingStart =>
+            _ghostRecordingStartState;
+
+        public RecordedInputRun GetStageOneGhostRecordedRun(int runIndex)
+        {
+            return _stageOneGhostRecorder.GetRun(runIndex);
+        }
         public ContinueAvailability ContinueAvailability
         {
             get
@@ -2123,6 +2166,42 @@ namespace Shmup.Core.Simulation
                                 .SimulationTick
                     };
             }
+            GhostRecordingStartState ghostStart =
+                _ghostRecordingStartState;
+            var ghostRecording = new GhostRecordingData
+            {
+                hasStartState = _ghostRecordingHasStartState,
+                finalized = _stageStartGhostRecordingFinalized,
+                totalTicks = _stageStartGhostRecordedTicks,
+                runs = _stageOneGhostRecorder.ExportRunsPrefix(
+                    _stageStartGhostRecordedTicks),
+                startX = ghostStart.X,
+                startY = ghostStart.Y,
+                speedNumerator = ghostStart.SpeedNumerator,
+                speedDenominator = ghostStart.SpeedDenominator,
+                minimumX = ghostStart.MinimumX,
+                maximumX = ghostStart.MaximumX,
+                minimumY = ghostStart.MinimumY,
+                maximumY = ghostStart.MaximumY,
+                fixedWeaponLevel =
+                    _ghostReplayConfig.FixedWeaponLevel,
+                fireIntervalTicks =
+                    _ghostReplayConfig.FireIntervalTicks,
+                maximumInputRuns =
+                    _ghostReplayConfig.MaximumInputRuns,
+                playbackActive = _stageStartGhostState.Active,
+                playbackX = _stageStartGhostState.X,
+                playbackY = _stageStartGhostState.Y,
+                playbackTick = _stageStartGhostState.PlaybackTick,
+                playbackCooldownTicks =
+                    _stageStartGhostState.TicksUntilNextShot,
+                playbackMovementRemainderX =
+                    _stageStartGhostState.MovementRemainderX,
+                playbackMovementRemainderY =
+                    _stageStartGhostState.MovementRemainderY,
+                playbackIsFiring =
+                    _stageStartGhostState.IsFiring
+            };
 
             var data = new RunSuspendData
             {
@@ -2236,7 +2315,8 @@ namespace Shmup.Core.Simulation
                 finalWagerShieldCap =
                     _continueEconomy.FinalWagerShieldCap,
                 continueOverflowScoreBonus =
-                    _continueEconomy.OverflowScoreBonus
+                    _continueEconomy.OverflowScoreBonus,
+                ghostRecording = ghostRecording
             };
             SaveDataIntegrity.Seal(data);
             return data;
@@ -2473,7 +2553,7 @@ namespace Shmup.Core.Simulation
                     data.roomsPerBiome),
                 false,
                 resolvedContracts,
-                new RunConfig(
+                    new RunConfig(
                     RunConfig.DefaultStartStageIndex,
                     data.isDailyRun,
                     data.continueStock,
@@ -2482,7 +2562,11 @@ namespace Shmup.Core.Simulation
                         data.continueFirstPurchasePrice,
                         data.continuePurchasePriceIncrease,
                         data.finalWagerShieldCap,
-                        data.continueOverflowScoreBonus)));
+                        data.continueOverflowScoreBonus),
+                    new GhostReplayConfig(
+                        data.ghostRecording.fixedWeaponLevel,
+                        data.ghostRecording.fireIntervalTicks,
+                        data.ghostRecording.maximumInputRuns)));
 
             manager._runSeed = data.runSeed;
             manager.RunNumber = data.runNumber;
@@ -2590,6 +2674,8 @@ namespace Shmup.Core.Simulation
             manager.RestoreRouteChoices(
                 data.routeChoices,
                 false);
+            manager.RestoreStageOneGhostRecording(
+                data.ghostRecording);
             manager.PowerUpGauge.RestoreState(
                 data.powerUpLevels,
                 data.powerUpCursor,
@@ -2628,6 +2714,8 @@ namespace Shmup.Core.Simulation
                 throw new InvalidOperationException(
                     "A run cannot exceed Int32.MaxValue simulation ticks.");
 
+            RecordStageOneGhostInput(in input);
+
             bool activatePressed = input.Activate && !_activateHeld;
             _activateHeld = input.Activate;
 
@@ -2635,6 +2723,7 @@ namespace Shmup.Core.Simulation
                 input.WithActivate(activatePressed);
             Battle.Step(in battleInput);
             _simulationTicksElapsed++;
+            AdvanceGhostPlayback();
             if (Battle is BattleSim weaponBattle
                 && weaponBattle.EquippedPrimaryWeaponFamily
                     != CurrentPrimaryWeaponFamily)
@@ -2647,6 +2736,7 @@ namespace Shmup.Core.Simulation
             // transition produced by the same battle tick.
             if (!Battle.IsPlayerAlive)
             {
+                FinalizeStageOneGhostRecording();
                 State = RunState.RunOver;
                 return;
             }
@@ -2662,6 +2752,10 @@ namespace Shmup.Core.Simulation
                         : Battle.Tick >= _stageLengthTicks;
                 if (bossCleared)
                 {
+                    if (BiomeIndex == 1)
+                        FinalizeStageOneGhostRecording();
+                    if (_ghostState.Active)
+                        EndGhostPlayback();
                     IncrementStagesCleared();
                     if (IsHiddenBiome)
                         CompleteRun(
@@ -4000,6 +4094,7 @@ namespace Shmup.Core.Simulation
             RunClearShieldBonus = 0;
             _pendingBattleContinuity = null;
             _capsuleBalance = 0;
+            ResetStageOneGhostForNewRun();
             Array.Clear(
                 _rewardAcquisitionCounts,
                 0,
@@ -4332,6 +4427,14 @@ namespace Shmup.Core.Simulation
                     + $"{data.schemaVersion}.",
                     nameof(data));
             }
+            ValidateGhostRecordingData(data.ghostRecording);
+            if (data.ghostRecording.playbackActive
+                && (data.isHiddenBiome
+                    || data.biomeIndex != data.biomeCount
+                    || (!data.isBiomeBoss && data.roomIndex <= 2)))
+                throw new ArgumentException(
+                    "Suspend ghost playback is outside the final closing section.",
+                    nameof(data));
             if (!Enum.IsDefined(
                     typeof(MissileFamily),
                     data.missileFamily)
@@ -5037,12 +5140,18 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < source.Length; i++)
             {
                 RewardDecisionData data = source[i];
-                if (data == null
-                    || data.rewardSequence < previousSequence)
+                if (data == null)
                     throw new ArgumentException(
                         "Suspend reward decision history is invalid.");
                 if (data.rewardSequence != previousSequence)
                 {
+                    for (int prior = 0; prior < i; prior++)
+                    {
+                        if (source[prior].rewardSequence
+                            == data.rewardSequence)
+                            throw new ArgumentException(
+                                "Suspend reward decision history is invalid.");
+                    }
                     previousSequence =
                         data.rewardSequence;
                     selected = false;
@@ -5119,6 +5228,106 @@ namespace Shmup.Core.Simulation
                     return i;
             }
             return -1;
+        }
+
+        static void ValidateGhostRecordingData(
+            GhostRecordingData recording)
+        {
+            if (recording == null)
+                throw new ArgumentException(
+                    "Suspend ghost recording cannot be null.",
+                    "data");
+            if (recording.fixedWeaponLevel < 1
+                || recording.fireIntervalTicks < 1
+                || recording.maximumInputRuns < 1)
+                throw new ArgumentException(
+                    "Suspend ghost replay configuration is invalid.",
+                    "data");
+            if (recording.totalTicks < 0
+                || recording.runs == null
+                || recording.runs.Length
+                    > recording.maximumInputRuns)
+                throw new ArgumentException(
+                    "Suspend ghost input bounds are invalid.",
+                    "data");
+            if (!recording.hasStartState
+                && (recording.finalized
+                    || recording.totalTicks != 0
+                    || recording.runs.Length != 0))
+                throw new ArgumentException(
+                    "Suspend ghost input requires a start state.",
+                    "data");
+            if (recording.hasStartState
+                && (recording.speedNumerator < 0
+                    || recording.speedDenominator < 1
+                    || recording.minimumX > recording.maximumX
+                    || recording.minimumY > recording.maximumY
+                    || recording.startX < recording.minimumX
+                    || recording.startX > recording.maximumX
+                    || recording.startY < recording.minimumY
+                    || recording.startY > recording.maximumY))
+                throw new ArgumentException(
+                    "Suspend ghost start state is invalid.",
+                    "data");
+            if (recording.playbackActive
+                && (!recording.finalized
+                    || recording.playbackTick < 0
+                    || recording.playbackTick
+                        >= recording.totalTicks
+                    || recording.playbackCooldownTicks < 0
+                    || recording.playbackCooldownTicks
+                        > recording.fireIntervalTicks
+                    || recording.playbackX < recording.minimumX
+                    || recording.playbackX > recording.maximumX
+                    || recording.playbackY < recording.minimumY
+                    || recording.playbackY > recording.maximumY))
+                throw new ArgumentException(
+                    "Suspend ghost playback state is invalid.",
+                    "data");
+
+            long tickSum = 0;
+            InputRunData previous = null;
+            for (int i = 0; i < recording.runs.Length; i++)
+            {
+                InputRunData run = recording.runs[i];
+                if (run == null
+                    || run.moveX < -1
+                    || run.moveX > 1
+                    || run.moveY < -1
+                    || run.moveY > 1
+                    || run.tickCount < 1
+                    || (!run.useAnalogMovement
+                        && (run.analogDeltaXSubUnits != 0
+                            || run.analogDeltaYSubUnits != 0)))
+                    throw new ArgumentException(
+                        "Suspend ghost input runs are invalid.",
+                        "data");
+                if (previous != null
+                    && previous.moveX == run.moveX
+                    && previous.moveY == run.moveY
+                    && previous.fire == run.fire
+                    && previous.activate == run.activate
+                    && previous.activateBomb == run.activateBomb
+                    && previous.useAnalogMovement
+                        == run.useAnalogMovement
+                    && previous.analogDeltaXSubUnits
+                        == run.analogDeltaXSubUnits
+                    && previous.analogDeltaYSubUnits
+                        == run.analogDeltaYSubUnits)
+                    throw new ArgumentException(
+                        "Suspend ghost input runs are not canonical.",
+                        "data");
+                tickSum += run.tickCount;
+                if (tickSum > int.MaxValue)
+                    throw new ArgumentException(
+                        "Suspend ghost tick count overflowed.",
+                        "data");
+                previous = run;
+            }
+            if (tickSum != recording.totalTicks)
+                throw new ArgumentException(
+                    "Suspend ghost runs do not match totalTicks.",
+                    "data");
         }
 
         static void ResolveSuspendDifficulty(
@@ -5452,6 +5661,8 @@ namespace Shmup.Core.Simulation
                 IsMidBossSection);
             _pendingBattleContinuity = null;
             _preparedRouteOptions = Array.Empty<RouteOption>();
+            BeginStageOneGhostRecordingIfNeeded();
+            ActivateGhostIfEligible();
             CaptureStageStart();
         }
 
@@ -6028,6 +6239,243 @@ namespace Shmup.Core.Simulation
                 source.Gimmick);
         }
 
+        void BeginStageOneGhostRecordingIfNeeded()
+        {
+            if (BiomeIndex != 1
+                || _ghostRecordingHasStartState
+                || _ghostRecordingFinalized)
+                return;
+
+            _ghostRecordingStartState = new GhostRecordingStartState(
+                Battle.PlayerX,
+                Battle.PlayerY,
+                _battleConfig.PlayerSpeedNumerator,
+                _battleConfig.PlayerSpeedDenominator,
+                _battleConfig.PlayerMinX,
+                _battleConfig.PlayerMaxX,
+                _battleConfig.PlayerMinY,
+                _battleConfig.PlayerMaxY);
+            _ghostRecordingHasStartState = true;
+        }
+
+        void RecordStageOneGhostInput(in InputCommand input)
+        {
+            if (BiomeIndex != 1
+                || !_ghostRecordingHasStartState
+                || _ghostRecordingFinalized)
+                return;
+            if (!_stageOneGhostRecorder.TryRecord(in input))
+                FinalizeStageOneGhostRecording();
+        }
+
+        void FinalizeStageOneGhostRecording()
+        {
+            if (BiomeIndex != 1
+                || !_ghostRecordingHasStartState
+                || _ghostRecordingFinalized)
+                return;
+            _ghostRecordingFinalized = true;
+        }
+
+        void ActivateGhostIfEligible()
+        {
+            if (_ghostState.Active)
+                return;
+            _ghostState = default;
+            _ghostPlaybackRunIndex = 0;
+            _ghostPlaybackRunTicksRemaining = 0;
+            _ghostPlaybackCommand = default;
+            _ghostFixedShotDamage = 0;
+            if (BiomeIndex != FinalStageIndex
+                || StageSection != RunStageSection.Closing
+                || !HasStageOneGhostRecording)
+                return;
+
+            _ghostFixedShotDamage = Damage.Compute(
+                _initialMainShotBaseDamage,
+                _ghostReplayConfig.FixedWeaponLevel);
+            _ghostState = new GhostState(
+                true,
+                StageOneGhostEntityId,
+                _ghostRecordingStartState.X,
+                _ghostRecordingStartState.Y,
+                false,
+                0,
+                0,
+                0,
+                0);
+            ((BattleSim)Battle).EmitGhostSpawned(
+                StageOneGhostEntityId,
+                _ghostState.X,
+                _ghostState.Y,
+                _ghostReplayConfig.FixedWeaponLevel);
+        }
+
+        void AdvanceGhostPlayback()
+        {
+            if (!_ghostState.Active)
+                return;
+            if (_ghostState.PlaybackTick
+                >= _stageOneGhostRecorder.TotalTicks)
+            {
+                EndGhostPlayback();
+                return;
+            }
+            if (_ghostPlaybackRunTicksRemaining == 0)
+            {
+                RecordedInputRun run =
+                    _stageOneGhostRecorder.GetRun(
+                        _ghostPlaybackRunIndex++);
+                _ghostPlaybackCommand = run.Command;
+                _ghostPlaybackRunTicksRemaining = run.TickCount;
+            }
+
+            GhostState moved = GhostReplayMotion.Advance(
+                in _ghostState,
+                in _ghostRecordingStartState,
+                in _ghostPlaybackCommand);
+            int cooldown = moved.TicksUntilNextShot;
+            if (cooldown > 0)
+                cooldown--;
+            bool fired = false;
+            if (_ghostPlaybackCommand.Fire && cooldown == 0)
+            {
+                fired = ((BattleSim)Battle).TrySpawnGhostMainShot(
+                    moved.X,
+                    moved.Y,
+                    _ghostFixedShotDamage);
+                if (fired)
+                    cooldown = _ghostReplayConfig.FireIntervalTicks;
+            }
+            _ghostPlaybackRunTicksRemaining--;
+            int playbackTick = moved.PlaybackTick + 1;
+            _ghostState = new GhostState(
+                true,
+                moved.EntityId,
+                moved.X,
+                moved.Y,
+                fired,
+                playbackTick,
+                cooldown,
+                moved.MovementRemainderX,
+                moved.MovementRemainderY);
+            if (playbackTick >= _stageOneGhostRecorder.TotalTicks)
+                EndGhostPlayback();
+        }
+
+        void EndGhostPlayback()
+        {
+            if (!_ghostState.Active)
+                return;
+            GhostState ended = _ghostState;
+            ((BattleSim)Battle).EmitGhostEnded(
+                ended.EntityId,
+                ended.X,
+                ended.Y,
+                ended.PlaybackTick);
+            _ghostState = new GhostState(
+                false,
+                ended.EntityId,
+                ended.X,
+                ended.Y,
+                false,
+                ended.PlaybackTick,
+                ended.TicksUntilNextShot,
+                ended.MovementRemainderX,
+                ended.MovementRemainderY);
+        }
+
+        void ResetStageOneGhostForNewRun()
+        {
+            _stageOneGhostRecorder.Reset();
+            _ghostRecordingHasStartState = false;
+            _ghostRecordingFinalized = false;
+            _ghostRecordingStartState = default;
+            _stageStartGhostRecordedTicks = 0;
+            _stageStartGhostRecordingFinalized = false;
+            _stageStartGhostState = default;
+            _ghostState = default;
+            _ghostPlaybackRunIndex = 0;
+            _ghostPlaybackRunTicksRemaining = 0;
+            _ghostPlaybackCommand = default;
+            _ghostFixedShotDamage = 0;
+        }
+
+        void RestoreStageOneGhostRecording(GhostRecordingData data)
+        {
+            if (data == null)
+                throw new ArgumentNullException(nameof(data));
+            _stageOneGhostRecorder.RestoreRuns(
+                data.runs,
+                data.totalTicks);
+            _ghostRecordingHasStartState = data.hasStartState;
+            _ghostRecordingFinalized = data.finalized;
+            _ghostRecordingStartState = data.hasStartState
+                ? new GhostRecordingStartState(
+                    data.startX,
+                    data.startY,
+                    data.speedNumerator,
+                    data.speedDenominator,
+                    data.minimumX,
+                    data.maximumX,
+                    data.minimumY,
+                    data.maximumY)
+                : default;
+            _stageStartGhostRecordedTicks = data.totalTicks;
+            _stageStartGhostRecordingFinalized = data.finalized;
+            _ghostState = data.playbackActive
+                ? new GhostState(
+                    true,
+                    StageOneGhostEntityId,
+                    data.playbackX,
+                    data.playbackY,
+                    data.playbackIsFiring,
+                    data.playbackTick,
+                    data.playbackCooldownTicks,
+                    data.playbackMovementRemainderX,
+                    data.playbackMovementRemainderY)
+                : default;
+            _stageStartGhostState = _ghostState;
+            if (_ghostState.Active)
+            {
+                _ghostFixedShotDamage = Damage.Compute(
+                    _initialMainShotBaseDamage,
+                    _ghostReplayConfig.FixedWeaponLevel);
+                RestoreGhostPlaybackCursor(
+                    _ghostState.PlaybackTick);
+            }
+        }
+
+        void RestoreGhostPlaybackCursor(int playbackTick)
+        {
+            _ghostPlaybackRunIndex = 0;
+            _ghostPlaybackRunTicksRemaining = 0;
+            _ghostPlaybackCommand = default;
+            int remainingConsumed = playbackTick;
+            while (_ghostPlaybackRunIndex
+                < _stageOneGhostRecorder.RunCount)
+            {
+                RecordedInputRun run =
+                    _stageOneGhostRecorder.GetRun(
+                        _ghostPlaybackRunIndex);
+                if (remainingConsumed >= run.TickCount)
+                {
+                    remainingConsumed -= run.TickCount;
+                    _ghostPlaybackRunIndex++;
+                    continue;
+                }
+                _ghostPlaybackCommand = run.Command;
+                _ghostPlaybackRunTicksRemaining =
+                    run.TickCount - remainingConsumed;
+                _ghostPlaybackRunIndex++;
+                return;
+            }
+            if (remainingConsumed != 0)
+                throw new ArgumentException(
+                    "Ghost playback tick exceeds its recording.",
+                    "data");
+        }
+
         void CaptureStageStart()
         {
             for (int i = 0; i < PowerUpGauge.SlotCount; i++)
@@ -6048,6 +6496,11 @@ namespace Shmup.Core.Simulation
                 _capsuleBalance;
             _stageStartSimulationTicksElapsed =
                 _simulationTicksElapsed;
+            _stageStartGhostRecordedTicks =
+                _stageOneGhostRecorder.TotalTicks;
+            _stageStartGhostRecordingFinalized =
+                _ghostRecordingFinalized;
+            _stageStartGhostState = _ghostState;
             _stageStartGrazeCount = _completedGrazeCount;
             _stageStartBombsUsed = _completedBombsUsed;
             _stageStartHitsTaken = _completedHitsTaken;

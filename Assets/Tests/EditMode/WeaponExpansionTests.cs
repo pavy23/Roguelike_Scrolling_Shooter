@@ -595,7 +595,7 @@ namespace Shmup.Core.Tests
                 24,
                 InputRecordingData.CurrentSchemaVersion);
             Assert.AreEqual(
-                26,
+                27,
                 RunSuspendData.CurrentSchemaVersion);
             Assert.Throws<ArgumentException>(
                 () => SaveDataIntegrity.MigrateAndValidate(
@@ -607,7 +607,7 @@ namespace Shmup.Core.Tests
                 () => SaveDataIntegrity.MigrateAndValidate(
                     new RunSuspendData
                     {
-                        schemaVersion = 25
+                        schemaVersion = 26
                     }));
             Assert.Throws<ArgumentException>(
                 () => SaveDataIntegrity.MigrateAndValidate(

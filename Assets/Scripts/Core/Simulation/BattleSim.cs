@@ -114,7 +114,11 @@ namespace Shmup.Core.Simulation
         /// EntityId = remaining shield stock, Arg = total run-clear shield bonus
         /// actually awarded, saturated to int.MaxValue.
         /// </summary>
-        ShieldBonusAwarded = 38
+        ShieldBonusAwarded = 38,
+        /// <summary>EntityId = ghost id, X/Y = spawn point, Arg = fixed weapon level.</summary>
+        GhostSpawned = 39,
+        /// <summary>EntityId = ghost id, X/Y = final point, Arg = replayed tick count.</summary>
+        GhostEnded = 40
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -234,7 +238,9 @@ namespace Shmup.Core.Simulation
         Heavy = 3,
         Splitter = 4,
         Mine = 5,
-        BossLaser = 6
+        BossLaser = 6,
+        /// <summary>Fixed low-level, straight primary shot fired by the St1 ghost.</summary>
+        GhostMainShot = 7
     }
 
     public enum BossTelegraphKind
@@ -557,6 +563,31 @@ namespace Shmup.Core.Simulation
             int damagePercent,
             int collisionScalePercent,
             BossSignaturePattern signaturePattern)
+            : this(
+                id,
+                faction,
+                kind,
+                x,
+                y,
+                ageTicks,
+                damagePercent,
+                collisionScalePercent,
+                signaturePattern,
+                0)
+        {
+        }
+
+        public BulletState(
+            int id,
+            BulletFaction faction,
+            BulletKind kind,
+            int x,
+            int y,
+            int ageTicks,
+            int damagePercent,
+            int collisionScalePercent,
+            BossSignaturePattern signaturePattern,
+            int fixedDamage)
         {
             if (ageTicks < 0)
                 throw new ArgumentOutOfRangeException(nameof(ageTicks));
@@ -565,6 +596,8 @@ namespace Shmup.Core.Simulation
             if (collisionScalePercent < 1)
                 throw new ArgumentOutOfRangeException(
                     nameof(collisionScalePercent));
+            if (fixedDamage < 0)
+                throw new ArgumentOutOfRangeException(nameof(fixedDamage));
             Id = id;
             Faction = faction;
             Kind = kind;
@@ -574,6 +607,7 @@ namespace Shmup.Core.Simulation
             DamagePercent = damagePercent;
             CollisionScalePercent = collisionScalePercent;
             SignaturePattern = signaturePattern;
+            FixedDamage = fixedDamage;
         }
 
         public int Id { get; }
@@ -586,6 +620,11 @@ namespace Shmup.Core.Simulation
         public int DamagePercent { get; }
         public int CollisionScalePercent { get; }
         public BossSignaturePattern SignaturePattern { get; }
+        /// <summary>
+        /// Exact damage for projectiles whose power must not inherit the current
+        /// player loadout. Zero means normal weapon damage rules.
+        /// </summary>
+        public int FixedDamage { get; }
     }
 
     /// <summary>Observable option position in integer simulation subunits.</summary>
@@ -2725,6 +2764,93 @@ namespace Shmup.Core.Simulation
             }
         }
 
+        /// <summary>
+        /// Appends the lifecycle event to the current tick's fixed event buffer.
+        /// RunManager calls this after Step when deterministic ghost playback ends.
+        /// </summary>
+        public void EmitGhostEnded(
+            int entityId,
+            int x,
+            int y,
+            int replayedTicks)
+        {
+            if (entityId < 1)
+                throw new ArgumentOutOfRangeException(nameof(entityId));
+            if (replayedTicks < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(replayedTicks));
+            EmitEvent(
+                SimEventType.GhostEnded,
+                entityId,
+                x,
+                y,
+                replayedTicks);
+        }
+
+        /// <summary>
+        /// Emits spawn at the new room's tick-zero boundary. The ghost has no
+        /// collision body; only its explicit projectiles enter BattleSim.
+        /// </summary>
+        public void EmitGhostSpawned(
+            int entityId,
+            int x,
+            int y,
+            int fixedWeaponLevel)
+        {
+            if (entityId < 1)
+                throw new ArgumentOutOfRangeException(nameof(entityId));
+            if (fixedWeaponLevel < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(fixedWeaponLevel));
+            EmitEvent(
+                SimEventType.GhostSpawned,
+                entityId,
+                x,
+                y,
+                fixedWeaponLevel);
+        }
+
+        /// <summary>
+        /// Spawns one capacity-limited straight allied shot with exact damage.
+        /// It participates in the normal deterministic projectile collision and
+        /// scoring pipeline, but never inherits options, missiles, burst, beam,
+        /// modifiers, or the current player's weapon level.
+        /// </summary>
+        public bool TrySpawnGhostMainShot(int x, int y, int fixedDamage)
+        {
+            if (fixedDamage < 1)
+                throw new ArgumentOutOfRangeException(nameof(fixedDamage));
+            if (CountPlayerBullets() >= _maxBullets)
+                return false;
+            if (_nextBulletId == int.MaxValue)
+                throw new InvalidOperationException(
+                    "The bullet id counter is exhausted.");
+
+            _bullets.Add(new BulletState(
+                _nextBulletId++,
+                BulletFaction.Player,
+                BulletKind.GhostMainShot,
+                x,
+                y,
+                0,
+                100,
+                100,
+                BossSignaturePattern.None,
+                fixedDamage));
+            _bulletXRemainders.Add(0);
+            _bulletYRemainders.Add(0);
+            _bulletVelXNumerators.Add(0);
+            _bulletVelYNumerators.Add(0);
+            _bulletVelDenominators.Add(0);
+            _bulletPiercesRemaining.Add(0);
+            _bulletRicochetUsed.Add(0);
+            _bulletHomingTargetIds.Add(0);
+            _bulletGrazeScored.Add(0);
+            AddDefaultEnemyProjectileBehavior();
+            IncrementSaturated(ref _shotsFired);
+            return true;
+        }
+
         void EmitBossPartEvent(
             SimEventType type,
             int x,
@@ -4032,7 +4158,8 @@ namespace Shmup.Core.Simulation
                     nextAge,
                     bullet.DamagePercent,
                     bullet.CollisionScalePercent,
-                    bullet.SignaturePattern);
+                    bullet.SignaturePattern,
+                    bullet.FixedDamage);
                 _bulletXRemainders[write] = nextXRemainder;
                 _bulletYRemainders[write] = nextYRemainder;
                 _bulletVelXNumerators[write] = _bulletVelXNumerators[read];
@@ -5622,7 +5749,7 @@ namespace Shmup.Core.Simulation
                     ? ComputeMissileDamage(
                         _missileBaseDamage,
                         bullet.DamagePercent)
-                    : Damage.Compute(_playerBulletDamage, Math.Max(1, _mainShotLevel));
+                    : ComputeMainShotDamage(in bullet);
                 bool defeated = partIndex >= 0
                     ? ApplyDamageToBossPart(partIndex, damage)
                     : ApplyDamageToBoss(damage);
@@ -6815,9 +6942,7 @@ namespace Shmup.Core.Simulation
                         ? ComputeMissileDamage(
                             _missileBaseDamage,
                             bullet.DamagePercent)
-                        : Damage.Compute(
-                            _playerBulletDamage,
-                            Math.Max(1, _mainShotLevel));
+                        : ComputeMainShotDamage(in bullet);
                     if (bullet.Kind == BulletKind.Missile
                         && _missileFamily
                             == MissileFamily.SpreadBomb)
@@ -7006,7 +7131,7 @@ namespace Shmup.Core.Simulation
                     ? ComputeMissileDamage(
                         _missileBaseDamage,
                         bullet.DamagePercent)
-                    : Damage.Compute(_playerBulletDamage, Math.Max(1, _mainShotLevel));
+                    : ComputeMainShotDamage(in bullet);
                 int hp = Damage.ApplyToHp(enemy.Hp, damage);
                 if (hp > 0)
                 {
@@ -8518,6 +8643,20 @@ namespace Shmup.Core.Simulation
             return scaled >= int.MaxValue
                 ? int.MaxValue
                 : (int)scaled;
+        }
+
+        int ComputeMainShotDamage(in BulletState bullet)
+        {
+            if (bullet.Kind == BulletKind.GhostMainShot)
+            {
+                if (bullet.FixedDamage < 1)
+                    throw new InvalidOperationException(
+                        "A ghost projectile is missing fixed damage.");
+                return bullet.FixedDamage;
+            }
+            return Damage.Compute(
+                _playerBulletDamage,
+                Math.Max(1, _mainShotLevel));
         }
 
         static int SaturatingAddDamage(int left, int right)

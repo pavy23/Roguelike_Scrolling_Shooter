@@ -33,7 +33,8 @@ namespace Shmup.Core
                 || source.schemaVersion == 22
                 || source.schemaVersion == 23
                 || source.schemaVersion == 24
-                || source.schemaVersion == 25)
+                || source.schemaVersion == 25
+                || source.schemaVersion == 26)
                 throw Unsupported(
                     "run suspend",
                     source.schemaVersion);
@@ -301,7 +302,10 @@ namespace Shmup.Core
                     : ContinueEconomyConfig.DefaultOverflowScoreBonus,
                 hitsTaken = source.schemaVersion >= 26
                     ? source.hitsTaken
-                    : 0L
+                    : 0L,
+                ghostRecording = source.schemaVersion >= 27
+                    ? Clone(source.ghostRecording)
+                    : CreateEmptyGhostRecording()
             };
             Seal(migrated);
             return migrated;
@@ -647,6 +651,7 @@ namespace Shmup.Core
             hash.Add(data.finalWagerShieldCap);
             hash.Add(data.continueOverflowScoreBonus);
             hash.Add(data.hitsTaken);
+            Add(ref hash, data.ghostRecording);
             return hash.ToString();
         }
 
@@ -1632,6 +1637,61 @@ namespace Shmup.Core
             }
         }
 
+        static void Add(
+            ref CanonicalHash hash,
+            GhostRecordingData recording)
+        {
+            hash.Add(recording != null);
+            if (recording == null)
+                return;
+            hash.Add(recording.hasStartState);
+            hash.Add(recording.finalized);
+            hash.Add(recording.totalTicks);
+            if (recording.runs == null)
+            {
+                hash.Add(-1);
+            }
+            else
+            {
+                hash.Add(recording.runs.Length);
+                for (int i = 0; i < recording.runs.Length; i++)
+                {
+                    InputRunData run = recording.runs[i];
+                    hash.Add(run != null);
+                    if (run == null)
+                        continue;
+                    hash.Add(run.moveX);
+                    hash.Add(run.moveY);
+                    hash.Add(run.fire);
+                    hash.Add(run.activate);
+                    hash.Add(run.activateBomb);
+                    hash.Add(run.tickCount);
+                    hash.Add(run.useAnalogMovement);
+                    hash.Add(run.analogDeltaXSubUnits);
+                    hash.Add(run.analogDeltaYSubUnits);
+                }
+            }
+            hash.Add(recording.startX);
+            hash.Add(recording.startY);
+            hash.Add(recording.speedNumerator);
+            hash.Add(recording.speedDenominator);
+            hash.Add(recording.minimumX);
+            hash.Add(recording.maximumX);
+            hash.Add(recording.minimumY);
+            hash.Add(recording.maximumY);
+            hash.Add(recording.fixedWeaponLevel);
+            hash.Add(recording.fireIntervalTicks);
+            hash.Add(recording.maximumInputRuns);
+            hash.Add(recording.playbackActive);
+            hash.Add(recording.playbackX);
+            hash.Add(recording.playbackY);
+            hash.Add(recording.playbackTick);
+            hash.Add(recording.playbackCooldownTicks);
+            hash.Add(recording.playbackMovementRemainderX);
+            hash.Add(recording.playbackMovementRemainderY);
+            hash.Add(recording.playbackIsFiring);
+        }
+
         static int MigrateLegacyDurabilityToShieldStock(
             int playerHp,
             int shieldRemaining,
@@ -1838,6 +1898,54 @@ namespace Shmup.Core
                     };
             }
             return copy;
+        }
+
+        static GhostRecordingData Clone(GhostRecordingData source)
+        {
+            if (source == null)
+                return null;
+            return new GhostRecordingData
+            {
+                hasStartState = source.hasStartState,
+                finalized = source.finalized,
+                totalTicks = source.totalTicks,
+                runs = Clone(source.runs, true, true, true),
+                startX = source.startX,
+                startY = source.startY,
+                speedNumerator = source.speedNumerator,
+                speedDenominator = source.speedDenominator,
+                minimumX = source.minimumX,
+                maximumX = source.maximumX,
+                minimumY = source.minimumY,
+                maximumY = source.maximumY,
+                fixedWeaponLevel = source.fixedWeaponLevel,
+                fireIntervalTicks = source.fireIntervalTicks,
+                maximumInputRuns = source.maximumInputRuns,
+                playbackActive = source.playbackActive,
+                playbackX = source.playbackX,
+                playbackY = source.playbackY,
+                playbackTick = source.playbackTick,
+                playbackCooldownTicks =
+                    source.playbackCooldownTicks,
+                playbackMovementRemainderX =
+                    source.playbackMovementRemainderX,
+                playbackMovementRemainderY =
+                    source.playbackMovementRemainderY,
+                playbackIsFiring = source.playbackIsFiring
+            };
+        }
+
+        static GhostRecordingData CreateEmptyGhostRecording()
+        {
+            GhostReplayConfig config = GhostReplayConfig.CreateDefault();
+            return new GhostRecordingData
+            {
+                runs = Array.Empty<InputRunData>(),
+                speedDenominator = 1,
+                fixedWeaponLevel = config.FixedWeaponLevel,
+                fireIntervalTicks = config.FireIntervalTicks,
+                maximumInputRuns = config.MaximumInputRuns
+            };
         }
 
         static ArgumentException Unsupported(
