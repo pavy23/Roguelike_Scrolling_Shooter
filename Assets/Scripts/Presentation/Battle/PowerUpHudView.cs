@@ -57,10 +57,44 @@ namespace Shmup.Presentation.Battle
         /// <summary>마지막 구간은 서서히 사라진다 — 뚝 끊기면 눈이 잔상만 남긴다.</summary>
         const float LockFadeTail = 0.3f;
 
+        // ── 기체가 게이지 뒤로 들어갔을 때 (build25~29 "기체 영구 소실"의 진짜 원인) ──
+        //
+        // 플레이필드는 화면 전체다. Core는 기체 중심을 화면 아래 끝(-10.75u)까지
+        // 허용하는데, 이 게이지 줄(화면 하단 38px = 2.375u)이 **불투명 오버레이
+        // 캔버스**라 그 아래로 내려간 기체를 통째로 덮는다. 스프라이트 정렬 순서로는
+        // 절대 이길 수 없다 — ScreenSpaceOverlay는 항상 모든 스프라이트 위다.
+        //
+        // 그래서 테스터가 다섯 빌드 연속으로 "화면 하단으로 붙이면 기체가 영구히
+        // 사라진다"고 보고했다. 기체는 죽지도 화면 밖으로 나가지도 않았고, 시뮬도
+        // 정상이었다. 자기 기체가 안 보이니 다시 올라올 수도 없었을 뿐이다.
+        // (전경 실루엣 order 55는 같은 증상의 **다른** 가해자였고 이미 3으로 내렸다.)
+        //
+        // 기체가 이 띠에 들어오는 동안 게이지를 흐린다. 숨기지는 않는다 — 게이지는
+        // 다음 캡슐을 어디에 쓸지 정하는 화면이라 사라지면 그것대로 손해다.
+        // 값은 표시가 아니라 **가림 해소**가 기준이다: 기체 실루엣이 읽히는 최저선.
+        const float MinOcclusionAlpha = 0.2f;
+
+        /// <summary>기체 스프라이트 반높이 (48×30px @PPU16). 히트박스가 아니라 그림 크기다.</summary>
+        const float ShipHalfHeightWorld = 0.94f;
+
+        /// <summary>페이드 속도(초당). 즉시 껐다 켜면 깜빡임으로 읽힌다.</summary>
+        const float OcclusionFadePerSecond = 6f;
+
+        CanvasGroup _group;
+        Camera _camera;
+        float _occlusionAlpha = 1f;
+        readonly Vector3[] _corners = new Vector3[4];
+
         void Start()
         {
             _canvas = UiKit.CreateCanvas("GaugeCanvas", 42);
             _canvas.transform.SetParent(transform, false);
+
+            // 알파만 쓴다. 이 캔버스에는 raycastTarget이 켜진 그래픽이 없지만,
+            // 흐려진 게이지가 조작 터치를 먹는 일이 절대 없도록 못을 박아 둔다.
+            _group = _canvas.gameObject.AddComponent<CanvasGroup>();
+            _group.interactable = false;
+            _group.blocksRaycasts = false;
 
             // 실드 잔량 — 좌하단. "몇 대를 맞아야 죽는지"가 항상 읽혀야 한다.
             _shieldText = UiKit.CreateCornerText(_canvas.transform, _font, "", 12,
@@ -200,6 +234,7 @@ namespace Shmup.Presentation.Battle
             int count = gauge.GaugeSlotCount;
             if (count <= 0) return;
             Build(count);
+            UpdateOcclusionFade();
 
             for (int i = 0; i < count; i++)
             {
@@ -254,6 +289,41 @@ namespace Shmup.Presentation.Battle
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// 기체가 게이지 줄 뒤로 들어가는 만큼 게이지를 흐린다.
+        ///
+        /// 경계는 상수로 굳히지 않고 **슬롯 사각형의 실제 윗변**을 화면 좌표로 읽어
+        /// 월드로 되돌린다. 창 비율·정수 배율에 따라 화면이 참조 해상도보다 세로로
+        /// 넓게 잡히는 경우가 있어(1300×760에서 380px), 참조 해상도로 계산한 상수는
+        /// 실기에서 어긋난다.
+        /// </summary>
+        void UpdateOcclusionFade()
+        {
+            if (_group == null || _director == null) return;
+            if (_frames == null || _frames.Length == 0 || _frames[0] == null) return;
+            if (_camera == null) _camera = Camera.main;
+            if (_camera == null) return;
+
+            // ScreenSpaceOverlay 캔버스의 월드 좌표 = 화면 픽셀 좌표다.
+            _frames[0].rectTransform.GetWorldCorners(_corners);
+            float hudTopWorldY =
+                _camera.ScreenToWorldPoint(new Vector3(_corners[1].x, _corners[1].y, 0f)).y;
+
+            // 기체 아랫변이 띠에 닿기 시작하면 0, 통째로 잠기면 1.
+            float shipY = _director.PlayerWorldPosition.y;
+            float t = Mathf.InverseLerp(
+                hudTopWorldY + ShipHalfHeightWorld,
+                hudTopWorldY - ShipHalfHeightWorld,
+                shipY);
+            float target = Mathf.Lerp(1f, MinOcclusionAlpha, t);
+
+            // 보상·일시정지로 timeScale이 0이어도 굳지 않게 unscaled로 민다.
+            _occlusionAlpha = Mathf.MoveTowards(
+                _occlusionAlpha, target, OcclusionFadePerSecond * Time.unscaledDeltaTime);
+            if (!Mathf.Approximately(_group.alpha, _occlusionAlpha))
+                _group.alpha = _occlusionAlpha;
         }
 
         /// <summary>

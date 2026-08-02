@@ -375,6 +375,60 @@ namespace Shmup.Presentation.Battle
         public Vector3 BossWorldPosition =>
             _sim != null ? SimView.ToWorld(_sim.Boss.X, _sim.Boss.Y) : Vector3.zero;
 
+        // ── 플레이어 뷰 진단 (build25~29 "기체가 사라진다" 수사) ──────────────────
+        //
+        // 다섯 빌드 연속으로 "화면 아래로 내리면 기체가 영구히 사라진다"가 보고됐고,
+        // 그때마다 원인 후보가 Core 클램프 / 정렬 순서 / 입력 경로로 갈렸다. 화면 한
+        // 프레임에서 판별할 수 있게 네 값을 dev 오버레이에 그대로 내보낸다:
+        //   py  = Core가 정한 기체 Y (월드 단위 환산)
+        //   ty  = 실제 뷰 트랜스폼의 월드 Y
+        //   ren = 기체 렌더러가 켜져 있는가
+        //   sc  = 기체 렌더러 정렬 순서
+        // py는 정상인데 ty가 이탈하면 뷰 동기 경로, ren이 false면 렌더러를 끈 범인이
+        // 있다는 뜻이고, 넷 다 정상이면 **기체는 거기 있고 무언가가 덮고 있는 것**이다
+        // (실제 원인이 그것이었다 — 하단 게이지 HUD, PowerUpHudView 참조).
+
+        SpriteRenderer _playerRendererCache;
+
+        /// <summary>기체 스프라이트 렌더러 (지연 캐시 — 배선 검증 실패 런에서도 안전하다).</summary>
+        SpriteRenderer PlayerRenderer
+        {
+            get
+            {
+                if (_playerRendererCache == null && _playerTransform != null)
+                    _playerRendererCache = _playerTransform.GetComponent<SpriteRenderer>();
+                return _playerRendererCache;
+            }
+        }
+
+        /// <summary>Core 권위 기체 Y를 월드 단위로 (dev 오버레이 `py`).</summary>
+        public float PlayerCoreY =>
+            _sim != null ? _sim.PlayerY * SimView.WorldUnitsPerSubUnit : 0f;
+
+        /// <summary>기체 뷰 트랜스폼의 월드 Y (dev 오버레이 `ty`).</summary>
+        public float PlayerViewY =>
+            _playerTransform != null ? _playerTransform.position.y : 0f;
+
+        /// <summary>기체 렌더러가 켜져 있는가 (dev 오버레이 `ren`).</summary>
+        public bool PlayerRendererEnabled
+        {
+            get
+            {
+                var renderer = PlayerRenderer;
+                return renderer != null && renderer.enabled;
+            }
+        }
+
+        /// <summary>기체 렌더러 정렬 순서 (dev 오버레이 `sc`).</summary>
+        public int PlayerSortingOrder
+        {
+            get
+            {
+                var renderer = PlayerRenderer;
+                return renderer != null ? renderer.sortingOrder : 0;
+            }
+        }
+
         // 바이옴/룸 진행도 (REQ-032) — 22분 런에서 현재 위치를 알려 준다
         public int BiomeIndex => _run?.BiomeIndex ?? 0;
         public int RoomIndex => _run?.RoomIndex ?? 0;

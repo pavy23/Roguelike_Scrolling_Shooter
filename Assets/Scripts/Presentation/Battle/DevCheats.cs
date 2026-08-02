@@ -97,6 +97,13 @@ namespace Shmup.Presentation.Battle
         // St4 체인 관측값 (REQ-115b). XOR 키와 달리 정확 비교라 상쇄되지 않는다.
         int _lastChainSegments = -1;
         int _lastChainDrawn = -1;
+
+        // 플레이어 뷰 진단 (build25~29 "기체 소실"). 0.1u 단위로 양자화해 들고 있고
+        // 표시도 같은 양자화 값이라, 정지 중에는 문자열을 다시 만들지 않는다.
+        int _lastPlayerCoreY10 = int.MinValue;
+        int _lastPlayerViewY10 = int.MinValue;
+        bool _lastPlayerRendererOn;
+        int _lastPlayerSortingOrder = int.MinValue;
         string _overlayText = "";
 
         /// <summary>
@@ -161,15 +168,32 @@ namespace Shmup.Presentation.Battle
                      // 상위 비트는 비어 있다 (run 번호는 48~53만 쓴다) — 체인 두 값이
                      // 다른 필드와 XOR로 상쇄돼 갱신을 놓치지 않게 여기에 얹는다.
                      ^ (long)(_director.Tick / 30);
+            // 플레이어 뷰 판별식 (build25~29 "기체가 사라진다"). 소실 프레임에서
+            // py 정상 + ty 이탈 → 뷰 동기 경로, ren false → 렌더러를 끈 범인,
+            // 넷 다 정상 → 기체는 거기 있고 무언가가 덮고 있는 것이다.
+            int playerCoreY10 = Mathf.RoundToInt(_director.PlayerCoreY * 10f);
+            int playerViewY10 = Mathf.RoundToInt(_director.PlayerViewY * 10f);
+            bool playerRendererOn = _director.PlayerRendererEnabled;
+            int playerSortingOrder = _director.PlayerSortingOrder;
+
             // 체인 두 값은 XOR 키에 접지 않는다 — 서로 같은 값일 때가 대부분이라
             // 인접 비트에 얹으면 상쇄돼 변화가 통째로 사라진다. 따로 비교한다.
+            // 플레이어 뷰 네 값도 같은 이유로 따로 비교한다.
             if (key != _overlayKey
                 || chainSegments != _lastChainSegments
-                || chainDrawn != _lastChainDrawn)
+                || chainDrawn != _lastChainDrawn
+                || playerCoreY10 != _lastPlayerCoreY10
+                || playerViewY10 != _lastPlayerViewY10
+                || playerRendererOn != _lastPlayerRendererOn
+                || playerSortingOrder != _lastPlayerSortingOrder)
             {
                 _overlayKey = key;
                 _lastChainSegments = chainSegments;
                 _lastChainDrawn = chainDrawn;
+                _lastPlayerCoreY10 = playerCoreY10;
+                _lastPlayerViewY10 = playerViewY10;
+                _lastPlayerRendererOn = playerRendererOn;
+                _lastPlayerSortingOrder = playerSortingOrder;
                 string section = _sectionThemes != null
                     ? $"   sect {_sectionThemes.CurrentSection}/{_sectionThemes.DevPreviewLabel}"
                     : "";
@@ -195,8 +219,12 @@ namespace Shmup.Presentation.Battle
                 string chains = chainSegments > 0 || chainDrawn > 0
                     ? $"   chain {chainSegments}seg/{chainDrawn}drawn"
                     : "";
+                // 기체 한 조각: Core Y / 뷰 Y / 렌더러 on / 정렬 순서.
+                string player =
+                    $"   py {playerCoreY10 / 10f:0.0} ty {playerViewY10 / 10f:0.0}"
+                    + $" ren {(playerRendererOn ? 1 : 0)} sc {playerSortingOrder}";
                 _overlayText =
-                    $"run {_director.RunNumber}   stage {_director.StageIndex}{theme}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{section}{ghost}{warship}{chains}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --god survives)";
+                    $"run {_director.RunNumber}   stage {_director.StageIndex}{theme}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{player}{section}{ghost}{warship}{chains}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --god survives)";
             }
             GUI.Label(new Rect(8, 4, Screen.width - 16, _style.fontSize * 3), _overlayText, _style);
         }
