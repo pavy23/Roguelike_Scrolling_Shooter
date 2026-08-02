@@ -329,6 +329,19 @@ namespace Shmup.Presentation.Battle
             _run != null && _run.StagePlan != null ? _run.StagePlan.BossParts : null;
 
         /// <summary>
+        /// 이 방의 보스 시각 표현을 <see cref="WarshipView"/>가 소유하는가.
+        /// WarshipView가 자기 차례를 판단하는 조건과 같은 데이터로 계산한다 —
+        /// 참조를 새로 직렬화하지 않으려고 조건을 복제했다.
+        /// </summary>
+        bool WarshipOwnsBossVisual =>
+            WarshipEncounter != null
+            && _sim != null && _sim.BossActive
+            && _sim.BossParts != null && _sim.BossParts.Count > 0;
+
+        /// <summary>전함전이라 본체 스프라이트를 숨긴 상태 (격파 연출은 계속 나와야 한다).</summary>
+        bool _bossVisualSuppressed;
+
+        /// <summary>
         /// St4 번개룡(세그먼트 체인 미니언) 절 상태 (REQ-115b) — SegmentChainView가 읽는다.
         /// Core는 이 체인을 <see cref="IBattleSim.Enemies"/>가 아니라 **별도 관측**으로
         /// 노출한다. 그래서 적 뷰 동기화(SyncEnemies)에 절대 걸리지 않는다 —
@@ -1728,11 +1741,23 @@ namespace Shmup.Presentation.Battle
         {
             if (_bossRenderer == null) return;
             bool active = _sim.BossActive;
-            if (_bossRenderer.enabled != active)
-                _bossRenderer.enabled = active;
+
+            // 전함전에서는 본체 스프라이트가 비켜난다. WarshipView가 함체 실루엣 +
+            // 하드포인트로 배 전체를 조립하는데, 그 위에 본체 렌더러가 boss_fortress를
+            // 한 장 더 얹으면 **같은 요새가 두 번** 선다 — 함미 하드포인트도 같은
+            // 스프라이트라 화면에는 요새 2개 + 회색 판때기가 겹쳐 나온다. 사람 플레이
+            // 스크린샷(2026-08-03, St2 fortress)에서 "대형 보스전을 못 봤다"고 한 것이
+            // 이것이다. 배가 배로 안 읽혔다.
+            // BossPartsView가 같은 이유로 비켜나는 것(_warshipView.Active)과 한 쌍이다.
+            _bossVisualSuppressed = active && WarshipOwnsBossVisual;
+            bool visible = active && !_bossVisualSuppressed;
+            if (_bossRenderer.enabled != visible)
+                _bossRenderer.enabled = visible;
             if (_bossHpRoot != null && _bossHpRoot.activeSelf != active)
                 _bossHpRoot.SetActive(active);
             if (!active) return;
+            // 아래 위치·틴트 갱신은 숨겨진 동안에도 계속 돈다 — 격파 연출이 본체
+            // 렌더러의 위치를 폭발 중심으로 쓰기 때문이다(TriggerBossDeathSequence).
 
             _bossRenderer.transform.localPosition = SimView.ToWorld(_sim.Boss.X, _sim.Boss.Y);
             if (_run != null && _run.StagePlan != null)
@@ -2241,7 +2266,10 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         void TriggerBossDeathSequence()
         {
-            if (_bossRenderer == null || !_bossRenderer.enabled) return;
+            // 전함전은 본체 렌더러를 숨기지만(SyncBoss) 격파 연출은 나와야 한다 —
+            // 숨김 상태와 "보스가 아예 없음"을 갈라서 본다.
+            if (_bossRenderer == null) return;
+            if (!_bossRenderer.enabled && !_bossVisualSuppressed) return;
             var center = _bossRenderer.transform.localPosition;
             if (_juice != null)
             {
