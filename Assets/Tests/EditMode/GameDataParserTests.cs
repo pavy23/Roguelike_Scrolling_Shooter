@@ -240,7 +240,10 @@ namespace Shmup.Core.Tests
         ""id"": ""maw"", ""offsetX"": 0, ""offsetY"": 0,
         ""halfWidth"": 2, ""halfHeight"": 2, ""hp"": 150,
         ""regenerationTicks"": 1200,
-        ""attack"": { ""type"": ""suction"", ""effectSpeed"": 3.0 }
+        ""attack"": { ""type"": ""suction"", ""effectSpeed"": 3.0,
+          ""effectMaxSpeed"": 5.0,
+          ""effectOffsetX"": -3.296875,
+          ""effectOffsetY"": -0.3984375 }
       },
       {
         ""id"": ""heart"", ""offsetX"": 2, ""offsetY"": 0,
@@ -271,6 +274,18 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(1200, boss.Parts[1].RegenerationTicks);
             Assert.AreEqual(768, boss.Parts[1].Attack.EffectSpeedNumerator);
             Assert.AreEqual(60, boss.Parts[1].Attack.EffectSpeedDenominator);
+            Assert.AreEqual(
+                1280,
+                boss.Parts[1].Attack.EffectMaxSpeedNumerator);
+            Assert.AreEqual(
+                60,
+                boss.Parts[1].Attack.EffectMaxSpeedDenominator);
+            Assert.AreEqual(
+                -844,
+                boss.Parts[1].Attack.EffectOffsetX);
+            Assert.AreEqual(
+                -102,
+                boss.Parts[1].Attack.EffectOffsetY);
             CollectionAssert.AreEqual(
                 new[] { "spawn_sac" },
                 boss.Parts[2].CoreGatePartIds);
@@ -280,6 +295,51 @@ namespace Shmup.Core.Tests
                     .Generate(12UL, 1, 1);
             Assert.AreEqual(3, plan.BossParts.Count);
             Assert.IsTrue(plan.BossParts[2].IsCore);
+        }
+
+        [Test]
+        public void Parse_BossPhaseBuildsExactSegmentChainSchedule()
+        {
+            string waves = WavesJson.Replace(
+                @"""entryLaneMask"": 7, ""hp"": 500",
+                @"""entryLaneMask"": 7, ""hp"": 500,
+    ""phases"": [{
+      ""pattern"": ""aimed"", ""fireIntervalTicks"": 60,
+      ""ways"": 1, ""bulletSpeed"": 6,
+      ""segmentChain"": {
+        ""segmentCount"": 8, ""summonCount"": 2,
+        ""summonIntervalTicks"": 90, ""headHp"": 240,
+        ""halfWidth"": 0.75, ""halfHeight"": 0.5,
+        ""moveSpeed"": 6, ""turnLutSlotsPerTick"": 2,
+        ""followDelayTicks"": 4, ""contactDamage"": 1,
+        ""spawnOffsetX"": -2, ""spawnOffsetY"": 1.5,
+        ""hitRule"": ""headOnly""
+      }
+    }]");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                waves);
+            SegmentChainDefinition chain = data.StageGeneration
+                .Bosses[0].Phases[0].SegmentChain;
+
+            Assert.IsNotNull(chain);
+            Assert.AreEqual(8, chain.SegmentCount);
+            Assert.AreEqual(2, chain.SummonCount);
+            Assert.AreEqual(90, chain.SummonIntervalTicks);
+            Assert.AreEqual(240, chain.HeadMaxHp);
+            Assert.AreEqual(192, chain.HalfWidth);
+            Assert.AreEqual(128, chain.HalfHeight);
+            Assert.AreEqual(1536, chain.MoveSpeedNumerator);
+            Assert.AreEqual(60, chain.MoveSpeedDenominator);
+            Assert.AreEqual(2, chain.TurnLutSlotsPerTick);
+            Assert.AreEqual(4, chain.FollowDelayTicks);
+            Assert.AreEqual(-512, chain.SpawnOffsetX);
+            Assert.AreEqual(384, chain.SpawnOffsetY);
+            Assert.AreEqual(
+                SegmentChainDamageRule.HeadOnly,
+                chain.DamageRule);
         }
 
         [Test]

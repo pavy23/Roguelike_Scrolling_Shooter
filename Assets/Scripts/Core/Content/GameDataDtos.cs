@@ -685,6 +685,39 @@ namespace Shmup.Core.Content
         public decimal? hpThreshold;
         [DataMember]
         public BossPhasePartRuleDto[] partRules;
+        [DataMember]
+        public SegmentChainDto segmentChain;
+    }
+
+    [DataContract]
+    internal sealed class SegmentChainDto
+    {
+        [DataMember]
+        public int? segmentCount;
+        [DataMember]
+        public int? summonCount;
+        [DataMember]
+        public int? summonIntervalTicks;
+        [DataMember]
+        public int? headHp;
+        [DataMember]
+        public decimal? halfWidth;
+        [DataMember]
+        public decimal? halfHeight;
+        [DataMember]
+        public decimal? moveSpeed;
+        [DataMember]
+        public int? turnLutSlotsPerTick;
+        [DataMember]
+        public int? followDelayTicks;
+        [DataMember]
+        public int? contactDamage;
+        [DataMember]
+        public decimal? spawnOffsetX;
+        [DataMember]
+        public decimal? spawnOffsetY;
+        [DataMember]
+        public string hitRule;
     }
 
     [DataContract]
@@ -738,6 +771,12 @@ namespace Shmup.Core.Content
         public decimal? bulletSpeed;
         [DataMember]
         public decimal? effectSpeed;
+        [DataMember]
+        public decimal? effectMaxSpeed;
+        [DataMember]
+        public decimal? effectOffsetX;
+        [DataMember]
+        public decimal? effectOffsetY;
         [DataMember]
         public string spawnEnemyId;
         [DataMember]

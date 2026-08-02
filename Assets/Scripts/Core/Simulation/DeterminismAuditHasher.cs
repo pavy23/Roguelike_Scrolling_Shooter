@@ -414,6 +414,29 @@ namespace Shmup.Core.Simulation
                 FoldBool(rule.Invulnerable);
                 FoldBossPartAttack(rule.Attack);
             }
+            FoldSegmentChainDefinition(phase.SegmentChain);
+        }
+
+        void FoldSegmentChainDefinition(
+            SegmentChainDefinition definition)
+        {
+            FoldBool(definition != null);
+            if (definition == null)
+                return;
+            FoldInt32(definition.SegmentCount);
+            FoldInt32(definition.SummonCount);
+            FoldInt32(definition.SummonIntervalTicks);
+            FoldInt32(definition.HeadMaxHp);
+            FoldInt32(definition.HalfWidth);
+            FoldInt32(definition.HalfHeight);
+            FoldInt32(definition.MoveSpeedNumerator);
+            FoldInt32(definition.MoveSpeedDenominator);
+            FoldInt32(definition.TurnLutSlotsPerTick);
+            FoldInt32(definition.FollowDelayTicks);
+            FoldInt32(definition.ContactDamage);
+            FoldInt32(definition.SpawnOffsetX);
+            FoldInt32(definition.SpawnOffsetY);
+            FoldInt32((int)definition.DamageRule);
         }
 
         void FoldBossPart(BossPartDefinition part)
@@ -446,6 +469,10 @@ namespace Shmup.Core.Simulation
             FoldInt32(attack.BulletSpeedDenominator);
             FoldInt32(attack.EffectSpeedNumerator);
             FoldInt32(attack.EffectSpeedDenominator);
+            FoldInt32(attack.EffectMaxSpeedNumerator);
+            FoldInt32(attack.EffectMaxSpeedDenominator);
+            FoldInt32(attack.EffectOffsetX);
+            FoldInt32(attack.EffectOffsetY);
             FoldString(attack.SpawnEnemyId);
             FoldInt32(attack.ContactDamage);
             FoldLaserDefinition(attack.LaserAttack);
@@ -724,6 +751,7 @@ namespace Shmup.Core.Simulation
             FoldBool(battle.BossTransitioning);
             FoldInt32(battle.BossTransitionTicksRemaining);
             FoldInt32(battle.BossFormIndex);
+            FoldBool(battle.SuctionActive);
 
             FoldInt32(battle.Bullets.Count);
             for (int i = 0; i < battle.Bullets.Count; i++)
@@ -759,6 +787,19 @@ namespace Shmup.Core.Simulation
                 FoldInt32(enemy.X);
                 FoldInt32(enemy.Y);
                 FoldInt32(enemy.Hp);
+            }
+
+            FoldInt32(battle.SegmentChains.Count);
+            for (int i = 0; i < battle.SegmentChains.Count; i++)
+            {
+                SegmentChainState segment = battle.SegmentChains[i];
+                FoldInt32(segment.ChainId);
+                FoldInt32(segment.SegmentIndex);
+                FoldInt32(segment.X);
+                FoldInt32(segment.Y);
+                FoldInt32(segment.HeadHp);
+                FoldInt32(segment.HeadMaxHp);
+                FoldBool(segment.Damageable);
             }
 
             FoldInt32(battle.Obstacles.Count);

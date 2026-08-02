@@ -128,7 +128,15 @@ namespace Shmup.Core.Simulation
         /// <summary>EntityId = defeated form id, Arg = invulnerable transition ticks.</summary>
         BossFormTransitionStarted = 44,
         /// <summary>EntityId = new form id, Arg = zero-based form index, PartId = content form id.</summary>
-        BossFormChanged = 45
+        BossFormChanged = 45,
+        /// <summary>EntityId = boss id, X/Y = suction source, PartId = source part id.</summary>
+        SuctionStarted = 46,
+        /// <summary>EntityId = boss id, X/Y = final suction source, PartId = source part id.</summary>
+        SuctionEnded = 47,
+        /// <summary>EntityId = chain id, X/Y = head spawn point, Arg = segment count.</summary>
+        SegmentChainSpawned = 48,
+        /// <summary>EntityId = chain id, X/Y = destroyed head point, Arg = segment count.</summary>
+        SegmentChainDestroyed = 49
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -721,6 +729,84 @@ namespace Shmup.Core.Simulation
         public int X { get; }
         public int Y { get; }
         public int Hp { get; }
+    }
+
+    /// <summary>
+    /// One observable segment of a boss-owned chain minion. Segment zero is
+    /// the only damageable segment; its destruction removes all sibling states.
+    /// </summary>
+    public readonly struct SegmentChainState
+    {
+        internal SegmentChainState(
+            int chainId,
+            int segmentIndex,
+            int x,
+            int y,
+            int headHp,
+            int headMaxHp)
+        {
+            ChainId = chainId;
+            SegmentIndex = segmentIndex;
+            X = x;
+            Y = y;
+            HeadHp = headHp;
+            HeadMaxHp = headMaxHp;
+        }
+
+        public int ChainId { get; }
+        public int SegmentIndex { get; }
+        public int X { get; }
+        public int Y { get; }
+        public bool IsHead => SegmentIndex == 0;
+        public bool Damageable => IsHead;
+        public int HeadHp { get; }
+        public int HeadMaxHp { get; }
+    }
+
+    internal sealed class SegmentChainRuntime
+    {
+        internal SegmentChainRuntime(
+            int id,
+            SegmentChainDefinition definition,
+            int headMaxHp,
+            int x,
+            int y)
+        {
+            Id = id;
+            Definition = definition;
+            HeadHp = headMaxHp;
+            HeadMaxHp = headMaxHp;
+            HeadX = x;
+            HeadY = y;
+            DirectionX = -SineDirectionScale;
+            DirectionY = 0;
+            int capacity = checked(
+                (definition.SegmentCount - 1)
+                    * definition.FollowDelayTicks
+                + 1);
+            HistoryX = new int[capacity];
+            HistoryY = new int[capacity];
+            for (int i = 0; i < capacity; i++)
+            {
+                HistoryX[i] = x;
+                HistoryY[i] = y;
+            }
+        }
+
+        internal const int SineDirectionScale = 1024;
+        internal int Id;
+        internal SegmentChainDefinition Definition;
+        internal int HeadHp;
+        internal int HeadMaxHp;
+        internal int HeadX;
+        internal int HeadY;
+        internal int DirectionX;
+        internal int DirectionY;
+        internal long MoveRemainderX;
+        internal long MoveRemainderY;
+        internal int[] HistoryX;
+        internal int[] HistoryY;
+        internal int HistoryHead;
     }
 
     /// <summary>Observable stage obstacle state in integer simulation subunits.</summary>
@@ -1394,6 +1480,7 @@ namespace Shmup.Core.Simulation
         IReadOnlyList<BulletState> Bullets { get; }
         IReadOnlyList<OptionState> Options { get; }
         IReadOnlyList<EnemyState> Enemies { get; }
+        IReadOnlyList<SegmentChainState> SegmentChains { get; }
         /// <summary>
         /// Stable read-only active-obstacle view. Only obstacles explicitly marked
         /// BlocksEnemyBullets erase hostile projectiles.
@@ -1427,6 +1514,7 @@ namespace Shmup.Core.Simulation
         BossState Boss { get; }
         /// <summary>Stable allocation-free view of multipart boss state.</summary>
         IReadOnlyList<BossPartState> BossParts { get; }
+        bool SuctionActive { get; }
         /// <summary>-1 during WARNING or when this is not a warship battle.</summary>
         int WarshipActiveGroupIndex { get; }
         int WarshipDestroyedAttritionParts { get; }
@@ -1631,6 +1719,10 @@ namespace Shmup.Core.Simulation
         readonly List<int> _enemyDiveTargetYs;
         readonly List<byte> _enemyMovementFlags;
         readonly ReadOnlyCollection<EnemyState> _readOnlyEnemies;
+        readonly List<SegmentChainRuntime> _segmentChainRuntimes;
+        readonly List<SegmentChainState> _segmentChainStates;
+        readonly ReadOnlyCollection<SegmentChainState>
+            _readOnlySegmentChains;
         readonly List<ObstacleState> _obstacles;
         readonly List<int> _obstacleAges;
         readonly List<LaserAttackDefinition> _obstacleLaserAttacks;
@@ -1731,7 +1823,15 @@ namespace Shmup.Core.Simulation
         bool _bossBurstAwaitingVolley;
         int _bossPatternVolleyIndex;
         bool _bossUsesTimedPattern;
-        int _bossSuctionXRemainder, _bossSuctionYRemainder;
+        long _bossSuctionAccelerationXRemainder;
+        long _bossSuctionAccelerationYRemainder;
+        int _bossSuctionDeltaX, _bossSuctionDeltaY;
+        int _bossSuctionPartIndex = -1;
+        int _bossSuctionSourceX, _bossSuctionSourceY;
+        bool _bossSuctionActive;
+        string _bossSuctionPartId;
+        int _segmentChainSummonsRemaining;
+        int _segmentChainSummonCooldown;
         int _bossFormIndex;
         int _bossTransitionTicksRemaining;
         readonly BossFormDefinition _bossForm2;
@@ -2385,6 +2485,15 @@ namespace Shmup.Core.Simulation
             _enemyDiveTargetYs = new List<int>(spawnCapacity);
             _enemyMovementFlags = new List<byte>(spawnCapacity);
             _readOnlyEnemies = _enemies.AsReadOnly();
+            int segmentChainCapacity = GetSegmentChainCapacity(
+                _bossPhases,
+                _bossForm2);
+            _segmentChainRuntimes =
+                new List<SegmentChainRuntime>(segmentChainCapacity);
+            _segmentChainStates = new List<SegmentChainState>(
+                checked(segmentChainCapacity * 8));
+            _readOnlySegmentChains =
+                _segmentChainStates.AsReadOnly();
             _obstacles = new List<ObstacleState>(_maxObstacles);
             _obstacleAges = new List<int>(_maxObstacles);
             _obstacleLaserAttacks =
@@ -2431,7 +2540,8 @@ namespace Shmup.Core.Simulation
                     _maxObstacles,
                     _scheduledObstacles.Length)
                 + 2L * _maxBombPickups
-                + 3L * _maxLasers;
+                + 3L * _maxLasers
+                + 3L * segmentChainCapacity;
             if (eventCapacity > int.MaxValue)
                 throw new ArgumentOutOfRangeException(
                     nameof(stagePlan),
@@ -2567,6 +2677,8 @@ namespace Shmup.Core.Simulation
         public IReadOnlyList<BulletState> Bullets => _readOnlyBullets;
         public IReadOnlyList<OptionState> Options => _readOnlyOptions;
         public IReadOnlyList<EnemyState> Enemies => _readOnlyEnemies;
+        public IReadOnlyList<SegmentChainState> SegmentChains =>
+            _readOnlySegmentChains;
         public IReadOnlyList<ObstacleState> Obstacles => _readOnlyObstacles;
         public IReadOnlyList<ObstacleRegenerationState>
             PendingObstacleRegenerations => _readOnlyPendingObstacleRegens;
@@ -2609,6 +2721,7 @@ namespace Shmup.Core.Simulation
             _bossFormIndex);
         public IReadOnlyList<BossPartState> BossParts =>
             _readOnlyBossParts;
+        public bool SuctionActive => _bossSuctionActive;
         public int WarshipActiveGroupIndex =>
             _warshipEncounter == null
                 ? -1
@@ -2880,6 +2993,7 @@ namespace Shmup.Core.Simulation
 
             UpdateEnvironmentState();
             ExpireTimeLimitIfNeeded();
+            RefreshSuctionLifecycle();
             int previousPlayerX = PlayerX;
             int previousPlayerY = PlayerY;
             AdvancePlayer(in input);
@@ -2906,18 +3020,24 @@ namespace Shmup.Core.Simulation
             AdvanceBombPickups();
             SpawnScheduledThroughTick(Tick);
             UpdateBoss();
+            RefreshSuctionLifecycle();
+            UpdateSegmentChains();
             if (bombPressed)
                 TryActivateBomb();
             ResolvePlayerBulletObstacleCollisions();
             ResolvePlayerBulletEnemyCollisions();
+            ResolvePlayerBulletSegmentChainCollisions();
             ResolvePlayerBulletBossCollisions();
             RefreshLaserSegments();
             ResolvePlayerLaserEnemyCollisions();
+            ResolvePlayerLaserSegmentChainCollisions();
             ResolvePlayerLaserBossCollisions();
+            RefreshSuctionLifecycle();
             ResolveEnemyBulletObstacleCollisions();
             ResolveEnemyBulletPlayerCollisions();
             ResolveLaserPlayerCollisions();
             ResolveEnemyPlayerCollisions();
+            ResolveSegmentChainPlayerCollisions();
             ResolveObstaclePlayerCollisions();
             ResolveCapsulePlayerCollisions();
             ResolveBombPickupPlayerCollisions();
@@ -3626,6 +3746,15 @@ namespace Shmup.Core.Simulation
                     obstacle.Y);
             }
 
+            for (int i = _segmentChainRuntimes.Count - 1; i >= 0; i--)
+            {
+                SegmentChainRuntime chain = _segmentChainRuntimes[i];
+                if (IsOnScreen(chain.HeadX, chain.HeadY))
+                    ApplyDamageToSegmentChain(
+                        i,
+                        _bombRegularEnemyDamage);
+            }
+
             if (BossEntering
                 || !BossActive
                 || !IsOnScreen(_bossX, _bossY))
@@ -3922,6 +4051,10 @@ namespace Shmup.Core.Simulation
                     _playerMaxY);
             }
 
+            AdvanceSuctionForce(
+                out int suctionDeltaX,
+                out int suctionDeltaY);
+
             int driftX = AdvanceSignedFraction(
                 _environment.DriftXNumerator,
                 _environment.DriftXDenominator,
@@ -3932,11 +4065,12 @@ namespace Shmup.Core.Simulation
                 ref _driftYRemainder);
             PlayerX = ClampPlayerPosition(
                 controlledX,
-                driftX,
+                SaturateToInt((long)driftX + suctionDeltaX),
                 _playerMinX,
                 _playerMaxX);
 
-            long candidateY = (long)controlledY + driftY;
+            long candidateY =
+                (long)controlledY + driftY + suctionDeltaY;
             int minimumY = _playerMinY;
             int maximumY = _playerMaxY;
             bool corridorContact = false;
@@ -3985,6 +4119,99 @@ namespace Shmup.Core.Simulation
             int delta = (int)(accumulated / denominator);
             remainder = accumulated % denominator;
             return delta;
+        }
+
+        void AdvanceSuctionForce(out int deltaX, out int deltaY)
+        {
+            if (!_bossSuctionActive
+                || _bossSuctionPartIndex < 0
+                || _bossSuctionPartIndex >= _bossPartStates.Length)
+            {
+                deltaX = 0;
+                deltaY = 0;
+                return;
+            }
+
+            BossPartState source =
+                _bossPartStates[_bossSuctionPartIndex];
+            BossPartAttackProfile attack =
+                GetBossPartAttack(_bossSuctionPartIndex);
+            int sourceX = GetSuctionSourceX(source, attack);
+            int sourceY = GetSuctionSourceY(source, attack);
+            long directionX = (long)sourceX - PlayerX;
+            long directionY = (long)sourceY - PlayerY;
+            ScaleVectorForProducts(ref directionX, ref directionY);
+            ulong absoluteX = directionX < 0
+                ? (ulong)(-directionX)
+                : (ulong)directionX;
+            ulong absoluteY = directionY < 0
+                ? (ulong)(-directionY)
+                : (ulong)directionY;
+            ulong lengthSquared = absoluteX * absoluteX
+                + absoluteY * absoluteY;
+            if (lengthSquared != 0)
+            {
+                ulong length = IntegerSquareRoot(lengthSquared);
+                if (length * length < lengthSquared)
+                    length++;
+                long normalizedX = directionX * SineScale
+                    / (long)length;
+                long normalizedY = directionY * SineScale
+                    / (long)length;
+                long divisor = checked(
+                    (long)attack.EffectSpeedDenominator
+                    * SineScale);
+                long accumulatedX = checked(
+                    _bossSuctionAccelerationXRemainder
+                    + normalizedX * attack.EffectSpeedNumerator);
+                long accumulatedY = checked(
+                    _bossSuctionAccelerationYRemainder
+                    + normalizedY * attack.EffectSpeedNumerator);
+                _bossSuctionDeltaX = SaturateToInt(
+                    accumulatedX / divisor);
+                _bossSuctionDeltaY = SaturateToInt(
+                    accumulatedY / divisor);
+                _bossSuctionAccelerationXRemainder =
+                    accumulatedX % divisor;
+                _bossSuctionAccelerationYRemainder =
+                    accumulatedY % divisor;
+                ClampSuctionDelta(attack);
+            }
+            else
+            {
+                _bossSuctionDeltaX = 0;
+                _bossSuctionDeltaY = 0;
+                _bossSuctionAccelerationXRemainder = 0;
+                _bossSuctionAccelerationYRemainder = 0;
+            }
+
+            deltaX = _bossSuctionDeltaX;
+            deltaY = _bossSuctionDeltaY;
+        }
+
+        void ClampSuctionDelta(BossPartAttackProfile attack)
+        {
+            ulong x = AbsoluteAsUnsigned(_bossSuctionDeltaX);
+            ulong y = AbsoluteAsUnsigned(_bossSuctionDeltaY);
+            ulong lengthSquared = x * x + y * y;
+            if (lengthSquared == 0)
+                return;
+            ulong length = IntegerSquareRoot(lengthSquared);
+            if (length * length < lengthSquared)
+                length++;
+            long scaledLength = checked(
+                (long)length * attack.EffectMaxSpeedDenominator);
+            if (scaledLength <= attack.EffectMaxSpeedNumerator)
+                return;
+            long divisor = scaledLength;
+            _bossSuctionDeltaX = SaturateToInt(
+                (long)_bossSuctionDeltaX
+                * attack.EffectMaxSpeedNumerator
+                / divisor);
+            _bossSuctionDeltaY = SaturateToInt(
+                (long)_bossSuctionDeltaY
+                * attack.EffectMaxSpeedNumerator
+                / divisor);
         }
 
         void ClampAnalogDelta(
@@ -4800,6 +5027,7 @@ namespace Shmup.Core.Simulation
                     && initialPhase.TelegraphTicks > 0;
                 _bossPatternVolleyIndex = 0;
                 InitializeBossParts();
+                ConfigureSegmentChainSchedule(initialPhase);
                 if (_warshipDefinition != null)
                 {
                     _warshipEncounter = new WarshipEncounter(
@@ -4863,6 +5091,201 @@ namespace Shmup.Core.Simulation
             return timed;
         }
 
+        static int GetSegmentChainCapacity(
+            IReadOnlyList<Generation.BossPhase> phases,
+            BossFormDefinition form2)
+        {
+            long capacity = 0;
+            for (int i = 0; i < phases.Count; i++)
+                if (phases[i].SegmentChain != null)
+                    capacity += phases[i].SegmentChain.SummonCount;
+            if (form2 != null)
+                for (int i = 0; i < form2.Phases.Count; i++)
+                    if (form2.Phases[i].SegmentChain != null)
+                        capacity +=
+                            form2.Phases[i].SegmentChain.SummonCount;
+            if (capacity > int.MaxValue / 8)
+                throw new ArgumentOutOfRangeException(
+                    nameof(phases),
+                    "Segment-chain state capacity exceeds the supported range.");
+            return (int)capacity;
+        }
+
+        void ConfigureSegmentChainSchedule(
+            Generation.BossPhase phase)
+        {
+            _segmentChainSummonsRemaining = phase.SegmentChain == null
+                ? 0
+                : phase.SegmentChain.SummonCount;
+            _segmentChainSummonCooldown = 0;
+        }
+
+        void UpdateSegmentChains()
+        {
+            if (BossActive && !BossEntering)
+            {
+                SegmentChainDefinition definition =
+                    _bossPhases[_bossPhase].SegmentChain;
+                if (definition != null
+                    && _segmentChainSummonsRemaining > 0)
+                {
+                    if (_segmentChainSummonCooldown > 0)
+                        _segmentChainSummonCooldown--;
+                    if (_segmentChainSummonCooldown == 0)
+                    {
+                        SpawnSegmentChain(definition);
+                        _segmentChainSummonsRemaining--;
+                        _segmentChainSummonCooldown =
+                            definition.SummonIntervalTicks;
+                    }
+                }
+            }
+
+            for (int i = 0; i < _segmentChainRuntimes.Count; i++)
+                AdvanceSegmentChain(_segmentChainRuntimes[i]);
+            RebuildSegmentChainStates();
+        }
+
+        void SpawnSegmentChain(SegmentChainDefinition definition)
+        {
+            if (_nextEnemyId == int.MaxValue)
+                throw new InvalidOperationException(
+                    "The enemy id counter is exhausted.");
+            int x = SaturateToInt(
+                (long)_bossX + definition.SpawnOffsetX);
+            int y = SaturateToInt(
+                (long)_bossY + definition.SpawnOffsetY);
+            int id = _nextEnemyId++;
+            var chain = new SegmentChainRuntime(
+                id,
+                definition,
+                ScaleEnemyHp(definition.HeadMaxHp),
+                x,
+                y);
+            _segmentChainRuntimes.Add(chain);
+            EmitEvent(
+                SimEventType.SegmentChainSpawned,
+                id,
+                x,
+                y,
+                definition.SegmentCount);
+        }
+
+        void AdvanceSegmentChain(SegmentChainRuntime chain)
+        {
+            long desiredX = (long)PlayerX - chain.HeadX;
+            long desiredY = (long)PlayerY - chain.HeadY;
+            ScaleVectorForProducts(ref desiredX, ref desiredY);
+            long cross = (long)chain.DirectionX * desiredY
+                - (long)chain.DirectionY * desiredX;
+            if (cross != 0)
+            {
+                int rotation = cross > 0
+                    ? chain.Definition.TurnLutSlotsPerTick
+                    : -chain.Definition.TurnLutSlotsPerTick;
+                RotateVector(
+                    chain.DirectionX,
+                    chain.DirectionY,
+                    rotation,
+                    out long turnedX,
+                    out long turnedY);
+                long currentDot = (long)chain.DirectionX * desiredX
+                    + (long)chain.DirectionY * desiredY;
+                long turnedDot = turnedX * desiredX
+                    + turnedY * desiredY;
+                if (turnedDot > currentDot)
+                    NormalizeChainDirection(
+                        chain,
+                        turnedX,
+                        turnedY);
+            }
+
+            long divisor = checked(
+                (long)SegmentChainRuntime.SineDirectionScale
+                * chain.Definition.MoveSpeedDenominator);
+            long accumulatedX = checked(
+                chain.MoveRemainderX
+                + (long)chain.DirectionX
+                    * chain.Definition.MoveSpeedNumerator);
+            long accumulatedY = checked(
+                chain.MoveRemainderY
+                + (long)chain.DirectionY
+                    * chain.Definition.MoveSpeedNumerator);
+            chain.HeadX = SaturateToInt(
+                (long)chain.HeadX + accumulatedX / divisor);
+            chain.HeadY = SaturateToInt(
+                (long)chain.HeadY + accumulatedY / divisor);
+            chain.MoveRemainderX = accumulatedX % divisor;
+            chain.MoveRemainderY = accumulatedY % divisor;
+            chain.HistoryHead++;
+            if (chain.HistoryHead == chain.HistoryX.Length)
+                chain.HistoryHead = 0;
+            chain.HistoryX[chain.HistoryHead] = chain.HeadX;
+            chain.HistoryY[chain.HistoryHead] = chain.HeadY;
+        }
+
+        static void NormalizeChainDirection(
+            SegmentChainRuntime chain,
+            long x,
+            long y)
+        {
+            long squared = x * x + y * y;
+            long length = IntegerSqrt(squared);
+            if (length < 1)
+                return;
+            chain.DirectionX = SaturateToInt(
+                x * SegmentChainRuntime.SineDirectionScale / length);
+            chain.DirectionY = SaturateToInt(
+                y * SegmentChainRuntime.SineDirectionScale / length);
+        }
+
+        void RebuildSegmentChainStates()
+        {
+            _segmentChainStates.Clear();
+            for (int chainIndex = 0;
+                chainIndex < _segmentChainRuntimes.Count;
+                chainIndex++)
+            {
+                SegmentChainRuntime chain =
+                    _segmentChainRuntimes[chainIndex];
+                for (int segmentIndex = 0;
+                    segmentIndex < chain.Definition.SegmentCount;
+                    segmentIndex++)
+                {
+                    int historyIndex = chain.HistoryHead
+                        - segmentIndex
+                            * chain.Definition.FollowDelayTicks;
+                    while (historyIndex < 0)
+                        historyIndex += chain.HistoryX.Length;
+                    _segmentChainStates.Add(new SegmentChainState(
+                        chain.Id,
+                        segmentIndex,
+                        chain.HistoryX[historyIndex],
+                        chain.HistoryY[historyIndex],
+                        chain.HeadHp,
+                        chain.HeadMaxHp));
+                }
+            }
+        }
+
+        void DestroyAllSegmentChains()
+        {
+            for (int i = _segmentChainRuntimes.Count - 1; i >= 0; i--)
+            {
+                SegmentChainRuntime chain = _segmentChainRuntimes[i];
+                EmitEvent(
+                    SimEventType.SegmentChainDestroyed,
+                    chain.Id,
+                    chain.HeadX,
+                    chain.HeadY,
+                    chain.Definition.SegmentCount);
+            }
+            _segmentChainRuntimes.Clear();
+            _segmentChainStates.Clear();
+            _segmentChainSummonsRemaining = 0;
+            _segmentChainSummonCooldown = 0;
+        }
+
         int GetBossLeftExtent()
         {
             int extent = _bossHalfWidth;
@@ -4916,6 +5339,7 @@ namespace Shmup.Core.Simulation
             for (int i = 0; i < _bossPartDefinitions.Count; i++)
                 _bossPartFireCooldowns[i] =
                     GetBossPartAttack(i).IntervalTicks;
+            ConfigureSegmentChainSchedule(phase);
             if (emitChanged)
             {
                 EmitEvent(
@@ -5674,7 +6098,6 @@ namespace Shmup.Core.Simulation
                         ApplyBossMeleeContact(i, attack);
                         break;
                     case BossPartAttackType.Suction:
-                        ApplyBossSuction(attack);
                         break;
                     default:
                         if (_bossPartFireCooldowns[i] > 0)
@@ -6019,24 +6442,110 @@ namespace Shmup.Core.Simulation
             }
         }
 
-        void ApplyBossSuction(BossPartAttackProfile attack)
+        void RefreshSuctionLifecycle()
         {
-            PlayerX = PullAxis(
-                PlayerX,
-                _bossX,
-                attack.EffectSpeedNumerator,
-                attack.EffectSpeedDenominator,
-                ref _bossSuctionXRemainder,
-                _playerMinX,
-                _playerMaxX);
-            PlayerY = PullAxis(
-                PlayerY,
-                _bossY,
-                attack.EffectSpeedNumerator,
-                attack.EffectSpeedDenominator,
-                ref _bossSuctionYRemainder,
-                _playerMinY,
-                _playerMaxY);
+            int activePart = FindActiveSuctionPart();
+            if (_bossSuctionActive && activePart != _bossSuctionPartIndex)
+            {
+                EmitSuctionEvent(
+                    SimEventType.SuctionEnded,
+                    _bossSuctionSourceX,
+                    _bossSuctionSourceY,
+                    _bossSuctionPartId);
+                ResetSuctionForce();
+            }
+            if (!_bossSuctionActive && activePart >= 0)
+            {
+                _bossSuctionActive = true;
+                _bossSuctionPartIndex = activePart;
+                _bossSuctionPartId =
+                    _bossPartDefinitions[activePart].PartId;
+                BossPartState started = _bossPartStates[activePart];
+                BossPartAttackProfile startedAttack =
+                    GetBossPartAttack(activePart);
+                _bossSuctionSourceX =
+                    GetSuctionSourceX(started, startedAttack);
+                _bossSuctionSourceY =
+                    GetSuctionSourceY(started, startedAttack);
+                EmitSuctionEvent(
+                    SimEventType.SuctionStarted,
+                    _bossSuctionSourceX,
+                    _bossSuctionSourceY,
+                    _bossSuctionPartId);
+            }
+            else if (_bossSuctionActive && activePart >= 0)
+            {
+                BossPartState active = _bossPartStates[activePart];
+                BossPartAttackProfile activeAttack =
+                    GetBossPartAttack(activePart);
+                _bossSuctionSourceX =
+                    GetSuctionSourceX(active, activeAttack);
+                _bossSuctionSourceY =
+                    GetSuctionSourceY(active, activeAttack);
+            }
+        }
+
+        static int GetSuctionSourceX(
+            BossPartState part,
+            BossPartAttackProfile attack)
+        {
+            return SaturateToInt((long)part.X + attack.EffectOffsetX);
+        }
+
+        static int GetSuctionSourceY(
+            BossPartState part,
+            BossPartAttackProfile attack)
+        {
+            return SaturateToInt((long)part.Y + attack.EffectOffsetY);
+        }
+
+        int FindActiveSuctionPart()
+        {
+            if (!BossActive || BossEntering || BossTransitioning)
+                return -1;
+            for (int i = 0; i < _bossPartDefinitions.Count; i++)
+            {
+                BossPartState state = _bossPartStates[i];
+                if (state.Destroyed
+                    || !state.Active
+                    || IsBossPartInvulnerable(i))
+                    continue;
+                if (GetBossPartAttack(i).Type
+                    == BossPartAttackType.Suction)
+                    return i;
+            }
+            return -1;
+        }
+
+        void EmitSuctionEvent(
+            SimEventType type,
+            int x,
+            int y,
+            string partId)
+        {
+            if (_eventCount == _events.Length)
+                throw new InvalidOperationException(
+                    "The preallocated simulation event buffer is exhausted.");
+            _events[_eventCount++] = new SimEvent(
+                type,
+                _bossId,
+                x,
+                y,
+                0,
+                partId);
+        }
+
+        void ResetSuctionForce()
+        {
+            _bossSuctionActive = false;
+            _bossSuctionPartIndex = -1;
+            _bossSuctionPartId = null;
+            _bossSuctionSourceX = 0;
+            _bossSuctionSourceY = 0;
+            _bossSuctionDeltaX = 0;
+            _bossSuctionDeltaY = 0;
+            _bossSuctionAccelerationXRemainder = 0;
+            _bossSuctionAccelerationYRemainder = 0;
         }
 
         void ApplyBossMeleeContact(
@@ -6070,45 +6579,6 @@ namespace Shmup.Core.Simulation
 
             _bossPartContactHitThisCycle[partIndex] = true;
             ApplyPlayerHit(attack.ContactDamage);
-        }
-
-        static int PullAxis(
-            int position,
-            int target,
-            int speedNumerator,
-            int speedDenominator,
-            ref int remainder,
-            int minimum,
-            int maximum)
-        {
-            int direction = target.CompareTo(position);
-            if (direction == 0)
-            {
-                remainder = 0;
-                return position;
-            }
-            long accumulated =
-                remainder + (long)direction * speedNumerator;
-            long delta = accumulated / speedDenominator;
-            remainder = (int)(accumulated % speedDenominator);
-            long candidate = position + delta;
-            if ((direction > 0 && candidate >= target)
-                || (direction < 0 && candidate <= target))
-            {
-                remainder = 0;
-                candidate = target;
-            }
-            if (candidate < minimum)
-            {
-                remainder = 0;
-                return minimum;
-            }
-            if (candidate > maximum)
-            {
-                remainder = 0;
-                return maximum;
-            }
-            return (int)candidate;
         }
 
         void ResolvePlayerBulletBossCollisions()
@@ -6175,6 +6645,99 @@ namespace Shmup.Core.Simulation
                 if (defeated)
                     return;
             }
+        }
+
+        void ResolvePlayerBulletSegmentChainCollisions()
+        {
+            int bulletIndex = 0;
+            while (bulletIndex < _bullets.Count)
+            {
+                BulletState bullet = _bullets[bulletIndex];
+                if (bullet.Faction != BulletFaction.Player)
+                {
+                    bulletIndex++;
+                    continue;
+                }
+                int chainIndex = FindSegmentChainHeadHit(
+                    bullet.X,
+                    bullet.Y,
+                    bullet.Kind == BulletKind.Missile
+                        ? _missileHalfWidth
+                        : _playerBulletHalfWidth,
+                    bullet.Kind == BulletKind.Missile
+                        ? _missileHalfHeight
+                        : _playerBulletHalfHeight);
+                if (chainIndex < 0)
+                {
+                    bulletIndex++;
+                    continue;
+                }
+
+                int damage = bullet.Kind == BulletKind.Missile
+                    ? ComputeMissileDamage(
+                        _missileBaseDamage,
+                        bullet.DamagePercent)
+                    : ComputeMainShotDamage(in bullet);
+                RemoveBulletAt(bulletIndex);
+                ApplyDamageToSegmentChain(chainIndex, damage);
+            }
+        }
+
+        int FindSegmentChainHeadHit(
+            int x,
+            int y,
+            int halfWidth,
+            int halfHeight)
+        {
+            for (int i = 0; i < _segmentChainRuntimes.Count; i++)
+            {
+                SegmentChainRuntime chain = _segmentChainRuntimes[i];
+                if (Intersects(
+                        x,
+                        y,
+                        halfWidth,
+                        halfHeight,
+                        chain.HeadX,
+                        chain.HeadY,
+                        chain.Definition.HalfWidth,
+                        chain.Definition.HalfHeight))
+                    return i;
+            }
+            return -1;
+        }
+
+        bool ApplyDamageToSegmentChain(int chainIndex, int damage)
+        {
+            if (chainIndex < 0
+                || chainIndex >= _segmentChainRuntimes.Count
+                || damage <= 0)
+                return false;
+            SegmentChainRuntime chain =
+                _segmentChainRuntimes[chainIndex];
+            int hp = Damage.ApplyToHp(chain.HeadHp, damage);
+            int applied = chain.HeadHp - hp;
+            chain.HeadHp = hp;
+            EmitEvent(
+                SimEventType.EnemyHit,
+                chain.Id,
+                chain.HeadX,
+                chain.HeadY,
+                applied);
+            if (hp > 0)
+            {
+                RebuildSegmentChainStates();
+                return false;
+            }
+
+            EmitEvent(
+                SimEventType.SegmentChainDestroyed,
+                chain.Id,
+                chain.HeadX,
+                chain.HeadY,
+                chain.Definition.SegmentCount);
+            _segmentChainRuntimes.RemoveAt(chainIndex);
+            RebuildSegmentChainStates();
+            return true;
         }
 
         int FindBossPartHit(
@@ -6351,8 +6914,7 @@ namespace Shmup.Core.Simulation
             _bossMovementTransitionOffsetY = 0;
             _bossVelocityX = 0;
             _bossVelocityY = 0;
-            _bossSuctionXRemainder = 0;
-            _bossSuctionYRemainder = 0;
+            ResetSuctionForce();
             Generation.BossPhase initialPhase = _bossPhases[0];
             _bossFireCooldown = initialPhase.TelegraphTicks > 0
                 ? initialPhase.TelegraphTicks
@@ -6363,6 +6925,7 @@ namespace Shmup.Core.Simulation
                 && initialPhase.TelegraphTicks > 0;
             _bossPatternVolleyIndex = 0;
             InitializeBossParts();
+            ConfigureSegmentChainSchedule(initialPhase);
             EmitBossFormEvent(
                 SimEventType.BossFormChanged,
                 _bossId,
@@ -6439,6 +7002,7 @@ namespace Shmup.Core.Simulation
         bool DefeatBoss(int x, int y)
         {
             _bossHp = 0;
+            DestroyAllSegmentChains();
             int awardedScore =
                 RecordKillScore((long)_bossRuntimeMaxHp * 2);
             EmitEvent(
@@ -7487,6 +8051,34 @@ namespace Shmup.Core.Simulation
             }
         }
 
+        void ResolvePlayerLaserSegmentChainCollisions()
+        {
+            int beamIndex = FindPlayerBeamIndex();
+            if (beamIndex < 0)
+                return;
+            LaserState laser = _lasers[beamIndex];
+            for (int i = 0; i < _segmentChainRuntimes.Count; i++)
+            {
+                SegmentChainRuntime chain = _segmentChainRuntimes[i];
+                int radius = SaturatingAddDamage(
+                    Math.Max(
+                        chain.Definition.HalfWidth,
+                        chain.Definition.HalfHeight),
+                    laser.HalfWidth);
+                if (!LaserGeometry.IntersectsSegmentCircle(
+                        laser.StartX,
+                        laser.StartY,
+                        laser.EndX,
+                        laser.EndY,
+                        chain.HeadX,
+                        chain.HeadY,
+                        radius))
+                    continue;
+                ApplyDamageToSegmentChain(i, laser.Damage);
+                return;
+            }
+        }
+
         void ResolvePlayerBulletObstacleCollisions()
         {
             int bulletIndex = 0;
@@ -8414,6 +9006,46 @@ namespace Shmup.Core.Simulation
                 int contactDamage = definition.ContactDamage;
                 RemoveEnemyAt(index);
                 ApplyPlayerHit(contactDamage);
+            }
+        }
+
+        void ResolveSegmentChainPlayerCollisions()
+        {
+            if (!_playerAlive)
+                return;
+            for (int chainIndex = 0;
+                chainIndex < _segmentChainRuntimes.Count;
+                chainIndex++)
+            {
+                SegmentChainRuntime chain =
+                    _segmentChainRuntimes[chainIndex];
+                if (chain.Definition.ContactDamage == 0)
+                    continue;
+                int stateOffset = 0;
+                for (int previous = 0;
+                    previous < chainIndex;
+                    previous++)
+                    stateOffset += _segmentChainRuntimes[previous]
+                        .Definition.SegmentCount;
+                for (int segmentIndex = 0;
+                    segmentIndex < chain.Definition.SegmentCount;
+                    segmentIndex++)
+                {
+                    SegmentChainState segment =
+                        _segmentChainStates[stateOffset + segmentIndex];
+                    if (!Intersects(
+                            PlayerX,
+                            PlayerY,
+                            _playerHalfWidth,
+                            _playerHalfHeight,
+                            segment.X,
+                            segment.Y,
+                            chain.Definition.HalfWidth,
+                            chain.Definition.HalfHeight))
+                        continue;
+                    ApplyPlayerHit(chain.Definition.ContactDamage);
+                    return;
+                }
             }
         }
 

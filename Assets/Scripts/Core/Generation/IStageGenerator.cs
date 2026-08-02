@@ -236,6 +236,102 @@ namespace Shmup.Core.Generation
         public BossPartAttackProfile Attack { get; }
     }
 
+    public enum SegmentChainDamageRule
+    {
+        /// <summary>
+        /// Only segment zero can take damage. Destroying it removes the entire
+        /// chain, matching the Gradius fire-dragon vocabulary.
+        /// </summary>
+        HeadOnly = 0
+    }
+
+    /// <summary>
+    /// Deterministic phase-owned segmented minion definition. Movement speeds
+    /// use exact simulation-subunit fractions per tick; body segments sample
+    /// the head's tick history at FollowDelayTicks intervals.
+    /// </summary>
+    public sealed class SegmentChainDefinition
+    {
+        public SegmentChainDefinition(
+            int segmentCount,
+            int summonCount,
+            int summonIntervalTicks,
+            int headMaxHp,
+            int halfWidth,
+            int halfHeight,
+            int moveSpeedNumerator,
+            int moveSpeedDenominator,
+            int turnLutSlotsPerTick,
+            int followDelayTicks,
+            int contactDamage,
+            int spawnOffsetX,
+            int spawnOffsetY,
+            SegmentChainDamageRule damageRule)
+        {
+            if (segmentCount < 6 || segmentCount > 8)
+                throw new ArgumentOutOfRangeException(
+                    nameof(segmentCount),
+                    "Segment chains require six to eight segments.");
+            if (summonCount < 1)
+                throw new ArgumentOutOfRangeException(nameof(summonCount));
+            if (summonIntervalTicks < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(summonIntervalTicks));
+            if (headMaxHp < 1)
+                throw new ArgumentOutOfRangeException(nameof(headMaxHp));
+            if (halfWidth < 1)
+                throw new ArgumentOutOfRangeException(nameof(halfWidth));
+            if (halfHeight < 1)
+                throw new ArgumentOutOfRangeException(nameof(halfHeight));
+            if (moveSpeedNumerator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(moveSpeedNumerator));
+            if (moveSpeedDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(moveSpeedDenominator));
+            if (turnLutSlotsPerTick < 1 || turnLutSlotsPerTick > 32)
+                throw new ArgumentOutOfRangeException(
+                    nameof(turnLutSlotsPerTick));
+            if (followDelayTicks < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(followDelayTicks));
+            if (contactDamage < 0)
+                throw new ArgumentOutOfRangeException(nameof(contactDamage));
+            if (!Enum.IsDefined(typeof(SegmentChainDamageRule), damageRule))
+                throw new ArgumentOutOfRangeException(nameof(damageRule));
+
+            SegmentCount = segmentCount;
+            SummonCount = summonCount;
+            SummonIntervalTicks = summonIntervalTicks;
+            HeadMaxHp = headMaxHp;
+            HalfWidth = halfWidth;
+            HalfHeight = halfHeight;
+            MoveSpeedNumerator = moveSpeedNumerator;
+            MoveSpeedDenominator = moveSpeedDenominator;
+            TurnLutSlotsPerTick = turnLutSlotsPerTick;
+            FollowDelayTicks = followDelayTicks;
+            ContactDamage = contactDamage;
+            SpawnOffsetX = spawnOffsetX;
+            SpawnOffsetY = spawnOffsetY;
+            DamageRule = damageRule;
+        }
+
+        public int SegmentCount { get; }
+        public int SummonCount { get; }
+        public int SummonIntervalTicks { get; }
+        public int HeadMaxHp { get; }
+        public int HalfWidth { get; }
+        public int HalfHeight { get; }
+        public int MoveSpeedNumerator { get; }
+        public int MoveSpeedDenominator { get; }
+        public int TurnLutSlotsPerTick { get; }
+        public int FollowDelayTicks { get; }
+        public int ContactDamage { get; }
+        public int SpawnOffsetX { get; }
+        public int SpawnOffsetY { get; }
+        public SegmentChainDamageRule DamageRule { get; }
+    }
+
     /// <summary>
     /// 보스 페이즈 하나의 발사 파라미터 (REQ-007). 속도는 서브유닛/틱 유리수.
     /// Ways는 홀짝 모두 조준축을 중심으로 대칭 배치된다.
@@ -285,7 +381,8 @@ namespace Shmup.Core.Generation
             int movementTelegraphTicks = 0,
             int hpThresholdNumerator = 0,
             int hpThresholdDenominator = 1,
-            IReadOnlyList<BossPhasePartRule> partRules = null)
+            IReadOnlyList<BossPhasePartRule> partRules = null,
+            SegmentChainDefinition segmentChain = null)
         {
             if (fireIntervalTicks < 1)
                 throw new ArgumentOutOfRangeException(nameof(fireIntervalTicks));
@@ -479,6 +576,7 @@ namespace Shmup.Core.Generation
                 rules[i] = rule;
             }
             PartRules = new ReadOnlyCollection<BossPhasePartRule>(rules);
+            SegmentChain = segmentChain;
         }
 
         public int FireIntervalTicks { get; }
@@ -527,6 +625,8 @@ namespace Shmup.Core.Generation
         public int HpThresholdDenominator { get; }
         public bool HasHpThreshold => HpThresholdNumerator > 0;
         public IReadOnlyList<BossPhasePartRule> PartRules { get; }
+        /// <summary>Optional chain-minion schedule owned by this phase.</summary>
+        public SegmentChainDefinition SegmentChain { get; }
     }
 
     public enum BossPartAttackType
@@ -583,7 +683,11 @@ namespace Shmup.Core.Generation
             int effectSpeedDenominator,
             string spawnEnemyId,
             int contactDamage,
-            Simulation.LaserAttackDefinition laserAttack = null)
+            Simulation.LaserAttackDefinition laserAttack = null,
+            int effectMaxSpeedNumerator = 0,
+            int effectMaxSpeedDenominator = 1,
+            int effectOffsetX = 0,
+            int effectOffsetY = 0)
         {
             if (!Enum.IsDefined(typeof(BossPartAttackType), type))
                 throw new ArgumentOutOfRangeException(nameof(type));
@@ -599,6 +703,12 @@ namespace Shmup.Core.Generation
                 throw new ArgumentOutOfRangeException(nameof(effectSpeedNumerator));
             if (effectSpeedDenominator < 1)
                 throw new ArgumentOutOfRangeException(nameof(effectSpeedDenominator));
+            if (effectMaxSpeedNumerator < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(effectMaxSpeedNumerator));
+            if (effectMaxSpeedDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(effectMaxSpeedDenominator));
             if (contactDamage < 0)
                 throw new ArgumentOutOfRangeException(nameof(contactDamage));
             if ((type == BossPartAttackType.AimedSpread
@@ -643,6 +753,16 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException(
                     "Only laser attacks may specify a laser profile.",
                     nameof(laserAttack));
+            if (type != BossPartAttackType.Suction
+                && effectMaxSpeedNumerator != 0)
+                throw new ArgumentException(
+                    "Only suction attacks may specify an effect speed cap.",
+                    nameof(effectMaxSpeedNumerator));
+            if (type != BossPartAttackType.Suction
+                && (effectOffsetX != 0 || effectOffsetY != 0))
+                throw new ArgumentException(
+                    "Only suction attacks may specify an effect offset.",
+                    nameof(effectOffsetX));
 
             Type = type;
             IntervalTicks = intervalTicks;
@@ -651,6 +771,18 @@ namespace Shmup.Core.Generation
             BulletSpeedDenominator = bulletSpeedDenominator;
             EffectSpeedNumerator = effectSpeedNumerator;
             EffectSpeedDenominator = effectSpeedDenominator;
+            EffectMaxSpeedNumerator =
+                type == BossPartAttackType.Suction
+                    && effectMaxSpeedNumerator == 0
+                    ? int.MaxValue
+                    : effectMaxSpeedNumerator;
+            EffectMaxSpeedDenominator =
+                type == BossPartAttackType.Suction
+                    && effectMaxSpeedNumerator == 0
+                    ? 1
+                    : effectMaxSpeedDenominator;
+            EffectOffsetX = effectOffsetX;
+            EffectOffsetY = effectOffsetY;
             SpawnEnemyId = spawnEnemyId;
             ContactDamage = contactDamage;
             LaserAttack = laserAttack;
@@ -663,6 +795,15 @@ namespace Shmup.Core.Generation
         public int BulletSpeedDenominator { get; }
         public int EffectSpeedNumerator { get; }
         public int EffectSpeedDenominator { get; }
+        /// <summary>
+        /// Exact per-tick cap for suction displacement. Missing legacy data
+        /// leaves this effectively unbounded.
+        /// </summary>
+        public int EffectMaxSpeedNumerator { get; }
+        public int EffectMaxSpeedDenominator { get; }
+        /// <summary>Source offset relative to the owning boss part.</summary>
+        public int EffectOffsetX { get; }
+        public int EffectOffsetY { get; }
         public string SpawnEnemyId { get; }
         public int ContactDamage { get; }
         public Simulation.LaserAttackDefinition LaserAttack { get; }

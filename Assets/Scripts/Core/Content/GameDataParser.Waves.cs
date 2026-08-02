@@ -1027,7 +1027,74 @@ namespace Shmup.Core.Content
                 movementTelegraphTicks,
                 hpThreshold.Numerator,
                 hpThreshold.Denominator,
-                partRules);
+                partRules,
+                ParseSegmentChain(
+                    phase.segmentChain,
+                    phasePath + ".segmentChain"));
+        }
+
+        static SegmentChainDefinition ParseSegmentChain(
+            SegmentChainDto source,
+            string path)
+        {
+            if (source == null)
+                return null;
+            ExactFraction moveSpeed = ToPerTickSpeed(
+                Require(source.moveSpeed, path + ".moveSpeed"),
+                path + ".moveSpeed");
+            string hitRule = RequireText(
+                source.hitRule,
+                path + ".hitRule");
+            SegmentChainDamageRule damageRule;
+            if (string.Equals(
+                    hitRule,
+                    "headOnly",
+                    StringComparison.Ordinal))
+                damageRule = SegmentChainDamageRule.HeadOnly;
+            else
+                throw Error(
+                    path + ".hitRule",
+                    "must be 'headOnly'.");
+            try
+            {
+                return new SegmentChainDefinition(
+                    Require(source.segmentCount, path + ".segmentCount"),
+                    Require(source.summonCount, path + ".summonCount"),
+                    Require(
+                        source.summonIntervalTicks,
+                        path + ".summonIntervalTicks"),
+                    Require(source.headHp, path + ".headHp"),
+                    ToSubUnits(
+                        Require(source.halfWidth, path + ".halfWidth"),
+                        path + ".halfWidth"),
+                    ToSubUnits(
+                        Require(source.halfHeight, path + ".halfHeight"),
+                        path + ".halfHeight"),
+                    moveSpeed.Numerator,
+                    moveSpeed.Denominator,
+                    Require(
+                        source.turnLutSlotsPerTick,
+                        path + ".turnLutSlotsPerTick"),
+                    Require(
+                        source.followDelayTicks,
+                        path + ".followDelayTicks"),
+                    source.contactDamage ?? 0,
+                    source.spawnOffsetX.HasValue
+                        ? ToSubUnits(
+                            source.spawnOffsetX.Value,
+                            path + ".spawnOffsetX")
+                        : 0,
+                    source.spawnOffsetY.HasValue
+                        ? ToSubUnits(
+                            source.spawnOffsetY.Value,
+                            path + ".spawnOffsetY")
+                        : 0,
+                    damageRule);
+            }
+            catch (ArgumentException error)
+            {
+                throw Error(path, error.Message);
+            }
         }
 
         static BossProjectileKind ParseBossProjectileKind(
@@ -1171,6 +1238,11 @@ namespace Shmup.Core.Content
                     source.effectSpeed.Value,
                     path + ".effectSpeed")
                 : new ExactFraction(0, 1);
+            ExactFraction effectMaxSpeed = source.effectMaxSpeed.HasValue
+                ? ToPerTickSpeed(
+                    source.effectMaxSpeed.Value,
+                    path + ".effectMaxSpeed")
+                : new ExactFraction(0, 1);
             try
             {
                 return new BossPartAttackProfile(
@@ -1185,7 +1257,19 @@ namespace Shmup.Core.Content
                     source.contactDamage ?? 0,
                     source.laser == null
                         ? null
-                        : ParseLaser(source.laser, path + ".laser"));
+                        : ParseLaser(source.laser, path + ".laser"),
+                    effectMaxSpeed.Numerator,
+                    effectMaxSpeed.Denominator,
+                    source.effectOffsetX.HasValue
+                        ? ToSubUnits(
+                            source.effectOffsetX.Value,
+                            path + ".effectOffsetX")
+                        : 0,
+                    source.effectOffsetY.HasValue
+                        ? ToSubUnits(
+                            source.effectOffsetY.Value,
+                            path + ".effectOffsetY")
+                        : 0);
             }
             catch (ArgumentException error)
             {
