@@ -452,6 +452,7 @@ namespace Shmup.Core.Simulation
             FoldBool(encounter.WarningActive);
             FoldBool(encounter.MidbossDefeated);
             FoldBool(encounter.CoreBattleActive);
+            FoldBool(encounter.CoreOpeningPending);
             FoldBool(encounter.Completed);
             FoldInt32(encounter.DestroyedAttritionParts);
             FoldInt32(encounter.TotalAttritionParts);
@@ -656,6 +657,11 @@ namespace Shmup.Core.Simulation
                 FoldInt32(concreteBattle.BurstShotsRemaining);
                 FoldInt32(
                     concreteBattle.BurstCooldownTicksRemaining);
+                FoldInt32(concreteBattle.WarshipEncounterTick);
+                FoldInt32(
+                    concreteBattle.WarshipActiveGroupElapsedTicks);
+                FoldInt64(concreteBattle.WarshipScrollRemainder);
+                FoldBool(concreteBattle.WarshipCoreOpeningPending);
             }
             StageEnvironmentState environment = battle.Environment;
             FoldInt32(environment.SegmentIndex);
@@ -672,6 +678,9 @@ namespace Shmup.Core.Simulation
             FoldInt32(battle.TimeLimitTicks);
             FoldInt32(battle.RemainingTimeTicks);
             FoldBool(battle.TimeLimitExpired);
+            FoldInt32(battle.WarshipActiveGroupIndex);
+            FoldInt32(battle.WarshipDestroyedAttritionParts);
+            FoldInt32(battle.WarshipCoreOpeningWays);
 
             FoldInt32(battle.Bullets.Count);
             for (int i = 0; i < battle.Bullets.Count; i++)
