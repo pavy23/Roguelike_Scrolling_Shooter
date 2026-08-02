@@ -5736,7 +5736,8 @@ namespace Shmup.Core.Simulation
                 source.RequestedThemeId,
                 source.EncounterType,
                 source.BossParts,
-                source.Gimmick);
+                source.Gimmick,
+                source.WarshipEncounter);
         }
 
         static StagePlan ApplyContractToStagePlan(
@@ -5816,7 +5817,8 @@ namespace Shmup.Core.Simulation
                 source.RequestedThemeId,
                 source.EncounterType,
                 source.BossParts,
-                gimmick);
+                gimmick,
+                source.WarshipEncounter);
         }
 
         static int ScaleCount(
@@ -6236,7 +6238,8 @@ namespace Shmup.Core.Simulation
                 source.RequestedThemeId,
                 encounterType,
                 source.BossParts,
-                source.Gimmick);
+                source.Gimmick,
+                source.WarshipEncounter);
         }
 
         void BeginStageOneGhostRecordingIfNeeded()

@@ -920,7 +920,8 @@ namespace Shmup.Core.Generation
             string requestedThemeId,
             EncounterType encounterType,
             IReadOnlyList<BossPartDefinition> bossParts,
-            StageGimmickDefinition gimmick = null)
+            StageGimmickDefinition gimmick = null,
+            WarshipEncounterDefinition warshipEncounter = null)
         {
             if (bossMaxHp < 0)
                 throw new ArgumentOutOfRangeException(nameof(bossMaxHp));
@@ -952,6 +953,12 @@ namespace Shmup.Core.Generation
             RequestedThemeId = requestedThemeId;
             EncounterType = encounterType;
             Gimmick = gimmick ?? StageGimmickDefinition.None;
+            WarshipEncounter = warshipEncounter;
+            if (WarshipEncounter != null && BossParts.Count == 0)
+                throw new ArgumentException(
+                    "A warship encounter requires multipart boss parts.",
+                    nameof(warshipEncounter));
+            WarshipEncounter?.ValidateParts(BossParts);
             if (Gimmick.ThemeId != null
                 && !string.Equals(
                     Gimmick.ThemeId,
@@ -992,6 +999,7 @@ namespace Shmup.Core.Generation
         /// <summary>The route encounter rules applied to this generated plan.</summary>
         public EncounterType EncounterType { get; }
         public StageGimmickDefinition Gimmick { get; }
+        public WarshipEncounterDefinition WarshipEncounter { get; }
         /// <summary>Provisional per-encounter enemy HP scaling.</summary>
         public int EncounterEnemyHpMultiplierNumerator =>
             EncounterType == EncounterType.Rare

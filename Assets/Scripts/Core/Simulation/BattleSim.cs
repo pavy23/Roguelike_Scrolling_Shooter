@@ -118,7 +118,13 @@ namespace Shmup.Core.Simulation
         /// <summary>EntityId = ghost id, X/Y = spawn point, Arg = fixed weapon level.</summary>
         GhostSpawned = 39,
         /// <summary>EntityId = ghost id, X/Y = final point, Arg = replayed tick count.</summary>
-        GhostEnded = 40
+        GhostEnded = 40,
+        /// <summary>EntityId = encounter id, Arg = warning duration ticks.</summary>
+        WarshipWarningStarted = 41,
+        /// <summary>EntityId = encounter id, PartId = group id, Arg = group index.</summary>
+        WarshipGroupActivated = 42,
+        /// <summary>EntityId = encounter id, PartId = core group id, Arg = opening ways.</summary>
+        WarshipCoreBattleStarted = 43
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>

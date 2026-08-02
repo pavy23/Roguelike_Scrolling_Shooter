@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Shmup.Core.Generation;
 using Shmup.Core.Simulation;
 
@@ -644,6 +645,13 @@ namespace Shmup.Core.Content
                         content);
             }
 
+            WarshipEncounterDefinition warship = source.warship == null
+                ? null
+                : ParseWarshipEncounter(
+                    source.warship,
+                    path + ".warship",
+                    parts);
+
             return new StageBossTemplate(
                 RequireText(source.id, path + ".id"),
                 Require(source.stageIndexMin, path + ".stageIndexMin"),
@@ -657,7 +665,105 @@ namespace Shmup.Core.Content
                 holdX,
                 phases,
                 OptionalText(source.theme, path + ".theme"),
-                parts);
+                parts,
+                warship);
+        }
+
+        static WarshipEncounterDefinition ParseWarshipEncounter(
+            WarshipEncounterDto source,
+            string path,
+            IReadOnlyList<BossPartDefinition> parts)
+        {
+            if (parts == null || parts.Count == 0)
+                throw Error(path, "requires a non-empty boss parts array.");
+            decimal scrollPerSecond = Require(
+                source.scrollSpeedPerSecond,
+                path + ".scrollSpeedPerSecond");
+            if (scrollPerSecond < 0)
+                throw Error(
+                    path + ".scrollSpeedPerSecond",
+                    "must be non-negative.");
+            ExactFraction scrollSpeed = ToPerTickSpeed(
+                scrollPerSecond,
+                path + ".scrollSpeedPerSecond");
+            WarshipPartGroupDto[] groupSource = RequireArray(
+                source.groups,
+                path + ".groups");
+            if (groupSource.Length != 3)
+                throw Error(path + ".groups", "must contain exactly three groups.");
+            var groups = new WarshipPartGroupDefinition[groupSource.Length];
+            for (int i = 0; i < groups.Length; i++)
+            {
+                string groupPath = $"{path}.groups[{i}]";
+                WarshipPartGroupDto group = groupSource[i]
+                    ?? throw Error(groupPath, "cannot be null.");
+                try
+                {
+                    groups[i] = new WarshipPartGroupDefinition(
+                        RequireText(group.id, groupPath + ".id"),
+                        ParseWarshipGroupRole(
+                            group.role,
+                            groupPath + ".role"),
+                        RequireArray(
+                            group.partIds,
+                            groupPath + ".partIds"),
+                        group.advanceAfterTicks ?? 0);
+                }
+                catch (ArgumentException exception)
+                {
+                    throw Error(groupPath, exception.Message);
+                }
+            }
+            try
+            {
+                return new WarshipEncounterDefinition(
+                    RequireText(source.id, path + ".id"),
+                    source.eventEntityId ?? 0,
+                    Require(source.warningTicks, path + ".warningTicks"),
+                    ToSubUnits(
+                        Require(source.originX, path + ".originX"),
+                        path + ".originX"),
+                    ToSubUnits(
+                        Require(source.originY, path + ".originY"),
+                        path + ".originY"),
+                    scrollSpeed.Numerator,
+                    scrollSpeed.Denominator,
+                    Require(
+                        source.baseCoreOpeningWays,
+                        path + ".baseCoreOpeningWays"),
+                    Require(
+                        source.waysReductionPerTurret,
+                        path + ".waysReductionPerTurret"),
+                    Require(
+                        source.minimumCoreOpeningWays,
+                        path + ".minimumCoreOpeningWays"),
+                    groups,
+                    parts);
+            }
+            catch (ArgumentException exception)
+            {
+                throw Error(path, exception.Message);
+            }
+        }
+
+        static WarshipGroupRole ParseWarshipGroupRole(
+            string source,
+            string path)
+        {
+            string value = RequireText(source, path);
+            switch (value)
+            {
+                case "midbossGate":
+                    return WarshipGroupRole.MidbossGate;
+                case "attritionLine":
+                    return WarshipGroupRole.AttritionLine;
+                case "finalCore":
+                    return WarshipGroupRole.FinalCore;
+                default:
+                    throw Error(
+                        path,
+                        "must be 'midbossGate', 'attritionLine', or 'finalCore'.");
+            }
         }
 
         static BossPhase ParseBossPhase(
