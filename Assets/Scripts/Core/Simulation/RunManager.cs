@@ -5694,15 +5694,6 @@ namespace Shmup.Core.Simulation
             StagePlan source,
             StagePlan progressionReference)
         {
-            // Multipart / warship MaxHp is the sum of parts. Theme-shuffle
-            // progression must not replace it with a different boss's HP while
-            // keeping the original part list (ValidateParts would throw).
-            // REQ-111 fortress warship + REQ-035 colossal paths.
-            if (source.WarshipEncounter != null
-                || (source.BossParts != null
-                    && source.BossParts.Count > 0))
-                return source;
-
             var phases =
                 new BossPhase[source.BossPhases.Count];
             for (int i = 0; i < phases.Length; i++)
@@ -5730,6 +5721,11 @@ namespace Shmup.Core.Simulation
                     phase.FirePattern);
             }
 
+            IReadOnlyList<BossPartDefinition> parts =
+                ScaleProgressionBossParts(
+                    source.BossParts,
+                    progressionReference.BossMaxHp);
+
             return new StagePlan(
                 source.Segments,
                 source.BossId,
@@ -5744,9 +5740,67 @@ namespace Shmup.Core.Simulation
                 source.ThemeId,
                 source.RequestedThemeId,
                 source.EncounterType,
-                source.BossParts,
+                parts,
                 source.Gimmick,
                 source.WarshipEncounter);
+        }
+
+        static IReadOnlyList<BossPartDefinition>
+            ScaleProgressionBossParts(
+                IReadOnlyList<BossPartDefinition> source,
+                int targetTotalHp)
+        {
+            if (source.Count == 0)
+                return source;
+            if (targetTotalHp < source.Count)
+                throw new InvalidOperationException(
+                    "Progression boss HP must be at least the multipart "
+                    + "boss part count.");
+
+            long sourceTotalHp = 0;
+            for (int i = 0; i < source.Count; i++)
+                sourceTotalHp += source[i].MaxHp;
+            if (sourceTotalHp == targetTotalHp)
+                return source;
+
+            // Reserve one HP per part, then apportion the remainder by the
+            // source proportions. Cumulative integer division keeps the result
+            // deterministic and makes the final sum exactly targetTotalHp.
+            long sourceDistributableHp = sourceTotalHp - source.Count;
+            long targetDistributableHp = targetTotalHp - source.Count;
+            long cumulativeSourceHp = 0;
+            long cumulativeTargetHp = 0;
+            var scaled = new BossPartDefinition[source.Count];
+            for (int i = 0; i < scaled.Length; i++)
+            {
+                BossPartDefinition part = source[i];
+                long weight = sourceDistributableHp == 0
+                    ? 1
+                    : part.MaxHp - 1L;
+                long weightTotal = sourceDistributableHp == 0
+                    ? source.Count
+                    : sourceDistributableHp;
+                cumulativeSourceHp += weight;
+                long nextCumulativeTargetHp =
+                    cumulativeSourceHp * targetDistributableHp
+                    / weightTotal;
+                int scaledHp = checked(
+                    1 + (int)(nextCumulativeTargetHp
+                        - cumulativeTargetHp));
+                cumulativeTargetHp = nextCumulativeTargetHp;
+                scaled[i] = new BossPartDefinition(
+                    part.PartId,
+                    part.OffsetX,
+                    part.OffsetY,
+                    part.HalfWidth,
+                    part.HalfHeight,
+                    scaledHp,
+                    part.IsCore,
+                    part.CoreGatePartIds,
+                    part.Attack,
+                    part.RegenerationTicks);
+            }
+            return scaled;
         }
 
         static StagePlan ApplyContractToStagePlan(

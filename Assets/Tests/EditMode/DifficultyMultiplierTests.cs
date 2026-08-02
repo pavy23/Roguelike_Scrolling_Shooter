@@ -76,6 +76,38 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void DifficultyMultiplierAlsoScalesGeneratedMiniBossHp()
+        {
+            RunManager run = new RunManager(
+                0x112B055UL,
+                new MiniBossStageGenerator(),
+                CreateConfig(),
+                CreateContent(),
+                PowerUpGauge.CreateDefault(),
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                CreateRewards(),
+                ShipDefinition.CreateDefault(),
+                3,
+                2,
+                new RunProgressionConfig(1, 3));
+
+            run.Step(InputCommand.None);
+            Assert.IsTrue(run.IsMidBossSection);
+            Assert.AreEqual("mini_test", run.StagePlan.BossId);
+            Assert.AreEqual(11, run.StagePlan.BossMaxHp);
+
+            for (int guard = 0;
+                guard < 100 && !run.Battle.BossActive;
+                guard++)
+                run.Step(InputCommand.None);
+
+            Assert.IsTrue(run.Battle.BossActive);
+            Assert.AreEqual(26, run.Battle.Boss.MaxHp);
+            Assert.AreEqual(26, run.Battle.Boss.Hp);
+        }
+
+        [Test]
         public void ExistingRewardsAndShipConstructor_DefaultsToNormal()
         {
             RunManager run = new RunManager(
@@ -253,7 +285,22 @@ namespace Shmup.Core.Tests
                 0,
                 0);
             return new BattleContent(
-                new[] { enemy },
+                new[]
+                {
+                    enemy,
+                    new EnemyDefinition(
+                        "mini_test",
+                        11,
+                        0,
+                        EnemyMovePattern.Static,
+                        0,
+                        1,
+                        128,
+                        128,
+                        0,
+                        0,
+                        1)
+                },
                 new[] { weapon },
                 weapon.Id);
         }
@@ -344,6 +391,34 @@ namespace Shmup.Core.Tests
                     1,
                     1,
                     1000,
+                    new[] { new BossPhase(999, 1, 0, 1) });
+            }
+        }
+
+        sealed class MiniBossStageGenerator : IStageGenerator
+        {
+            public StagePlan Generate(
+                ulong seed,
+                int stageIndex,
+                int difficulty)
+            {
+                var segment = new StageSegment(
+                    "mini_boss_progression",
+                    1,
+                    Array.Empty<SpawnEvent>(),
+                    1,
+                    1,
+                    new[] { 1 });
+                return new StagePlan(
+                    new[] { segment },
+                    "stage_boss",
+                    1,
+                    1,
+                    1,
+                    1,
+                    128,
+                    128,
+                    256,
                     new[] { new BossPhase(999, 1, 0, 1) });
             }
         }
