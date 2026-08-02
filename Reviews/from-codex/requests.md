@@ -1765,3 +1765,35 @@ void ShowRunClearShieldBonus(long awardedScore, int remainingShieldStock)
 ```
 
 상세 근거: `Reviews/from-codex/req105-report.md`.
+
+---
+
+## [ ] REQ-117 → CLAUDE/RENDERER: build25 WarshipView 배선·빌드 재검증
+
+build25 테스터가 fortress 보스룸에서 `warship ...` 오버레이 미표시와 5분간 HP
+무변화를 관측했지만, 현재 HEAD의 실제 `GameData/*.json` E2E에서는 다음 경로가 모두
+PASS다.
+
+- 파서 `waves.json.bosses[boss_fortress].warship` → 카탈로그
+- `SegmentStageGenerator` → `RunManager` 실제 fortress 보스룸 `StagePlan`
+- 워닝 종료 → 함미 `engine` 실피격 → `MidBossDefeated`
+- fortress가 stage 2로 셔플된 seed 1 및 동일 시드 2회 해시 일치
+
+현재 `GameData/waves.json`과 `Assets/Resources/GameData/waves.json` SHA-256도 동일하다.
+따라서 build25 증상은 현재 Core 생성 경로에서는 재현되지 않으며, 아래 Presentation/
+빌드 배선을 확인해 달라.
+
+- [ ] 보스룸 진입 프레임에 `_run.StagePlan.WarshipEncounter?.EncounterId`와
+  `_warship != null`, `_warship.Active`를 함께 로그로 남긴다.
+- [ ] 씬의 `BattleDirector`/`DevCheats`에 직렬화된 `WarshipView` 참조가 실제 build
+  scene에도 유지되는지 확인한다.
+- [ ] 최신 `Assets/Resources/GameData/waves.json`을 포함해 Battle Scene/WebGL을
+  재빌드한 뒤 `warship stern 1/3` 오버레이와 함미 HP 감소를 재캡처한다.
+
+제안 진단 포맷:
+
+```text
+warshipPlan=<encounterId|null> warshipView=<bound|null> active=<true|false>
+```
+
+상세 Core 증거: `Reviews/from-codex/req117-report.md`.
