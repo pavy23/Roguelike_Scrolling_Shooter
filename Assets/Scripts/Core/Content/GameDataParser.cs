@@ -615,11 +615,25 @@ namespace Shmup.Core.Content
                 root.multiplierGaugeRequirements,
                 "scoring.json.multiplierGaugeRequirements",
                 allowEmpty: true);
-            if (requirements.Length != ScoringDefinition.MultiplierRequirementCount)
+            if (requirements.Length != ScoringDefinition.MultiplierRequirementCount
+                && requirements.Length
+                    != ScoringDefinition.LegacyMultiplierRequirementCount)
                 throw Error(
                     "scoring.json.multiplierGaugeRequirements",
-                    $"must contain exactly {ScoringDefinition.MultiplierRequirementCount} entries.");
-            var requirementCopy = (int[])requirements.Clone();
+                    $"must contain exactly {ScoringDefinition.MultiplierRequirementCount} entries "
+                    + $"({ScoringDefinition.LegacyMultiplierRequirementCount} is accepted "
+                    + "for schema 1 compatibility).");
+            var requirementCopy =
+                new int[ScoringDefinition.MultiplierRequirementCount];
+            Array.Copy(requirements, requirementCopy, requirements.Length);
+            if (requirements.Length
+                == ScoringDefinition.LegacyMultiplierRequirementCount)
+            {
+                requirementCopy[3] =
+                    ScoringDefinition.ProvisionalLevel5Requirement;
+                requirementCopy[4] =
+                    ScoringDefinition.ProvisionalLevel6Requirement;
+            }
             for (int i = 0; i < requirementCopy.Length; i++)
             {
                 if (requirementCopy[i] < 1)
@@ -636,12 +650,21 @@ namespace Shmup.Core.Content
                     "scoring.json.multiplierDecayTicks",
                     "must be positive.");
 
+            int shieldBonusScorePerStock =
+                root.shieldBonusScorePerStock
+                    ?? BattleSimConfig.ProvisionalShieldBonusScorePerStock;
+            if (shieldBonusScorePerStock < 0)
+                throw Error(
+                    "scoring.json.shieldBonusScorePerStock",
+                    "cannot be negative.");
+
             return new ScoringDefinition(
                 grazeRadiusSubUnits,
                 grazeScore,
                 grazeGaugeCharge,
                 requirementCopy,
-                multiplierDecayTicks);
+                multiplierDecayTicks,
+                shieldBonusScorePerStock);
         }
 
         static RewardDefinition ParseReward(

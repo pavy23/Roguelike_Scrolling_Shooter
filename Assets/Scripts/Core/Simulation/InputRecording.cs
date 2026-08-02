@@ -47,10 +47,10 @@ namespace Shmup.Core.Simulation
     public sealed class InputRecordingData
     {
         /// <summary>
-        /// Schema 23 records REQ-104 continue inputs. Schema 22 recordings are
-        /// rejected because they cannot reproduce out-of-band continue use.
+        /// Schema 24 records replays under the REQ-105 six-level combo and
+        /// run-clear shield scoring rules. Schema 23 recordings are rejected.
         /// </summary>
-        public const int CurrentSchemaVersion = 23;
+        public const int CurrentSchemaVersion = 24;
 
         [DataMember(Order = 0)]
         public int schemaVersion;

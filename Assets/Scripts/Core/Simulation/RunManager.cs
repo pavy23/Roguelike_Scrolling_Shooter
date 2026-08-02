@@ -701,6 +701,7 @@ namespace Shmup.Core.Simulation
             long capsulesCollected,
             long grazeCount,
             long bombsUsed,
+            long hitsTaken,
             int stagesCleared,
             int roomsCleared,
             int continuesUsed)
@@ -711,6 +712,7 @@ namespace Shmup.Core.Simulation
             CapsulesCollected = capsulesCollected;
             GrazeCount = grazeCount;
             BombsUsed = bombsUsed;
+            HitsTaken = hitsTaken;
             StagesCleared = stagesCleared;
             RoomsCleared = roomsCleared;
             ContinuesUsed = continuesUsed;
@@ -722,6 +724,7 @@ namespace Shmup.Core.Simulation
         public long CapsulesCollected { get; }
         public long GrazeCount { get; }
         public long BombsUsed { get; }
+        public long HitsTaken { get; }
         public int StagesCleared { get; }
         public int BiomesCleared => StagesCleared;
         public int RoomsCleared { get; }
@@ -958,6 +961,7 @@ namespace Shmup.Core.Simulation
         long _completedCapsulesCollected;
         long _completedGrazeCount;
         long _completedBombsUsed;
+        long _completedHitsTaken;
         int _stagesCleared;
         int _roomsCleared;
         int _continuesUsed;
@@ -979,6 +983,7 @@ namespace Shmup.Core.Simulation
         long _stageStartCapsulesCollected;
         long _stageStartGrazeCount;
         long _stageStartBombsUsed;
+        long _stageStartHitsTaken;
         int _stageStartStagesCleared;
         int _stageStartRoomsCleared;
         int _stageStartPlayerLife;
@@ -1863,6 +1868,7 @@ namespace Shmup.Core.Simulation
         public int FinalWagerOverflowConverted =>
             _finalWagerOverflowConverted;
         public long FinalWagerScoreBonus => _finalWagerScoreBonus;
+        public long RunClearShieldBonus { get; private set; }
         public int SimulationTicksElapsed => _simulationTicksElapsed;
         public ContinueAvailability ContinueAvailability
         {
@@ -1899,6 +1905,7 @@ namespace Shmup.Core.Simulation
                         battle.CapsulesCollected),
                     AddSaturated(_completedGrazeCount, battle.GrazeCount),
                     AddSaturated(_completedBombsUsed, battle.BombsUsed),
+                    AddSaturated(_completedHitsTaken, battle.HitsTaken),
                     _stagesCleared,
                     _roomsCleared,
                     _continuesUsed);
@@ -2133,6 +2140,7 @@ namespace Shmup.Core.Simulation
                 capsulesCollected = _stageStartCapsulesCollected,
                 grazeCount = _stageStartGrazeCount,
                 bombsUsed = _stageStartBombsUsed,
+                hitsTaken = _stageStartHitsTaken,
                 stagesCleared = _stageStartStagesCleared,
                 roomsCleared = _stageStartRoomsCleared,
                 powerUpLevels =
@@ -2384,6 +2392,7 @@ namespace Shmup.Core.Simulation
             manager._capsuleBalance = data.capsuleBalance;
             manager._completedGrazeCount = data.grazeCount;
             manager._completedBombsUsed = data.bombsUsed;
+            manager._completedHitsTaken = data.hitsTaken;
             manager._stagesCleared = data.stagesCleared;
             manager._roomsCleared = data.roomsCleared;
             manager._continueStock = data.continueStock;
@@ -2685,6 +2694,11 @@ namespace Shmup.Core.Simulation
             _contractOptions =
                 Array.Empty<ContractOption>();
             ActiveContract = null;
+            if (!(Battle is BattleSim battle))
+                throw new InvalidOperationException(
+                    "Run-clear shield scoring requires BattleSim.");
+            RunClearShieldBonus =
+                battle.AwardRunClearShieldBonus();
             CompletionGrade = grade;
             State = RunState.RunCleared;
         }
@@ -3723,6 +3737,9 @@ namespace Shmup.Core.Simulation
             _completedBombsUsed = AddSaturated(
                 _completedBombsUsed,
                 battle.BombsUsed);
+            _completedHitsTaken = AddSaturated(
+                _completedHitsTaken,
+                battle.HitsTaken);
         }
 
         void ResetToBasicPowerState()
@@ -3821,6 +3838,7 @@ namespace Shmup.Core.Simulation
             _completedCapsulesCollected = 0;
             _completedGrazeCount = 0;
             _completedBombsUsed = 0;
+            _completedHitsTaken = 0;
             _stagesCleared = 0;
             _roomsCleared = 0;
             _continuesUsed = 0;
@@ -3835,6 +3853,7 @@ namespace Shmup.Core.Simulation
             _finalWagerShieldGranted = 0;
             _finalWagerOverflowConverted = 0;
             _finalWagerScoreBonus = 0;
+            RunClearShieldBonus = 0;
             _pendingBattleContinuity = null;
             _capsuleBalance = 0;
             Array.Clear(
@@ -3989,6 +4008,9 @@ namespace Shmup.Core.Simulation
             _completedBombsUsed = AddSaturated(
                 _completedBombsUsed,
                 battle.BombsUsed);
+            _completedHitsTaken = AddSaturated(
+                _completedHitsTaken,
+                battle.HitsTaken);
         }
 
         void IncrementStagesCleared()
@@ -4310,7 +4332,8 @@ namespace Shmup.Core.Simulation
                 || data.kills < 0
                 || data.capsulesCollected < 0
                 || data.grazeCount < 0
-                || data.bombsUsed < 0)
+                || data.bombsUsed < 0
+                || data.hitsTaken < 0)
             {
                 throw new ArgumentException(
                     "Suspend score and statistics cannot be negative.",
@@ -4473,7 +4496,8 @@ namespace Shmup.Core.Simulation
                     nameof(data));
             if (data.hasStageStartContinuity
                 && (data.stageStartMultiplierLevel < 0
-                    || data.stageStartMultiplierLevel > 3
+                    || data.stageStartMultiplierLevel
+                        >= BattleSimConfig.ComboMultiplierLevelCount
                     || data.stageStartComboGauge < 0
                     || data.stageStartTicksSinceLastKill < 0
                     || data.stageStartScrollX < 0))
@@ -5882,6 +5906,7 @@ namespace Shmup.Core.Simulation
                 _simulationTicksElapsed;
             _stageStartGrazeCount = _completedGrazeCount;
             _stageStartBombsUsed = _completedBombsUsed;
+            _stageStartHitsTaken = _completedHitsTaken;
             _stageStartStagesCleared = _stagesCleared;
             _stageStartRoomsCleared = _roomsCleared;
             _stageStartPlayerLife = Battle.PlayerHp;

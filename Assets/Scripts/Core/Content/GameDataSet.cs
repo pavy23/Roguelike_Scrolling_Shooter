@@ -261,13 +261,11 @@ namespace Shmup.Core.Content
                 config.GrazeExtraRadiusSubUnits = _scoring.GrazeRadiusSubUnits;
                 config.GrazeScore = _scoring.GrazeScore;
                 config.GrazeComboGaugeGain = _scoring.GrazeGaugeCharge;
-                config.ComboGaugeRequiredForLevel2 =
-                    _scoring.MultiplierGaugeRequirements[0];
-                config.ComboGaugeRequiredForLevel3 =
-                    _scoring.MultiplierGaugeRequirements[1];
-                config.ComboGaugeRequiredForLevel4 =
-                    _scoring.MultiplierGaugeRequirements[2];
+                config.ComboGaugeRequirements =
+                    Copy(_scoring.MultiplierGaugeRequirements);
                 config.ComboDecayTicks = _scoring.MultiplierDecayTicks;
+                config.ShieldBonusScorePerStock =
+                    _scoring.ShieldBonusScorePerStock;
             }
             return config;
         }
@@ -332,7 +330,10 @@ namespace Shmup.Core.Content
 
     internal sealed class ScoringDefinition
     {
-        public const int MultiplierRequirementCount = 3;
+        public const int LegacyMultiplierRequirementCount = 3;
+        public const int MultiplierRequirementCount = 5;
+        public const int ProvisionalLevel5Requirement = 130;
+        public const int ProvisionalLevel6Requirement = 200;
 
         readonly int[] _multiplierGaugeRequirements;
 
@@ -341,7 +342,8 @@ namespace Shmup.Core.Content
             int grazeScore,
             int grazeGaugeCharge,
             int[] multiplierGaugeRequirements,
-            int multiplierDecayTicks)
+            int multiplierDecayTicks,
+            int shieldBonusScorePerStock)
         {
             GrazeRadiusSubUnits = grazeRadiusSubUnits;
             GrazeScore = grazeScore;
@@ -349,6 +351,7 @@ namespace Shmup.Core.Content
             _multiplierGaugeRequirements =
                 (int[])multiplierGaugeRequirements.Clone();
             MultiplierDecayTicks = multiplierDecayTicks;
+            ShieldBonusScorePerStock = shieldBonusScorePerStock;
         }
 
         public int GrazeRadiusSubUnits { get; }
@@ -357,6 +360,7 @@ namespace Shmup.Core.Content
         public IReadOnlyList<int> MultiplierGaugeRequirements =>
             _multiplierGaugeRequirements;
         public int MultiplierDecayTicks { get; }
+        public int ShieldBonusScorePerStock { get; }
     }
 
     public sealed class GameDataParseException : FormatException

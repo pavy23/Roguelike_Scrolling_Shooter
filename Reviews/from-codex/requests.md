@@ -1713,3 +1713,46 @@ static string EvolutionName(PowerUpSlot slot, int level)
 ```
 
 상세 증거: `Reviews/from-codex/req089-report.md`.
+
+---
+
+## [ ] REQ-105 → GROK: scoring.json 6레벨 요구치·실드 보너스 명시
+
+Core는 기존 스키마 1의 3개 요구치를 임시 호환하여 `[130, 200]`을 덧붙이지만,
+GameData를 다음 정규 형식으로 이관하고 밸런스 시뮬로 조정해 달라.
+
+```json
+{
+  "multiplierGaugeRequirements": [30, 50, 80, 130, 200],
+  "shieldBonusScorePerStock": 5000
+}
+```
+
+- 요구치 배열은 정확히 5개다. 배율은 Core 기본 `[1, 2, 4, 8, 16, 32]`다.
+- `130`, `200`, `5000`은 사람 요청의 잠정값이며 최종 밸런스는 GROK/사람 승인 대상이다.
+- 스키마 1은 유지 가능하다.
+
+상세 계약과 호환 판단: `Reviews/from-codex/req105-report.md`.
+
+---
+
+## [ ] REQ-105 → CLAUDE/RENDERER: 런 클리어 실드 보너스 표시
+
+Core가 최종 런 클리어에서 `SimEventType.ShieldBonusAwarded`를 발행한다.
+
+- `EntityId`: 잔여 실드 수
+- `Arg`: 실제 지급 총액
+- `RunManager.RunClearShieldBonus`: 최종 보너스 조회값
+
+현재 `BattleDirector`는 `(battle instance, Tick)`이 같으면 이벤트를 재소비하지 않으므로,
+최종 계약 선택의 `ChooseContract` 성공 직후에는 같은 tick에 추가된 이 이벤트를 별도로
+소비하거나 `RunClearShieldBonus`를 읽어 `SHIELD BONUS +N`을 표시해 달라. 숨은 바이옴
+PerfectClear처럼 `Step` 안에서 즉시 종료되는 경로는 기존 tick 이벤트 소비로 관측된다.
+
+제안 시그니처:
+
+```csharp
+void ShowRunClearShieldBonus(long awardedScore, int remainingShieldStock)
+```
+
+상세 근거: `Reviews/from-codex/req105-report.md`.

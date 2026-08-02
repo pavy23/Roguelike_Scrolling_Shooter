@@ -110,11 +110,34 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void HitsTakenCountsShieldedAndLethalHitsButNotRejectedContacts()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.StartingShieldStock = 2;
+            config.MaxShieldStock = 2;
+            config.PlayerHitInvulnerabilityTicks = 0;
+            BattleSim sim = CreateTargetSim(config, targetCount: 0);
+            MethodInfo applyHit = typeof(BattleSim).GetMethod(
+                "ApplyPlayerHit",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(applyHit);
+
+            Assert.IsTrue((bool)applyHit.Invoke(sim, new object[] { 1 }));
+            Assert.IsTrue((bool)applyHit.Invoke(sim, new object[] { 1 }));
+            Assert.IsTrue((bool)applyHit.Invoke(sim, new object[] { 1 }));
+
+            Assert.AreEqual(3L, sim.Statistics.HitsTaken);
+            Assert.IsFalse(sim.IsPlayerAlive);
+            Assert.IsFalse((bool)applyHit.Invoke(sim, new object[] { 1 }));
+            Assert.AreEqual(3L, sim.Statistics.HitsTaken);
+        }
+
+        [Test]
         public void KillsAdvanceMultiplierAndEnemyKilledArgUsesAwardedScore()
         {
             BattleSimConfig config = CreateConfig();
             ConfigureOneKillPerLevel(config);
-            BattleSim sim = CreateTargetSim(config, targetCount: 4);
+            BattleSim sim = CreateTargetSim(config, targetCount: 6);
             InputCommand fire = new InputCommand(0, 0, true);
 
             sim.Step(in fire);
@@ -135,10 +158,18 @@ namespace Shmup.Core.Tests
             AssertMultiplier(sim, level: 3, multiplier: 8, score: 70);
 
             sim.Step(in fire);
+            AssertMultiplier(sim, level: 4, multiplier: 16, score: 150);
+
+            sim.Step(in fire);
+            AssertMultiplier(sim, level: 5, multiplier: 32, score: 310);
+
+            sim.Step(in fire);
             AssertAll(() =>
             {
-                Assert.AreEqual(150L, sim.Score);
-                Assert.AreEqual(4L, sim.Statistics.Kills);
+                Assert.AreEqual(630L, sim.Score);
+                Assert.AreEqual(6L, sim.Statistics.Kills);
+                Assert.AreEqual(5, sim.MultiplierLevel);
+                Assert.AreEqual(32, sim.ScoreMultiplier);
                 Assert.AreEqual(0, sim.ComboGauge);
             });
         }
@@ -307,13 +338,51 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(long.MaxValue, run.TotalScore);
         }
 
+        [Test]
+        public void HitsTakenAccumulatesAcrossBattlesAndSuspendBoundary()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.StartingShieldStock = 3;
+            config.MaxShieldStock = 3;
+            config.PlayerHitInvulnerabilityTicks = 0;
+            StagePlan plan = Plan(
+                Array.Empty<SpawnEvent>(),
+                lengthTicks: 1);
+            var run = new RunManager(
+                123UL,
+                new FixedStageGenerator(plan),
+                config,
+                Content(Target()),
+                PowerUpGauge.CreateDefault());
+
+            Assert.IsTrue(ApplyHit((BattleSim)run.Battle));
+            InputCommand none = InputCommand.None;
+            run.Step(in none);
+
+            Assert.AreEqual(2, run.RoomIndex);
+            Assert.AreEqual(1L, run.Statistics.HitsTaken);
+            RunSuspendData suspend = run.ExportSuspendData();
+            Assert.AreEqual(1L, suspend.hitsTaken);
+            Assert.IsTrue(SaveDataIntegrity.HasValidChecksum(suspend));
+
+            Assert.IsTrue(ApplyHit((BattleSim)run.Battle));
+            Assert.AreEqual(2L, run.Statistics.HitsTaken);
+        }
+
         static void ConfigureOneKillPerLevel(BattleSimConfig config)
         {
             config.KillComboGaugeGain = 1;
             config.GrazeComboGaugeGain = 0;
-            config.ComboGaugeRequiredForLevel2 = 1;
-            config.ComboGaugeRequiredForLevel3 = 1;
-            config.ComboGaugeRequiredForLevel4 = 1;
+            config.ComboGaugeRequirements = new[] { 1, 1, 1, 1, 1 };
+        }
+
+        static bool ApplyHit(BattleSim sim)
+        {
+            MethodInfo applyHit = typeof(BattleSim).GetMethod(
+                "ApplyPlayerHit",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(applyHit);
+            return (bool)applyHit.Invoke(sim, new object[] { 1 });
         }
 
         static void AssertMultiplier(

@@ -616,10 +616,14 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(128, config.GrazeExtraRadiusSubUnits);
             Assert.AreEqual(10, config.GrazeScore);
             Assert.AreEqual(1, config.GrazeComboGaugeGain);
-            Assert.AreEqual(30, config.ComboGaugeRequiredForLevel2);
-            Assert.AreEqual(50, config.ComboGaugeRequiredForLevel3);
-            Assert.AreEqual(80, config.ComboGaugeRequiredForLevel4);
+            CollectionAssert.AreEqual(
+                new[] { 30, 50, 80, 130, 200 },
+                config.ComboGaugeRequirements);
+            CollectionAssert.AreEqual(
+                new[] { 1, 2, 4, 8, 16, 32 },
+                config.ComboMultipliers);
             Assert.AreEqual(300, config.ComboDecayTicks);
+            Assert.AreEqual(5000, config.ShieldBonusScorePerStock);
         }
 
         [Test]
@@ -810,10 +814,35 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(192, config.GrazeExtraRadiusSubUnits);
             Assert.AreEqual(25, config.GrazeScore);
             Assert.AreEqual(4, config.GrazeComboGaugeGain);
-            Assert.AreEqual(12, config.ComboGaugeRequiredForLevel2);
-            Assert.AreEqual(34, config.ComboGaugeRequiredForLevel3);
-            Assert.AreEqual(56, config.ComboGaugeRequiredForLevel4);
+            CollectionAssert.AreEqual(
+                new[] { 12, 34, 56, 130, 200 },
+                config.ComboGaugeRequirements);
             Assert.AreEqual(240, config.ComboDecayTicks);
+            Assert.AreEqual(5000, config.ShieldBonusScorePerStock);
+        }
+
+        [Test]
+        public void Parse_ScoringV1AcceptsFiveRequirementsAndShieldBonus()
+        {
+            string expanded = ScoringJson
+                .Replace("[12, 34, 56]", "[12, 34, 56, 90, 144]")
+                .Replace(
+                    @"  ""multiplierDecayTicks"": 240",
+                    @"  ""multiplierDecayTicks"": 240,
+  ""shieldBonusScorePerStock"": 7777");
+
+            BattleSimConfig config = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                WavesJson,
+                RewardsJson,
+                ShipsJson,
+                expanded).CreateBattleSimConfig();
+
+            CollectionAssert.AreEqual(
+                new[] { 12, 34, 56, 90, 144 },
+                config.ComboGaugeRequirements);
+            Assert.AreEqual(7777, config.ShieldBonusScorePerStock);
         }
 
         [Test]
@@ -914,7 +943,11 @@ namespace Shmup.Core.Tests
                     @"[12, 0, 56]"),
                 ScoringJson.Replace(
                     @"""multiplierDecayTicks"": 240",
-                    @"""multiplierDecayTicks"": 0")
+                    @"""multiplierDecayTicks"": 0"),
+                ScoringJson.Replace(
+                    @"  ""multiplierDecayTicks"": 240",
+                    @"  ""multiplierDecayTicks"": 240,
+  ""shieldBonusScorePerStock"": -1")
             };
             string[] expectedPaths =
             {
@@ -925,7 +958,8 @@ namespace Shmup.Core.Tests
                 "scoring.json.grazeGaugeCharge",
                 "scoring.json.multiplierGaugeRequirements",
                 "scoring.json.multiplierGaugeRequirements[1]",
-                "scoring.json.multiplierDecayTicks"
+                "scoring.json.multiplierDecayTicks",
+                "scoring.json.shieldBonusScorePerStock"
             };
 
             for (int i = 0; i < invalidJson.Length; i++)

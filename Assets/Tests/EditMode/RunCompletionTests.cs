@@ -59,6 +59,39 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void RunClearAwardsRemainingShieldOnceAndPublishesScoreEvent()
+        {
+            BattleSimConfig config = CreateConfig();
+            config.StartingShieldStock = 3;
+            config.MaxShieldStock = 3;
+            config.ShieldBonusScorePerStock = 7000;
+            RunManager run = CreateRun(17UL, 1, config);
+
+            DrivePlayingTicks(run, 500);
+            Assert.AreEqual(RunState.AwaitingReward, run.State);
+            run.ChooseReward(0);
+            long scoreBefore = run.TotalScore;
+            int remainingShield = run.Battle.ShieldStock;
+
+            Assert.IsTrue(run.ChooseContract(0));
+
+            long expectedBonus = (long)remainingShield * 7000;
+            Assert.AreEqual(RunState.RunCleared, run.State);
+            Assert.AreEqual(expectedBonus, run.RunClearShieldBonus);
+            Assert.AreEqual(scoreBefore + expectedBonus, run.TotalScore);
+            SimEvent bonusEvent = FindEvent(
+                run.Battle.EventsThisTick,
+                SimEventType.ShieldBonusAwarded);
+            Assert.AreEqual(remainingShield, bonusEvent.EntityId);
+            Assert.AreEqual((int)expectedBonus, bonusEvent.Arg);
+
+            long stoppedScore = run.TotalScore;
+            InputCommand none = InputCommand.None;
+            run.Step(in none);
+            Assert.AreEqual(stoppedScore, run.TotalScore);
+        }
+
+        [Test]
         public void SuspendAndInputReplay_ReproduceRunClearedBoundary()
         {
             const ulong seed = 0xC1EA4UL;
@@ -655,7 +688,10 @@ namespace Shmup.Core.Tests
                 "Could not locate the repository GameData directory.");
         }
 
-        static RunManager CreateRun(ulong seed, int? finalStageIndex)
+        static RunManager CreateRun(
+            ulong seed,
+            int? finalStageIndex,
+            BattleSimConfig config = null)
         {
             RunProgressionConfig progression = finalStageIndex.HasValue
                 ? new RunProgressionConfig(finalStageIndex.Value)
@@ -663,7 +699,7 @@ namespace Shmup.Core.Tests
             return new RunManager(
                 seed,
                 new CompletingRouteGenerator(),
-                CreateConfig(),
+                config ?? CreateConfig(),
                 CreateContent(),
                 PowerUpGauge.CreateDefault(),
                 new MetaProgression(1, 1),
@@ -673,6 +709,19 @@ namespace Shmup.Core.Tests
                 1,
                 1,
                 progression);
+        }
+
+        static SimEvent FindEvent(
+            ReadOnlySpan<SimEvent> events,
+            SimEventType type)
+        {
+            for (int i = 0; i < events.Length; i++)
+            {
+                if (events[i].Type == type)
+                    return events[i];
+            }
+            Assert.Fail($"Expected event {type}.");
+            return default;
         }
 
         static BattleSimConfig CreateConfig()

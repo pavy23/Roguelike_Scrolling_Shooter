@@ -786,6 +786,8 @@ namespace Shmup.Core.Content
         public int[] multiplierGaugeRequirements;
         [DataMember]
         public int? multiplierDecayTicks;
+        [DataMember]
+        public int? shieldBonusScorePerStock;
     }
 
     [DataContract]

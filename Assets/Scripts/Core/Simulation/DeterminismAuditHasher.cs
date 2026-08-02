@@ -59,6 +59,7 @@ namespace Shmup.Core.Simulation
             FoldInt32(run.FinalWagerShieldGranted);
             FoldInt32(run.FinalWagerOverflowConverted);
             FoldInt64(run.FinalWagerScoreBonus);
+            FoldInt64(run.RunClearShieldBonus);
             FoldInt32(run.SimulationTicksElapsed);
             // Preserve every production hash byte-for-byte while still making
             // non-production runs distinct when the QA gate is active.
@@ -72,6 +73,7 @@ namespace Shmup.Core.Simulation
             FoldInt64(statistics.CapsulesCollected);
             FoldInt64(statistics.GrazeCount);
             FoldInt64(statistics.BombsUsed);
+            FoldInt64(statistics.HitsTaken);
             FoldInt32(statistics.StagesCleared);
             FoldInt32(statistics.RoomsCleared);
             FoldInt32(statistics.ContinuesUsed);
@@ -531,6 +533,7 @@ namespace Shmup.Core.Simulation
             FoldInt64(statistics.CapsulesCollected);
             FoldInt64(statistics.GrazeCount);
             FoldInt64(statistics.BombsUsed);
+            FoldInt64(statistics.HitsTaken);
             FoldInt32(battle.MultiplierLevel);
             FoldInt32(battle.ScoreMultiplier);
             FoldInt32(battle.ComboGauge);

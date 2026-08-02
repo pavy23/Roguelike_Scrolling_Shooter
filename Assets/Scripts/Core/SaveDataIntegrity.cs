@@ -32,7 +32,8 @@ namespace Shmup.Core
                 || source.schemaVersion == 21
                 || source.schemaVersion == 22
                 || source.schemaVersion == 23
-                || source.schemaVersion == 24)
+                || source.schemaVersion == 24
+                || source.schemaVersion == 25)
                 throw Unsupported(
                     "run suspend",
                     source.schemaVersion);
@@ -297,7 +298,10 @@ namespace Shmup.Core
                     : ContinueEconomyConfig.DefaultFinalWagerShieldCap,
                 continueOverflowScoreBonus = source.schemaVersion >= 25
                     ? source.continueOverflowScoreBonus
-                    : ContinueEconomyConfig.DefaultOverflowScoreBonus
+                    : ContinueEconomyConfig.DefaultOverflowScoreBonus,
+                hitsTaken = source.schemaVersion >= 26
+                    ? source.hitsTaken
+                    : 0L
             };
             Seal(migrated);
             return migrated;
@@ -325,7 +329,8 @@ namespace Shmup.Core
                 || source.schemaVersion == 19
                 || source.schemaVersion == 20
                 || source.schemaVersion == 21
-                || source.schemaVersion == 22)
+                || source.schemaVersion == 22
+                || source.schemaVersion == 23)
                 throw Unsupported(
                     "input recording",
                     source.schemaVersion);
@@ -641,6 +646,7 @@ namespace Shmup.Core
             hash.Add(data.continuePurchasePriceIncrease);
             hash.Add(data.finalWagerShieldCap);
             hash.Add(data.continueOverflowScoreBonus);
+            hash.Add(data.hitsTaken);
             return hash.ToString();
         }
 

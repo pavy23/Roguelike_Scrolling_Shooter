@@ -99,10 +99,10 @@ namespace Shmup.Core.Simulation
     public sealed class RunSuspendData
     {
         /// <summary>
-        /// Schema 25 records REQ-104 continue decisions and final-wager state.
-        /// Schema 24 and other incompatible boundaries are rejected.
+        /// Schema 26 records REQ-105 HitsTaken under the six-level combo rules.
+        /// Schema 25 and other incompatible boundaries are rejected.
         /// </summary>
-        public const int CurrentSchemaVersion = 25;
+        public const int CurrentSchemaVersion = 26;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -349,5 +349,8 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 76)]
         public long continueOverflowScoreBonus;
+
+        [DataMember(Order = 77)]
+        public long hitsTaken;
     }
 }

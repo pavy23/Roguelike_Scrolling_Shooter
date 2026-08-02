@@ -109,7 +109,12 @@ namespace Shmup.Core.Simulation
         /// <summary>EntityId = regenerated obstacle id, X/Y = restored point, Arg = HP.</summary>
         ObstacleRegenerated = 36,
         /// <summary>EntityId = erased enemy-bullet id, Arg = blocking obstacle id.</summary>
-        EnemyBulletBlocked = 37
+        EnemyBulletBlocked = 37,
+        /// <summary>
+        /// EntityId = remaining shield stock, Arg = total run-clear shield bonus
+        /// actually awarded, saturated to int.MaxValue.
+        /// </summary>
+        ShieldBonusAwarded = 38
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -195,7 +200,8 @@ namespace Shmup.Core.Simulation
             long kills,
             long capsulesCollected,
             long grazeCount,
-            long bombsUsed)
+            long bombsUsed,
+            long hitsTaken)
         {
             ShotsFired = shotsFired;
             ShotsHit = shotsHit;
@@ -203,6 +209,7 @@ namespace Shmup.Core.Simulation
             CapsulesCollected = capsulesCollected;
             GrazeCount = grazeCount;
             BombsUsed = bombsUsed;
+            HitsTaken = hitsTaken;
         }
 
         public long ShotsFired { get; }
@@ -211,6 +218,11 @@ namespace Shmup.Core.Simulation
         public long CapsulesCollected { get; }
         public long GrazeCount { get; }
         public long BombsUsed { get; }
+        /// <summary>
+        /// Accepted player hits, including shield absorption and the lethal hit.
+        /// Invulnerability-rejected contacts are not counted.
+        /// </summary>
+        public long HitsTaken { get; }
     }
 
     public enum BulletFaction { Player = 0, Enemy = 1 }
@@ -905,6 +917,8 @@ namespace Shmup.Core.Simulation
     /// <summary>Integer-only tuning. Fractional speeds use numerator/denominator pairs.</summary>
     public sealed class BattleSimConfig
     {
+        public const int ComboMultiplierLevelCount = 6;
+        public const int ProvisionalShieldBonusScorePerStock = 5000;
         internal const int DefaultMaxEnemyBullets = 128;
         /// <summary>
         /// Human-approved REQ-049 default and upgrade ceiling.
@@ -1168,14 +1182,17 @@ namespace Shmup.Core.Simulation
         public int GrazeScore { get; set; } = 10;
         public int GrazeComboGaugeGain { get; set; } = 1;
         public int KillComboGaugeGain { get; set; } = 10;
-        public int ComboGaugeRequiredForLevel2 { get; set; } = 30;
-        public int ComboGaugeRequiredForLevel3 { get; set; } = 50;
-        public int ComboGaugeRequiredForLevel4 { get; set; } = 80;
+        public int[] ComboGaugeRequirements { get; set; } =
+            new[] { 30, 50, 80, 130, 200 };
         public int ComboDecayTicks { get; set; } = 300;
-        public int ComboMultiplierLevel1 { get; set; } = 1;
-        public int ComboMultiplierLevel2 { get; set; } = 2;
-        public int ComboMultiplierLevel3 { get; set; } = 4;
-        public int ComboMultiplierLevel4 { get; set; } = 8;
+        public int[] ComboMultipliers { get; set; } =
+            new[] { 1, 2, 4, 8, 16, 32 };
+        /// <summary>
+        /// Provisional run-clear award per remaining shield stock. GROK owns the
+        /// eventual GameData balance value.
+        /// </summary>
+        public int ShieldBonusScorePerStock { get; set; } =
+            ProvisionalShieldBonusScorePerStock;
 
         /// <summary>
         /// Defaults sourced from player.json, main_shot, and the 40 by 22.5 unit view
@@ -1234,6 +1251,14 @@ namespace Shmup.Core.Simulation
                 MainShotAngleLutSlots == null
                     ? null
                     : (int[])MainShotAngleLutSlots.Clone();
+            copy.ComboGaugeRequirements =
+                ComboGaugeRequirements == null
+                    ? null
+                    : (int[])ComboGaugeRequirements.Clone();
+            copy.ComboMultipliers =
+                ComboMultipliers == null
+                    ? null
+                    : (int[])ComboMultipliers.Clone();
             return copy;
         }
     }
@@ -1555,6 +1580,7 @@ namespace Shmup.Core.Simulation
         readonly int _comboDecayTicks;
         readonly int[] _comboGaugeRequirements;
         readonly int[] _comboMultipliers;
+        readonly int _shieldBonusScorePerStock;
 
         // 보스 (REQ-007). _bossMaxHp == 0 이면 이 스테이지에 보스전 없음.
         readonly int _bossMaxHp, _bossRuntimeMaxHp;
@@ -1611,7 +1637,7 @@ namespace Shmup.Core.Simulation
         readonly long[] _enemyScanDistances;
         int _eventCount;
         long _shotsFired, _shotsHit, _kills, _capsulesCollected, _grazeCount;
-        long _bombsUsed;
+        long _bombsUsed, _hitsTaken;
 
         long _playerXRemainder, _playerYRemainder;
         readonly long _scrollBaseOffset;
@@ -1636,6 +1662,7 @@ namespace Shmup.Core.Simulation
         int _bulletHitRecordCount;
         int _multiplierLevel, _comboGauge, _ticksSinceLastKill;
         bool _killScoredThisTick, _activateHeld, _bombHeld, _playerAlive;
+        bool _runClearShieldBonusAwarded;
         int _playerInvulnerabilityTicksRemaining;
 
         /// <summary>Backward-compatible stage-less player movement and basic-shot simulation.</summary>
@@ -1977,19 +2004,12 @@ namespace Shmup.Core.Simulation
             _grazeComboGaugeGain = config.GrazeComboGaugeGain;
             _killComboGaugeGain = config.KillComboGaugeGain;
             _comboDecayTicks = config.ComboDecayTicks;
-            _comboGaugeRequirements = new[]
-            {
-                config.ComboGaugeRequiredForLevel2,
-                config.ComboGaugeRequiredForLevel3,
-                config.ComboGaugeRequiredForLevel4
-            };
-            _comboMultipliers = new[]
-            {
-                config.ComboMultiplierLevel1,
-                config.ComboMultiplierLevel2,
-                config.ComboMultiplierLevel3,
-                config.ComboMultiplierLevel4
-            };
+            _comboGaugeRequirements =
+                (int[])config.ComboGaugeRequirements.Clone();
+            _comboMultipliers =
+                (int[])config.ComboMultipliers.Clone();
+            _shieldBonusScorePerStock =
+                config.ShieldBonusScorePerStock;
             _powerUpGauge = powerUpGauge;
             _shieldGaugeLevel = powerUpGauge == null
                 ? 0
@@ -2373,7 +2393,8 @@ namespace Shmup.Core.Simulation
             _kills,
             _capsulesCollected,
             _grazeCount,
-            _bombsUsed);
+            _bombsUsed,
+            _hitsTaken);
         public long ScrollX => GetScrollXAtTick(Tick);
         public int PlayerX { get; private set; }
         public int PlayerY { get; private set; }
@@ -2385,6 +2406,27 @@ namespace Shmup.Core.Simulation
             _playerInvulnerabilityTicksRemaining;
         public int PlayerHp => _playerAlive ? 1 : 0;
         public int ShieldRemaining => ShieldStock;
+
+        /// <summary>
+        /// Awards the configured bonus once for the shield stock remaining at
+        /// run clear. The bonus is not affected by combo, encounter, or contract
+        /// multipliers. Repeated calls are idempotent.
+        /// </summary>
+        public long AwardRunClearShieldBonus()
+        {
+            if (_runClearShieldBonusAwarded)
+                return 0;
+            _runClearShieldBonusAwarded = true;
+            long requested = (long)ShieldStock * _shieldBonusScorePerStock;
+            long awarded = AddScoreSaturated(requested);
+            AppendEvent(
+                SimEventType.ShieldBonusAwarded,
+                ShieldStock,
+                PlayerX,
+                PlayerY,
+                awarded >= int.MaxValue ? int.MaxValue : (int)awarded);
+            return awarded;
+        }
         public WeaponType PlayerWeaponType => _playerWeaponType;
         public PrimaryWeaponFamily EquippedPrimaryWeaponFamily =>
             _equippedPrimaryWeaponFamily;
@@ -7726,6 +7768,8 @@ namespace Shmup.Core.Simulation
                 PlayerX,
                 PlayerY,
                 eventDamage);
+            if (_hitsTaken < long.MaxValue)
+                _hitsTaken++;
             if (!_playerAlive)
                 EmitEvent(
                     SimEventType.PlayerKilled,
@@ -8886,29 +8930,35 @@ namespace Shmup.Core.Simulation
             if (config.KillComboGaugeGain < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(config.KillComboGaugeGain));
-            if (config.ComboGaugeRequiredForLevel2 < 1)
-                throw new ArgumentOutOfRangeException(
-                    nameof(config.ComboGaugeRequiredForLevel2));
-            if (config.ComboGaugeRequiredForLevel3 < 1)
-                throw new ArgumentOutOfRangeException(
-                    nameof(config.ComboGaugeRequiredForLevel3));
-            if (config.ComboGaugeRequiredForLevel4 < 1)
-                throw new ArgumentOutOfRangeException(
-                    nameof(config.ComboGaugeRequiredForLevel4));
+            if (config.ComboGaugeRequirements == null
+                || config.ComboGaugeRequirements.Length
+                    != BattleSimConfig.ComboMultiplierLevelCount - 1)
+                throw new ArgumentException(
+                    "Combo gauge requirements must contain exactly five entries.",
+                    nameof(config.ComboGaugeRequirements));
+            for (int i = 0; i < config.ComboGaugeRequirements.Length; i++)
+            {
+                if (config.ComboGaugeRequirements[i] < 1)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(config.ComboGaugeRequirements));
+            }
             if (config.ComboDecayTicks < 1)
                 throw new ArgumentOutOfRangeException(nameof(config.ComboDecayTicks));
-            if (config.ComboMultiplierLevel1 < 1)
+            if (config.ComboMultipliers == null
+                || config.ComboMultipliers.Length
+                    != BattleSimConfig.ComboMultiplierLevelCount)
+                throw new ArgumentException(
+                    "Combo multipliers must contain exactly six entries.",
+                    nameof(config.ComboMultipliers));
+            for (int i = 0; i < config.ComboMultipliers.Length; i++)
+            {
+                if (config.ComboMultipliers[i] < 1)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(config.ComboMultipliers));
+            }
+            if (config.ShieldBonusScorePerStock < 0)
                 throw new ArgumentOutOfRangeException(
-                    nameof(config.ComboMultiplierLevel1));
-            if (config.ComboMultiplierLevel2 < 1)
-                throw new ArgumentOutOfRangeException(
-                    nameof(config.ComboMultiplierLevel2));
-            if (config.ComboMultiplierLevel3 < 1)
-                throw new ArgumentOutOfRangeException(
-                    nameof(config.ComboMultiplierLevel3));
-            if (config.ComboMultiplierLevel4 < 1)
-                throw new ArgumentOutOfRangeException(
-                    nameof(config.ComboMultiplierLevel4));
+                    nameof(config.ShieldBonusScorePerStock));
             if ((long)config.MaxBullets + config.MaxEnemyBullets > int.MaxValue)
                 throw new ArgumentOutOfRangeException(
                     nameof(config.MaxEnemyBullets),

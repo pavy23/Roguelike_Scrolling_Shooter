@@ -519,7 +519,7 @@ namespace Shmup.Core.Tests
             config.ObstacleHalfWidth = 0;
             config.ObstacleHalfHeight = 0;
             config.BreakableObstacleScore = 7;
-            config.ComboMultiplierLevel1 = 2;
+            config.ComboMultipliers[0] = 2;
             var sim = CreateSim(
                 plan,
                 Content(weapon),
