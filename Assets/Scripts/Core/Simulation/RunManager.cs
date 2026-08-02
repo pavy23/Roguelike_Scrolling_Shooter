@@ -2261,6 +2261,40 @@ namespace Shmup.Core.Simulation
                 null);
         }
 
+        /// <summary>
+        /// Resumes a persisted run against the live meta state that owns its
+        /// continue inventory. For a non-daily run, persisted run stock and live
+        /// meta stock must already match: historical continue use is never
+        /// charged again, while all use and final-wager spending after resume
+        /// updates both stores. Daily runs retain their zero run stock without
+        /// consuming the unavailable meta inventory.
+        /// Use the overload without MetaState for replay and verification flows
+        /// that intentionally reconstruct an isolated run.
+        /// </summary>
+        public static RunManager ResumeFromSuspendData(
+            RunSuspendData data,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            MetaState metaState)
+        {
+            if (metaState == null)
+                throw new ArgumentNullException(nameof(metaState));
+            return ResumeFromSuspendDataCore(
+                data,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                null,
+                null,
+                null,
+                metaState);
+        }
+
         public static RunManager ResumeFromSuspendData(
             RunSuspendData data,
             IStageGenerator stageGenerator,
@@ -2283,6 +2317,37 @@ namespace Shmup.Core.Simulation
         }
 
         /// <summary>
+        /// Content-aware resume path with a live meta state. This mirrors the
+        /// existing RewardCatalog/ShipDefinition overload so Presentation can
+        /// opt into shared continue accounting by appending metaState.
+        /// </summary>
+        public static RunManager ResumeFromSuspendData(
+            RunSuspendData data,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            RewardCatalog rewards,
+            ShipDefinition ship,
+            MetaState metaState)
+        {
+            if (metaState == null)
+                throw new ArgumentNullException(nameof(metaState));
+            return ResumeFromSuspendDataCore(
+                data,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                new MetaProgression(1, 1),
+                StageDifficultyCurve.CreateDefault(),
+                rewards,
+                ship,
+                null,
+                metaState);
+        }
+
+        /// <summary>
         /// Validates serializer-facing data before generating a stage, then
         /// reconstructs the exact persistent state present at that stage boundary.
         /// The supplied ship must match data.shipId.
@@ -2298,6 +2363,68 @@ namespace Shmup.Core.Simulation
             RewardCatalog rewards,
             ShipDefinition ship,
             ContractCatalog contracts = null)
+        {
+            return ResumeFromSuspendDataCore(
+                data,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                metaProgression,
+                difficultyCurve,
+                rewards,
+                ship,
+                contracts,
+                null);
+        }
+
+        /// <summary>
+        /// Full-content resume path with a live meta state. The suspend payload's
+        /// remaining continue stock is authoritative for the run. For non-daily
+        /// runs it must equal metaState.ContinueStock before reconstruction is
+        /// allowed.
+        /// </summary>
+        public static RunManager ResumeFromSuspendData(
+            RunSuspendData data,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            MetaState metaState,
+            MetaProgression metaProgression,
+            StageDifficultyCurve difficultyCurve,
+            RewardCatalog rewards,
+            ShipDefinition ship,
+            ContractCatalog contracts = null)
+        {
+            if (metaState == null)
+                throw new ArgumentNullException(nameof(metaState));
+            return ResumeFromSuspendDataCore(
+                data,
+                stageGenerator,
+                battleConfig,
+                battleContent,
+                powerUpGauge,
+                metaProgression,
+                difficultyCurve,
+                rewards,
+                ship,
+                contracts,
+                metaState);
+        }
+
+        static RunManager ResumeFromSuspendDataCore(
+            RunSuspendData data,
+            IStageGenerator stageGenerator,
+            BattleSimConfig battleConfig,
+            BattleContent battleContent,
+            PowerUpGauge powerUpGauge,
+            MetaProgression metaProgression,
+            StageDifficultyCurve difficultyCurve,
+            RewardCatalog rewards,
+            ShipDefinition ship,
+            ContractCatalog contracts,
+            MetaState metaState)
         {
             data = SaveDataIntegrity.MigrateAndValidate(data);
             if (stageGenerator == null)
@@ -2323,6 +2450,7 @@ namespace Shmup.Core.Simulation
                 powerUpGauge,
                 resolvedRewards,
                 resolvedShip);
+            ValidateResumeContinueInventory(data, metaState);
             ResolveSuspendDifficulty(
                 data,
                 out int difficultyMultiplierNumerator,
@@ -2488,6 +2616,7 @@ namespace Shmup.Core.Simulation
                     + "the reconstructed stage boundary.",
                     nameof(data));
             }
+            manager._metaState = metaState;
             return manager;
         }
 
@@ -3714,6 +3843,21 @@ namespace Shmup.Core.Simulation
                     "Meta continue stock exceeds the run economy cap.",
                     nameof(metaState));
             _initialContinueStockAtRunStart = _continueStock;
+        }
+
+        static void ValidateResumeContinueInventory(
+            RunSuspendData data,
+            MetaState metaState)
+        {
+            if (metaState == null)
+                return;
+            if (!data.isDailyRun
+                && metaState.ContinueStock != data.continueStock)
+            {
+                throw new ArgumentException(
+                    "Meta continue stock must match suspend continue stock.",
+                    nameof(metaState));
+            }
         }
 
         void AccumulateCurrentBattleStatisticsOnly()

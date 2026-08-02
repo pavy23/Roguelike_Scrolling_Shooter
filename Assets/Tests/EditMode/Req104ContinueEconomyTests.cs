@@ -187,6 +187,137 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void MetaResumeAcrossTwoSuspendsChargesExactlyOncePerContinue()
+        {
+            MetaState meta = CreateMeta(0, 2);
+            RunManager source = CreateLethalRun(
+                0x107UL,
+                PowerUpGauge.CreateDefault(),
+                meta);
+            RunSuspendData firstSuspend = source.ExportSuspendData();
+
+            RunManager firstResume = RunManager.ResumeFromSuspendData(
+                firstSuspend,
+                new ScoreThenLethalGenerator(),
+                CreateConfig(),
+                CreateContent(),
+                PowerUpGauge.CreateDefault(),
+                null,
+                null,
+                meta);
+            InputCommand fire = new InputCommand(0, 0, true);
+            Step(firstResume, 3, in fire);
+            Assert.AreEqual(RunState.RunOver, firstResume.State);
+            Assert.IsTrue(firstResume.TryUseContinue());
+            Assert.AreEqual(1, firstResume.ContinueStock);
+            Assert.AreEqual(1, meta.ContinueStock);
+
+            RunSuspendData secondSuspend = firstResume.ExportSuspendData();
+            RunManager secondResume = RunManager.ResumeFromSuspendData(
+                secondSuspend,
+                new ScoreThenLethalGenerator(),
+                CreateConfig(),
+                CreateContent(),
+                PowerUpGauge.CreateDefault(),
+                meta);
+
+            Assert.AreEqual(1, secondResume.ContinueStock);
+            Assert.AreEqual(1, secondResume.Statistics.ContinuesUsed);
+            Assert.AreEqual(1, meta.ContinueStock);
+
+            Step(secondResume, 3, in fire);
+            Assert.AreEqual(RunState.RunOver, secondResume.State);
+            Assert.IsTrue(secondResume.TryUseContinue());
+            Assert.AreEqual(0, secondResume.ContinueStock);
+            Assert.AreEqual(0, meta.ContinueStock);
+        }
+
+        [Test]
+        public void MetaResumeRejectsMismatchedContinueInventoryWithoutMutation()
+        {
+            MetaState sourceMeta = CreateMeta(0, 2);
+            RunSuspendData suspend = CreateLethalRun(
+                    0xB107UL,
+                    PowerUpGauge.CreateDefault(),
+                    sourceMeta)
+                .ExportSuspendData();
+            MetaState mismatchedMeta = CreateMeta(0, 1);
+
+            ArgumentException error = Assert.Throws<ArgumentException>(
+                () => RunManager.ResumeFromSuspendData(
+                    suspend,
+                    new ScoreThenLethalGenerator(),
+                    CreateConfig(),
+                    CreateContent(),
+                    PowerUpGauge.CreateDefault(),
+                    mismatchedMeta));
+
+            StringAssert.Contains("must match", error.Message);
+            Assert.AreEqual(1, mismatchedMeta.ContinueStock);
+        }
+
+        [Test]
+        public void DailyMetaResumeKeepsRunStockZeroAndLeavesMetaStockUntouched()
+        {
+            MetaState meta = CreateMeta(0, 2);
+            var source = new RunManager(
+                0xDA107UL,
+                new ScoreThenLethalGenerator(),
+                CreateConfig(),
+                CreateContent(),
+                PowerUpGauge.CreateDefault(),
+                meta,
+                new RunConfig(isDailyRun: true));
+            RunSuspendData suspend = source.ExportSuspendData();
+
+            RunManager resumed = RunManager.ResumeFromSuspendData(
+                suspend,
+                new ScoreThenLethalGenerator(),
+                CreateConfig(),
+                CreateContent(),
+                PowerUpGauge.CreateDefault(),
+                meta);
+            InputCommand fire = new InputCommand(0, 0, true);
+            Step(resumed, 3, in fire);
+
+            Assert.AreEqual(0, resumed.ContinueStock);
+            Assert.AreEqual(2, meta.ContinueStock);
+            Assert.IsFalse(resumed.ContinueAvailability.CanUse);
+            Assert.AreEqual(
+                ContinueRejectionReason.DailyRun,
+                resumed.ContinueAvailability.RejectionReason);
+        }
+
+        [Test]
+        public void MetaResumeFinalWagerConsumesRunAndMetaStockTogether()
+        {
+            MetaState meta = CreateMeta(0, 2);
+            var source = new RunManager(
+                0xF107UL,
+                new EmptyStageGenerator(),
+                CreateConfig(),
+                CreateContent(),
+                PowerUpGauge.CreateDefault(),
+                new RunProgressionConfig(1, 1),
+                meta);
+            RunSuspendData suspend = source.ExportSuspendData();
+            RunManager resumed = RunManager.ResumeFromSuspendData(
+                suspend,
+                new EmptyStageGenerator(),
+                CreateConfig(),
+                CreateContent(),
+                PowerUpGauge.CreateDefault(),
+                meta);
+            InputCommand none = InputCommand.None;
+
+            resumed.Step(in none);
+
+            Assert.IsTrue(resumed.FinalWagerCommitted);
+            Assert.AreEqual(0, resumed.ContinueStock);
+            Assert.AreEqual(0, meta.ContinueStock);
+        }
+
+        [Test]
         public void SameSeedAndContinueDecisionProduceSameAuditHash()
         {
             string first = ContinueTraceHash(0xD37104UL);
