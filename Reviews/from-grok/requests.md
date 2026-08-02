@@ -4,6 +4,35 @@
 
 ---
 
+## 2026-08-02 REQ-106 — 11차 밸런스 실드/배율/실드 보너스 (content 완료)
+
+**완료 (content):**  
+- `ships.json` startingShieldStock **Starter 2 / Interceptor 1 / Bulwark 3** (정체성 유지·생존 1단 상향)  
+- `scoring.json` `multiplierGaugeRequirements` **[30,50,80,130,200]** (5개 정규) + `shieldBonusScorePerStock` **8000**  
+- BalanceSim: 6레벨 배열 API · x8/x16/x32 킬 밴드 · 실드 보너스 2–5% 게이트 · ship identity 2/1/3  
+- 해금 가격·보드 상한: **제안만** (25k/50k→50k/100k 권장, 보드 10B 유지)  
+**표:** `Reviews/from-grok/req106-report.md`  
+**검증:** 510/510 · BalanceSim all green · DeterminismAudit AUDIT PASS
+
+### CLAUDE
+1. [ ] Resources `GameData/ships.json` · `scoring.json` 동기화 (실드 2/1/3 · 배율 5요구치 · shieldBonus 8000)
+2. [ ] (REQ-105) 런 클리어 `ShieldBonusAwarded` / `RunClearShieldBonus` → `SHIELD BONUS +N` 표시
+3. [ ] (선택) HUD 콤보 배율 x16/x32 표시 확인
+
+### CODEX
+- 없음 (REQ-105 계약 소비). MaxShieldStock 기본 3 유지 — Bulwark 시작 3=풀스톡.
+
+### 사람
+1. [ ] 해금 가격 조정 여부: 권장 A `50000/100000` · 보수 B `75000/150000` (현행 25k/50k는 x32 스케일에서 과소)
+2. [ ] 보드 상한 9,999,999,999 — 유지 권고 (변경 불필요)
+
+### GEMINI
+1. [ ] 실드 2/1/3 체감 · x32 도달 빈도 (노피격 vs 평균)
+2. [ ] 클리어 점수 분포 vs 해금 25k/50k
+3. [ ] DeterminismAudit 해시 변동 — 베이스라인 갱신 여부
+
+---
+
 ## 2026-08-02 REQ-103b — 대개편 2차 기믹 축 데이터 (content 완료)
 
 **완료 (content):**  

@@ -1716,7 +1716,7 @@ static string EvolutionName(PowerUpSlot slot, int level)
 
 ---
 
-## [ ] REQ-105 → GROK: scoring.json 6레벨 요구치·실드 보너스 명시
+## [x] REQ-105 → GROK: scoring.json 6레벨 요구치·실드 보너스 명시
 
 Core는 기존 스키마 1의 3개 요구치를 임시 호환하여 `[130, 200]`을 덧붙이지만,
 GameData를 다음 정규 형식으로 이관하고 밸런스 시뮬로 조정해 달라.
@@ -1733,6 +1733,15 @@ GameData를 다음 정규 형식으로 이관하고 밸런스 시뮬로 조정�
 - 스키마 1은 유지 가능하다.
 
 상세 계약과 호환 판단: `Reviews/from-codex/req105-report.md`.
+
+### GROK 응답 (2026-08-02, REQ-106)
+
+**완료:** `GameData/scoring.json` 정규 5요구치 이관 + 실드 보너스 조정.  
+- `multiplierGaugeRequirements`: **[30, 50, 80, 130, 200]** (잠정 채택, EV 검산 PASS)  
+- `shieldBonusScorePerStock`: **8000** (잠정 5000은 clear EV 대비 ~1.7%로 2% 하한 미달 → 8000으로 상향, conserve@2 ≈ 2.65% / bulwark@3 ≈ 3.97%)  
+- 병행: `ships.json` 기본 실드 **2/1/3** (사람 지시).  
+상세: `Reviews/from-grok/req106-report.md`.  
+검증: 510/510 · BalanceSim all green · DeterminismAudit AUDIT PASS.
 
 ---
 

@@ -1530,10 +1530,11 @@ namespace Shmup.Core.Tests
                 0,
                 data.FindShip("starter")
                     .ExportStartingPowerUpLevels()[0]);
+            // REQ-106: base shield stocks Starter/Interceptor/Bulwark = 2/1/3.
             Assert.AreEqual(
-                1,
+                2,
                 data.FindShip("starter").StartingShieldStock.Value);
-            Assert.AreEqual(1, data.FindShip("starter").MaxHp.Value);
+            Assert.AreEqual(2, data.FindShip("starter").MaxHp.Value);
             Assert.AreEqual(
                 WeaponType.Vulcan,
                 data.FindShip("interceptor").WeaponType);
@@ -1543,7 +1544,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 MissileFamily.Straight,
                 data.FindShip("interceptor").StartingMissileFamily.Value);
-            Assert.AreEqual(0, data.FindShip("interceptor").MaxHp.Value);
+            Assert.AreEqual(1, data.FindShip("interceptor").MaxHp.Value);
             Assert.AreEqual(
                 WeaponType.Vulcan,
                 data.FindShip("bulwark").WeaponType);
@@ -1553,7 +1554,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 MissileFamily.Homing,
                 data.FindShip("bulwark").StartingMissileFamily.Value);
-            Assert.AreEqual(2, data.FindShip("bulwark").MaxHp.Value);
+            Assert.AreEqual(3, data.FindShip("bulwark").MaxHp.Value);
             // REQ-093: ship starting option formations (schema v4).
             Assert.AreEqual(
                 OptionFormation.Trail,

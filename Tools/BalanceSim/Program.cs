@@ -4,7 +4,7 @@
 // 3) REQ-026: theme segment counts, stage-1 pool size, stage-index HP monotonicity.
 // 4) Reward catalog: modifier rewards parse + weight / maxPerRun guide checks.
 // 5) Modifier combo: pierce + kill_explosion dense-pack clear-time (DPS runaway).
-// 6) Scoring: graze/combo curves from scoring.json (x8 maintain + graze vs kill).
+// 6) Scoring: graze/combo curves from scoring.json (x32 curve + graze vs kill + shield bonus).
 // 7) Bullet density stress: stage-5 core worst-case enemy pool + full-power player
 //    vs Core MaxEnemyBullets / MaxBullets (limits are CODEX-owned; report only).
 // 8) Obstacles: stage-1 empty + progressive density + solid corridor gaps (REQ-023).
@@ -31,19 +31,33 @@ static class Program
     // Values are provisional (AGENTS.md §7); WARN only — does not fail the run.
     const double ComboRunawayWarnRatio = 4.0;
 
-    // Provisional hard gates for scoring.json (AGENTS.md §7).
+    // Provisional hard gates for scoring.json (AGENTS.md §7, REQ-106 x32 curve).
     // Graze fixed score must stay well below the cheapest kill at x1.
     const double MaxGrazeToMinKillRatio = 0.25;
-    // At x8, one min-score kill must still cost many grazes to match.
-    const int MinGrazesToMatchX8Kill = 20;
-    // Kill-only climb to x8 should feel reachable mid-stage, not trivial/impossible.
+    // At top mult, one min-score kill must still cost many grazes to match.
+    const int MinGrazesToMatchTopKill = 20;
+    // Kill-only climb bands: avg run tops x8–x16; x32 is elite no-hit graze play.
     const int MinKillsToX8 = 8;
     const int MaxKillsToX8 = 40;
-    // Decay window (ticks @60Hz): hold x8 needs regular combat, not AFK.
+    const int MinKillsToX16 = 20;
+    const int MaxKillsToX16 = 55;
+    const int MinKillsToX32 = 35;
+    const int MaxKillsToX32 = 80;
+    // Soft: x32 climb should be clearly harder than x8 (skill ceiling).
+    const double MinX32OverX8KillRatio = 2.5;
+    // Decay window (ticks @60Hz): hold mult needs regular combat, not AFK.
     const int MinDecayTicks = 120;  // 2s
     const int MaxDecayTicks = 600;  // 10s
     // Soft WARN if pure-graze climb is too easy relative to kill climb.
-    const int MinGrazeToKillClimbRatio = 5;
+    // With grazeGaugeCharge=3 (REQ-016 skill path), ~3× kill climb is expected.
+    const int MinGrazeToKillClimbRatio = 3;
+    // Run-clear shield bonus share of estimated clear score (2–5% band, REQ-106).
+    const double MinShieldBonusShare = 0.02;
+    const double MaxShieldBonusShare = 0.05;
+    // Soft clear-score EV anchors for shield-bonus share (provisional §7).
+    // Mid mult ~x3–x8 with occasional hits (hit resets combo); not god-run x32 hold.
+    const double EstClearKillCount = 240.0;
+    const double EstClearAvgMultiplier = 4.0;
 
     // Soft headroom guide for pool caps (WARN only — does not fail).
     // Recommended cap ~= ceil(theoreticalPeak * (1 + BulletPoolHeadroomFraction)).
@@ -136,7 +150,7 @@ static class Program
     const double MaxMidBossTtkStarterSeconds = 18.0;
     // Full stage (open+mid+close+boss) budget at expected reach DPS.
     const double MaxStage1FullTtkSeconds = 140.0;
-    // Soft hit budget vs starter shield stocks (maxHp→stock=3).
+    // Soft hit budget vs starter shield stocks (REQ-106 base stock=2).
     // Mid skill may spend ~all stocks; repair reward is available as safety.
     const double MaxStage1ExpectedHits = 3.25;
     // Tutorial→real jump is intentional (stage1 gentle); stage2 must not 4×+ spike.
@@ -811,10 +825,11 @@ static class Program
     }
 
     /// <summary>
-    /// Validates scoring.json graze/combo curves (REQ-016).
-    /// Checks: (1) values apply to BattleSimConfig, (2) x8 climb/maintain difficulty,
-    /// (3) graze fixed score does not outpace kill scores / graze-only climb is slow.
+    /// Validates scoring.json graze/combo curves (REQ-016 / REQ-106).
+    /// Checks: (1) values apply to BattleSimConfig arrays, (2) x8/x16/x32 climb bands,
+    /// (3) graze fixed score does not outpace kill scores, (4) shield bonus share 2–5%.
     /// KillComboGaugeGain remains Core default (not in scoring.json).
+    /// PlayerHit resets combo (Core) — x32 is no-hit class by design.
     /// </summary>
     static int CheckScoringCurves(GameDataSet data)
     {
@@ -824,81 +839,165 @@ static class Program
         int grazeRadius = config.GrazeExtraRadiusSubUnits;
         int grazeScore = config.GrazeScore;
         int grazeCharge = config.GrazeComboGaugeGain;
-        int req2 = config.ComboGaugeRequiredForLevel2;
-        int req3 = config.ComboGaugeRequiredForLevel3;
-        int req4 = config.ComboGaugeRequiredForLevel4;
+        int[] reqs = config.ComboGaugeRequirements;
+        int[] mults = config.ComboMultipliers;
         int decay = config.ComboDecayTicks;
         int killCharge = config.KillComboGaugeGain;
-        int mult1 = config.ComboMultiplierLevel1;
-        int mult2 = config.ComboMultiplierLevel2;
-        int mult3 = config.ComboMultiplierLevel3;
-        int mult4 = config.ComboMultiplierLevel4;
+        int shieldBonus = config.ShieldBonusScorePerStock;
 
-        Console.WriteLine("Scoring curves (scoring.json → BattleSimConfig, provisional §7):");
+        Console.WriteLine(
+            "Scoring curves (scoring.json → BattleSimConfig, REQ-106 provisional §7):");
         Console.WriteLine(
             $"  grazeRadius={grazeRadius}su ({grazeRadius / (double)SimSpace.SubUnitsPerWorldUnit:F2}u) " +
             $"grazeScore={grazeScore} grazeGaugeCharge={grazeCharge}");
         Console.WriteLine(
-            $"  mult requirements=[{req2},{req3},{req4}] " +
+            $"  mult requirements=[{string.Join(",", reqs ?? Array.Empty<int>())}] " +
             $"decayTicks={decay} ({decay / (double)SimSpace.TicksPerSecond:F1}s) " +
             $"killGaugeGain={killCharge} (Core default)");
         Console.WriteLine(
-            $"  multipliers x{mult1}→x{mult2}→x{mult3}→x{mult4}");
+            $"  multipliers=[{string.Join(",", mults ?? Array.Empty<int>())}] " +
+            $"shieldBonusPerStock={shieldBonus}");
+
+        if (reqs == null
+            || mults == null
+            || reqs.Length != BattleSimConfig.ComboMultiplierLevelCount - 1
+            || mults.Length != BattleSimConfig.ComboMultiplierLevelCount)
+        {
+            Console.WriteLine(
+                "FAIL scoring: ComboGaugeRequirements must be 5 and ComboMultipliers 6 "
+                + $"(got reqs={reqs?.Length ?? -1} mults={mults?.Length ?? -1}).");
+            return failures + 1;
+        }
 
         // Sanity: config received finite positive scoring knobs.
-        if (grazeRadius < 0 || grazeScore < 0 || grazeCharge < 0)
+        if (grazeRadius < 0 || grazeScore < 0 || grazeCharge < 0 || shieldBonus < 0)
         {
-            Console.WriteLine("FAIL scoring: negative graze knobs after ApplyTo.");
+            Console.WriteLine("FAIL scoring: negative graze/shield knobs after ApplyTo.");
             failures++;
         }
-        if (req2 < 1 || req3 < 1 || req4 < 1 || decay < 1 || killCharge < 1)
+        if (decay < 1 || killCharge < 1)
         {
             Console.WriteLine("FAIL scoring: non-positive combo knobs after ApplyTo.");
             failures++;
         }
+        for (int i = 0; i < reqs.Length; i++)
+        {
+            if (reqs[i] < 1)
+            {
+                Console.WriteLine(
+                    $"FAIL scoring: ComboGaugeRequirements[{i}]={reqs[i]} not positive.");
+                failures++;
+            }
+        }
+        for (int i = 0; i < mults.Length; i++)
+        {
+            if (mults[i] < 1)
+            {
+                Console.WriteLine(
+                    $"FAIL scoring: ComboMultipliers[{i}]={mults[i]} not positive.");
+                failures++;
+            }
+        }
 
-        int killsToX2 = CeilDiv(req2, killCharge);
-        int killsToX4 = killsToX2 + CeilDiv(req3, killCharge);
-        int killsToX8 = killsToX4 + CeilDiv(req4, killCharge);
-        int grazesToX2 = grazeCharge == 0 ? int.MaxValue : CeilDiv(req2, grazeCharge);
-        int grazesToX4 = grazeCharge == 0
-            ? int.MaxValue
-            : grazesToX2 + CeilDiv(req3, grazeCharge);
-        int grazesToX8 = grazeCharge == 0
-            ? int.MaxValue
-            : grazesToX4 + CeilDiv(req4, grazeCharge);
-
-        Console.WriteLine(
-            $"  kill climb: x2 in {killsToX2} kills, x4 in {killsToX4}, x8 in {killsToX8}");
-        Console.WriteLine(
-            $"  graze climb: x2 in {FormatCount(grazesToX2)} grazes, " +
-            $"x4 in {FormatCount(grazesToX4)}, x8 in {FormatCount(grazesToX8)} " +
-            "(graze does not reset decay — only kills maintain mult)");
-
-        // x8 maintain: kill every decay window.
-        double decaySeconds = decay / (double)SimSpace.TicksPerSecond;
-        Console.WriteLine(
-            $"  x8 hold: need ≥1 kill every {decay} ticks ({decaySeconds:F1}s) " +
-            $"or drop one mult level (x8→x4→x2→x1)");
-
-        if (killsToX8 < MinKillsToX8 || killsToX8 > MaxKillsToX8)
+        // Expected ladder: 1→2→4→8→16→32 (Core default; content must not flatten ceiling).
+        int[] expectedMults = { 1, 2, 4, 8, 16, 32 };
+        bool multLadderOk = true;
+        for (int i = 0; i < expectedMults.Length; i++)
+        {
+            if (mults[i] != expectedMults[i])
+            {
+                multLadderOk = false;
+                break;
+            }
+        }
+        if (!multLadderOk)
         {
             Console.WriteLine(
-                $"FAIL scoring: kills-to-x8={killsToX8} outside band " +
-                $"[{MinKillsToX8},{MaxKillsToX8}] (x8 too easy/hard).");
+                "FAIL scoring: multipliers must be [1,2,4,8,16,32] for REQ-106 ceiling.");
             failures++;
         }
-        else
+
+        int[] killsToLevel = new int[mults.Length]; // index = level after climb
+        int[] grazesToLevel = new int[mults.Length];
+        killsToLevel[0] = 0;
+        grazesToLevel[0] = 0;
+        for (int lvl = 0; lvl < reqs.Length; lvl++)
         {
-            Console.WriteLine(
-                $"  kills-to-x8={killsToX8} within band [{MinKillsToX8},{MaxKillsToX8}].");
+            int kStep = killCharge == 0 ? int.MaxValue : CeilDiv(reqs[lvl], killCharge);
+            int gStep = grazeCharge == 0 ? int.MaxValue : CeilDiv(reqs[lvl], grazeCharge);
+            killsToLevel[lvl + 1] = killsToLevel[lvl] == int.MaxValue || kStep == int.MaxValue
+                ? int.MaxValue
+                : killsToLevel[lvl] + kStep;
+            grazesToLevel[lvl + 1] = grazesToLevel[lvl] == int.MaxValue || gStep == int.MaxValue
+                ? int.MaxValue
+                : grazesToLevel[lvl] + gStep;
+        }
+
+        int killsToX2 = killsToLevel[1];
+        int killsToX4 = killsToLevel[2];
+        int killsToX8 = killsToLevel[3];
+        int killsToX16 = killsToLevel[4];
+        int killsToX32 = killsToLevel[5];
+        int grazesToX8 = grazesToLevel[3];
+        int grazesToX16 = grazesToLevel[4];
+        int grazesToX32 = grazesToLevel[5];
+
+        Console.WriteLine(
+            $"  kill climb: x2={killsToX2} x4={killsToX4} x8={killsToX8} "
+            + $"x16={killsToX16} x32={killsToX32}");
+        Console.WriteLine(
+            $"  graze climb: x8={FormatCount(grazesToX8)} x16={FormatCount(grazesToX16)} "
+            + $"x32={FormatCount(grazesToX32)} "
+            + "(graze does not reset decay — only kills maintain mult; hit resets combo)");
+
+        // Mixed kill+graze EV: 3 grazes per kill accelerates gauge (skill expression).
+        int mixedGaugePerKill = killCharge + 3 * grazeCharge;
+        int totalGaugeToX32 = 0;
+        for (int i = 0; i < reqs.Length; i++)
+            totalGaugeToX32 += reqs[i];
+        int mixedKillsToX32 = mixedGaugePerKill <= 0
+            ? int.MaxValue
+            : CeilDiv(totalGaugeToX32, mixedGaugePerKill);
+        Console.WriteLine(
+            $"  mixed climb (1 kill + 3 graze): gauge/kill={mixedGaugePerKill} "
+            + $"→ x32 in ≈{FormatCount(mixedKillsToX32)} kills "
+            + $"(total gauge {totalGaugeToX32})");
+
+        double decaySeconds = decay / (double)SimSpace.TicksPerSecond;
+        Console.WriteLine(
+            $"  mult hold: need ≥1 kill every {decay} ticks ({decaySeconds:F1}s) "
+            + "or drop one level; PlayerHit resets to x1");
+
+        failures += GateKillsToMult(
+            "x8", killsToX8, MinKillsToX8, MaxKillsToX8);
+        failures += GateKillsToMult(
+            "x16", killsToX16, MinKillsToX16, MaxKillsToX16);
+        failures += GateKillsToMult(
+            "x32", killsToX32, MinKillsToX32, MaxKillsToX32);
+
+        if (killsToX8 > 0 && killsToX32 != int.MaxValue)
+        {
+            double ratio = killsToX32 / (double)killsToX8;
+            if (ratio < MinX32OverX8KillRatio)
+            {
+                Console.WriteLine(
+                    $"FAIL scoring: kills-to-x32/kills-to-x8={ratio:F2} < "
+                    + $"{MinX32OverX8KillRatio:F1} (x32 ceiling not elite enough).");
+                failures++;
+            }
+            else
+            {
+                Console.WriteLine(
+                    $"  x32/x8 kill-climb ratio={ratio:F2} "
+                    + $"(≥{MinX32OverX8KillRatio:F1}).");
+            }
         }
 
         if (decay < MinDecayTicks || decay > MaxDecayTicks)
         {
             Console.WriteLine(
-                $"FAIL scoring: decayTicks={decay} outside band " +
-                $"[{MinDecayTicks},{MaxDecayTicks}] (x8 hold too harsh/lenient).");
+                $"FAIL scoring: decayTicks={decay} outside band "
+                + $"[{MinDecayTicks},{MaxDecayTicks}] (mult hold too harsh/lenient).");
             failures++;
         }
         else
@@ -932,14 +1031,15 @@ static class Program
             return failures + 1;
         }
 
+        int topMult = mults[mults.Length - 1];
         double avgKillScore = sumKillScore / (double)enemyCount;
         double grazeToMinKill = grazeScore / (double)minKillScore;
         int grazesToMatchX1Min = grazeScore == 0
             ? int.MaxValue
             : CeilDiv(minKillScore, grazeScore);
-        int grazesToMatchX8Min = grazeScore == 0
+        int grazesToMatchTopMin = grazeScore == 0
             ? int.MaxValue
-            : CeilDiv(minKillScore * mult4, grazeScore);
+            : CeilDiv(minKillScore * topMult, grazeScore);
         int grazesToMatchX1Avg = grazeScore == 0
             ? int.MaxValue
             : CeilDiv((int)Math.Round(avgKillScore), grazeScore);
@@ -947,16 +1047,16 @@ static class Program
         Console.WriteLine(
             $"  kill scores: min={minKillScore} ({minKillId}) avg≈{avgKillScore:F0} max={maxKillScore}");
         Console.WriteLine(
-            $"  graze vs kill: grazeScore/minKill={grazeToMinKill:F3} " +
-            $"(grazes≈1 min-kill@x1: {FormatCount(grazesToMatchX1Min)}, " +
-            $"@x{mult4}: {FormatCount(grazesToMatchX8Min)}; " +
-            $"avg@x1: {FormatCount(grazesToMatchX1Avg)})");
+            $"  graze vs kill: grazeScore/minKill={grazeToMinKill:F3} "
+            + $"(grazes≈1 min-kill@x1: {FormatCount(grazesToMatchX1Min)}, "
+            + $"@x{topMult}: {FormatCount(grazesToMatchTopMin)}; "
+            + $"avg@x1: {FormatCount(grazesToMatchX1Avg)})");
 
         if (grazeToMinKill > MaxGrazeToMinKillRatio)
         {
             Console.WriteLine(
-                $"FAIL scoring: grazeScore/minKill={grazeToMinKill:F3} > " +
-                $"{MaxGrazeToMinKillRatio:F2} — graze farming threatens kill score.");
+                $"FAIL scoring: grazeScore/minKill={grazeToMinKill:F3} > "
+                + $"{MaxGrazeToMinKillRatio:F2} — graze farming threatens kill score.");
             failures++;
         }
         else
@@ -965,17 +1065,18 @@ static class Program
                 $"  graze/minKill ratio OK (≤{MaxGrazeToMinKillRatio:F2}).");
         }
 
-        if (grazesToMatchX8Min < MinGrazesToMatchX8Kill)
+        if (grazesToMatchTopMin < MinGrazesToMatchTopKill)
         {
             Console.WriteLine(
-                $"FAIL scoring: only {grazesToMatchX8Min} grazes match one min-kill at x{mult4} " +
-                $"(need ≥{MinGrazesToMatchX8Kill}).");
+                $"FAIL scoring: only {grazesToMatchTopMin} grazes match one min-kill at x{topMult} "
+                + $"(need ≥{MinGrazesToMatchTopKill}).");
             failures++;
         }
         else
         {
             Console.WriteLine(
-                $"  x{mult4} kill still dominates graze (≥{MinGrazesToMatchX8Kill} grazes to match).");
+                $"  x{topMult} kill still dominates graze "
+                + $"(≥{MinGrazesToMatchTopKill} grazes to match).");
         }
 
         // Sustained combat sketch: 1 kill / 2s of min fodder + 3 grazes/s skill play.
@@ -986,12 +1087,11 @@ static class Program
         long killScoreAccum = 0;
         long grazeScoreAccum = 0;
         int gauge = 0;
-        int level = 0; // 0=x1 .. 3=x8
-        int[] reqs = { req2, req3, req4 };
-        int[] mults = { mult1, mult2, mult3, mult4 };
+        int level = 0;
         int ticksSinceKill = 0;
         int totalKills = 0;
         int totalGrazes = 0;
+        int peakLevel = 0;
         int killIntervalTicks = 2 * SimSpace.TicksPerSecond / killsPerTwoSeconds;
 
         for (int t = 1; t <= simSeconds * SimSpace.TicksPerSecond; t++)
@@ -1003,7 +1103,6 @@ static class Program
                 totalKills++;
                 killed = true;
                 ticksSinceKill = 0;
-                // Kill gauge gain + level climb (mirrors BattleSim.AddComboGauge).
                 if (level < mults.Length - 1 && killCharge > 0)
                 {
                     long next = (long)gauge + killCharge;
@@ -1018,7 +1117,6 @@ static class Program
                 }
             }
 
-            // 3 grazes/s ≈ one graze every 20 ticks.
             if (t % (SimSpace.TicksPerSecond / grazesPerSecond) == 0)
             {
                 grazeScoreAccum += grazeScore;
@@ -1037,6 +1135,9 @@ static class Program
                 }
             }
 
+            if (level > peakLevel)
+                peakLevel = level;
+
             if (!killed && level > 0)
             {
                 ticksSinceKill++;
@@ -1052,17 +1153,17 @@ static class Program
         long totalScore = killScoreAccum + grazeScoreAccum;
         double grazeShare = totalScore == 0 ? 0 : grazeScoreAccum / (double)totalScore;
         Console.WriteLine(
-            $"  60s sketch (1 kill/2s min-fodder + {grazesPerSecond} graze/s): " +
-            $"kills={totalKills} grazes={totalGrazes} endMult=x{mults[level]} " +
-            $"killScore={killScoreAccum} grazeScore={grazeScoreAccum} " +
-            $"grazeShare={grazeShare:P1}");
+            $"  60s sketch (1 kill/2s min-fodder + {grazesPerSecond} graze/s): "
+            + $"kills={totalKills} grazes={totalGrazes} endMult=x{mults[level]} "
+            + $"peak=x{mults[peakLevel]} killScore={killScoreAccum} "
+            + $"grazeScore={grazeScoreAccum} grazeShare={grazeShare:P1}");
 
         // Hard fail if graze contributes majority under this modest skill sketch.
         if (grazeShare >= 0.40)
         {
             Console.WriteLine(
-                $"FAIL scoring: grazeShare={grazeShare:P1} ≥ 40% in 60s sketch — " +
-                "graze farming dominates kill score.");
+                $"FAIL scoring: grazeShare={grazeShare:P1} ≥ 40% in 60s sketch — "
+                + "graze farming dominates kill score.");
             failures++;
         }
         else
@@ -1071,21 +1172,82 @@ static class Program
                 $"  grazeShare={grazeShare:P1} < 40% under sustained combat sketch.");
         }
 
-        // Soft: graze-only climb should be several× slower than kill climb.
+        // Soft intent: 60s no-hit skill sketch should reach x16+ and can touch x32.
+        if (peakLevel < 4)
+        {
+            Console.WriteLine(
+                $"WARN scoring: 60s skill sketch peak only x{mults[peakLevel]} "
+                + "(expected ≥x16 for no-hit graze path; §7 soft).");
+        }
+        else
+        {
+            Console.WriteLine(
+                $"  60s no-hit skill peak x{mults[peakLevel]} (≥x16 target path).");
+        }
+
+        // Soft: graze-only climb should be several× slower than kill climb (to x8).
         if (grazesToX8 != int.MaxValue && killsToX8 > 0)
         {
             double climbRatio = grazesToX8 / (double)killsToX8;
             if (climbRatio < MinGrazeToKillClimbRatio)
             {
                 Console.WriteLine(
-                    $"WARN scoring: graze-to-x8 / kill-to-x8 = {climbRatio:F1} " +
-                    $"< {MinGrazeToKillClimbRatio} (graze climb relatively easy, §7).");
+                    $"WARN scoring: graze-to-x8 / kill-to-x8 = {climbRatio:F1} "
+                    + $"< {MinGrazeToKillClimbRatio} (graze climb relatively easy, §7).");
             }
             else
             {
                 Console.WriteLine(
-                    $"  graze climb {climbRatio:F1}× slower than kill climb " +
-                    $"(≥{MinGrazeToKillClimbRatio}×).");
+                    $"  graze climb {climbRatio:F1}× slower than kill climb to x8 "
+                    + $"(≥{MinGrazeToKillClimbRatio}×).");
+            }
+        }
+
+        // REQ-106: shield bonus share of estimated clear score stays 2–5%.
+        double estKillScore =
+            EstClearKillCount * avgKillScore * EstClearAvgMultiplier;
+        // Graze contribution small; shield bonus is flat (no mult).
+        double estClearScore = estKillScore;
+        Console.WriteLine(
+            $"  clear EV sketch: kills={EstClearKillCount:F0} × avgKill≈{avgKillScore:F0} "
+            + $"× mult≈{EstClearAvgMultiplier:F1} → score≈{estClearScore:F0}");
+
+        ShipDefinition starter = data.FindShip("starter");
+        ShipDefinition bulwark = data.FindShip("bulwark");
+        int starterStock = starter?.StartingShieldStock ?? 2;
+        int bulwarkStock = bulwark?.StartingShieldStock ?? 3;
+        // "Shield conserve clear": remaining ≈ start stock (no-hit / light hit path).
+        // Band is on meaningful conserve (2 stocks) and tank full clear; single-stock
+        // residual is intentionally below 2% (not a farming goal).
+        failures += GateShieldBonusShare(
+            "conserve@2",
+            shieldBonus,
+            remainingStocks: 2,
+            estClearScore);
+        failures += GateShieldBonusShare(
+            "starter@full",
+            shieldBonus,
+            starterStock,
+            estClearScore);
+        // Bulwark@3 may sit near the top of the band; hard-fail only if > max.
+        {
+            long bulwarkBonus = (long)shieldBonus * bulwarkStock;
+            double bulwarkShare = bulwarkBonus / estClearScore;
+            Console.WriteLine(
+                $"  shield bonus bulwark@full: {bulwarkStock}×{shieldBonus}={bulwarkBonus} "
+                + $"→ share={bulwarkShare:P2} of est clear {estClearScore:F0}");
+            if (bulwarkShare > MaxShieldBonusShare)
+            {
+                Console.WriteLine(
+                    $"FAIL scoring: bulwark full shield bonus share {bulwarkShare:P2} "
+                    + $"> {MaxShieldBonusShare:P0} (dominates clear score).");
+                failures++;
+            }
+            else if (bulwarkShare < MinShieldBonusShare)
+            {
+                Console.WriteLine(
+                    $"WARN scoring: bulwark full shield share {bulwarkShare:P2} "
+                    + $"< {MinShieldBonusShare:P0} (soft, tank identity still OK).");
             }
         }
 
@@ -1093,8 +1255,52 @@ static class Program
         failures += SimulateGrazeAndKillSmoke(config, data, minKillScore, minKillId);
 
         if (failures == 0)
-            Console.WriteLine("PASS: scoring graze/combo curve checks.");
+            Console.WriteLine("PASS: scoring graze/combo/shield-bonus curve checks.");
         return failures;
+    }
+
+    static int GateKillsToMult(string label, int kills, int min, int max)
+    {
+        if (kills < min || kills > max)
+        {
+            Console.WriteLine(
+                $"FAIL scoring: kills-to-{label}={kills} outside band [{min},{max}].");
+            return 1;
+        }
+
+        Console.WriteLine(
+            $"  kills-to-{label}={kills} within band [{min},{max}].");
+        return 0;
+    }
+
+    static int GateShieldBonusShare(
+        string label,
+        int bonusPerStock,
+        int remainingStocks,
+        double estClearScore)
+    {
+        if (estClearScore <= 0 || remainingStocks < 0 || bonusPerStock < 0)
+        {
+            Console.WriteLine(
+                $"FAIL scoring: invalid shield-bonus inputs for {label}.");
+            return 1;
+        }
+
+        long bonus = (long)bonusPerStock * remainingStocks;
+        double share = bonus / estClearScore;
+        Console.WriteLine(
+            $"  shield bonus {label}: {remainingStocks}×{bonusPerStock}={bonus} "
+            + $"→ share={share:P2} of est clear {estClearScore:F0}");
+
+        if (share < MinShieldBonusShare || share > MaxShieldBonusShare)
+        {
+            Console.WriteLine(
+                $"FAIL scoring: shield bonus share {share:P2} outside "
+                + $"[{MinShieldBonusShare:P0},{MaxShieldBonusShare:P0}] for {label}.");
+            return 1;
+        }
+
+        return 0;
     }
 
     /// <summary>
@@ -2746,11 +2952,12 @@ static class Program
             return 1;
         }
 
+        // REQ-106: human-directed base shield uplift while keeping identity roles.
         failures += CheckOneShipIdentity(
             data,
             starter,
             expectedFamily: PrimaryWeaponFamily.Double,
-            expectedShield: 1,
+            expectedShield: 2,
             speedNum: 1,
             speedDen: 1,
             expectedMissile: MissileFamily.DownwardDrop,
@@ -2759,7 +2966,7 @@ static class Program
             data,
             interceptor,
             expectedFamily: PrimaryWeaponFamily.Spread,
-            expectedShield: 0,
+            expectedShield: 1,
             speedNum: 5,
             speedDen: 4,
             expectedMissile: MissileFamily.Straight,
@@ -2768,7 +2975,7 @@ static class Program
             data,
             bulwark,
             expectedFamily: PrimaryWeaponFamily.Laser,
-            expectedShield: 2,
+            expectedShield: 3,
             speedNum: 4,
             speedDen: 5,
             expectedMissile: MissileFamily.Homing,

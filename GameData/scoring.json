@@ -3,6 +3,7 @@
   "grazeRadiusSubUnits": 128,
   "grazeScore": 10,
   "grazeGaugeCharge": 3,
-  "multiplierGaugeRequirements": [30, 50, 80],
-  "multiplierDecayTicks": 300
+  "multiplierGaugeRequirements": [30, 50, 80, 130, 200],
+  "multiplierDecayTicks": 300,
+  "shieldBonusScorePerStock": 8000
 }
