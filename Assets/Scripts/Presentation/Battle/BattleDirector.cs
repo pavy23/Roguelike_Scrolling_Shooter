@@ -642,20 +642,41 @@ namespace Shmup.Presentation.Battle
                 try
                 {
                     var resumeShip = data.FindShip(pending.shipId) ?? selectedShip;
-                    _run = RunManager.ResumeFromSuspendData(
-                        pending,
-                        new SegmentStageGenerator(data.StageGeneration),
-                        config,
-                        data.BattleContent,
-                        // 기체 인식 게이지 (REQ-078) — 인자 없는 구버전은 7칸을
-                        // 만들어 5칸 기체 검증에서 예외가 난다 (실측 재현).
-                        data.CreatePowerUpGauge(resumeShip),
-                        data.Rewards,
-                        resumeShip);
+                    var stageGenerator = new SegmentStageGenerator(data.StageGeneration);
+                    // 기체 인식 게이지 (REQ-078) — 인자 없는 구버전은 7칸을
+                    // 만들어 5칸 기체 검증에서 예외가 난다 (실측 재현).
+                    var gauge = data.CreatePowerUpGauge(resumeShip);
+
+                    // REQ-107: 이어하기 런도 살아 있는 메타에 물려야 컨티뉴 사용/최종전
+                    // 판돈이 런 재고와 메타 재고에서 함께 빠진다 (메타 없는 오버로드로
+                    // 리줌하면 이어한 런의 컨티뉴가 메타에 되살아나는 복제 구멍이 났다).
+                    // Core는 비-데일리 런에서 저장 재고와 메타 재고가 어긋나면
+                    // ArgumentException으로 거부한다 — 아래 catch가 새 런으로 넘긴다.
+                    _run = _meta != null
+                        ? RunManager.ResumeFromSuspendData(
+                            pending,
+                            stageGenerator,
+                            config,
+                            data.BattleContent,
+                            gauge,
+                            data.Rewards,
+                            resumeShip,
+                            _meta)
+                        : RunManager.ResumeFromSuspendData(
+                            pending,
+                            stageGenerator,
+                            config,
+                            data.BattleContent,
+                            gauge,
+                            data.Rewards,
+                            resumeShip);
                 }
                 catch (System.Exception e)
                 {
-                    // 저장 파일은 남겨 둔다 — 다음 실행에서 다시 시도할 수 있게
+                    // 새 런으로 여는 것까지가 이 폴백의 일이다 — 회계 불일치(REQ-107)든
+                    // 손상이든 게임이 안 열리는 상태로 남기지 않는다. 저장 파일은
+                    // 남겨 둔다(다음 실행에서 재시도 가능하고, 이 새 런이 끝나는
+                    // 시점에 RunSave.Delete가 어차피 정리한다).
                     Debug.LogWarning($"[BattleDirector] 이어하기 실패({e.GetType().Name}) — 새 런으로 시작. {e.Message}");
                     _run = null;
                 }
