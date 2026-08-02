@@ -617,7 +617,8 @@ namespace Shmup.Core.Content
                     string phasePath = $"{path}.phases[{i}]";
                     phases[i] = ParseBossPhase(
                         source.phases[i],
-                        phasePath);
+                        phasePath,
+                        content);
                     if (i == 0
                         && phases[i].SignaturePattern
                             != BossSignaturePattern.None)
@@ -651,6 +652,12 @@ namespace Shmup.Core.Content
                     source.warship,
                     path + ".warship",
                     parts);
+            BossFormDefinition form2 = source.form2 == null
+                ? null
+                : ParseBossForm(
+                    source.form2,
+                    path + ".form2",
+                    content);
 
             return new StageBossTemplate(
                 RequireText(source.id, path + ".id"),
@@ -666,7 +673,57 @@ namespace Shmup.Core.Content
                 phases,
                 OptionalText(source.theme, path + ".theme"),
                 parts,
-                warship);
+                warship,
+                form2);
+        }
+
+        static BossFormDefinition ParseBossForm(
+            BossFormDto source,
+            string path,
+            BattleContent content)
+        {
+            BossPhaseDto[] phaseSource = RequireArray(
+                source.phases,
+                path + ".phases");
+            if (phaseSource.Length == 0)
+                throw Error(path + ".phases", "cannot be empty.");
+            var phases = new BossPhase[phaseSource.Length];
+            for (int i = 0; i < phases.Length; i++)
+                phases[i] = ParseBossPhase(
+                    phaseSource[i],
+                    $"{path}.phases[{i}]",
+                    content);
+
+            BossPartDto[] partSource = source.parts ?? Array.Empty<BossPartDto>();
+            var parts = new BossPartDefinition[partSource.Length];
+            for (int i = 0; i < parts.Length; i++)
+                parts[i] = ParseBossPart(
+                    partSource[i],
+                    $"{path}.parts[{i}]",
+                    content);
+
+            try
+            {
+                return new BossFormDefinition(
+                    RequireText(source.id, path + ".id"),
+                    Require(source.transitionTicks, path + ".transitionTicks"),
+                    Require(source.hp, path + ".hp"),
+                    ToSubUnits(
+                        Require(source.halfWidth, path + ".halfWidth"),
+                        path + ".halfWidth"),
+                    ToSubUnits(
+                        Require(source.halfHeight, path + ".halfHeight"),
+                        path + ".halfHeight"),
+                    source.holdX.HasValue
+                        ? ToSubUnits(source.holdX.Value, path + ".holdX")
+                        : 0,
+                    phases,
+                    parts);
+            }
+            catch (ArgumentException error)
+            {
+                throw Error(path, error.Message);
+            }
         }
 
         static WarshipEncounterDefinition ParseWarshipEncounter(
@@ -768,7 +825,8 @@ namespace Shmup.Core.Content
 
         static BossPhase ParseBossPhase(
             BossPhaseDto phase,
-            string phasePath)
+            string phasePath,
+            BattleContent content)
         {
             if (phase == null)
                 throw Error(phasePath, "cannot be null.");
@@ -886,6 +944,47 @@ namespace Shmup.Core.Content
                 : ParseLaser(
                     phase.bossLaser,
                     phasePath + ".bossLaser");
+            ExactFraction hpThreshold = phase.hpThreshold.HasValue
+                ? DecimalToFraction(
+                    phase.hpThreshold.Value,
+                    phasePath + ".hpThreshold")
+                : new ExactFraction(0, 1);
+            if ((phase.hpThreshold.HasValue
+                    && hpThreshold.Numerator <= 0)
+                || hpThreshold.Numerator > hpThreshold.Denominator)
+                throw Error(
+                    phasePath + ".hpThreshold",
+                    "must be greater than zero and at most one when present.");
+            BossPhasePartRuleDto[] ruleSource =
+                phase.partRules ?? Array.Empty<BossPhasePartRuleDto>();
+            var partRules = new BossPhasePartRule[ruleSource.Length];
+            for (int i = 0; i < partRules.Length; i++)
+            {
+                string rulePath = $"{phasePath}.partRules[{i}]";
+                BossPhasePartRuleDto rule = ruleSource[i]
+                    ?? throw Error(rulePath, "cannot be null.");
+                try
+                {
+                    partRules[i] = new BossPhasePartRule(
+                        RequireText(rule.partId, rulePath + ".partId"),
+                        rule.active ?? throw Error(
+                            rulePath + ".active",
+                            "is required."),
+                        rule.invulnerable ?? throw Error(
+                            rulePath + ".invulnerable",
+                            "is required."),
+                        rule.attack == null
+                            ? null
+                            : ParseBossPartAttack(
+                                rule.attack,
+                                rulePath + ".attack",
+                                content));
+                }
+                catch (ArgumentException error)
+                {
+                    throw Error(rulePath, error.Message);
+                }
+            }
             if (firePattern == BossFirePattern.Wall && ways < 2)
                 throw Error(
                     phasePath + ".ways",
@@ -925,7 +1024,10 @@ namespace Shmup.Core.Content
                 signatureGravity.Denominator,
                 signatureHomingTurn,
                 bossLaser,
-                movementTelegraphTicks);
+                movementTelegraphTicks,
+                hpThreshold.Numerator,
+                hpThreshold.Denominator,
+                partRules);
         }
 
         static BossProjectileKind ParseBossProjectileKind(
@@ -1052,6 +1154,7 @@ namespace Shmup.Core.Content
                 source.spawnEnemyId,
                 path + ".spawnEnemyId");
             if (type == BossPartAttackType.SpawnEnemy
+                && content != null
                 && content.FindEnemy(spawnEnemyId) == null)
             {
                 throw Error(
@@ -1079,7 +1182,10 @@ namespace Shmup.Core.Content
                     effectSpeed.Numerator,
                     effectSpeed.Denominator,
                     spawnEnemyId,
-                    source.contactDamage ?? 0);
+                    source.contactDamage ?? 0,
+                    source.laser == null
+                        ? null
+                        : ParseLaser(source.laser, path + ".laser"));
             }
             catch (ArgumentException error)
             {
@@ -1100,6 +1206,7 @@ namespace Shmup.Core.Content
                 case "verticalMovement": return BossPartAttackType.VerticalMovement;
                 case "spawnEnemy": return BossPartAttackType.SpawnEnemy;
                 case "suction": return BossPartAttackType.Suction;
+                case "laser": return BossPartAttackType.Laser;
                 default:
                     throw Error(path, $"has unknown boss-part attack type '{value}'.");
             }

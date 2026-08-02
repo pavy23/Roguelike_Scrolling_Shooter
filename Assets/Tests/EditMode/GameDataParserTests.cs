@@ -2057,6 +2057,78 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void Parse_BossPhaseGateRailgunAndForm2CarryIntoPlan()
+        {
+            string waves = WavesJson.Replace(
+                @"""entryLaneMask"": 7, ""hp"": 500",
+                @"""entryLaneMask"": 7, ""hp"": 500,
+    ""halfWidth"": 9, ""halfHeight"": 10.5, ""holdX"": 14,
+    ""parts"": [
+      { ""id"": ""armor"", ""halfWidth"": 2, ""halfHeight"": 2,
+        ""hp"": 250 },
+      { ""id"": ""railgun"", ""offsetY"": -3, ""halfWidth"": 1,
+        ""halfHeight"": 1, ""hp"": 50 },
+      { ""id"": ""core"", ""halfWidth"": 2, ""halfHeight"": 2,
+        ""hp"": 200, ""isCore"": true }
+    ],
+    ""phases"": [
+      { ""pattern"": ""aimed"", ""fireIntervalTicks"": 120,
+        ""ways"": 3, ""bulletSpeed"": 3,
+        ""partRules"": [
+          { ""partId"": ""railgun"", ""active"": false,
+            ""invulnerable"": true }
+        ] },
+      { ""pattern"": ""radial"", ""fireIntervalTicks"": 90,
+        ""ways"": 6, ""bulletSpeed"": 4, ""hpThreshold"": 0.5,
+        ""partRules"": [
+          { ""partId"": ""railgun"", ""active"": true,
+            ""invulnerable"": false,
+            ""attack"": { ""type"": ""laser"", ""intervalTicks"": 240,
+              ""laser"": { ""cycleIntervalTicks"": 240,
+                ""telegraphTicks"": 90, ""firingTicks"": 10,
+                ""sustainTicks"": 120, ""dissipateTicks"": 20,
+                ""startOffsetX"": 0, ""startOffsetY"": 0,
+                ""endOffsetX"": -40, ""endOffsetY"": 0,
+                ""thinHalfWidth"": 0.125, ""fullHalfWidth"": 6,
+                ""damage"": 1 } } }
+        ] }
+    ],
+    ""form2"": {
+      ""id"": ""boss_prism"", ""transitionTicks"": 180,
+      ""hp"": 14000, ""halfWidth"": 5, ""halfHeight"": 4,
+      ""holdX"": 13,
+      ""phases"": [
+        { ""pattern"": ""spiral"", ""fireIntervalTicks"": 30,
+          ""ways"": 8, ""bulletSpeed"": 5 }
+      ]
+    }" );
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                waves);
+            StagePlan plan = new SegmentStageGenerator(
+                data.StageGeneration).Generate(115UL, 1, 1);
+
+            Assert.AreEqual(2, plan.BossPhases.Count);
+            Assert.AreEqual(1, plan.BossPhases[1].HpThresholdNumerator);
+            Assert.AreEqual(2, plan.BossPhases[1].HpThresholdDenominator);
+            Assert.AreEqual(1, plan.BossPhases[1].PartRules.Count);
+            Assert.AreEqual(
+                BossPartAttackType.Laser,
+                plan.BossPhases[1].PartRules[0].Attack.Type);
+            Assert.AreEqual(
+                90,
+                plan.BossPhases[1].PartRules[0].Attack.LaserAttack.TelegraphTicks);
+            Assert.AreEqual(
+                6 * SimSpace.SubUnitsPerWorldUnit,
+                plan.BossPhases[1].PartRules[0].Attack.LaserAttack.FullHalfWidth);
+            Assert.IsNotNull(plan.Form2);
+            Assert.AreEqual("boss_prism", plan.Form2.FormId);
+            Assert.AreEqual(14000, plan.Form2.MaxHp);
+            Assert.AreEqual(BossFirePattern.Spiral, plan.Form2.Phases[0].FirePattern);
+        }
+
+        [Test]
         public void Parse_WarshipSchemaCarriesGroupsPartsAndDensityIntoPlan()
         {
             string waves = WavesJson.Replace(

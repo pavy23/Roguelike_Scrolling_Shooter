@@ -299,63 +299,27 @@ namespace Shmup.Core.Simulation
 
             FoldInt32(plan.BossPhases.Count);
             for (int i = 0; i < plan.BossPhases.Count; i++)
-            {
-                BossPhase phase = plan.BossPhases[i];
-                FoldInt32(phase.FireIntervalTicks);
-                FoldInt32(phase.Ways);
-                FoldInt32(phase.BulletSpeedNumerator);
-                FoldInt32(phase.BulletSpeedDenominator);
-                FoldInt32((int)phase.MovementPattern);
-                FoldInt32(phase.MovementAmplitudeNumerator);
-                FoldInt32(phase.MovementAmplitudeDenominator);
-                FoldInt32(phase.MovementPeriodTicks);
-                FoldInt32(phase.MovementTelegraphTicks);
-                FoldInt32((int)phase.PartVulnerability);
-                FoldInt32(phase.DurationTicks);
-                FoldInt32(phase.TelegraphTicks);
-                FoldInt32((int)phase.FirePattern);
-                FoldInt32((int)phase.ProjectileKind);
-                FoldInt32(phase.SplitAfterTicks);
-                FoldInt32(phase.MineTravelTicks);
-                FoldInt32(phase.MineTelegraphTicks);
-                FoldInt32(phase.MineAccelerationNumerator);
-                FoldInt32(phase.MineAccelerationDenominator);
-                FoldInt32((int)phase.SignaturePattern);
-                FoldString(phase.SignatureSpawnEnemyId);
-                FoldInt32(phase.SignatureObstacleHp);
-                FoldInt32(phase.SignatureGravityNumerator);
-                FoldInt32(phase.SignatureGravityDenominator);
-                FoldInt32(phase.SignatureHomingTurnLutSlotsPerTick);
-                FoldLaserDefinition(phase.LaserAttack);
-            }
+                FoldBossPhase(plan.BossPhases[i]);
 
             FoldInt32(plan.BossParts.Count);
             for (int i = 0; i < plan.BossParts.Count; i++)
+                FoldBossPart(plan.BossParts[i]);
+
+            FoldBool(plan.Form2 != null);
+            if (plan.Form2 != null)
             {
-                BossPartDefinition part = plan.BossParts[i];
-                FoldString(part.PartId);
-                FoldInt32(part.OffsetX);
-                FoldInt32(part.OffsetY);
-                FoldInt32(part.HalfWidth);
-                FoldInt32(part.HalfHeight);
-                FoldInt32(part.MaxHp);
-                FoldBool(part.IsCore);
-                FoldInt32(part.RegenerationTicks);
-                FoldInt32(part.CoreGatePartIds.Count);
-                for (int gate = 0;
-                    gate < part.CoreGatePartIds.Count;
-                    gate++)
-                    FoldString(part.CoreGatePartIds[gate]);
-                BossPartAttackProfile attack = part.Attack;
-                FoldInt32((int)attack.Type);
-                FoldInt32(attack.IntervalTicks);
-                FoldInt32(attack.Ways);
-                FoldInt32(attack.BulletSpeedNumerator);
-                FoldInt32(attack.BulletSpeedDenominator);
-                FoldInt32(attack.EffectSpeedNumerator);
-                FoldInt32(attack.EffectSpeedDenominator);
-                FoldString(attack.SpawnEnemyId);
-                FoldInt32(attack.ContactDamage);
+                FoldString(plan.Form2.FormId);
+                FoldInt32(plan.Form2.TransitionTicks);
+                FoldInt32(plan.Form2.MaxHp);
+                FoldInt32(plan.Form2.HalfWidth);
+                FoldInt32(plan.Form2.HalfHeight);
+                FoldInt32(plan.Form2.HoldX);
+                FoldInt32(plan.Form2.Phases.Count);
+                for (int i = 0; i < plan.Form2.Phases.Count; i++)
+                    FoldBossPhase(plan.Form2.Phases[i]);
+                FoldInt32(plan.Form2.Parts.Count);
+                for (int i = 0; i < plan.Form2.Parts.Count; i++)
+                    FoldBossPart(plan.Form2.Parts[i]);
             }
 
             FoldInt32(plan.Segments.Count);
@@ -409,6 +373,82 @@ namespace Shmup.Core.Simulation
                     FoldLaserDefinition(laser);
                 }
             }
+        }
+
+        void FoldBossPhase(BossPhase phase)
+        {
+            FoldInt32(phase.FireIntervalTicks);
+            FoldInt32(phase.Ways);
+            FoldInt32(phase.BulletSpeedNumerator);
+            FoldInt32(phase.BulletSpeedDenominator);
+            FoldInt32((int)phase.MovementPattern);
+            FoldInt32(phase.MovementAmplitudeNumerator);
+            FoldInt32(phase.MovementAmplitudeDenominator);
+            FoldInt32(phase.MovementPeriodTicks);
+            FoldInt32(phase.MovementTelegraphTicks);
+            FoldInt32((int)phase.PartVulnerability);
+            FoldInt32(phase.DurationTicks);
+            FoldInt32(phase.TelegraphTicks);
+            FoldInt32((int)phase.FirePattern);
+            FoldInt32((int)phase.ProjectileKind);
+            FoldInt32(phase.SplitAfterTicks);
+            FoldInt32(phase.MineTravelTicks);
+            FoldInt32(phase.MineTelegraphTicks);
+            FoldInt32(phase.MineAccelerationNumerator);
+            FoldInt32(phase.MineAccelerationDenominator);
+            FoldInt32((int)phase.SignaturePattern);
+            FoldString(phase.SignatureSpawnEnemyId);
+            FoldInt32(phase.SignatureObstacleHp);
+            FoldInt32(phase.SignatureGravityNumerator);
+            FoldInt32(phase.SignatureGravityDenominator);
+            FoldInt32(phase.SignatureHomingTurnLutSlotsPerTick);
+            FoldLaserDefinition(phase.LaserAttack);
+            FoldInt32(phase.HpThresholdNumerator);
+            FoldInt32(phase.HpThresholdDenominator);
+            FoldInt32(phase.PartRules.Count);
+            for (int i = 0; i < phase.PartRules.Count; i++)
+            {
+                BossPhasePartRule rule = phase.PartRules[i];
+                FoldString(rule.PartId);
+                FoldBool(rule.Active);
+                FoldBool(rule.Invulnerable);
+                FoldBossPartAttack(rule.Attack);
+            }
+        }
+
+        void FoldBossPart(BossPartDefinition part)
+        {
+            FoldString(part.PartId);
+            FoldInt32(part.OffsetX);
+            FoldInt32(part.OffsetY);
+            FoldInt32(part.HalfWidth);
+            FoldInt32(part.HalfHeight);
+            FoldInt32(part.MaxHp);
+            FoldBool(part.IsCore);
+            FoldInt32(part.RegenerationTicks);
+            FoldInt32(part.CoreGatePartIds.Count);
+            for (int gate = 0;
+                gate < part.CoreGatePartIds.Count;
+                gate++)
+                FoldString(part.CoreGatePartIds[gate]);
+            FoldBossPartAttack(part.Attack);
+        }
+
+        void FoldBossPartAttack(BossPartAttackProfile attack)
+        {
+            FoldBool(attack != null);
+            if (attack == null)
+                return;
+            FoldInt32((int)attack.Type);
+            FoldInt32(attack.IntervalTicks);
+            FoldInt32(attack.Ways);
+            FoldInt32(attack.BulletSpeedNumerator);
+            FoldInt32(attack.BulletSpeedDenominator);
+            FoldInt32(attack.EffectSpeedNumerator);
+            FoldInt32(attack.EffectSpeedDenominator);
+            FoldString(attack.SpawnEnemyId);
+            FoldInt32(attack.ContactDamage);
+            FoldLaserDefinition(attack.LaserAttack);
         }
 
         void FoldWarshipDefinition(WarshipEncounterDefinition definition)
@@ -681,6 +721,9 @@ namespace Shmup.Core.Simulation
             FoldInt32(battle.WarshipActiveGroupIndex);
             FoldInt32(battle.WarshipDestroyedAttritionParts);
             FoldInt32(battle.WarshipCoreOpeningWays);
+            FoldBool(battle.BossTransitioning);
+            FoldInt32(battle.BossTransitionTicksRemaining);
+            FoldInt32(battle.BossFormIndex);
 
             FoldInt32(battle.Bullets.Count);
             for (int i = 0; i < battle.Bullets.Count; i++)
@@ -820,6 +863,7 @@ namespace Shmup.Core.Simulation
             FoldInt32(boss.Phase);
             FoldInt32((int)boss.MovementPattern);
             FoldInt32((int)boss.PartVulnerability);
+            FoldInt32(boss.FormIndex);
             FoldInt32(battle.BossParts.Count);
             for (int i = 0; i < battle.BossParts.Count; i++)
             {
@@ -829,8 +873,9 @@ namespace Shmup.Core.Simulation
                 FoldInt32(part.Y);
                 FoldInt32(part.Hp);
                 FoldInt32(part.MaxHp);
-                FoldBool(part.Destroyed);
-                FoldBool(part.IsCore);
+            FoldBool(part.Destroyed);
+            FoldBool(part.Active);
+            FoldBool(part.IsCore);
                 FoldBool(part.Invulnerable);
             }
         }

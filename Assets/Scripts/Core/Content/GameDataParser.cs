@@ -316,7 +316,8 @@ namespace Shmup.Core.Content
                 string phasePath = $"{path}.phases[{i}]";
                 phases[i] = ParseBossPhase(
                     source.phases[i],
-                    phasePath);
+                    phasePath,
+                    null);
                 if (phases[i].DurationTicks < 1)
                     throw Error(
                         phasePath + ".durationTicks",
