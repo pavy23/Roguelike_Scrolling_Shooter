@@ -139,6 +139,38 @@ namespace Shmup.Presentation.Battle
         SpritePool _obstaclePool;
         readonly Dictionary<int, Transform> _obstacleViews = new Dictionary<int, Transform>(32);
 
+        // ── 레이저 포탑 (2026-08-02 사람 지적) ──────────────────────────────────
+        // "고철이 레이저를 발사하는 건 좀 이상. 레이저를 발사하는 포대 같은 게 있는 게 맞을듯"
+        //
+        // ObstacleType.LaserEmitter는 파괴 불가(HP 0)인데도 파괴 가능 계열 스프라이트
+        // (스크랩 잔해·결정)로 그려지고 있었다. 그래서 화면에서는 "떠다니는 고철이
+        // 갑자기 빔을 쏜다"로 읽혔고, **어느 잔해가 위험한지 미리 알 방법이 없었다** —
+        // 예고선이 뜨기 전까지 다른 장애물과 완전히 같아 보이기 때문이다.
+        //
+        // 세 가지로 구분한다:
+        //   1. 전용 포탑 스프라이트 (BattleSceneBuilder가 생성, 포신은 -X를 향한다)
+        //   2. 발사 방향으로 회전 — 포신 끝이 빔이 나갈 곳을 가리킨다
+        //   3. 예고~발사 동안 가열 틴트 — 포탑 자체가 "지금 충전 중"을 말한다
+        //
+        // 차지 글로우는 LaserBeamView가 이미 발사 원점(= 장애물 중심)에 그리므로
+        // 여기서 또 띄우지 않는다. 글로우는 포탑 몸통 위에 얹혀 "코어가 달아오른다"로
+        // 읽히고, 포신 끝에서 빔이 뻗어 나간다.
+        [SerializeField] Sprite _obstacleEmitterSprite;
+
+        /// <summary>포탑 id → 마지막으로 관측한 발사 방향(도). 사이클 사이에도 유지한다.</summary>
+        readonly Dictionary<int, float> _emitterAngles = new Dictionary<int, float>(8);
+
+        /// <summary>포탑 id → 이번 프레임 가열도 0~1 (레이저가 없으면 항목 없음 = 0).</summary>
+        readonly Dictionary<int, float> _emitterHeat = new Dictionary<int, float>(8);
+
+        /// <summary>포탑 스프라이트의 기본 포신 방향(-X)을 월드 각도로 돌리는 보정.</summary>
+        const float EmitterBarrelBaseAngle = 180f;
+
+        /// <summary>차지 글로우와 같은 창(0.8초)에서 달아오른다 — 두 신호가 어긋나면 안 된다.</summary>
+        const float EmitterChargeWindupSeconds = 0.8f;
+
+        static readonly Color EmitterHeatColor = new Color(1f, 0.55f, 0.32f, 1f);
+
         /// <summary>
         /// 레이저탄만 앞으로 밀어 그리는 거리 (월드 단위, 12px @ PPU16).
         ///
@@ -963,6 +995,8 @@ namespace Shmup.Presentation.Battle
             _enemyRenderers.Clear();
             _enemyDeathTints.Clear();
             _obstacleRegenAges.Clear();      // Id 공간이 새로 시작한다 — 재생 표시 잔류 금지
+            _emitterAngles.Clear();          // 같은 이유로 포탑 조준각도 버린다
+            _emitterHeat.Clear();
             _midBossDefeatSignaled = false;  // 다음 스테이지의 중간보스를 위해 초기화
             _lastHp = -1;   // 배틀 교체 직후 HP 차이를 피격 플래시로 오인하지 않게
 
@@ -1054,11 +1088,13 @@ namespace Shmup.Presentation.Battle
         {
             if (_obstaclePool == null) return;
             var obstacles = _sim.Obstacles;
+            TrackLaserEmitters();
             _aliveIds.Clear();
             for (int i = 0; i < obstacles.Count; i++)
             {
                 var obstacle = obstacles[i];
                 _aliveIds.Add(obstacle.Id);
+                bool emitter = obstacle.Type == ObstacleType.LaserEmitter;
                 // 재생(REQ-101 C-B)은 같은 id로 다시 등장한다. 뷰는 파괴 시점에 반납됐으므로
                 // 여기서 새로 얻는데, 이때 스폰 페이드가 아니라 성장 연출을 걸어야 한다.
                 bool regenerating = _obstacleRegenAges.TryGetValue(obstacle.Id, out float regenAge)
@@ -1071,7 +1107,9 @@ namespace Shmup.Presentation.Battle
                     _obstacleViews.Add(obstacle.Id, view);
                     // 풀은 스케일을 되돌리지 않는다 — 성장 연출이 남긴 값이 다음
                     // 장애물에 새지 않게 획득 시점에 확실히 원복한다.
+                    // 회전도 같다: 포탑이 쓰던 뷰를 잔해가 물려받으면 잔해가 기울어진다.
                     view.localScale = Vector3.one;
+                    view.localRotation = Quaternion.identity;
                     var renderer = view.GetComponent<SpriteRenderer>();
                     if (renderer != null)
                     {
@@ -1087,12 +1125,17 @@ namespace Shmup.Presentation.Battle
                     _obstacleFadeAges[obstacle.Id] = regenerating ? ObstacleFadeSeconds : 0f;
                 }
                 view.localPosition = SimView.ToWorld(obstacle.X, obstacle.Y);
+                // 포신은 빔이 나갈 방향을 가리켜야 한다. 방향은 Core가 준 레이저 선분에서만
+                // 읽는다 — 뷰가 각도를 추정하면 판정과 어긋난다.
+                if (emitter && _emitterAngles.TryGetValue(obstacle.Id, out float aim))
+                    view.localRotation = Quaternion.Euler(0f, 0f, aim - EmitterBarrelBaseAngle);
 
                 bool fading = _obstacleFadeAges.TryGetValue(obstacle.Id, out float age)
                     && age < ObstacleFadeSeconds;
                 bool flashing = _obstacleHitFlashes.TryGetValue(obstacle.Id, out float flash)
                     && flash > 0f;
-                if (fading || flashing || regenerating)
+                // 포탑은 가열도가 0으로 돌아가는 프레임까지 색을 써야 하므로 항상 통과시킨다.
+                if (fading || flashing || regenerating || emitter)
                 {
                     var stateRenderer = view.GetComponent<SpriteRenderer>();
                     if (fading)
@@ -1144,6 +1187,13 @@ namespace Shmup.Presentation.Battle
                                 * (_juice != null && _juice.FlashReduced ? 0.5f : 1f);
                             c = Color.Lerp(c, ObstacleRegenColor, tint);
                         }
+                        // 포탑 가열: 예고 동안 달아오르고 발사 중에는 하얗게 탄다.
+                        // 예고선이 눈에 안 들어와도 "저 포대가 지금 쏜다"가 읽혀야 한다.
+                        if (emitter && _emitterHeat.TryGetValue(obstacle.Id, out float heat))
+                        {
+                            if (_juice != null && _juice.FlashReduced) heat *= 0.55f;
+                            c = Color.Lerp(c, EmitterHeatColor, heat);
+                        }
                         c.a = fading ? Mathf.Clamp01(age / ObstacleFadeSeconds) : 1f;
                         stateRenderer.color = c;
                     }
@@ -1159,18 +1209,77 @@ namespace Shmup.Presentation.Battle
                 int id = _retiredIds[i];
                 var retired = _obstacleViews[id];
                 // 성장 도중 파괴될 수 있다 — 반납 전에 원 스케일로 되돌린다.
-                if (retired != null) retired.localScale = Vector3.one;
+                if (retired != null)
+                {
+                    retired.localScale = Vector3.one;
+                    retired.localRotation = Quaternion.identity;
+                }
                 _obstaclePool.Release(retired);
                 _obstacleViews.Remove(id);
                 _obstacleFadeAges.Remove(id);
                 _obstacleHitFlashes.Remove(id);
                 _obstacleRegenAges.Remove(id);
+                _emitterAngles.Remove(id);
+            }
+        }
+
+        /// <summary>
+        /// 이번 프레임의 포탑 조준 방향과 가열도를 Core의 레이저 상태에서 읽어 둔다.
+        ///
+        /// 지형 레이저(LaserSourceKind.Terrain)의 SourceEntityId가 곧 포탑 장애물 id다.
+        /// 사이클 사이에는 레이저가 없어 방향을 알 수 없으므로 **각도는 마지막 관측값을
+        /// 유지**하고(포신이 제자리로 튀지 않는다), 가열도는 매 프레임 새로 만든다.
+        /// </summary>
+        void TrackLaserEmitters()
+        {
+            _emitterHeat.Clear();
+            var lasers = _sim?.Lasers;
+            if (lasers == null) return;
+
+            for (int i = 0; i < lasers.Count; i++)
+            {
+                var laser = lasers[i];
+                if (laser.SourceKind != LaserSourceKind.Terrain) continue;
+
+                float dx = laser.EndX - laser.StartX;
+                float dy = laser.EndY - laser.StartY;
+                if (dx * dx + dy * dy > 0f)
+                    _emitterAngles[laser.SourceEntityId] =
+                        Mathf.Atan2(dy, dx) * Mathf.Rad2Deg;
+
+                float heat;
+                switch (laser.Phase)
+                {
+                    case LaserPhase.Telegraph:
+                    {
+                        // 발사가 가까울수록 뜨거워진다. 옅은 맥동은 "가동 중"의 신호다.
+                        float toFire = laser.PhaseTicksRemaining
+                            / (float)SimSpace.TicksPerSecond;
+                        float charge = 1f - Mathf.Clamp01(toFire / EmitterChargeWindupSeconds);
+                        float pulse = 0.85f + 0.15f * Mathf.Sin(Time.time * 14f);
+                        heat = Mathf.Lerp(0.15f, 0.75f, charge) * pulse;
+                        break;
+                    }
+                    case LaserPhase.Firing:
+                    case LaserPhase.Sustaining:
+                        heat = 1f;
+                        break;
+                    default:
+                        heat = 0.4f;   // 소산 — 아직 달아 있지만 식는 중
+                        break;
+                }
+                _emitterHeat[laser.SourceEntityId] = heat;
             }
         }
 
         Sprite SpriteForObstacle(ObstacleType type)
         {
-            bool solid = type == ObstacleType.Solid;
+            // 레이저 포탑은 테마와 무관하게 한 가지 실루엣이어야 한다 — 어느 스테이지에서도
+            // "저건 쏘는 것"이 같은 모양으로 읽혀야 학습이 이어진다.
+            if (type == ObstacleType.LaserEmitter && _obstacleEmitterSprite != null)
+                return _obstacleEmitterSprite;
+            // 폴백은 파괴 가능 계열이 아니라 단단한 계열이다 — 포탑은 부술 수 없다.
+            bool solid = type != ObstacleType.Breakable;
             string themeId = CurrentThemeId;
             if (!string.IsNullOrEmpty(themeId) && _themeIds != null)
             {

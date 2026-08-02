@@ -277,6 +277,69 @@ namespace Shmup.EditorTools
             ['H'] = new Color32(0xAC, 0x92, 0x70, 0xFF)    // 빛 받는 면
         };
 
+        // 레이저 포탑 32×32 (2026-08-02 사람 지적: "고철이 레이저를 발사하는 건 좀 이상.
+        // 레이저를 발사하는 포대 같은 게 있는 게 맞을듯").
+        //
+        // ObstacleType.LaserEmitter가 파괴 가능 잔해와 같은 스프라이트로 그려지고 있었다.
+        // **위험한 것은 위험해 보여야 한다** — 예고선이 뜨기 전에도 "저건 쏘는 것"이
+        // 실루엣만으로 읽혀야 피할 자리를 미리 잡는다.
+        //
+        // 도안 규칙 세 가지:
+        //   1. 포신은 **-X(왼쪽)**를 향한다. BattleDirector가 Core의 레이저 선분 각도로
+        //      뷰를 돌리므로, 기본 방향이 바뀌면 EmitterBarrelBaseAngle도 같이 바뀐다.
+        //   2. 뜨거운 색(R/W)은 방출구 렌즈에만 쓴다. 몸통은 차가운 강철이라
+        //      "여기서 빔이 나온다"가 한 점으로 모인다.
+        //   3. 좌우로 잔해(불규칙 실루엣)와 겹치지 않게 기계적 직선·팔각으로 짠다.
+        const string LaserTurretSpritePath = SpriteDir + "/obstacle_laser_turret.png";
+
+        static readonly string[] LaserTurretPixels =
+        {
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "...................OOOOOO.......",
+            "..................OHHHHHHO......",
+            ".............OOOOOHAHHHAHHO.....",
+            ".....OO......OHHHHHHHHHHHHHO....",
+            "...OOHH......OHHHHHHHHHHHOHOO...",
+            "..OHHHHOOOOOOOHHHHHHHHHHHOHOHO..",
+            "..RRRRRMHHHHHMMMMMMMMMMMMOMOHO..",
+            ".RWWWWRMMMMMMMMMMMMMMMMMMOMOHO..",
+            ".RWWWWRMMMMMMMMMMDDDDDDDDODODO..",
+            "..RRRRRDDDDDDDDDDDDDDDDDDODODO..",
+            "..ODDDDOOOOOOODDDDDDDDDDDODODO..",
+            "...OODD......ODDDDDDDDDDDODOO...",
+            ".....OO......ODDDDDDDDDDDDDO....",
+            ".............OOOOODADDDADDO.....",
+            "..................ODDDDDDO......",
+            "...................OOOOOO.......",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................"
+        };
+
+        // 차가운 강철 + 앰버 리벳 하나. 뜨거운 색은 방출구에만 쓴다.
+        static readonly Dictionary<char, Color32> LaserTurretPalette = new Dictionary<char, Color32>
+        {
+            ['O'] = new Color32(0x14, 0x12, 0x1A, 0xFF),   // 외곽·홈
+            ['D'] = new Color32(0x2C, 0x30, 0x40, 0xFF),   // 그늘진 장갑
+            ['M'] = new Color32(0x48, 0x50, 0x66, 0xFF),   // 중간 장갑
+            ['H'] = new Color32(0x72, 0x7E, 0x9A, 0xFF),   // 빛 받는 면
+            ['A'] = new Color32(0xE0, 0x9A, 0x2C, 0xFF),   // 앰버 리벳
+            ['R'] = new Color32(0xE8, 0x34, 0x3C, 0xFF),   // 방출구 링
+            ['W'] = new Color32(0xFF, 0xE8, 0xC8, 0xFF)    // 방출구 코어
+        };
+
         // 전멸 폭탄 픽업 10×10 방사 별. 캡슐(시안 다이아몬드)·옵션(주황 구체)과 한눈에
         // 구분되어야 해서 시안의 보색인 자홍으로 두고, 방사형 실루엣으로 "터지는 것"임을
         // 알린다. 대각선 점은 반짝임이다.
@@ -1003,6 +1066,11 @@ namespace Shmup.EditorTools
                 crystalSprite,       // 4 네뷸라 — 결정
                 crystalSprite        // 5 코어 — 결정
             });
+            // 레이저 포탑 (ObstacleType.LaserEmitter). 테마와 무관하게 한 실루엣이다 —
+            // "저건 쏘는 것"은 스테이지가 바뀌어도 같은 모양으로 읽혀야 한다.
+            SetReference(director, "_obstacleEmitterSprite", WriteExternalOrPixelSprite(
+                LaserTurretSpritePath, "obstacle_laser_turret.png",
+                LaserTurretPixels, LaserTurretPalette));
 
             // UI 픽셀 폰트 (Galmuri, OFL — Assets/Fonts/Galmuri-LICENSE-OFL.txt)
             var uiFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Galmuri9.ttf");
@@ -1438,6 +1506,9 @@ namespace Shmup.EditorTools
             SetReference(player, "_laserBeam", LoadClip("sfx_laser_beam"));
             SetReference(player, "_spreadShot", LoadClip("sfx_laser_spread"));
             SetReference(player, "_warning", LoadClip("sfx_warning"));
+            // 적·지형 레이저 (Tools/SfxGen/sfxgen_laser.py 후보 b). 예고 차지 → 발사 잽.
+            SetReference(player, "_laserCharge", LoadClip("sfx_laser_charge"));
+            SetReference(player, "_laserFire", LoadClip("sfx_laser_fire"));
             SetReference(director, "_sfx", player);
         }
 

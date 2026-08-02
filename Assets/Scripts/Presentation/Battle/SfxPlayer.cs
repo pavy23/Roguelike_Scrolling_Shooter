@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Shmup.Core.Simulation;
 using UnityEngine;
 
@@ -9,6 +10,8 @@ namespace Shmup.Presentation.Battle
     /// 채택음은 Tools/SfxGen/sfxgen_snes.py 산출물이고, 획득·강화 차임만
     /// Tools/SfxGen/sfxgen_chime.py 후보 a(유리 벨 완전5도)로 교체했다
     /// ("파워업과 봄 아이템 ... 사운드가 너무 거슬려", 2026-08-02).
+    /// 레이저 예고·발사음은 Tools/SfxGen/sfxgen_laser.py 후보 b(험 + 흡기)다
+    /// ("레이저 발사하는 소리도 따로 있어야 할듯", 2026-08-02).
     /// 같은 틱에 같은 소리는 1회만 재생해 다중 격파 시 볼륨 폭주를 막는다.
     /// </summary>
     [DisallowMultipleComponent]
@@ -23,6 +26,8 @@ namespace Shmup.Presentation.Battle
         [SerializeField] AudioClip _laserBeam;     // laser 계열 발사음
         [SerializeField] AudioClip _spreadShot;    // spread 계열 발사음
         [SerializeField] AudioClip _warning;       // 보스 위험 패턴 예고 (REQ-059)
+        [SerializeField] AudioClip _laserCharge;   // 적·지형 레이저 예고 차지 (REQ-042)
+        [SerializeField] AudioClip _laserFire;     // 적·지형 레이저 발사
 
         /// <summary>선택 함선의 주무기 계열 — 발사음을 계열별로 바꾼다 (REQ-022 후속).</summary>
         public Shmup.Core.WeaponType WeaponFamily { get; set; } = Shmup.Core.WeaponType.Vulcan;
@@ -36,7 +41,26 @@ namespace Shmup.Presentation.Battle
         [SerializeField] float _laserVolume = 0.35f;
 
         // 이번 스텝에서 이미 재생한 클립 (틱당 1회 제한)
-        readonly bool[] _playedThisStep = new bool[15];
+        readonly bool[] _playedThisStep = new bool[17];
+
+        // ── 레이저 소리 (2026-08-02 사람 요청: "레이저 발사하는 소리도 따로 있어야 할듯") ──
+        //
+        // **소스 구분이 필요하다.** LaserFired의 Arg는 소스 종류가 아니라 빔 반폭이라
+        // 이벤트만으로는 적 레이저와 플레이어 PRISM BEAM을 가를 수 없다. 소스가 실리는
+        // 곳은 LaserTelegraphStarted의 Arg뿐인데, 플레이어 빔은 예고 단계가 없어 그
+        // 이벤트를 아예 내지 않는다 — 그래서 **예고를 낸 id만 적대 레이저로 기억**하고,
+        // LaserFired가 그 목록에 없으면 플레이어 빔으로 판정한다.
+        //
+        // 플레이어 빔을 굳이 낮추는 이유: 지속빔이라 오토파이어로 계속 재점화되면
+        // 발사음이 끊이지 않는다. 완전히 지우면 "빔이 켜졌다"는 확인이 사라지므로
+        // 들릴락 말락 한 볼륨만 남긴다.
+        readonly HashSet<int> _hostileLasers = new HashSet<int>();
+
+        /// <summary>추적 id 상한. 런이 길어지면 LaserEnded를 못 본 id가 쌓일 수 있다.</summary>
+        const int MaxTrackedLasers = 64;
+
+        const float HostileLaserFireVolume = 0.5f;
+        const float PlayerBeamFireVolume = 0.15f;
 
         public void PlayEvents(ReadOnlySpan<SimEvent> events)
         {
@@ -54,6 +78,18 @@ namespace Shmup.Presentation.Battle
             {
                 if (events[i].Type != SimEventType.BombActivated) continue;
                 PlayOnce(2, _explosion, 1f);
+                break;
+            }
+
+            // 같은 이유로 적대 레이저 발사가 채널을 먼저 잡는다. 플레이어 빔 점화가
+            // 같은 틱에 끼면 (거의 안 들리는 0.15로) 적 레이저를 삼켜 버린다 —
+            // 나를 노리는 빔이 내가 켠 빔에 묻히는 것이 가장 나쁜 경우다.
+            for (int i = 0; i < events.Length; i++)
+            {
+                if (events[i].Type != SimEventType.LaserFired
+                    || !_hostileLasers.Contains(events[i].EntityId))
+                    continue;
+                PlayOnce(16, _laserFire, HostileLaserFireVolume);
                 break;
             }
 
@@ -127,6 +163,23 @@ namespace Shmup.Presentation.Battle
                         // 파괴는 격파와 같은 종류의 성과지만 적 격파(0.8)보다는 작다 —
                         // 장애물은 길을 여는 수단이지 목표가 아니다.
                         PlayOnce(14, _explosion, 0.6f);
+                        break;
+                    case SimEventType.LaserTelegraphStarted:
+                        // 예고는 경고지 위협 그 자체가 아니다 — 절제된 볼륨으로 깐다.
+                        // 탄막 속에서 예고선을 놓쳐도 귀로 "곧 온다"가 남아야 한다.
+                        // 플레이어 빔은 이 이벤트를 내지 않으므로 전부 적대 레이저다.
+                        if (_hostileLasers.Count >= MaxTrackedLasers)
+                            _hostileLasers.Clear();
+                        _hostileLasers.Add(events[i].EntityId);
+                        PlayOnce(15, _laserCharge, 0.35f);
+                        break;
+                    case SimEventType.LaserFired:
+                        // 적대 발사는 위 선점 패스가 이미 큰 볼륨으로 울렸다. 여기 남는
+                        // 것은 플레이어 빔 점화뿐이고, 채널이 먹혔으면 조용히 넘어간다.
+                        PlayOnce(16, _laserFire, PlayerBeamFireVolume);
+                        break;
+                    case SimEventType.LaserEnded:
+                        _hostileLasers.Remove(events[i].EntityId);
                         break;
                 }
             }
