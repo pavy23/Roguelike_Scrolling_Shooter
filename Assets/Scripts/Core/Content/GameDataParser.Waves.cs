@@ -651,7 +651,8 @@ namespace Shmup.Core.Content
                 : ParseWarshipEncounter(
                     source.warship,
                     path + ".warship",
-                    parts);
+                    parts,
+                    holdX);
             BossFormDefinition form2 = source.form2 == null
                 ? null
                 : ParseBossForm(
@@ -729,7 +730,8 @@ namespace Shmup.Core.Content
         static WarshipEncounterDefinition ParseWarshipEncounter(
             WarshipEncounterDto source,
             string path,
-            IReadOnlyList<BossPartDefinition> parts)
+            IReadOnlyList<BossPartDefinition> parts,
+            int holdX)
         {
             if (parts == null || parts.Count == 0)
                 throw Error(path, "requires a non-empty boss parts array.");
@@ -783,6 +785,7 @@ namespace Shmup.Core.Content
                     ToSubUnits(
                         Require(source.originY, path + ".originY"),
                         path + ".originY"),
+                    holdX,
                     scrollSpeed.Numerator,
                     scrollSpeed.Denominator,
                     Require(

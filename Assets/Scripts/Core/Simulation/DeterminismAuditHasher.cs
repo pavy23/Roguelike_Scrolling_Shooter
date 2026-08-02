@@ -488,6 +488,7 @@ namespace Shmup.Core.Simulation
             FoldInt32(definition.WarningTicks);
             FoldInt32(definition.OriginX);
             FoldInt32(definition.OriginY);
+            FoldInt32(definition.HoldX);
             FoldInt32(definition.ScrollSpeedNumerator);
             FoldInt32(definition.ScrollSpeedDenominator);
             FoldInt32(definition.BaseCoreOpeningWays);

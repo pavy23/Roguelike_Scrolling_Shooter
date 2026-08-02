@@ -6131,14 +6131,7 @@ namespace Shmup.Core.Simulation
 
         void SyncWarshipPositionAndVulnerability()
         {
-            bool coreRoom =
-                _warshipEncounter.ActiveGroupIndex
-                == _warshipDefinition.Groups.Count - 1;
-            _bossX = coreRoom
-                ? _bossHoldX
-                : SaturateToInt(
-                    (long)_warshipDefinition.OriginX
-                    - _warshipEncounter.ScrollOffset);
+            _bossX = _warshipEncounter.WorldX;
             _bossY = _warshipDefinition.OriginY;
             RefreshBossPartPositions();
         }

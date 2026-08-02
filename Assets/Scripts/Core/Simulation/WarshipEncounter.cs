@@ -148,6 +148,8 @@ namespace Shmup.Core.Simulation
         public int Tick => _tick;
         public long ScrollOffset => _scrollOffset;
         public long ScrollRemainder => _scrollRemainder;
+        public int WorldX => SaturateToInt(
+            (long)_definition.OriginX - _scrollOffset);
         public int ActiveGroupIndex => _activeGroupIndex;
         public int ActiveGroupElapsedTicks => _activeGroupElapsedTicks;
         public bool WarningActive => _activeGroupIndex < 0;
@@ -238,7 +240,7 @@ namespace Shmup.Core.Simulation
                     "A warship encounter cannot exceed Int32.MaxValue ticks.");
 
             _tick++;
-            AdvanceScroll();
+            AdvanceScrollForCurrentAct();
             if (!_warningEmitted)
             {
                 _warningEmitted = true;
@@ -398,14 +400,74 @@ namespace Shmup.Core.Simulation
             RefreshPartView();
         }
 
-        void AdvanceScroll()
+        void AdvanceScrollForCurrentAct()
         {
+            if (_activeGroupIndex < 0
+                || _definition.Groups[_activeGroupIndex].Role
+                    == WarshipGroupRole.MidbossGate)
+            {
+                AdvanceScrollToHold();
+                return;
+            }
+            if (_definition.Groups[_activeGroupIndex].Role
+                    == WarshipGroupRole.AttritionLine)
+                AdvanceAttritionScroll();
+        }
+
+        void AdvanceScrollToHold()
+        {
+            long holdOffset = (long)_definition.OriginX
+                - _definition.HoldX;
+            AdvanceScrollUpTo(holdOffset);
+        }
+
+        void AdvanceAttritionScroll()
+        {
+            long maximumOffset = MaximumVisibleAttritionScrollOffset();
+            AdvanceScrollUpTo(maximumOffset);
+        }
+
+        void AdvanceScrollUpTo(long maximumOffset)
+        {
+            if (_scrollOffset >= maximumOffset)
+            {
+                _scrollRemainder = 0;
+                return;
+            }
             long total = _scrollRemainder
                 + _definition.ScrollSpeedNumerator;
-            _scrollOffset += total
+            long nextOffset = _scrollOffset + total
                 / _definition.ScrollSpeedDenominator;
-            _scrollRemainder = total
-                % _definition.ScrollSpeedDenominator;
+            if (nextOffset >= maximumOffset)
+            {
+                _scrollOffset = maximumOffset;
+                _scrollRemainder = 0;
+            }
+            else
+            {
+                _scrollOffset = nextOffset;
+                _scrollRemainder = total
+                    % _definition.ScrollSpeedDenominator;
+            }
+        }
+
+        long MaximumVisibleAttritionScrollOffset()
+        {
+            long maximumOffset = long.MaxValue;
+            WarshipPartGroupDefinition group =
+                _definition.Groups[_activeGroupIndex];
+            for (int i = 0; i < group.PartIds.Count; i++)
+            {
+                int partIndex = FindPartIndex(group.PartIds[i]);
+                if (_partHp[partIndex] == 0)
+                    continue;
+                long partMaximum = (long)_definition.OriginX
+                    + _parts[partIndex].OffsetX
+                    + SimSpace.PlayfieldHalfWidthSubUnits;
+                if (partMaximum < maximumOffset)
+                    maximumOffset = partMaximum;
+            }
+            return maximumOffset;
         }
 
         void ApplyDamageCore(in WarshipDamageCommand command)
@@ -469,16 +531,18 @@ namespace Shmup.Core.Simulation
             _activeGroupElapsedTicks = 0;
             WarshipPartGroupDefinition group =
                 _definition.Groups[groupIndex];
+            if (group.Role == WarshipGroupRole.FinalCore)
+                SetAtHoldX();
             Emit(
                 SimEventType.WarshipGroupActivated,
-                _definition.OriginX - SaturatingScrollOffset(),
+                WorldX,
                 _definition.OriginY,
                 groupIndex,
                 group.GroupId);
             if (group.Role == WarshipGroupRole.FinalCore)
                 Emit(
                     SimEventType.WarshipCoreBattleStarted,
-                    _definition.OriginX - SaturatingScrollOffset(),
+                    WorldX,
                     _definition.OriginY,
                     CoreOpeningWays,
                     group.GroupId);
@@ -564,11 +628,18 @@ namespace Shmup.Core.Simulation
                 : world > int.MaxValue ? int.MaxValue : (int)world;
         }
 
-        int SaturatingScrollOffset()
+        void SetAtHoldX()
         {
-            return _scrollOffset > int.MaxValue
-                ? int.MaxValue
-                : (int)_scrollOffset;
+            _scrollOffset = (long)_definition.OriginX
+                - _definition.HoldX;
+            _scrollRemainder = 0;
+        }
+
+        static int SaturateToInt(long value)
+        {
+            return value < int.MinValue
+                ? int.MinValue
+                : value > int.MaxValue ? int.MaxValue : (int)value;
         }
 
         int FindGroupIndex(string partId)

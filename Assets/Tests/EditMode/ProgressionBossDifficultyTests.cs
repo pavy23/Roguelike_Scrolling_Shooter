@@ -284,6 +284,7 @@ namespace Shmup.Core.Tests
                     0,
                     0,
                     0,
+                    0,
                     1,
                     1,
                     5,

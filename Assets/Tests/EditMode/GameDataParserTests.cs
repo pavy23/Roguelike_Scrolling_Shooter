@@ -2193,7 +2193,7 @@ namespace Shmup.Core.Tests
         {
             string waves = WavesJson.Replace(
                 @"""entryLaneMask"": 7, ""hp"": 500",
-                @"""entryLaneMask"": 7, ""hp"": 500,
+                @"""entryLaneMask"": 7, ""hp"": 500, ""holdX"": 13,
     ""parts"": [
       { ""id"": ""stern"", ""offsetX"": -8, ""halfWidth"": 1,
         ""halfHeight"": 1, ""hp"": 100 },
@@ -2242,6 +2242,9 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(2, plan.WarshipEncounter.WaysReductionPerTurret);
             Assert.AreEqual(3, plan.WarshipEncounter.MinimumCoreOpeningWays);
             Assert.AreEqual(768, plan.WarshipEncounter.ScrollSpeedNumerator);
+            Assert.AreEqual(
+                13 * SimSpace.SubUnitsPerWorldUnit,
+                plan.WarshipEncounter.HoldX);
             Assert.AreEqual(60, plan.WarshipEncounter.ScrollSpeedDenominator);
             Assert.AreEqual(
                 BossPartAttackType.AimedSpread,

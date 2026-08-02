@@ -88,6 +88,7 @@ namespace Shmup.Core.Generation
     /// <summary>
     /// Immutable waves.json contract for a persistent three-act multipart
     /// encounter. Positions remain boss-local; runtime scroll is applied exactly.
+    /// HoldX is the shared midboss/core anchor inherited from the owning boss.
     /// </summary>
     public sealed class WarshipEncounterDefinition
     {
@@ -99,6 +100,7 @@ namespace Shmup.Core.Generation
             int warningTicks,
             int originX,
             int originY,
+            int holdX,
             int scrollSpeedNumerator,
             int scrollSpeedDenominator,
             int baseCoreOpeningWays,
@@ -115,6 +117,10 @@ namespace Shmup.Core.Generation
                 throw new ArgumentOutOfRangeException(nameof(eventEntityId));
             if (warningTicks < 0)
                 throw new ArgumentOutOfRangeException(nameof(warningTicks));
+            if (holdX > originX)
+                throw new ArgumentOutOfRangeException(
+                    nameof(holdX),
+                    "Warship hold X cannot be to the right of its origin X.");
             if (scrollSpeedNumerator < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(scrollSpeedNumerator));
@@ -158,6 +164,7 @@ namespace Shmup.Core.Generation
             WarningTicks = warningTicks;
             OriginX = originX;
             OriginY = originY;
+            HoldX = holdX;
             ScrollSpeedNumerator = scrollSpeedNumerator;
             ScrollSpeedDenominator = scrollSpeedDenominator;
             BaseCoreOpeningWays = baseCoreOpeningWays;
@@ -172,6 +179,7 @@ namespace Shmup.Core.Generation
         public int WarningTicks { get; }
         public int OriginX { get; }
         public int OriginY { get; }
+        public int HoldX { get; }
         public int ScrollSpeedNumerator { get; }
         public int ScrollSpeedDenominator { get; }
         public int BaseCoreOpeningWays { get; }

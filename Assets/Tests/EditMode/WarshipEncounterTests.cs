@@ -412,8 +412,9 @@ namespace Shmup.Core.Tests
                 "battle_warship",
                 113,
                 1,
+                100,
                 0,
-                0,
+                100,
                 0,
                 1,
                 9,
@@ -516,7 +517,7 @@ namespace Shmup.Core.Tests
         static WarshipEncounterDefinition Definition(BossPartDefinition[] parts)
         {
             return new WarshipEncounterDefinition(
-                "fortress_warship", 110, 2, 100, 10, 3, 2, 7, 1, 3,
+                "fortress_warship", 110, 2, 100, 10, 97, 3, 2, 7, 1, 3,
                 new[]
                 {
                     new WarshipPartGroupDefinition(
