@@ -99,9 +99,18 @@ namespace Shmup.Presentation.Battle
     /// <summary>
     /// 1차 룩 테이블 (설계안 Reviews/from-claude/stage-overhaul-proposal-2026-08-02.md §1·§2).
     ///
-    /// **아트 0장**으로 구간을 구분한다 — 3종 세트(파티클 + 틴트 + 스크롤 체감)와
-    /// 레이어 on/off만 쓴다. 원경 교체·전경 실루엣·랜드마크는 슬롯(spriteSlot/landmarkSlot)만
-    /// 뚫어 두고 전부 null이다.
+    /// 1차 골격은 **아트 0장**이었다 — 3종 세트(파티클 + 틴트 + 스크롤 체감)와
+    /// 레이어 on/off만으로 20룩을 만든다. 아트 2단계(Phase C)에서 그 위에 슬롯 20장을
+    /// 얹었다: 구간별 원경 교체(dusk/dark) · 전경 실루엣(fg) · 랜드마크(landmark).
+    ///
+    /// 슬롯 배분 규칙:
+    ///   MidBoss  → Far = &lt;p&gt;_far_dusk        (황혼/전환)
+    ///   Late·Boss→ Far = &lt;p&gt;_far_dark, Near = &lt;p&gt;_fg   (야간/실내 + 전경 실루엣)
+    ///   랜드마크 → 테마마다 한 구간에만. 요새만 MidBoss(진입 스냅에 관제탑이 선다),
+    ///              나머지는 Late. 코어는 Late→Boss로 이어지며 스케일이 점증한다.
+    /// 스프라이트 교체는 구간 진입 프레임에 즉시 일어난다(틴트만 블렌드된다).
+    /// 그래서 dusk 램프는 원본과 명도가 크게 벌어지지 않게 잡아 두었다 — MidBoss는
+    /// 14~20초 롱블렌드라 교체를 덮어 줄 사건이 없다.
     ///
     /// 구간 배분 원칙 (설계 원칙 2): **극적인 전환은 MidBoss→Late 경계**에 몰아 둔다.
     /// 중간보스 격파 순간이 그 경계이므로, Late의 enterSeconds가 3~4초로 짧고
@@ -111,19 +120,27 @@ namespace Shmup.Presentation.Battle
     {
         public const int SectionCount = 4;
 
+        /// <summary>
+        /// 레이어 5겹의 틴트·스크롤 배율. <paramref name="farSlot"/>·<paramref name="nearSlot"/>은
+        /// 아트 교체 키다 (art-input/&lt;키&gt;.png — 씬 빌더 CreateSectionArtSlots가 배선한다).
+        /// null이면 테마 원본 레이어를 그대로 쓴다.
+        /// </summary>
         static SectionLayerLook[] L(
             Color sky, float skyMul,
             Color far, float farMul,
             Color mid, float midMul,
-            Color near, float nearMul)
+            Color near, float nearMul,
+            string farSlot = null, string nearSlot = null)
         {
             return new[]
             {
                 new SectionLayerLook { role = BgLayerRole.SkyFar,  tint = sky,  scrollMul = skyMul },
-                new SectionLayerLook { role = BgLayerRole.Far,     tint = far,  scrollMul = farMul },
+                new SectionLayerLook { role = BgLayerRole.Far,     tint = far,  scrollMul = farMul,
+                                       spriteSlot = farSlot },
                 new SectionLayerLook { role = BgLayerRole.SkyNear, tint = sky,  scrollMul = skyMul },
                 new SectionLayerLook { role = BgLayerRole.Mid,     tint = mid,  scrollMul = midMul },
-                new SectionLayerLook { role = BgLayerRole.Near,    tint = near, scrollMul = nearMul }
+                new SectionLayerLook { role = BgLayerRole.Near,    tint = near, scrollMul = nearMul,
+                                       spriteSlot = nearSlot }
             };
         }
 
@@ -177,7 +194,8 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.85f, 0.78f, 0.82f, 0.70f), 1.00f,
                                C(1.00f, 0.86f, 0.70f), 1.00f,
                                C(0.98f, 0.82f, 0.66f), 1.05f,
-                               C(0.85f, 0.68f, 0.56f), 1.10f),
+                               C(0.85f, 0.68f, 0.56f), 1.10f,
+                               farSlot: "scrap_far_dusk"),
                     particle = SectionParticle.Ash, particleDensity = 0.35f
                 },
                 new SectionTheme
@@ -188,9 +206,13 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.62f, 0.42f, 0.44f, 0.90f), 1.10f,
                                C(0.95f, 0.52f, 0.30f), 1.15f,
                                C(0.80f, 0.42f, 0.26f), 1.30f,
-                               C(0.52f, 0.26f, 0.20f), 1.45f),
+                               C(0.52f, 0.26f, 0.20f), 1.45f,
+                               farSlot: "scrap_far_dark", nearSlot: "scrap_fg"),
                     particle = SectionParticle.Ash, particleDensity = 1.0f,
-                    landmarkSlot = null   // 슬롯: 폐함대 난파선 (아트 2단계)
+                    // 폐함대 난파 모함 — 협곡으로 접근할수록 커진다.
+                    landmarkSlot = "scrap_landmark",
+                    landmarkScaleStart = 0.85f, landmarkScaleEnd = 1.3f,
+                    landmarkGrowSeconds = 50f
                 },
                 new SectionTheme
                 {
@@ -200,7 +222,8 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.30f, 0.16f, 0.18f, 0.80f), 0.90f,
                                C(0.55f, 0.22f, 0.16f), 0.90f,
                                C(0.44f, 0.17f, 0.14f), 0.95f,
-                               C(0.30f, 0.12f, 0.11f), 1.00f),
+                               C(0.30f, 0.12f, 0.11f), 1.00f,
+                               farSlot: "scrap_far_dark", nearSlot: "scrap_fg"),
                     particle = SectionParticle.Ember, particleDensity = 0.8f
                 },
 
@@ -223,7 +246,8 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.70f, 0.92f, 0.78f, 0.45f), 1.00f,
                                C(0.80f, 0.98f, 0.84f), 1.00f,
                                C(0.74f, 0.94f, 0.78f), 1.05f,
-                               C(0.62f, 0.86f, 0.68f), 1.10f),
+                               C(0.62f, 0.86f, 0.68f), 1.10f,
+                               farSlot: "hive_far_dusk"),
                     particle = SectionParticle.Spore, particleDensity = 0.9f
                 },
                 new SectionTheme
@@ -235,8 +259,13 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.70f, 0.92f, 0.78f, 0.00f), 1.00f,
                                C(0.34f, 0.62f, 0.38f), 0.85f,
                                C(0.28f, 0.54f, 0.33f), 1.15f,
-                               C(0.20f, 0.40f, 0.26f), 1.25f),
-                    particle = SectionParticle.Fog, particleDensity = 0.8f
+                               C(0.20f, 0.40f, 0.26f), 1.25f,
+                               farSlot: "hive_far_dark", nearSlot: "hive_fg"),
+                    particle = SectionParticle.Fog, particleDensity = 0.8f,
+                    // 거대 알주머니 — 체내를 파고들수록 눈앞을 채운다.
+                    landmarkSlot = "hive_landmark",
+                    landmarkScaleStart = 0.7f, landmarkScaleEnd = 1.3f,
+                    landmarkGrowSeconds = 45f
                 },
                 new SectionTheme
                 {
@@ -246,7 +275,8 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.70f, 0.92f, 0.78f, 0.00f), 1.00f,
                                C(0.20f, 0.34f, 0.24f), 0.80f,
                                C(0.17f, 0.30f, 0.22f), 0.85f,
-                               C(0.12f, 0.22f, 0.17f), 0.90f),
+                               C(0.12f, 0.22f, 0.17f), 0.90f,
+                               farSlot: "hive_far_dark", nearSlot: "hive_fg"),
                     particle = SectionParticle.Mote, particleDensity = 0.7f   // 생체발광
                 },
 
@@ -272,8 +302,14 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.60f, 0.42f, 0.48f, 0.85f), 1.10f,
                                C(0.85f, 0.55f, 0.52f), 1.15f,
                                C(0.80f, 0.50f, 0.48f), 1.20f,
-                               C(0.70f, 0.40f, 0.40f), 1.25f),
-                    particle = SectionParticle.Ember, particleDensity = 0.3f
+                               C(0.70f, 0.40f, 0.40f), 1.25f,
+                               farSlot: "fort_far_dusk"),
+                    particle = SectionParticle.Ember, particleDensity = 0.3f,
+                    // 관제탑 — 요새 진입 스냅(1.2초 + 섬광)에 맞춰 눈앞에 선다.
+                    // 스프라이트 교체 팝이 그 섬광에 묻히는 유일한 MidBoss 랜드마크다.
+                    landmarkSlot = "fort_landmark",
+                    landmarkScaleStart = 0.6f, landmarkScaleEnd = 1.15f,
+                    landmarkGrowSeconds = 40f
                 },
                 new SectionTheme
                 {
@@ -283,7 +319,8 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.60f, 0.42f, 0.48f, 0.00f), 1.00f,   // 함내 — 하늘 없음
                                C(0.55f, 0.58f, 0.62f), 0.80f,
                                C(0.50f, 0.53f, 0.58f), 1.10f,
-                               C(0.38f, 0.40f, 0.45f), 1.20f),
+                               C(0.38f, 0.40f, 0.45f), 1.20f,
+                               farSlot: "fort_far_dark", nearSlot: "fort_fg"),
                     particle = SectionParticle.Ember, particleDensity = 0.5f
                 },
                 new SectionTheme
@@ -294,7 +331,8 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.60f, 0.42f, 0.48f, 0.00f), 1.00f,
                                C(0.30f, 0.31f, 0.36f), 0.70f,
                                C(0.27f, 0.28f, 0.33f), 0.80f,
-                               C(0.20f, 0.21f, 0.26f), 0.85f),
+                               C(0.20f, 0.21f, 0.26f), 0.85f,
+                               farSlot: "fort_far_dark", nearSlot: "fort_fg"),
                     particle = SectionParticle.Ember, particleDensity = 0.4f
                 },
 
@@ -317,7 +355,8 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.55f, 0.52f, 0.75f, 0.70f), 1.05f,
                                C(0.55f, 0.48f, 0.72f), 1.10f,
                                C(0.50f, 0.44f, 0.68f), 1.15f,
-                               C(0.40f, 0.36f, 0.58f), 1.20f),
+                               C(0.40f, 0.36f, 0.58f), 1.20f,
+                               farSlot: "nebula_far_dusk"),
                     particle = SectionParticle.Fog, particleDensity = 0.9f,
                     flashIntervalMin = 14f, flashIntervalMax = 22f,
                     flashColor = C(0.85f, 0.88f, 1.00f, 0.50f), flashSeconds = 0.2f
@@ -330,20 +369,27 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.30f, 0.30f, 0.45f, 0.60f), 1.10f,
                                C(0.34f, 0.30f, 0.48f), 1.20f,
                                C(0.30f, 0.27f, 0.44f), 1.30f,
-                               C(0.22f, 0.20f, 0.34f), 1.40f),
+                               C(0.22f, 0.20f, 0.34f), 1.40f,
+                               farSlot: "nebula_far_dark", nearSlot: "nebula_fg"),
                     particle = SectionParticle.Fog, particleDensity = 1.0f,
                     flashIntervalMin = 6f, flashIntervalMax = 12f,   // 섬광 빈도 상승
-                    flashColor = C(0.92f, 0.95f, 1.00f, 0.70f), flashSeconds = 0.2f
+                    flashColor = C(0.92f, 0.95f, 1.00f, 0.70f), flashSeconds = 0.2f,
+                    // 번개 치는 거목 구름 — 뇌운의 중심으로 끌려 들어간다.
+                    landmarkSlot = "nebula_landmark",
+                    landmarkScaleStart = 0.9f, landmarkScaleEnd = 1.35f,
+                    landmarkGrowSeconds = 40f
                 },
                 new SectionTheme
                 {
                     // 폭풍의 눈 — 급격히 맑아지는 역설적 정적. 스크롤 체감까지 떨어뜨린다.
                     themeId = "nebula", section = SectionKind.Boss, enterSeconds = 2.5f,
                     wash = C(0.30f, 0.34f, 0.62f, 0.10f),
+                    // 전경 구름은 남긴다 — 느리게(0.70) 흐르는 창백한 벽이 곧 "눈"의 테두리다.
                     layers = L(C(0.95f, 0.95f, 1.00f, 1.00f), 0.55f,
                                C(0.85f, 0.85f, 1.00f), 0.60f,
                                C(0.82f, 0.82f, 0.98f), 0.65f,
-                               C(0.75f, 0.76f, 0.94f), 0.70f),
+                               C(0.75f, 0.76f, 0.94f), 0.70f,
+                               farSlot: "nebula_far_dark", nearSlot: "nebula_fg"),
                     particle = SectionParticle.None
                 },
 
@@ -366,7 +412,8 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.90f, 0.95f, 1.00f, 1.00f), 1.05f,
                                C(0.88f, 1.00f, 1.00f), 1.10f,
                                C(0.85f, 0.98f, 1.00f), 1.15f,
-                               C(0.78f, 0.92f, 1.00f), 1.20f),
+                               C(0.78f, 0.92f, 1.00f), 1.20f,
+                               farSlot: "core_far_dusk"),
                     particle = SectionParticle.Mote, particleDensity = 0.8f
                 },
                 new SectionTheme
@@ -377,10 +424,12 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.55f, 0.70f, 1.00f, 0.80f), 1.15f,
                                C(0.60f, 0.80f, 1.00f), 1.25f,
                                C(0.55f, 0.75f, 1.00f), 1.35f,
-                               C(0.45f, 0.62f, 0.95f), 1.45f),
+                               C(0.45f, 0.62f, 0.95f), 1.45f,
+                               farSlot: "core_far_dark", nearSlot: "core_fg"),
                     particle = SectionParticle.Mote, particleDensity = 1.0f,
-                    // 슬롯: 거대 코어. 아트가 꽂히면 접근감(0.6→1.6)이 살아난다.
-                    landmarkSlot = null, landmarkScaleStart = 0.6f, landmarkScaleEnd = 1.6f,
+                    // 거대 코어. 접근감(0.6→1.6)이 여기서 시작해 보스전 크기로 이어진다.
+                    landmarkSlot = "core_landmark",
+                    landmarkScaleStart = 0.6f, landmarkScaleEnd = 1.6f,
                     landmarkGrowSeconds = 45f
                 },
                 new SectionTheme
@@ -391,9 +440,11 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.35f, 0.32f, 0.28f, 0.90f), 0.70f,
                                C(0.45f, 0.38f, 0.26f), 0.75f,
                                C(0.40f, 0.34f, 0.24f), 0.80f,
-                               C(0.28f, 0.24f, 0.18f), 0.85f),
+                               C(0.28f, 0.24f, 0.18f), 0.85f,
+                               farSlot: "core_far_dark", nearSlot: "core_fg"),
                     particle = SectionParticle.Ember, particleDensity = 0.6f,
-                    landmarkSlot = null, landmarkScaleStart = 1.6f, landmarkScaleEnd = 1.6f
+                    landmarkSlot = "core_landmark",
+                    landmarkScaleStart = 1.6f, landmarkScaleEnd = 1.6f
                 }
             };
         }

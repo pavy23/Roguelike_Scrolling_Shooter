@@ -100,6 +100,7 @@ SpriteAtlas:
     - faee71e221c390d47a59374e137f417d: 21300000
     - 2f89c3e27ff323d4088e62165a3b3280: 21300000
     - 19d5b5e275e9760479766fba223b10bf: 21300000
+    - de56f1034a8041a4b8b3cf968589a864: 21300000
     - 22280803058622641bb9f8f8318d1add: 21300000
     - a2cab8130c8129e4c97f8c5fc4f9e531: 21300000
     - 93f74523ff2750f4c8cfb5c9b1fea4cc: 21300000
@@ -369,6 +370,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: faee71e221c390d47a59374e137f417d, type: 3}
   - {fileID: 21300000, guid: 2f89c3e27ff323d4088e62165a3b3280, type: 3}
   - {fileID: 21300000, guid: 19d5b5e275e9760479766fba223b10bf, type: 3}
+  - {fileID: 21300000, guid: de56f1034a8041a4b8b3cf968589a864, type: 3}
   - {fileID: 21300000, guid: 22280803058622641bb9f8f8318d1add, type: 3}
   - {fileID: 21300000, guid: a2cab8130c8129e4c97f8c5fc4f9e531, type: 3}
   - {fileID: 21300000, guid: 93f74523ff2750f4c8cfb5c9b1fea4cc, type: 3}
@@ -637,6 +639,7 @@ SpriteAtlas:
   - anim_rust_skimmer_01
   - anim_elite_04
   - anim_sting_hornet_01
+  - obstacle_laser_turret
   - hive_near
   - hud_slot
   - enemy_mini_core
