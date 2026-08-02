@@ -61,6 +61,35 @@ namespace Shmup.Core.Simulation
             FoldInt64(run.FinalWagerScoreBonus);
             FoldInt64(run.RunClearShieldBonus);
             FoldInt32(run.SimulationTicksElapsed);
+            GhostReplayConfig ghostConfig = run.GhostReplayConfig;
+            FoldInt32(ghostConfig.FixedWeaponLevel);
+            FoldInt32(ghostConfig.FireIntervalTicks);
+            FoldInt32(ghostConfig.MaximumInputRuns);
+            FoldBool(run.StageOneGhostRecordingStarted);
+            FoldBool(run.StageOneGhostRecordingFinalized);
+            FoldInt32(run.StageOneGhostRecordedTicks);
+            FoldInt32(run.StageOneGhostRecordedRunCount);
+            FoldUInt64(run.StageOneGhostRecordingHash);
+            GhostRecordingStartState ghostStart =
+                run.StageOneGhostRecordingStart;
+            FoldInt32(ghostStart.X);
+            FoldInt32(ghostStart.Y);
+            FoldInt32(ghostStart.SpeedNumerator);
+            FoldInt32(ghostStart.SpeedDenominator);
+            FoldInt32(ghostStart.MinimumX);
+            FoldInt32(ghostStart.MaximumX);
+            FoldInt32(ghostStart.MinimumY);
+            FoldInt32(ghostStart.MaximumY);
+            GhostState ghost = run.Ghost;
+            FoldBool(ghost.Active);
+            FoldInt32(ghost.EntityId);
+            FoldInt32(ghost.X);
+            FoldInt32(ghost.Y);
+            FoldBool(ghost.IsFiring);
+            FoldInt32(ghost.PlaybackTick);
+            FoldInt32(ghost.TicksUntilNextShot);
+            FoldInt64(ghost.MovementRemainderX);
+            FoldInt64(ghost.MovementRemainderY);
             // Preserve every production hash byte-for-byte while still making
             // non-production runs distinct when the QA gate is active.
             if (run.DevFlagsActive)
@@ -582,6 +611,7 @@ namespace Shmup.Core.Simulation
                 FoldInt32(bullet.Y);
                 FoldInt32(bullet.AgeTicks);
                 FoldInt32(bullet.DamagePercent);
+                FoldInt32(bullet.FixedDamage);
                 FoldInt32(bullet.CollisionScalePercent);
                 FoldInt32((int)bullet.SignaturePattern);
             }

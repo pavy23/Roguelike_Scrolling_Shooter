@@ -40,6 +40,23 @@ namespace Shmup.Core.Simulation
     }
 
     /// <summary>
+    /// Allocation-free read-only view of one canonical RLE command run.
+    /// </summary>
+    public readonly struct RecordedInputRun
+    {
+        public RecordedInputRun(in InputCommand command, int tickCount)
+        {
+            if (tickCount < 1)
+                throw new ArgumentOutOfRangeException(nameof(tickCount));
+            Command = command;
+            TickCount = tickCount;
+        }
+
+        public InputCommand Command { get; }
+        public int TickCount { get; }
+    }
+
+    /// <summary>
     /// Serializer-facing input recording. Presentation owns persistence.
     /// </summary>
     [Serializable]
@@ -130,6 +147,8 @@ namespace Shmup.Core.Simulation
     /// </summary>
     public sealed class InputRecorder
     {
+        const ulong DeterminismOffsetBasis = 14695981039346656037UL;
+        const ulong DeterminismPrime = 1099511628211UL;
         /// <summary>
         /// Lossless worst case: touch analog deltas can differ every tick and
         /// therefore produce one run per tick. Sixty minutes is the supported
@@ -153,6 +172,7 @@ namespace Shmup.Core.Simulation
         readonly RunManager _routeSource;
         int _runCount;
         int _totalTicks;
+        ulong _determinismHash = DeterminismOffsetBasis;
 
         public InputRecorder()
             : this(
@@ -259,6 +279,11 @@ namespace Shmup.Core.Simulation
         public int Capacity => _runs.Length;
         public int RunCount => _runCount;
         public int TotalTicks => _totalTicks;
+        /// <summary>
+        /// Incremental FNV-1a fold of every recorded command in tick order.
+        /// Determinism audits can include the complete sequence in O(1) time.
+        /// </summary>
+        public ulong DeterminismHash => _determinismHash;
         public int DifficultyMultiplierNumerator =>
             _difficultyMultiplierNumerator;
         public int DifficultyMultiplierDenominator =>
@@ -278,6 +303,7 @@ namespace Shmup.Core.Simulation
             {
                 _runs[_runCount - 1].TickCount++;
                 _totalTicks++;
+                FoldDeterminismCommand(in input);
                 return;
             }
 
@@ -288,12 +314,122 @@ namespace Shmup.Core.Simulation
             }
             _runs[_runCount++] = new InputRun(in input, 1);
             _totalTicks++;
+            FoldDeterminismCommand(in input);
+        }
+
+        /// <summary>
+        /// Allocation-free bounded recording. False means a distinct command
+        /// would exceed the reserved run capacity; existing identical runs can
+        /// continue until the Int32 tick limit.
+        /// </summary>
+        public bool TryRecord(in InputCommand input)
+        {
+            if (_totalTicks == int.MaxValue)
+                return false;
+            if (_runCount > 0
+                && HasSameCommand(_runs[_runCount - 1], in input))
+            {
+                _runs[_runCount - 1].TickCount++;
+                _totalTicks++;
+                FoldDeterminismCommand(in input);
+                return true;
+            }
+            if (_runCount == _runs.Length)
+                return false;
+
+            _runs[_runCount++] = new InputRun(in input, 1);
+            _totalTicks++;
+            FoldDeterminismCommand(in input);
+            return true;
+        }
+
+        public RecordedInputRun GetRun(int runIndex)
+        {
+            if (runIndex < 0 || runIndex >= _runCount)
+                throw new ArgumentOutOfRangeException(nameof(runIndex));
+            InputRun run = _runs[runIndex];
+            return new RecordedInputRun(
+                CreateCommand(in run),
+                run.TickCount);
+        }
+
+        /// <summary>
+        /// Serializer-facing copy of the prefix ending at totalTicks. The final
+        /// RLE run is truncated when the boundary falls inside that run.
+        /// </summary>
+        public InputRunData[] ExportRunsPrefix(int totalTicks)
+        {
+            if (totalTicks < 0 || totalTicks > _totalTicks)
+                throw new ArgumentOutOfRangeException(nameof(totalTicks));
+            if (totalTicks == 0)
+                return Array.Empty<InputRunData>();
+
+            int runCount = 0;
+            int remaining = totalTicks;
+            while (remaining > 0)
+            {
+                remaining -= Math.Min(
+                    remaining,
+                    _runs[runCount].TickCount);
+                runCount++;
+            }
+            var result = new InputRunData[runCount];
+            remaining = totalTicks;
+            for (int i = 0; i < runCount; i++)
+            {
+                InputRun run = _runs[i];
+                int tickCount = Math.Min(remaining, run.TickCount);
+                result[i] = CreateData(in run, tickCount);
+                remaining -= tickCount;
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Restores a canonical serialized prefix into this recorder. Intended
+        /// for suspend resume before simulation stepping begins.
+        /// </summary>
+        public void RestoreRuns(InputRunData[] runs, int totalTicks)
+        {
+            if (runs == null)
+                throw new ArgumentNullException(nameof(runs));
+            Reset();
+            long sum = 0;
+            for (int i = 0; i < runs.Length; i++)
+            {
+                InputRunData run = runs[i]
+                    ?? throw new ArgumentException(
+                        "Input runs cannot contain null.",
+                        nameof(runs));
+                if (run.tickCount < 1)
+                    throw new ArgumentException(
+                        "Input run lengths must be positive.",
+                        nameof(runs));
+                InputCommand command = CreateCommand(run);
+                for (int tick = 0; tick < run.tickCount; tick++)
+                {
+                    if (!TryRecord(in command))
+                        throw new ArgumentException(
+                            "Input runs exceed recorder capacity.",
+                            nameof(runs));
+                }
+                sum += run.tickCount;
+                if (sum > int.MaxValue)
+                    throw new ArgumentException(
+                        "Input tick count overflowed.",
+                        nameof(runs));
+            }
+            if (sum != totalTicks)
+                throw new ArgumentException(
+                    "Input runs do not match totalTicks.",
+                    nameof(totalTicks));
         }
 
         public void Reset()
         {
             _runCount = 0;
             _totalTicks = 0;
+            _determinismHash = DeterminismOffsetBasis;
             _recordedRouteChoices.Clear();
         }
 
@@ -556,6 +692,96 @@ namespace Shmup.Core.Simulation
                     == command.AnalogDeltaXSubUnits
                 && run.AnalogDeltaYSubUnits
                     == command.AnalogDeltaYSubUnits;
+        }
+
+        static InputCommand CreateCommand(in InputRun run)
+        {
+            return run.UseAnalogMovement
+                ? new InputCommand(
+                    run.MoveX,
+                    run.MoveY,
+                    run.Fire,
+                    run.Activate,
+                    run.ActivateBomb,
+                    run.AnalogDeltaXSubUnits,
+                    run.AnalogDeltaYSubUnits)
+                : new InputCommand(
+                    run.MoveX,
+                    run.MoveY,
+                    run.Fire,
+                    run.Activate,
+                    run.ActivateBomb);
+        }
+
+        static InputCommand CreateCommand(InputRunData run)
+        {
+            return run.useAnalogMovement
+                ? new InputCommand(
+                    run.moveX,
+                    run.moveY,
+                    run.fire,
+                    run.activate,
+                    run.activateBomb,
+                    run.analogDeltaXSubUnits,
+                    run.analogDeltaYSubUnits)
+                : new InputCommand(
+                    run.moveX,
+                    run.moveY,
+                    run.fire,
+                    run.activate,
+                    run.activateBomb);
+        }
+
+        static InputRunData CreateData(
+            in InputRun run,
+            int tickCount)
+        {
+            return new InputRunData
+            {
+                moveX = run.MoveX,
+                moveY = run.MoveY,
+                fire = run.Fire,
+                activate = run.Activate,
+                activateBomb = run.ActivateBomb,
+                tickCount = tickCount,
+                useAnalogMovement = run.UseAnalogMovement,
+                analogDeltaXSubUnits = run.AnalogDeltaXSubUnits,
+                analogDeltaYSubUnits = run.AnalogDeltaYSubUnits
+            };
+        }
+
+        void FoldDeterminismCommand(in InputCommand command)
+        {
+            FoldDeterminismInt32(command.MoveX);
+            FoldDeterminismInt32(command.MoveY);
+            FoldDeterminismByte(command.Fire ? (byte)1 : (byte)0);
+            FoldDeterminismByte(command.Activate ? (byte)1 : (byte)0);
+            FoldDeterminismByte(command.ActivateBomb ? (byte)1 : (byte)0);
+            FoldDeterminismByte(
+                command.UseAnalogMovement ? (byte)1 : (byte)0);
+            FoldDeterminismInt32(command.AnalogDeltaXSubUnits);
+            FoldDeterminismInt32(command.AnalogDeltaYSubUnits);
+        }
+
+        void FoldDeterminismInt32(int value)
+        {
+            unchecked
+            {
+                uint bits = (uint)value;
+                FoldDeterminismByte((byte)bits);
+                FoldDeterminismByte((byte)(bits >> 8));
+                FoldDeterminismByte((byte)(bits >> 16));
+                FoldDeterminismByte((byte)(bits >> 24));
+            }
+        }
+
+        void FoldDeterminismByte(byte value)
+        {
+            unchecked
+            {
+                _determinismHash ^= value;
+                _determinismHash *= DeterminismPrime;
+            }
         }
 
         struct InputRun

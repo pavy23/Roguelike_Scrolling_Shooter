@@ -90,6 +90,84 @@ namespace Shmup.Core.Simulation
     }
 
     /// <summary>
+    /// Serializer-facing St1 input prefix and tick-zero motion summary used by
+    /// the deterministic final-stage ghost.
+    /// </summary>
+    [Serializable]
+    [DataContract]
+    public sealed class GhostRecordingData
+    {
+        [DataMember(Order = 0)]
+        public bool hasStartState;
+
+        [DataMember(Order = 1)]
+        public bool finalized;
+
+        [DataMember(Order = 2)]
+        public int totalTicks;
+
+        [DataMember(Order = 3)]
+        public InputRunData[] runs;
+
+        [DataMember(Order = 4)]
+        public int startX;
+
+        [DataMember(Order = 5)]
+        public int startY;
+
+        [DataMember(Order = 6)]
+        public int speedNumerator;
+
+        [DataMember(Order = 7)]
+        public int speedDenominator;
+
+        [DataMember(Order = 8)]
+        public int minimumX;
+
+        [DataMember(Order = 9)]
+        public int maximumX;
+
+        [DataMember(Order = 10)]
+        public int minimumY;
+
+        [DataMember(Order = 11)]
+        public int maximumY;
+
+        [DataMember(Order = 12)]
+        public int fixedWeaponLevel;
+
+        [DataMember(Order = 13)]
+        public int fireIntervalTicks;
+
+        [DataMember(Order = 14)]
+        public int maximumInputRuns;
+
+        [DataMember(Order = 15)]
+        public bool playbackActive;
+
+        [DataMember(Order = 16)]
+        public int playbackX;
+
+        [DataMember(Order = 17)]
+        public int playbackY;
+
+        [DataMember(Order = 18)]
+        public int playbackTick;
+
+        [DataMember(Order = 19)]
+        public int playbackCooldownTicks;
+
+        [DataMember(Order = 20)]
+        public long playbackMovementRemainderX;
+
+        [DataMember(Order = 21)]
+        public long playbackMovementRemainderY;
+
+        [DataMember(Order = 22)]
+        public bool playbackIsFiring;
+    }
+
+    /// <summary>
     /// Serializer-facing checkpoint for the beginning of a room or biome boss.
     /// Presentation owns file persistence. Exporting during a stage deliberately
     /// returns the state captured before tick zero, so resuming restarts that boundary.
@@ -99,10 +177,11 @@ namespace Shmup.Core.Simulation
     public sealed class RunSuspendData
     {
         /// <summary>
-        /// Schema 26 records REQ-105 HitsTaken under the six-level combo rules.
-        /// Schema 25 and other incompatible boundaries are rejected.
+        /// Schema 27 retains the St1 ghost recording and its playback tuning.
+        /// Schema 26 and other incompatible boundaries are rejected because
+        /// resuming without the recording would change final-stage combat.
         /// </summary>
-        public const int CurrentSchemaVersion = 26;
+        public const int CurrentSchemaVersion = 27;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -352,5 +431,8 @@ namespace Shmup.Core.Simulation
 
         [DataMember(Order = 77)]
         public long hitsTaken;
+
+        [DataMember(Order = 78)]
+        public GhostRecordingData ghostRecording;
     }
 }
