@@ -151,13 +151,20 @@ namespace Shmup.Presentation.Battle
                 // 만들 수가 없다. 그래서 프리뷰 대신 **지금 자격이 있는지**를 적는다:
                 // rec = St1 기록 보유(최종 구간에 닿으면 뜬다), live = 지금 재생 중.
                 string ghost = ghostLive ? "   ghost:live" : ghostRec ? "   ghost:rec" : "";
+                // 테마 id. **스테이지 번호로는 테마를 알 수 없다** — Core가 런 시드로
+                // St2~St4 테마를 셔플하므로(SegmentStageGenerator.BuildThemeOrder) St2가
+                // hive라는 보장이 없다. 이걸 안 적어서 build25 QA가 "hive에 nebula 아트가
+                // 뜬다"고 오진했다. 배경/파티클/구간 룩이 전부 이 값으로 갈리니 반드시 보인다.
+                string theme = string.IsNullOrEmpty(_director.CurrentThemeId)
+                    ? "   theme -"
+                    : $"   theme {_director.CurrentThemeId}";
                 // 전함 한 조각: 열린 그룹(1=함미 2=함체 3=함수)과 남은 포탑 수.
                 // 포탑을 몇 개 남겼는지가 함수 개막 탄막 밀도를 정한다 (REQ-111).
                 string warship = warshipOn
                     ? $"   warship {_warship.FocusGroupId} {warshipGroup + 1}/{_warship.GroupCount}   turret {warshipTurrets}/{_warship.AttritionTotal}"
                     : "";
                 _overlayText =
-                    $"run {_director.RunNumber}   stage {_director.StageIndex}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{section}{ghost}{warship}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --god survives)";
+                    $"run {_director.RunNumber}   stage {_director.StageIndex}{theme}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{section}{ghost}{warship}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --god survives)";
             }
             GUI.Label(new Rect(8, 4, Screen.width - 16, _style.fontSize * 3), _overlayText, _style);
         }
