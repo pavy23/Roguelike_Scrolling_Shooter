@@ -224,7 +224,7 @@ namespace Shmup.Presentation.Battle
                     $"   py {playerCoreY10 / 10f:0.0} ty {playerViewY10 / 10f:0.0}"
                     + $" ren {(playerRendererOn ? 1 : 0)} sc {playerSortingOrder}";
                 _overlayText =
-                    $"run {_director.RunNumber}   stage {_director.StageIndex}{theme}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{player}{section}{ghost}{warship}{chains}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --god survives)";
+                    $"run {_director.RunNumber}   stage {_director.StageIndex}{theme}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{player}{section}{ghost}{warship}{chains}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --warp=boss jumps, --god survives)";
             }
             GUI.Label(new Rect(8, 4, Screen.width - 16, _style.fontSize * 3), _overlayText, _style);
         }

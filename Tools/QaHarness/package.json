@@ -1,0 +1,11 @@
+{
+  "name": "rss-qa-harness",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WebGL 빌드 headless 검증 하네스 (AGENTS.md §9 공유 PC 제약: 항상 headless)",
+  "type": "commonjs",
+  "dependencies": {
+    "pngjs": "^7.0.0",
+    "puppeteer-core": "^25.4.0"
+  }
+}

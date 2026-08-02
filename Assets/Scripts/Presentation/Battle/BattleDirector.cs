@@ -984,6 +984,18 @@ namespace Shmup.Presentation.Battle
             ApplyStageTheme();
             ApplyBossSprite();
             SyncViews();
+
+            // 구간 워프 (REQ-124). 뷰가 다 선 뒤에 돌려야 워프 종료 시점의 상태가
+            // 그대로 그려진다. 리플레이·이어하기에는 걸지 않는다(devRunFlags와 같은 이유).
+            //
+            // 워프 자체를 치트로 친다: Core의 DevFlagsActive는 무적·시작스테이지처럼
+            // **런 생성 조건**이 바뀔 때만 서므로, 워프만 쓴 런은 그대로면 제출이 열린다.
+            // 구간을 건너뛴 점수가 보드에 오를 이유가 없어 F9/F10과 같은 경로로 닫는다.
+            if (_run != null && devRunFlags && DevArgs.WarpSection.HasValue)
+            {
+                MarkCheatUsed();
+                DevWarpToSection(DevArgs.WarpSection.Value);
+            }
         }
 
         void Update()
@@ -1922,6 +1934,55 @@ namespace Shmup.Presentation.Battle
                 _run.Step(in none);
             RefreshBattle();
             SyncViews();
+        }
+
+        /// <summary>
+        /// 워프가 한 번에 진행할 수 있는 최대 틱 (60Hz 기준 10분). 목표 구간에 영영
+        /// 닿지 않는 조합(무입력이라 격파가 안 되는 구간 등)에서 에디터가 멈추지 않게
+        /// 하는 상한이다. 도달 실패는 예외가 아니라 경고 — dev 편의 기능이 런을
+        /// 깨뜨리면 안 된다.
+        /// </summary>
+        const int DevWarpMaxTicks = 36000;
+
+        /// <summary>
+        /// 개발용 구간 워프 (REQ-124, `?warp=boss`): 목표 <see cref="RunStageSection"/>에
+        /// 닿을 때까지 무입력 틱을 돌린다. F11을 수십 번 누르던 것을 한 번에 끝낸다 —
+        /// 보스룸 도달에만 매 검증 3~5분이 들던 것이 이 기능의 존재 이유다.
+        ///
+        /// **게임플레이 판정은 하나도 하지 않는다.** DevFastForward와 똑같이 Core를
+        /// 무입력으로 돌릴 뿐이고, 언제 구간이 넘어가는지는 전적으로 Core가 정한다.
+        /// (Presentation에서 판정하지 말라는 원칙 — CLAUDE.md — 을 지키는 형태다.)
+        ///
+        /// 입력은 **발사 홀드**만 준다. 무입력으로 돌리면 중간보스처럼 격파가 있어야
+        /// 넘어가는 게이트를 영영 못 지나 상한에서 멈춘다(첫 구현이 실제로 그랬다).
+        /// 이동은 주지 않는다 — 세로로 움직이는 순간 "어디서 쐈나"가 결과를 바꿔
+        /// 워프가 재현되지 않는다. 발사만으로 안 열리는 게이트(정확한 위치가 필요한
+        /// hive 촉수 등)는 여전히 상한에서 멈추고, 그 조합은 F11 수동 진행이 맞다.
+        /// </summary>
+        /// <returns>목표 구간에 도달했으면 true.</returns>
+        public bool DevWarpToSection(RunStageSection target)
+        {
+            if (_run == null) return false;
+            var fire = new InputCommand(0, 0, true);
+            int ticks = 0;
+            while (_run.StageSection != target && ticks < DevWarpMaxTicks)
+            {
+                // 중간보스를 잡으면 런이 보상 선택에서 멈춘다 — 워프가 거기서 끝나면
+                // 목표가 보스룸일 때 영영 도착하지 못한다. 첫 카드를 집어 흐름을 잇는다
+                // (무엇을 고르는지는 워프의 관심사가 아니다 — 도달이 목적이다).
+                if (_run.State == RunState.AwaitingReward) { _run.ChooseReward(0); continue; }
+                if (_run.State != RunState.Playing) break;   // 항로 선택·런 종료는 워프 밖
+                _run.Step(in fire);
+                ticks++;
+            }
+            RefreshBattle();
+            SyncViews();
+            bool reached = _run.StageSection == target;
+            if (!reached)
+                Debug.LogWarning(
+                    $"[dev] warp={target} 미도달 ({ticks}틱 소진, 현재 {_run.StageSection}). "
+                    + "무입력으로는 넘어가지 않는 구간이다 — F11로 직접 진행해라.");
+            return reached;
         }
 
         /// <summary>DevCheats 오버레이용.</summary>

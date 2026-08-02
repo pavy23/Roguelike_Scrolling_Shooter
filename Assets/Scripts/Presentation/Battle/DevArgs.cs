@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using Shmup.Core.Simulation;
 using UnityEngine;
 
 namespace Shmup.Presentation.Battle
@@ -19,6 +20,13 @@ namespace Shmup.Presentation.Battle
 
         /// <summary>피격 무시 (REQ-096). `--god` / `--god=1` 또는 `?dev=1&god=1`.</summary>
         const string GodKey = "god";
+
+        /// <summary>
+        /// 시작 직후 해당 구간까지 무입력 워프 (REQ-124). `--warp=boss` 또는 `?dev=1&warp=boss`.
+        /// 값: early | midboss | late | boss. 보스룸 도달에만 매 검증 3~5분(F11 40여 번)이
+        /// 들던 것을 없앤다.
+        /// </summary>
+        const string WarpKey = "warp";
 
         static bool _devMode;
         static bool _devModeResolved;
@@ -151,6 +159,46 @@ namespace Shmup.Presentation.Battle
                     && TryReadArg(GodKey, out string raw)
                     && IsTruthy(raw);
                 return _god;
+            }
+        }
+
+        static bool _warpResolved;
+        static RunStageSection? _warp;
+
+        /// <summary>
+        /// 시작 직후 워프할 구간 (REQ-124). 지정이 없거나 개발 모드가 아니면 null.
+        /// 오타는 무시하고 null로 흘려보낸다 — 진단이 어려워지지 않게 경고는 남긴다.
+        /// </summary>
+        public static RunStageSection? WarpSection
+        {
+            get
+            {
+                if (_warpResolved) return _warp;
+                _warpResolved = true;
+                _warp = ResolveWarp();
+                return _warp;
+            }
+        }
+
+        static RunStageSection? ResolveWarp()
+        {
+            if (!DevMode) return null;
+            if (!TryReadArg(WarpKey, out string raw)) return null;
+            if (string.IsNullOrEmpty(raw)) return null;
+            switch (raw.ToLowerInvariant())
+            {
+                case "early":
+                case "opening": return RunStageSection.Opening;
+                case "midboss":
+                case "mid": return RunStageSection.MidBoss;
+                case "late":
+                case "closing": return RunStageSection.Closing;
+                case "boss":
+                case "stageboss": return RunStageSection.StageBoss;
+                default:
+                    Debug.LogWarning(
+                        $"[dev] warp={raw} 를 모르겠다. early|midboss|late|boss 중 하나여야 한다.");
+                    return null;
             }
         }
 
