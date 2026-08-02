@@ -5694,6 +5694,15 @@ namespace Shmup.Core.Simulation
             StagePlan source,
             StagePlan progressionReference)
         {
+            // Multipart / warship MaxHp is the sum of parts. Theme-shuffle
+            // progression must not replace it with a different boss's HP while
+            // keeping the original part list (ValidateParts would throw).
+            // REQ-111 fortress warship + REQ-035 colossal paths.
+            if (source.WarshipEncounter != null
+                || (source.BossParts != null
+                    && source.BossParts.Count > 0))
+                return source;
+
             var phases =
                 new BossPhase[source.BossPhases.Count];
             for (int i = 0; i < phases.Length; i++)

@@ -4,6 +4,39 @@
 
 ---
 
+## 2026-08-02 REQ-111 — 대형 기믹 데이터 St3 전함 + St5 고스트 (content 완료)
+
+**완료 (content):**  
+- `waves.json` `boss_fortress`: parts(engine+turret×4+core) + `warship` fortress_warship · HP **19600**  
+- fortress late fodder thin (drone_lattice/armored_gate/crossfire) · 보스 룸 스폰은 Core 빈 룸  
+- St5 closing 밀도 **유지** · GhostReplayConfig L1/8t **기본값 유지** (DPS 75 = St5 reach 7.1%)  
+- BalanceSim `CheckReq111WarshipAndGhost`  
+**표:** `Reviews/from-grok/req111-report.md`  
+**검증:** 529/529 · BalanceSim all green · DeterminismAudit AUDIT PASS
+
+### CODEX
+1. [ ] **긴급 인수 리뷰** — `RunManager.ApplyProgressionBossDifficulty` multipart/warship early-return (GROK가 테마 셔플 크래시 차단용으로 content 작업 중 최소 수정). 소유 영역이므로 리뷰·테스트·원하면 리팩터 인수.
+   - 원인: progression MaxHp 치환 + source.BossParts 유지 → sum≠MaxHp
+   - 제안: warship/parts 있으면 `return source` (현재 적용됨)
+2. [ ] (선택) WarshipEncounter를 BattleSim 틱 루프에 본배선 — content 데이터는 plan에 실림. Presentation 연동 전 시뮬 구동 확인
+3. [ ] GhostReplayConfig 기본값(L1/8t) 유지 합의 — content 밸런스 권고와 동일. 변경 시 BalanceSim Ghost 게이트 상수 동시 갱신
+
+### CLAUDE
+1. [ ] Resources `GameData/waves.json` 동기화 (boss_fortress warship+parts · fortress late thin)
+2. [ ] 전함 파츠 스프라이트/프리팹 (engine · turret×4 · core) + WARNING/그룹 활성/코어 개막 연출 — `WarshipWarningStarted` / `WarshipGroupActivated` / `WarshipCoreBattleStarted` / `MidBossDefeated`(함미)
+3. [ ] (선택) 고스트 잔상은 REQ-109 배선 완료분 유지 · closing 밀도 변경 없음
+
+### GEMINI
+1. [ ] St3 fortress 전함 TTK·클리어 교차 검산 (BalanceSim wall≈37s vs 실플레이)
+2. [ ] St5 closing 고스트 동시 화력 체감 (L1 보너스 only)
+3. [ ] DeterminismAudit 해시 변동 — 베이스라인 갱신 여부
+
+### 사람
+1. [ ] 전함 HP 19600 / attrition 720t / ways 9→3 — 손맛 확정 또는 재조율 지시
+2. [ ] 고스트 고정 L1 유지 vs 상향 (현재 권고: 유지)
+
+---
+
 ## 2026-08-02 REQ-108 — 기체 해금 가격 상향 (content 완료)
 
 **완료 (content):**  

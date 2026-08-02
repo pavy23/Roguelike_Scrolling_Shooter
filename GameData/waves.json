@@ -4062,11 +4062,6 @@
           "y": -4
         },
         {
-          "tick": 110,
-          "enemyId": "interceptor_rush",
-          "y": -1
-        },
-        {
           "tick": 150,
           "enemyId": "interceptor_rush",
           "y": 3
@@ -4075,11 +4070,6 @@
           "tick": 150,
           "enemyId": "sentry_drone",
           "y": 2
-        },
-        {
-          "tick": 190,
-          "enemyId": "interceptor_rush",
-          "y": -3
         },
         {
           "tick": 200,
@@ -4107,11 +4097,6 @@
           "y": 0
         },
         {
-          "tick": 270,
-          "enemyId": "interceptor_rush",
-          "y": 4
-        },
-        {
           "tick": 280,
           "enemyId": "mortar_drone",
           "y": 2.5
@@ -4125,11 +4110,6 @@
           "tick": 315,
           "enemyId": "sentry_drone",
           "y": 3
-        },
-        {
-          "tick": 350,
-          "enemyId": "interceptor_rush",
-          "y": 2
         },
         {
           "tick": 360,
@@ -4174,11 +4154,6 @@
         {
           "tick": 620,
           "enemyId": "elite_sine",
-          "y": 0
-        },
-        {
-          "tick": 760,
-          "enemyId": "zako_tank",
           "y": 0
         }
       ],
@@ -4280,7 +4255,7 @@
           "hp": 45
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 강화형 드론 격자 압박 | REQ103b hull-turret-mild"
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 강화형 드론 격자 압박 | REQ103b hull-turret-mild | REQ111 warship-climax fodder-thin"
     },
     {
       "id": "seg_fortress_armored_gate",
@@ -4358,11 +4333,6 @@
           "y": 3.5
         },
         {
-          "tick": 220,
-          "enemyId": "interceptor_rush",
-          "y": -4
-        },
-        {
           "tick": 240,
           "enemyId": "sentry_drone",
           "y": -3.5
@@ -4388,11 +4358,6 @@
           "y": 2.5
         },
         {
-          "tick": 380,
-          "enemyId": "interceptor_rush",
-          "y": -1
-        },
-        {
           "tick": 400,
           "enemyId": "mortar_drone",
           "y": -2.5
@@ -4401,11 +4366,6 @@
           "tick": 450,
           "enemyId": "zako_tank",
           "y": 2
-        },
-        {
-          "tick": 510,
-          "enemyId": "zako_tank",
-          "y": -2
         },
         {
           "tick": 580,
@@ -4516,7 +4476,7 @@
           "hp": 50
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 중형·중형 화력 집중 관문 | REQ103b hull-turret-mild"
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 중형·중형 화력 집중 관문 | REQ103b hull-turret-mild | REQ111 warship-climax fodder-thin"
     },
     {
       "id": "seg_nebula_echo_ribbon",
@@ -5551,7 +5511,7 @@
           }
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=core | valley | 중형 배터리 화력 집중",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=core | valley | 중형 배터리 화력 집중 | REQ111 ghost-window density held (ghost bonus-only)",
       "environment": {
         "drift": {
           "xPerSecond": 0.5,
@@ -5705,7 +5665,7 @@
           "hp": 48
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2→2] | theme=core | valley | static+ | 전 티어 혼합 최종 가틀릿",
+      "intent": "REQ103a late-encroach | masks[7→3→2→2] | theme=core | valley | static+ | 전 티어 혼합 최종 가틀릿 | REQ111 ghost-window density held (ghost bonus-only)",
       "environment": {
         "corridor": {
           "startMinY": -8.5,
@@ -6677,11 +6637,6 @@
           "y": -5.5
         },
         {
-          "tick": 220,
-          "enemyId": "interceptor_rush",
-          "y": -2.5
-        },
-        {
           "tick": 280,
           "enemyId": "mortar_drone",
           "y": 0.0
@@ -6700,11 +6655,6 @@
           "tick": 420,
           "enemyId": "interceptor_rush",
           "y": 1.5
-        },
-        {
-          "tick": 460,
-          "enemyId": "interceptor_rush",
-          "y": -1.5
         },
         {
           "tick": 580,
@@ -6786,7 +6736,7 @@
           }
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 요새 교차사격 골목 — 차폐·레이저 동시 압박 | REQ103b hull-turret-mild",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 요새 교차사격 골목 — 차폐·레이저 동시 압박 | REQ103b hull-turret-mild | REQ111 warship-climax fodder-thin",
       "theme": "fortress"
     },
     {
@@ -7080,7 +7030,7 @@
           }
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2→2] | theme=core | valley | static+ | 코어 위상 기둥 — 후반 조밀 통로",
+      "intent": "REQ103a late-encroach | masks[7→3→2→2] | theme=core | valley | static+ | 코어 위상 기둥 — 후반 조밀 통로 | REQ111 ghost-window density held (ghost bonus-only)",
       "theme": "core"
     },
     {
@@ -8840,83 +8790,135 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 18000,
-      "halfWidth": 4.0,
-      "halfHeight": 3.0,
+      "hp": 19600,
+      "halfWidth": 10.0,
+      "halfHeight": 5.0,
       "holdX": 14.0,
-      "phaseHpThresholds": [
-        0.667,
-        0.333
-      ],
-      "phases": [
+      "parts": [
         {
-          "pattern": "wall",
-          "hpEnterRatio": 1.0,
-          "fireIntervalTicks": 46,
-          "ways": 4,
-          "bulletSpeed": 10.0,
-          "projectileKind": "normal",
-          "movementPattern": "stationary",
-          "movementAmplitude": 0,
-          "movementPeriodTicks": 1,
-          "partVulnerability": "coreOnly"
+          "id": "engine",
+          "offsetX": 8.0,
+          "offsetY": 0.0,
+          "halfWidth": 2.5,
+          "halfHeight": 2.0,
+          "hp": 2200,
+          "attack": {
+            "type": "radialSpread",
+            "intervalTicks": 64,
+            "ways": 5,
+            "bulletSpeed": 9.0
+          }
         },
         {
-          "pattern": "burst",
-          "hpEnterRatio": 0.667,
-          "fireIntervalTicks": 32,
-          "ways": 8,
-          "bulletSpeed": 9.0,
-          "telegraphTicks": 20,
-          "projectileKind": "heavy",
-          "signaturePatternId": "laserGrid",
-          "bossLaser": {
-            "cycleIntervalTicks": 72,
-            "telegraphTicks": 20,
-            "firingTicks": 6,
-            "sustainTicks": 28,
-            "dissipateTicks": 10,
-            "startOffsetX": 0.0,
-            "startOffsetY": -2.5,
-            "endOffsetX": -22.0,
-            "endOffsetY": -2.5,
-            "thinHalfWidth": 0.125,
-            "fullHalfWidth": 0.5,
-            "damage": 1
-          },
-          "movementPattern": "verticalSine",
-          "movementAmplitude": 0.875,
-          "movementPeriodTicks": 210,
-          "partVulnerability": "all"
+          "id": "turret_a",
+          "offsetX": 4.0,
+          "offsetY": 3.5,
+          "halfWidth": 1.25,
+          "halfHeight": 1.09375,
+          "hp": 900,
+          "attack": {
+            "type": "aimedSpread",
+            "intervalTicks": 72,
+            "ways": 2,
+            "bulletSpeed": 10.0
+          }
         },
         {
-          "pattern": "wall",
-          "hpEnterRatio": 0.333,
-          "fireIntervalTicks": 12,
-          "ways": 5,
-          "bulletSpeed": 15.5,
-          "projectileKind": "heavy",
-          "signaturePatternId": "laserGrid",
-          "bossLaser": {
-            "cycleIntervalTicks": 58,
-            "telegraphTicks": 16,
-            "firingTicks": 6,
-            "sustainTicks": 24,
-            "dissipateTicks": 10,
-            "startOffsetX": 0.0,
-            "startOffsetY": -2.75,
-            "endOffsetX": -22.0,
-            "endOffsetY": -2.75,
-            "thinHalfWidth": 0.125,
-            "fullHalfWidth": 0.5625,
-            "damage": 1
-          },
-          "movementPattern": "verticalSine",
-          "movementAmplitude": 1.25,
-          "movementPeriodTicks": 150,
-          "partVulnerability": "all"
+          "id": "turret_b",
+          "offsetX": 4.0,
+          "offsetY": -3.5,
+          "halfWidth": 1.25,
+          "halfHeight": 1.09375,
+          "hp": 900,
+          "attack": {
+            "type": "aimedSpread",
+            "intervalTicks": 72,
+            "ways": 2,
+            "bulletSpeed": 10.0
+          }
+        },
+        {
+          "id": "turret_c",
+          "offsetX": 0.0,
+          "offsetY": 2.0,
+          "halfWidth": 1.25,
+          "halfHeight": 1.09375,
+          "hp": 900,
+          "attack": {
+            "type": "aimedSpread",
+            "intervalTicks": 56,
+            "ways": 3,
+            "bulletSpeed": 9.0
+          }
+        },
+        {
+          "id": "turret_d",
+          "offsetX": 0.0,
+          "offsetY": -2.0,
+          "halfWidth": 1.25,
+          "halfHeight": 1.09375,
+          "hp": 900,
+          "attack": {
+            "type": "aimedSpread",
+            "intervalTicks": 56,
+            "ways": 3,
+            "bulletSpeed": 9.0
+          }
+        },
+        {
+          "id": "core",
+          "offsetX": -6.0,
+          "offsetY": 0.0,
+          "halfWidth": 2.0,
+          "halfHeight": 2.0,
+          "hp": 13800,
+          "isCore": true,
+          "attack": {
+            "type": "radialSpread",
+            "intervalTicks": 36,
+            "ways": 9,
+            "bulletSpeed": 11.0
+          }
         }
-      ]
+      ],
+      "warship": {
+        "id": "fortress_warship",
+        "eventEntityId": 110,
+        "warningTicks": 180,
+        "originX": 24.0,
+        "originY": 0.0,
+        "scrollSpeedPerSecond": 3.0,
+        "baseCoreOpeningWays": 9,
+        "waysReductionPerTurret": 2,
+        "minimumCoreOpeningWays": 3,
+        "groups": [
+          {
+            "id": "stern",
+            "role": "midbossGate",
+            "partIds": [
+              "engine"
+            ]
+          },
+          {
+            "id": "hull",
+            "role": "attritionLine",
+            "partIds": [
+              "turret_a",
+              "turret_b",
+              "turret_c",
+              "turret_d"
+            ],
+            "advanceAfterTicks": 720
+          },
+          {
+            "id": "bow",
+            "role": "finalCore",
+            "partIds": [
+              "core"
+            ]
+          }
+        ]
+      }
     },
     {
       "id": "boss_storm",

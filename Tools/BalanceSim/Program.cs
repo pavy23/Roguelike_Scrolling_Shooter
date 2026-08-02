@@ -125,6 +125,8 @@ static class Program
     const double BossPhaseThreshold0 = 2.0 / 3.0; // enter phase 1
     const double BossPhaseThreshold1 = 1.0 / 3.0; // enter phase 2
     // Expected biome-reach DPS anchors (see analyze_stage_hp.py) — 4-room average.
+    // boss_fortress is a warship multipart (REQ-111); phase TTK gates skip it —
+    // see CheckReq111WarshipAndGhost. Reach DPS anchor is still used for clearability.
     static readonly (string Id, double ExpectedDps)[] BossExpectedDps =
     {
         // REQ-060/081/088: first boss tutorial-short (HP 4250); mid @ reach ~450 → ~9.4s.
@@ -134,6 +136,33 @@ static class Program
         ("boss_storm", 880.0),
         ("boss_core", 1050.0),
     };
+
+    // REQ-111 St3 fortress warship (provisional §7).
+    // Total HP ≈ mini_walker(1600) + old boss_fortress(18000) = midboss+boss setpiece.
+    const string WarshipBossId = "boss_fortress";
+    const string WarshipEncounterId = "fortress_warship";
+    const int WarshipTotalHp = 19_600;
+    const int WarshipEngineHp = 2200;
+    const int WarshipCoreHp = 13_800;
+    const int WarshipTurretCount = 4;
+    const int WarshipTurretHp = 900;
+    const int WarshipWarningTicks = 180;
+    const int WarshipAttritionTicks = 720;
+    const int WarshipBaseCoreWays = 9;
+    const int WarshipWaysReductionPerTurret = 2;
+    const int WarshipMinCoreWays = 3;
+    // Pure ST TTK at St3 reach DPS (no retarget tax). Mid+boss legacy ≈ 25s boss + ~3s mid.
+    const double WarshipTtkExpectedMin = 22.0;
+    const double WarshipTtkExpectedMax = 36.0;
+    const double WarshipTtkFullMin = 8.0;
+    // Wall-clock floor includes warning + attrition timer + core ST (no engine/turret melt).
+    const double WarshipWallClockMinSeconds = 28.0;
+    const double WarshipWallClockMaxSeconds = 55.0;
+    // Ghost L1 main-shot fixed firepower (Core GhostReplayConfig defaults).
+    const int GhostFixedWeaponLevel = 1;
+    const int GhostFireIntervalTicks = 8;
+    // Ghost DPS share of St5 reach — bonus only; must stay well below carry threshold.
+    const double GhostMaxShareOfStage5Reach = 0.12;
 
     // REQ-088 option missile / weapon evolution gates (provisional §7).
     const int OptionMissileDamagePercentTarget = 50;
@@ -284,6 +313,8 @@ static class Program
         failures += CheckReq103aStageOverhaul(data, generator);
         Console.WriteLine();
         failures += CheckReq103bGimmickAxes(data, generator);
+        Console.WriteLine();
+        failures += CheckReq111WarshipAndGhost(data, generator);
 
         Console.WriteLine();
         if (failures == 0)
@@ -4812,28 +4843,60 @@ static class Program
     /// REQ-033 boss redesign gates: HP curve mono, TTK 35–45s @ biome DPS,
     /// full-power ≥12s, exactly 3 phases, phase threat mono, equal-split thresholds.
     /// All gates provisional (AGENTS.md §7). Multipart colossal bosses (REQ-035)
-    /// are excluded — see CheckColossalBosses.
+    /// and warship multipart (REQ-111 fortress) are excluded — see
+    /// CheckColossalBosses / CheckReq111WarshipAndGhost.
     /// </summary>
     static int CheckBossRedesign(GameDataSet data)
     {
         int failures = 0;
         IReadOnlyList<StageBossTemplate> allBosses = data.StageGeneration.Bosses;
+        var byIdAll = new Dictionary<string, StageBossTemplate>(StringComparer.Ordinal);
+        for (int i = 0; i < allBosses.Count; i++)
+            byIdAll[allBosses[i].BossId] = allBosses[i];
+
+        int expectedStandard = 0;
+        for (int i = 0; i < BossExpectedDps.Length; i++)
+        {
+            if (!byIdAll.TryGetValue(BossExpectedDps[i].Id, out StageBossTemplate entry))
+                continue;
+            if (entry.WarshipEncounter != null)
+                continue;
+            if (entry.Parts != null && entry.Parts.Count > 0)
+                continue;
+            expectedStandard++;
+        }
+
         var bosses = new List<StageBossTemplate>();
         for (int i = 0; i < allBosses.Count; i++)
-            if (allBosses[i].Parts == null || allBosses[i].Parts.Count == 0)
-                bosses.Add(allBosses[i]);
+        {
+            StageBossTemplate b = allBosses[i];
+            if (b.WarshipEncounter != null)
+                continue;
+            if (b.Parts != null && b.Parts.Count > 0)
+                continue;
+            // Only count progression bosses listed in BossExpectedDps.
+            bool listed = false;
+            for (int j = 0; j < BossExpectedDps.Length; j++)
+                if (string.Equals(BossExpectedDps[j].Id, b.BossId, StringComparison.Ordinal))
+                {
+                    listed = true;
+                    break;
+                }
+            if (listed)
+                bosses.Add(b);
+        }
 
         Console.WriteLine(
             "Boss redesign (REQ-033, provisional §7): " +
             $"TTK {BossTtkExpectedMin:F0}–{BossTtkExpectedMax:F0}s @ biome DPS · " +
             $"full-power ≥{BossTtkFullMin:F0}s · phases={BossRequiredPhaseCount} · " +
             "threat mono · equal-split thresholds " +
-            $"(standard bosses only; colossal={allBosses.Count - bosses.Count})");
+            $"(standard bosses only; multipart/warship skipped → REQ-035/111)");
 
-        if (bosses.Count != BossExpectedDps.Length)
+        if (bosses.Count != expectedStandard || expectedStandard < 4)
         {
             Console.WriteLine(
-                $"FAIL boss: expected {BossExpectedDps.Length} standard bosses, " +
+                $"FAIL boss: expected {expectedStandard} standard bosses (≥4), " +
                 $"got {bosses.Count} (catalog total {allBosses.Count}).");
             return 1;
         }
@@ -4843,13 +4906,40 @@ static class Program
             byId[bosses[i].BossId] = bosses[i];
 
         int prevHp = 0;
+        bool havePrev = false;
         for (int i = 0; i < BossExpectedDps.Length; i++)
         {
             string id = BossExpectedDps[i].Id;
             double expectedDps = BossExpectedDps[i].ExpectedDps;
-            if (!byId.TryGetValue(id, out StageBossTemplate boss))
+            if (!byIdAll.TryGetValue(id, out StageBossTemplate catalogBoss))
             {
                 Console.WriteLine($"FAIL boss: missing catalog entry '{id}'.");
+                failures++;
+                continue;
+            }
+
+            // Warship / multipart: counted in dedicated checks; still enforce HP mono.
+            if (catalogBoss.WarshipEncounter != null
+                || (catalogBoss.Parts != null && catalogBoss.Parts.Count > 0))
+            {
+                int multiHp = catalogBoss.MaxHp;
+                Console.WriteLine(
+                    $"  {id,-16} hp={multiHp,6} [warship/multipart — phase gates skipped]");
+                if (havePrev && multiHp <= prevHp)
+                {
+                    Console.WriteLine(
+                        $"FAIL boss: HP curve not strictly mono at '{id}' " +
+                        $"(hp={multiHp} ≤ prev={prevHp}).");
+                    failures++;
+                }
+                prevHp = multiHp;
+                havePrev = true;
+                continue;
+            }
+
+            if (!byId.TryGetValue(id, out StageBossTemplate boss))
+            {
+                Console.WriteLine($"FAIL boss: missing standard entry '{id}'.");
                 failures++;
                 continue;
             }
@@ -4862,7 +4952,7 @@ static class Program
                     $"FAIL boss: boss_stage1 hp must be {BossStage1Hp} (REQ-088 human lock), got {hp}.");
                 failures++;
             }
-            if (i > 0 && hp <= prevHp)
+            if (havePrev && hp <= prevHp)
             {
                 Console.WriteLine(
                     $"FAIL boss: HP curve not strictly mono at '{id}' " +
@@ -4870,6 +4960,7 @@ static class Program
                 failures++;
             }
             prevHp = hp;
+            havePrev = true;
 
             double ttkExpected = hp / expectedDps;
             double ttkFull = hp / BossFullPowerDps;
@@ -7625,7 +7716,7 @@ static class Program
         {
             ["boss_stage1"] = BossSignaturePattern.ScrapThrow,
             ["boss_hive"] = BossSignaturePattern.Brood,
-            ["boss_fortress"] = BossSignaturePattern.LaserGrid,
+            // boss_fortress → warship part attacks (REQ-111); no phase signatures.
             ["boss_storm"] = BossSignaturePattern.Lightning,
             ["boss_core"] = BossSignaturePattern.PrismCore,
         };
@@ -7647,6 +7738,17 @@ static class Program
                     break;
                 }
             }
+
+            // REQ-111: warship multipart carries its own attack vocabulary on parts.
+            if (boss != null && boss.WarshipEncounter != null)
+            {
+                Console.WriteLine(
+                    $"  {id,-16} warship encounter — phase signature gates skipped");
+                continue;
+            }
+
+            if (!expected.ContainsKey(id))
+                continue;
 
             if (boss == null || boss.Phases == null || boss.Phases.Count < 3)
             {
@@ -8681,6 +8783,442 @@ static class Program
             Console.WriteLine(
                 $"FAIL: REQ-103b ({failures} issues, "
                 + $"outcomeAssembleFails={outcomeAssembleFails}).");
+        return failures;
+    }
+
+    /// <summary>
+    /// REQ-111: St3 fortress warship data contract + TTK / clearability gates,
+    /// St5 ghost fixed-firepower review vs closing density (bonus only).
+    /// </summary>
+    static int CheckReq111WarshipAndGhost(
+        GameDataSet data,
+        SegmentStageGenerator generator)
+    {
+        int failures = 0;
+        StageGenerationCatalog catalog = data.StageGeneration;
+        BattleContent content = data.BattleContent;
+        Console.WriteLine(
+            "REQ-111 warship + ghost (provisional §7):");
+
+        StageBossTemplate warshipBoss = null;
+        for (int i = 0; i < catalog.Bosses.Count; i++)
+        {
+            if (string.Equals(
+                    catalog.Bosses[i].BossId,
+                    WarshipBossId,
+                    StringComparison.Ordinal))
+            {
+                warshipBoss = catalog.Bosses[i];
+                break;
+            }
+        }
+
+        if (warshipBoss == null)
+        {
+            Console.WriteLine($"FAIL 111: missing boss '{WarshipBossId}'.");
+            return 1;
+        }
+
+        WarshipEncounterDefinition encounter = warshipBoss.WarshipEncounter;
+        if (encounter == null)
+        {
+            Console.WriteLine(
+                $"FAIL 111: '{WarshipBossId}' has no warship encounter.");
+            return 1;
+        }
+
+        if (!string.Equals(
+                encounter.EncounterId,
+                WarshipEncounterId,
+                StringComparison.Ordinal))
+        {
+            Console.WriteLine(
+                $"FAIL 111: warship id '{encounter.EncounterId}' "
+                + $"!= '{WarshipEncounterId}'.");
+            failures++;
+        }
+
+        if (warshipBoss.Parts == null || warshipBoss.Parts.Count == 0)
+        {
+            Console.WriteLine("FAIL 111: warship boss has no parts.");
+            return failures + 1;
+        }
+
+        // Part partition + HP sums.
+        int partSum = 0;
+        int engineHp = 0;
+        int coreHp = 0;
+        int turretCount = 0;
+        int turretHpSum = 0;
+        bool hasAimedTurret = false;
+        for (int i = 0; i < warshipBoss.Parts.Count; i++)
+        {
+            BossPartDefinition p = warshipBoss.Parts[i];
+            partSum += p.MaxHp;
+            if (string.Equals(p.PartId, "engine", StringComparison.Ordinal))
+                engineHp = p.MaxHp;
+            if (p.IsCore)
+                coreHp = p.MaxHp;
+            if (p.PartId != null
+                && p.PartId.StartsWith("turret_", StringComparison.Ordinal))
+            {
+                turretCount++;
+                turretHpSum += p.MaxHp;
+                if (p.Attack.Type == BossPartAttackType.AimedSpread)
+                    hasAimedTurret = true;
+            }
+        }
+
+        Console.WriteLine(
+            $"  warship parts={warshipBoss.Parts.Count} sum={partSum} "
+            + $"maxHp={warshipBoss.MaxHp} engine={engineHp} "
+            + $"turrets={turretCount}@{turretHpSum} core={coreHp}");
+
+        if (partSum != warshipBoss.MaxHp)
+        {
+            Console.WriteLine(
+                $"FAIL 111: parts sum {partSum} != MaxHp {warshipBoss.MaxHp}.");
+            failures++;
+        }
+
+        if (warshipBoss.MaxHp != WarshipTotalHp)
+        {
+            Console.WriteLine(
+                $"FAIL 111: total HP {warshipBoss.MaxHp} != locked {WarshipTotalHp}.");
+            failures++;
+        }
+
+        if (engineHp != WarshipEngineHp)
+        {
+            Console.WriteLine(
+                $"FAIL 111: engine HP {engineHp} != {WarshipEngineHp} "
+                + "(midboss-gate melt target).");
+            failures++;
+        }
+
+        if (coreHp != WarshipCoreHp)
+        {
+            Console.WriteLine(
+                $"FAIL 111: core HP {coreHp} != {WarshipCoreHp}.");
+            failures++;
+        }
+
+        if (turretCount != WarshipTurretCount)
+        {
+            Console.WriteLine(
+                $"FAIL 111: turret count {turretCount} != {WarshipTurretCount}.");
+            failures++;
+        }
+
+        if (turretCount > 0 && turretHpSum / turretCount != WarshipTurretHp)
+        {
+            Console.WriteLine(
+                $"FAIL 111: avg turret HP {turretHpSum / (double)turretCount:F0} "
+                + $"!= {WarshipTurretHp}.");
+            failures++;
+        }
+
+        if (!hasAimedTurret)
+        {
+            Console.WriteLine(
+                "FAIL 111: hull turrets must reuse aimedSpread (laser_sentry/turret vocabulary).");
+            failures++;
+        }
+
+        // Groups: midbossGate / attritionLine / finalCore
+        if (encounter.Groups == null || encounter.Groups.Count != 3)
+        {
+            Console.WriteLine(
+                $"FAIL 111: warship groups {encounter.Groups?.Count ?? 0} != 3.");
+            failures++;
+        }
+        else
+        {
+            WarshipPartGroupDefinition stern = encounter.Groups[0];
+            WarshipPartGroupDefinition hull = encounter.Groups[1];
+            WarshipPartGroupDefinition bow = encounter.Groups[2];
+            if (stern.Role != WarshipGroupRole.MidbossGate
+                || hull.Role != WarshipGroupRole.AttritionLine
+                || bow.Role != WarshipGroupRole.FinalCore)
+            {
+                Console.WriteLine(
+                    "FAIL 111: groups must be midbossGate/attritionLine/finalCore.");
+                failures++;
+            }
+
+            if (hull.AdvanceAfterTicks != WarshipAttritionTicks)
+            {
+                Console.WriteLine(
+                    $"FAIL 111: attrition ticks {hull.AdvanceAfterTicks} "
+                    + $"!= {WarshipAttritionTicks}.");
+                failures++;
+            }
+
+            if (stern.PartIds.Count != 1
+                || !string.Equals(stern.PartIds[0], "engine", StringComparison.Ordinal))
+            {
+                Console.WriteLine("FAIL 111: stern midbossGate must be ['engine'].");
+                failures++;
+            }
+
+            if (bow.PartIds.Count != 1
+                || !string.Equals(bow.PartIds[0], "core", StringComparison.Ordinal))
+            {
+                Console.WriteLine("FAIL 111: bow finalCore must be ['core'].");
+                failures++;
+            }
+
+            if (hull.PartIds.Count != WarshipTurretCount)
+            {
+                Console.WriteLine(
+                    $"FAIL 111: hull partIds {hull.PartIds.Count} "
+                    + $"!= {WarshipTurretCount}.");
+                failures++;
+            }
+        }
+
+        if (encounter.WarningTicks != WarshipWarningTicks)
+        {
+            Console.WriteLine(
+                $"FAIL 111: warningTicks {encounter.WarningTicks} "
+                + $"!= {WarshipWarningTicks}.");
+            failures++;
+        }
+
+        if (encounter.BaseCoreOpeningWays != WarshipBaseCoreWays
+            || encounter.WaysReductionPerTurret != WarshipWaysReductionPerTurret
+            || encounter.MinimumCoreOpeningWays != WarshipMinCoreWays)
+        {
+            Console.WriteLine(
+                $"FAIL 111: core ways "
+                + $"{encounter.BaseCoreOpeningWays}/"
+                + $"-{encounter.WaysReductionPerTurret}/"
+                + $"min{encounter.MinimumCoreOpeningWays} "
+                + $"!= {WarshipBaseCoreWays}/"
+                + $"-{WarshipWaysReductionPerTurret}/"
+                + $"min{WarshipMinCoreWays}.");
+            failures++;
+        }
+
+        // Density branch: 0 / 2 / 4 turrets destroyed.
+        int ways0 = Math.Max(
+            WarshipMinCoreWays,
+            WarshipBaseCoreWays - 0 * WarshipWaysReductionPerTurret);
+        int ways2 = Math.Max(
+            WarshipMinCoreWays,
+            WarshipBaseCoreWays - 2 * WarshipWaysReductionPerTurret);
+        int ways4 = Math.Max(
+            WarshipMinCoreWays,
+            WarshipBaseCoreWays - 4 * WarshipWaysReductionPerTurret);
+        Console.WriteLine(
+            $"  core opening ways: 0-turret={ways0} · 2-turret={ways2} · "
+            + $"4-turret={ways4} (min {WarshipMinCoreWays})");
+        if (ways0 <= ways2 || ways2 <= ways4)
+        {
+            Console.WriteLine(
+                "FAIL 111: core opening ways must strictly decrease with turrets "
+                + "until min floor.");
+            failures++;
+        }
+
+        // TTK / wall-clock at St3 reach DPS.
+        double reachDps = 720.0;
+        for (int i = 0; i < BossExpectedDps.Length; i++)
+            if (string.Equals(BossExpectedDps[i].Id, WarshipBossId, StringComparison.Ordinal))
+                reachDps = BossExpectedDps[i].ExpectedDps;
+
+        double pureStTtk = warshipBoss.MaxHp / Math.Max(1.0, reachDps);
+        double fullTtk = warshipBoss.MaxHp / BossFullPowerDps;
+        double warnSec = WarshipWarningTicks / (double)SimSpace.TicksPerSecond;
+        double attrSec = WarshipAttritionTicks / (double)SimSpace.TicksPerSecond;
+        double engineSec = engineHp / Math.Max(1.0, reachDps);
+        double coreSec = coreHp / Math.Max(1.0, reachDps);
+        // Optimistic wall-clock: warning + engine melt + full attrition timer + core.
+        // (Attrition is time-gated; turret HP optional.)
+        double wallClock = warnSec + engineSec + attrSec + coreSec;
+        // Legacy midboss + boss ST reference.
+        int midWalkerHp = 0;
+        EnemyDefinition walker = content.FindEnemy("mini_walker");
+        if (walker != null)
+            midWalkerHp = walker.MaxHp;
+        double legacyMidBoss = (midWalkerHp + 18000) / Math.Max(1.0, reachDps);
+
+        Console.WriteLine(
+            $"  TTK@reach{reachDps:F0}: pureST={pureStTtk:F1}s "
+            + $"full={fullTtk:F1}s wall≈{wallClock:F1}s "
+            + $"(warn{warnSec:F1}+eng{engineSec:F1}+attr{attrSec:F1}+core{coreSec:F1})");
+        Console.WriteLine(
+            $"  legacy mid+boss ST ref≈{legacyMidBoss:F1}s "
+            + $"(walker{midWalkerHp}+18000 @ {reachDps:F0})");
+
+        if (pureStTtk < WarshipTtkExpectedMin || pureStTtk > WarshipTtkExpectedMax)
+        {
+            Console.WriteLine(
+                $"FAIL 111: pure ST TTK {pureStTtk:F1}s outside "
+                + $"[{WarshipTtkExpectedMin:F0},{WarshipTtkExpectedMax:F0}]s.");
+            failures++;
+        }
+
+        if (fullTtk < WarshipTtkFullMin)
+        {
+            Console.WriteLine(
+                $"FAIL 111: full-power TTK {fullTtk:F1}s < {WarshipTtkFullMin:F0}s.");
+            failures++;
+        }
+
+        if (wallClock < WarshipWallClockMinSeconds
+            || wallClock > WarshipWallClockMaxSeconds)
+        {
+            Console.WriteLine(
+                $"FAIL 111: wall-clock {wallClock:F1}s outside "
+                + $"[{WarshipWallClockMinSeconds:F0},{WarshipWallClockMaxSeconds:F0}]s.");
+            failures++;
+        }
+
+        // Warship must assemble on fortress theme and carry into StagePlan.
+        // Theme shuffle can place fortress at non-ordinal stages — pin theme.
+        try
+        {
+            StagePlan plan = generator.GenerateRoute(
+                0x111UL,
+                3,
+                3,
+                "fortress",
+                EncounterType.Normal);
+            if (plan.WarshipEncounter == null)
+            {
+                Console.WriteLine(
+                    "FAIL 111: fortress plan missing WarshipEncounter "
+                    + $"(theme={plan.ThemeId} boss={plan.BossId}).");
+                failures++;
+            }
+            else if (!string.Equals(
+                    plan.WarshipEncounter.EncounterId,
+                    WarshipEncounterId,
+                    StringComparison.Ordinal))
+            {
+                Console.WriteLine(
+                    $"FAIL 111: plan warship id {plan.WarshipEncounter.EncounterId}.");
+                failures++;
+            }
+            else
+            {
+                Console.WriteLine(
+                    $"  assemble OK theme={plan.ThemeId} boss={plan.BossId} "
+                    + $"warship={plan.WarshipEncounter.EncounterId} "
+                    + $"parts={plan.BossParts?.Count ?? 0}");
+            }
+
+            if (!StagePlanClearability.IsClearable(plan))
+            {
+                Console.WriteLine("FAIL 111: fortress warship plan not clearable.");
+                failures++;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"FAIL 111: fortress assemble: {ex.Message}");
+            failures++;
+        }
+
+        // Boss-room general spawns: CreateBiomeBossPlan empties them — catalog
+        // segments still exist for open/close, but warship fight itself has no
+        // concurrent fodder. Late fortress fodder-thin is pacing only.
+        int lateFortSpawns = 0;
+        int lateFortSegs = 0;
+        foreach (StageSegmentTemplate seg in catalog.Segments)
+        {
+            if (!string.Equals(seg.ThemeId, "fortress", StringComparison.Ordinal))
+                continue;
+            if (seg.DifficultyMin < 3)
+                continue;
+            lateFortSegs++;
+            lateFortSpawns += seg.Spawns.Count;
+        }
+        double lateAvg = lateFortSegs > 0
+            ? lateFortSpawns / (double)lateFortSegs
+            : 0.0;
+        Console.WriteLine(
+            $"  fortress late segs={lateFortSegs} avgSpawns={lateAvg:F1} "
+            + "(warship boss room = empty spawns; late fodder thinned for climax)");
+
+        // --- Ghost fixed firepower (Core defaults, content review) ---
+        GhostReplayConfig ghostDefault = GhostReplayConfig.CreateDefault();
+        if (ghostDefault.FixedWeaponLevel != GhostFixedWeaponLevel
+            || ghostDefault.FireIntervalTicks != GhostFireIntervalTicks)
+        {
+            Console.WriteLine(
+                $"FAIL 111: GhostReplayConfig defaults L{ghostDefault.FixedWeaponLevel}/"
+                + $"{ghostDefault.FireIntervalTicks}t != "
+                + $"L{GhostFixedWeaponLevel}/{GhostFireIntervalTicks}t.");
+            failures++;
+        }
+
+        WeaponDefinition main = content.FindWeapon(PowerUpSlot.MainShot);
+        if (main == null)
+        {
+            Console.WriteLine("FAIL 111: missing main_shot for ghost DPS.");
+            failures++;
+        }
+        else
+        {
+            int ghostDmg = Damage.Compute(
+                main.BaseDamage,
+                GhostFixedWeaponLevel);
+            double ghostDps = ghostDmg
+                * (double)SimSpace.TicksPerSecond
+                / Math.Max(1, GhostFireIntervalTicks);
+            double stage5Reach = 1050.0;
+            for (int i = 0; i < BossExpectedDps.Length; i++)
+                if (string.Equals(
+                        BossExpectedDps[i].Id,
+                        "boss_core",
+                        StringComparison.Ordinal))
+                    stage5Reach = BossExpectedDps[i].ExpectedDps;
+            double share = ghostDps / Math.Max(1.0, stage5Reach);
+            Console.WriteLine(
+                $"  ghost fixed L{GhostFixedWeaponLevel} dmg={ghostDmg} "
+                + $"int={GhostFireIntervalTicks}t DPS={ghostDps:F1} "
+                + $"share@St5reach={share:P1} (max {GhostMaxShareOfStage5Reach:P0})");
+            if (share > GhostMaxShareOfStage5Reach)
+            {
+                Console.WriteLine(
+                    $"FAIL 111: ghost share {share:P1} > "
+                    + $"{GhostMaxShareOfStage5Reach:P0} (would carry closing).");
+                failures++;
+            }
+
+            // Closing window density: report only — ghost is full-run bonus.
+            // Do not densify St5 closing based on ghost (St3-skip has no ghost).
+            int coreLateSpawns = 0;
+            int coreLateSegs = 0;
+            int coreLateLen = 0;
+            foreach (StageSegmentTemplate seg in catalog.Segments)
+            {
+                if (!string.Equals(seg.ThemeId, "core", StringComparison.Ordinal))
+                    continue;
+                if (seg.DifficultyMin < 3)
+                    continue;
+                coreLateSegs++;
+                coreLateSpawns += seg.Spawns.Count;
+                coreLateLen += seg.LengthTicks;
+            }
+            double coreLateAvg = coreLateSegs > 0
+                ? coreLateSpawns / (double)coreLateSegs
+                : 0.0;
+            int closingN = catalog.ClosingSegmentsPerStage;
+            // Ghost active for closing length; extra DPS budget if we densified:
+            // +ghostDps × closingTicks. Decision: hold density (ghost bonus only).
+            Console.WriteLine(
+                $"  St5 late core segs={coreLateSegs} avgSpawns={coreLateAvg:F1} "
+                + $"closingN={closingN} — density HELD "
+                + $"(ghost is bonus for full-run path only; no densify)");
+        }
+
+        if (failures == 0)
+            Console.WriteLine("PASS: REQ-111 warship TTK + ghost review.");
+        else
+            Console.WriteLine($"FAIL: REQ-111 ({failures} issues).");
         return failures;
     }
 
