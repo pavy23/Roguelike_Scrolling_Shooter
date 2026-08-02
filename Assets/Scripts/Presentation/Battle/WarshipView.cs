@@ -191,6 +191,52 @@ namespace Shmup.Presentation.Battle
             return groups.Count - 1;
         }
 
+        /// <summary>
+        /// 파츠 히트박스(서브유닛 반크기)를 찾는다. 못 찾으면 null — 그때는 스프라이트를
+        /// native 크기로 둔다(기존 동작).
+        /// </summary>
+        BossPartDefinition FindPartDefinition(string partId)
+        {
+            var definitions = _director != null ? _director.BossPartDefinitions : null;
+            if (definitions == null) return null;
+            for (int i = 0; i < definitions.Count; i++)
+                if (string.Equals(definitions[i].PartId, partId, System.StringComparison.Ordinal))
+                    return definitions[i];
+            return null;
+        }
+
+        /// <summary>
+        /// 하드포인트 스프라이트를 **판정 크기에 맞춘다**.
+        ///
+        /// 재사용 스프라이트는 원래 이 파츠 크기로 그려진 게 아니다 — 함미로 쓰는
+        /// boss_fortress는 128×96px(PPU16 = 8×6u)인데 engine 판정은 5×4u다. native로
+        /// 얹으면 보이는 함미가 판정보다 세로로 1.5배 커서, 실루엣 아래쪽 가장자리를
+        /// 조준하면 명중 피드백이 아예 없다. build25~30 테스터가 5빌드 연속 "함미
+        /// 무데미지"로 오판한 것이 이 거짓말 위에서 벌어졌다(build30 보고서 §2).
+        ///
+        /// 그림 ≤ 판정이 원칙이다. 스프라이트 종횡비는 유지하지 않는다 — 판정이 축마다
+        /// 독립인 AABB(<c>FindBossPartHit</c>)라 종횡비를 지키면 한 축이 다시 어긋난다.
+        /// </summary>
+        void FitHardpointToHitbox(SpriteRenderer renderer, BossPartDefinition partDefinition)
+        {
+            if (renderer == null) return;
+            if (partDefinition == null || renderer.sprite == null)
+            {
+                renderer.transform.localScale = Vector3.one;
+                return;
+            }
+            Vector3 native = renderer.sprite.bounds.size;
+            if (native.x <= 0.0001f || native.y <= 0.0001f)
+            {
+                renderer.transform.localScale = Vector3.one;
+                return;
+            }
+            float width = 2f * partDefinition.HalfWidth * SimView.WorldUnitsPerSubUnit;
+            float height = 2f * partDefinition.HalfHeight * SimView.WorldUnitsPerSubUnit;
+            renderer.transform.localScale =
+                new Vector3(width / native.x, height / native.y, 1f);
+        }
+
         void BindHardpoint(
             WarshipEncounterDefinition definition,
             BossPartState part,
@@ -233,6 +279,7 @@ namespace Shmup.Presentation.Battle
             renderer.flipX = flip;
             renderer.color = Color.white;
             renderer.enabled = sprite != null;
+            FitHardpointToHitbox(renderer, FindPartDefinition(part.PartId));
         }
 
         SpriteRenderer EnsurePlate(SpriteRenderer existing, string name, Sprite sprite, int order)

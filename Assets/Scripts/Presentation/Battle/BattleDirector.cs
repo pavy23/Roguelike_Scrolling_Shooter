@@ -314,6 +314,21 @@ namespace Shmup.Presentation.Battle
             _sim != null ? _sim.BossParts : null;
 
         /// <summary>
+        /// 파츠 **히트박스 정의** (반폭/반높이, 서브유닛). <see cref="BossParts"/>는
+        /// 좌표·HP·무적만 주고 크기를 주지 않는다 — 크기는 StagePlan의 정의에 있다.
+        ///
+        /// 뷰가 이걸 읽어야 하는 이유: 하드포인트 스프라이트를 **native 크기로** 얹으면
+        /// 그림과 판정이 어긋난다. 예를 들어 fortress_warship의 함미(engine)는 판정이
+        /// 반높이 2.0u인데 재사용 스프라이트 boss_fortress는 96px/PPU16 = 반높이 3.0u다 —
+        /// 보이는 함미 아래쪽 1유닛은 **쏴도 안 맞는 그림**이었다. build25~30의 테스터
+        /// 5명이 "함미가 데미지를 안 받는다"고 연속 오판한 원인이 이 어긋남이다
+        /// (build30 보고서 §2 — 실제로는 판정 밖에서 쏘고 있었다).
+        /// 그림이 판정보다 크면 안 된다. 뷰는 이 값으로 스프라이트를 판정에 맞춘다.
+        /// </summary>
+        public IReadOnlyList<BossPartDefinition> BossPartDefinitions =>
+            _run != null && _run.StagePlan != null ? _run.StagePlan.BossParts : null;
+
+        /// <summary>
         /// St4 번개룡(세그먼트 체인 미니언) 절 상태 (REQ-115b) — SegmentChainView가 읽는다.
         /// Core는 이 체인을 <see cref="IBattleSim.Enemies"/>가 아니라 **별도 관측**으로
         /// 노출한다. 그래서 적 뷰 동기화(SyncEnemies)에 절대 걸리지 않는다 —

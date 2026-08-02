@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Shmup.Core.Generation;
 using Shmup.Core.Simulation;
 using UnityEngine;
 
@@ -65,6 +66,14 @@ namespace Shmup.Presentation.Battle
                 var part = parts[i];
                 var overlay = GetOverlay(part.PartId);
                 overlay.transform.localPosition = SimView.ToWorld(part.X, part.Y);
+                // 오버레이 크기 = 파츠 **판정** 크기. 예전에는 전 파츠 공통 3.5×3.5 고정이라
+                // 피격 플래시·파괴 그을림이 실제로 맞는 범위와 어긋났다 — 작은 포탑에는
+                // 과하게 크고, 큰 파츠에는 모자랐다. 방마다 정의가 바뀌므로 매 프레임 맞춘다.
+                var partDefinition = FindPartDefinition(part.PartId);
+                if (partDefinition != null)
+                    overlay.size = new Vector2(
+                        2f * partDefinition.HalfWidth * SimView.WorldUnitsPerSubUnit,
+                        2f * partDefinition.HalfHeight * SimView.WorldUnitsPerSubUnit);
 
                 // 피격 감지 → 플래시
                 if (_lastHp.TryGetValue(part.PartId, out int previous)
@@ -97,6 +106,16 @@ namespace Shmup.Presentation.Battle
                 overlay.color = color;
                 overlay.enabled = color.a > 0.01f;
             }
+        }
+
+        BossPartDefinition FindPartDefinition(string partId)
+        {
+            var definitions = _director != null ? _director.BossPartDefinitions : null;
+            if (definitions == null) return null;
+            for (int i = 0; i < definitions.Count; i++)
+                if (string.Equals(definitions[i].PartId, partId, System.StringComparison.Ordinal))
+                    return definitions[i];
+            return null;
         }
 
         SpriteRenderer GetOverlay(string partId)
