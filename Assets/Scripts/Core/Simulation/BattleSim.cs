@@ -1362,6 +1362,10 @@ namespace Shmup.Core.Simulation
         BossState Boss { get; }
         /// <summary>Stable allocation-free view of multipart boss state.</summary>
         IReadOnlyList<BossPartState> BossParts { get; }
+        /// <summary>-1 during WARNING or when this is not a warship battle.</summary>
+        int WarshipActiveGroupIndex { get; }
+        int WarshipDestroyedAttritionParts { get; }
+        int WarshipCoreOpeningWays { get; }
         void Step(in InputCommand input);
     }
 
@@ -1641,6 +1645,11 @@ namespace Shmup.Core.Simulation
         readonly bool[] _bossPartsEverDestroyed;
         readonly bool[] _bossPartContactHitThisCycle;
         readonly EnemyDefinition[] _bossPartSpawnDefinitions;
+        readonly WarshipEncounterDefinition _warshipDefinition;
+        readonly IReadOnlyList<BossPartDefinition>
+            _warshipRuntimePartDefinitions;
+        WarshipEncounter _warshipEncounter;
+        int _warshipEventCursor;
         readonly int _stageTotalTicks;
         bool _bossSpawned, _bossDefeated;
         readonly bool _isMidBossBattle;
@@ -2102,6 +2111,11 @@ namespace Shmup.Core.Simulation
             _bossPartSpawnDefinitions =
                 new EnemyDefinition[_bossPartDefinitions.Count];
             ResolveBossPartRuntimeData();
+            _warshipDefinition = stageEnabled
+                ? stagePlan.WarshipEncounter
+                : null;
+            _warshipRuntimePartDefinitions =
+                BuildWarshipRuntimePartDefinitions();
             _bossRuntimeMaxHp = _bossPartStates.Length == 0
                 ? _bossMaxHp
                 : SumBossPartMaxHp();
@@ -2500,7 +2514,10 @@ namespace Shmup.Core.Simulation
         public ReadOnlySpan<SimEvent> EventsThisTick => new ReadOnlySpan<SimEvent>(_events, 0, _eventCount);
         public bool BossActive => _bossSpawned && !_bossDefeated;
         public bool BossEntering =>
-            BossActive && _bossX > _bossHoldX;
+            BossActive
+            && (_warshipEncounter != null
+                ? _warshipEncounter.WarningActive
+                : _bossX > _bossHoldX);
         public BossState Boss => new BossState(
             _bossId,
             _bossX,
@@ -2516,6 +2533,65 @@ namespace Shmup.Core.Simulation
                 : _bossPhases[_bossPhase].PartVulnerability);
         public IReadOnlyList<BossPartState> BossParts =>
             _readOnlyBossParts;
+        public int WarshipActiveGroupIndex =>
+            _warshipEncounter == null
+                ? -1
+                : _warshipEncounter.ActiveGroupIndex;
+        public int WarshipDestroyedAttritionParts =>
+            _warshipEncounter == null
+                ? 0
+                : _warshipEncounter.DestroyedAttritionParts;
+        public int WarshipCoreOpeningWays =>
+            _warshipEncounter == null
+                ? 0
+                : _warshipEncounter.CoreOpeningWays;
+        public int WarshipEncounterTick =>
+            _warshipEncounter == null ? 0 : _warshipEncounter.Tick;
+        public int WarshipActiveGroupElapsedTicks =>
+            _warshipEncounter == null
+                ? 0
+                : _warshipEncounter.ActiveGroupElapsedTicks;
+        public long WarshipScrollRemainder =>
+            _warshipEncounter == null
+                ? 0
+                : _warshipEncounter.ScrollRemainder;
+        public bool WarshipCoreOpeningPending =>
+            _warshipEncounter != null
+            && _warshipEncounter.CoreOpeningPending;
+        public WarshipEncounterSuspendData
+            CaptureWarshipEncounterSuspendData()
+        {
+            if (_warshipEncounter == null)
+                throw new InvalidOperationException(
+                    "No active warship encounter can be suspended.");
+            return _warshipEncounter.CaptureSuspendData();
+        }
+
+        /// <summary>
+        /// Restores the warship payload into a BattleSim already replayed to the
+        /// same encounter tick. General battle state remains owned by the normal
+        /// replay/suspend pipeline.
+        /// </summary>
+        public void RestoreWarshipEncounterSuspendData(
+            WarshipEncounterSuspendData data)
+        {
+            if (data == null)
+                throw new ArgumentNullException(nameof(data));
+            if (_warshipEncounter == null
+                || _warshipDefinition == null)
+                throw new InvalidOperationException(
+                    "No active warship encounter can be restored.");
+            if (data.tick != _warshipEncounter.Tick)
+                throw new ArgumentException(
+                    "Warship restore requires the same replayed encounter tick.",
+                    nameof(data));
+            _warshipEncounter = WarshipEncounter.Restore(
+                _warshipDefinition,
+                _warshipRuntimePartDefinitions,
+                data);
+            _warshipEventCursor = 0;
+            RestoreBattlePartsFromWarship();
+        }
         /// <summary>보스전이 예정된 스테이지인지 (RunManager가 종료 조건 분기에 쓴다).</summary>
         public bool HasBossBattle => _bossMaxHp > 0;
         public bool BossDefeated => _bossDefeated;
@@ -2598,6 +2674,31 @@ namespace Shmup.Core.Simulation
                     _bossPartSpawnDefinitions[i] = spawn;
                 }
             }
+        }
+
+        IReadOnlyList<BossPartDefinition>
+            BuildWarshipRuntimePartDefinitions()
+        {
+            if (_warshipDefinition == null)
+                return Array.Empty<BossPartDefinition>();
+            var result = new BossPartDefinition[
+                _bossPartDefinitions.Count];
+            for (int i = 0; i < result.Length; i++)
+            {
+                BossPartDefinition source = _bossPartDefinitions[i];
+                result[i] = new BossPartDefinition(
+                    source.PartId,
+                    source.OffsetX,
+                    source.OffsetY,
+                    source.HalfWidth,
+                    source.HalfHeight,
+                    ScaleEnemyHp(source.MaxHp),
+                    source.IsCore,
+                    source.CoreGatePartIds,
+                    source.Attack,
+                    source.RegenerationTicks);
+            }
+            return Array.AsReadOnly(result);
         }
 
         void ValidateBossPhaseRuntimeData()
@@ -2726,6 +2827,7 @@ namespace Shmup.Core.Simulation
             ResolveObstaclePlayerCollisions();
             ResolveCapsulePlayerCollisions();
             ResolveBombPickupPlayerCollisions();
+            CompleteWarshipTick();
             AdvanceComboDecay();
 
             if (_cooldown > 0) _cooldown--;
@@ -2881,6 +2983,14 @@ namespace Shmup.Core.Simulation
                 throw new InvalidOperationException(
                     "The preallocated simulation event buffer is exhausted.");
             _events[_eventCount++] = new SimEvent(type, entityId, x, y, arg);
+        }
+
+        void AppendEvent(in SimEvent simEvent)
+        {
+            if (_eventCount == _events.Length)
+                throw new InvalidOperationException(
+                    "The preallocated simulation event buffer is exhausted.");
+            _events[_eventCount++] = simEvent;
         }
 
         void EmitBossAttackTelegraph(Generation.BossPhase phase)
@@ -4589,7 +4699,24 @@ namespace Shmup.Core.Simulation
                     && initialPhase.TelegraphTicks > 0;
                 _bossPatternVolleyIndex = 0;
                 InitializeBossParts();
+                if (_warshipDefinition != null)
+                {
+                    _warshipEncounter = new WarshipEncounter(
+                        _warshipDefinition,
+                        _warshipRuntimePartDefinitions);
+                    BeginWarshipTick();
+                }
                 EmitEvent(SimEventType.BossSpawned, _bossId, _bossX, _bossY, 0);
+                ForwardWarshipEvents();
+                return;
+            }
+
+            if (_warshipEncounter != null)
+            {
+                _bossAge++;
+                BeginWarshipTick();
+                UpdateActiveBossPartAttacks();
+                _bossPhaseAge++;
                 return;
             }
 
@@ -5418,10 +5545,15 @@ namespace Shmup.Core.Simulation
                 verticalMovementActive);
             RefreshBossPartPositions();
 
+            UpdateActiveBossPartAttacks();
+        }
+
+        void UpdateActiveBossPartAttacks()
+        {
             for (int i = 0; i < _bossPartDefinitions.Count; i++)
             {
                 BossPartState state = _bossPartStates[i];
-                if (state.Destroyed || IsBossCoreGated(i))
+                if (state.Destroyed || IsBossPartInvulnerable(i))
                     continue;
                 BossPartAttackProfile attack =
                     _bossPartDefinitions[i].Attack;
@@ -5448,6 +5580,105 @@ namespace Shmup.Core.Simulation
                         break;
                 }
             }
+        }
+
+        void BeginWarshipTick()
+        {
+            _warshipEncounter.BeginTick();
+            _warshipEventCursor = 0;
+            SyncWarshipPositionAndVulnerability();
+        }
+
+        void CompleteWarshipTick()
+        {
+            if (_warshipEncounter == null)
+                return;
+            _warshipEncounter.CompleteTick();
+            SyncWarshipPositionAndVulnerability();
+            ForwardWarshipEvents();
+        }
+
+        void SyncWarshipPositionAndVulnerability()
+        {
+            bool coreRoom =
+                _warshipEncounter.ActiveGroupIndex
+                == _warshipDefinition.Groups.Count - 1;
+            _bossX = coreRoom
+                ? _bossHoldX
+                : SaturateToInt(
+                    (long)_warshipDefinition.OriginX
+                    - _warshipEncounter.ScrollOffset);
+            _bossY = _warshipDefinition.OriginY;
+            RefreshBossPartPositions();
+        }
+
+        void ForwardWarshipEvents()
+        {
+            if (_warshipEncounter == null)
+                return;
+            ArraySegment<SimEvent> events =
+                _warshipEncounter.EventsThisTick;
+            while (_warshipEventCursor < events.Count)
+            {
+                SimEvent simEvent = events.Array[
+                    events.Offset + _warshipEventCursor++];
+                switch (simEvent.Type)
+                {
+                    case SimEventType.WarshipWarningStarted:
+                    case SimEventType.WarshipGroupActivated:
+                    case SimEventType.WarshipCoreBattleStarted:
+                    case SimEventType.MidBossDefeated:
+                        AppendEvent(in simEvent);
+                        break;
+                }
+            }
+        }
+
+        void RestoreBattlePartsFromWarship()
+        {
+            IReadOnlyList<WarshipPartState> parts =
+                _warshipEncounter.Parts;
+            int aggregateHp = 0;
+            for (int i = 0; i < parts.Count; i++)
+            {
+                WarshipPartState restored = parts[i];
+                BossPartDefinition definition =
+                    _bossPartDefinitions[i];
+                _bossPartStates[i] = new BossPartState(
+                    restored.PartId,
+                    restored.X,
+                    restored.Y,
+                    restored.Hp,
+                    restored.MaxHp,
+                    restored.Destroyed,
+                    definition.IsCore,
+                    restored.Invulnerable);
+                aggregateHp = SaturatingAddDamage(
+                    aggregateHp,
+                    restored.Hp);
+                _bossPartsEverDestroyed[i] = restored.Destroyed;
+                _bossPartRegenerationRemaining[i] = 0;
+                _bossPartContactHitThisCycle[i] = false;
+                int interval = definition.Attack.IntervalTicks;
+                if (interval == 0
+                    || restored.Destroyed
+                    || !restored.Active)
+                    _bossPartFireCooldowns[i] = interval;
+                else
+                {
+                    int elapsed =
+                        _warshipEncounter.ActiveGroupElapsedTicks;
+                    int remainder = elapsed % interval;
+                    _bossPartFireCooldowns[i] = remainder == 0
+                        ? interval
+                        : interval - remainder;
+                }
+            }
+            _bossHp = aggregateHp;
+            _bossDefeated = _warshipEncounter.Completed;
+            if (_bossDefeated)
+                _bossHp = 0;
+            SyncWarshipPositionAndVulnerability();
         }
 
         static int AdvancePositiveFraction(
@@ -5515,6 +5746,9 @@ namespace Shmup.Core.Simulation
 
         bool IsBossPartInvulnerable(int partIndex)
         {
+            if (_warshipEncounter != null)
+                return !_warshipEncounter.IsPartActive(
+                    _bossPartDefinitions[partIndex].PartId);
             if (BossEntering)
                 return true;
             BossPartVulnerability vulnerability =
@@ -5576,10 +5810,21 @@ namespace Shmup.Core.Simulation
                 return;
             }
 
+            int ways = attack.Ways;
+            if (_warshipEncounter != null
+                && part.IsCore
+                && (attack.Type == BossPartAttackType.AimedSpread
+                    || attack.Type == BossPartAttackType.RadialSpread))
+            {
+                int openingWays =
+                    _warshipEncounter.ConsumeCoreOpeningWays();
+                if (openingWays > 0)
+                    ways = openingWays;
+            }
             int available = Math.Max(
                 0,
                 _maxEnemyBullets - CountEnemyBullets());
-            int shots = Math.Min(attack.Ways, available);
+            int shots = Math.Min(ways, available);
             for (int i = 0; i < shots; i++)
             {
                 int targetX = PlayerX;
@@ -5589,7 +5834,7 @@ namespace Shmup.Core.Simulation
                 {
                     rotation = (int)(
                         (long)i * SineLut.Length
-                        / attack.Ways);
+                        / ways);
                     int sin = SineLut[rotation];
                     int cos = SineLut[
                         (rotation + SineLut.Length / 4)
@@ -5601,7 +5846,7 @@ namespace Shmup.Core.Simulation
                 else
                 {
                     long centeredIndex =
-                        2L * i - (attack.Ways - 1L);
+                        2L * i - (ways - 1L);
                     rotation = (int)(
                         (centeredIndex * SpreadStepLutSlots / 2)
                         % SineLut.Length);
@@ -5826,6 +6071,13 @@ namespace Shmup.Core.Simulation
                 hp == 0,
                 part.IsCore,
                 false);
+            if (_warshipEncounter != null)
+            {
+                var warshipDamage = new WarshipDamageCommand(
+                    part.PartId,
+                    appliedDamage);
+                _warshipEncounter.ApplyDamage(in warshipDamage);
+            }
             if (_bossHp > 0)
                 UpdateBossPhaseFromHp();
             if (hp > 0)
@@ -5859,6 +6111,11 @@ namespace Shmup.Core.Simulation
                 part.Y,
                 partIndex);
             RefreshBossPartPositions();
+            if (_warshipEncounter != null)
+            {
+                SyncWarshipPositionAndVulnerability();
+                ForwardWarshipEvents();
+            }
             if (definition.IsCore)
                 return DefeatBoss(part.X, part.Y);
             return false;

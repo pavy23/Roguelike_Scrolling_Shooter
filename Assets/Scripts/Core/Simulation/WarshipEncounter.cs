@@ -61,7 +61,7 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class WarshipEncounterSuspendData
     {
-        public const int CurrentSchemaVersion = 1;
+        public const int CurrentSchemaVersion = 2;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -87,6 +87,8 @@ namespace Shmup.Core.Simulation
         public bool completed;
         [DataMember(Order = 11)]
         public int[] partHp;
+        [DataMember(Order = 12)]
+        public bool coreOpeningConsumed;
     }
 
     /// <summary>
@@ -111,6 +113,8 @@ namespace Shmup.Core.Simulation
         bool _warningEmitted;
         bool _midbossDefeated;
         bool _completed;
+        bool _coreOpeningConsumed;
+        bool _tickOpen;
 
         public WarshipEncounter(
             WarshipEncounterDefinition definition,
@@ -151,6 +155,8 @@ namespace Shmup.Core.Simulation
         public bool CoreBattleActive =>
             !_completed
             && _activeGroupIndex == _definition.Groups.Count - 1;
+        public bool CoreOpeningPending =>
+            CoreBattleActive && !_coreOpeningConsumed;
         public bool Completed => _completed;
         public int DestroyedAttritionParts => _destroyedAttritionParts;
         public int TotalAttritionParts =>
@@ -178,8 +184,52 @@ namespace Shmup.Core.Simulation
             return index >= 0 && _partHp[index] == 0;
         }
 
+        public bool IsPartActive(string partId)
+        {
+            int index = FindPartIndex(partId);
+            return index >= 0
+                && !_completed
+                && _partGroups[index] == _activeGroupIndex
+                && _partHp[index] > 0;
+        }
+
+        /// <summary>
+        /// Returns the attrition-adjusted opening density exactly once after the
+        /// final group activates. Zero means the opening was already consumed or
+        /// the core battle has not started.
+        /// </summary>
+        public int ConsumeCoreOpeningWays()
+        {
+            if (!CoreOpeningPending)
+                return 0;
+            _coreOpeningConsumed = true;
+            return CoreOpeningWays;
+        }
+
         public void Step(IReadOnlyList<WarshipDamageCommand> damageCommands)
         {
+            BeginTick();
+            if (!_tickOpen)
+                return;
+            if (_activeGroupIndex >= 0 && damageCommands != null)
+                for (int i = 0; i < damageCommands.Count; i++)
+                {
+                    WarshipDamageCommand command = damageCommands[i];
+                    ApplyDamage(in command);
+                }
+            CompleteTick();
+        }
+
+        /// <summary>
+        /// Opens one encounter tick. BattleSim uses the split tick API so every
+        /// gameplay collision in that BattleSim tick is resolved before the
+        /// attrition timer advances to the final group.
+        /// </summary>
+        public void BeginTick()
+        {
+            if (_tickOpen)
+                throw new InvalidOperationException(
+                    "The current warship tick is already open.");
             _eventCount = 0;
             if (_completed)
                 return;
@@ -205,13 +255,29 @@ namespace Shmup.Core.Simulation
             else if (_activeGroupIndex >= 0)
                 _activeGroupElapsedTicks++;
 
-            if (_activeGroupIndex >= 0 && damageCommands != null)
-                for (int i = 0; i < damageCommands.Count; i++)
-                {
-                    WarshipDamageCommand command = damageCommands[i];
-                    ApplyDamage(in command);
-                }
+            _tickOpen = true;
+            RefreshPartView();
+        }
 
+        public void ApplyDamage(in WarshipDamageCommand command)
+        {
+            if (!_tickOpen)
+                throw new InvalidOperationException(
+                    "Warship damage must be applied inside an open tick.");
+            ApplyDamageCore(in command);
+            RefreshPartView();
+        }
+
+        public void CompleteTick()
+        {
+            if (_completed)
+            {
+                _tickOpen = false;
+                RefreshPartView();
+                return;
+            }
+            if (!_tickOpen)
+                return;
             if (!_completed
                 && _activeGroupIndex >= 0
                 && _definition.Groups[_activeGroupIndex].Role
@@ -221,11 +287,15 @@ namespace Shmup.Core.Simulation
                         .AdvanceAfterTicks)
                 ActivateGroup(_activeGroupIndex + 1);
 
+            _tickOpen = false;
             RefreshPartView();
         }
 
         public WarshipEncounterSuspendData CaptureSuspendData()
         {
+            if (_tickOpen)
+                throw new InvalidOperationException(
+                    "Warship suspend capture requires a completed tick.");
             return new WarshipEncounterSuspendData
             {
                 schemaVersion =
@@ -240,7 +310,8 @@ namespace Shmup.Core.Simulation
                 warningEmitted = _warningEmitted,
                 midbossDefeated = _midbossDefeated,
                 completed = _completed,
-                partHp = (int[])_partHp.Clone()
+                partHp = (int[])_partHp.Clone(),
+                coreOpeningConsumed = _coreOpeningConsumed
             };
         }
 
@@ -305,6 +376,12 @@ namespace Shmup.Core.Simulation
                 throw new ArgumentException(
                     "A completed warship must remain on its final group.",
                     nameof(data));
+            if (data.coreOpeningConsumed
+                && data.activeGroupIndex
+                    != _definition.Groups.Count - 1)
+                throw new ArgumentException(
+                    "A consumed core opening requires the final group.",
+                    nameof(data));
 
             _tick = data.tick;
             _scrollOffset = data.scrollOffset;
@@ -315,6 +392,8 @@ namespace Shmup.Core.Simulation
             _warningEmitted = data.warningEmitted;
             _midbossDefeated = data.midbossDefeated;
             _completed = data.completed;
+            _coreOpeningConsumed = data.coreOpeningConsumed;
+            _tickOpen = false;
             _eventCount = 0;
             RefreshPartView();
         }
@@ -329,7 +408,7 @@ namespace Shmup.Core.Simulation
                 % _definition.ScrollSpeedDenominator;
         }
 
-        void ApplyDamage(in WarshipDamageCommand command)
+        void ApplyDamageCore(in WarshipDamageCommand command)
         {
             int partIndex = FindPartIndex(command.PartId);
             if (partIndex < 0
