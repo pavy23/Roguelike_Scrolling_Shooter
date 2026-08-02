@@ -1438,7 +1438,8 @@ namespace Shmup.EditorTools
         /// <summary>
         /// 배틀 배경: 테마 루트를 여러 개 만들고 director가 StageIndex로 로테이션한다 (M3).
         /// 각 루트 = 별 2겹 + 테마 3겹(art-input/&lt;theme&gt;_far/mid/near.png). 팩터가 작을수록 원경,
-        /// near 레이어는 게임플레이 위(55)에서 스크롤보다 빠르게 지나가는 전경 실루엣.
+        /// near 레이어는 스크롤보다 빠르게(1.15) 지나가는 전경 실루엣이다 —
+        /// 정렬은 게임플레이 **아래**(탄 5 아래): 기체/탄을 가리면 안 된다.
         /// </summary>
         static GameObject[] CreateBackground(BattleDirector director, Sprite farSprite, Sprite nearSprite)
         {
@@ -1497,7 +1498,11 @@ namespace Shmup.EditorTools
             AddLayer(themeFar, 0.2f, -96, BgLayerRole.Far);
             AddLayer(starsNear, 0.45f, -90, BgLayerRole.SkyNear);
             AddLayer(themeMid, 0.6f, -85, BgLayerRole.Mid);
-            AddLayer(themeNear, 1.15f, 55, BgLayerRole.Near);
+            // 전경 실루엣은 게임플레이 **아래**(탄 5 아래)다. 예전에는 55(게임플레이 위)라
+            // <theme>_fg.png의 불투명 실루엣 띠가 화면 아래쪽 기체·옵션·주무기탄을 통째로
+            // 가렸다 — build25~28 "전함 룸 플레이어 영구 소실"의 정체.
+            // SectionThemeDirector.NearSortingOrder가 런타임에도 같은 값으로 덮어쓴다.
+            AddLayer(themeNear, 1.15f, SectionThemeDirector.NearSortingOrder, BgLayerRole.Near);
 
             const float tileWidth = RefResolutionX / (float)AssetsPPU;
             var root = new GameObject(rootName);

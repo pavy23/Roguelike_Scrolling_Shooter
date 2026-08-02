@@ -11,7 +11,10 @@ namespace Shmup.Presentation.Battle
         Far = 1,       // 테마 원경 (교체 슬롯 대상)
         SkyNear = 2,   // 별 근경 = 하늘
         Mid = 3,       // 테마 중경
-        Near = 4       // 테마 전경 실루엣 (sortingOrder 55 — 게임플레이 위)
+        // 테마 전경 실루엣. 가장 빠르게(1.15) 흐르는 최근경이지만 정렬은 게임플레이
+        // **아래**다 (SectionThemeDirector.NearSortingOrder = 3, 탄 5 아래).
+        // 위에 두면 <theme>_fg.png의 불투명 띠가 기체·탄을 삼킨다.
+        Near = 4
     }
 
     /// <summary>스테이지 내 4구간. Core의 RunStageSection을 표현용으로 압축한 것.</summary>

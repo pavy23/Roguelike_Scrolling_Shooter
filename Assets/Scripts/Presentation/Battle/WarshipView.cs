@@ -33,9 +33,16 @@ namespace Shmup.Presentation.Battle
     [DisallowMultipleComponent]
     public sealed class WarshipView : MonoBehaviour
     {
-        // 정렬: 장애물(9~12) 위, 보스 본체(15) 아래에 함체를 깔고,
-        // 하드포인트는 보스 본체 위에 얹는다. 파츠가 함체에 묻히면 조준할 곳이 사라진다.
-        const int HullOrder = 13;
+        // 정렬: 함체 실루엣은 게임플레이 **아래**(탄 5 아래)다. 예전에는 13이라
+        // 기체(10)·주무기탄(5)이 함체 판 뒤로 사라졌다 — 함미를 근접 사격하려면
+        // 반드시 함체 위로 들어가야 하는데, 그 순간 자기 기체와 자기 탄이 안 보였다.
+        // (전경 실루엣 55와 같은 부류의 가림 버그. SectionThemeDirector.NearSortingOrder 참고.)
+        // 하드포인트는 보스 본체(15) 위에 얹는다 — 파츠가 묻히면 조준할 곳이 사라진다.
+        //
+        // 4는 전경 실루엣 크로스페이드 고스트(3+1)와 같은 순서지만, 고스트는 구간 전환
+        // 2~3초 동안만 살아 있고 실루엣 띠(화면 위·아래 끝)와 함체(화면 중앙 띠)는
+        // 겹치는 면적이 거의 없다 — 순서가 갈리지 않아도 눈에 잡히지 않는다.
+        const int HullOrder = 4;
         const int HardpointOrder = 16;
 
         const float HitFlashSeconds = 0.09f;

@@ -36,14 +36,33 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Sprite[] _slotSprites;
 
         // 정렬 순서는 **탄 가시성이 결정한다**. 씬에서 가장 낮은 게임플레이 요소가
-        // 탄(order 5)이므로 워시·파티클은 그보다 아래에 둔다. 배경 타일은 -100~-85이고
-        // 전경 실루엣(themeNear)만 55라 워시 위에 남는다 — 그래서 전경은 룩 테이블의
-        // Near 틴트로 따로 어둡게 맞춰 통일감을 낸다.
+        // 탄(order 5)이므로 워시·파티클·전경 실루엣은 전부 그보다 아래에 둔다.
+        // 배경 타일은 -100~-85다.
         [Tooltip("전역 워시 — 배경 위(>-85), 탄(5) 아래. 기체/탄은 절대 덮지 않는다.")]
         [SerializeField] int _washSortingOrder = 0;
         [Tooltip("날씨 파티클 — 워시 위, 탄(5) 아래.")]
         [SerializeField] int _particleSortingOrder = 2;
-        [Tooltip("섬광 — 전경 실루엣(55) 위, 피격 플래시(90) 아래. 순간 연출이라 전부 덮는다.")]
+
+        /// <summary>
+        /// 전경 실루엣(themeNear)의 정렬 순서 — 워시·파티클 위, 탄(5) 아래.
+        ///
+        /// **한때 55(게임플레이 위)였고, 그게 build25~28의 "전함 룸에서 플레이어가
+        /// 영구 소실된다" 버그의 정체였다.** &lt;theme&gt;_fg.png는 화면 위 7~10% + 아래
+        /// 24~42%를 불투명하게 덮는 실루엣 띠인데, 플레이필드는 화면 전체라 안전
+        /// 지대가 없다 — Late·Boss 구간에서 기체가 아래쪽으로 내려가는 순간 기체·
+        /// 옵션·주무기탄이 통째로 이 띠 뒤로 사라졌다. 플레이어는 자기 기체를 못 보니
+        /// 다시 올라올 수도 없었고, 화면 밖으로 밀린 것도 시뮬이 멈춘 것도 아니었다.
+        ///
+        /// 씬 YAML에 굳은 값을 그대로 두면 씬을 다시 굽기 전까지 버그가 남으므로
+        /// <see cref="SyncBinding"/>이 바인딩 시점에 이 값으로 덮어쓴다. 씬 빌더도
+        /// 같은 값으로 굽는다(BattleSceneBuilder.CreateThemeRoot).
+        ///
+        /// 4가 아니라 3인 이유: 크로스페이드 고스트가 host+1에 서므로 고스트가 4다.
+        /// 5면 탄과 같은 순서가 되어 겹칠 때 어느 쪽이 앞인지 정의되지 않는다.
+        /// </summary>
+        public const int NearSortingOrder = 3;
+
+        [Tooltip("섬광 — 게임플레이 위, 피격 플래시(90) 아래. 0.2~0.45초 순간 연출이라 전부 덮는다.")]
         [SerializeField] int _flashSortingOrder = 60;
         // -83인 이유: 크로스페이드 고스트가 원본 order+1에 서므로 중경(-85)의 고스트가
         // -84를 쓴다. 랜드마크는 그 한 칸 위에 둬야 중경 교체 중에도 앞에 남는다.
@@ -430,6 +449,15 @@ namespace Shmup.Presentation.Battle
                     if (!IsGhost(found[k])) found[keep++] = found[k];
                 if (keep != found.Length) System.Array.Resize(ref found, keep);
                 _layerRenderers[i] = found;
+
+                // 전경 실루엣은 절대 게임플레이 위에 서지 않는다 (NearSortingOrder 주석).
+                // 씬에 굳은 값을 여기서 덮어써야 씬 재생성 없이도 고쳐진다.
+                if (_boundParallax.GetRole(i) == BgLayerRole.Near)
+                    for (int r = 0; r < _layerRenderers[i].Length; r++)
+                        if (_layerRenderers[i][r] != null
+                            && _layerRenderers[i][r].sortingOrder != NearSortingOrder)
+                            _layerRenderers[i][r].sortingOrder = NearSortingOrder;
+
                 if (_layerRenderers[i].Length > 0)
                     _layerOriginalSprites[i] = _layerRenderers[i][0].sprite;
                 _layerShownSprite[i] = _layerOriginalSprites[i];
