@@ -314,6 +314,50 @@ namespace Shmup.Presentation.Battle
             _sim != null ? _sim.BossParts : null;
 
         /// <summary>
+        /// St4 번개룡(세그먼트 체인 미니언) 절 상태 (REQ-115b) — SegmentChainView가 읽는다.
+        /// Core는 이 체인을 <see cref="IBattleSim.Enemies"/>가 아니라 **별도 관측**으로
+        /// 노출한다. 그래서 적 뷰 동기화(SyncEnemies)에 절대 걸리지 않는다 —
+        /// 뷰가 따로 없으면 접촉 데미지만 주는 투명 미니언이 된다
+        /// ("체인 미니언 스프라이트를 못 찾겠다", build26/27 테스터).
+        /// 한 체인은 절 6~8개가 ChainId로 묶여 SegmentIndex 순서로 들어온다.
+        /// </summary>
+        public IReadOnlyList<SegmentChainState> SegmentChains =>
+            _sim != null ? _sim.SegmentChains : null;
+
+        /// <summary>
+        /// 체인 절 히트박스 반폭(서브유닛). Core의 절 상태는 좌표와 HP만 주고 크기는
+        /// 페이즈 정의에 있으므로, 이 방 보스의 페이즈(2형태 포함)에서 읽어 온다.
+        /// 0이면 이 방에 체인이 없다 — 뷰는 그때 자기 기본값으로 그린다.
+        /// </summary>
+        public int SegmentChainHalfWidthSubUnits { get; private set; }
+
+        /// <summary>
+        /// 체인 소환/파괴 폭발 틴트. nebula 낙뢰 섬광(SectionTheme의 flashColor
+        /// 0.92/0.95/1.00)과 같은 색군이라 폭풍 스테이지의 어휘로 읽힌다.
+        /// </summary>
+        static readonly Color ChainSparkTint = new Color(0.80f, 0.93f, 1f);
+
+        void CacheSegmentChainExtent()
+        {
+            SegmentChainHalfWidthSubUnits = 0;
+            var plan = _run != null ? _run.StagePlan : null;
+            if (plan == null) return;
+            AccumulateChainHalfWidth(plan.BossPhases);
+            if (plan.Form2 != null) AccumulateChainHalfWidth(plan.Form2.Phases);
+        }
+
+        void AccumulateChainHalfWidth(IReadOnlyList<BossPhase> phases)
+        {
+            if (phases == null) return;
+            for (int i = 0; i < phases.Count; i++)
+            {
+                var chain = phases[i].SegmentChain;
+                if (chain != null && chain.HalfWidth > SegmentChainHalfWidthSubUnits)
+                    SegmentChainHalfWidthSubUnits = chain.HalfWidth;
+            }
+        }
+
+        /// <summary>
         /// St3 거대 전함 정의 (REQ-110/111). 이 방의 보스가 전함이면 파츠 3그룹
         /// (함미/함체/함수)의 순서와 역할이 들어 있고, 아니면 null이다 —
         /// WarshipView가 이 값 하나로 자기 차례인지 판단한다.
@@ -787,6 +831,7 @@ namespace Shmup.Presentation.Battle
                         runConfig);
             }
             _sim = _run.Battle;
+            CacheSegmentChainExtent();   // 첫 방의 체인 절 크기 (REQ-115b)
 
             // 개발 플래그가 걸린 런은 기록이 아니다 (REQ-096). F9/F10 치트와 같은
             // 경로로 제출을 닫는다 — 무적으로 5스테이지에서 시작한 점수가 보드에
@@ -1197,6 +1242,27 @@ namespace Shmup.Presentation.Battle
                             _juice.Hitstop(0.05f);
                         }
                         break;
+                    case SimEventType.SegmentChainSpawned:
+                        // St4 번개룡 소환 (REQ-115b). 체인은 보스 뒤에서 미끄러져 나오므로
+                        // 소환 프레임을 못 보면 "언제 붙었는지 모르는 접촉 데미지"가 된다.
+                        // 머리 스폰점에 짧은 방전을 터뜨리고 화면을 살짝 흔든다.
+                        SpawnExplosion(SimView.ToWorld(e.X, e.Y), 0.9f, ChainSparkTint);
+                        if (_juice != null) _juice.Shake(0.18f);
+                        break;
+                    case SimEventType.SegmentChainDestroyed:
+                        // 머리를 부수면 절 전체가 같은 틱에 사라진다 — 폭발 없이 지우면
+                        // 화면에서 증발한 것처럼 보인다. Arg = 제거된 절 수라 규모를
+                        // 그대로 크기에 쓴다. 점수 팝업은 없다 (Core가 점수를 주지 않는다).
+                        SpawnExplosion(
+                            SimView.ToWorld(e.X, e.Y),
+                            1.2f + 0.06f * Mathf.Max(0, e.Arg),
+                            ChainSparkTint);
+                        if (_juice != null)
+                        {
+                            _juice.Shake(0.3f);
+                            _juice.Hitstop(0.05f);
+                        }
+                        break;
                     case SimEventType.MidBossDefeated:
                         // 구간이 넘어가는 프레임을 정확히 집는다 (REQ-101 C-E).
                         // RunStageSection 폴링은 보상 화면을 지나 AdvanceRoom이 돌아야
@@ -1241,6 +1307,7 @@ namespace Shmup.Presentation.Battle
             _lastBossHp = -1;      // 보스 피격 플래시 오인 방지
             ApplyStageTheme();
             ApplyBossSprite();
+            CacheSegmentChainExtent();   // 방마다 체인 절 크기가 달라진다 (REQ-115b)
         }
 
         /// <summary>

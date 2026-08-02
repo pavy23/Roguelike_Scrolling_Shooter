@@ -25,6 +25,15 @@ namespace Shmup.Presentation.Battle
         /// <summary>St3 거대 전함(REQ-110/111) 파츠 그룹 상태 — 없으면 표시하지 않는다.</summary>
         [SerializeField] WarshipView _warship;
 
+        /// <summary>
+        /// St4 번개룡 체인(REQ-115b). 이 미니언은 Core가 Enemies가 아니라 별도 관측으로
+        /// 노출해서 뷰가 없던 동안 **화면에 없는데 데미지는 주는** 상태였다. 테스터가
+        /// "스프라이트를 못 찾겠다"고 두 번 보고한 그 상태를 다시 오진하지 않도록,
+        /// Core가 체인을 몇 기 굴리고 뷰가 몇 절을 그리는지를 나란히 적는다 —
+        /// 두 숫자가 어긋나면 그때가 뷰 문제고, 둘 다 0이면 Core가 안 소환한 것이다.
+        /// </summary>
+        [SerializeField] SegmentChainView _chains;
+
         /// <summary>F3으로 오버레이 표시 전환. 개발 모드에서만 의미가 있고 기본 표시다.</summary>
         static bool _overlayVisible;
         static bool _overlayDefaultResolved;
@@ -84,6 +93,10 @@ namespace Shmup.Presentation.Battle
         // 오버레이 문자열은 표시 값이 실제로 바뀐 프레임에만 재조립한다.
         // tick은 60Hz로 변하므로 0.5초(30틱) 단위로 양자화해 재조립 빈도를 낮춘다.
         long _overlayKey = long.MinValue;
+
+        // St4 체인 관측값 (REQ-115b). XOR 키와 달리 정확 비교라 상쇄되지 않는다.
+        int _lastChainSegments = -1;
+        int _lastChainDrawn = -1;
         string _overlayText = "";
 
         /// <summary>
@@ -129,6 +142,12 @@ namespace Shmup.Presentation.Battle
             bool warshipOn = _warship != null && _warship.Active;
             int warshipGroup = warshipOn ? _warship.FocusGroupIndex : 0;
             int warshipTurrets = warshipOn ? _warship.AttritionAlive : 0;
+            // 체인은 소환/격파가 몇 초 단위로 오가므로 0.5초 양자화에 묻히면 안 된다.
+            // **Core 쪽 숫자는 뷰를 거치지 않고 director에서 직접 읽는다** — 뷰가 죽어
+            // 있어도 Core가 굴리는 절 수는 그대로 나와야 오진이 안 난다.
+            var coreChains = _director.SegmentChains;
+            int chainSegments = coreChains != null ? coreChains.Count : 0;
+            int chainDrawn = _chains != null ? _chains.VisibleSegmentCount : 0;
             long key = ((long)_director.RunNumber << 48)
                      ^ ((long)_director.StageIndex << 40)
                      ^ ((long)_director.PlayerHp << 32)
@@ -139,10 +158,18 @@ namespace Shmup.Presentation.Battle
                      ^ ((warshipOn ? 1L : 0L) << 17)
                      ^ ((long)warshipGroup << 15)
                      ^ ((long)warshipTurrets << 12)
+                     // 상위 비트는 비어 있다 (run 번호는 48~53만 쓴다) — 체인 두 값이
+                     // 다른 필드와 XOR로 상쇄돼 갱신을 놓치지 않게 여기에 얹는다.
                      ^ (long)(_director.Tick / 30);
-            if (key != _overlayKey)
+            // 체인 두 값은 XOR 키에 접지 않는다 — 서로 같은 값일 때가 대부분이라
+            // 인접 비트에 얹으면 상쇄돼 변화가 통째로 사라진다. 따로 비교한다.
+            if (key != _overlayKey
+                || chainSegments != _lastChainSegments
+                || chainDrawn != _lastChainDrawn)
             {
                 _overlayKey = key;
+                _lastChainSegments = chainSegments;
+                _lastChainDrawn = chainDrawn;
                 string section = _sectionThemes != null
                     ? $"   sect {_sectionThemes.CurrentSection}/{_sectionThemes.DevPreviewLabel}"
                     : "";
@@ -163,8 +190,13 @@ namespace Shmup.Presentation.Battle
                 string warship = warshipOn
                     ? $"   warship {_warship.FocusGroupId} {warshipGroup + 1}/{_warship.GroupCount}   turret {warshipTurrets}/{_warship.AttritionTotal}"
                     : "";
+                // St4 번개룡: Core 체인 기수 / 뷰가 그린 절 수. 0/0이면 아직 안 나왔고,
+                // n/0이면 뷰가 죽은 것이다 (build26/27의 "안 보인다"가 바로 이 상태였다).
+                string chains = chainSegments > 0 || chainDrawn > 0
+                    ? $"   chain {chainSegments}seg/{chainDrawn}drawn"
+                    : "";
                 _overlayText =
-                    $"run {_director.RunNumber}   stage {_director.StageIndex}{theme}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{section}{ghost}{warship}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --god survives)";
+                    $"run {_director.RunNumber}   stage {_director.StageIndex}{theme}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{section}{ghost}{warship}{chains}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --god survives)";
             }
             GUI.Label(new Rect(8, 4, Screen.width - 16, _style.fontSize * 3), _overlayText, _style);
         }

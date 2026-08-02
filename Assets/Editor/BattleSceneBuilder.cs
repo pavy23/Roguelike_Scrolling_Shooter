@@ -691,6 +691,18 @@ namespace Shmup.EditorTools
             return sprite;
         }
 
+        /// <summary>
+        /// art-input에 원본이 있으면 임포트하고, 없으면 이미 프로젝트에 들어와 있는
+        /// 같은 이름의 스프라이트를 쓴다. art-input이 없는 머신(CI·다른 클론)에서도
+        /// 씬 재생성이 아트를 잃지 않게 한다.
+        /// </summary>
+        static Sprite LoadOrCachedSprite(string externalFileName, string assetName)
+        {
+            var sprite = LoadExternalSprite(externalFileName, assetName);
+            if (sprite != null) return sprite;
+            return AssetDatabase.LoadAssetAtPath<Sprite>($"{SpriteDir}/{assetName}.png");
+        }
+
         /// <summary>art-input/fx_explosion_00.png…을 순서대로 임포트한다 (M2 폭발 애니).</summary>
         static Sprite[] LoadExplosionFrames()
         {
@@ -1200,6 +1212,27 @@ namespace Shmup.EditorTools
                 LoadExternalSprite("fx_muzzle_00.png", "fx_muzzle_00"));
             SetReference(laserView, "_root", laserRoot.transform);
 
+            // St4 번개룡 = 세그먼트 체인 미니언 (REQ-115b). Core가 Enemies가 아니라
+            // SegmentChains라는 **별도 관측**으로 노출해서 지금까지 뷰가 아예 없었다 —
+            // 접촉 데미지만 주는 투명 미니언이었다 (build26/27 테스터 2회 보고).
+            // 전용 아트가 아직 없어 기존 전기 구체(enemy_echo_wisp)를 머리·몸통에 쓰고,
+            // 절 사이는 px_white 아크로 잇는다. art-input/enemy_chain_head.png 등이
+            // 들어오면 이 슬롯만 갈아 끼우면 된다.
+            var chainRoot = new GameObject("SegmentChains");
+            chainRoot.transform.SetParent(battleRoot.transform, false);
+            var chainView = battleRoot.AddComponent<SegmentChainView>();
+            SetReference(chainView, "_director", director);
+            SetReference(chainView, "_root", chainRoot.transform);
+            SetReference(chainView, "_pixelSprite", whiteSprite);
+            SetReference(chainView, "_glowSprite",
+                LoadExternalSprite("fx_muzzle_00.png", "fx_muzzle_00"));
+            var chainHeadSprite = LoadOrCachedSprite("enemy_chain_head.png", "enemy_chain_head")
+                ?? LoadOrCachedSprite("enemy_echo_wisp.png", "enemy_echo_wisp");
+            var chainBodySprite = LoadOrCachedSprite("enemy_chain_body.png", "enemy_chain_body")
+                ?? chainHeadSprite;
+            SetReference(chainView, "_headSprite", chainHeadSprite);
+            SetReference(chainView, "_bodySprite", chainBodySprite);
+
             // 스테이지 기믹 시각화 (REQ-055): 통로 벽·시야 구름·제한 시간.
             // 벽과 카운트다운은 보이지 않으면 불공정하므로 반드시 그린다.
             var gimmickRoot = new GameObject("StageGimmicks");
@@ -1247,6 +1280,8 @@ namespace Shmup.EditorTools
             SetReference(lowHp, "_juice", juice);
             // 전함 그룹 전환 흔들림 (함미 전멸 = 중간보스 격파와 같은 무게)
             SetReference(warshipView, "_juice", juice);
+            // 체인 아크/머리 맥동은 접근성 토글(플래시 감소)을 따라야 한다
+            SetReference(chainView, "_juice", juice);
 
             // 머즐 플래시: 기체 코 앞에 고정, PlayerFired 이벤트로 director가 깜빡인다
             var muzzleSprite = LoadExternalSprite("fx_muzzle_00.png", "fx_muzzle_00");
@@ -1279,7 +1314,7 @@ namespace Shmup.EditorTools
             SetReferenceArray(sectionThemes, "_themeRoots", themeRoots);
             CreateSectionArtSlots(sectionThemes);
 
-            CreateHud(director, hudSlotSprite, hudPipSprite, sectionThemes, warshipView);
+            CreateHud(director, hudSlotSprite, hudPipSprite, sectionThemes, warshipView, chainView);
             CreateSfx(director);
             CreateBgm(director);
 
@@ -1698,7 +1733,8 @@ namespace Shmup.EditorTools
         /// </summary>
         static void CreateHud(
             BattleDirector director, Sprite slotSprite, Sprite pipSprite,
-            SectionThemeDirector sectionThemes, WarshipView warshipView)
+            SectionThemeDirector sectionThemes, WarshipView warshipView,
+            SegmentChainView chainView)
         {
             var hudRoot = new GameObject("Hud");
 
@@ -1712,6 +1748,7 @@ namespace Shmup.EditorTools
             SetReference(cheats, "_director", director);
             SetReference(cheats, "_sectionThemes", sectionThemes);   // F7 구간 룩 미리보기
             SetReference(cheats, "_warship", warshipView);           // 전함 그룹/포탑 잔량 한 조각
+            SetReference(cheats, "_chains", chainView);              // St4 체인: Core 절 수 vs 그린 절 수
         }
 
         /// <summary>
