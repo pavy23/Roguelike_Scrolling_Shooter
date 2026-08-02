@@ -72,6 +72,7 @@ namespace Shmup.Presentation.Battle
             {
                 _done = true;
                 PlayerPrefs.SetInt(OnboardedPrefKey, 1);
+                SaveFlush.Request();
                 _root.SetActive(false);
             }
         }

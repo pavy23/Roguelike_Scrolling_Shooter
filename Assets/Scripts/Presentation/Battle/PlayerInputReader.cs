@@ -151,6 +151,7 @@ namespace Shmup.Presentation.Battle
         {
             AutoFire = value;
             PlayerPrefs.SetInt(AutoFirePrefKey, value ? 1 : 0);
+            SaveFlush.Request();
         }
 
         public static void LoadAutoFirePreference()

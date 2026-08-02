@@ -31,6 +31,11 @@ namespace Shmup.Presentation.Battle
                     File.Move(path, backup);
                 }
                 File.Move(temp, path);
+
+                // WebGL(IDBFS)은 여기까지 해도 아직 메모리 FS에만 남아 있다 —
+                // syncfs를 부르지 않으면 브라우저를 껐다 켤 때 통째로 사라진다.
+                // 다른 플랫폼에서는 no-op. (MetaSave/RunSave/ReplaySave 전부 이 길을 지난다)
+                SaveFlush.Request();
             }
             catch (Exception e)
             {
@@ -75,6 +80,10 @@ namespace Shmup.Presentation.Battle
                     Debug.LogWarning($"[SafeFile] 삭제 실패({e.GetType().Name}) {candidate}: {e.Message}");
                 }
             }
+
+            // 삭제도 동기화해야 한다 — 소비한 이어하기 파일이 IDB에 남아 있으면
+            // 다음 세션에서 죽은 런이 되살아난다.
+            SaveFlush.Request();
         }
     }
 }

@@ -170,6 +170,7 @@ namespace Shmup.Presentation.Battle
                     token = Guid.NewGuid().ToString("N");
                     PlayerPrefs.SetString(TokenPrefKey, token);
                     PlayerPrefs.Save();
+                    SaveFlush.Request();   // WebGL: 토큰이 IDB로 내려가야 다음 세션에서 같은 신원
                 }
                 return token;
             }
@@ -185,6 +186,7 @@ namespace Shmup.Presentation.Battle
                 if (string.IsNullOrEmpty(clean)) return;
                 PlayerPrefs.SetString(NamePrefKey, clean);
                 PlayerPrefs.Save();
+                SaveFlush.Request();
             }
         }
 

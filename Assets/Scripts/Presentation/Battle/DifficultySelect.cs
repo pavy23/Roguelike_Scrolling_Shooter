@@ -13,7 +13,11 @@ namespace Shmup.Presentation.Battle
         public static int Index
         {
             get => Mathf.Clamp(PlayerPrefs.GetInt(PrefKey, 1), 0, 2);
-            set => PlayerPrefs.SetInt(PrefKey, Mathf.Clamp(value, 0, 2));
+            set
+            {
+                PlayerPrefs.SetInt(PrefKey, Mathf.Clamp(value, 0, 2));
+                SaveFlush.Request();   // WebGL IDBFS 플러시 (그 외 no-op)
+            }
         }
 
         public static string Label => Index == 0 ? "EASY" : Index == 2 ? "HARD" : "NORMAL";

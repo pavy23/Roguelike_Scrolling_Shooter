@@ -351,6 +351,11 @@ namespace Shmup.Presentation.Battle
         {
             if (_run != null && !IsRunOver && !_replayMode)
                 SaveRunToDisk();
+
+            // 종료 시점은 디바운스를 기다릴 여유가 없다 — WebGL에서 즉시 IDB로 내린다
+            // (다른 플랫폼 no-op). 펌프 쪽 OnApplicationQuit과 순서가 갈릴 수 있어
+            // 저장 직후 여기서 한 번 더 확실히 부른다.
+            SaveFlush.FlushNow();
         }
 
         // Step이 RunOver/AwaitingReward에서 no-op이면 EventsThisTick이 클리어되지 않는다 —

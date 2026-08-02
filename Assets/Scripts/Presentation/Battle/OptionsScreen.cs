@@ -352,12 +352,14 @@ namespace Shmup.Presentation.Battle
                 Screen.SetResolution(resolution.x, resolution.y, fullscreen);
             PlayerPrefs.SetInt(ResolutionPrefKey, _resolutionIndex);
             PlayerPrefs.SetInt(FullscreenPrefKey, fullscreen ? 1 : 0);
+            SaveFlush.Request();   // WebGL IDBFS 플러시 (그 외 no-op)
         }
 
         void ToggleAccessibilityPref(string key, int defaultValue)
         {
             int next = PlayerPrefs.GetInt(key, defaultValue) == 1 ? 0 : 1;
             PlayerPrefs.SetInt(key, next);
+            SaveFlush.Request();
             if (_juice != null) _juice.ReloadPrefs();
             _panelText = null;
         }
@@ -429,6 +431,7 @@ namespace Shmup.Presentation.Battle
             fire.Enable();
             if (_input != null && _input.Actions != null)
                 PlayerPrefs.SetString(BindingsPrefKey, _input.Actions.SaveBindingOverridesAsJson());
+            SaveFlush.Request();
             _panelText = null;   // 바인딩 표시 갱신
         }
 
@@ -442,6 +445,7 @@ namespace Shmup.Presentation.Battle
             if (_input == null || _input.Actions == null) return;
             _input.Actions.RemoveAllBindingOverrides();
             PlayerPrefs.DeleteKey(BindingsPrefKey);
+            SaveFlush.Request();
             _panelText = null;   // 바인딩 표시 갱신
         }
 

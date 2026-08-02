@@ -143,6 +143,7 @@ namespace Shmup.Presentation.Battle
         {
             AudioListener.volume = Mathf.Clamp01(AudioListener.volume + delta);
             PlayerPrefs.SetFloat(VolumePrefKey, AudioListener.volume);
+            SaveFlush.Request();   // 볼륨 조절은 연타로 들어온다 — 디바운스가 모아서 한 번만 내린다
         }
 
         void OnDestroy()
