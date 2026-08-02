@@ -246,7 +246,10 @@ namespace Shmup.Presentation.Battle
                 MaxCombo = _director.BestMultiplier,
                 // 피격 수 (REQ-105). 적을수록 좋은 유일한 통계라 보드에서 0이 강조된다 —
                 // BOMB 0과 같은 문법이다. 상한(999)은 클라이언트가 먼저 자른다.
-                HitsTaken = ToInt(runStats.HitsTaken)
+                HitsTaken = ToInt(runStats.HitsTaken),
+                // 컨티뉴 사용 횟수 (REQ-109). 요약의 CONTINUED xN과 같은 Core 값이다 —
+                // 화면에 이미 그린 숫자를 보드에도 그대로 올려 두 곳이 어긋나지 않게 한다.
+                ContinuesUsed = _director.ContinuesUsed
             }, OnSubmitDone);
         }
 

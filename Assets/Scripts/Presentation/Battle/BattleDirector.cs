@@ -116,6 +116,24 @@ namespace Shmup.Presentation.Battle
         readonly Dictionary<int, Color> _enemyDeathTints = new Dictionary<int, Color>(32);   // 테마별 폭발 틴트
         SpritePool _optionPool;
         Sprite _mainShotSprite;   // Awake에서 탄 프리팹 원본 스프라이트 캡처
+
+        // ── 타임루프 고스트 (REQ-109) ──────────────────────────────────────────
+        // 씬에 두지 않고 Awake에서 플레이어 렌더러를 원본으로 만든다 — 고스트는
+        // 이번 런의 함선 실루엣을 그대로 물려받아야 "과거의 나"가 되기 때문이다.
+        GhostView _ghostView;
+
+        /// <summary>
+        /// 고스트가 합류할 때마다 오르는 카운터. ProgressHud가 이 값의 변화만 보고
+        /// 배너를 띄운다 — 이벤트를 직접 넘기면 배너가 없는 화면에서도 소비자를
+        /// 배선해야 하고, bool 플래그는 소비자가 지워 줘야 해서 누가 리셋하는지가 흐려진다.
+        /// </summary>
+        public int GhostSpawnSequence { get; private set; }
+
+        /// <summary>지금 고스트가 살아 있는가 (dev 오버레이 `ghost:live`).</summary>
+        public bool GhostActive => _run != null && _run.Ghost.Active;
+
+        /// <summary>St1 입력 기록을 들고 있는가 — 최종 구간에서 고스트가 뜰 자격 (dev `ghost:rec`).</summary>
+        public bool HasGhostRecording => _run != null && _run.HasStageOneGhostRecording;
         readonly HashSet<int> _aliveIds = new HashSet<int>();
         readonly List<int> _retiredIds = new List<int>(16);
 
@@ -505,6 +523,9 @@ namespace Shmup.Presentation.Battle
             // 어긋난다. 직전 런의 리플레이는 종료 시점에 이미 저장돼 있다.
             _recordingActive = false;
             _wagerStockSaved = false;   // 새 런의 판돈은 다시 정산된다
+            // 재출격은 새 런이라 St1 기록도 비워진다 (REQ-109) — 지난 런의 잔상이
+            // 페이드 아웃으로 남으면 새 St1에 유령이 걸쳐 보인다.
+            if (_ghostView != null) _ghostView.Hide();
             ResetRunSummary();
             RefreshBattle();
             SyncViews();
@@ -812,6 +833,11 @@ namespace Shmup.Presentation.Battle
             _vulcanShotSprite = _mainShotSprite;
             if (selectedShip != null)
                 ApplyWeaponBulletSprite(selectedShip.WeaponType);
+
+            // 고스트 뷰 (REQ-109). 최종 바이옴 전에는 한 번도 켜지지 않지만, 렌더러
+            // 네 개짜리라 미리 만들어 두고 알파 0으로 재워 둔다 — 합류 프레임에
+            // GameObject를 만들면 그 프레임에 스파이크가 난다.
+            _ghostView = GhostView.Create(_playerTransform);
 
             if (_damageFlash != null)
                 _damageFlash.color = new Color(1f, 0.2f, 0.2f, 0f);
@@ -1132,6 +1158,21 @@ namespace Shmup.Presentation.Battle
                         // 기본 페이드 대신 "자라나는" 연출로 갈아탄다 (REQ-101 C-B).
                         _obstacleRegenAges[e.EntityId] = 0f;
                         break;
+                    case SimEventType.GhostSpawned:
+                        // 과거의 내가 합류했다 (REQ-109). 위치는 Core가 준 스폰 지점을
+                        // 그대로 쓴다 — 뷰가 첫 프레임 위치를 추정하면 잔상이 화면
+                        // 밖에서 날아오는 꼬리를 한 번 그린다. Arg는 고정 무기 레벨.
+                        if (_ghostView != null) _ghostView.OnSpawned(e.X, e.Y);
+                        GhostSpawnSequence++;
+                        // 흔들림은 짧게. 보스 등장(0.3)보다 확실히 작아야 "위협이
+                        // 하나 늘었다"가 아니라 "아군 신호"로 읽힌다.
+                        if (_juice != null) _juice.Shake(0.15f);
+                        break;
+                    case SimEventType.GhostEnded:
+                        // 기록이 끝났거나 최종 보스가 먼저 끝났다. 사라지는 이유는
+                        // 화면에 설명하지 않는다 — 시간이 다 됐다는 페이드면 족하다.
+                        if (_ghostView != null) _ghostView.OnEnded();
+                        break;
                     case SimEventType.MidBossDefeated:
                         // 구간이 넘어가는 프레임을 정확히 집는다 (REQ-101 C-E).
                         // RunStageSection 폴링은 보상 화면을 지나 AdvanceRoom이 돌아야
@@ -1166,6 +1207,10 @@ namespace Shmup.Presentation.Battle
             _emitterHeat.Clear();
             _midBossDefeatSignaled = false;  // 다음 스테이지의 중간보스를 위해 초기화
             _lastHp = -1;   // 배틀 교체 직후 HP 차이를 피격 플래시로 오인하지 않게
+            // 고스트는 Closing→최종 보스 경계를 넘어 살아 있다 (REQ-109) — 여기서
+            // 숨기면 보스전에서 다시 뜨지 않는다(재합류 이벤트가 없다). 방이 바뀌며
+            // 좌표가 한 프레임에 크게 튀므로 잔상만 접는다.
+            if (_ghostView != null) _ghostView.ResetTrail();
 
             _sim = battle;
             ScoreMultiplier = 1;   // 새 배틀 인스턴스 — 배율 표시 초기화
@@ -1240,6 +1285,7 @@ namespace Shmup.Presentation.Battle
             _playerTransform.localPosition = SimView.ToWorld(_sim.PlayerX, _sim.PlayerY);
 
             TrackWeaponTypeChange();
+            SyncGhost();
             SyncBullets();
             SyncOptions();
             SyncEnemies();
@@ -1472,6 +1518,12 @@ namespace Shmup.Presentation.Battle
                 if (_missileSprite != null) return _missileSprite;
             }
             if (kind == BulletKind.EnemyShot && _enemyShotSprite != null) return _enemyShotSprite;
+            // 고스트탄은 **지금 내 무기와 무관한** 고정 레벨 직진탄이다 (REQ-109).
+            // _mainShotSprite는 게이지로 갈아탄 현재 무기를 따라가므로, 레이저 런에서
+            // 고스트탄만 레이저 줄기로 그려져 "관통한다"는 거짓말이 된다. 기체 원본
+            // 벌컨탄으로 되돌려 스프라이트가 위력을 과장하지 않게 한다.
+            if (kind == BulletKind.GhostMainShot && _vulcanShotSprite != null)
+                return _vulcanShotSprite;
             return _mainShotSprite;
         }
 
@@ -1486,6 +1538,9 @@ namespace Shmup.Presentation.Battle
                 case BulletKind.Heavy: return new Color(1f, 0.55f, 0.25f, 1f);     // 묵직한 주황
                 case BulletKind.Splitter: return new Color(1f, 0.5f, 0.8f, 1f);    // 분열 예고 핑크
                 case BulletKind.Mine: return new Color(0.55f, 0.85f, 1f, 1f);      // 정지 기뢰 청백
+                // 고스트탄 (REQ-109): 본체와 같은 시안이되 알파는 1이다 — 실제로
+                // 적을 깎는 탄이라 반투명하면 "안 맞는 탄"으로 오독된다.
+                case BulletKind.GhostMainShot: return GhostView.BulletTint;
                 default: return Color.white;
             }
         }
@@ -1705,6 +1760,19 @@ namespace Shmup.Presentation.Battle
                     $"Resources/GameData/{name} 를 찾을 수 없다. Tools → Shmup → Rebuild Battle Scene 으로 " +
                     "GameData JSON 복사를 다시 실행해라.");
             return asset.text;
+        }
+
+        /// <summary>
+        /// 고스트 본체 (REQ-109). 활성 여부·좌표 전부 Core 관측값이다 — 뷰는
+        /// 페이드와 잔상 타이밍만 자기 몫으로 가진다. 런이 재시작되면 Ghost.Active가
+        /// 저절로 false가 되므로 여기서 별도 정리를 하지 않는다.
+        /// </summary>
+        void SyncGhost()
+        {
+            if (_ghostView == null) return;
+            if (_run == null) { _ghostView.Hide(); return; }
+            var ghost = _run.Ghost;
+            _ghostView.Sync(ghost.Active, ghost.X, ghost.Y);
         }
 
         void SyncBullets()

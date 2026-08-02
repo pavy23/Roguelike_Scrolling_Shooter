@@ -80,12 +80,27 @@ namespace Shmup.Presentation.Battle
         const int ColHit = 4;
 
         /// <summary>
+        /// 컨티뉴 마커 폭 (REQ-109). " C1" 세 글자.
+        ///
+        /// **컬럼이 아니라 마커다.** HIT까지 붙어 한 줄이 이미 47자라 여덟 번째 컬럼을
+        /// 세우면 라벨 줄과 본문이 화면 밖으로 밀린다. 그래서 헤더 라벨을 주지 않고
+        /// PILOT 칸을 세 칸 넓혀 **이름 바로 뒤에** 붙인다 — 파일럿에 딸린 주석으로
+        /// 읽히지 자기 축을 가진 통계로 읽히지 않는다.
+        ///
+        /// 컨티뉴를 쓰지 않은 기록과 <c>cu</c> 키가 없던 구 기록은 똑같이 빈칸이다.
+        /// 마커의 뜻이 "이어붙였다"이지 "안 이어붙였다"가 아니므로, 모르는 기록에
+        /// 아무 표시도 하지 않는 쪽이 정직하다 (BOMB/HIT의 0 강조와 정반대 문법).
+        /// </summary>
+        const int ColContinue = 3;
+
+        /// <summary>
         /// 컬럼 라벨 줄. 계기판 라벨 관례대로 전부 대문자이고, 본문보다 어두운 색으로
         /// 그려 기록보다 먼저 읽히지 않게 한다 (색은 BuildRankingPanel이 준다).
+        /// PILOT 라벨은 마커 폭까지 덮는다 — 마커에는 라벨을 주지 않는다.
         /// </summary>
         static readonly string RankingHeader =
             "#".PadLeft(ColRank) + "  "
-            + "PILOT".PadRight(ColPilot) + " "
+            + "PILOT".PadRight(ColPilot + ColContinue) + " "
             + "SCORE".PadLeft(ColScore) + "  "
             + "STG".PadRight(ColStage) + " "
             + "SHIP".PadRight(ColShip) + " "
@@ -200,25 +215,28 @@ namespace Shmup.Presentation.Battle
             // 컬럼 7개(순위·파일럿·점수·스테이지·기체·봄·피격)를 고정폭으로 세우려면
             // 380px로는 모자란다. HIT 칸이 붙으면서 한 줄이 42자 → 47자가 됐으므로
             // 같은 비율로 폭만 다시 키운다. 헤어라인 패널 언어는 그대로다.
-            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(500f, 288f));
+            // 컨티뉴 마커(REQ-109)가 PILOT 칸에 세 글자를 더해 50자가 됐다 — 새 컬럼이
+            // 아니라 마커라 라벨은 늘지 않지만, 자릿수만큼 폭은 따라가야 한다.
+            // 640 기준 폭이라 520이 상한선에 가깝다: 여기서 더 늘리면 좌우 여백이 사라진다.
+            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(520f, 288f));
 
             UiKit.CreateCornerText(panel, _fontBold, "DAILY RANKING", 14, UiKit.TextMain,
                 new Vector2(0.5f, 1f), new Vector2(0f, -12f), TextAnchor.UpperCenter, "RankTitle");
-            UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -34f), 440f,
+            UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -34f), 460f,
                 UiKit.TextAccent, "RankRule");
 
             // 컬럼 라벨은 본문과 **같은 폰트·크기·좌표·폭**이어야 자릿수가 맞는다.
             var header = UiKit.CreateCornerText(panel, _font, RankingHeader, 10, UiKit.TextDim,
                 new Vector2(0.5f, 1f), new Vector2(0f, -44f), TextAnchor.UpperLeft, "RankHeader");
-            header.rectTransform.sizeDelta = new Vector2(460f, 14f);
+            header.rectTransform.sizeDelta = new Vector2(480f, 14f);
             // 라벨과 기록을 가르는 헤어라인. 앰버는 위 룰 하나로 족하다 —
             // 액센트는 화면당 하나라는 계기판 원칙을 여기서도 지킨다.
-            UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -58f), 460f,
+            UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -58f), 480f,
                 UiKit.PanelBorder, "RankHeaderRule");
 
             _rankingBody = UiKit.CreateCornerText(panel, _font, "", 10, UiKit.TextDim,
                 new Vector2(0.5f, 1f), new Vector2(0f, -64f), TextAnchor.UpperLeft, "RankBody");
-            _rankingBody.rectTransform.sizeDelta = new Vector2(460f, 168f);
+            _rankingBody.rectTransform.sizeDelta = new Vector2(480f, 168f);
 
             UiKit.CreateTouchButton(panel, _font, "CLOSE", 11,
                 new Vector2(0.5f, 0f), new Vector2(0f, 12f), new Vector2(140f, 34f),
@@ -275,6 +293,13 @@ namespace Shmup.Presentation.Battle
         const string BadgeClose = "</color>";
 
         /// <summary>
+        /// 흐린 마커 색 = UiKit.TextDim. 본문(TextMain)보다 어두워 기록을 먼저 읽고
+        /// 나서 눈에 들어온다 — 컨티뉴 마커처럼 "곁들이는 사실"에만 쓴다.
+        /// </summary>
+        const string DimOpen = "<color=#77818C>";
+        const string DimClose = "</color>";
+
+        /// <summary>
         /// 보드 한 줄: 순위 · 파일럿 · 점수 · 달성 스테이지 · 기체 · 봄 · 피격 수.
         /// 헤더(<see cref="RankingHeader"/>)와 같은 컬럼 상수를 쓰고, 값이 없는 칸은
         /// '-'로 채워 자릿수를 지킨다 — 칸을 비우면 다음 컬럼이 밀려 헤더와 어긋난다.
@@ -288,7 +313,7 @@ namespace Shmup.Presentation.Battle
 
             sb.Append(rank.ToString().PadLeft(ColRank));
             sb.Append("  ");
-            sb.Append(Clip(entry.n, ColPilot).PadRight(ColPilot));
+            AppendPilotCell(sb, entry);
             sb.Append(' ');
             sb.Append(entry.s.ToString("N0").PadLeft(ColScore));
             sb.Append("  ");
@@ -299,6 +324,34 @@ namespace Shmup.Presentation.Battle
             AppendBombCell(sb, entry, detailed);
             sb.Append(' ');
             AppendHitCell(sb, entry);
+        }
+
+        /// <summary>
+        /// 파일럿 이름 + 컨티뉴 마커 (REQ-109).
+        ///
+        /// 마커는 이름이 끝나는 자리에 바로 붙는다 — 칸 끝에 오른쪽 정렬하면 짧은
+        /// 이름에서 마커가 허공에 떠 어느 줄 것인지 읽히지 않는다. 색은 TextDim이라
+        /// 기록을 먼저 읽고 나서 눈에 들어온다: 컨티뉴는 실격이 아니라 각주다.
+        ///
+        /// 색 태그는 폭에 잡히지 않으므로 남은 패딩은 태그 **밖에서** 실제 글자 수로
+        /// 계산해 채운다 (BOMB/HIT 칸이 태그 안쪽에 패딩을 넣는 것과 반대 방향이다 —
+        /// 여기서는 강조 대상이 칸 전체가 아니라 뒤에 붙은 두 글자뿐이라 그렇다).
+        /// </summary>
+        static void AppendPilotCell(System.Text.StringBuilder sb, ScoreboardEntry entry)
+        {
+            string name = Clip(entry.n, ColPilot);
+            sb.Append(name);
+            int used = name.Length;
+            if (entry.HasContinues)
+            {
+                // 서버가 이미 9로 자르지만, 손상된 응답이 컬럼 폭을 밀지 않게 한 번 더 막는다.
+                int continues = entry.cu > 9 ? 9 : entry.cu;
+                sb.Append(DimOpen);
+                sb.Append(" C").Append(continues);
+                sb.Append(DimClose);
+                used += ColContinue;
+            }
+            sb.Append(' ', ColPilot + ColContinue - used);
         }
 
         /// <summary>

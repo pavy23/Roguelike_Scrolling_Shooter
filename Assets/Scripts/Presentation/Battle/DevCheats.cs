@@ -117,11 +117,17 @@ namespace Shmup.Presentation.Battle
                 };
 
             // 변화 감지 키: hp/shield/스테이지/런 + 0.5초 단위 틱. 시드/난이도는 런 내 고정이라 런 변경에 묻어간다.
+            // 고스트 두 상태(기록 보유 / 활성)도 키에 넣는다 — 다른 값이 그대로면
+            // 합류 순간에 문자열이 재조립되지 않아 표시가 최대 0.5초 늦는다.
+            bool ghostLive = _director.GhostActive;
+            bool ghostRec = _director.HasGhostRecording;
             long key = ((long)_director.RunNumber << 48)
                      ^ ((long)_director.StageIndex << 40)
                      ^ ((long)_director.PlayerHp << 32)
                      ^ ((long)_director.ShieldRemaining << 24)
                      ^ ((long)(int)_director.StageSection << 20)
+                     ^ ((ghostLive ? 1L : 0L) << 19)
+                     ^ ((ghostRec ? 1L : 0L) << 18)
                      ^ (long)(_director.Tick / 30);
             if (key != _overlayKey)
             {
@@ -129,8 +135,13 @@ namespace Shmup.Presentation.Battle
                 string section = _sectionThemes != null
                     ? $"   sect {_sectionThemes.CurrentSection}/{_sectionThemes.DevPreviewLabel}"
                     : "";
+                // 타임루프 고스트 (REQ-109). F7 순환으로는 미리 볼 수 없다 — 재생에
+                // St1 입력 기록과 최종 구간 진입이 둘 다 필요해서 런 상태가 없으면
+                // 만들 수가 없다. 그래서 프리뷰 대신 **지금 자격이 있는지**를 적는다:
+                // rec = St1 기록 보유(최종 구간에 닿으면 뜬다), live = 지금 재생 중.
+                string ghost = ghostLive ? "   ghost:live" : ghostRec ? "   ghost:rec" : "";
                 _overlayText =
-                    $"run {_director.RunNumber}   stage {_director.StageIndex}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{section}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --god survives)";
+                    $"run {_director.RunNumber}   stage {_director.StageIndex}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{section}{ghost}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --god survives)";
             }
             GUI.Label(new Rect(8, 4, Screen.width - 16, _style.fontSize * 3), _overlayText, _style);
         }

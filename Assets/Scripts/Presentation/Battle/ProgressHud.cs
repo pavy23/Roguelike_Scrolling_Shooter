@@ -37,6 +37,13 @@ namespace Shmup.Presentation.Battle
         /// <summary>최종전 판돈 배너를 이미 띄웠는가 (런당 1회 — Core도 1회만 정산한다).</summary>
         bool _wagerBannerShown;
 
+        /// <summary>
+        /// 마지막으로 배너를 띄운 고스트 합류 번호 (REQ-109). director가 GhostSpawned를
+        /// 받을 때마다 올리는 값이라, 여기서는 "내가 본 번호와 다른가"만 보면 된다 —
+        /// 재출격으로 다시 합류해도 번호가 또 올라가므로 배너가 한 번 더 뜬다.
+        /// </summary>
+        int _shownGhostSpawn;
+
         /// <summary>데일리 표식 (좌상단, STAGE 바로 위). 데일리 런에서만 켜진다.</summary>
         Text _dailyBadge;
 
@@ -156,6 +163,17 @@ namespace Shmup.Presentation.Battle
                 _bannerText.text = $"BIOME {biome}  -  {ThemeName(_director.CurrentThemeId)}";
                 // 데일리라는 사실은 첫 스테이지 배너에서 한 번만 선언한다.
                 SetBannerDailyHeader(daily && biome == 1);
+            }
+            // 타임루프 고스트 합류 (REQ-109). 최종 바이옴 Closing에서 St1의 내 입력이
+            // 재생되며 반투명 기체 하나가 붙는다. 바이옴은 그대로라 진입 배너가 뜨지
+            // 않으므로, 정체 불명의 기체가 조용히 나타나지 않게 여기서 한 줄 선언한다.
+            // 판돈 배너보다 앞에 둔다 — 합류(Closing)가 판돈(최종 보스 진입)보다 먼저다.
+            else if (_shownGhostSpawn != _director.GhostSpawnSequence)
+            {
+                _shownGhostSpawn = _director.GhostSpawnSequence;
+                _bannerAge = 0f;
+                _bannerText.text = UiText.GhostJoinBanner;
+                SetBannerDailyHeader(false);
             }
             // 최종전 판돈 (REQ-104). 최종 보스 진입 경계에서 Core가 남은 컨티뉴를
             // 전부 회수해 실드와 점수로 바꾼다. 바이옴은 그대로라 진입 배너가 뜨지

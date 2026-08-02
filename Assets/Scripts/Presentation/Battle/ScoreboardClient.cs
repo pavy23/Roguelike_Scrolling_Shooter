@@ -43,6 +43,17 @@ namespace Shmup.Presentation.Battle
         public const int MissingHits = -1;
 
         public bool HasHits => ht >= 0;
+
+        /// <summary>
+        /// 이 런에서 쓴 컨티뉴 수 (REQ-109 뱃지, 서버 상한 9). 피격 수와 달리
+        /// **없는 것과 0이 같은 그림**이라 별도 표식이 필요 없다: 서버가 키를 빼면
+        /// JsonUtility가 0으로 채우고, 0은 애초에 마커를 그리지 않는다. 구 기록은
+        /// 마커 없는 정직한 공백으로 남고 "무컨티뉴 완주"를 사칭하지 않는다 —
+        /// 마커의 뜻이 "컨티뉴를 썼다"이지 "안 썼다"가 아니기 때문이다.
+        /// </summary>
+        public int cu;
+
+        public bool HasContinues => cu > 0;
     }
 
     [Serializable]
@@ -74,6 +85,7 @@ namespace Shmup.Presentation.Battle
         public int graze;
         public int maxCombo;
         public int hitsTaken;
+        public int continuesUsed;
     }
 
     [Serializable]
@@ -106,6 +118,12 @@ namespace Shmup.Presentation.Battle
 
         /// <summary>허용한 피격 수 (REQ-105). 서버 필드 <c>ht</c>, 상한 999.</summary>
         public int HitsTaken;
+
+        /// <summary>
+        /// 이 런에서 쓴 컨티뉴 수. 서버 필드 <c>cu</c>, 상한 9 (worker.js stat 목록과 같다).
+        /// 같은 점수라도 무컨티뉴 완주와 아홉 번 이어붙인 완주는 다른 기록이다.
+        /// </summary>
+        public int ContinuesUsed;
     }
 
     /// <summary>
@@ -247,7 +265,10 @@ namespace Shmup.Presentation.Battle
                 bombs = Clamp(submission.Bombs, 999),
                 graze = Clamp(submission.Graze, 999999),
                 maxCombo = Clamp(submission.MaxCombo, 99),
-                hitsTaken = Clamp(submission.HitsTaken, 999)
+                hitsTaken = Clamp(submission.HitsTaken, 999),
+                // 컨티뉴 (REQ-109 뱃지). 상한 9는 서버 stat()과 같은 값이다 — 넘으면
+                // 서버가 필드를 통째로 버려 "컨티뉴 안 썼음"으로 보이므로 여기서 자른다.
+                continuesUsed = Clamp(submission.ContinuesUsed, 9)
             };
             Host.StartCoroutine(SubmitRoutine(JsonUtility.ToJson(payload), onDone));
         }

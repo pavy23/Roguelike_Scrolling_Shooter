@@ -135,6 +135,14 @@ namespace Shmup.Presentation.Battle
         // 보스 등장
         public const string BossWarning = "!! WARNING !!";
 
+        /// <summary>
+        /// St5 타임루프 고스트 합류 (REQ-109). 최종 구간에서 St1의 내 입력이 그대로
+        /// 재생되며 반투명 기체 하나가 붙는다 — 설명 없이 뜨면 "적인가?"로 읽히므로
+        /// 정체를 한 줄로 못 박는다. 계기판 언어대로 명사구 대문자, 감탄부호 없음
+        /// (WARNING의 무게를 나눠 갖지 않는다 — 이건 경고가 아니라 통지다).
+        /// </summary>
+        public const string GhostJoinBanner = "PAST SELF JOINS";
+
         // 터치 기기 전용 문면. 폰에서는 키·패드 단축키 안내가 읽을 이유가 없어서,
         // 같은 자리에 터치 조작을 설명하거나 버튼이 대신하도록 비워 둔다.
         public const string Onboarding1Touch =
