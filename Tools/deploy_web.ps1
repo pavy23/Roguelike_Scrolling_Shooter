@@ -49,14 +49,26 @@ Invoke-Git -C $DeployRepo config user.email $userEmail
 Copy-Item (Join-Path $buildDir '*') (Join-Path $DeployRepo 'Build') -Recurse -Force
 
 # 캐시 스탬프 갱신 — 이게 없으면 배포가 플레이어에게 도달하지 않는다.
+#
+# **인코딩을 반드시 명시한다.** Windows PowerShell 5.1의 Get-Content는 BOM 없는
+# UTF-8 파일을 시스템 코드페이지(cp949)로 읽고, Set-Content -Encoding utf8은 BOM을
+# 붙인다. 그래서 스탬프 한 줄 바꾸려다 index.html의 한글이 전부 깨지고 BOM이 붙어
+# 배포된 적이 있다. .NET API로 직접 읽고 써서 왕복을 무손실로 만든다.
 $indexPath = Join-Path $DeployRepo 'index.html'
 $stamp = (Get-Date -Format 'yyyyMMdd-HHmm')
-$index = Get-Content $indexPath -Raw
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+$index = [System.IO.File]::ReadAllText($indexPath, $utf8NoBom)
 if ($index -notmatch 'var BUILD_STAMP = "([^"]*)"') {
     throw "index.html에 BUILD_STAMP가 없다 — 캐시 무효화가 빠진 채로 배포하면 안 된다."
 }
 $index = [regex]::Replace($index, 'var BUILD_STAMP = "[^"]*"', "var BUILD_STAMP = `"$stamp`"")
-Set-Content $indexPath $index -NoNewline -Encoding utf8
+[System.IO.File]::WriteAllText($indexPath, $index, $utf8NoBom)
+
+# 왕복이 실제로 무손실이었는지 확인한다 - 스탬프 줄 말고는 아무것도 달라지면 안 된다.
+$changed = (& git -C $DeployRepo diff --numstat -- index.html)
+if ($changed -and -not ($changed -match '^1\s+1\s')) {
+    throw "index.html이 스탬프 한 줄 이상 바뀌었다 ($changed) — 인코딩 사고다. 중단한다."
+}
 
 Invoke-Git -C $DeployRepo add Build index.html
 Invoke-Git -C $DeployRepo commit -m $Message
