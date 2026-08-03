@@ -9191,86 +9191,134 @@
       "difficultyMax": 5,
       "entryLaneMask": 7,
       "hp": 19600,
-      "halfWidth": 10.0,
-      "halfHeight": 5.0,
+      "halfWidth": 17.0,
+      "halfHeight": 8.5,
       "holdX": 12.0,
       "parts": [
         {
           "id": "engine",
-          "offsetX": 4.0,
-          "offsetY": 0.0,
-          "halfWidth": 2.5,
-          "halfHeight": 2.0,
+          "offsetX": 5.0,
+          "offsetY": 1.5,
+          "halfWidth": 3.5,
+          "halfHeight": 2.5,
           "hp": 2200,
           "attack": {
-            "type": "radialSpread",
-            "intervalTicks": 64,
-            "ways": 5,
-            "bulletSpeed": 9.0
+            "type": "aimedSpread",
+            "intervalTicks": 48,
+            "ways": 3,
+            "bulletSpeed": 5.5
           }
         },
         {
           "id": "turret_a",
           "offsetX": 4.0,
-          "offsetY": 3.5,
-          "halfWidth": 1.25,
-          "halfHeight": 1.09375,
+          "offsetY": 6.5,
+          "halfWidth": 1.5,
+          "halfHeight": 1.25,
           "hp": 900,
           "attack": {
-            "type": "aimedSpread",
-            "intervalTicks": 72,
-            "ways": 2,
-            "bulletSpeed": 10.0
+            "type": "laser",
+            "intervalTicks": 200,
+            "laser": {
+              "cycleIntervalTicks": 200,
+              "telegraphTicks": 48,
+              "firingTicks": 8,
+              "sustainTicks": 56,
+              "dissipateTicks": 12,
+              "startOffsetX": -1.5,
+              "startOffsetY": 0.0,
+              "endOffsetX": -28.0,
+              "endOffsetY": -3.0,
+              "thinHalfWidth": 0.25,
+              "fullHalfWidth": 0.75,
+              "damage": 1
+            }
           }
         },
         {
           "id": "turret_b",
-          "offsetX": 4.0,
-          "offsetY": -3.5,
-          "halfWidth": 1.25,
-          "halfHeight": 1.09375,
+          "offsetX": 0.0,
+          "offsetY": 7.0,
+          "halfWidth": 1.5,
+          "halfHeight": 1.25,
           "hp": 900,
           "attack": {
-            "type": "aimedSpread",
-            "intervalTicks": 72,
-            "ways": 2,
-            "bulletSpeed": 10.0
+            "type": "laser",
+            "intervalTicks": 180,
+            "laser": {
+              "cycleIntervalTicks": 180,
+              "telegraphTicks": 40,
+              "firingTicks": 8,
+              "sustainTicks": 48,
+              "dissipateTicks": 12,
+              "startOffsetX": -1.5,
+              "startOffsetY": 0.0,
+              "endOffsetX": -28.0,
+              "endOffsetY": -1.5,
+              "thinHalfWidth": 0.25,
+              "fullHalfWidth": 0.75,
+              "damage": 1
+            }
           }
         },
         {
           "id": "turret_c",
-          "offsetX": 0.0,
-          "offsetY": 2.0,
-          "halfWidth": 1.25,
-          "halfHeight": 1.09375,
+          "offsetX": -4.0,
+          "offsetY": 7.0,
+          "halfWidth": 1.5,
+          "halfHeight": 1.25,
           "hp": 900,
           "attack": {
-            "type": "aimedSpread",
-            "intervalTicks": 56,
-            "ways": 3,
-            "bulletSpeed": 9.0
+            "type": "laser",
+            "intervalTicks": 160,
+            "laser": {
+              "cycleIntervalTicks": 160,
+              "telegraphTicks": 36,
+              "firingTicks": 6,
+              "sustainTicks": 40,
+              "dissipateTicks": 10,
+              "startOffsetX": -1.5,
+              "startOffsetY": 0.0,
+              "endOffsetX": -28.0,
+              "endOffsetY": 1.5,
+              "thinHalfWidth": 0.25,
+              "fullHalfWidth": 0.75,
+              "damage": 1
+            }
           }
         },
         {
           "id": "turret_d",
-          "offsetX": 0.0,
-          "offsetY": -2.0,
-          "halfWidth": 1.25,
-          "halfHeight": 1.09375,
+          "offsetX": -8.0,
+          "offsetY": 6.5,
+          "halfWidth": 1.5,
+          "halfHeight": 1.25,
           "hp": 900,
           "attack": {
-            "type": "aimedSpread",
-            "intervalTicks": 56,
-            "ways": 3,
-            "bulletSpeed": 9.0
+            "type": "laser",
+            "intervalTicks": 220,
+            "laser": {
+              "cycleIntervalTicks": 220,
+              "telegraphTicks": 50,
+              "firingTicks": 8,
+              "sustainTicks": 60,
+              "dissipateTicks": 14,
+              "startOffsetX": -1.5,
+              "startOffsetY": 0.0,
+              "endOffsetX": -28.0,
+              "endOffsetY": 3.0,
+              "thinHalfWidth": 0.25,
+              "fullHalfWidth": 0.75,
+              "damage": 1
+            }
           }
         },
         {
           "id": "core",
-          "offsetX": -6.0,
+          "offsetX": -11.0,
           "offsetY": 0.0,
-          "halfWidth": 2.0,
-          "halfHeight": 2.0,
+          "halfWidth": 2.5,
+          "halfHeight": 2.5,
           "hp": 13800,
           "isCore": true,
           "attack": {

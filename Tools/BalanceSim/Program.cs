@@ -8973,13 +8973,21 @@ static class Program
         int coreHp = 0;
         int turretCount = 0;
         int turretHpSum = 0;
-        bool hasAimedTurret = false;
+        // REQ-139: hull turrets are laser-primary; stern engine is missile-like
+        // aimedSpread. Older REQ-111 aimedSpread-on-turrets vocabulary retired.
+        bool hasLaserTurret = false;
+        bool engineMissileLike = false;
         for (int i = 0; i < warshipBoss.Parts.Count; i++)
         {
             BossPartDefinition p = warshipBoss.Parts[i];
             partSum += p.MaxHp;
             if (string.Equals(p.PartId, "engine", StringComparison.Ordinal))
+            {
                 engineHp = p.MaxHp;
+                if (p.Attack.Type == BossPartAttackType.AimedSpread
+                    || p.Attack.Type == BossPartAttackType.RadialSpread)
+                    engineMissileLike = true;
+            }
             if (p.IsCore)
                 coreHp = p.MaxHp;
             if (p.PartId != null
@@ -8987,8 +8995,8 @@ static class Program
             {
                 turretCount++;
                 turretHpSum += p.MaxHp;
-                if (p.Attack.Type == BossPartAttackType.AimedSpread)
-                    hasAimedTurret = true;
+                if (p.Attack.Type == BossPartAttackType.Laser)
+                    hasLaserTurret = true;
             }
         }
 
@@ -9041,10 +9049,18 @@ static class Program
             failures++;
         }
 
-        if (!hasAimedTurret)
+        if (!hasLaserTurret)
         {
             Console.WriteLine(
-                "FAIL 111: hull turrets must reuse aimedSpread (laser_sentry/turret vocabulary).");
+                "FAIL 111/139: hull turrets must use laser (phase-2 laser-primary).");
+            failures++;
+        }
+
+        if (!engineMissileLike)
+        {
+            Console.WriteLine(
+                "FAIL 111/139: engine must use aimed/radial spread "
+                + "(phase-1 missile-primary).");
             failures++;
         }
 
