@@ -9062,7 +9062,16 @@ namespace Shmup.Core.Simulation
                 return;
 
             _ticksSinceLastComboAction = 0;
-            _comboGauge = 0;
+            // 게이지를 0으로 쓸어버리지 않고 절반만 깎는다 (사람 보고 2026-08-03:
+            // "스치기로 배율 올라가는 게 여전히 안 된다").
+            //
+            // 예전에는 한 단계 떨어질 때 게이지가 통째로 날아갔다. 그러면 다음 단계까지
+            // 쌓아 둔 것이 매번 리셋되어, 탄이 얇은 구간에서는 아무리 스쳐도 영원히
+            // 첫 배율에 못 닿는다 — 실제로 그레이즈 이득 3, 첫 임계 30이라
+            // "감쇠 창 안에 10번 스치기"를 요구하고 있었다.
+            //
+            // 절반만 깎으면 "밀렸지만 지운 건 아니다"가 되어, 다시 붙으면 금방 회복된다.
+            _comboGauge /= 2;
             _multiplierLevel--;
             AppendEvent(
                 SimEventType.MultiplierChanged,
