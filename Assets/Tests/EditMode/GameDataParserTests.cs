@@ -1529,7 +1529,8 @@ namespace Shmup.Core.Tests
             Assert.IsNotNull(
                 data.BattleContent.FindMissileFamily(
                     MissileFamily.Homing));
-            Assert.AreEqual(60, data.StageGeneration.Segments.Count);
+            // REQ-145: 8 theme-less segs × 5 themes → +32, catalog 60 → 92
+            Assert.AreEqual(92, data.StageGeneration.Segments.Count);
             bool hasLeviathan = false;
             bool hasBroodmother = false;
             for (int i = 0;

@@ -1689,3 +1689,9 @@ Core 내장과 동일: 캡슐×3 / 4슬롯 각 +1 / 선체 maxHP +1, weight 균�
 - `Assets/Resources/GameData/{enemies,ships,waves}.json` 동기화.
 - 장애물/주무기 계열 뷰 풀은 Core 이벤트·ShipDefinition 소비.
 
+
+
+## REQ-145 companion (CODEX)
+
+GameDataParserTests segment count 60��92 after theme-split. Applied on content branch as data-coupled expectation; please review.
+
