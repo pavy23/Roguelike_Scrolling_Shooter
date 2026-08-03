@@ -65,13 +65,22 @@ namespace Shmup.Presentation.Battle
         /// 맞추면서 더 커졌다(hive 코어 7×5u). 테두리로 바꾸면 같은 자리에서 같은 정보를
         /// 주면서 보스 아트를 가리지 않는다.
         ///
-        /// 8×8 텍스처의 1px 흰 테두리 + border 2px. 9-슬라이스는 모서리(2px)를 그대로
-        /// 두고 가운데만 늘리므로, 크기를 키워도 선 굵기가 안 변한다.
+        /// **네모 테두리는 쓰지 않는다** — 사람이 "네모 상자가 보이는데 피격 박스가
+        /// 보이는 거냐"고 물었다(2026-08-03, 에일리언형 보스). 닫힌 사각형은 이 바닥에서
+        /// 디버그 히트박스의 관용 표현이라, 정보가 아니라 개발 잔재로 읽힌다.
+        ///
+        /// 대신 **네 모서리 브래킷**을 그린다. 조준·잠금의 관용 표현이라 "여기가 목표인데
+        /// 지금은 잠겨 있다"로 읽히고, 변이 없어 히트박스로 오해되지 않는다.
+        ///
+        /// 16×16 텍스처에 모서리 L자만 그리고 border 5px로 9-슬라이스한다. 9-슬라이스는
+        /// 모서리를 원본 크기로 두고 변·가운데만 늘리는데, 그 변·가운데가 전부 투명이라
+        /// 파츠가 아무리 커도 브래킷 크기가 변하지 않는다.
         /// </summary>
         void EnsureRingSprite()
         {
             if (_ringSprite != null) return;
-            const int size = 8;
+            const int size = 16;
+            const int arm = 5;    // 모서리에서 뻗는 팔 길이(px) — border와 같아야 안 늘어난다
             var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
             {
                 filterMode = FilterMode.Point,
@@ -81,8 +90,13 @@ namespace Shmup.Presentation.Battle
             for (int y = 0; y < size; y++)
                 for (int x = 0; x < size; x++)
                 {
-                    bool edge = x == 0 || y == 0 || x == size - 1 || y == size - 1;
-                    texture.SetPixel(x, y, edge ? Color.white : clear);
+                    bool nearLeft = x < arm, nearRight = x >= size - arm;
+                    bool nearBottom = y < arm, nearTop = y >= size - arm;
+                    bool inCorner = (nearLeft || nearRight) && (nearBottom || nearTop);
+                    // 모서리 칸 안에서도 L자만 남긴다: 가장자리 1px 두 줄.
+                    bool onEdgeLine =
+                        x == 0 || y == 0 || x == size - 1 || y == size - 1;
+                    texture.SetPixel(x, y, inCorner && onEdgeLine ? Color.white : clear);
                 }
             texture.Apply();
             _ringSprite = Sprite.Create(
@@ -92,7 +106,7 @@ namespace Shmup.Presentation.Battle
                 16f,
                 0,
                 SpriteMeshType.FullRect,
-                new Vector4(2f, 2f, 2f, 2f));
+                new Vector4(arm, arm, arm, arm));
         }
 
         readonly Dictionary<string, SpriteRenderer> _overlays =

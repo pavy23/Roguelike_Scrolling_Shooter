@@ -1303,8 +1303,16 @@ namespace Shmup.Presentation.Battle
                     // 어휘를 확실히 가른다: 피격은 흰·주황 폭발, 차단은 **차가운 청록**이고
                     // 크기도 더 작다. "여기는 지금 못 깎는다"가 한 프레임에 읽혀야 한다.
                     case SimEventType.BossPartHitBlocked:
+                        // 사람 보고 2026-08-03: "처음 몸체를 때려도 데미지가 안 들어가는데
+                        // 이걸 알 수가 없네." 작은 스파크로는 탄 소멸과 구분이 안 됐다.
+                        // 두 겹으로 말한다 — 큰 청록 링(막혔다) + 튕겨 나가는 작은 불꽃.
+                        // 색은 파츠 잠금 브래킷과 같은 청록이라 "저 색 = 지금 못 깎는다"가
+                        // 하나의 어휘로 묶인다.
                         SpawnExplosion(
-                            SimView.ToWorld(e.X, e.Y), 0.36f, BlockedHitTint);
+                            SimView.ToWorld(e.X, e.Y), 0.85f, BlockedHitTint);
+                        SpawnExplosion(
+                            SimView.ToWorld(e.X - SimSpace.SubUnitsPerWorldUnit / 2, e.Y),
+                            0.4f, BlockedHitTint);
                         break;
                     case SimEventType.MultiplierChanged:
                         ScoreMultiplier = e.Arg;

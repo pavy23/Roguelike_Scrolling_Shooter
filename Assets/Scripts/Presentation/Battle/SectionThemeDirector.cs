@@ -167,7 +167,12 @@ namespace Shmup.Presentation.Battle
         // 재사용하고, 쓰지 않을 때는 enabled=false로만 재운다 (게임 루프 Instantiate 금지).
         const float FadeSecondsMin = 2f;
         const float FadeSecondsMax = 3f;
-        const float FadeSecondsLong = 5f;    // 롱블렌드(MidBoss 14~20초) 구간
+        // 롱블렌드(MidBoss 14~20초) 구간의 스프라이트 디졸브. 5초였는데 사람이
+        // "중간보스 돌입할 때 갑자기 배경이 바뀌어 엄청 어색하다"고 했다 — 틴트는
+        // 20초에 걸쳐 스미는데 **그림 교체만 5초**라 그 5초가 전환의 정체로 읽혔다.
+        // 12초로 늘려 틴트와 보조를 맞춘다. 낮 → 노을처럼 팔레트 차이가 큰 전환일수록
+        // 이 값이 짧으면 "장면이 갈린다".
+        const float FadeSecondsLong = 12f;
         const float LongBlendThreshold = 10f;
         const int GhostSortingOffset = 1;
 
