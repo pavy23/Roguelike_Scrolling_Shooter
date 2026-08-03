@@ -25,6 +25,12 @@ namespace Shmup.Presentation.Battle
     // 여기를 다시 올리려면 반드시 실제 배경 위에서 확인해라. 값만 보고 정하면
     // 또 잠긴다 (두 번 겪었다).
 
+    // 중간보스 구간 전환 길이 20/18/16/14초 → 6초 (사람 보고 2026-08-03:
+    // "중간보스 진입할 때 스테이지가 끊긴다"). 전환 중에는 옛 배경과 새 배경이
+    // **둘 다 그려진다**(DriveGhost 크로스페이드). 20초짜리 전환은 중간보스 전투
+    // 내내 배경 드로우가 두 배라는 뜻이고, 모바일에서 프레임이 끌리기 쉽다.
+    // 분위기 전환은 6초면 충분히 읽힌다 — 그 뒤로는 한 겹만 그린다.
+
     /// <summary>스테이지 내 4구간. Core의 RunStageSection을 표현용으로 압축한 것.</summary>
     public enum SectionKind
     {
@@ -200,7 +206,7 @@ namespace Shmup.Presentation.Battle
                 },
                 new SectionTheme
                 {
-                    themeId = "scrapyard", section = SectionKind.MidBoss, enterSeconds = 20f,
+                    themeId = "scrapyard", section = SectionKind.MidBoss, enterSeconds = 6f,
                     wash = C(0.95f, 0.62f, 0.34f, 0.10f),
                     layers = L(C(0.85f, 0.78f, 0.82f, 0.70f), 1.00f,
                                C(1.00f, 0.86f, 0.70f), 1.00f,
@@ -252,7 +258,7 @@ namespace Shmup.Presentation.Battle
                 },
                 new SectionTheme
                 {
-                    themeId = "hive", section = SectionKind.MidBoss, enterSeconds = 18f,
+                    themeId = "hive", section = SectionKind.MidBoss, enterSeconds = 6f,
                     wash = C(0.36f, 0.85f, 0.52f, 0.10f),
                     layers = L(C(0.70f, 0.92f, 0.78f, 0.45f), 1.00f,
                                C(0.80f, 0.98f, 0.84f), 1.00f,
@@ -361,7 +367,7 @@ namespace Shmup.Presentation.Battle
                 },
                 new SectionTheme
                 {
-                    themeId = "nebula", section = SectionKind.MidBoss, enterSeconds = 16f,
+                    themeId = "nebula", section = SectionKind.MidBoss, enterSeconds = 6f,
                     wash = C(0.10f, 0.08f, 0.22f, 0.10f),
                     layers = L(C(0.55f, 0.52f, 0.75f, 0.70f), 1.05f,
                                C(0.57f, 0.50f, 0.75f), 1.10f,
@@ -418,7 +424,7 @@ namespace Shmup.Presentation.Battle
                 },
                 new SectionTheme
                 {
-                    themeId = "core", section = SectionKind.MidBoss, enterSeconds = 14f,
+                    themeId = "core", section = SectionKind.MidBoss, enterSeconds = 6f,
                     wash = C(0.25f, 0.70f, 1.00f, 0.10f),
                     layers = L(C(0.90f, 0.95f, 1.00f, 1.00f), 1.05f,
                                C(0.88f, 1.00f, 1.00f), 1.10f,

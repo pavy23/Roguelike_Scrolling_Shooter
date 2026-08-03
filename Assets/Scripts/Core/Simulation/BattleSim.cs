@@ -9043,6 +9043,19 @@ namespace Shmup.Core.Simulation
             if (_comboActionThisTick || _multiplierLevel == 0)
                 return;
 
+            // 보스 등장 연출·페이즈 전환 중에는 시계를 세운다 (사람 보고 2026-08-03:
+            // "중간보스 진입할 때 배율이 끊긴다").
+            //
+            // 이 구간에서는 플레이어가 콤보를 이을 방법이 **하나도 없다**: 보스는
+            // ApplyDamageToBoss/Part가 BossEntering을 걸러 데미지를 안 받고, 잡졸은
+            // 이미 정리됐으며, 보스는 아직 탄을 뿌리지 않아 그레이즈도 없다.
+            // 손쓸 방법이 없는 시간에 벌을 주면 그건 규칙이 아니라 사고다.
+            //
+            // 감쇠를 아예 없애는 것이 아니라 **멈추는** 것이다 — 연출이 끝나 보스가
+            // 자리를 잡으면 그 자리부터 다시 흐른다.
+            if (BossEntering || BossTransitioning)
+                return;
+
             if (_ticksSinceLastComboAction < _comboDecayTicks)
                 _ticksSinceLastComboAction++;
             if (_ticksSinceLastComboAction < _comboDecayTicks)
