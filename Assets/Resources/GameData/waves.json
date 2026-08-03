@@ -9148,18 +9148,20 @@
           "hpThreshold": 0.667
         },
         {
-          "pattern": "radial",
-          "fireIntervalTicks": 14,
-          "ways": 3,
-          "bulletSpeed": 14.5,
-          "projectileKind": "splitter",
-          "splitAfterTicks": 14,
+          "pattern": "spiral",
+          "fireIntervalTicks": 10,
+          "ways": 5,
+          "bulletSpeed": 12.0,
+          "projectileKind": "mine",
+          "mineTravelTicks": 12,
+          "mineTelegraphTicks": 16,
+          "mineAcceleration": 2800,
           "signaturePatternId": "brood",
           "signatureSpawnEnemyId": "hive_tentacle",
-          "signatureHomingTurnLutSlotsPerTick": 1,
+          "signatureHomingTurnLutSlotsPerTick": 2,
           "movementPattern": "verticalSine",
-          "movementAmplitude": 3.5,
-          "movementPeriodTicks": 72,
+          "movementAmplitude": 4.25,
+          "movementPeriodTicks": 54,
           "partVulnerability": "all",
           "hpThreshold": 0.333,
           "partRules": [
@@ -9198,7 +9200,7 @@
         {
           "id": "engine",
           "offsetX": 5.0,
-          "offsetY": 7.0,
+          "offsetY": 7.5625,
           "halfWidth": 3.5,
           "halfHeight": 2.5,
           "hp": 2200,
@@ -9212,7 +9214,7 @@
         {
           "id": "turret_a",
           "offsetX": 4.0,
-          "offsetY": 6.5,
+          "offsetY": 6.1875,
           "halfWidth": 1.5,
           "halfHeight": 1.25,
           "hp": 900,
@@ -9238,7 +9240,7 @@
         {
           "id": "turret_b",
           "offsetX": 0.0,
-          "offsetY": 7.0,
+          "offsetY": 6.6875,
           "halfWidth": 1.5,
           "halfHeight": 1.25,
           "hp": 900,
@@ -9264,7 +9266,7 @@
         {
           "id": "turret_c",
           "offsetX": -4.0,
-          "offsetY": 7.0,
+          "offsetY": 3.875,
           "halfWidth": 1.5,
           "halfHeight": 1.25,
           "hp": 900,
@@ -9290,7 +9292,7 @@
         {
           "id": "turret_d",
           "offsetX": -8.0,
-          "offsetY": 6.5,
+          "offsetY": 3.0,
           "halfWidth": 1.5,
           "halfHeight": 1.25,
           "hp": 900,
@@ -9346,7 +9348,7 @@
             "partIds": [
               "engine"
             ],
-            "anchorOffsetY": -9.0,
+            "anchorOffsetY": -8.0,
             "anchorTravelTicks": 0
           },
           {

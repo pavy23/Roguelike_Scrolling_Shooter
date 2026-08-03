@@ -9200,7 +9200,7 @@
         {
           "id": "engine",
           "offsetX": 5.0,
-          "offsetY": 7.0,
+          "offsetY": 7.5625,
           "halfWidth": 3.5,
           "halfHeight": 2.5,
           "hp": 2200,
@@ -9214,7 +9214,7 @@
         {
           "id": "turret_a",
           "offsetX": 4.0,
-          "offsetY": 6.5,
+          "offsetY": 6.1875,
           "halfWidth": 1.5,
           "halfHeight": 1.25,
           "hp": 900,
@@ -9240,7 +9240,7 @@
         {
           "id": "turret_b",
           "offsetX": 0.0,
-          "offsetY": 7.0,
+          "offsetY": 6.6875,
           "halfWidth": 1.5,
           "halfHeight": 1.25,
           "hp": 900,
@@ -9266,7 +9266,7 @@
         {
           "id": "turret_c",
           "offsetX": -4.0,
-          "offsetY": 7.0,
+          "offsetY": 3.875,
           "halfWidth": 1.5,
           "halfHeight": 1.25,
           "hp": 900,
@@ -9292,7 +9292,7 @@
         {
           "id": "turret_d",
           "offsetX": -8.0,
-          "offsetY": 6.5,
+          "offsetY": 3.0,
           "halfWidth": 1.5,
           "halfHeight": 1.25,
           "hp": 900,
@@ -9348,7 +9348,7 @@
             "partIds": [
               "engine"
             ],
-            "anchorOffsetY": -9.0,
+            "anchorOffsetY": -8.0,
             "anchorTravelTicks": 0
           },
           {
