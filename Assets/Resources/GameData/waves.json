@@ -9199,10 +9199,10 @@
       "parts": [
         {
           "id": "engine",
-          "offsetX": 5.0,
-          "offsetY": 7.5625,
-          "halfWidth": 3.5,
-          "halfHeight": 2.5,
+          "offsetX": 2.25,
+          "offsetY": 3.75,
+          "halfWidth": 3.0,
+          "halfHeight": 2.0,
           "hp": 2200,
           "attack": {
             "type": "aimedSpread",
@@ -9348,7 +9348,7 @@
             "partIds": [
               "engine"
             ],
-            "anchorOffsetY": -8.0,
+            "anchorOffsetY": -4.0,
             "anchorTravelTicks": 0
           },
           {
