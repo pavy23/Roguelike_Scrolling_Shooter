@@ -347,6 +347,17 @@ namespace Shmup.Presentation.Battle
         public string BossStageId =>
             _run != null && _run.StagePlan != null ? _run.StagePlan.BossId : null;
 
+        /// <summary>
+        /// 지금 장착된 미사일 계열 / 옵션 편대. 게이지 HUD가 **레벨 숫자 대신 유형**을
+        /// 보여 주는 데 쓴다 (사람 지시 2026-08-03: "missile은 유형, option은 타입
+        /// 형태를 표기해주는게 알기 좋을듯"). 레벨만 보면 무엇이 달린 건지 알 수 없다.
+        /// </summary>
+        public MissileFamily CurrentMissileFamily =>
+            _run != null ? _run.CurrentMissileFamily : MissileFamily.Straight;
+
+        public OptionFormation CurrentOptionFormation =>
+            _run != null ? _run.CurrentOptionFormation : OptionFormation.Trail;
+
         /// <summary>보스 중심 x (서브유닛). 좌우 파츠를 가르는 기준으로 쓴다.</summary>
         public int BossPositionSubUnitsX => _sim != null ? _sim.Boss.X : 0;
 

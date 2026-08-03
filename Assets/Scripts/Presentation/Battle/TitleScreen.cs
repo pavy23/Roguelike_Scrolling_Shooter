@@ -536,24 +536,18 @@ namespace Shmup.Presentation.Battle
             // 남으면 랭킹 버튼만 허공에 떠 보인다.
             float rightY = -150f;
 
-            if (_seedUi)
+            // 시드 버튼은 없앴다 (사람 지시 2026-08-03: "seed 부여 버튼은 필요없지
+            // 않나?"). 타이틀에 들어올 때마다 시드는 어차피 새로 뽑히고, 다시 뽑기
+            // 버튼은 그 위에 있으나 없으나 결과가 같았다. 값은 개발 모드에서만
+            // 읽기 전용으로 남긴다 — 버그 재현에 시드가 필요하다.
+            if (_seedUi && _seedValueText != null)
             {
-                // 시드는 폰에서 숫자 입력이 번거로우므로 다시 뽑기만 제공한다.
-                UiKit.CreateTouchButton(parent, _font, "NEW SEED", 10,
-                    new Vector2(1f, 1f), new Vector2(-10f, rightY), new Vector2(112f, h),
-                    RerollSeed, "SeedButton");
-                rightY -= h + 4f;
-
-                // 시드 값은 그 버튼 바로 아래로 — 원래 자리(하단 중앙)는 LAUNCH와 격납고가 쓴다.
-                if (_seedValueText != null)
-                {
-                    var rect = _seedValueText.rectTransform;
-                    rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(1f, 1f);
-                    rect.anchoredPosition = new Vector2(-10f, rightY);
-                    rect.sizeDelta = new Vector2(112f, 20f);
-                    _seedValueText.alignment = TextAnchor.UpperRight;
-                    _seedValueText.fontSize = 9;
-                }
+                var rect = _seedValueText.rectTransform;
+                rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(1f, 1f);
+                rect.anchoredPosition = new Vector2(-10f, rightY);
+                rect.sizeDelta = new Vector2(112f, 20f);
+                _seedValueText.alignment = TextAnchor.UpperRight;
+                _seedValueText.fontSize = 9;
                 rightY -= 26f;
             }
 

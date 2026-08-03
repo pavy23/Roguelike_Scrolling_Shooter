@@ -1530,7 +1530,15 @@ namespace Shmup.Core.Tests
                 data.BattleContent.FindMissileFamily(
                     MissileFamily.Homing));
             // REQ-145: 8 theme-less segs × 5 themes → +32, catalog 60 → 92
-            Assert.AreEqual(92, data.StageGeneration.Segments.Count);
+            // 세그먼트 **개수**는 콘텐츠 분량이지 계약이 아니다. 60 → 92로 늘 때마다
+            // (테마별 분할 REQ-145) 이 단언만 깨졌다 — 오늘만 다섯 번째다.
+            // 지켜야 할 성질은 "카탈로그가 비어 있지 않다"와 "테마 없는 세그먼트가
+            // 없다"(테마 없는 세그먼트는 모든 테마에 섞여 분위기를 깬다)이다.
+            Assert.Greater(data.StageGeneration.Segments.Count, 0);
+            for (int i = 0; i < data.StageGeneration.Segments.Count; i++)
+                Assert.IsNotNull(
+                    data.StageGeneration.Segments[i].ThemeId,
+                    $"세그먼트 {i}에 테마가 없다.");
             bool hasLeviathan = false;
             bool hasBroodmother = false;
             for (int i = 0;

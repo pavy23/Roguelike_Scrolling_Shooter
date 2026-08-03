@@ -1,4 +1,5 @@
 using Shmup.Core;
+using Shmup.Core.Simulation;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -45,6 +46,8 @@ namespace Shmup.Presentation.Battle
 
         /// <summary>게이지 슬롯 식별용 — 실드만 표기 규칙이 다르다(레벨 아님, 스톡).</summary>
         const string ShieldNameKey = "shield";
+        const string MissileNameKey = "missile";
+        const string OptionNameKey = "option";
         int _builtCount = -1;
         int _shownShield = int.MinValue;
 
@@ -215,6 +218,30 @@ namespace Shmup.Presentation.Battle
         /// (REQ-089에서 확인) 소문자 포함 검사로 매칭한다 — 정확 일치는 조용히 폴백돼
         /// 진화명이 아예 안 보였다. 표시명은 슬롯 폭(76px) 안에 들어가게 짧게.
         /// </summary>
+        /// <summary>미사일 계열 이름. 짧게 — 슬롯 폭이 좁다.</summary>
+        static string MissileFamilyName(MissileFamily family)
+        {
+            switch (family)
+            {
+                case MissileFamily.SpreadBomb: return "SPREAD";
+                case MissileFamily.PiercingLance: return "LANCE";
+                case MissileFamily.DownwardDrop: return "DROP";
+                case MissileFamily.Homing: return "HOMING";
+                default: return "STRAIGHT";
+            }
+        }
+
+        /// <summary>옵션 편대 형태.</summary>
+        static string OptionFormationName(OptionFormation formation)
+        {
+            switch (formation)
+            {
+                case OptionFormation.Fixed: return "FIXED";
+                case OptionFormation.Orbit: return "ORBIT";
+                default: return "TRAIL";
+            }
+        }
+
         static string EvolutionName(string nameKey, int level)
         {
             string key = (nameKey ?? "").ToLowerInvariant();
@@ -269,10 +296,24 @@ namespace Shmup.Presentation.Battle
                 // ToUpperInvariant가 만들고 있었다.
                 bool shieldSlot = string.Equals(
                     view.NameKey, ShieldNameKey, System.StringComparison.OrdinalIgnoreCase);
+                bool missileSlot = _director != null && string.Equals(
+                    view.NameKey, MissileNameKey, System.StringComparison.OrdinalIgnoreCase);
+                bool optionSlot = _director != null && string.Equals(
+                    view.NameKey, OptionNameKey, System.StringComparison.OrdinalIgnoreCase);
+
+                // 슬롯마다 **읽고 싶은 정보가 다르다** (사람 지시 2026-08-03).
+                //   샷    = 위력      → 레벨이 곧 화력이라 LV 그대로가 맞다
+                //   미사일 = 유형      → 기체·보상마다 계열이 달라 "LV2"로는 뭐가 달렸는지 모른다
+                //   옵션   = 편대 형태 → 마찬가지로 숫자가 아니라 배치가 정체다
+                //   실드   = 재고      → 애초에 레벨이 아니다
                 _labels[i].text = view.IsActiveWeaponMode
                     ? $"{EvolutionName(view.NameKey, view.Level)}\n{(view.Level >= view.MaxLevel ? "MAX" : $"MK{view.Level}")}"
                     : shieldSlot
                         ? $"{name}\nx{(_director != null ? _director.ShieldRemaining : 0)}"
+                    : missileSlot && view.Level > 0
+                        ? $"{name}\n{MissileFamilyName(_director.CurrentMissileFamily)}"
+                    : optionSlot && view.Level > 0
+                        ? $"{name}\n{OptionFormationName(_director.CurrentOptionFormation)}"
                     : view.MaxLevel <= 1 ? name
                     : maxed ? $"{name}\nMAX"
                     : $"{name}\nLV{view.Level}";

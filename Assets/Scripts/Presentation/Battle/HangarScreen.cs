@@ -76,7 +76,9 @@ namespace Shmup.Presentation.Battle
             // 컨티뉴 재고 — 격납고 왼쪽 아래. 함선 정보(가운데)와 겹치지 않고,
             // "출격 전에 사 두는 물건"이라는 점에서 해금과 같은 층위에 둔다.
             _continueText = UiKit.CreateCornerText(canvas.transform, _font, "", 10,
-                UiKit.TextDim, new Vector2(0f, 0f), new Vector2(10f, 52f),
+                // 62 = BUY 버튼(y14, 높이34) 위로 확실히 띄운다. 52였을 때는 버튼
+                // 테두리에 글자가 걸쳐 겹쳐 보였다 (사람 지적 2026-08-03).
+                UiKit.TextDim, new Vector2(0f, 0f), new Vector2(10f, 62f),
                 TextAnchor.LowerLeft, "ContinueStock");
             _continueText.rectTransform.sizeDelta = new Vector2(220f, 28f);
 
