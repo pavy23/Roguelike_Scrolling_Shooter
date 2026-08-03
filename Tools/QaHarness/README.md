@@ -55,3 +55,21 @@ node rss-verify.js --stage 3 --warp boss --seed 2 --seconds 40 --out ./out/st3
 
 AGENTS.md §9: 사람이 해제할 때까지 **항상 headless**다. `headless: false`로 바꾸지 마라 —
 작업자 화면에 창이 튀어나온다.
+
+## README 스크린샷 만들기
+
+`docs/screenshots/*.png`는 손으로 찍지 않는다. 게임이 바뀌어도 아무도 다시 찍지
+않아서, 한때 README의 전함 사진은 함체를 34×17로 키우기 전 것이었고 타이틀 사진에는
+없어진 시드 버튼이 남아 있었다.
+
+```
+cd Builds/Web && python -m http.server 8099 --bind 127.0.0.1     # 서버
+node Tools/QaHarness/doc_shots.js                                 # 캡처
+python Tools/QaHarness/compose_docs.py                            # 시트 합성
+```
+
+- 장면 목록은 `doc_shots.js`의 `SCENES`에 있다. **시드를 박아 둔다** — 테마는 시드가
+  정하므로 안 박으면 "3스테이지 전함"을 찍으려다 하이브가 나온다(실제로 그랬다).
+- 출격 후 **F3**으로 진단 오버레이를 끈다. 워프·무적은 그대로 쓰되 좌표·시드가
+  문서에 남지 않게 한다.
+- 시트 라벨은 영문이다 — PIL 기본 폰트에 한글 글리프가 없어 네모로 찍힌다.
