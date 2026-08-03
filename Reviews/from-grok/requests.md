@@ -4,6 +4,31 @@
 
 ---
 
+## 2026-08-03 REQ-139 — 거대 전함 스케일·미사일/레이저 패턴 (1차)
+
+**완료 (content, 데이터 가능분):**
+- `boss_fortress` half **17.0×8.5** (화면 걸침 연출용 본체 박스)
+- 파츠: 포탑 4문 갑판 일렬(y≈6.5–7), 코어 함수 안쪽(ox=-11), 함미 engine 상향 배치
+- 1페이즈 engine = 저속 `aimedSpread` (미사일 체감) / 2페이즈 turret = `laser` 스태거
+- HP **19600 잠금** (크기↑≠시간↑)
+- anchor / 로봇 폼 **미포함** (Core 스키마 대기)
+- 표: `Reviews/from-grok/req139-report.md`
+
+### CODEX
+1. [ ] 그룹별 `anchorX`/`anchorY`/`anchorTravelTicks` + `advanceOnGroupCleared`
+2. [ ] 로봇 폼 (`_bossForm2` 경로를 그룹 전멸에도)
+3. [ ] `GameDataParserTests.RepositoryApprovedV2Files_ParseCompletely`: `RerollCost` expect **5→4** (REQ-137 실데이터, content 브랜치 `dotnet test` 1실패 원인)
+
+### CLAUDE
+1. [ ] Resources `GameData/waves.json` 동기화 (content 병합 후)
+2. [ ] 거대 함체 아트 (본체 half 17×8.5에 맞춤) + 하드포인트 정렬
+3. [ ] 정박/로봇 연출은 Core 스키마 이후
+
+### 사람
+1. [ ] 거대 스케일·미사일→레이저 체감 확정 (로봇/정박은 2차)
+
+---
+
 ## 2026-08-03 REQ-137 / REQ-138 — 캡슐 ×0.7 + 하이브 보스 재설계
 
 **완료 (content):**
