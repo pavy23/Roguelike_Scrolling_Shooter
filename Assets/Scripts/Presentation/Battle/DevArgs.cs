@@ -28,6 +28,15 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         const string WarpKey = "warp";
 
+        /// <summary>
+        /// 미지의 구역에서 바로 시작 (REQ-123). `--uncharted` / `?dev=1&uncharted=1`.
+        /// 거대 보스 2종(레비아탄/브루드마더)은 5바이옴 완주 + 히든 조건 2/3을 채운
+        /// 최종 항로에서만 열려 사실상 회귀 검증이 불가능했다 — 실제로 두 보스의
+        /// 스프라이트가 엉뚱한 그림으로 나오는 버그가 오래 살아남았다.
+        /// Core가 이 런에 DevFlagsActive를 세워 점수 제출을 닫는다.
+        /// </summary>
+        const string UnchartedKey = "uncharted";
+
         static bool _devMode;
         static bool _devModeResolved;
 
@@ -162,6 +171,23 @@ namespace Shmup.Presentation.Battle
             }
         }
 
+        static bool _unchartedResolved;
+        static bool _uncharted;
+
+        /// <summary>미지의 구역에서 시작. 개발 모드가 아니면 항상 false.</summary>
+        public static bool StartInUncharted
+        {
+            get
+            {
+                if (_unchartedResolved) return _uncharted;
+                _unchartedResolved = true;
+                _uncharted = DevMode
+                    && TryReadArg(UnchartedKey, out string raw)
+                    && IsTruthy(raw);
+                return _uncharted;
+            }
+        }
+
         static bool _warpResolved;
         static RunStageSection? _warp;
 
@@ -192,9 +218,19 @@ namespace Shmup.Presentation.Battle
                 case "midboss":
                 case "mid": return RunStageSection.MidBoss;
                 case "late":
-                case "closing": return RunStageSection.Closing;
+                case "closing":
+                    return StartInUncharted
+                        ? RunStageSection.HiddenOpening
+                        : RunStageSection.Closing;
+                // 미지의 구역은 구간 이름이 따로다(HiddenOpening/HiddenBoss). `warp=boss`를
+                // 쓰는 쪽에서 그 차이를 알 이유가 없으니 여기서 흡수한다 — 안 그러면
+                // `?uncharted=1&warp=boss`가 영영 도달하지 못하고 상한에서 멈춘다.
                 case "boss":
-                case "stageboss": return RunStageSection.StageBoss;
+                case "stageboss":
+                    return StartInUncharted
+                        ? RunStageSection.HiddenBoss
+                        : RunStageSection.StageBoss;
+                case "hiddenboss": return RunStageSection.HiddenBoss;
                 default:
                     Debug.LogWarning(
                         $"[dev] warp={raw} 를 모르겠다. early|midboss|late|boss 중 하나여야 한다.");

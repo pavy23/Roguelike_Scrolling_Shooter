@@ -17,6 +17,15 @@ namespace Shmup.Presentation.Battle
     {
         const float FlashDuration = 0.09f;
 
+        /// <summary>피격 플래시 최대 알파. 이 값 그대로 나오는 것은 작은 파츠뿐이다.</summary>
+        const float MaxFlashAlpha = 0.55f;
+
+        /// <summary>
+        /// 이 면적(월드 유닛²)까지는 플래시를 최대 알파로 얹는다. 그보다 큰 파츠는
+        /// 면적에 반비례해 옅어진다 — 4×4유닛(=16) 언저리가 "번쩍였다"로 읽히는 상한이다.
+        /// </summary>
+        const float FlashAreaReference = 16f;
+
         [SerializeField] BattleDirector _director;
         [SerializeField] Transform _root;
         [SerializeField] Sprite _markSprite;        // 1px 흰색 사각 (틴트로 재사용)
@@ -138,7 +147,16 @@ namespace Shmup.Presentation.Battle
                 else if (age < FlashDuration)
                 {
                     _flashAge[part.PartId] = age + Time.deltaTime;
-                    color = new Color(1f, 1f, 1f, 0.55f);
+                    // 큰 파츠에 균일한 흰 채움을 얹으면 "흰 판때기"가 되어 아트를 통째로
+                    // 덮는다 (미지의 구역 레비아탄 머리에서 실제로 그렇게 보였다 —
+                    // 무적 표시를 테두리로 바꾼 것과 같은 계열의 문제다).
+                    // 두 가지로 나눠 막는다:
+                    //   1) 면적이 클수록 알파를 낮춘다 — 작은 포탑은 스파크, 큰 파츠는 홍조
+                    //   2) 시간에 따라 감쇠 — 상수 알파는 지속되는 판으로 읽힌다
+                    float area = overlay.size.x * overlay.size.y;
+                    float sizeScale = Mathf.Clamp01(FlashAreaReference / Mathf.Max(area, 0.01f));
+                    float decay = 1f - Mathf.Clamp01(age / FlashDuration);
+                    color = new Color(1f, 1f, 1f, MaxFlashAlpha * sizeScale * decay);
                 }
                 else if (part.IsCore && part.CoreGated)
                 {

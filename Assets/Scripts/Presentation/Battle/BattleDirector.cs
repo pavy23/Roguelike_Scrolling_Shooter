@@ -865,7 +865,19 @@ namespace Shmup.Presentation.Battle
                 // 시작 스테이지 점프 (REQ-096). Core는 범위를 벗어나면 예외를 던지므로
                 // 오타가 런을 아예 못 띄우는 일이 없게 여기서 캠페인 길이로 자른다.
                 RunConfig runConfig = null;
-                if (devRunFlags && DevArgs.OverrideStartStage.HasValue)
+                // 미지의 구역 직행 (REQ-123). 5바이옴 완주 + 히든 조건 2/3을 요구하는
+                // 최종 항로에서만 열리던 거대 보스 2종을 바로 띄운다. 조건 카운터도
+                // 함께 채워 둔다 — 히든 바이옴 안에서 조건을 다시 보는 경로가 있어도
+                // 자격 미달로 흐름이 끊기지 않게. Core가 DevFlagsActive를 세워 제출은 닫힌다.
+                if (devRunFlags && DevArgs.StartInUncharted)
+                {
+                    runConfig = new RunConfig(
+                        startInHiddenBiome: true,
+                        initialEliteRoomsCleared: 3,
+                        initialNoHitBiomesCleared: 2,
+                        initialRareEncountersCleared: 1);
+                }
+                else if (devRunFlags && DevArgs.OverrideStartStage.HasValue)
                 {
                     int lastStage = RunProgressionConfig.CreateDefault().BiomeCount;
                     runConfig = new RunConfig(

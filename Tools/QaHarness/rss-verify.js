@@ -22,12 +22,13 @@ const BASE = process.env.RSS_URL || 'http://127.0.0.1:8099/index.html';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function parseArgs(argv) {
-  const a = { stage: null, warp: null, seed: null, seconds: 30, out: './out/run', god: true };
+  const a = { stage: null, warp: null, seed: null, seconds: 30, out: './out/run', god: true, uncharted: false };
   for (let i = 2; i < argv.length; i += 2) {
     const k = argv[i].replace(/^--/, '');
     const v = argv[i + 1];
     if (k === 'seconds') a.seconds = parseInt(v, 10);
     else if (k === 'god') a.god = v !== '0';
+    else if (k === 'uncharted') a.uncharted = v !== '0';
     else a[k] = v;
   }
   return a;
@@ -96,6 +97,8 @@ async function main() {
   const q = ['dev=1'];
   if (args.god) q.push('god=1');
   if (args.stage) q.push(`stage=${args.stage}`);
+  // 미지의 구역 직행 (REQ-123). warp=boss와 같이 쓰면 거대 보스 앞에서 시작한다.
+  if (args.uncharted) q.push('uncharted=1');
   if (args.warp) q.push(`warp=${args.warp}`);
   const url = `${BASE}?${q.join('&')}`;
   console.log('url:', url);
