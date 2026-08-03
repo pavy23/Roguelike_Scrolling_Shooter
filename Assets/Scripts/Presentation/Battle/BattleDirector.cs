@@ -374,6 +374,69 @@ namespace Shmup.Presentation.Battle
                 : 0f;
 
         /// <summary>
+        /// 원하는 테마(또는 거대 보스)가 나오는 시드를 찾는다. 개발자 패널 전용.
+        ///
+        /// 테마는 시드가 정한다. "이 테마로 만들어라"를 Core에 뚫으면 결정론 경로에
+        /// 분기가 하나 늘고, 그 분기는 리플레이·이어하기·해시까지 따라다닌다. 반면
+        /// **시드를 고르는 일은 원래 Presentation 소관**이므로, 결과가 맞을 때까지
+        /// 후보 시드로 런을 만들어 보는 쪽이 훨씬 싸고 안전하다.
+        ///
+        /// 못 찾으면 원래 시드를 그대로 돌려준다 — 개발용 편의가 런을 못 띄우게
+        /// 만드는 것이 최악이다.
+        /// </summary>
+        long FindSeedFor(
+            GameDataSet data,
+            BattleSimConfig config,
+            ShipDefinition ship,
+            int diffNum,
+            int diffDen,
+            RunConfig runConfig,
+            string wantedTheme,
+            string wantedColossal,
+            long fallbackSeed)
+        {
+            const int Attempts = 48;
+            for (int i = 0; i < Attempts; i++)
+            {
+                long candidate = fallbackSeed + i * 7919L;
+                RunManager probe;
+                try
+                {
+                    probe = new RunManager(
+                        (ulong)candidate,
+                        new SegmentStageGenerator(data.StageGeneration),
+                        config,
+                        data.BattleContent,
+                        data.CreatePowerUpGauge(ship),
+                        data.Rewards,
+                        ship,
+                        diffNum,
+                        diffDen,
+                        runConfig);
+                }
+                catch (System.Exception)
+                {
+                    continue;   // 이 시드로는 만들 수 없는 조합 — 다음 후보로
+                }
+
+                if (!string.IsNullOrEmpty(wantedColossal))
+                {
+                    if (probe.SelectedColossalBoss.ToString()
+                            .IndexOf(wantedColossal, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                        return candidate;
+                    continue;
+                }
+                string theme = probe.StagePlan != null ? probe.StagePlan.ThemeId : null;
+                if (string.Equals(theme, wantedTheme, System.StringComparison.OrdinalIgnoreCase))
+                    return candidate;
+            }
+            Debug.LogWarning(
+                $"[dev] '{wantedTheme}{wantedColossal}'가 나오는 시드를 {Attempts}번 안에 "
+                + "못 찾았다 — 원래 시드로 진행한다.");
+            return fallbackSeed;
+        }
+
+        /// <summary>
         /// 파츠가 **잘려 나가는** 순간의 연출 (하이브 다리 절단).
         /// 일반 폭발보다 조밀하게 터뜨려 "사라졌다"가 아니라 "끊겼다"로 읽히게 한다.
         /// </summary>
@@ -1019,6 +1082,18 @@ namespace Shmup.Presentation.Battle
                 // 재고까지 같이 차감한다 (Presentation에는 재고를 줄일 API가 없다).
                 // 개발 시작-스테이지 런과 리플레이·데일리는 붙이지 않는다 — 그 런의
                 // 컨티뉴가 진짜 재고를 먹으면 안 된다.
+                // 개발자 패널에서 테마/히든 보스를 지정했으면, 그 결과가 나오는 시드를
+                // 찾아 쓴다. Core에 강제 입구를 뚫지 않는 이유는 그 경로가 결정론의
+                // 심장이기 때문이다 — 시드를 고르는 것은 원래 Presentation의 일이다.
+                if (devRunFlags && !dailyRun && !_replayMode
+                    && (!string.IsNullOrEmpty(DevArgs.RuntimeTheme)
+                        || !string.IsNullOrEmpty(DevArgs.RuntimeColossal)))
+                {
+                    Seed = FindSeedFor(
+                        data, config, selectedShip, diffNum, diffDen, runConfig,
+                        DevArgs.RuntimeTheme, DevArgs.RuntimeColossal, Seed);
+                }
+
                 bool attachMeta = runConfig == null && _meta != null;
                 _run = attachMeta
                     ? new RunManager(

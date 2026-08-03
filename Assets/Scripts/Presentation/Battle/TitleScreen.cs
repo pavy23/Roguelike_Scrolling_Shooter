@@ -91,9 +91,16 @@ namespace Shmup.Presentation.Battle
         // 개발 모드에서만 나오고, 여기서 시작한 런은 **점수 제출이 막힌다.**
         int _devStage = 1;          // 1~5, 0 = 미지의 구역(히든 보스)
         int _devWarp;               // 0 없음 / 1 중간보스 / 2 보스
+        int _devTheme;              // 0 자동, 그 외 DevThemes 인덱스
+        int _devColossal;           // 0 자동 / 1 레비아탄 / 2 브루드마더
         bool _devGod = true;
         bool _devMaxPower = true;
-        Text _devStageLabel, _devWarpLabel, _devGodLabel, _devPowerLabel;
+        Text _devStageLabel, _devWarpLabel, _devGodLabel, _devPowerLabel, _devThemeLabel;
+
+        /// <summary>테마 선택 목록. waves.json의 themes 순서와 같다.</summary>
+        static readonly string[] DevThemes =
+            { "scrapyard", "hive", "fortress", "nebula", "core" };
+        static readonly string[] DevColossals = { "", "leviathan", "broodmother" };
 
         Text _modeButtonLabel;
         Text _modeHintText;
@@ -545,6 +552,16 @@ namespace Shmup.Presentation.Battle
             RefreshDevPanel();
         }
 
+        void CycleDevTheme()
+        {
+            // 미지의 구역에서는 같은 버튼이 거대 보스를 고른다 — 그쪽엔 테마가 없다.
+            if (_devStage == 0)
+                _devColossal = (_devColossal + 1) % DevColossals.Length;
+            else
+                _devTheme = (_devTheme + 1) % (DevThemes.Length + 1);
+            RefreshDevPanel();
+        }
+
         void CycleDevWarp()
         {
             _devWarp = (_devWarp + 1) % 3;
@@ -574,6 +591,15 @@ namespace Shmup.Presentation.Battle
                     : _devWarp == 1 ? "JUMP\nMID-BOSS" : "JUMP\nOFF";
             if (_devGodLabel != null)
                 _devGodLabel.text = _devGod ? "GOD\nON" : "GOD\nOFF";
+            // 미지의 구역에는 테마가 없다 — 같은 버튼이 거대 보스를 고른다.
+            if (_devThemeLabel != null)
+                _devThemeLabel.text = _devStage == 0
+                    ? (_devColossal == 0
+                        ? "BOSS\nAUTO"
+                        : "BOSS\n" + DevColossals[_devColossal].ToUpperInvariant())
+                    : (_devTheme == 0
+                        ? "THEME\nAUTO"
+                        : "THEME\n" + DevThemes[_devTheme - 1].ToUpperInvariant());
             if (_devPowerLabel != null)
                 _devPowerLabel.text = _devMaxPower ? "POWER\nMAX" : "POWER\nNORMAL";
         }
@@ -592,6 +618,12 @@ namespace Shmup.Presentation.Battle
             // 미지의 구역은 구간 자체가 히든 보스라, 점프를 켜면 거대 보스 앞에서 선다.
             if (_devStage == 0 && _devWarp != 0)
                 DevArgs.RuntimeWarp = RunStageSection.HiddenBoss;
+            DevArgs.RuntimeTheme = _devStage == 0 || _devTheme == 0
+                ? null
+                : DevThemes[_devTheme - 1];
+            DevArgs.RuntimeColossal = _devStage == 0 && _devColossal != 0
+                ? DevColossals[_devColossal]
+                : null;
             DevArgs.RuntimeDaily = false;
             DevArgs.RuntimeSeeded = false;
             StartRun();
@@ -620,6 +652,7 @@ namespace Shmup.Presentation.Battle
                 StartDevRun, "DevLaunch", accent: true);
             y += step + 6f;
             _devPowerLabel = Add("DevPower", ToggleDevPower);
+            _devThemeLabel = Add("DevTheme", CycleDevTheme);
             _devGodLabel = Add("DevGod", ToggleDevGod);
             _devWarpLabel = Add("DevWarp", CycleDevWarp);
             _devStageLabel = Add("DevStage", CycleDevStage);

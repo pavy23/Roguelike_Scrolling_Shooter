@@ -124,6 +124,16 @@ namespace Shmup.Presentation.Battle
         /// <summary>개발자 패널로 시작한 런인가 — 점수 제출을 막는 근거.</summary>
         public static bool RuntimeDevRun;
 
+        /// <summary>
+        /// 보고 싶은 테마 / 히든 보스. 비어 있으면 시드가 정하는 대로 둔다.
+        ///
+        /// 테마와 거대 보스는 **시드에서 나온다.** Core에 "이 테마로 만들어라"는 입구를
+        /// 뚫는 대신, 원하는 결과가 나오는 시드를 찾아 쓴다 — 결정론 경로를 건드리지
+        /// 않고도 같은 목적을 이룬다 (BattleDirector.FindSeedFor 참조).
+        /// </summary>
+        public static string RuntimeTheme;
+        public static string RuntimeColossal;
+
         public static long? OverrideSeed
         {
             get
