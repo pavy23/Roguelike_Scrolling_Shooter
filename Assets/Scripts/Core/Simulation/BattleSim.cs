@@ -6304,10 +6304,47 @@ namespace Shmup.Core.Simulation
                 }
             }
             _bossHp = aggregateHp;
-            _bossDefeated = _warshipEncounter.Completed;
-            if (_bossDefeated)
-                _bossHp = 0;
+            if (!_warshipEncounter.Completed)
+            {
+                SyncWarshipPositionAndVulnerability();
+                return;
+            }
+
+            _bossHp = 0;
             SyncWarshipPositionAndVulnerability();
+            // 함체를 다 부수면 안에서 로봇이 나온다 (REQ-139 3막, 사람 지시).
+            // 새 개념을 만들지 않고 이미 있는 2단 폼 경로를 그대로 탄다 -
+            // 로봇은 별도 엔티티가 아니라 같은 보스의 두 번째 폼이다. 리플레이·
+            // 저장 경로가 하나로 유지되고, 데이터도 기존 form2 스키마로 쓴다.
+            if (!BeginWarshipFormTransition())
+                _bossDefeated = true;
+        }
+
+        /// <summary>
+        /// 함체 격파 후 두 번째 폼(로봇)으로 넘어간다. 폼이 없으면 false를 돌려
+        /// 호출부가 평소대로 보스 격파 처리를 하게 한다.
+        /// </summary>
+        bool BeginWarshipFormTransition()
+        {
+            if (_bossFormIndex != 0 || _bossForm2 == null)
+                return false;
+            int defeatedFormId = _bossId;
+            int x = _bossX;
+            int y = _bossY;
+            // 함체는 여기서 끝난다. 참조를 끊지 않으면 다음 틱에도 죽은 조우가
+            // 계속 돌아 파츠를 되살린다.
+            _warshipEncounter = null;
+            _warshipEventCursor = 0;
+            _bossSpawned = false;
+            _bossTransitionTicksRemaining = _bossForm2.TransitionTicks;
+            EmitBossFormEvent(
+                SimEventType.BossFormTransitionStarted,
+                defeatedFormId,
+                x,
+                y,
+                _bossTransitionTicksRemaining,
+                _bossForm2.FormId);
+            return true;
         }
 
         static int AdvancePositiveFraction(
