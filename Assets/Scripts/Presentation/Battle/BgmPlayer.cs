@@ -1,3 +1,4 @@
+using Shmup.Core.Simulation;
 using UnityEngine;
 
 namespace Shmup.Presentation.Battle
@@ -18,6 +19,10 @@ namespace Shmup.Presentation.Battle
         [SerializeField] string[] _themeIds;
         [SerializeField] AudioClip[] _clips;
         [SerializeField] AudioClip _bossClip;
+        [Tooltip("스테이지 보스 전용 — 느리고 웅장하게")]
+        [SerializeField] AudioClip _stageBossClip;
+        [Tooltip("히든(거대) 보스 전용 — 가장 무겁게")]
+        [SerializeField] AudioClip _hiddenBossClip;
         [SerializeField] AudioClip _clearJingle;
         [SerializeField] AudioClip _gameOverJingle;
 
@@ -26,6 +31,7 @@ namespace Shmup.Presentation.Battle
         float _baseVolume = 1f;   // 빌더가 지정한 믹스 레벨을 기준으로 덕킹/복원
         string _activeThemeId;
         bool _bossTrackActive;
+        RunStageSection _bossTrackSection;
         bool _wasAwaitingReward;
         int _jingledRunNumber = int.MinValue;
         float _duckUntilRealtime;
@@ -69,15 +75,21 @@ namespace Shmup.Presentation.Battle
             _wasAwaitingReward = awaiting;
 
             // 보스 트랙 전환 (진입: 덕킹 후 교체, 이탈: 테마 트랙 복귀)
+            // 보스 종류마다 다른 곡을 쓴다 (사람 지시 2026-08-03: "각 스테이지
+            // 중간보스랑 최종보스 BGM이 같으니까 흥미가 떨어져"). 중간보스는 스테이지마다
+            // 거치는 통과 의례고, 스테이지 보스와 히든 보스는 그 스테이지의 끝이다 —
+            // 같은 곡이 흐르면 무게 차이가 사라진다.
             bool bossActive = _director.BossActive;
-            if (bossActive != _bossTrackActive)
+            var section = _director.StageSection;
+            if (bossActive != _bossTrackActive
+                || (bossActive && section != _bossTrackSection))
             {
                 _bossTrackActive = bossActive;
+                _bossTrackSection = section;
                 Duck(0.5f);
-                AudioClip target = bossActive && _bossClip != null
-                    ? _bossClip
-                    : FindClip(_director.CurrentThemeId);
-                SwapClip(target);
+                SwapClip(bossActive
+                    ? (BossClipFor(section) ?? FindClip(_director.CurrentThemeId))
+                    : FindClip(_director.CurrentThemeId));
             }
             else if (!bossActive)
             {
@@ -102,6 +114,20 @@ namespace Shmup.Presentation.Battle
         {
             _duckUntilRealtime = Mathf.Max(
                 _duckUntilRealtime, Time.realtimeSinceStartup + seconds);
+        }
+
+        /// <summary>구간별 보스 곡. 전용 곡이 없으면 기존 전투곡으로 되돌아간다.</summary>
+        AudioClip BossClipFor(RunStageSection section)
+        {
+            switch (section)
+            {
+                case RunStageSection.HiddenBoss:
+                    return _hiddenBossClip != null ? _hiddenBossClip : _bossClip;
+                case RunStageSection.StageBoss:
+                    return _stageBossClip != null ? _stageBossClip : _bossClip;
+                default:
+                    return _bossClip;      // 중간보스는 기존 전투곡 그대로
+            }
         }
 
         void SwapClip(AudioClip clip)

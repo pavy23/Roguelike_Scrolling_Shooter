@@ -1699,6 +1699,11 @@ namespace Shmup.EditorTools
             SetReferenceArray(player, "_clips", clips);
             SetReference(player, "_bossClip",
                 AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Bgm/bgm_boss.wav"));
+            // 보스 종류별 전용 곡 (REQ-149). 없으면 BgmPlayer가 기존 전투곡으로 되돌아간다.
+            SetReference(player, "_stageBossClip",
+                AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Bgm/bgm_boss_stage.wav"));
+            SetReference(player, "_hiddenBossClip",
+                AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Bgm/bgm_boss_hidden.wav"));
             SetReference(player, "_clearJingle",
                 AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Sfx/jingle_clear.wav"));
             SetReference(player, "_gameOverJingle",

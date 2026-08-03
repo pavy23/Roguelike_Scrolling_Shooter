@@ -80,7 +80,7 @@ namespace Shmup.Presentation.Battle
                 // 테두리에 글자가 걸쳐 겹쳐 보였다 (사람 지적 2026-08-03).
                 UiKit.TextDim, new Vector2(0f, 0f), new Vector2(10f, 62f),
                 TextAnchor.LowerLeft, "ContinueStock");
-            _continueText.rectTransform.sizeDelta = new Vector2(220f, 28f);
+            _continueText.rectTransform.sizeDelta = new Vector2(220f, 44f);
 
             if (UiPlatform.TouchMode)
             {
@@ -231,14 +231,17 @@ namespace Shmup.Presentation.Battle
             int max = ContinueEconomyConfig.DefaultMaximumStock;
             long price = _meta.GetContinuePurchasePrice();
             bool full = stock >= max;
+            // 부가 문구는 **줄을 바꿔** 붙인다. 옆으로 이어 붙였더니 재고가 가득 찼을
+            // 때(“CONTINUE 8/8   CONTINUE STOCK FULL”) 줄이 길어져 가운데 기체 정보와
+            // 겹쳤다 (사람 지적 2026-08-03).
             var sb = new System.Text.StringBuilder(64);
             sb.Append(string.Format(UiText.HangarContinueStockFormat, stock, max));
             if (_continueNotice != null)
-                sb.Append("   ").Append(_continueNotice);
+                sb.Append('\n').Append(_continueNotice);
             else if (full)
-                sb.Append("   ").Append(UiText.HangarContinueFull);
+                sb.Append('\n').Append(UiText.HangarContinueFull);
             else if (!UiPlatform.TouchMode)
-                sb.Append("   ").Append(
+                sb.Append('\n').Append(
                     string.Format(UiText.HangarContinueHint, price.ToString("N0")));
             _continueText.text = sb.ToString();
             // 재고가 있으면 "죽어도 이어서 갈 수 있다"는 사실 자체가 정보다 — 앰버로 켠다.
@@ -267,8 +270,12 @@ namespace Shmup.Presentation.Battle
             _shownCurrency = _meta.TotalCurrency;
             _shownSelected = _meta.SelectedShipId;
 
+            // 크레딧은 HANGAR 줄 **아래**에 따로 놓는다 (사람 지시 2026-08-03).
+            // 한 줄에 붙여 두면 좌우 화살표 버튼 사이에서 줄이 길어져, 기체를 고르는
+            // 정보(몇 번째/몇 대)와 지갑이 한 덩어리로 읽혔다.
             _headerText.text =
-                $"HANGAR  ◄ {_cursor + 1}/{_data.Ships.Count} ►      CREDIT {_meta.TotalCurrency:N0}";
+                $"HANGAR  ◄ {_cursor + 1}/{_data.Ships.Count} ►\n"
+                + $"CREDIT {_meta.TotalCurrency:N0}";
 
             var previewSprite = SpriteForShip(ship.Id);
             if (_preview != null)
