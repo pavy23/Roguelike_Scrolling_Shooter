@@ -512,6 +512,41 @@
       }
     },
     {
+      "id": "magnet_claw",
+      "displayName": "Magnet Claw",
+      "hp": 72,
+      "contactDamage": 1,
+      "scoreValue": 210,
+      "fireIntervalTicks": 140,
+      "dropWeight": 5,
+      "halfWidth": 1.171875,
+      "halfHeight": 0.9375,
+      "movement": {
+        "pattern": "sine",
+        "speed": 3.25,
+        "amplitude": 2.75,
+        "periodTicks": 110
+      },
+      "bombDropWeight": 5
+    },
+    {
+      "id": "mist_specter",
+      "displayName": "Mist Specter",
+      "hp": 11,
+      "contactDamage": 1,
+      "scoreValue": 95,
+      "fireIntervalTicks": 0,
+      "dropWeight": 3,
+      "halfWidth": 1.40625,
+      "halfHeight": 1.171875,
+      "movement": {
+        "pattern": "dive",
+        "speed": 7.25,
+        "delayTicks": 16,
+        "durationTicks": 26
+      }
+    },
+    {
       "id": "mini_destroyer",
       "displayName": "Mini Destroyer",
       "hp": 1100,
