@@ -1660,9 +1660,11 @@ namespace Shmup.Core.Tests
             for (int i = 0; i < closing.Segments.Count; i++)
                 closingTicks = checked(
                     closingTicks + closing.Segments[i].LengthTicks);
-            Assert.AreEqual(7, closing.Segments.Count);
-            Assert.Greater(closingTicks, 0);
-            // REQ-093: 7 segs ≈ 75–90s band (was 5 segs / 59s @ REQ-092 observation).
+            Assert.AreEqual(6, closing.Segments.Count);
+            Assert.GreaterOrEqual(
+                closingTicks,
+                StageGenerationCatalog.DefaultClosingTargetDurationTicks);
+            // REQ-127: duration target stops this seed before its 7-segment cap.
             TestContext.Progress.WriteLine(
                 $"REQ093 closing seed=123456789 theme=scrapyard "
                 + $"segments={closing.Segments.Count} ticks={closingTicks}");
@@ -2114,6 +2116,44 @@ namespace Shmup.Core.Tests
                 EncounterType.Normal,
                 StageRouteSection.Closing);
             Assert.AreEqual(2, closing.Segments.Count);
+        }
+
+        [Test]
+        public void Parse_DurationTargetsFlowIntoStageGenerationCatalog()
+        {
+            string waves = WavesWithThemes(
+                    @"[""hive""]",
+                    "hive",
+                    "hive")
+                .Replace(
+                    @"""segmentsPerStage"": 1,",
+                    @"""segmentsPerStage"": 4,
+  ""closingSegmentsPerStage"": 5,
+  ""targetDurationTicks"": 100,
+  ""closingTargetDurationTicks"": 160,");
+
+            GameDataSet data = GameDataParser.Parse(
+                EnemiesJson,
+                WeaponsJson,
+                waves);
+            var generator = new SegmentStageGenerator(data.StageGeneration);
+
+            Assert.AreEqual(100, data.StageGeneration.TargetDurationTicks);
+            Assert.AreEqual(
+                160,
+                data.StageGeneration.ClosingTargetDurationTicks);
+            Assert.AreEqual(
+                2,
+                generator.Generate(0x1272UL, 1, 1).Segments.Count);
+            Assert.AreEqual(
+                3,
+                generator.GenerateRouteForSection(
+                    0x1272UL,
+                    1,
+                    1,
+                    "hive",
+                    EncounterType.Normal,
+                    StageRouteSection.Closing).Segments.Count);
         }
 
         [Test]

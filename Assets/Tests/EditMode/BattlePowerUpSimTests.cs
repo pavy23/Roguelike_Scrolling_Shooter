@@ -249,7 +249,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void SixOptionMainVolleyWaitsRatherThanTruncatingAtBulletBudget()
+        public void SixOptionMainVolleyUsesAvailableBudgetInEmitterOrder()
         {
             BattleSimConfig config = CreateConfig();
             config.PlayerSpeedPerTick = 0;
@@ -278,12 +278,27 @@ namespace Shmup.Core.Tests
 
             AssertOption(first.Options[4], 5, 50, 0);
             AssertOption(first.Options[5], 6, 60, 0);
-            Assert.AreEqual(0, first.Bullets.Count);
-            Assert.AreEqual(0, second.Bullets.Count);
+            Assert.AreEqual(4, first.Bullets.Count);
+            Assert.AreEqual(4, second.Bullets.Count);
+            for (int i = 0; i < first.Bullets.Count; i++)
+            {
+                int expectedX = i == 0 ? 0 : i * 10;
+                AssertBullet(
+                    first.Bullets[i],
+                    BulletKind.MainShot,
+                    expectedX,
+                    0);
+                AssertBullet(
+                    second.Bullets[i],
+                    BulletKind.MainShot,
+                    expectedX,
+                    0);
+                Assert.AreEqual(first.Bullets[i].Id, second.Bullets[i].Id);
+            }
         }
 
         [Test]
-        public void OptionMissileVolleyWaitsRatherThanTruncatingAtBulletBudget()
+        public void OptionMissileVolleyUsesRemainingBudgetInEmitterOrder()
         {
             BattleSimConfig config = CreateConfig();
             config.PlayerSpeedPerTick = 0;
@@ -304,9 +319,9 @@ namespace Shmup.Core.Tests
 
             Step(sim, 0, 0, true);
 
-            Assert.AreEqual(7, sim.Bullets.Count);
-            Assert.AreEqual(0, CountBullets(sim.Bullets, BulletKind.Missile));
-            for (int i = 0; i < sim.Bullets.Count; i++)
+            Assert.AreEqual(10, sim.Bullets.Count);
+            Assert.AreEqual(3, CountBullets(sim.Bullets, BulletKind.Missile));
+            for (int i = 0; i < 7; i++)
             {
                 AssertBullet(
                     sim.Bullets[i],
@@ -314,10 +329,18 @@ namespace Shmup.Core.Tests
                     i == 0 ? 0 : i * 10,
                     0);
             }
+            for (int i = 0; i < 3; i++)
+            {
+                AssertBullet(
+                    sim.Bullets[7 + i],
+                    BulletKind.Missile,
+                    i * 10,
+                    0);
+            }
         }
 
         [Test]
-        public void SixOptionsAtHighestFireRateSpawnOnlyCompleteMainShotVolleys()
+        public void SixOptionsAtHighestFireRateFillBudgetWithoutSkippingVolley()
         {
             BattleSimConfig config = CreateConfig();
             config.PlayerSpeedPerTick = 0;
@@ -342,15 +365,15 @@ namespace Shmup.Core.Tests
             for (int tick = 0; tick < 40; tick++)
                 sim.Step(in fire);
 
-            Assert.AreEqual(63, sim.Bullets.Count);
-            Assert.AreEqual(63L, sim.Statistics.ShotsFired);
+            Assert.AreEqual(64, sim.Bullets.Count);
+            Assert.AreEqual(64L, sim.Statistics.ShotsFired);
             for (int emitter = 0; emitter <= PowerUpGauge.MaximumOptionCount; emitter++)
             {
                 int emitterX = emitter * 10;
                 Assert.AreEqual(
-                    9,
+                    emitter == 0 ? 10 : 9,
                     CountBulletsAtX(sim.Bullets, BulletKind.MainShot, emitterX),
-                    $"emitter {emitter} must receive every admitted volley");
+                    $"emitter {emitter} must follow body-first budget order");
             }
         }
 

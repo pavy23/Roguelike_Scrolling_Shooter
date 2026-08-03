@@ -64,10 +64,11 @@ namespace Shmup.Core.Simulation
     public sealed class InputRecordingData
     {
         /// <summary>
-        /// Schema 24 records replays under the REQ-105 six-level combo and
-        /// run-clear shield scoring rules. Schema 23 recordings are rejected.
+        /// Schema 25 records REQ-127 duration-target stage generation and
+        /// REQ-128 partial player volleys. Schema 24 recordings are rejected
+        /// because both rules can change deterministic playback.
         /// </summary>
-        public const int CurrentSchemaVersion = 24;
+        public const int CurrentSchemaVersion = 25;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
