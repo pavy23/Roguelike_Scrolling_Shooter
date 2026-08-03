@@ -4,6 +4,30 @@
 
 ---
 
+## 2026-08-03 REQ-137 / REQ-138 — 캡슐 ×0.7 + 하이브 보스 재설계
+
+**완료 (content):**
+- REQ-137: `noDropWeight` 13→**21** (~0.7× EV), `rerollCost` 5→**4**, BalanceSim 밴드 [7,14]
+- REQ-138: `boss_hive` half **4.0×7.25**, 다리 2(tentacle_*)+머리 core 게이트, HP 2500+2500+9500
+- 부수: `seg_hive_brood_wave` y 1/256 양자화 (파서 차단 해제)
+- 표: `Reviews/from-grok/req137-138-report.md`
+- **결정론 해시 변동** (드롭 + 보스 파츠). schemaVersion **불변**.
+
+### CLAUDE
+1. [ ] Resources `GameData/enemies.json` · `waves.json` · `rewards.json` 동기화
+2. [ ] boss_hive Presentation: torso 앵커(y≈+2.25), 다리 at tentacle parts, 실드 돔 at core, 다리 절단 연출
+3. [ ] (선택) 캡슐 희소·하이브 실드 게이트 체감 캡처
+
+### GEMINI
+1. [ ] DeterminismAudit 베이스라인 갱신 (REQ-137/138)
+2. [ ] 캡슐 EV 교차 · hive coreGate(다리 파괴→머리 노출) 검증
+
+### 사람
+1. [ ] REQ-137 0.7× 체감 (early Main L5 근방 성장) 확정
+2. [ ] REQ-138 아트–파츠 좌표 정합 확인
+
+---
+
 ## 2026-08-03 REQ-135 / REQ-136 — 소형 적 1.5배 + scrap 고철 감축
 
 **완료 (content):**

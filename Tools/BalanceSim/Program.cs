@@ -103,9 +103,10 @@ static class Program
 
     // Capsule magnet recovery band (REQ-029, provisional §7).
     // Magnet makes near-full pickup realistic; stage = 3 segments weight-biased mean.
-    // REQ-060: 1+L+L² growth needs more early capsules; magnet ≈ full recovery.
-    const double MinStageCapsuleExpectation = 10.0;
-    const double MaxStageCapsuleExpectation = 20.0;
+    // REQ-137 (2026-08-03 human): noDropWeight 13→21 (~0.7× capsule rate).
+    // Open-only stage EV band scaled ~0.7× from prior [10,20].
+    const double MinStageCapsuleExpectation = 7.0;
+    const double MaxStageCapsuleExpectation = 14.0;
     const double MaxSupplyNodeCapsuleExpectation = 22.0;
 
     // Boss redesign TTK / phase gates (playtest 2026-07-30: first boss tutorial-short).
@@ -232,9 +233,10 @@ static class Program
         SegmentStageGenerator.BroodmotherBossId,
     };
 
-    // REQ-116 standard redesign anchors (provisional §7).
-    const double HiveHalfW = 5.0;
-    const double HiveHalfH = 4.0;
+    // REQ-116 / REQ-138 hive redesign anchors (provisional §7).
+    // REQ-138 (2026-08-03 human): elongated hive body 8×14.5 → half 4.0×7.25.
+    const double HiveHalfW = 4.0;
+    const double HiveHalfH = 7.25;
     const double StormHalfW = 5.0;
     const double StormHalfH = 4.0;
     const int CoreForm1Hp = 28_000;

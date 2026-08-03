@@ -3227,17 +3227,17 @@
         {
           "tick": 308,
           "enemyId": "sting_hornet",
-          "y": -1.8
+          "y": -1.80078125
         },
         {
           "tick": 316,
           "enemyId": "sting_hornet",
-          "y": -0.6
+          "y": -0.6015625
         },
         {
           "tick": 324,
           "enemyId": "sting_hornet",
-          "y": 0.6
+          "y": 0.6015625
         },
         {
           "tick": 330,
@@ -3247,7 +3247,7 @@
         {
           "tick": 332,
           "enemyId": "sting_hornet",
-          "y": 1.8
+          "y": 1.80078125
         },
         {
           "tick": 340,
@@ -9073,17 +9073,17 @@
       "difficultyMax": 5,
       "entryLaneMask": 7,
       "hp": 14500,
-      "halfWidth": 5.0,
-      "halfHeight": 4.0,
+      "halfWidth": 4.0,
+      "halfHeight": 7.25,
       "holdX": 14.0,
       "parts": [
         {
           "id": "tentacle_left",
-          "offsetX": -2.5,
+          "offsetX": -2.25,
           "offsetY": -3.75,
           "halfWidth": 1.5,
-          "halfHeight": 2.0,
-          "hp": 2000,
+          "halfHeight": 3.5,
+          "hp": 2500,
           "attack": {
             "type": "verticalMovement",
             "intervalTicks": 180,
@@ -9092,11 +9092,11 @@
         },
         {
           "id": "tentacle_right",
-          "offsetX": 2.5,
+          "offsetX": 2.25,
           "offsetY": -3.75,
           "halfWidth": 1.5,
-          "halfHeight": 2.0,
-          "hp": 2000,
+          "halfHeight": 3.5,
+          "hp": 2500,
           "attack": {
             "type": "verticalMovement",
             "intervalTicks": 200,
@@ -9106,10 +9106,10 @@
         {
           "id": "core",
           "offsetX": 0.0,
-          "offsetY": 0.5,
-          "halfWidth": 3.5,
-          "halfHeight": 2.5,
-          "hp": 10500,
+          "offsetY": 5.5,
+          "halfWidth": 2.5,
+          "halfHeight": 1.75,
+          "hp": 9500,
           "isCore": true,
           "coreGatePartIds": [
             "tentacle_left",
