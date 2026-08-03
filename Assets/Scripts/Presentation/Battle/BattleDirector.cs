@@ -949,6 +949,18 @@ namespace Shmup.Presentation.Battle
                     diffNum = Mathf.Max(1, pendingReplay.difficultyNumerator);
                     diffDen = Mathf.Max(1, pendingReplay.difficultyDenominator);
                 }
+                else if (DevArgs.RuntimeDaily)
+                {
+                    // 데일리는 **NORMAL 고정**이다 (사람 결정 2026-08-04).
+                    //
+                    // 데일리의 존재 이유는 "전 세계가 같은 조건으로 겨룬다"인데, 시드만
+                    // 맞추고 난이도는 각자 쓰던 값을 그대로 들고 갔다. 난이도가 바꾸는
+                    // 것은 적 HP뿐이라 EASY/HARD가 같은 보드에서 비교 불가능해진다 —
+                    // 게다가 HP가 오르면 보스전이 길어져 스치기·보스 딜 기회가 늘어
+                    // **HARD 쪽이 점수를 더 버는** 방향이라 왜곡이 작지도 않다.
+                    diffNum = 1;
+                    diffDen = 1;
+                }
                 else
                 {
                     DifficultySelect.GetMultiplier(out diffNum, out diffDen);

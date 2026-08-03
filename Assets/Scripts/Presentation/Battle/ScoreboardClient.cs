@@ -54,6 +54,17 @@ namespace Shmup.Presentation.Battle
         public int cu;
 
         public bool HasContinues => cu > 0;
+
+        /// <summary>
+        /// 난이도 ("EASY"/"NORMAL"/"HARD"). 제출에는 예전부터 실려 왔지만 보드 응답에는
+        /// 아직 없다 — 서버(Cloudflare Worker, 이 저장소 밖)가 이 키를 돌려주면 그때부터
+        /// 화면에 뜬다. 없는 기록에 NORMAL을 가정하지 않는 이유: 난이도는 적 HP를
+        /// 0.75~1.25배로 바꾸고, HP가 오르면 보스전이 길어져 스치기·보스 딜 기회가 늘어
+        /// **오히려 점수가 더 나온다.** 모르는 기록을 NORMAL로 적으면 그 왜곡을 숨긴다.
+        /// </summary>
+        public string d;
+
+        public bool HasDifficulty => !string.IsNullOrEmpty(d);
     }
 
     [Serializable]

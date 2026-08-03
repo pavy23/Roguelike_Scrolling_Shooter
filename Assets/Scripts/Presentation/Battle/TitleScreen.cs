@@ -125,16 +125,22 @@ namespace Shmup.Presentation.Battle
             + "PILOT".PadRight(ColPilot + ColContinue) + " "
             + "SCORE".PadLeft(ColScore) + "  "
             + "STG".PadRight(ColStage) + " "
-            + "SHIP".PadRight(ColShip) + " "
+            + "SHIP".PadRight(ColShip + 1) + " "
             + "BOMB".PadLeft(ColBomb) + " "
             + "HIT".PadLeft(ColHit);
 
         void RefreshDifficultyText()
         {
+            // 데일리는 NORMAL 고정이다 (사람 결정 2026-08-04) — 모두가 같은 조건으로
+            // 겨루는 것이 데일리의 존재 이유다. 고른 난이도가 적용되지 않는데 화면이
+            // 그대로면 "설정이 먹지 않는다"로 읽히므로, 여기서 그 사실을 말한다.
+            string label = _dailyMode ? "NORMAL (DAILY)" : DifficultySelect.Label;
             if (_difficultyText != null)
-                _difficultyText.text = $"[T] DIFFICULTY ◄ {DifficultySelect.Label} ►";
+                _difficultyText.text = _dailyMode
+                    ? "DIFFICULTY   NORMAL — DAILY IS FIXED"
+                    : $"[T] DIFFICULTY ◄ {label} ►";
             if (_difficultyButtonLabel != null)
-                _difficultyButtonLabel.text = $"DIFFICULTY\n{DifficultySelect.Label}";
+                _difficultyButtonLabel.text = $"DIFFICULTY\n{label}";
         }
 
         void CycleDifficulty()
@@ -147,6 +153,7 @@ namespace Shmup.Presentation.Battle
         {
             _dailyMode = !_dailyMode;
             RefreshModeText();
+            RefreshDifficultyText();   // 데일리는 난이도가 고정된다 - 화면도 따라가야 한다
         }
 
         void RefreshModeText()
@@ -382,10 +389,30 @@ namespace Shmup.Presentation.Battle
             sb.Append(StageCell(entry, detailed).PadRight(ColStage));
             sb.Append(' ');
             sb.Append(ShipCell(entry).PadRight(ColShip));
+            sb.Append(DifficultyMark(entry));
             sb.Append(' ');
             AppendBombCell(sb, entry, detailed);
             sb.Append(' ');
             AppendHitCell(sb, entry);
+        }
+
+        /// <summary>
+        /// 난이도 마커. 컨티뉴 마커와 같은 문법이다 — **컬럼이 아니라 주석**이라
+        /// 헤더 라벨을 주지 않고, 말할 것이 있을 때만 글자를 낸다.
+        ///
+        /// NORMAL과 "난이도를 모르는 기록"은 둘 다 빈칸이다. 서버가 이 값을 돌려주기
+        /// 전 기록에는 정보 자체가 없고, 거기에 N을 적으면 EASY로 낸 기록까지
+        /// NORMAL로 보이게 된다. 난이도는 적 HP를 0.75~1.25배로 바꾸므로 그 거짓말의
+        /// 대가가 작지 않다 (데일리를 NORMAL 고정으로 바꾼 것도 같은 이유다).
+        /// </summary>
+        static string DifficultyMark(ScoreboardEntry entry)
+        {
+            if (!entry.HasDifficulty) return " ";
+            if (entry.d.StartsWith("E", System.StringComparison.OrdinalIgnoreCase))
+                return "E";
+            if (entry.d.StartsWith("H", System.StringComparison.OrdinalIgnoreCase))
+                return "H";
+            return " ";
         }
 
         /// <summary>
