@@ -7176,7 +7176,7 @@ namespace Shmup.Core.Simulation
                         bullet.Y,
                         _grazeScore);
                     RecordComboAction();
-                    AddComboGauge(_grazeComboGaugeGain);
+                    AdvanceMultiplierFromGraze();
                 }
                 index++;
             }
@@ -9009,6 +9009,34 @@ namespace Shmup.Core.Simulation
             return awardedScore >= int.MaxValue
                 ? int.MaxValue
                 : (int)awardedScore;
+        }
+
+        /// <summary>
+        /// 그레이즈는 **한 번에 한 단계** 올린다 (사람 지시 2026-08-03:
+        /// "스치기 한번에 배율 올리기로 하자. 잘 안오르네").
+        ///
+        /// 게이지 경로(AddComboGauge)를 쓰지 않는 이유: 그 함수는 임계를 넘는 동안
+        /// 루프를 돌아, 이득을 키우면 한 번에 여러 단계가 뛴다. "한 번에 한 단계"는
+        /// 게이지 수치로는 표현할 수 없어서 규칙으로 옮겼다.
+        ///
+        /// 킬은 그대로 게이지를 쓴다 — 잡졸을 쓸어 담는 것과 탄에 몸을 붙이는 것은
+        /// 위험의 성격이 다르고, 보상 곡선도 달라야 한다.
+        ///
+        /// 빠르다고 느껴지면 감쇠(ComboDecayTicks)로 조인다. 스치기를 멈추면
+        /// 7초마다 한 단계씩 내려가므로, 최대 배율은 계속 위험 속에 있어야 유지된다.
+        /// </summary>
+        void AdvanceMultiplierFromGraze()
+        {
+            if (_multiplierLevel >= _comboMultipliers.Length - 1)
+                return;
+            _comboGauge = 0;
+            _multiplierLevel++;
+            AppendEvent(
+                SimEventType.MultiplierChanged,
+                _multiplierLevel,
+                PlayerX,
+                PlayerY,
+                ScoreMultiplier);
         }
 
         void AddComboGauge(int amount)

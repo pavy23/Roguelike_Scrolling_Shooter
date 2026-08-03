@@ -25,6 +25,18 @@ namespace Shmup.Presentation.Battle
     // 여기를 다시 올리려면 반드시 실제 배경 위에서 확인해라. 값만 보고 정하면
     // 또 잠긴다 (두 번 겪었다).
 
+    // 중간보스에서는 **원경 그림을 바꾸지 않는다** (사람 지적 2026-08-03, 사진 2장:
+    // "중간보스 진입 시 배경 그림이 갑자기 바뀌어 엄청 어색해").
+    //
+    // 예전에는 far 레이어를 `*_far_dusk` 그림으로 갈아치웠다. 색조는 20초에 걸쳐
+    // 섞이지만 **그림 교체는 결국 다른 그림으로 바뀌는 것**이라, 디졸브를 아무리
+    // 늘려도 "장면이 갈렸다"로 읽힌다. 측정해 보니 색 자체는 완만히 변하고 있었는데도
+    // 사람이 급변으로 느낀 이유가 이것이다.
+    //
+    // 황혼은 **틴트로만** 만든다 — 같은 그림 위에 색이 스미면 해가 지는 것으로 읽힌다.
+    // Late/Boss의 `*_far_dark` 교체는 남겨 둔다: 그 지점은 사건성 전환이라 갈리는 것이
+    // 오히려 맞고, 이미 짧은 전환(3.5~4초)으로 그렇게 설계돼 있다.
+
     // 중간보스 전환 길이(20/18/16/14초)는 **일부러 길다**. 한 번 6초로 줄였다가
     // 되돌렸다 — 사람이 지적한 것은 프레임 끌림이 아니라 "갑자기 바뀌어 어색하다"였고,
     // 줄이는 것은 정확히 반대 방향이었다. 짧게 만들수록 급작스러워진다.
@@ -120,7 +132,7 @@ namespace Shmup.Presentation.Battle
     /// 얹었다: 구간별 원경 교체(dusk/dark) · 전경 실루엣(fg) · 랜드마크(landmark).
     ///
     /// 슬롯 배분 규칙:
-    ///   MidBoss  → Far = &lt;p&gt;_far_dusk        (황혼/전환)
+    ///   MidBoss  → Far = 교체 없음 (황혼은 틴트로만 — 그림을 갈면 장면이 갈린다)
     ///   Late·Boss→ Far = &lt;p&gt;_far_dark, Near = &lt;p&gt;_fg   (야간/실내 + 전경 실루엣)
     ///   랜드마크 → 테마마다 한 구간에만. 요새만 MidBoss(진입 스냅에 관제탑이 선다),
     ///              나머지는 Late. 코어는 Late→Boss로 이어지며 스케일이 점증한다.
@@ -210,8 +222,7 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.85f, 0.78f, 0.82f, 0.70f), 1.00f,
                                C(1.00f, 0.86f, 0.70f), 1.00f,
                                C(0.98f, 0.82f, 0.66f), 1.05f,
-                               C(0.85f, 0.68f, 0.56f), 1.10f,
-                               farSlot: "scrap_far_dusk"),
+                               C(0.85f, 0.68f, 0.56f), 1.10f),
                     particle = SectionParticle.Ash, particleDensity = 0.35f
                 },
                 new SectionTheme
@@ -262,8 +273,7 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.70f, 0.92f, 0.78f, 0.45f), 1.00f,
                                C(0.80f, 0.98f, 0.84f), 1.00f,
                                C(0.74f, 0.94f, 0.78f), 1.05f,
-                               C(0.62f, 0.86f, 0.68f), 1.10f,
-                               farSlot: "hive_far_dusk"),
+                               C(0.62f, 0.86f, 0.68f), 1.10f),
                     particle = SectionParticle.Spore, particleDensity = 0.9f
                 },
                 new SectionTheme
@@ -318,8 +328,7 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.60f, 0.42f, 0.48f, 0.85f), 1.10f,
                                C(0.85f, 0.55f, 0.52f), 1.15f,
                                C(0.80f, 0.50f, 0.48f), 1.20f,
-                               C(0.75f, 0.43f, 0.43f), 1.25f,
-                               farSlot: "fort_far_dusk"),
+                               C(0.75f, 0.43f, 0.43f), 1.25f),
                     particle = SectionParticle.Ember, particleDensity = 0.3f,
                     // 관제탑 — 요새 진입 스냅(1.2초 + 섬광)에 맞춰 눈앞에 선다.
                     // 스프라이트 교체 팝이 그 섬광에 묻히는 유일한 MidBoss 랜드마크다.
@@ -371,8 +380,7 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.55f, 0.52f, 0.75f, 0.70f), 1.05f,
                                C(0.57f, 0.50f, 0.75f), 1.10f,
                                C(0.55f, 0.49f, 0.75f), 1.15f,
-                               C(0.52f, 0.47f, 0.75f), 1.20f,
-                               farSlot: "nebula_far_dusk"),
+                               C(0.52f, 0.47f, 0.75f), 1.20f),
                     particle = SectionParticle.Fog, particleDensity = 0.9f,
                     flashIntervalMin = 14f, flashIntervalMax = 22f,
                     flashColor = C(0.85f, 0.88f, 1.00f, 0.50f), flashSeconds = 0.2f
@@ -428,8 +436,7 @@ namespace Shmup.Presentation.Battle
                     layers = L(C(0.90f, 0.95f, 1.00f, 1.00f), 1.05f,
                                C(0.88f, 1.00f, 1.00f), 1.10f,
                                C(0.85f, 0.98f, 1.00f), 1.15f,
-                               C(0.78f, 0.92f, 1.00f), 1.20f,
-                               farSlot: "core_far_dusk"),
+                               C(0.78f, 0.92f, 1.00f), 1.20f),
                     particle = SectionParticle.Mote, particleDensity = 0.8f
                 },
                 new SectionTheme

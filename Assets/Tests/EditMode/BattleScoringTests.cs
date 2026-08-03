@@ -28,7 +28,10 @@ namespace Shmup.Core.Tests
             {
                 Assert.AreEqual(7L, sim.Score);
                 Assert.AreEqual(1L, sim.Statistics.GrazeCount);
-                Assert.AreEqual(1, sim.ComboGauge);
+                // 그레이즈는 게이지가 아니라 배율 단계를 직접 올린다 (2026-08-03 사람 지시:
+                // "스치기 한번에 배율 올리기"). 게이지는 킬 전용 경로로 남았다.
+                Assert.AreEqual(0, sim.ComboGauge);
+                Assert.AreEqual(1, sim.MultiplierLevel);
                 AssertEvent(
                     sim.EventsThisTick,
                     SimEventType.GrazeScored,
@@ -100,7 +103,9 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(3, sim.ShieldStock);
             Assert.AreEqual(7L, sim.Score);
             Assert.AreEqual(1L, sim.Statistics.GrazeCount);
-            Assert.AreEqual(1, sim.ComboGauge);
+            // 무적 상태에서도 그레이즈는 배율을 한 단계 올린다.
+            Assert.AreEqual(0, sim.ComboGauge);
+            Assert.AreEqual(1, sim.MultiplierLevel);
             Assert.IsTrue(ContainsEvent(
                 sim.EventsThisTick,
                 SimEventType.GrazeScored));
