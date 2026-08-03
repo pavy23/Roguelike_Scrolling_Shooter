@@ -337,6 +337,18 @@ namespace Shmup.Presentation.Battle
         public int BossPositionSubUnitsX => _sim != null ? _sim.Boss.X : 0;
 
         /// <summary>
+        /// 보스 판정 반높이 (월드 유닛). 보스 전용 뷰가 **그림을 판정에 맞추는** 데 쓴다.
+        ///
+        /// 이 값을 노출한 이유: 보이는 크기와 맞는 크기가 어긋나 "때렸는데 안 맞는다"는
+        /// 보고가 세 번 올라왔다(c3df07c). 뷰가 배율을 스스로 박아 두면 데이터가 바뀔 때
+        /// 조용히 어긋나므로, 판정 크기를 그대로 내보내 뷰가 계산하게 한다.
+        /// </summary>
+        public float BossHalfHeightWorld =>
+            _run != null && _run.StagePlan != null
+                ? _run.StagePlan.BossHalfHeight * SimView.WorldUnitsPerSubUnit
+                : 0f;
+
+        /// <summary>
         /// 파츠가 **잘려 나가는** 순간의 연출 (하이브 다리 절단).
         /// 일반 폭발보다 조밀하게 터뜨려 "사라졌다"가 아니라 "끊겼다"로 읽히게 한다.
         /// </summary>

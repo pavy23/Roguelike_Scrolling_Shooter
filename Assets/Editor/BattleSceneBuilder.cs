@@ -1209,19 +1209,27 @@ namespace Shmup.EditorTools
             // _hullSprite가 채워져 실루엣 판을 통째로 대체한다 — 씬 재생성만으로 교체된다.
             var warshipRoot = new GameObject("Warship");
             warshipRoot.transform.SetParent(battleRoot.transform, false);
-            // 하이브 조립 뷰 (몸통 + 다리 + 머리 실드). 다리를 부수면 실드가 깨지는
-            // 연출을 위해 세 조각을 따로 그린다 - 본체 한 장으로는 다리를 잘라낼 수 없다.
+            // 하이브 조립 뷰. 조각은 **전신 렌더 한 장을 잘라** 만든 것이고
+            // (Tools/ArtGen/cut_hive_parts.py) 전부 같은 캔버스를 쓴다 - 같은 자리에
+            // 겹쳐 그리면 원본과 픽셀 단위로 같아진다. 따로 생성한 그림을 이어 붙이던
+            // 옛 방식은 관절이 "뚝뚝 끊어진다"는 지적을 받고 버렸다.
             var hiveRoot = new GameObject("HiveBoss");
             hiveRoot.transform.SetParent(battleRoot.transform, false);
             var hiveView = battleRoot.AddComponent<HiveBossView>();
             SetReference(hiveView, "_director", director);
             SetReference(hiveView, "_root", hiveRoot.transform);
             SetReference(hiveView, "_torsoSprite",
-                LoadExternalSprite("boss_hive_torso.png", "boss_hive_torso"));
-            SetReference(hiveView, "_legSprite",
-                LoadExternalSprite("boss_hive_leg.png", "boss_hive_leg"));
+                LoadOrCachedSprite("boss_hive_torso.png", "boss_hive_torso"));
+            SetReference(hiveView, "_legLeftSprite",
+                LoadOrCachedSprite("boss_hive_leg_l.png", "boss_hive_leg_l"));
+            SetReference(hiveView, "_legRightSprite",
+                LoadOrCachedSprite("boss_hive_leg_r.png", "boss_hive_leg_r"));
+            SetReference(hiveView, "_woundLeftSprite",
+                LoadOrCachedSprite("boss_hive_wound_l.png", "boss_hive_wound_l"));
+            SetReference(hiveView, "_woundRightSprite",
+                LoadOrCachedSprite("boss_hive_wound_r.png", "boss_hive_wound_r"));
             SetReference(hiveView, "_shieldSprite",
-                LoadExternalSprite("fx_shield_dome.png", "fx_shield_dome"));
+                LoadOrCachedSprite("boss_hive_shield.png", "boss_hive_shield"));
             // 하이브가 화면을 소유하는 동안 범용 파츠 오버레이는 비켜난다
             // (전함과 같은 이유 - 같은 자리에 두 겹으로 그리면 사각형이 두 개로 읽힌다).
             SetReference(partsView, "_hiveView", hiveView);
