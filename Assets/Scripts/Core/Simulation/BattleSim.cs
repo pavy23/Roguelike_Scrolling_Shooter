@@ -1158,10 +1158,11 @@ namespace Shmup.Core.Simulation
         /// 예전 값은 0.3초였다(Presentation의 피격 플래시 길이에 맞춘 값). 그 정도로는
         /// 탄막 한가운데에서 실드를 깨고 나온 순간 곧바로 다음 탄에 다시 맞는다 —
         /// 실드를 하나 쓴 대가가 "다음 탄까지 0.3초"인 셈이라 회복할 기회가 없다.
-        /// 2.5초면 빠져나올 시간이 되고, 뷰가 그동안 기체를 깜빡여 무적임을 알린다.
+        /// 처음엔 2.5초로 잡았다가 사람이 1.5초로 정했다 — 빠져나올 시간은 되면서
+        /// 무르게 느껴지지 않는 선. 뷰가 그동안 기체를 깜빡여 무적임을 알린다.
         /// </summary>
         public const int DefaultPlayerHitInvulnerabilityTicks =
-            5 * SimSpace.TicksPerSecond / 2;
+            3 * SimSpace.TicksPerSecond / 2;
         public const int DefaultBombInvulnerabilityTicks =
             3 * SimSpace.TicksPerSecond / 4;
 
