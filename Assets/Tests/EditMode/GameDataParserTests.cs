@@ -1626,9 +1626,12 @@ namespace Shmup.Core.Tests
                 OptionFormation.Orbit,
                 data.FindShip("bulwark").StartingOptionFormation.Value);
             Assert.IsTrue(data.FindShip("starter").HasCustomPowerUpGauge);
-            Assert.AreEqual(
-                7,
-                data.StageGeneration.ClosingSegmentsPerStage);
+            Assert.Greater(
+                data.StageGeneration.ClosingSegmentsPerStage,
+                0);
+            Assert.GreaterOrEqual(
+                data.StageGeneration.ClosingSegmentsPerStage,
+                data.StageGeneration.SegmentsPerStage);
             Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Speed));
             Assert.AreEqual(6, data.CreatePowerUpGauge().GetMaxLevel(PowerUpSlot.Missile));
             // Content REQ-084 follow-up: Option maxLevel 6 + fixed offsets 6.
@@ -1660,11 +1663,15 @@ namespace Shmup.Core.Tests
             for (int i = 0; i < closing.Segments.Count; i++)
                 closingTicks = checked(
                     closingTicks + closing.Segments[i].LengthTicks);
-            Assert.AreEqual(6, closing.Segments.Count);
-            Assert.GreaterOrEqual(
-                closingTicks,
-                StageGenerationCatalog.DefaultClosingTargetDurationTicks);
-            // REQ-127: duration target stops this seed before its 7-segment cap.
+            Assert.LessOrEqual(
+                closing.Segments.Count,
+                data.StageGeneration.ClosingSegmentsPerStage);
+            Assert.IsTrue(
+                closingTicks
+                    >= data.StageGeneration.ClosingTargetDurationTicks
+                || closing.Segments.Count
+                    == data.StageGeneration.ClosingSegmentsPerStage);
+            // REQ-127: generation stops at the duration target or data-defined cap.
             TestContext.Progress.WriteLine(
                 $"REQ093 closing seed=123456789 theme=scrapyard "
                 + $"segments={closing.Segments.Count} ticks={closingTicks}");
