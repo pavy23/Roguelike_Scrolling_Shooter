@@ -11,21 +11,27 @@
 - 파츠: 포탑 4문 갑판 일렬(y≈6.5–7), 코어 함수 안쪽(ox=-11), 함미 engine 상향 배치
 - 1페이즈 engine = 저속 `aimedSpread` (미사일 체감) / 2페이즈 turret = `laser` 스태거
 - HP **19600 잠금** (크기↑≠시간↑)
-- anchor / 로봇 폼 **미포함** (Core 스키마 대기)
 - 표: `Reviews/from-grok/req139-report.md`
 
+### 2차 완료 (content `05a5f82`, Core 스키마 af27d38 반영)
+- groups 앵커: stern **Y=-9 / travel=0**, hull **Y=0 / travel=90**, bow **Y=0 / travel=0**
+- engine.offsetY **1.5→7.0** (갑판 밴드 — 잠김 후에도 Y≈0 직사 피격)
+- 표: `Reviews/from-grok/req139-report-phase2.md`
+- 검증: `dotnet test` **568/568**
+
 ### CODEX
-1. [ ] 그룹별 `anchorX`/`anchorY`/`anchorTravelTicks` + `advanceOnGroupCleared`
+1. [x] 그룹별 `anchorOffsetY`/`anchorTravelTicks` (af27d38, CLAUDE 대행) — 데이터 쪽 값은 GROK 2차에서 채움
 2. [ ] 로봇 폼 (`_bossForm2` 경로를 그룹 전멸에도)
-3. [ ] `GameDataParserTests.RepositoryApprovedV2Files_ParseCompletely`: `RerollCost` expect **5→4** (REQ-137 실데이터, content 브랜치 `dotnet test` 1실패 원인)
+3. [ ] `advanceOnGroupCleared` (필요 시)
+4. [ ] `GameDataParserTests.RepositoryApprovedV2Files_ParseCompletely`: `RerollCost` expect **5→4** (REQ-137 실데이터)
 
 ### CLAUDE
-1. [ ] Resources `GameData/waves.json` 동기화 (content 병합 후)
-2. [ ] 거대 함체 아트 (본체 half 17×8.5에 맞춤) + 하드포인트 정렬
-3. [ ] 정박/로봇 연출은 Core 스키마 이후
+1. [x] Resources `GameData/waves.json` 동기화 (2차 커밋에 포함)
+2. [ ] 거대 함체 아트 (본체 half 17×8.5에 맞춤) + 하드포인트 정렬 (engine y=7.0 반영)
+3. [ ] 정박 상승 연출 뷰 + 로봇 연출
 
 ### 사람
-1. [ ] 거대 스케일·미사일→레이저 체감 확정 (로봇/정박은 2차)
+1. [ ] 잠김 깊이(−9)·상승 1.5초 체감 확정 (로봇은 3차)
 
 ---
 
