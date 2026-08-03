@@ -70,7 +70,11 @@ namespace Shmup.Presentation.Battle
         static readonly Color DeckTint = new Color(0.16f, 0.17f, 0.21f, 0.96f);
         /// <summary>장착 기둥 색 — 갑판보다 어둡게 깔아 포탑이 앞으로 서게 한다.</summary>
         static readonly Color PylonTint = new Color(0.13f, 0.14f, 0.17f, 1f);
-        static readonly Color Scorched = new Color(0.13f, 0.12f, 0.14f, 1f);
+        // 파괴된 파츠. 0.13까지 떨어뜨렸더니 화면에서는 **배경에 뚫린 검은 상자**로
+        // 보였다(헤드리스 스크린샷 2026-08-03) — 함체가 감청색이라 그보다 어두운
+        // 덩어리는 배의 잔해가 아니라 구멍으로 읽힌다. 그을린 금속으로 보이도록
+        // 밝기를 올리고 붉은 기를 남긴다.
+        static readonly Color Scorched = new Color(0.42f, 0.30f, 0.26f, 1f);
         static readonly Color DeepDim = new Color(0.30f, 0.34f, 0.42f, 1f);
         static readonly Color MildDim = new Color(0.62f, 0.64f, 0.68f, 1f);
         static readonly Color GatePulse = new Color(0.35f, 0.85f, 1f, 1f);
