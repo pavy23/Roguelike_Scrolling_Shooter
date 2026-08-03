@@ -42,6 +42,9 @@ namespace Shmup.Presentation.Battle
         Text[] _labels;
         Image[][] _pips;
         Text _shieldText;
+
+        /// <summary>게이지 슬롯 식별용 — 실드만 표기 규칙이 다르다(레벨 아님, 스톡).</summary>
+        const string ShieldNameKey = "shield";
         int _builtCount = -1;
         int _shownShield = int.MinValue;
 
@@ -183,6 +186,11 @@ namespace Shmup.Presentation.Battle
             if (!string.IsNullOrEmpty(nameKey)
                 && nameKey.IndexOf("mainShot", System.StringComparison.OrdinalIgnoreCase) >= 0)
                 return "SHOT";
+            // 주의: 아래 case들은 **소문자 키에만** 걸린다. 현재 GameData는 "Speed",
+            // "Shield"처럼 대문자로 시작하는 키를 쓰므로 대부분 기본 분기로 흘러
+            // ToUpperInvariant 결과가 표시된다("DOUBLE SHOT" 등). 표기가 우연히
+            // 맞아떨어져 있을 뿐이라, 여기를 고칠 때는 실제로 어떤 키가 오는지
+            // 먼저 확인해라 (nameKey 대소문자 함정 — 2026-08-03).
             switch (nameKey)
             {
                 case "speed": return "SPEED";
@@ -194,7 +202,7 @@ namespace Shmup.Presentation.Battle
                 case "laser": return "LASER";
                 case "triple": return "TRIPLE";
                 case "option": return "OPTION";
-                case "shield": return "SHIELD";
+                case ShieldNameKey: return "SHIELD";
                 default:
                     return string.IsNullOrEmpty(nameKey)
                         ? "?" : nameKey.ToUpperInvariant();
@@ -251,8 +259,20 @@ namespace Shmup.Presentation.Battle
                 // 무기 모드는 켜짐/진화 단계가 정체다 (REQ-086: maxLevel 3 진화).
                 // 활성 상태에서는 현재 진화 단계의 이름을 그대로 보여 준다 —
                 // "DOUBLE LV2"보다 "TAIL GUARD"가 무엇이 바뀌었는지 즉시 읽힌다.
+                // 실드는 레벨이 아니라 **스톡**이다 (사람 지적 2026-08-03). Core에서 이
+                // 슬롯 레벨이 오르는 순간 RecoverShieldStock(+1)이 돌아 재고가 한 장 느는
+                // 것뿐이고, 방어력이 세지지는 않는다. "SHIELD LV3"은 강해진 것처럼 읽혀
+                // 거짓말이 된다 — 지금 들고 있는 재고를 그대로 보여 준다.
+                // 대소문자 무시 비교가 필수다: GameData의 nameKey는 "Shield"(대문자 S)라
+                // Ordinal 비교로는 영영 안 걸린다. 아래 DisplayName의 소문자 case들이
+                // 전부 죽은 코드인 것도 같은 이유다 — 실제 표기는 기본 분기의
+                // ToUpperInvariant가 만들고 있었다.
+                bool shieldSlot = string.Equals(
+                    view.NameKey, ShieldNameKey, System.StringComparison.OrdinalIgnoreCase);
                 _labels[i].text = view.IsActiveWeaponMode
                     ? $"{EvolutionName(view.NameKey, view.Level)}\n{(view.Level >= view.MaxLevel ? "MAX" : $"MK{view.Level}")}"
+                    : shieldSlot
+                        ? $"{name}\nx{(_director != null ? _director.ShieldRemaining : 0)}"
                     : view.MaxLevel <= 1 ? name
                     : maxed ? $"{name}\nMAX"
                     : $"{name}\nLV{view.Level}";

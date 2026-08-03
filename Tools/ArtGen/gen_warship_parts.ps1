@@ -32,3 +32,10 @@ python artgen.py post --src out/raw/warship_core.png --target 64x64 --colors 48 
 Copy-Item out/final/warship_core.png ../../../art-input/warship_core.png -Force
 
 Write-Host "=== 전함 파츠 완료 — 씬 재생성(BattleSceneBuilder.Build) 후 반영된다 ==="
+
+# ── St1/St3 파괴 가능 장애물 (사람 지적 2026-08-03: "scrab 디자인이 허접하다") ──
+# 기존에는 BattleSceneBuilder.BuildScrapDebrisPixels()가 만드는 절차 생성 덩어리였다.
+# 사람 요구: "그럴싸한 판때기". 모서리 볼트 4개 + 용접선 + 녹이 있는 장갑 패널로 뽑는다.
+python artgen.py pixen --width 32 --height 32 --seed 4207 --out out/raw/scrap_plate2.png --prompt 'square armored bulkhead panel, flat rectangular steel plate filling the whole square frame, four corner bolts, riveted seams and a diagonal weld line, weathered gunmetal gray with rust streaks, straight edges and sharp square corners, industrial salvage, no glow, hi-bit 16-bit pixel art, hard pixel edges'
+python artgen.py post --src out/raw/scrap_plate2.png --target 32x32 --colors 24 --no-trim --out out/final/scrap_plate2.png
+Copy-Item out/final/scrap_plate2.png ../../../art-input/obstacle_scrap_debris.png -Force

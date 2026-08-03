@@ -293,6 +293,13 @@ namespace Shmup.Presentation.Battle
         const float BossFlashDuration = 0.09f;
 
         /// <summary>
+        /// 무적 파츠 차단 스파크 색 (REQ-125). 파츠 무적 표시(청록 테두리·맥동)와 같은
+        /// 계열이라 "저 색 = 지금 못 깎는다"가 하나의 어휘로 묶인다. 피격·폭발의
+        /// 흰·주황과 확실히 갈라야 착시가 안 생긴다.
+        /// </summary>
+        static readonly Color BlockedHitTint = new Color(0.35f, 0.85f, 1f, 1f);
+
+        /// <summary>
         /// 경로 선택은 폐지됐다 (REQ-054) — 새 런은 이 상태에 들어가지 않고
         /// `RunManager.ChooseRoute`는 `NotSupportedException`을 던진다. 다른 화면이
         /// "메뉴가 떠 있는지" 판단할 때 쓰던 자리라 상수 false로 남겨 둔다.
@@ -1288,6 +1295,16 @@ namespace Shmup.Presentation.Battle
                         break;
                     case SimEventType.GrazeScored:
                         SpawnExplosion(SimView.ToWorld(e.X, e.Y), 0.3f);    // 그레이즈 스파크
+                        break;
+                    // 무적 파츠에 막힌 탄 (REQ-125). 화면이 거짓말을 하던 자리다 —
+                    // Core는 탄을 지우되 데미지를 0으로 두는데, 슈팅에서 탄이 닿아
+                    // 사라지는 것은 "맞았다"의 가장 강한 신호라 플레이어(와 테스터 5명)가
+                    // 헛치는 줄 모르고 계속 쐈다.
+                    // 어휘를 확실히 가른다: 피격은 흰·주황 폭발, 차단은 **차가운 청록**이고
+                    // 크기도 더 작다. "여기는 지금 못 깎는다"가 한 프레임에 읽혀야 한다.
+                    case SimEventType.BossPartHitBlocked:
+                        SpawnExplosion(
+                            SimView.ToWorld(e.X, e.Y), 0.36f, BlockedHitTint);
                         break;
                     case SimEventType.MultiplierChanged:
                         ScoreMultiplier = e.Arg;
