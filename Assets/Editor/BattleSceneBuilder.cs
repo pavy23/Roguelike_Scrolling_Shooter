@@ -1209,6 +1209,23 @@ namespace Shmup.EditorTools
             // _hullSprite가 채워져 실루엣 판을 통째로 대체한다 — 씬 재생성만으로 교체된다.
             var warshipRoot = new GameObject("Warship");
             warshipRoot.transform.SetParent(battleRoot.transform, false);
+            // 하이브 조립 뷰 (몸통 + 다리 + 머리 실드). 다리를 부수면 실드가 깨지는
+            // 연출을 위해 세 조각을 따로 그린다 - 본체 한 장으로는 다리를 잘라낼 수 없다.
+            var hiveRoot = new GameObject("HiveBoss");
+            hiveRoot.transform.SetParent(battleRoot.transform, false);
+            var hiveView = battleRoot.AddComponent<HiveBossView>();
+            SetReference(hiveView, "_director", director);
+            SetReference(hiveView, "_root", hiveRoot.transform);
+            SetReference(hiveView, "_torsoSprite",
+                LoadExternalSprite("boss_hive_torso.png", "boss_hive_torso"));
+            SetReference(hiveView, "_legSprite",
+                LoadExternalSprite("boss_hive_leg.png", "boss_hive_leg"));
+            SetReference(hiveView, "_shieldSprite",
+                LoadExternalSprite("fx_shield_dome.png", "fx_shield_dome"));
+            // 하이브가 화면을 소유하는 동안 범용 파츠 오버레이는 비켜난다
+            // (전함과 같은 이유 - 같은 자리에 두 겹으로 그리면 사각형이 두 개로 읽힌다).
+            SetReference(partsView, "_hiveView", hiveView);
+
             var warshipView = battleRoot.AddComponent<WarshipView>();
             SetReference(warshipView, "_director", director);
             SetReference(warshipView, "_root", warshipRoot.transform);
@@ -1310,6 +1327,7 @@ namespace Shmup.EditorTools
             SetReference(lowHp, "_juice", juice);
             // 전함 그룹 전환 흔들림 (함미 전멸 = 중간보스 격파와 같은 무게)
             SetReference(warshipView, "_juice", juice);
+            SetReference(hiveView, "_juice", juice);   // 다리 절단 흔들림
             // 체인 아크/머리 맥동은 접근성 토글(플래시 감소)을 따라야 한다
             SetReference(chainView, "_juice", juice);
 

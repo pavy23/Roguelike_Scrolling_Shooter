@@ -36,6 +36,8 @@ namespace Shmup.Presentation.Battle
         /// 포탑이 뭉개지고, 파괴/무적 표현이 두 컴포넌트에서 이중으로 나온다.
         /// </summary>
         [SerializeField] WarshipView _warshipView;
+        [Tooltip("하이브 조립 뷰가 화면을 소유하면 범용 오버레이는 비켜난다.")]
+        [SerializeField] HiveBossView _hiveView;
 
         /// <summary>
         /// 코어 무적 표시용 **테두리** 스프라이트. 9-슬라이스라 어떤 크기로 늘려도
@@ -120,7 +122,8 @@ namespace Shmup.Presentation.Battle
             if (_director == null || _root == null || _markSprite == null) return;
             var parts = _director.BossParts;
             bool active = _director.BossActive && parts != null && parts.Count > 0
-                && (_warshipView == null || !_warshipView.Active);
+                && (_warshipView == null || !_warshipView.Active)
+                && (_hiveView == null || !_hiveView.Active);
             if (!active)
             {
                 if (_overlays.Count > 0) HideAll();

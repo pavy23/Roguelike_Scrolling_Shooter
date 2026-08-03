@@ -60,6 +60,18 @@ namespace Shmup.Presentation.Battle
         // 보드를 여는 쪽이 소수라 로드 시점에 미리 만들 이유가 없다.
         GameObject _rankingRoot;
         Text _rankingBody;
+        Text _rankingTitle;
+
+        /// <summary>
+        /// 랭킹 패널이 지금 보여 주는 보드. 예전에는 데일리로 **하드코딩**돼 있었는데,
+        /// 데일리는 그날 같은 시드로 뛴 기록만 담겨 대개 비어 있다. 그래서 전체 보드에
+        /// 기록이 8개 있는데도 화면에는 아무것도 안 보였다 (사람 보고 2026-08-03:
+        /// "스코어보드에 기록이 표시되지 않아").
+        ///
+        /// 기본값은 **전체**다 — 비어 있을 일이 거의 없어 "고장인가?"를 만들지 않는다.
+        /// 데일리는 버튼으로 전환해서 본다.
+        /// </summary>
+        bool _rankingDaily;
 
         /// <summary>보드 표시 줄 수. 100줄을 다 받아도 화면에는 상위 10줄만 올린다.</summary>
         const int RankingRows = 10;
@@ -220,8 +232,9 @@ namespace Shmup.Presentation.Battle
             // 640 기준 폭이라 520이 상한선에 가깝다: 여기서 더 늘리면 좌우 여백이 사라진다.
             var panel = UiKit.CreatePanel(canvas.transform, new Vector2(520f, 288f));
 
-            UiKit.CreateCornerText(panel, _fontBold, "DAILY RANKING", 14, UiKit.TextMain,
-                new Vector2(0.5f, 1f), new Vector2(0f, -12f), TextAnchor.UpperCenter, "RankTitle");
+            _rankingTitle = UiKit.CreateCornerText(panel, _fontBold, "ALL-TIME RANKING", 14,
+                UiKit.TextMain, new Vector2(0.5f, 1f), new Vector2(0f, -12f),
+                TextAnchor.UpperCenter, "RankTitle");
             UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -34f), 460f,
                 UiKit.TextAccent, "RankRule");
 
@@ -238,11 +251,21 @@ namespace Shmup.Presentation.Battle
                 new Vector2(0.5f, 1f), new Vector2(0f, -64f), TextAnchor.UpperLeft, "RankBody");
             _rankingBody.rectTransform.sizeDelta = new Vector2(480f, 168f);
 
+            UiKit.CreateTouchButton(panel, _font, "DAILY / ALL", 11,
+                new Vector2(0.5f, 0f), new Vector2(-90f, 12f), new Vector2(140f, 34f),
+                ToggleRankingBoard, "RankToggle");
             UiKit.CreateTouchButton(panel, _font, "CLOSE", 11,
-                new Vector2(0.5f, 0f), new Vector2(0f, 12f), new Vector2(140f, 34f),
+                new Vector2(0.5f, 0f), new Vector2(90f, 12f), new Vector2(140f, 34f),
                 CloseRanking, "RankClose", accent: true);
 
             _rankingRoot.SetActive(false);
+        }
+
+        /// <summary>전체 ↔ 데일리 전환. 보드가 바뀌면 즉시 다시 조회한다.</summary>
+        void ToggleRankingBoard()
+        {
+            _rankingDaily = !_rankingDaily;
+            RequestRanking();
         }
 
         void RequestRanking()
@@ -250,7 +273,9 @@ namespace Shmup.Presentation.Battle
             if (_rankingBody == null) return;
             _rankingBody.text = "LOADING...";
             _rankingBody.color = UiKit.TextDim;
-            ScoreboardClient.FetchBoard(true, OnRankingLoaded);
+            if (_rankingTitle != null)
+                _rankingTitle.text = _rankingDaily ? "DAILY RANKING" : "ALL-TIME RANKING";
+            ScoreboardClient.FetchBoard(_rankingDaily, OnRankingLoaded);
         }
 
         /// <summary>
@@ -270,7 +295,11 @@ namespace Shmup.Presentation.Battle
             }
             if (entries.Length == 0)
             {
-                _rankingBody.text = "NO ENTRIES YET";
+                // 데일리가 비어 있는 것은 정상이다(그날 아무도 안 뛰었을 뿐) —
+                // 고장으로 읽히지 않게 어느 보드가 비었는지 말해 준다.
+                _rankingBody.text = _rankingDaily
+                    ? "NO DAILY ENTRIES YET - TRY ALL-TIME"
+                    : "NO ENTRIES YET";
                 _rankingBody.color = UiKit.TextDim;
                 return;
             }

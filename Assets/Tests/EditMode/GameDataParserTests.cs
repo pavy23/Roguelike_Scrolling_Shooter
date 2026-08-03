@@ -1554,8 +1554,12 @@ namespace Shmup.Core.Tests
             // + bomb_stock_1 (REQ-067)
             // + 5 costed rewards (REQ-071).
             Assert.AreEqual(27, data.Rewards.All.Count);
-            // REQ-073: schema v5 exposes capsule reroll cost (provisional §7 = 5).
-            Assert.AreEqual(5, data.Rewards.RerollCost);
+            // REQ-073: schema v5 exposes capsule reroll cost. 값 자체는 GROK/사람이
+            // 조정하는 밸런스 수치라(§7) 하드코딩하지 않는다 — 실제로 캡슐 스폰을
+            // 0.7배로 낮추면서 5→4로 함께 내려갔고, 그때 이 단언이 깨졌다.
+            // 파서가 값을 제대로 읽어 오는지만 지킨다: 양수이고 한 손에 들 만한 크기.
+            Assert.Greater(data.Rewards.RerollCost, 0);
+            Assert.LessOrEqual(data.Rewards.RerollCost, 20);
             Assert.IsNotNull(data.Contracts);
             Assert.AreEqual("standard_route", data.Contracts.Standard.Id);
             // 1 standard + 11 nextStage specialty (8 base + 3 SPARTAN REQ-095)

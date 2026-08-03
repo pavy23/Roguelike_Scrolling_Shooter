@@ -82,6 +82,22 @@ namespace Shmup.Presentation.Battle
         SpritePool _bulletPool;
         SpritePool _enemyPool;
         SpritePool _capsulePool;
+
+        /// <summary>캡슐 판정 반폭(서브유닛). 뷰 스케일을 여기서 산출한다 — 그림과 판정이 함께 움직인다.</summary>
+        int _capsuleHalfWidthSubUnits;
+
+        /// <summary>
+        /// 장애물 뷰 배율 (사람 지시 2026-08-03: "고철 크기를 절반으로").
+        ///
+        /// 절반이 정확히 맞는 값인 이유: 장애물 스프라이트는 32×32px = **2×2유닛**인데
+        /// Core 판정은 반크기 0.5 = **1×1유닛**이다. 그림이 판정의 두 배였고, 전함
+        /// 함미에서 겪은 "보이는 것보다 판정이 작다"와 같은 거짓말이었다.
+        /// 0.5를 곱하면 요청도 충족하고 그림과 판정이 정확히 겹친다.
+        ///
+        /// 판정(Core 상수)은 건드리지 않았다 — 장애물 크기는 전 테마 공용이라
+        /// 줄이면 방금 넣은 포트리스 발판까지 작아진다.
+        /// </summary>
+        const float ObstacleViewScale = 0.5f;
         SpritePool _bombPickupPool;
 
         // Id → 뷰 인스턴스. Core가 주는 Id는 스폰~소멸까지 불변이라 매칭 키로 쓸 수 있다.
@@ -312,6 +328,31 @@ namespace Shmup.Presentation.Battle
 
         /// <summary>보스전 진행 중 여부 (BgmPlayer 보스 트랙 전환용).</summary>
         public bool BossActive => _sim != null && _sim.BossActive;
+
+        /// <summary>이번 방의 보스 id (waves.json). 보스별 전용 뷰가 자기 차례인지 가른다.</summary>
+        public string BossStageId =>
+            _run != null && _run.StagePlan != null ? _run.StagePlan.BossId : null;
+
+        /// <summary>보스 중심 x (서브유닛). 좌우 파츠를 가르는 기준으로 쓴다.</summary>
+        public int BossPositionSubUnitsX => _sim != null ? _sim.Boss.X : 0;
+
+        /// <summary>
+        /// 파츠가 **잘려 나가는** 순간의 연출 (하이브 다리 절단).
+        /// 일반 폭발보다 조밀하게 터뜨려 "사라졌다"가 아니라 "끊겼다"로 읽히게 한다.
+        /// </summary>
+        public void SpawnSeverBurst(Vector3 at)
+        {
+            SpawnExplosion(at, 0.9f);
+            for (int i = 0; i < 4; i++)
+            {
+                var offset = new Vector3(
+                    Mathf.Cos(i * 1.9f) * 0.45f,
+                    -0.35f * (i + 1),   // 아래로 흘러내린다 — 잘린 다리가 떨어지는 방향
+                    0f);
+                _pendingBoomPositions.Add(at + offset);
+                _pendingBoomDelays.Add(0.07f * (i + 1));
+            }
+        }
 
         /// <summary>런 완주(최종 보스 격파) 여부 — 결과 화면이 승리/패배를 가른다 (REQ-031).</summary>
         public bool IsRunCleared => _run != null && _run.State == RunState.RunCleared;
@@ -783,9 +824,13 @@ namespace Shmup.Presentation.Battle
             var config = data.CreateBattleSimConfig();
             // 스키마에 아직 없는 잠정값 (스키마 v3 후보 — GameData로 옮기면 이 블록 제거)
             // EnemyDespawnX는 REQ-005 이후 Core 기본값(-22u, SimSpace 상수 파생)을 그대로 쓴다.
-            // 캡슐 히트박스는 새 16×14px 스프라이트 기준 ×1.5.
-            config.CapsuleHalfWidth = SimSpace.SubUnitsPerWorldUnit * 15 / 32;
-            config.CapsuleHalfHeight = SimSpace.SubUnitsPerWorldUnit * 3 / 8;
+            // 캡슐 히트박스 ×2 (사람 지시 2026-08-03: "먹는 아이템 크기가 너무 작아.
+            // 2배로 키워줘"). 캡슐 뷰는 이 판정 크기에 맞춰 그려지므로 여기만 키우면
+            // 그림과 판정이 함께 커진다 — 그림만 키우면 전함 함미에서 겪은 "보이는
+            // 것보다 판정이 작다"가 재발한다.
+            config.CapsuleHalfWidth = SimSpace.SubUnitsPerWorldUnit * 15 / 16;
+            _capsuleHalfWidthSubUnits = config.CapsuleHalfWidth;
+            config.CapsuleHalfHeight = SimSpace.SubUnitsPerWorldUnit * 3 / 4;
             config.PlayerMaxHp = 3;
 
             // 개발용 런 시작 조건 (REQ-096). 새 런에만 건다 — 리플레이는 기록 당시
@@ -1024,6 +1069,7 @@ namespace Shmup.Presentation.Battle
             AnimatePunches();
             AnimateMuzzleFlash();
             TickPendingBooms();
+            TickBossDeathCinematic();
 
             // 리플레이 종료 → 잠시 후 타이틀 복귀
             if (_replayMode && (IsRunOver || _replayStreamEnded))
@@ -1543,7 +1589,7 @@ namespace Shmup.Presentation.Battle
                     // 풀은 스케일을 되돌리지 않는다 — 성장 연출이 남긴 값이 다음
                     // 장애물에 새지 않게 획득 시점에 확실히 원복한다.
                     // 회전도 같다: 포탑이 쓰던 뷰를 잔해가 물려받으면 잔해가 기울어진다.
-                    view.localScale = Vector3.one;
+                    view.localScale = Vector3.one * ObstacleViewScale;
                     view.localRotation = Quaternion.identity;
                     var renderer = view.GetComponent<SpriteRenderer>();
                     if (renderer != null)
@@ -1595,7 +1641,7 @@ namespace Shmup.Presentation.Battle
                         if (regenAge >= ObstacleRegenSeconds)
                         {
                             _obstacleRegenAges.Remove(obstacle.Id);
-                            view.localScale = Vector3.one;
+                            view.localScale = Vector3.one * ObstacleViewScale;
                         }
                         else
                         {
@@ -1603,7 +1649,8 @@ namespace Shmup.Presentation.Battle
                             // 감속 곡선(sin ease-out) — 처음에 훅 부풀고 마지막에 멎는다.
                             // 선형이면 "커진다"가 아니라 "늘어난다"로 읽힌다 (0.3 → 1.0).
                             float eased = Mathf.Sin(regenT * Mathf.PI * 0.5f);
-                            float scale = Mathf.Lerp(ObstacleRegenStartScale, 1f, eased);
+                            float scale = Mathf.Lerp(ObstacleRegenStartScale, 1f, eased)
+                                          * ObstacleViewScale;
                             view.localScale = new Vector3(scale, scale, 1f);
                         }
                     }
@@ -1646,7 +1693,7 @@ namespace Shmup.Presentation.Battle
                 // 성장 도중 파괴될 수 있다 — 반납 전에 원 스케일로 되돌린다.
                 if (retired != null)
                 {
-                    retired.localScale = Vector3.one;
+                    retired.localScale = Vector3.one * ObstacleViewScale;
                     retired.localRotation = Quaternion.identity;
                 }
                 _obstaclePool.Release(retired);
@@ -2362,6 +2409,17 @@ namespace Shmup.Presentation.Battle
         /// 보스 격파 시퀀스: 보스 위치 주변 다단 폭발 + 슬로모 + 흔들림.
         /// StageCleared는 보스 격파 직후 발생 — 보스 뷰가 켜져 있을 때만 연출한다.
         /// </summary>
+        /// <summary>
+        /// 격파 연출이 끝날 때까지 남은 시간(초). 0보다 크면 보상 카드를 띄우지 않는다.
+        ///
+        /// 사람 지적 2026-08-03: "폭파하자마자 카드가 떠서 클리어 감흥이 너무 없어."
+        /// 예전 연출은 총 0.72초였고 그 위로 곧장 카드가 덮였다 — 이겼다는 사실을
+        /// 화면이 축하해 줄 시간이 없었다.
+        /// </summary>
+        public float BossDeathCinematicRemaining { get; private set; }
+
+        public bool BossDeathCinematicActive => BossDeathCinematicRemaining > 0f;
+
         void TriggerBossDeathSequence()
         {
             // 전함전은 본체 렌더러를 숨기지만(SyncBoss) 격파 연출은 나와야 한다 —
@@ -2369,21 +2427,46 @@ namespace Shmup.Presentation.Battle
             if (_bossRenderer == null) return;
             if (!_bossRenderer.enabled && !_bossVisualSuppressed) return;
             var center = _bossRenderer.transform.localPosition;
+
+            // 격파의 무게를 등급으로 가른다 (사람 지시): 중간보스는 작게, 스테이지
+            // 보스와 히든 왕보스는 크게. 같은 폭발을 쓰면 5스테이지 완주도 잡졸
+            // 처치와 같은 크기로 끝나 버린다.
+            var section = StageSection;
+            bool midBoss = section == RunStageSection.MidBoss;
+            bool colossal = section == RunStageSection.HiddenBoss;
+
+            int boomCount = midBoss ? 8 : colossal ? 20 : 16;
+            float interval = midBoss ? 0.10f : 0.13f;
+            float spread = midBoss ? 0.9f : colossal ? 2.2f : 1.7f;
+            float scale = midBoss ? 1.1f : colossal ? 2.0f : 1.6f;
+
             if (_juice != null)
             {
-                _juice.Shake(0.5f);
-                _juice.Slowmo(0.35f, 0.7f);
+                _juice.Shake(midBoss ? 0.5f : colossal ? 1.0f : 0.8f);
+                _juice.Slowmo(midBoss ? 0.35f : 0.5f, midBoss ? 0.7f : 0.55f);
             }
-            SpawnExplosion(center);
-            for (int i = 0; i < 6; i++)
+
+            SpawnExplosion(center, scale);
+            for (int i = 0; i < boomCount; i++)
             {
-                var offset = new Vector3(
-                    Mathf.Cos(i * 2.4f) * (0.6f + 0.25f * i),
-                    Mathf.Sin(i * 1.9f) * (0.5f + 0.2f * i),
-                    0f);
-                _pendingBoomPositions.Add(center + offset);
-                _pendingBoomDelays.Add(0.12f * (i + 1));
+                // 황금비 각도로 돌려 같은 자리에 겹치지 않게 흩는다 — 규칙적인
+                // 원형 배치는 폭발이 아니라 도형으로 읽힌다.
+                float angle = i * 2.39996f;
+                float radius = spread * (0.35f + 0.65f * i / Mathf.Max(1, boomCount - 1));
+                _pendingBoomPositions.Add(center + new Vector3(
+                    Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius * 0.8f, 0f));
+                _pendingBoomDelays.Add(interval * (i + 1));
             }
+
+            // 마지막 폭발 뒤 여운까지 카드를 막는다.
+            BossDeathCinematicRemaining = interval * boomCount + (midBoss ? 0.35f : 0.7f);
+        }
+
+        void TickBossDeathCinematic()
+        {
+            if (BossDeathCinematicRemaining <= 0f) return;
+            BossDeathCinematicRemaining =
+                Mathf.Max(0f, BossDeathCinematicRemaining - Time.deltaTime);
         }
 
         void TickPendingBooms()
@@ -2473,6 +2556,29 @@ namespace Shmup.Presentation.Battle
             _damageFlash.color = new Color(1f, 0.2f, 0.2f, alpha);
         }
 
+        /// <summary>
+        /// 캡슐 그림을 판정 크기에 맞춘다 (사람 지시 2026-08-03: 아이템 2배).
+        ///
+        /// 예전에는 프리팹 원본 크기 그대로였다. 판정만 키우면 "그림보다 판정이 큰"
+        /// 반대 방향 불일치가 되고, 그림만 키우면 전함 함미에서 겪은 "보이는 것보다
+        /// 판정이 작다"가 된다 — 둘 다 화면이 거짓말을 하는 것이다. 판정에서 그림을
+        /// 산출해 항상 같이 움직이게 한다.
+        /// </summary>
+        void ApplyCapsuleScale(Transform view)
+        {
+            if (view == null || _capsuleHalfWidthSubUnits <= 0) return;
+            var renderer = view.GetComponent<SpriteRenderer>();
+            if (renderer == null || renderer.sprite == null) return;
+            var sprite = renderer.sprite;
+            float spriteWorldWidth = sprite.rect.width / sprite.pixelsPerUnit;
+            if (spriteWorldWidth <= 0.0001f) return;
+            float targetWorldWidth =
+                2f * _capsuleHalfWidthSubUnits / (float)SimSpace.SubUnitsPerWorldUnit;
+            float scale = targetWorldWidth / spriteWorldWidth;
+            if (!Mathf.Approximately(view.localScale.x, scale))
+                view.localScale = new Vector3(scale, scale, 1f);
+        }
+
         void SyncCapsules()
         {
             var capsules = _sim.Capsules;
@@ -2491,6 +2597,7 @@ namespace Shmup.Presentation.Battle
                 }
 
                 view.localPosition = SimView.ToWorld(capsule.X, capsule.Y);
+                ApplyCapsuleScale(view);
 
                 // 캡슐만 맥동시켜 "먹어야 하는 것"임을 알린다. 적·옵션은 맥동하지 않으므로
                 // 움직임 자체가 구분 신호가 된다. 표현 전용이라 시뮬에는 영향이 없다.

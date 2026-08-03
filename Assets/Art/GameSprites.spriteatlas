@@ -122,6 +122,7 @@ SpriteAtlas:
     - 6ac657a336ed1264f971e4644ffd4903: 21300000
     - a380bfa3f4b658142beea47070c46071: 21300000
     - 258a31b310c7e1c4186e59a1079cebc3: 21300000
+    - e3b806b3afbd7c34781dd02591772dd7: 21300000
     - 8843ffb3907cd3449ae8e8f8169ea460: 21300000
     - 1b1bfac362c98e649b99efd0d43ff71c: 21300000
     - 235553e3a50dbb54896b9d95e2ac8bff: 21300000
@@ -194,6 +195,7 @@ SpriteAtlas:
     - 200c7aa7000995d4fa2a52231e98d3e7: 21300000
     - 27c249b7d22281f498a8a331c4eee953: 21300000
     - 81744fc706bb8cd4d9026c1222fa8532: 21300000
+    - 33b15fc764a549a49a85d27e05ad91f3: 21300000
     - 54acb5d71fb0ab749a3bac921f0a1c75: 21300000
     - 9b01a0e7a1aaec4468556eca3584fad2: 21300000
     - 30c728f777f4f2d4d8616ae17e18a5bc: 21300000
@@ -329,6 +331,7 @@ SpriteAtlas:
     - 9feaafeea95c90e4abaeadae79dca82b: 21300000
     - 3732f9fe810966d49b626b6322d8816b: 21300000
     - ae20040fcff124f479c96a29c2ede96d: 21300000
+    - 26a4e31f45b42d74a9b6df38a3552393: 21300000
     - 2cfd251f9d66ba64cbf6e25fca205b1f: 21300000
     - 571d891fc6ee7a64db790f5b5913633d: 21300000
     - 8fb56d2f9edd5e842b1430405bec1be0: 21300000
@@ -418,6 +421,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 6ac657a336ed1264f971e4644ffd4903, type: 3}
   - {fileID: 21300000, guid: a380bfa3f4b658142beea47070c46071, type: 3}
   - {fileID: 21300000, guid: 258a31b310c7e1c4186e59a1079cebc3, type: 3}
+  - {fileID: 21300000, guid: e3b806b3afbd7c34781dd02591772dd7, type: 3}
   - {fileID: 21300000, guid: 8843ffb3907cd3449ae8e8f8169ea460, type: 3}
   - {fileID: 21300000, guid: 1b1bfac362c98e649b99efd0d43ff71c, type: 3}
   - {fileID: 21300000, guid: 235553e3a50dbb54896b9d95e2ac8bff, type: 3}
@@ -490,6 +494,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 200c7aa7000995d4fa2a52231e98d3e7, type: 3}
   - {fileID: 21300000, guid: 27c249b7d22281f498a8a331c4eee953, type: 3}
   - {fileID: 21300000, guid: 81744fc706bb8cd4d9026c1222fa8532, type: 3}
+  - {fileID: 21300000, guid: 33b15fc764a549a49a85d27e05ad91f3, type: 3}
   - {fileID: 21300000, guid: 54acb5d71fb0ab749a3bac921f0a1c75, type: 3}
   - {fileID: 21300000, guid: 9b01a0e7a1aaec4468556eca3584fad2, type: 3}
   - {fileID: 21300000, guid: 30c728f777f4f2d4d8616ae17e18a5bc, type: 3}
@@ -625,6 +630,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 9feaafeea95c90e4abaeadae79dca82b, type: 3}
   - {fileID: 21300000, guid: 3732f9fe810966d49b626b6322d8816b, type: 3}
   - {fileID: 21300000, guid: ae20040fcff124f479c96a29c2ede96d, type: 3}
+  - {fileID: 21300000, guid: 26a4e31f45b42d74a9b6df38a3552393, type: 3}
   - {fileID: 21300000, guid: 2cfd251f9d66ba64cbf6e25fca205b1f, type: 3}
   - {fileID: 21300000, guid: 571d891fc6ee7a64db790f5b5913633d, type: 3}
   - {fileID: 21300000, guid: 8fb56d2f9edd5e842b1430405bec1be0, type: 3}
@@ -713,6 +719,7 @@ SpriteAtlas:
   - anim_phase_disc_01
   - anim_junk_roller_01
   - anim_shard_prism_04
+  - boss_hive_leg
   - enemy_shard_prism
   - anim_void_moth_04
   - nebula_far_dark
@@ -785,6 +792,7 @@ SpriteAtlas:
   - fx_explosion_07
   - enemy_sting_hornet
   - anim_boss_core_02
+  - boss_hive_torso
   - anim_boss_fortress_04
   - anim_zako_sine_03
   - scrap_near
@@ -920,6 +928,7 @@ SpriteAtlas:
   - anim_sentry_03
   - anim_sentry_01
   - nebula_fg
+  - fx_shield_dome
   - option
   - anim_void_moth_01
   - anim_echo_wisp_01

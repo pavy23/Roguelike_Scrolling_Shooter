@@ -1936,6 +1936,12 @@ namespace Shmup.Core.Simulation
         int _multiplierLevel, _comboGauge, _ticksSinceLastComboAction;
         // REQ-133: 100 데미지 단위로 점수를 줄 때 남는 자투리. 방마다 초기화된다.
         int _bossDamageScoreCarry;
+
+        /// <summary>마지막 그레이즈 승급 이후 경과 틱. 동시 다발 스침을 한 단계로 묶는다.</summary>
+        int _ticksSinceGrazeLevelUp = int.MaxValue / 2;
+
+        /// <summary>그레이즈 승급 쿨다운(틱). 0.5초 — 탄막 한 겹을 지나가는 시간이다.</summary>
+        const int GrazeLevelUpCooldownTicks = 30;
         bool _comboActionThisTick, _activateHeld, _bombHeld, _playerAlive;
         bool _runClearShieldBonusAwarded;
         int _playerInvulnerabilityTicksRemaining;
@@ -3068,6 +3074,7 @@ namespace Shmup.Core.Simulation
             Tick++;
             _eventCount = 0;
             _comboActionThisTick = false;
+            if (_ticksSinceGrazeLevelUp < int.MaxValue) _ticksSinceGrazeLevelUp++;
             if (_playerInvulnerabilityTicksRemaining > 0)
                 _playerInvulnerabilityTicksRemaining--;
 
@@ -9029,6 +9036,13 @@ namespace Shmup.Core.Simulation
         {
             if (_multiplierLevel >= _comboMultipliers.Length - 1)
                 return;
+            // 같은 순간에 여러 발이 스치면 각각 한 단계씩 올라 5-way 탄막 하나로 x32가
+            // 됐다 (사람 보고 2026-08-03: "스칠 때 배율이 한 번만 올라야 하는데 한방에
+            // 32max가 된다"). 스침은 **순간**이지 발수가 아니다 — 쿨다운 안에서는
+            // 몇 발이 지나가든 한 단계만 올린다.
+            if (_ticksSinceGrazeLevelUp < GrazeLevelUpCooldownTicks)
+                return;
+            _ticksSinceGrazeLevelUp = 0;
             _comboGauge = 0;
             _multiplierLevel++;
             AppendEvent(
@@ -9071,8 +9085,23 @@ namespace Shmup.Core.Simulation
             if (_comboActionThisTick || _multiplierLevel == 0)
                 return;
 
-            // 보스 등장 연출·페이즈 전환 중에는 시계를 세운다 (사람 보고 2026-08-03:
-            // "중간보스 진입할 때 배율이 끊긴다").
+            // 플레이어가 콤보를 이을 **수단이 하나도 없는 시간**에는 시계를 세운다.
+            //
+            // 사람 보고 2026-08-03: "중간보스/보스 진입 순간 배율이 리셋된다." 앞서
+            // BossEntering만 막았는데 부족했다 — 보스가 **아직 스폰되기 전** 진입
+            // 구간이 남아 있었다. 그 구간에는 잡졸도 없고 적탄도 없고 보스도 없어
+            // 킬·그레이즈·딜 셋 다 불가능한데 감쇠만 돌았다.
+            //
+            // 조건은 **보스룸 진입 구간**으로 좁힌다. 처음엔 "적·적탄·보스가 전부 없으면
+            // 멈춘다"로 일반화했는데, 그러면 평상시 웨이브 사이 소강에서도 멈춰 감쇠가
+            // 사실상 무력해진다(테스트가 정확히 그 지점을 잡았다).
+            //
+            // 보스룸(_bossMaxHp > 0)인데 보스가 아직 안 온 시간만 세운다 —
+            // 그 구간은 잡졸도 이미 끝났고 보스도 없어 손쓸 방법이 정말로 없다.
+            if (_bossMaxHp > 0 && !_bossSpawned)
+                return;
+
+            // 보스 등장 연출·페이즈 전환 중에도 같은 이유로 멈춘다 (데미지가 거부된다).
             //
             // 이 구간에서는 플레이어가 콤보를 이을 방법이 **하나도 없다**: 보스는
             // ApplyDamageToBoss/Part가 BossEntering을 걸러 데미지를 안 받고, 잡졸은

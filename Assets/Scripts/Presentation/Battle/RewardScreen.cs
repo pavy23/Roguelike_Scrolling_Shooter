@@ -123,6 +123,11 @@ namespace Shmup.Presentation.Battle
         void Choose(int index)
         {
             if (_director == null || !_director.AwaitingReward) return;
+            // 격파 연출이 끝나기 전에는 카드를 띄우지 않는다 (사람 지적 2026-08-03:
+            // "폭파하자마자 카드가 떠서 클리어 감흥이 너무 없어"). 이겼다는 사실을
+            // 화면이 축하하는 동안은 기다린다 - Core는 이미 AwaitingReward로 멈춰
+            // 있으므로 게임 진행에는 영향이 없다.
+            if (_director.BossDeathCinematicActive) return;
             var options = _director.RewardOptions;
             if (options == null || index < 0 || index >= options.Count) return;
             _director.ChooseReward(index);
@@ -131,7 +136,7 @@ namespace Shmup.Presentation.Battle
         void Update()
         {
             if (_director == null || _root == null) return;
-            bool awaiting = _director.AwaitingReward;
+            bool awaiting = _director.AwaitingReward && !_director.BossDeathCinematicActive;
             if (_root.activeSelf != awaiting)
                 _root.SetActive(awaiting);
             if (!awaiting)

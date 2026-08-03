@@ -206,8 +206,43 @@ def _quantize(img: Image.Image, colors: int) -> Image.Image:
     return result
 
 
+def _cutout_background(img: "Image.Image", tolerance: int) -> "Image.Image":
+    """가장자리에서 번져 들어가며 배경색을 지운다 (플러드 필).
+
+    PixelLab pixen은 no_background=True를 줘도 불투명 배경을 실어 보낼 때가 있다
+    (2026-08-03 확인). 색 하나만 골라 지우면 그 색이 캐릭터 안에도 있을 때 구멍이
+    뚫리므로, **가장자리에 닿아 있는 영역만** 지운다 — 안쪽에 갇힌 같은 색은 남는다.
+    """
+    img = img.convert("RGBA")
+    w, h = img.size
+    px = img.load()
+    seed = px[0, 0][:3]
+
+    def near(c):
+        return (abs(c[0] - seed[0]) <= tolerance
+                and abs(c[1] - seed[1]) <= tolerance
+                and abs(c[2] - seed[2]) <= tolerance)
+
+    stack = [(x, 0) for x in range(w)] + [(x, h - 1) for x in range(w)]
+    stack += [(0, y) for y in range(h)] + [(w - 1, y) for y in range(h)]
+    seen = set()
+    while stack:
+        x, y = stack.pop()
+        if (x, y) in seen or not (0 <= x < w and 0 <= y < h):
+            continue
+        seen.add((x, y))
+        c = px[x, y]
+        if c[3] == 0 or not near(c):
+            continue
+        px[x, y] = (c[0], c[1], c[2], 0)
+        stack += [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+    return img
+
+
 def cmd_post(args) -> None:
     src = Image.open(args.src).convert("RGBA")
+    if getattr(args, "cutout", 0):
+        src = _cutout_background(src, args.cutout)
 
     bbox = src.getchannel("A").getbbox()
     if bbox and not args.no_trim:
@@ -308,6 +343,8 @@ def main() -> None:
     p.add_argument("--target", required=True, help="예: 48x30")
     p.add_argument("--colors", type=int, default=48)
     p.add_argument("--no-trim", action="store_true")
+    p.add_argument("--cutout", type=int, default=0,
+                   help="가장자리 플러드 필로 배경 제거 (색 허용오차, 0이면 비활성)")
     p.add_argument("--cover", action="store_true", help="배경용: 꽉 채우고 중앙 크롭")
     p.add_argument("--out", required=True)
     p.set_defaults(func=cmd_post)
