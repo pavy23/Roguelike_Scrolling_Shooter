@@ -9198,7 +9198,7 @@
         {
           "id": "engine",
           "offsetX": 5.0,
-          "offsetY": 1.5,
+          "offsetY": 7.0,
           "halfWidth": 3.5,
           "halfHeight": 2.5,
           "hp": 2200,
@@ -9345,7 +9345,9 @@
             "role": "midbossGate",
             "partIds": [
               "engine"
-            ]
+            ],
+            "anchorOffsetY": -9.0,
+            "anchorTravelTicks": 0
           },
           {
             "id": "hull",
@@ -9356,14 +9358,18 @@
               "turret_c",
               "turret_d"
             ],
-            "advanceAfterTicks": 720
+            "advanceAfterTicks": 720,
+            "anchorOffsetY": 0.0,
+            "anchorTravelTicks": 90
           },
           {
             "id": "bow",
             "role": "finalCore",
             "partIds": [
               "core"
-            ]
+            ],
+            "anchorOffsetY": 0.0,
+            "anchorTravelTicks": 0
           }
         ]
       }

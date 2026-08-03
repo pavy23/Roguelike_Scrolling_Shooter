@@ -1,6 +1,7 @@
-"""REQ-139: scale boss_fortress + missile/laser part vocabulary.
+"""REQ-139: scale boss_fortress + missile/laser + vertical staging anchors.
 
-Does NOT add anchorX/Y or robot form (schema pending in Core).
+Phase 2 (anchors): group anchorOffsetY / anchorTravelTicks (Core af27d38).
+Robot form still pending schema.
 HP total locked at 19600 so combat duration does not balloon with size.
 """
 from __future__ import annotations
@@ -21,11 +22,21 @@ def on_grid(value: float) -> bool:
     return d == d.to_integral_value()
 
 
+# Act staging relative to originY=0. Screen Y ∈ [-11.25, 11.25].
+# Act1 sinks the hull so only the upper deck is in frame; act2 rises to centre.
+GROUP_ANCHORS = {
+    "stern": {"anchorOffsetY": -9.0, "anchorTravelTicks": 0},
+    "hull": {"anchorOffsetY": 0.0, "anchorTravelTicks": 90},
+    "bow": {"anchorOffsetY": 0.0, "anchorTravelTicks": 0},
+}
+
 NEW_PARTS = [
     {
         "id": "engine",
         "offsetX": 5.0,
-        "offsetY": 1.5,
+        # Deck superstructure: must stay hittable at Y≈0 while hull is sunk
+        # (Req119 auto-fire keeps the player on the mid-line).
+        "offsetY": 7.0,
         "halfWidth": 3.5,
         "halfHeight": 2.5,
         "hp": 2200,
@@ -191,11 +202,8 @@ def main() -> None:
             if boss.get("id") != "boss_fortress":
                 continue
             found = True
-            if "anchorX" in boss or "anchorY" in boss:
-                raise SystemExit("unexpected anchor fields on boss_fortress")
             boss["halfWidth"] = body_hw
             boss["halfHeight"] = body_hh
-            # holdX / warship origin / groups stay (anchor schema not ready).
             if boss.get("holdX") != 12.0:
                 raise SystemExit(f"unexpected holdX {boss.get('holdX')}")
             if boss.get("hp") != 19600:
@@ -208,6 +216,11 @@ def main() -> None:
             groups = warship.get("groups") or []
             if len(groups) != 3:
                 raise SystemExit(f"warship groups {len(groups)} != 3")
+            for group in groups:
+                gid = group.get("id")
+                if gid not in GROUP_ANCHORS:
+                    raise SystemExit(f"unknown group id {gid}")
+                group.update(GROUP_ANCHORS[gid])
             break
         if not found:
             raise SystemExit(f"boss_fortress not found in {path}")
