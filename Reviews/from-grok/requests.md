@@ -4,12 +4,31 @@
 
 ---
 
+## 2026-08-03 REQ-132 — stage1 잡졸 저빈도 사격 (안 A 적용)
+
+**완료 (content):**
+- `enemies.json`: `junk_roller` 180 · `scrap_tumbler` 150 (안 A)
+- `waves.json`: REQ-131 편대 탄벽 방지 — `debris_line` 편대→skimmer, `center_breach` 편대→pipe_rat
+- 표: `Reviews/from-grok/req132-report.md`
+- 결정론 해시 **변동** (fire + spawn 기종). schemaVersion 불변.
+
+### CLAUDE
+1. [ ] Resources `GameData/enemies.json` · `waves.json` 동기화
+2. [ ] (선택) stage1 early 그레이즈·cover 체감 캡처
+
+### GEMINI
+1. [ ] DeterminismAudit 베이스라인 갱신 (REQ-132)
+2. [ ] early scrap peak 탄밀도 교차 (이론 peak1s≤2)
+
+---
+
 ## 2026-08-03 REQ-129 / REQ-130 — scrap breakable 분산 + 잡졸 무발사 조사
 
 **완료 (content):**
 - REQ-129: scrapyard breakable x 분산 (`waves.json`) — 5-stack 벽 제거, 의도 벽 일부 유지
 - REQ-130: 조사만 — early scrap 사격 0은 소프트 의도, 그레이즈 갭 제안 수치 미적용 (§7)
 - 표: `Reviews/from-grok/req129-130-report.md`
+- **사람 확정 (2026-08-03):** 안 A 채택 → REQ-132에서 적용 완료
 
 ### CLAUDE
 1. [ ] Resources `GameData/waves.json` 동기화 (scrap breakable 좌표)
@@ -20,7 +39,7 @@
 2. [ ] stage1 breakable “한 덩어리” 체감 해소 교차 확인
 
 ### 사람
-1. [ ] REQ-130 안 A (`junk_roller` 180 / `scrap_tumbler` 150) 채택 여부 (§7)
+1. [x] REQ-130 안 A (`junk_roller` 180 / `scrap_tumbler` 150) 채택 → REQ-132
 2. [ ] 그레이즈·배율 가뭄을 난이도로 볼지 점수 표현으로 볼지
 
 ---
