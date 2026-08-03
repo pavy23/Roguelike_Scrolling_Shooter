@@ -25,6 +25,176 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
+        public void DurationTargetsDefaultToMeasuredLegacyDurations()
+        {
+            var catalog = new StageGenerationCatalog(
+                3,
+                1,
+                Center,
+                new[] { Segment("segment", Center, Center, Center) },
+                new[] { Boss("boss", Center, null) });
+
+            Assert.AreEqual(
+                2370,
+                StageGenerationCatalog.DefaultTargetDurationTicks);
+            Assert.AreEqual(
+                3942,
+                StageGenerationCatalog.DefaultClosingTargetDurationTicks);
+            Assert.AreEqual(
+                StageGenerationCatalog.DefaultTargetDurationTicks,
+                catalog.TargetDurationTicks);
+            Assert.AreEqual(
+                StageGenerationCatalog.DefaultClosingTargetDurationTicks,
+                catalog.ClosingTargetDurationTicks);
+        }
+
+        [Test]
+        public void DurationTargetIncludesWholeCrossingSegmentDeterministically()
+        {
+            var catalog = new StageGenerationCatalog(
+                3,
+                4,
+                Center,
+                new[]
+                {
+                    Segment(
+                        "duration_segment",
+                        Center,
+                        Center,
+                        Center,
+                        "core")
+                },
+                new[] { Boss("duration_boss", Center, "core") },
+                new[] { "core" },
+                targetDurationTicks: 900);
+            var generator = new SegmentStageGenerator(catalog);
+
+            StagePlan first = generator.Generate(0x127UL, 1, 1);
+            StagePlan second = generator.Generate(0x127UL, 1, 1);
+
+            Assert.AreEqual(2, first.Segments.Count);
+            Assert.AreEqual(1200, TotalDurationTicks(first));
+            AssertPlansEqual(first, second);
+        }
+
+        [Test]
+        public void SectionDurationTargetsTakePriorityAndCountsRemainCaps()
+        {
+            var catalog = new StageGenerationCatalog(
+                3,
+                3,
+                Center,
+                new[]
+                {
+                    Segment(
+                        "duration_segment",
+                        Center,
+                        Center,
+                        Center,
+                        "core")
+                },
+                new[] { Boss("duration_boss", Center, "core") },
+                new[] { "core" },
+                closingSegmentsPerStage: 4,
+                targetDurationTicks: 5000,
+                closingTargetDurationTicks: 1500);
+            var generator = new SegmentStageGenerator(catalog);
+
+            StagePlan opening = generator.GenerateRouteForSection(
+                0x1271UL,
+                1,
+                1,
+                "core",
+                EncounterType.Normal,
+                StageRouteSection.Default);
+            StagePlan closing = generator.GenerateRouteForSection(
+                0x1271UL,
+                1,
+                1,
+                "core",
+                EncounterType.Normal,
+                StageRouteSection.Closing);
+
+            Assert.AreEqual(3, opening.Segments.Count,
+                "The count must cap an unreachable duration target.");
+            Assert.AreEqual(3, closing.Segments.Count,
+                "The closing target must stop before its count cap.");
+            Assert.AreEqual(1800, TotalDurationTicks(opening));
+            Assert.AreEqual(1800, TotalDurationTicks(closing));
+        }
+
+        [Test]
+        public void DurationTargetTreatsCountAsUpperBoundForShortTerminalRoute()
+        {
+            var catalog = new StageGenerationCatalog(
+                3,
+                3,
+                Center,
+                new[]
+                {
+                    Segment(
+                        "terminal_segment",
+                        Center,
+                        Left,
+                        Center | Left,
+                        "core")
+                },
+                new[] { Boss("left_boss", Left, "core") },
+                new[] { "core" },
+                targetDurationTicks: 600);
+            var generator = new SegmentStageGenerator(catalog);
+
+            Assert.IsTrue(generator.CanGenerateRoute(
+                "core",
+                1,
+                1,
+                EncounterType.Normal));
+            StagePlan plan = generator.GenerateRoute(
+                0x1273UL,
+                1,
+                1,
+                "core",
+                EncounterType.Normal);
+
+            Assert.AreEqual(1, plan.Segments.Count);
+            Assert.AreEqual(600, TotalDurationTicks(plan));
+        }
+
+        [Test]
+        public void DurationTargetsRejectNonPositiveValues()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new StageGenerationCatalog(
+                    3,
+                    1,
+                    Center,
+                    new[] { Segment("segment", Center, Center, Center) },
+                    new[] { Boss("boss", Center, null) },
+                    null,
+                    targetDurationTicks: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new StageGenerationCatalog(
+                    3,
+                    1,
+                    Center,
+                    new[] { Segment("segment", Center, Center, Center) },
+                    new[] { Boss("boss", Center, null) },
+                    null,
+                    closingTargetDurationTicks: -1));
+        }
+
+        [Test]
+        public void PreviousDeterminismSchemasAreExplicitlyRejected()
+        {
+            Assert.Throws<ArgumentException>(() =>
+                SaveDataIntegrity.MigrateAndValidate(
+                    new InputRecordingData { schemaVersion = 24 }));
+            Assert.Throws<ArgumentException>(() =>
+                SaveDataIntegrity.MigrateAndValidate(
+                    new RunSuspendData { schemaVersion = 27 }));
+        }
+
+        [Test]
         public void PostMidbossOutcome_SelectsTaggedPoolAndFallsBackToDefault()
         {
             var defaultSegment = new StageSegmentTemplate(
@@ -477,8 +647,8 @@ namespace Shmup.Core.Tests
             {
                 StagePlan plan = generator.Generate(seed, 1, 2);
 
-                Assert.AreEqual(5, plan.Segments.Count);
-                Assert.AreEqual(3, plan.SegmentReuseCount);
+                Assert.AreEqual(4, plan.Segments.Count);
+                Assert.AreEqual(2, plan.SegmentReuseCount);
                 Assert.IsTrue(plan.SegmentReuseApplied);
                 for (int i = 1; i < plan.Segments.Count; i++)
                 {
@@ -812,6 +982,14 @@ namespace Shmup.Core.Tests
                 sequence += generator.Generate(seed, stageIndex, 1).ThemeId;
             }
             return sequence;
+        }
+
+        static int TotalDurationTicks(StagePlan plan)
+        {
+            int total = 0;
+            for (int i = 0; i < plan.Segments.Count; i++)
+                total += plan.Segments[i].LengthTicks;
+            return total;
         }
 
         static StageSegmentTemplate Segment(

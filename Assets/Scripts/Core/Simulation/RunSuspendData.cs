@@ -177,11 +177,11 @@ namespace Shmup.Core.Simulation
     public sealed class RunSuspendData
     {
         /// <summary>
-        /// Schema 27 retains the St1 ghost recording and its playback tuning.
-        /// Schema 26 and other incompatible boundaries are rejected because
-        /// resuming without the recording would change final-stage combat.
+        /// Schema 28 records REQ-127 duration-target stage generation and
+        /// REQ-128 partial player volleys. Schema 27 checkpoints are rejected
+        /// because resuming regenerates room plans and combat from run inputs.
         /// </summary>
-        public const int CurrentSchemaVersion = 27;
+        public const int CurrentSchemaVersion = 28;
 
         [DataMember(Order = 0)]
         public int schemaVersion;

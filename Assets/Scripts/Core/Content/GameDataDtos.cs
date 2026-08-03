@@ -227,6 +227,10 @@ namespace Shmup.Core.Content
         [DataMember]
         public int? closingSegmentsPerStage;
         [DataMember]
+        public int? targetDurationTicks;
+        [DataMember]
+        public int? closingTargetDurationTicks;
+        [DataMember]
         public int? startLaneMask;
         [DataMember]
         public string[] themes;

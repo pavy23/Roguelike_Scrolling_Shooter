@@ -51,7 +51,9 @@ namespace Shmup.Core.Content
                 bosses,
                 themes,
                 gimmicks,
-                root.closingSegmentsPerStage);
+                root.closingSegmentsPerStage,
+                root.targetDurationTicks,
+                root.closingTargetDurationTicks);
             ContractCatalog contracts =
                 ParseContracts(root.contracts);
             return new WavesParseResult(

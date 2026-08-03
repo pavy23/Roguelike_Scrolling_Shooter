@@ -10,6 +10,12 @@ namespace Shmup.Core.Generation
     /// </summary>
     public sealed class StageGenerationCatalog
     {
+        // REQ-127 measured baselines after the pending content clamp/count pass:
+        // 39.5 s opening and 65.7 s closing at 60 deterministic ticks/second.
+        // Content may override both without changing Core generation rules.
+        public const int DefaultTargetDurationTicks = 2370;
+        public const int DefaultClosingTargetDurationTicks = 3942;
+
         public StageGenerationCatalog(
             int laneCount,
             int segmentsPerStage,
@@ -34,7 +40,9 @@ namespace Shmup.Core.Generation
             IReadOnlyList<StageBossTemplate> bosses,
             IReadOnlyList<string> themeIds,
             IReadOnlyList<StageGimmickDefinition> gimmicks = null,
-            int? closingSegmentsPerStage = null)
+            int? closingSegmentsPerStage = null,
+            int? targetDurationTicks = null,
+            int? closingTargetDurationTicks = null)
         {
             if (laneCount < 1 || laneCount > 30)
                 throw new ArgumentOutOfRangeException(nameof(laneCount));
@@ -44,6 +52,14 @@ namespace Shmup.Core.Generation
                 && closingSegmentsPerStage.Value < 1)
                 throw new ArgumentOutOfRangeException(
                     nameof(closingSegmentsPerStage));
+            if (targetDurationTicks.HasValue
+                && targetDurationTicks.Value < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(targetDurationTicks));
+            if (closingTargetDurationTicks.HasValue
+                && closingTargetDurationTicks.Value < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(closingTargetDurationTicks));
 
             int validLanes = StagePlanClearability.GetValidLaneMask(laneCount);
             StagePlanClearability.ValidateLaneMask(
@@ -53,6 +69,10 @@ namespace Shmup.Core.Generation
             SegmentsPerStage = segmentsPerStage;
             ClosingSegmentsPerStage =
                 closingSegmentsPerStage ?? segmentsPerStage;
+            TargetDurationTicks = targetDurationTicks
+                ?? DefaultTargetDurationTicks;
+            ClosingTargetDurationTicks = closingTargetDurationTicks
+                ?? DefaultClosingTargetDurationTicks;
             StartLaneMask = startLaneMask;
             Segments = CopySegments(segments, validLanes);
             Bosses = CopyBosses(bosses, validLanes);
@@ -71,6 +91,16 @@ namespace Shmup.Core.Generation
         public int LaneCount { get; }
         public int SegmentsPerStage { get; }
         public int ClosingSegmentsPerStage { get; }
+        /// <summary>
+        /// Normal-section duration target. SegmentsPerStage is a safety upper
+        /// bound and fallback when the catalog cannot reach this duration.
+        /// </summary>
+        public int? TargetDurationTicks { get; }
+        /// <summary>
+        /// Closing-section duration target. ClosingSegmentsPerStage is a safety
+        /// upper bound and fallback when the catalog cannot reach this duration.
+        /// </summary>
+        public int? ClosingTargetDurationTicks { get; }
         public int StartLaneMask { get; }
         public IReadOnlyList<StageSegmentTemplate> Segments { get; }
         public IReadOnlyList<StageBossTemplate> Bosses { get; }
@@ -882,6 +912,9 @@ namespace Shmup.Core.Generation
                 EncounterType.Normal,
                 GetSegmentCount(
                     EncounterType.Normal,
+                    StageRouteSection.Default),
+                GetTargetDurationTicks(
+                    EncounterType.Normal,
                     StageRouteSection.Default));
         }
 
@@ -906,7 +939,11 @@ namespace Shmup.Core.Generation
                 themeId,
                 stageIndex,
                 difficulty,
-                segmentCount);
+                segmentCount,
+                MidbossOutcomeKind.Default,
+                GetTargetDurationTicks(
+                    encounterType,
+                    StageRouteSection.Default));
         }
 
         public StagePlan GenerateRoute(
@@ -949,6 +986,9 @@ namespace Shmup.Core.Generation
                 encounterType,
                 GetSegmentCount(
                     encounterType,
+                    StageRouteSection.Default),
+                GetTargetDurationTicks(
+                    encounterType,
                     StageRouteSection.Default));
         }
 
@@ -970,7 +1010,9 @@ namespace Shmup.Core.Generation
                 themeId,
                 stageIndex,
                 difficulty,
-                GetSegmentCount(encounterType, section));
+                GetSegmentCount(encounterType, section),
+                MidbossOutcomeKind.Default,
+                GetTargetDurationTicks(encounterType, section));
         }
 
         public StagePlan GenerateRouteForSection(
@@ -996,7 +1038,8 @@ namespace Shmup.Core.Generation
                 themeId,
                 themeId,
                 encounterType,
-                GetSegmentCount(encounterType, section));
+                GetSegmentCount(encounterType, section),
+                GetTargetDurationTicks(encounterType, section));
         }
 
         public bool CanGenerateRouteForSection(
@@ -1025,7 +1068,9 @@ namespace Shmup.Core.Generation
                     stageIndex,
                     difficulty,
                     GetSegmentCount(encounterType, section),
-                    outcome));
+                    outcome,
+                    GetTargetDurationTicks(encounterType, section)),
+                GetTargetDurationTicks(encounterType, section));
         }
 
         public StagePlan GenerateRouteForSection(
@@ -1054,12 +1099,14 @@ namespace Shmup.Core.Generation
                 themeId,
                 encounterType,
                 GetSegmentCount(encounterType, section),
+                GetTargetDurationTicks(encounterType, section),
                 ResolveAvailableOutcome(
                     themeId,
                     stageIndex,
                     difficulty,
                     GetSegmentCount(encounterType, section),
-                    outcome));
+                    outcome,
+                    GetTargetDurationTicks(encounterType, section)));
         }
 
         public StagePlan GeneratePostMidbossHalf(
@@ -1167,10 +1214,21 @@ namespace Shmup.Core.Generation
             string requestedThemeId,
             EncounterType encounterType,
             int segmentCount,
+            int? targetDurationTicks,
             MidbossOutcomeKind outcome = MidbossOutcomeKind.Default)
         {
             if (!Enum.IsDefined(typeof(MidbossOutcomeKind), outcome))
                 throw new ArgumentOutOfRangeException(nameof(outcome));
+            segmentCount = FindFeasibleSegmentCount(
+                themeId,
+                stageIndex,
+                difficulty,
+                segmentCount,
+                outcome,
+                targetDurationTicks);
+            if (segmentCount == 0)
+                throw new InvalidOperationException(
+                    CannotAssembleMessage(themeId));
             Rng stageRng = new Rng(seed)
                 .Fork(StageGenerationStream)
                 .Fork(stageIndex)
@@ -1188,6 +1246,8 @@ namespace Shmup.Core.Generation
             var selectedTemplates = new bool[_catalog.Segments.Count];
             int reachable = _catalog.StartLaneMask;
             int previousTemplateIndex = -1;
+            int assembledCount = 0;
+            long assembledDurationTicks = 0;
 
             for (int position = 0; position < assembled.Length; position++)
             {
@@ -1229,12 +1289,32 @@ namespace Shmup.Core.Generation
                     : PickWeightedCandidate(segmentRng, viableIndices);
                 int selectedIndex = viableIndices[pick];
                 StageSegmentTemplate selected = _catalog.Segments[selectedIndex];
-                assembled[position] = selected.CreateSegment(
+                StageSegment segment = selected.CreateSegment(
                     obstacleJitterRng.Fork(position));
+                assembled[position] = segment;
+                assembledCount++;
+                assembledDurationTicks += segment.LengthTicks;
                 reachable = viableExits[pick];
                 selectedTemplates[selectedIndex] = true;
                 previousTemplateIndex = selectedIndex;
+
+                // Segment boundaries carry spawn timing, obstacle timing, and
+                // lane-transition contracts, so truncating the final segment
+                // would corrupt authored content. Include it whole, allowing a
+                // bounded overshoot, and stop only when its exit reaches a boss.
+                // The count remains a hard safety cap if the target is unreachable.
+                if (targetDurationTicks.HasValue
+                    && assembledDurationTicks >= targetDurationTicks.Value
+                    && HasReachableBoss(
+                        reachable,
+                        stageIndex,
+                        difficulty,
+                        themeId))
+                    break;
             }
+
+            if (assembledCount != assembled.Length)
+                Array.Resize(ref assembled, assembledCount);
 
             var compatibleBosses = new List<int>();
             for (int i = 0; i < _catalog.Bosses.Count; i++)
@@ -1317,6 +1397,19 @@ namespace Shmup.Core.Generation
             return section == StageRouteSection.Closing
                 ? _catalog.ClosingSegmentsPerStage
                 : _catalog.SegmentsPerStage;
+        }
+
+        int? GetTargetDurationTicks(
+            EncounterType encounterType,
+            StageRouteSection section)
+        {
+            // Elite and supply encounters deliberately remain single-segment.
+            if (encounterType == EncounterType.Elite
+                || encounterType == EncounterType.Supply)
+                return null;
+            return section == StageRouteSection.Closing
+                ? _catalog.ClosingTargetDurationTicks
+                : _catalog.TargetDurationTicks;
         }
 
         bool ContainsTheme(string themeId)
@@ -1650,7 +1743,8 @@ namespace Shmup.Core.Generation
                 stageIndex,
                 difficulty,
                 _catalog.SegmentsPerStage,
-                MidbossOutcomeKind.Default);
+                MidbossOutcomeKind.Default,
+                _catalog.TargetDurationTicks);
         }
 
         bool CanAssemble(
@@ -1658,16 +1752,42 @@ namespace Shmup.Core.Generation
             int stageIndex,
             int difficulty,
             int segmentCount,
-            MidbossOutcomeKind outcome = MidbossOutcomeKind.Default)
+            MidbossOutcomeKind outcome = MidbossOutcomeKind.Default,
+            int? targetDurationTicks = null)
         {
-            return CanComplete(
-                _catalog.StartLaneMask,
-                segmentCount,
+            return FindFeasibleSegmentCount(
+                themeId,
                 stageIndex,
                 difficulty,
-                themeId,
+                segmentCount,
                 outcome,
-                new Dictionary<long, bool>());
+                targetDurationTicks) > 0;
+        }
+
+        int FindFeasibleSegmentCount(
+            string themeId,
+            int stageIndex,
+            int difficulty,
+            int segmentCount,
+            MidbossOutcomeKind outcome,
+            int? targetDurationTicks)
+        {
+            int minimum = targetDurationTicks.HasValue ? 1 : segmentCount;
+            for (int candidateCount = segmentCount;
+                candidateCount >= minimum;
+                candidateCount--)
+            {
+                if (CanComplete(
+                    _catalog.StartLaneMask,
+                    candidateCount,
+                    stageIndex,
+                    difficulty,
+                    themeId,
+                    outcome,
+                    new Dictionary<long, bool>()))
+                    return candidateCount;
+            }
+            return 0;
         }
 
         MidbossOutcomeKind ResolveAvailableOutcome(
@@ -1675,7 +1795,8 @@ namespace Shmup.Core.Generation
             int stageIndex,
             int difficulty,
             int segmentCount,
-            MidbossOutcomeKind requested)
+            MidbossOutcomeKind requested,
+            int? targetDurationTicks)
         {
             if (!Enum.IsDefined(typeof(MidbossOutcomeKind), requested))
                 throw new ArgumentOutOfRangeException(nameof(requested));
@@ -1685,7 +1806,8 @@ namespace Shmup.Core.Generation
                     stageIndex,
                     difficulty,
                     segmentCount,
-                    requested))
+                    requested,
+                    targetDurationTicks))
                 return requested;
             return MidbossOutcomeKind.Default;
         }
