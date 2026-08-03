@@ -12893,9 +12893,9 @@
         },
         {
           "pattern": "radial",
-          "fireIntervalTicks": 55,
-          "ways": 6,
-          "bulletSpeed": 7.5,
+          "fireIntervalTicks": 64,
+          "ways": 5,
+          "bulletSpeed": 7.0,
           "projectileKind": "heavy",
           "movementPattern": "stationary",
           "movementAmplitude": 0,
@@ -12944,19 +12944,19 @@
               "invulnerable": false,
               "attack": {
                 "type": "laser",
-                "intervalTicks": 260,
+                "intervalTicks": 280,
                 "laser": {
-                  "cycleIntervalTicks": 260,
-                  "telegraphTicks": 90,
+                  "cycleIntervalTicks": 280,
+                  "telegraphTicks": 120,
                   "firingTicks": 10,
-                  "sustainTicks": 120,
+                  "sustainTicks": 90,
                   "dissipateTicks": 20,
                   "startOffsetX": -3.8984375,
                   "startOffsetY": 0.0,
                   "endOffsetX": -27.3984375,
                   "endOffsetY": 0.0,
                   "thinHalfWidth": 0.25,
-                  "fullHalfWidth": 1.3984375,
+                  "fullHalfWidth": 1.203125,
                   "damage": 1
                 }
               }
@@ -13209,9 +13209,9 @@
         },
         {
           "pattern": "aimed",
-          "fireIntervalTicks": 42,
-          "ways": 5,
-          "bulletSpeed": 8.5,
+          "fireIntervalTicks": 56,
+          "ways": 4,
+          "bulletSpeed": 7.5,
           "projectileKind": "heavy",
           "movementPattern": "stationary",
           "movementAmplitude": 0,
@@ -13251,8 +13251,8 @@
               "attack": {
                 "type": "suction",
                 "intervalTicks": 1,
-                "effectSpeed": 3.0,
-                "effectMaxSpeed": 5.0,
+                "effectSpeed": 2.0,
+                "effectMaxSpeed": 2.5,
                 "effectOffsetX": -3.296875,
                 "effectOffsetY": -0.3984375
               }
