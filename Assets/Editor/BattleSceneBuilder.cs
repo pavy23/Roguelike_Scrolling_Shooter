@@ -114,11 +114,20 @@ namespace Shmup.EditorTools
             ".OWWO."
         };
 
+        // 적탄은 **마젠타 계열**이다 (사람 지적 2026-08-03: "적 탄 색이 내 탄과 같아서
+        // 헷갈린다"). 예전에는 주황(#FF7820)이라 플레이어 주무기(#FF9C28)와 같은 계열이라
+        // 탄막 속에서 내 탄과 적 탄이 섞였다.
+        //
+        // 마젠타를 고른 이유:
+        //   - 주황과 색상환에서 가장 멀다 (플레이어 탄·폭발·캡슐이 전부 난색이다)
+        //   - 청록은 이미 "지금 못 깎는다"(무적 파츠·게이트 맥동)에 쓰고 있어 겹치면 안 된다
+        //   - 5개 테마 배경(청회색·초록·진홍·보라·코어) 어디서도 채도로 이긴다.
+        //     보라 성운에서 가장 아슬아슬한데, 채도와 흰 코어로 갈린다.
         static readonly Dictionary<char, Color32> EnemyShotPalette = new Dictionary<char, Color32>
         {
-            ['O'] = new Color32(0xB4, 0x2C, 0x14, 0xFF),
-            ['W'] = new Color32(0xFF, 0x78, 0x20, 0xFF),
-            ['C'] = new Color32(0xFF, 0xE0, 0xA0, 0xFF)
+            ['O'] = new Color32(0x5A, 0x0B, 0x3A, 0xFF),   // 깊은 자주 테두리 — 배경과 분리
+            ['W'] = new Color32(0xFF, 0x4D, 0xA6, 0xFF),   // 마젠타 본체
+            ['C'] = new Color32(0xFF, 0xD9, 0xF2, 0xFF)    // 흰 코어 — 가시성 최상단
         };
 
         // 파워업 캡슐 10×8 (그라디우스 오렌지 캡슐 오마주)

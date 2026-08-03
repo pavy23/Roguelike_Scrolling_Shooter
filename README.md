@@ -26,6 +26,8 @@
 | 키보드 | 방향키/WASD 이동 · 스페이스 게이지 발동 · B 폭탄 · T 난이도 · D 데일리 런 · C 이어하기 · V 리플레이 · 숫자키 시드 입력 |
 | 게임패드 | 스틱 이동 · (A) 발동 · (B) 폭탄 · RB 데일리 · LB 리플레이 · (X) 이어하기 |
 
+화면은 색으로 말한다: **내 탄은 주황, 적 탄은 마젠타**다. 탄막이 두꺼워져도 어느 쪽이 나를 죽이는 탄인지 색 하나로 갈린다. 청록은 "지금은 못 깎는다"는 뜻이라, 청록으로 맥동하는 파츠를 쏘면 탄이 청록 스파크로 튕긴다.
+
 ## 파워업 — 그라디우스 방식 게이지
 
 적이 떨어뜨리는 **캡슐**을 먹으면 게이지 커서가 한 칸씩 전진한다. 원하는 칸에서 발동(SELECT)하면 소비 — **어디에 쓰는가가 곧 빌드다.** 캡슐 하나 = 레벨 하나.
@@ -37,7 +39,7 @@
 | MISSILE | 미사일 발사 + 레벨당 위력 상승 |
 | **기체 무기** | 기체 고유 무기, **재발동마다 3단 진화** (아래) |
 | OPTION | 분신 최대 6기 — 주무기·미사일을 함께 쏜다 |
-| SHIELD | 실드 충전 — 실드가 유일한 목숨이다. 0에서 맞으면 즉사 |
+| SHIELD | 실드 **재고 +1** — 레벨이 아니라 장수다. 실드가 유일한 목숨이고, 0에서 맞으면 즉사 |
 
 ## 기체 3종 — 셋 다 다르게 큰다
 
@@ -65,8 +67,8 @@ Interceptor는 25,000 크레딧, Bulwark는 50,000 크레딧으로 격납고에�
 
 ## 점수는 위험을 보상한다
 
-- 적탄을 **아슬아슬하게 스치면(그레이즈)** 점수와 콤보 게이지를 얻는다 — 스치기 10번이면 첫 배율.
-- 격파가 콤보를 잇고, 5초간 조용하면 배율이 식는다.
+- 적탄을 **아슬아슬하게 스치면(그레이즈)** 점수와 콤보 게이지를 얻는다 — 스치기 10번이면 첫 배율. 배율은 **최대 ×32**까지 오른다.
+- 격파와 그레이즈 **둘 다** 콤보를 잇는다. 5초간 아무것도 없으면 배율이 한 단계 식으므로, 잡졸이 얇은 보스전에서는 탄막에 붙어 스치며 버티는 것이 배율을 지키는 방법이다.
 - 히든 조건 3가지 — **엘리트 룸 3회 클리어 · 무피해 바이옴 2회 · 희귀 조우 1회** — 중 **2개**를 채우면 극한 항로 **미지의 구역**(점수 ×1.25)이 열린다. 거대 멀티파트 보스를 잡으면 PerfectClear.
 
 ## 글로벌 스코어보드
@@ -108,4 +110,23 @@ Interceptor는 25,000 크레딧, Bulwark는 50,000 크레딧으로 격납고에�
 
 ---
 
-개발 문서(에이전트 워크플로·아트 방향)는 [AGENTS.md](AGENTS.md), [ART-DIRECTION.md](ART-DIRECTION.md) 참고.
+## 개발
+
+| 문서 | 내용 |
+|---|---|
+| [AGENTS.md](AGENTS.md) | 에이전트 소유 영역·결정론 규칙·호출 규약(§9)·병합 절차(§3) |
+| [ART-DIRECTION.md](ART-DIRECTION.md) | hi-bit 도트 규격(640×360 / PPU 16)과 생성 파이프라인 |
+| [ROADMAP.md](ROADMAP.md) | 마일스톤 |
+| [Tools/QaHarness/](Tools/QaHarness/README.md) | WebGL 빌드 headless 검증 하네스 (픽셀 어서션) |
+
+빌드·테스트는 **Unity CLI**로 한다 (`Unity.exe -batchmode` 직접 호출 금지):
+
+```
+unity test  --mode EditMode --output test-results.xml --non-interactive --no-banner
+unity build --target WebGL --execute-method Shmup.EditorTools.MobileBuilder.BuildWebGl --log-file build.log
+unity run . -- -executeMethod Shmup.EditorTools.BattleSceneBuilder.Build -logFile scene.log
+```
+
+검증 런은 dev 인자로 원하는 지점에 바로 들어갈 수 있다 — `?dev=1&god=1&stage=3&warp=boss`
+(구간 워프), `?dev=1&uncharted=1&warp=boss`(미지의 구역 거대 보스). dev 인자가 붙은 런은
+점수 제출이 자동으로 막힌다.
