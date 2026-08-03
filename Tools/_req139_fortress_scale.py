@@ -24,19 +24,20 @@ def on_grid(value: float) -> bool:
 
 # Act staging relative to originY=0. Screen Y ∈ [-11.25, 11.25].
 # Act1 sinks the hull so only the upper deck is in frame; act2 rises to centre.
+# REQ-142: stern A relaxed −9→−8 (still submerged, y=0 stern hit kept).
 GROUP_ANCHORS = {
-    "stern": {"anchorOffsetY": -9.0, "anchorTravelTicks": 0},
+    "stern": {"anchorOffsetY": -8.0, "anchorTravelTicks": 0},
     "hull": {"anchorOffsetY": 0.0, "anchorTravelTicks": 90},
     "bow": {"anchorOffsetY": 0.0, "anchorTravelTicks": 0},
 }
 
+# REQ-142: part bottoms sit on measured warship_hull deck line (offsetY = deck + halfH).
 NEW_PARTS = [
     {
         "id": "engine",
         "offsetX": 5.0,
-        # Deck superstructure: must stay hittable at Y≈0 while hull is sunk
-        # (Req119 auto-fire keeps the player on the mid-line).
-        "offsetY": 7.0,
+        # Deck@+5 = +5.0625 (superstructure); bottom on deck; A=−8 keeps y≈0 hit.
+        "offsetY": 7.5625,
         "halfWidth": 3.5,
         "halfHeight": 2.5,
         "hp": 2200,
@@ -51,7 +52,7 @@ NEW_PARTS = [
     {
         "id": "turret_a",
         "offsetX": 4.0,
-        "offsetY": 6.5,
+        "offsetY": 6.1875,
         "halfWidth": 1.5,
         "halfHeight": 1.25,
         "hp": 900,
@@ -78,7 +79,7 @@ NEW_PARTS = [
     {
         "id": "turret_b",
         "offsetX": 0.0,
-        "offsetY": 7.0,
+        "offsetY": 6.6875,
         "halfWidth": 1.5,
         "halfHeight": 1.25,
         "hp": 900,
@@ -104,7 +105,7 @@ NEW_PARTS = [
     {
         "id": "turret_c",
         "offsetX": -4.0,
-        "offsetY": 7.0,
+        "offsetY": 3.875,
         "halfWidth": 1.5,
         "halfHeight": 1.25,
         "hp": 900,
@@ -130,7 +131,7 @@ NEW_PARTS = [
     {
         "id": "turret_d",
         "offsetX": -8.0,
-        "offsetY": 6.5,
+        "offsetY": 3.0,
         "halfWidth": 1.5,
         "halfHeight": 1.25,
         "hp": 900,
