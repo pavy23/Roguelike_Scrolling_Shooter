@@ -4,7 +4,7 @@
   "spawnX": 21.0,
   "laneCount": 3,
   "segmentsPerStage": 3,
-  "closingSegmentsPerStage": 7,
+  "closingSegmentsPerStage": 5,
   "startLaneMask": 2,
   "themes": [
     "scrapyard",
@@ -1184,7 +1184,7 @@
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 5,
-      "lengthTicks": 970,
+      "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -1289,7 +1289,7 @@
           "y": 0
         },
         {
-          "tick": 820,
+          "tick": 780,
           "enemyId": "zako_tank",
           "y": 0
         },
@@ -1363,9 +1363,45 @@
           "x": 18.5,
           "y": -1.75,
           "hp": 35
+        },
+        {
+          "type": "solid",
+          "x": 9.0,
+          "y": 1.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 1.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 1.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 13.0,
+          "y": -3.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -3.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -3.5,
+          "hp": 0
         }
       ],
-      "intent": "REQ103a mid | masks[7→3] | theme=fortress | valley | 강화형 격자 사격 회피 + 중형"
+      "intent": "REQ103a mid | masks[7→3] | theme=fortress | valley | 강화형 격자 사격 회피 + 중형 | REQ126 platform shelves | REQ127 length clamp"
     },
     {
       "id": "seg_fortress_interceptor_assault",
@@ -1563,9 +1599,45 @@
           "x": 18.0,
           "y": -1.75,
           "hp": 40
+        },
+        {
+          "type": "solid",
+          "x": 9.0,
+          "y": 1.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 1.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 1.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 13.0,
+          "y": -3.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -3.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -3.5,
+          "hp": 0
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | 잡몹 러시 폭주 — 회피 우선"
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | 잡몹 러시 폭주 — 회피 우선 | REQ126 platform shelves"
     },
     {
       "id": "seg_nebula_wisp_storm",
@@ -1882,7 +1954,7 @@
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 3,
-      "lengthTicks": 970,
+      "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -1968,7 +2040,7 @@
           "y": 0
         },
         {
-          "tick": 820,
+          "tick": 780,
           "enemyId": "guardian_sphere",
           "y": 0
         },
@@ -2027,7 +2099,7 @@
           "hp": 48
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=core | valley | 중형 벽 돌파 + 중형",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=core | valley | 중형 벽 돌파 + 중형 | REQ127 length clamp",
       "environment": {
         "drift": {
           "xPerSecond": 0.3,
@@ -2925,7 +2997,7 @@
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 4,
-      "lengthTicks": 910,
+      "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -3100,7 +3172,7 @@
           "blocksEnemyBullets": true
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→3] | theme=scrapyard | valley | static+ | 중형 앵커 가틀릿 — 화력 집중 | REQ103b cover-line"
+      "intent": "REQ103a late-encroach | masks[7→3→3] | theme=scrapyard | valley | static+ | 중형 앵커 가틀릿 — 화력 집중 | REQ103b cover-line | REQ127 length clamp"
     },
     {
       "id": "seg_hive_brood_wave",
@@ -3827,16 +3899,52 @@
           "x": 19.0,
           "y": -2.0,
           "hp": 40
+        },
+        {
+          "type": "solid",
+          "x": 9.0,
+          "y": 1.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 1.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 1.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 13.0,
+          "y": -2.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -2.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -2.5,
+          "hp": 0
         }
       ],
-      "intent": "REQ103a mid | masks[7→3] | theme=fortress | valley | 강화형 박격 라인 조준"
+      "intent": "REQ103a mid | masks[7→3] | theme=fortress | valley | 강화형 박격 라인 조준 | REQ126 platform shelves"
     },
     {
       "id": "seg_fortress_turret_cross",
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 6,
-      "lengthTicks": 910,
+      "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -4027,16 +4135,52 @@
           "x": 19.0,
           "y": -1.75,
           "hp": 40
+        },
+        {
+          "type": "solid",
+          "x": 9.0,
+          "y": 0.75,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 0.75,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 0.75,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 13.0,
+          "y": -4.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -4.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -4.0,
+          "hp": 0
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 교차 포탑 위치 선정 + 중형 | REQ103b hull-turret-mild"
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 교차 포탑 위치 선정 + 중형 | REQ103b hull-turret-mild | REQ126 platform shelves | REQ127 length clamp"
     },
     {
       "id": "seg_fortress_drone_lattice",
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 5,
-      "lengthTicks": 910,
+      "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -4253,16 +4397,52 @@
           "x": 17.5,
           "y": -2.0,
           "hp": 45
+        },
+        {
+          "type": "solid",
+          "x": 9.0,
+          "y": 1.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 1.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 1.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 13.0,
+          "y": -3.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -3.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -3.5,
+          "hp": 0
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 강화형 드론 격자 압박 | REQ103b hull-turret-mild | REQ111 warship-climax fodder-thin"
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 강화형 드론 격자 압박 | REQ103b hull-turret-mild | REQ111 warship-climax fodder-thin | REQ126 platform shelves | REQ127 length clamp"
     },
     {
       "id": "seg_fortress_armored_gate",
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 3,
-      "lengthTicks": 970,
+      "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -4373,7 +4553,7 @@
           "y": 0
         },
         {
-          "tick": 820,
+          "tick": 780,
           "enemyId": "zako_tank",
           "y": 0
         }
@@ -4474,9 +4654,45 @@
           "x": 17.5,
           "y": -1.75,
           "hp": 50
+        },
+        {
+          "type": "solid",
+          "x": 9.0,
+          "y": 0.75,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 0.75,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 0.75,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 13.0,
+          "y": -4.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -4.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -4.0,
+          "hp": 0
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 중형·중형 화력 집중 관문 | REQ103b hull-turret-mild | REQ111 warship-climax fodder-thin"
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 중형·중형 화력 집중 관문 | REQ103b hull-turret-mild | REQ111 warship-climax fodder-thin | REQ126 platform shelves | REQ127 length clamp"
     },
     {
       "id": "seg_nebula_echo_ribbon",
@@ -5356,7 +5572,7 @@
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 4,
-      "lengthTicks": 910,
+      "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -5511,7 +5727,7 @@
           }
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=core | valley | 중형 배터리 화력 집중 | REQ111 ghost-window density held (ghost bonus-only)",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=core | valley | 중형 배터리 화력 집중 | REQ111 ghost-window density held (ghost bonus-only) | REQ127 length clamp",
       "environment": {
         "drift": {
           "xPerSecond": 0.5,
@@ -5524,7 +5740,7 @@
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 4,
-      "lengthTicks": 910,
+      "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -5665,7 +5881,7 @@
           "hp": 48
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2→2] | theme=core | valley | static+ | 전 티어 혼합 최종 가틀릿 | REQ111 ghost-window density held (ghost bonus-only)",
+      "intent": "REQ103a late-encroach | masks[7→3→2→2] | theme=core | valley | static+ | 전 티어 혼합 최종 가틀릿 | REQ111 ghost-window density held (ghost bonus-only) | REQ127 length clamp",
       "environment": {
         "corridor": {
           "startMinY": -8.5,
@@ -6582,9 +6798,45 @@
             "fullHalfWidth": 0.5,
             "damage": 1
           }
+        },
+        {
+          "type": "solid",
+          "x": 9.0,
+          "y": 1.25,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 1.25,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 1.25,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 13.0,
+          "y": -3.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -3.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -3.5,
+          "hp": 0
         }
       ],
-      "intent": "REQ103a mid | masks[7→3] | theme=fortress | valley | 요새 차폐벽+포탑 — 방패 파괴 후 돌파",
+      "intent": "REQ103a mid | masks[7→3] | theme=fortress | valley | 요새 차폐벽+포탑 — 방패 파괴 후 돌파 | REQ126 platform shelves",
       "theme": "fortress"
     },
     {
@@ -6734,9 +6986,45 @@
             "fullHalfWidth": 0.5,
             "damage": 1
           }
+        },
+        {
+          "type": "solid",
+          "x": 9.0,
+          "y": 1.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 1.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 1.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 13.0,
+          "y": -3.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -3.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -3.0,
+          "hp": 0
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 요새 교차사격 골목 — 차폐·레이저 동시 압박 | REQ103b hull-turret-mild | REQ111 warship-climax fodder-thin",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 요새 교차사격 골목 — 차폐·레이저 동시 압박 | REQ103b hull-turret-mild | REQ111 warship-climax fodder-thin | REQ126 platform shelves",
       "theme": "fortress"
     },
     {
@@ -7038,7 +7326,7 @@
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 5,
-      "lengthTicks": 280,
+      "lengthTicks": 400,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -7102,14 +7390,14 @@
           "blocksEnemyBullets": true
         }
       ],
-      "intent": "REQ103b speed-spike 3/2 | theme=scrapyard | late short scramble"
+      "intent": "REQ103b speed-spike 3/2 | theme=scrapyard | late short scramble | REQ127 length clamp (spike short-band 400)"
     },
     {
       "id": "seg_core_speed_spike",
       "difficultyMin": 2,
       "difficultyMax": 4,
       "weight": 6,
-      "lengthTicks": 280,
+      "lengthTicks": 400,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -7176,14 +7464,14 @@
           "hp": 35
         }
       ],
-      "intent": "REQ103b speed-spike 3/2 | theme=core | early short scramble"
+      "intent": "REQ103b speed-spike 3/2 | theme=core | early short scramble | REQ127 length clamp (spike short-band 400)"
     },
     {
       "id": "seg_scrap_clean_kill_corridor",
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 3,
-      "lengthTicks": 910,
+      "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -7343,7 +7631,7 @@
           "blocksEnemyBullets": true
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→3] | theme=scrapyard | valley | static+ | 중형 앵커 가틀릿 — 화력 집중 | REQ103b cover-line | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "intent": "REQ103a late-encroach | masks[7→3→3] | theme=scrapyard | valley | static+ | 중형 앵커 가틀릿 — 화력 집중 | REQ103b cover-line | REQ103b cleanKill (fewer foes + capsule-lean) | REQ127 length clamp",
       "postMidbossOutcomes": [
         "cleanKill"
       ]
@@ -7464,7 +7752,7 @@
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 5,
-      "lengthTicks": 910,
+      "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -7625,9 +7913,45 @@
           "x": 19.0,
           "y": -1.75,
           "hp": 40
+        },
+        {
+          "type": "solid",
+          "x": 9.0,
+          "y": 0.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 0.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 0.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 13.0,
+          "y": -4.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -4.0,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -4.0,
+          "hp": 0
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 교차 포탑 위치 선정 + 중형 | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 교차 포탑 위치 선정 + 중형 | REQ103b cleanKill (fewer foes + capsule-lean) | REQ126 platform shelves | REQ127 length clamp",
       "postMidbossOutcomes": [
         "cleanKill"
       ]
@@ -7757,7 +8081,7 @@
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 3,
-      "lengthTicks": 910,
+      "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -7883,7 +8207,7 @@
           "hp": 48
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2→2] | theme=core | valley | static+ | 전 티어 혼합 최종 가틀릿 | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "intent": "REQ103a late-encroach | masks[7→3→2→2] | theme=core | valley | static+ | 전 티어 혼합 최종 가틀릿 | REQ103b cleanKill (fewer foes + capsule-lean) | REQ127 length clamp",
       "environment": {
         "corridor": {
           "startMinY": -8.5,
@@ -8163,7 +8487,7 @@
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 4,
-      "lengthTicks": 910,
+      "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -8375,9 +8699,45 @@
           "x": 17.5,
           "y": -2.0,
           "hp": 45
+        },
+        {
+          "type": "solid",
+          "x": 9.0,
+          "y": 0.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 0.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 0.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 13.0,
+          "y": -3.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -3.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -3.5,
+          "hp": 0
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 강화형 드론 격자 압박 | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=fortress | valley | 강화형 드론 격자 압박 | REQ103b cleanKill (fewer foes + capsule-lean) | REQ126 platform shelves | REQ127 length clamp",
       "postMidbossOutcomes": [
         "cleanKill"
       ]
@@ -8502,7 +8862,7 @@
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 3,
-      "lengthTicks": 910,
+      "lengthTicks": 900,
       "entryLaneMask": 7,
       "exitLaneMask": 7,
       "traversableLaneMasks": [
@@ -8642,7 +9002,7 @@
           }
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=core | valley | 중형 배터리 화력 집중 | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=core | valley | 중형 배터리 화력 집중 | REQ103b cleanKill (fewer foes + capsule-lean) | REQ127 length clamp",
       "environment": {
         "drift": {
           "xPerSecond": 0.5,
