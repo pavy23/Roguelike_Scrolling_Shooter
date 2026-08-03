@@ -2392,32 +2392,32 @@
         },
         {
           "type": "breakable",
-          "x": 13.5,
+          "x": 13.0,
           "y": -1.75,
           "hp": 30
         },
         {
           "type": "breakable",
-          "x": 16.0,
+          "x": 17.0,
           "y": 3.5,
           "hp": 28,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 18.5,
+          "x": 19.0,
           "y": -3.0,
           "hp": 32
         },
         {
           "type": "breakable",
-          "x": 14.0,
+          "x": 15.0,
           "y": 1.75,
           "hp": 35,
           "blocksEnemyBullets": true
         }
       ],
-      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | 스크랩 잡몹 직선 리듬 | REQ103b cover"
+      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | 스크랩 잡몹 직선 리듬 | REQ103b cover | REQ129 scatter-x"
     },
     {
       "id": "seg_scrap_pipe_dash",
@@ -2506,20 +2506,20 @@
       "obstacles": [
         {
           "type": "breakable",
-          "x": 12.0,
+          "x": 11.5,
           "y": 4.0,
           "hp": 22,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 14.5,
+          "x": 14.75,
           "y": -3.5,
           "hp": 26
         },
         {
           "type": "breakable",
-          "x": 17.0,
+          "x": 18.0,
           "y": 1.75,
           "hp": 30,
           "blocksEnemyBullets": true
@@ -2532,7 +2532,7 @@
         },
         {
           "type": "breakable",
-          "x": 15.5,
+          "x": 16.25,
           "y": 3.0,
           "hp": 24,
           "blocksEnemyBullets": true
@@ -2544,7 +2544,7 @@
           "hp": 34
         }
       ],
-      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | valley | 대시 잡몹 회피 — 반응 속도 | REQ103b cover"
+      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | valley | 대시 잡몹 회피 — 반응 속도 | REQ103b cover | REQ129 scatter-x"
     },
     {
       "id": "seg_scrap_skimmer_weave",
@@ -2645,13 +2645,13 @@
         },
         {
           "type": "breakable",
-          "x": 14.0,
+          "x": 14.5,
           "y": -3.25,
           "hp": 30
         },
         {
           "type": "breakable",
-          "x": 16.5,
+          "x": 16.0,
           "y": 1.75,
           "hp": 40,
           "blocksEnemyBullets": true
@@ -2664,7 +2664,7 @@
         },
         {
           "type": "breakable",
-          "x": 12.5,
+          "x": 13.0,
           "y": -1.75,
           "hp": 32,
           "blocksEnemyBullets": true
@@ -2676,7 +2676,7 @@
           "hp": 26
         }
       ],
-      "intent": "REQ103a mid | masks[2] | theme=scrapyard | valley | 스킴 잡몹 직조 회피 동선 | REQ103b cover"
+      "intent": "REQ103a mid | masks[2] | theme=scrapyard | valley | 스킴 잡몹 직조 회피 동선 | REQ103b cover | REQ129 scatter-x"
     },
     {
       "id": "seg_scrap_junk_corridor",
@@ -2788,28 +2788,28 @@
         },
         {
           "type": "breakable",
-          "x": 12.5,
+          "x": 11.5,
           "y": 1.75,
           "hp": 35,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 14.0,
+          "x": 13.5,
           "y": -2.0,
           "hp": 40,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 16.5,
-          "y": 3.0,
+          "x": 15.5,
+          "y": 3.75,
           "hp": 38,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 18.0,
+          "x": 17.5,
           "y": -1.75,
           "hp": 45,
           "blocksEnemyBullets": true
@@ -2817,12 +2817,12 @@
         {
           "type": "breakable",
           "x": 19.5,
-          "y": 2.5,
+          "y": 3.25,
           "hp": 42,
           "blocksEnemyBullets": true
         }
       ],
-      "intent": "REQ103a mid | masks[7→3] | theme=scrapyard | valley | 강화형 조준 + 통로 압박 | REQ103b cover-line"
+      "intent": "REQ103a mid | masks[7→3] | theme=scrapyard | valley | 강화형 조준 + 통로 압박 | REQ103b cover-line | REQ129 scatter-x"
     },
     {
       "id": "seg_scrap_tumbler_pack",
@@ -2949,48 +2949,45 @@
         },
         {
           "type": "breakable",
-          "x": 12.0,
-          "y": 1.75,
-          "hp": 45,
-          "blocksEnemyBullets": true
+          "x": 13.5,
+          "y": 2.5,
+          "hp": 45
         },
         {
           "type": "breakable",
-          "x": 14.5,
-          "y": 3.5,
+          "x": 15.5,
+          "y": 4.25,
           "hp": 40,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 14.5,
+          "x": 15.5,
           "y": -3.5,
           "hp": 40,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 17.0,
+          "x": 11.5,
           "y": 2.0,
           "hp": 50,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 19.0,
-          "y": -2.5,
-          "hp": 48,
-          "blocksEnemyBullets": true
+          "x": 19.5,
+          "y": -3.25,
+          "hp": 48
         },
         {
           "type": "breakable",
-          "x": 16.0,
-          "y": -1.75,
-          "hp": 55,
-          "blocksEnemyBullets": true
+          "x": 17.5,
+          "y": -2.5,
+          "hp": 55
         }
       ],
-      "intent": "REQ103a mid | masks[7→3] | theme=scrapyard | 강화형 텀블러 팩 조준 강요 | REQ103b cover-line"
+      "intent": "REQ103a mid | masks[7→3] | theme=scrapyard | 강화형 텀블러 팩 조준 강요 | REQ103b cover-line | REQ129 scatter-x"
     },
     {
       "id": "seg_scrap_rust_gauntlet",
@@ -3124,14 +3121,14 @@
         },
         {
           "type": "breakable",
-          "x": 11.5,
+          "x": 11.0,
           "y": 2.0,
           "hp": 50,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 11.5,
+          "x": 11.0,
           "y": -2.0,
           "hp": 50,
           "blocksEnemyBullets": true
@@ -3159,20 +3156,20 @@
         },
         {
           "type": "breakable",
-          "x": 19.0,
+          "x": 19.5,
           "y": 1.5,
           "hp": 48,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 19.0,
+          "x": 19.5,
           "y": -1.5,
           "hp": 48,
           "blocksEnemyBullets": true
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→3] | theme=scrapyard | valley | static+ | 중형 앵커 가틀릿 — 화력 집중 | REQ103b cover-line | REQ127 length clamp"
+      "intent": "REQ103a late-encroach | masks[7→3→3] | theme=scrapyard | valley | static+ | 중형 앵커 가틀릿 — 화력 집중 | REQ103b cover-line | REQ127 length clamp | REQ129 scatter-x"
     },
     {
       "id": "seg_hive_brood_wave",
@@ -5989,20 +5986,20 @@
         },
         {
           "type": "breakable",
-          "x": 13.0,
+          "x": 14.25,
           "y": -3.75,
           "hp": 26
         },
         {
           "type": "breakable",
-          "x": 15.0,
+          "x": 15.75,
           "y": 3.75,
           "hp": 28,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 17.0,
+          "x": 17.5,
           "y": -3.75,
           "hp": 30
         },
@@ -6015,12 +6012,12 @@
         },
         {
           "type": "breakable",
-          "x": 12.0,
+          "x": 12.5,
           "y": -1.75,
           "hp": 22
         }
       ],
-      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | valley | 상하 지그재그 기둥 — 레인 교대 회피 | REQ103b cover",
+      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | valley | 상하 지그재그 기둥 — 레인 교대 회피 | REQ103b cover | REQ129 scatter-x",
       "theme": "scrapyard"
     },
     {
@@ -6109,51 +6106,51 @@
       "obstacles": [
         {
           "type": "breakable",
-          "x": 14.5,
+          "x": 11.0,
           "y": 3.25,
           "hp": 30
         },
         {
           "type": "breakable",
-          "x": 14.5,
-          "y": 1.5,
-          "hp": 32,
-          "blocksEnemyBullets": true
-        },
-        {
-          "type": "breakable",
-          "x": 14.5,
-          "y": 0.0,
-          "hp": 35
-        },
-        {
-          "type": "breakable",
-          "x": 14.5,
-          "y": -1.5,
-          "hp": 32,
-          "blocksEnemyBullets": true
-        },
-        {
-          "type": "breakable",
-          "x": 14.5,
+          "x": 12.5,
           "y": -3.25,
-          "hp": 30
+          "hp": 32
         },
         {
           "type": "breakable",
-          "x": 17.5,
+          "x": 14.0,
           "y": 2.0,
+          "hp": 35,
+          "blocksEnemyBullets": true
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": 0.0,
+          "hp": 32
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": -2.0,
+          "hp": 30,
+          "blocksEnemyBullets": true
+        },
+        {
+          "type": "breakable",
+          "x": 16.5,
+          "y": 3.0,
           "hp": 25,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 17.5,
-          "y": -2.0,
+          "x": 19.0,
+          "y": -2.5,
           "hp": 25
         }
       ],
-      "intent": "REQ103a mid | masks[7] | theme=scrapyard | valley | 중앙 파괴벽 뚫기 — 커버 클리어 후 전진 | REQ103b cover",
+      "intent": "REQ103a mid | masks[7] | theme=scrapyard | valley | 중앙 파괴벽 뚫기 — 커버 클리어 후 전진 | REQ103b cover | REQ129 scatter-x",
       "theme": "scrapyard"
     },
     {
@@ -6249,7 +6246,7 @@
         },
         {
           "type": "breakable",
-          "x": 11.5,
+          "x": 11.75,
           "y": -3.5,
           "hp": 24
         },
@@ -6262,27 +6259,27 @@
         },
         {
           "type": "breakable",
-          "x": 14.0,
+          "x": 14.25,
           "y": 3.0,
           "hp": 26
         },
         {
           "type": "breakable",
-          "x": 15.5,
+          "x": 15.75,
           "y": -4.25,
           "hp": 30,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 16.5,
-          "y": 1.75,
+          "x": 17.0,
+          "y": 2.5,
           "hp": 28
         },
         {
           "type": "breakable",
-          "x": 18.0,
-          "y": -1.25,
+          "x": 18.25,
+          "y": -2.0,
           "hp": 32,
           "blocksEnemyBullets": true
         },
@@ -6293,7 +6290,7 @@
           "hp": 24
         }
       ],
-      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | 흩어진 파편밭 — 넓은 y 스팬 회피 동선 | REQ103b cover",
+      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | 흩어진 파편밭 — 넓은 y 스팬 회피 동선 | REQ103b cover | REQ129 scatter-x",
       "theme": "scrapyard"
     },
     {
@@ -7583,14 +7580,14 @@
         },
         {
           "type": "breakable",
-          "x": 11.5,
+          "x": 11.0,
           "y": 2.0,
           "hp": 50,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 11.5,
+          "x": 11.0,
           "y": -2.0,
           "hp": 50,
           "blocksEnemyBullets": true
@@ -7618,20 +7615,20 @@
         },
         {
           "type": "breakable",
-          "x": 19.0,
+          "x": 19.5,
           "y": 1.5,
           "hp": 48,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 19.0,
+          "x": 19.5,
           "y": -1.5,
           "hp": 48,
           "blocksEnemyBullets": true
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→3] | theme=scrapyard | valley | static+ | 중형 앵커 가틀릿 — 화력 집중 | REQ103b cover-line | REQ103b cleanKill (fewer foes + capsule-lean) | REQ127 length clamp",
+      "intent": "REQ103a late-encroach | masks[7→3→3] | theme=scrapyard | valley | static+ | 중형 앵커 가틀릿 — 화력 집중 | REQ103b cover-line | REQ103b cleanKill (fewer foes + capsule-lean) | REQ127 length clamp | REQ129 scatter-x",
       "postMidbossOutcomes": [
         "cleanKill"
       ]
@@ -8320,28 +8317,28 @@
         },
         {
           "type": "breakable",
-          "x": 12.5,
+          "x": 11.5,
           "y": 1.75,
           "hp": 35,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 14.0,
+          "x": 13.5,
           "y": -2.0,
           "hp": 40,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 16.5,
-          "y": 3.0,
+          "x": 15.5,
+          "y": 3.75,
           "hp": 38,
           "blocksEnemyBullets": true
         },
         {
           "type": "breakable",
-          "x": 18.0,
+          "x": 17.5,
           "y": -1.75,
           "hp": 45,
           "blocksEnemyBullets": true
@@ -8349,12 +8346,12 @@
         {
           "type": "breakable",
           "x": 19.5,
-          "y": 2.5,
+          "y": 3.25,
           "hp": 42,
           "blocksEnemyBullets": true
         }
       ],
-      "intent": "REQ103a mid | masks[7→3] | theme=scrapyard | valley | 강화형 조준 + 통로 압박 | REQ103b cover-line | REQ103b cleanKill (fewer foes + capsule-lean)",
+      "intent": "REQ103a mid | masks[7→3] | theme=scrapyard | valley | 강화형 조준 + 통로 압박 | REQ103b cover-line | REQ103b cleanKill (fewer foes + capsule-lean) | REQ129 scatter-x",
       "postMidbossOutcomes": [
         "cleanKill"
       ]
