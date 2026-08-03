@@ -2358,32 +2358,32 @@
       "spawns": [
         {
           "tick": 55,
-          "enemyId": "junk_roller",
+          "enemyId": "rust_skimmer",
           "y": 0.5
         },
         {
           "tick": 63,
-          "enemyId": "junk_roller",
+          "enemyId": "rust_skimmer",
           "y": 0.5
         },
         {
           "tick": 71,
-          "enemyId": "junk_roller",
+          "enemyId": "rust_skimmer",
           "y": 0.5
         },
         {
           "tick": 79,
-          "enemyId": "junk_roller",
+          "enemyId": "rust_skimmer",
           "y": 0.5
         },
         {
           "tick": 87,
-          "enemyId": "junk_roller",
+          "enemyId": "rust_skimmer",
           "y": 0.5
         },
         {
           "tick": 95,
-          "enemyId": "junk_roller",
+          "enemyId": "rust_skimmer",
           "y": 0.5
         },
         {
@@ -2472,7 +2472,7 @@
           "blocksEnemyBullets": true
         }
       ],
-      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | 스크랩 잡몹 직선 리듬 | REQ103b cover | REQ129 scatter-x | REQ131 formation"
+      "intent": "REQ103a early-open | masks[7] | theme=scrapyard | 스크랩 잡몹 직선 리듬 | REQ103b cover | REQ129 scatter-x | REQ131 formation | REQ132 formation=skimmer(no-fire) sparse JR fire"
     },
     {
       "id": "seg_scrap_pipe_dash",
@@ -6154,27 +6154,27 @@
       "spawns": [
         {
           "tick": 80,
-          "enemyId": "junk_roller",
+          "enemyId": "pipe_rat",
           "y": -2.5
         },
         {
           "tick": 89,
-          "enemyId": "junk_roller",
+          "enemyId": "pipe_rat",
           "y": -1.5
         },
         {
           "tick": 98,
-          "enemyId": "junk_roller",
+          "enemyId": "pipe_rat",
           "y": -0.5
         },
         {
           "tick": 107,
-          "enemyId": "junk_roller",
+          "enemyId": "pipe_rat",
           "y": 0.5
         },
         {
           "tick": 116,
-          "enemyId": "junk_roller",
+          "enemyId": "pipe_rat",
           "y": 1.5
         },
         {
@@ -6270,7 +6270,7 @@
           "hp": 25
         }
       ],
-      "intent": "REQ103a mid | masks[7] | theme=scrapyard | valley | 중앙 파괴벽 뚫기 — 커버 클리어 후 전진 | REQ103b cover | REQ129 scatter-x | REQ131 formation",
+      "intent": "REQ103a mid | masks[7] | theme=scrapyard | valley | 중앙 파괴벽 뚫기 — 커버 클리어 후 전진 | REQ103b cover | REQ129 scatter-x | REQ131 formation | REQ132 formation=pipe_rat(no-fire) ST sparse fire",
       "theme": "scrapyard"
     },
     {

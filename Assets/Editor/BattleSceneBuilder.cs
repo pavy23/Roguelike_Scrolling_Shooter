@@ -1332,6 +1332,8 @@ namespace Shmup.EditorTools
             var scoreHud = battleRoot.AddComponent<ScoreHud>();
             SetReference(scoreHud, "_director", director);
             SetReference(scoreHud, "_fontBold", uiFontBold);
+            // 배율 발광 맥동을 접근성 설정(플래시 감소)에 맞춰 줄이기 위해 필요하다.
+            SetReference(scoreHud, "_juice", juice);
 
             var themeRoots = CreateBackground(director, starsFarSprite, starsNearSprite);
 
