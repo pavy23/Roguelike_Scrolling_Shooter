@@ -62,6 +62,7 @@ SpriteAtlas:
     - 8fe5ae70a9664e84dba26603ee35f091: 21300000
     - d36cb4802c85c2b42b7d5a464cdce900: 21300000
     - 06df999026266854b8e66640b7e50e89: 21300000
+    - 3fb9d6c0f32c4c0419a956772addc842: 21300000
     - 274ebec055e953a4cade4ba77e11ca3c: 21300000
     - eeec1bd0907dbb9448d28373756208bc: 21300000
     - 83d6ede09e902d941b16d045149050cf: 21300000
@@ -357,6 +358,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 8fe5ae70a9664e84dba26603ee35f091, type: 3}
   - {fileID: 21300000, guid: d36cb4802c85c2b42b7d5a464cdce900, type: 3}
   - {fileID: 21300000, guid: 06df999026266854b8e66640b7e50e89, type: 3}
+  - {fileID: 21300000, guid: 3fb9d6c0f32c4c0419a956772addc842, type: 3}
   - {fileID: 21300000, guid: 274ebec055e953a4cade4ba77e11ca3c, type: 3}
   - {fileID: 21300000, guid: eeec1bd0907dbb9448d28373756208bc, type: 3}
   - {fileID: 21300000, guid: 83d6ede09e902d941b16d045149050cf, type: 3}
@@ -651,6 +653,7 @@ SpriteAtlas:
   - fort_far_dusk
   - obstacle_scrap_debris
   - enemy_pipe_rat
+  - obstacle_fortress_rubble
   - anim_rift_blade_03
   - anim_boss_core_03
   - anim_mini_crystal_02

@@ -17,6 +17,14 @@ namespace Shmup.Presentation.Battle
         Near = 4
     }
 
+    // 워시 알파 상한 0.10 (사람 지적 2026-08-03). 처음엔 0.34~0.55였고 0.20으로
+    // 낮췄는데 사람이 "지금도 색칠한 것 같다"고 해서 한 번 더 내렸다. 워시는
+    // **분위기를 얹는 얇은 막**이지 배경을 덮는 페인트가 아니다 — 배경 아트가
+    // 주인공이고 워시는 그 위 10%다.
+    //
+    // 여기를 다시 올리려면 반드시 실제 배경 위에서 확인해라. 값만 보고 정하면
+    // 또 잠긴다 (두 번 겪었다).
+
     /// <summary>스테이지 내 4구간. Core의 RunStageSection을 표현용으로 압축한 것.</summary>
     public enum SectionKind
     {
@@ -193,7 +201,7 @@ namespace Shmup.Presentation.Battle
                 new SectionTheme
                 {
                     themeId = "scrapyard", section = SectionKind.MidBoss, enterSeconds = 20f,
-                    wash = C(0.95f, 0.62f, 0.34f, 0.16f),
+                    wash = C(0.95f, 0.62f, 0.34f, 0.10f),
                     layers = L(C(0.85f, 0.78f, 0.82f, 0.70f), 1.00f,
                                C(1.00f, 0.86f, 0.70f), 1.00f,
                                C(0.98f, 0.82f, 0.66f), 1.05f,
@@ -205,11 +213,11 @@ namespace Shmup.Presentation.Battle
                 {
                     themeId = "scrapyard", section = SectionKind.Late, enterSeconds = 3.5f,
                     enterShake = 0.35f,
-                    wash = C(1.00f, 0.42f, 0.14f, 0.34f),
+                    wash = C(1.00f, 0.42f, 0.14f, 0.10f),
                     layers = L(C(0.62f, 0.42f, 0.44f, 0.90f), 1.10f,
                                C(0.95f, 0.52f, 0.30f), 1.15f,
                                C(0.80f, 0.42f, 0.26f), 1.30f,
-                               C(0.52f, 0.26f, 0.20f), 1.45f,
+                               C(0.75f, 0.38f, 0.29f), 1.45f,
                                farSlot: "scrap_far_dark", nearSlot: "scrap_fg"),
                     particle = SectionParticle.Ash, particleDensity = 1.0f,
                     // 폐함대 난파 모함 — 협곡으로 접근할수록 커진다.
@@ -220,12 +228,12 @@ namespace Shmup.Presentation.Battle
                 new SectionTheme
                 {
                     themeId = "scrapyard", section = SectionKind.Boss, enterSeconds = 4f,
-                    wash = C(0.85f, 0.12f, 0.06f, 0.44f),
+                    wash = C(0.85f, 0.12f, 0.06f, 0.10f),
                     washPulseAmplitude = 0.07f, washPulseHz = 0.45f,
                     layers = L(C(0.30f, 0.16f, 0.18f, 0.80f), 0.90f,
-                               C(0.55f, 0.22f, 0.16f), 0.90f,
-                               C(0.44f, 0.17f, 0.14f), 0.95f,
-                               C(0.30f, 0.12f, 0.11f), 1.00f,
+                               C(0.75f, 0.30f, 0.22f), 0.90f,
+                               C(0.75f, 0.29f, 0.24f), 0.95f,
+                               C(0.75f, 0.30f, 0.28f), 1.00f,
                                farSlot: "scrap_far_dark", nearSlot: "scrap_fg"),
                     particle = SectionParticle.Ember, particleDensity = 0.8f
                 },
@@ -245,7 +253,7 @@ namespace Shmup.Presentation.Battle
                 new SectionTheme
                 {
                     themeId = "hive", section = SectionKind.MidBoss, enterSeconds = 18f,
-                    wash = C(0.36f, 0.85f, 0.52f, 0.22f),
+                    wash = C(0.36f, 0.85f, 0.52f, 0.10f),
                     layers = L(C(0.70f, 0.92f, 0.78f, 0.45f), 1.00f,
                                C(0.80f, 0.98f, 0.84f), 1.00f,
                                C(0.74f, 0.94f, 0.78f), 1.05f,
@@ -257,12 +265,12 @@ namespace Shmup.Presentation.Battle
                 {
                     themeId = "hive", section = SectionKind.Late, enterSeconds = 4f,
                     enterShake = 0.25f,
-                    wash = C(0.10f, 0.55f, 0.28f, 0.46f),
+                    wash = C(0.10f, 0.55f, 0.28f, 0.10f),
                     // 하늘 알파 0 = 체내 진입 (설계안 §1 St2 "하늘 레이어 제거")
                     layers = L(C(0.70f, 0.92f, 0.78f, 0.00f), 1.00f,
-                               C(0.34f, 0.62f, 0.38f), 0.85f,
-                               C(0.28f, 0.54f, 0.33f), 1.15f,
-                               C(0.20f, 0.40f, 0.26f), 1.25f,
+                               C(0.41f, 0.75f, 0.46f), 0.85f,
+                               C(0.39f, 0.75f, 0.46f), 1.15f,
+                               C(0.38f, 0.75f, 0.49f), 1.25f,
                                farSlot: "hive_far_dark", nearSlot: "hive_fg"),
                     particle = SectionParticle.Fog, particleDensity = 0.8f,
                     // 거대 알주머니 — 체내를 파고들수록 눈앞을 채운다.
@@ -273,12 +281,12 @@ namespace Shmup.Presentation.Battle
                 new SectionTheme
                 {
                     themeId = "hive", section = SectionKind.Boss, enterSeconds = 3f,
-                    wash = C(0.06f, 0.30f, 0.16f, 0.55f),
+                    wash = C(0.06f, 0.30f, 0.16f, 0.10f),
                     washPulseAmplitude = 0.12f, washPulseHz = 0.85f,   // 심장 맥동
                     layers = L(C(0.70f, 0.92f, 0.78f, 0.00f), 1.00f,
-                               C(0.20f, 0.34f, 0.24f), 0.80f,
-                               C(0.17f, 0.30f, 0.22f), 0.85f,
-                               C(0.12f, 0.22f, 0.17f), 0.90f,
+                               C(0.44f, 0.75f, 0.53f), 0.80f,
+                               C(0.43f, 0.75f, 0.55f), 0.85f,
+                               C(0.41f, 0.75f, 0.58f), 0.90f,
                                farSlot: "hive_far_dark", nearSlot: "hive_fg"),
                     particle = SectionParticle.Mote, particleDensity = 0.7f   // 생체발광
                 },
@@ -301,11 +309,11 @@ namespace Shmup.Presentation.Battle
                     themeId = "fortress", section = SectionKind.MidBoss, enterSeconds = 1.2f,
                     enterShake = 0.55f,
                     enterFlash = C(1.00f, 0.15f, 0.12f, 0.55f), enterFlashSeconds = 0.45f,
-                    wash = C(0.80f, 0.12f, 0.10f, 0.26f),
+                    wash = C(0.80f, 0.12f, 0.10f, 0.10f),
                     layers = L(C(0.60f, 0.42f, 0.48f, 0.85f), 1.10f,
                                C(0.85f, 0.55f, 0.52f), 1.15f,
                                C(0.80f, 0.50f, 0.48f), 1.20f,
-                               C(0.70f, 0.40f, 0.40f), 1.25f,
+                               C(0.75f, 0.43f, 0.43f), 1.25f,
                                farSlot: "fort_far_dusk"),
                     particle = SectionParticle.Ember, particleDensity = 0.3f,
                     // 관제탑 — 요새 진입 스냅(1.2초 + 섬광)에 맞춰 눈앞에 선다.
@@ -318,23 +326,23 @@ namespace Shmup.Presentation.Battle
                 {
                     themeId = "fortress", section = SectionKind.Late, enterSeconds = 4f,
                     enterShake = 0.3f,
-                    wash = C(0.42f, 0.46f, 0.52f, 0.34f),
+                    wash = C(0.42f, 0.46f, 0.52f, 0.10f),
                     layers = L(C(0.60f, 0.42f, 0.48f, 0.00f), 1.00f,   // 함내 — 하늘 없음
-                               C(0.55f, 0.58f, 0.62f), 0.80f,
-                               C(0.50f, 0.53f, 0.58f), 1.10f,
-                               C(0.38f, 0.40f, 0.45f), 1.20f,
+                               C(0.67f, 0.70f, 0.75f), 0.80f,
+                               C(0.65f, 0.69f, 0.75f), 1.10f,
+                               C(0.63f, 0.67f, 0.75f), 1.20f,
                                farSlot: "fort_far_dark", nearSlot: "fort_fg"),
                     particle = SectionParticle.Ember, particleDensity = 0.5f
                 },
                 new SectionTheme
                 {
                     themeId = "fortress", section = SectionKind.Boss, enterSeconds = 3f,
-                    wash = C(0.70f, 0.10f, 0.10f, 0.28f),
+                    wash = C(0.70f, 0.10f, 0.10f, 0.10f),
                     washPulseAmplitude = 0.16f, washPulseHz = 0.65f,   // 비상등 점멸
                     layers = L(C(0.60f, 0.42f, 0.48f, 0.00f), 1.00f,
-                               C(0.30f, 0.31f, 0.36f), 0.70f,
-                               C(0.27f, 0.28f, 0.33f), 0.80f,
-                               C(0.20f, 0.21f, 0.26f), 0.85f,
+                               C(0.62f, 0.65f, 0.75f), 0.70f,
+                               C(0.61f, 0.64f, 0.75f), 0.80f,
+                               C(0.58f, 0.61f, 0.75f), 0.85f,
                                farSlot: "fort_far_dark", nearSlot: "fort_fg"),
                     particle = SectionParticle.Ember, particleDensity = 0.4f
                 },
@@ -344,7 +352,7 @@ namespace Shmup.Presentation.Battle
                 new SectionTheme
                 {
                     themeId = "nebula", section = SectionKind.Early, enterSeconds = 1.5f,
-                    wash = C(0.42f, 0.24f, 0.70f, 0.20f),
+                    wash = C(0.42f, 0.24f, 0.70f, 0.10f),
                     layers = L(C(0.80f, 0.76f, 1.00f, 1.00f), 1.00f,
                                C(0.82f, 0.70f, 1.00f), 1.00f,
                                C(0.78f, 0.66f, 0.98f), 1.00f,
@@ -354,11 +362,11 @@ namespace Shmup.Presentation.Battle
                 new SectionTheme
                 {
                     themeId = "nebula", section = SectionKind.MidBoss, enterSeconds = 16f,
-                    wash = C(0.10f, 0.08f, 0.22f, 0.22f),
+                    wash = C(0.10f, 0.08f, 0.22f, 0.10f),
                     layers = L(C(0.55f, 0.52f, 0.75f, 0.70f), 1.05f,
-                               C(0.55f, 0.48f, 0.72f), 1.10f,
-                               C(0.50f, 0.44f, 0.68f), 1.15f,
-                               C(0.40f, 0.36f, 0.58f), 1.20f,
+                               C(0.57f, 0.50f, 0.75f), 1.10f,
+                               C(0.55f, 0.49f, 0.75f), 1.15f,
+                               C(0.52f, 0.47f, 0.75f), 1.20f,
                                farSlot: "nebula_far_dusk"),
                     particle = SectionParticle.Fog, particleDensity = 0.9f,
                     flashIntervalMin = 14f, flashIntervalMax = 22f,
@@ -368,11 +376,11 @@ namespace Shmup.Presentation.Battle
                 {
                     themeId = "nebula", section = SectionKind.Late, enterSeconds = 3f,
                     enterShake = 0.4f,
-                    wash = C(0.03f, 0.03f, 0.10f, 0.35f),   // 설계안 "전역 0.35 암전"
+                    wash = C(0.03f, 0.03f, 0.10f, 0.10f),   // 설계안은 0.35였다 — 아래 주석 참고
                     layers = L(C(0.30f, 0.30f, 0.45f, 0.60f), 1.10f,
-                               C(0.34f, 0.30f, 0.48f), 1.20f,
-                               C(0.30f, 0.27f, 0.44f), 1.30f,
-                               C(0.22f, 0.20f, 0.34f), 1.40f,
+                               C(0.53f, 0.47f, 0.75f), 1.20f,
+                               C(0.51f, 0.46f, 0.75f), 1.30f,
+                               C(0.49f, 0.44f, 0.75f), 1.40f,
                                farSlot: "nebula_far_dark", nearSlot: "nebula_fg"),
                     particle = SectionParticle.Fog, particleDensity = 1.0f,
                     flashIntervalMin = 6f, flashIntervalMax = 12f,   // 섬광 빈도 상승
@@ -401,7 +409,7 @@ namespace Shmup.Presentation.Battle
                 new SectionTheme
                 {
                     themeId = "core", section = SectionKind.Early, enterSeconds = 1.5f,
-                    wash = C(0.20f, 0.55f, 0.95f, 0.16f),
+                    wash = C(0.20f, 0.55f, 0.95f, 0.10f),
                     layers = L(C(0.85f, 0.92f, 1.00f, 1.00f), 1.00f,
                                C(0.80f, 0.95f, 1.00f), 1.00f,
                                C(0.78f, 0.92f, 1.00f), 1.00f,
@@ -411,7 +419,7 @@ namespace Shmup.Presentation.Battle
                 new SectionTheme
                 {
                     themeId = "core", section = SectionKind.MidBoss, enterSeconds = 14f,
-                    wash = C(0.25f, 0.70f, 1.00f, 0.28f),
+                    wash = C(0.25f, 0.70f, 1.00f, 0.10f),
                     layers = L(C(0.90f, 0.95f, 1.00f, 1.00f), 1.05f,
                                C(0.88f, 1.00f, 1.00f), 1.10f,
                                C(0.85f, 0.98f, 1.00f), 1.15f,
@@ -423,7 +431,7 @@ namespace Shmup.Presentation.Battle
                 {
                     themeId = "core", section = SectionKind.Late, enterSeconds = 3.5f,
                     enterShake = 0.3f,
-                    wash = C(0.10f, 0.35f, 0.85f, 0.34f),
+                    wash = C(0.10f, 0.35f, 0.85f, 0.10f),
                     layers = L(C(0.55f, 0.70f, 1.00f, 0.80f), 1.15f,
                                C(0.60f, 0.80f, 1.00f), 1.25f,
                                C(0.55f, 0.75f, 1.00f), 1.35f,
@@ -438,12 +446,12 @@ namespace Shmup.Presentation.Battle
                 new SectionTheme
                 {
                     themeId = "core", section = SectionKind.Boss, enterSeconds = 3f,
-                    wash = C(0.55f, 0.42f, 0.10f, 0.42f),
+                    wash = C(0.55f, 0.42f, 0.10f, 0.10f),
                     washPulseAmplitude = 0.06f, washPulseHz = 0.35f,
                     layers = L(C(0.35f, 0.32f, 0.28f, 0.90f), 0.70f,
-                               C(0.45f, 0.38f, 0.26f), 0.75f,
-                               C(0.40f, 0.34f, 0.24f), 0.80f,
-                               C(0.28f, 0.24f, 0.18f), 0.85f,
+                               C(0.75f, 0.63f, 0.43f), 0.75f,
+                               C(0.75f, 0.64f, 0.45f), 0.80f,
+                               C(0.75f, 0.64f, 0.48f), 0.85f,
                                farSlot: "core_far_dark", nearSlot: "core_fg"),
                     particle = SectionParticle.Ember, particleDensity = 0.6f,
                     landmarkSlot = "core_landmark",

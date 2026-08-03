@@ -3317,17 +3317,17 @@
         {
           "tick": 308,
           "enemyId": "sting_hornet",
-          "y": -1.8
+          "y": -1.875
         },
         {
           "tick": 316,
           "enemyId": "sting_hornet",
-          "y": -0.6
+          "y": -0.625
         },
         {
           "tick": 324,
           "enemyId": "sting_hornet",
-          "y": 0.6
+          "y": 0.625
         },
         {
           "tick": 330,
@@ -3337,7 +3337,7 @@
         {
           "tick": 332,
           "enemyId": "sting_hornet",
-          "y": 1.8
+          "y": 1.875
         },
         {
           "tick": 340,

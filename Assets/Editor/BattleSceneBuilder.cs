@@ -1087,13 +1087,19 @@ namespace Shmup.EditorTools
             var scrapDebrisSprite = WriteExternalOrPixelSprite(
                 ScrapDebrisSpritePath, "obstacle_scrap_debris.png",
                 BuildScrapDebrisPixels(), ScrapDebrisPalette);
+            // 포트리스는 예전에 스크랩야드와 같은 고철 스프라이트를 썼는데, 사람이
+            // "파괴 가능한 고철은 스테이지1에서만 나와야 한다"고 지적했다. 요새에
+            // 폐선 고철이 굴러다니면 테마가 섞인다 — 균열 간 벙커 블록으로 갈랐다.
+            var fortressRubbleSprite =
+                LoadExternalSprite("obstacle_fortress_rubble.png", "obstacle_fortress_rubble")
+                ?? scrapDebrisSprite;
             SetReferenceArray(director, "_obstacleBreakableSprites", new[]
             {
-                scrapDebrisSprite,   // 1 스크랩야드 — 고철
-                sporeSprite,         // 2 바이오 하이브 — 포자
-                scrapDebrisSprite,   // 3 포트리스 — 금속 파편
-                crystalSprite,       // 4 네뷸라 — 결정
-                crystalSprite        // 5 코어 — 결정
+                scrapDebrisSprite,      // 1 스크랩야드 — 고철 (여기서만 쓴다)
+                sporeSprite,            // 2 바이오 하이브 — 포자
+                fortressRubbleSprite,   // 3 포트리스 — 균열 간 벙커 블록
+                crystalSprite,          // 4 네뷸라 — 결정
+                crystalSprite           // 5 코어 — 결정
             });
             // 레이저 포탑 (ObstacleType.LaserEmitter). 테마와 무관하게 한 실루엣이다 —
             // "저건 쏘는 것"은 스테이지가 바뀌어도 같은 모양으로 읽혀야 한다.
@@ -1399,6 +1405,19 @@ namespace Shmup.EditorTools
             ppc.assetsPPU = AssetsPPU;
             ppc.refResolutionX = RefResolutionX;
             ppc.refResolutionY = RefResolutionY;
+            // 크롭 + 스트레치 (사람 지적 2026-08-03: "멋진 배경이 잘 안 보인다").
+            //
+            // 크롭이 None이면 창이 640×360의 **정수배가 아닐 때** 카메라가 기준 해상도
+            // 바깥까지 보여 준다. 웹 캔버스가 960×605 같은 크기로 잡히면 정수 배율이 1이
+            // 되어 화면의 3분의 2만 배경이고 나머지는 빈 어둠이었다 — 배경 아트는
+            // 640×360(=40×22.5유닛)으로 정확한데 카메라가 그보다 넓게 잡고 있었다.
+            //
+            // 두 축을 크롭해 기준 해상도 밖을 잘라내고, 스트레치로 캔버스를 채운다.
+            // 정수 배율이 아닐 때 픽셀이 미세하게 늘어나지만, 화면 3분의 1이 검게 비는
+            // 것보다 낫다. 기준 해상도·PPU는 CLAUDE.md 고정 결정이라 건드리지 않았다.
+            ppc.cropFrameX = true;
+            ppc.cropFrameY = true;
+            ppc.stretchFill = true;
             ApplyRetroAA(ppc);
         }
 

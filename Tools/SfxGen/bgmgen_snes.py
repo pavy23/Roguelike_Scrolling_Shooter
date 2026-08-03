@@ -278,7 +278,11 @@ THEMES = {
         # 1면 — 경쾌. 믹솔리디안(장음계에 b7)이라 밝은데 팝하지 않고 모험적이다.
         # I-bVII-IV가 계속 돌아 "출격" 느낌을 만든다. 셔플 햇 + 옥타브 베이스가
         # 통통 튀는 추진력을 준다.
-        bpm=140, bars=16, motif_seed=11,
+        # 2026-08-03 사람 지시: "1스테이지 BGM이 너무 처져서 훨씬 리드미컬하고 신나는
+        # SF풍으로". 140bpm + 셔플 0.28은 통통 튀지만 뒤로 끌린다 — 셔플을 거의 빼고
+        # (0.06) 168bpm으로 올려 앞으로 미는 그루브로 바꿨다. 화성(믹솔리디안 I-bVII-IV)은
+        # "출격" 느낌이 이미 맞아서 그대로 둔다. 바뀐 것은 리듬과 밀도다.
+        bpm=168, bars=16, motif_seed=11,
         scale=[0, 2, 4, 5, 7, 9, 10, 12],                       # A 믹솔리디안
         chords_a=[(-24, "maj"), (-24, "maj"), (-26, "maj"), (-26, "maj"),
                   (-31, "maj"), (-31, "maj"), (-26, "maj"), (-24, "maj")],
@@ -287,8 +291,8 @@ THEMES = {
                   (-26, "maj"), (-26, "maj"), (-29, "min"), (-24, "maj")],
         pad="strings", echo=(150, 0.34),
         arr=dict(lead_voice="square25", lead_mode="motif", bass="octave_bounce",
-                 arp="pingpong8", drums="shuffle", swing=0.28, hat=1.0,
-                 lead_gain=0.34),
+                 arp="dense16", drums="drive", swing=0.06, hat=1.0,
+                 lead_gain=0.40),
     ),
     "hive": dict(
         # 2면 — 잔잔. 도리안은 단조인데 6도가 장이라 어둡지 않고 '낯설게 아름답다'.
@@ -358,11 +362,22 @@ THEMES = {
 
     # ── 유지 대상 (arr 키 없음 → arrange_classic, 시드 0 결과 불변) ───────────
     "boss": dict(
-        bpm=172, bars=16,
+        # 2026-08-03 사람 지시로 현대 편성(arr)으로 옮겼다. 예전에는 arr 키가 없어
+        # arrange_classic을 탔는데, 브라스 리드 + rock 드럼만으로는 "웅장하지만 느린"
+        # 쪽이었다. 16분 아르페지오와 드라이브 킥을 넣어 앞으로 미는 전투곡으로 바꾼다.
+        # 하모닉 마이너(b6+장7도)는 SF 전투의 긴장 그대로라 유지한다.
+        bpm=178, bars=16,
         progression=[-24, -24, -18, -19, -24, -24, -17, -12],   # 5도 도약 전투
+        chords_a=[(-24, "min"), (-24, "min"), (-18, "maj"), (-19, "maj"),
+                  (-24, "min"), (-24, "min"), (-17, "aug"), (-12, "min")],
+        chords_b=[(-22, "min"), (-22, "min"), (-19, "maj"), (-19, "maj"),
+                  (-24, "min"), (-24, "min"), (-17, "aug"), (-24, "min")],
         scale=[0, 2, 3, 5, 7, 8, 11, 12],                       # 하모닉 마이너
         lead="brass", pad="strings", echo=(110, 0.26),
         drums="rock", motif_seed=89,
+        arr=dict(lead_voice="square25", lead_mode="motif", bass="octave_bounce",
+                 arp="dense16", drums="drive", swing=0.0, hat=1.0,
+                 lead_gain=0.42),
     ),
     "title": dict(
         bpm=96, bars=16,
