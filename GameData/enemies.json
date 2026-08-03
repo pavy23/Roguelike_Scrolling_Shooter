@@ -88,7 +88,7 @@
     {
       "id": "zako_sine_slow",
       "displayName": "Zako (Slow Sine)",
-      "hp": 100,
+      "hp": 50,
       "contactDamage": 1,
       "scoreValue": 280,
       "fireIntervalTicks": 0,
@@ -120,7 +120,7 @@
     {
       "id": "elite_sine",
       "displayName": "Elite (Sine)",
-      "hp": 620,
+      "hp": 310,
       "contactDamage": 2,
       "scoreValue": 1000,
       "fireIntervalTicks": 120,
