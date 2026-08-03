@@ -1384,10 +1384,8 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException(
                     "A warship encounter requires multipart boss parts.",
                     nameof(warshipEncounter));
-            if (WarshipEncounter != null && Form2 != null)
-                throw new ArgumentException(
-                    "Warship encounters cannot define a second boss form.",
-                    nameof(form2));
+            // Warship + form2 is allowed (REQ-139): hull completion hands off to
+            // the robot second form via BeginWarshipFormTransition.
             WarshipEncounter?.ValidateParts(BossParts);
             if (Gimmick.ThemeId != null
                 && !string.Equals(
