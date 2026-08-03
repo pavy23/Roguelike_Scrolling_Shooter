@@ -164,7 +164,12 @@ namespace Shmup.Core.Simulation
         /// <summary>EntityId = chain id, X/Y = head spawn point, Arg = segment count.</summary>
         SegmentChainSpawned = 48,
         /// <summary>EntityId = chain id, X/Y = destroyed head point, Arg = segment count.</summary>
-        SegmentChainDestroyed = 49
+        SegmentChainDestroyed = 49,
+        /// <summary>
+        /// EntityId = boss id, X/Y = blocked bullet impact point,
+        /// Arg = 0 damage, PartId = invulnerable part id.
+        /// </summary>
+        BossPartHitBlocked = 50
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -1911,8 +1916,8 @@ namespace Shmup.Core.Simulation
         int _playerHistoryHead;
         int _playerHistoryCount;
         int _bulletHitRecordCount;
-        int _multiplierLevel, _comboGauge, _ticksSinceLastKill;
-        bool _killScoredThisTick, _activateHeld, _bombHeld, _playerAlive;
+        int _multiplierLevel, _comboGauge, _ticksSinceLastComboAction;
+        bool _comboActionThisTick, _activateHeld, _bombHeld, _playerAlive;
         bool _runClearShieldBonusAwarded;
         int _playerInvulnerabilityTicksRemaining;
 
@@ -2635,7 +2640,7 @@ namespace Shmup.Core.Simulation
                 _multiplierLevel =
                     continuityState.MultiplierLevel;
                 _comboGauge = continuityState.ComboGauge;
-                _ticksSinceLastKill =
+                _ticksSinceLastComboAction =
                     continuityState.TicksSinceLastKill;
             }
             ShieldStock = Math.Min(
@@ -2657,7 +2662,9 @@ namespace Shmup.Core.Simulation
         public int MultiplierLevel => _multiplierLevel;
         public int ScoreMultiplier => _comboMultipliers[_multiplierLevel];
         public int ComboGauge => _comboGauge;
-        public int TicksSinceLastKill => _ticksSinceLastKill;
+        // Compatibility name retained for suspend/replay consumers. The clock
+        // now measures ticks since the last kill or graze combo action.
+        public int TicksSinceLastKill => _ticksSinceLastComboAction;
 
         public BattleContinuityState CaptureContinuityState()
         {
@@ -2666,7 +2673,7 @@ namespace Shmup.Core.Simulation
                 PlayerY,
                 _multiplierLevel,
                 _comboGauge,
-                _ticksSinceLastKill,
+                _ticksSinceLastComboAction,
                 ScrollX);
         }
         public BattleStatistics Statistics => new BattleStatistics(
@@ -3040,7 +3047,7 @@ namespace Shmup.Core.Simulation
                 throw new InvalidOperationException("The simulation tick counter is exhausted.");
             Tick++;
             _eventCount = 0;
-            _killScoredThisTick = false;
+            _comboActionThisTick = false;
             if (_playerInvulnerabilityTicksRemaining > 0)
                 _playerInvulnerabilityTicksRemaining--;
 
@@ -6669,6 +6676,17 @@ namespace Shmup.Core.Simulation
                 }
 
                 RemoveBulletAt(bulletIndex);
+                if (partIndex >= 0
+                    && IsBossPartInvulnerable(partIndex))
+                {
+                    AppendEvent(new SimEvent(
+                        SimEventType.BossPartHitBlocked,
+                        _bossId,
+                        bullet.X,
+                        bullet.Y,
+                        0,
+                        _bossPartDefinitions[partIndex].PartId));
+                }
                 int damage = bullet.Kind == BulletKind.Missile
                     ? ComputeMissileDamage(
                         _missileBaseDamage,
@@ -7134,6 +7152,7 @@ namespace Shmup.Core.Simulation
                         bullet.X,
                         bullet.Y,
                         _grazeScore);
+                    RecordComboAction();
                     AddComboGauge(_grazeComboGaugeGain);
                 }
                 index++;
@@ -8909,9 +8928,14 @@ namespace Shmup.Core.Simulation
         int RecordKillScore(long baseScore)
         {
             int awardedScore = AwardScore(baseScore);
-            _killScoredThisTick = true;
-            _ticksSinceLastKill = 0;
+            RecordComboAction();
             return awardedScore;
+        }
+
+        void RecordComboAction()
+        {
+            _comboActionThisTick = true;
+            _ticksSinceLastComboAction = 0;
         }
 
         void AdvanceKillCombo()
@@ -8967,15 +8991,15 @@ namespace Shmup.Core.Simulation
 
         void AdvanceComboDecay()
         {
-            if (_killScoredThisTick || _multiplierLevel == 0)
+            if (_comboActionThisTick || _multiplierLevel == 0)
                 return;
 
-            if (_ticksSinceLastKill < _comboDecayTicks)
-                _ticksSinceLastKill++;
-            if (_ticksSinceLastKill < _comboDecayTicks)
+            if (_ticksSinceLastComboAction < _comboDecayTicks)
+                _ticksSinceLastComboAction++;
+            if (_ticksSinceLastComboAction < _comboDecayTicks)
                 return;
 
-            _ticksSinceLastKill = 0;
+            _ticksSinceLastComboAction = 0;
             _comboGauge = 0;
             _multiplierLevel--;
             AppendEvent(
@@ -8988,7 +9012,7 @@ namespace Shmup.Core.Simulation
 
         void ResetCombo()
         {
-            _ticksSinceLastKill = 0;
+            _ticksSinceLastComboAction = 0;
             _comboGauge = 0;
             if (_multiplierLevel == 0)
                 return;

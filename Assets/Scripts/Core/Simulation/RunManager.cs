@@ -661,7 +661,11 @@ namespace Shmup.Core.Simulation
             bool isDailyRun = false,
             int initialContinueStock = 0,
             ContinueEconomyConfig continueEconomy = null,
-            GhostReplayConfig ghostReplay = null)
+            GhostReplayConfig ghostReplay = null,
+            bool startInHiddenBiome = false,
+            int initialEliteRoomsCleared = 0,
+            int initialNoHitBiomesCleared = 0,
+            int initialRareEncountersCleared = 0)
         {
             if (startStageIndex < 1)
                 throw new ArgumentOutOfRangeException(
@@ -672,11 +676,24 @@ namespace Shmup.Core.Simulation
                 || initialContinueStock > resolvedEconomy.MaximumStock)
                 throw new ArgumentOutOfRangeException(
                     nameof(initialContinueStock));
+            if (initialEliteRoomsCleared < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(initialEliteRoomsCleared));
+            if (initialNoHitBiomesCleared < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(initialNoHitBiomesCleared));
+            if (initialRareEncountersCleared < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(initialRareEncountersCleared));
             StartStageIndex = startStageIndex;
             IsDailyRun = isDailyRun;
             InitialContinueStock = initialContinueStock;
             ContinueEconomy = resolvedEconomy;
             GhostReplay = ghostReplay ?? GhostReplayConfig.CreateDefault();
+            StartInHiddenBiome = startInHiddenBiome;
+            InitialEliteRoomsCleared = initialEliteRoomsCleared;
+            InitialNoHitBiomesCleared = initialNoHitBiomesCleared;
+            InitialRareEncountersCleared = initialRareEncountersCleared;
         }
 
         public int StartStageIndex { get; }
@@ -684,6 +701,10 @@ namespace Shmup.Core.Simulation
         public int InitialContinueStock { get; }
         public ContinueEconomyConfig ContinueEconomy { get; }
         public GhostReplayConfig GhostReplay { get; }
+        public bool StartInHiddenBiome { get; }
+        public int InitialEliteRoomsCleared { get; }
+        public int InitialNoHitBiomesCleared { get; }
+        public int InitialRareEncountersCleared { get; }
 
         public static RunConfig CreateDefault()
         {
@@ -915,6 +936,10 @@ namespace Shmup.Core.Simulation
         readonly int _difficultyMultiplierNumerator;
         readonly int _difficultyMultiplierDenominator;
         readonly int _startStageIndex;
+        readonly bool _startInHiddenBiome;
+        readonly int _initialEliteRoomsCleared;
+        readonly int _initialNoHitBiomesCleared;
+        readonly int _initialRareEncountersCleared;
         readonly bool _devFlagsActive;
         readonly int[] _powerUpMaxLevels;
         readonly int _initialShieldStock;
@@ -1624,6 +1649,14 @@ namespace Shmup.Core.Simulation
                     $"Start stage must be in 1.."
                     + $"{_progressionConfig.BiomeCount}.");
             _startStageIndex = resolvedRunConfig.StartStageIndex;
+            _startInHiddenBiome =
+                resolvedRunConfig.StartInHiddenBiome;
+            _initialEliteRoomsCleared =
+                resolvedRunConfig.InitialEliteRoomsCleared;
+            _initialNoHitBiomesCleared =
+                resolvedRunConfig.InitialNoHitBiomesCleared;
+            _initialRareEncountersCleared =
+                resolvedRunConfig.InitialRareEncountersCleared;
             _isDailyRun = resolvedRunConfig.IsDailyRun;
             _continueEconomy = resolvedRunConfig.ContinueEconomy;
             _ghostReplayConfig = resolvedRunConfig.GhostReplay;
@@ -1635,7 +1668,11 @@ namespace Shmup.Core.Simulation
             _initialContinueStockAtRunStart = _continueStock;
             _devFlagsActive =
                 _startStageIndex != RunConfig.DefaultStartStageIndex
-                || _battleConfig.PlayerInvulnerable;
+                || _battleConfig.PlayerInvulnerable
+                || _startInHiddenBiome
+                || _initialEliteRoomsCleared != 0
+                || _initialNoHitBiomesCleared != 0
+                || _initialRareEncountersCleared != 0;
             _rewards = rewards ?? BuiltInRewards;
             _contracts = contracts ?? BuiltInContracts;
             ModifierStacks = new BattleModifierStackSet(
@@ -1797,14 +1834,23 @@ namespace Shmup.Core.Simulation
             CompletionGrade = RunCompletionGrade.None;
             SelectedColossalBoss = ColossalBossKind.None;
             LastMidbossOutcome = MidbossOutcomeKind.Default;
-            EliteRoomsCleared = 0;
-            NoHitBiomesCleared = 0;
-            RareEncountersCleared = 0;
+            EliteRoomsCleared = _initialEliteRoomsCleared;
+            NoHitBiomesCleared = _initialNoHitBiomesCleared;
+            RareEncountersCleared = _initialRareEncountersCleared;
             _currentBiomeHit = false;
             ActiveContract = null;
             ResetContractBattleConfig();
             _lastColossalBossAtRunStart =
                 ColossalBossKind.None;
+            if (_startInHiddenBiome)
+            {
+                if (!TrySelectAvailableColossalBoss(
+                        out ColossalBossKind selected))
+                    throw new InvalidOperationException(
+                        "The developer hidden-biome start requires "
+                        + "an available colossal boss generator.");
+                EnterHiddenBiome(selected, false);
+            }
             if (buildInitialStage)
                 BuildCurrentStage();
         }
@@ -2960,17 +3006,32 @@ namespace Shmup.Core.Simulation
 
         bool TryBeginHiddenBiome()
         {
-            ColossalBossKind selected = SelectColossalBoss(
-                _runSeed,
-                _lastColossalBossAtRunStart);
-            if (!(_stageGenerator
-                    is IColossalBossStageGenerator colossal)
-                || !colossal.CanGenerateColossalBoss(
-                    selected))
+            if (!TrySelectAvailableColossalBoss(
+                    out ColossalBossKind selected))
                 return false;
 
             _pendingBattleContinuity = null;
             AccumulateCompletedBattle();
+            EnterHiddenBiome(selected, true);
+            BuildCurrentStage();
+            return true;
+        }
+
+        bool TrySelectAvailableColossalBoss(
+            out ColossalBossKind selected)
+        {
+            selected = SelectColossalBoss(
+                _runSeed,
+                _lastColossalBossAtRunStart);
+            return _stageGenerator
+                    is IColossalBossStageGenerator colossal
+                && colossal.CanGenerateColossalBoss(selected);
+        }
+
+        void EnterHiddenBiome(
+            ColossalBossKind selected,
+            bool recordMetaEncounter)
+        {
             SelectedColossalBoss = selected;
             IsHiddenBiome = true;
             // Hidden content extends the final biome; it is not a sixth public
@@ -2982,10 +3043,9 @@ namespace Shmup.Core.Simulation
             _rewardOptions = Array.Empty<RewardOption>();
             _routeOptions = Array.Empty<RouteOption>();
             _preparedRouteOptions = Array.Empty<RouteOption>();
-            _metaState?.RecordColossalBossEncounter(
-                SelectedColossalBoss);
-            BuildCurrentStage();
-            return true;
+            if (recordMetaEncounter)
+                _metaState?.RecordColossalBossEncounter(
+                    SelectedColossalBoss);
         }
 
         public static int CountHiddenBiomeConditions(
@@ -4054,9 +4114,9 @@ namespace Shmup.Core.Simulation
                 _metaState == null
                     ? ColossalBossKind.None
                     : _metaState.LastColossalBoss;
-            EliteRoomsCleared = 0;
-            NoHitBiomesCleared = 0;
-            RareEncountersCleared = 0;
+            EliteRoomsCleared = _initialEliteRoomsCleared;
+            NoHitBiomesCleared = _initialNoHitBiomesCleared;
+            RareEncountersCleared = _initialRareEncountersCleared;
             _currentBiomeHit = false;
             _rewardOptions = Array.Empty<RewardOption>();
             _routeOptions = Array.Empty<RouteOption>();
@@ -4115,6 +4175,15 @@ namespace Shmup.Core.Simulation
             _battleConfig.PlayerSpeedDenominator = _initialPlayerSpeedDenominator;
             PowerUpGauge = nextGauge;
             ResetShieldStockForNewRun();
+            if (_startInHiddenBiome)
+            {
+                if (!TrySelectAvailableColossalBoss(
+                        out ColossalBossKind selected))
+                    throw new InvalidOperationException(
+                        "The developer hidden-biome start requires "
+                        + "an available colossal boss generator.");
+                EnterHiddenBiome(selected, false);
+            }
             BuildCurrentStage();
         }
 
