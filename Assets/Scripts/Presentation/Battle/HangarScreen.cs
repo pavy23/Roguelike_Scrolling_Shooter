@@ -296,11 +296,13 @@ namespace Shmup.Presentation.Battle
                 : (UiPlatform.TouchMode
                     ? $"[LOCKED — {ship.UnlockCost:N0} cr]"
                     : $"[LOCKED — {ship.UnlockCost:N0} cr, U/(Y) to unlock]");
-            var levels = ship.StartingPowerUpLevels;
+            // 기체를 가르는 수치는 **이동 속도와 실드 재고** 둘뿐이다. 시작 파워업
+            // 레벨은 세 기체 모두 전부 0이라 "start S0 M0 O0 B0"은 아무 정보도 주지
+            // 않으면서 고르는 데 방해만 됐다 (사람 지시 2026-08-03).
             _bodyText.text =
                 $"{ship.DisplayName}  {status}\n" +
                 $"speed x{(float)ship.MoveSpeedMultiplierNumerator / ship.MoveSpeedMultiplierDenominator:0.##}   " +
-                $"start S{levels[0]} M{levels[1]} O{levels[2]} B{levels[3]}";
+                $"shield x{ship.StartingShieldStock ?? 0}";
         }
 
         static string LoadText(string name)

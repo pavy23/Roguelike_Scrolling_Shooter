@@ -94,8 +94,16 @@ namespace Shmup.Presentation.Battle
         /// 데일리는 "그냥 다른 시드로 한 판"이 아니라 **모두가 같은 시드로 겨루는 스코어링
         /// 챌린지**다. 그 성격이 이름에서 읽히지 않으면 왜 눌러야 하는지 알 수 없다. {0} = MM-dd.
         /// </summary>
-        public const string DailyFormat = "[D]/(RB) DAILY CHALLENGE {0} · GLOBAL SEED";
-        public const string DailyButtonTouch = "DAILY CHALLENGE\n{0} · GLOBAL SEED";
+        // 키보드 안내도 "즉시 출격"에서 "모드 전환"으로 바뀌었다 - 출격은 스페이스 하나다.
+        public const string DailyFormat = "[D]/(RB) MODE: {0}";
+        public const string ModeHintNormal = "NORMAL RUN";
+        public const string ModeHintDaily = "DAILY {0} · GLOBAL SEED";
+        // 모드 선택 버튼. 데일리와 일반 런은 **둘 다 게임 모드**인데 예전에는 각자
+        // 다른 버튼에서 바로 출발해, 화면에 출격 버튼이 두 개인 꼴이었다 (사람 지적
+        // 2026-08-03: "둘 중 하나를 가운데 버튼에서 골라야하지 않을까"). 이제 여기서
+        // 고르기만 하고 출격은 가운데 LAUNCH가 전담한다.
+        public const string ModeButtonNormal = "MODE\nNORMAL RUN";
+        public const string ModeButtonDaily = "MODE\nDAILY {0}";
 
         /// <summary>전투 HUD의 데일리 표식 — "지금 무슨 모드인가"가 런 내내 읽혀야 한다.</summary>
         public const string DailyBadge = "DAILY";

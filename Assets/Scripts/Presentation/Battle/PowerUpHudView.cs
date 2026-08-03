@@ -295,6 +295,15 @@ namespace Shmup.Presentation.Battle
                         _pips[i][p].color = p < view.Progress ? PipBankingNear : PipEmpty;
                     }
                 }
+                else if (shieldSlot)
+                {
+                    // 실드는 레벨이 아니라 재고다 — 레벨 표시기를 아예 감춘다
+                    // (사람 지시 2026-08-03: "실드는 레벨이 아니니까 그냥 개수만
+                    // 표시하면 될듯, 밑에 레벨 표시기 제외"). 핍이 남아 있으면
+                    // 옆 슬롯들과 같은 "성장하는 것"으로 읽혀 라벨과 어긋난다.
+                    for (int p = 0; p < MaxPips; p++)
+                        _pips[i][p].enabled = false;
+                }
                 else
                 {
                     for (int p = 0; p < MaxPips; p++)

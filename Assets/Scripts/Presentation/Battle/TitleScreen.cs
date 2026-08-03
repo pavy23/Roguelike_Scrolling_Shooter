@@ -73,6 +73,16 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         bool _rankingDaily;
 
+        /// <summary>
+        /// 출격 모드. 데일리는 "다른 시드로 한 판"이 아니라 모두가 같은 시드로 겨루는
+        /// 스코어링 챌린지라 별도 모드다. 예전에는 각자 다른 버튼에서 바로 출발해
+        /// 출격 버튼이 두 개였다 — 이제 여기서 고르고 LAUNCH 하나로 나간다.
+        /// </summary>
+        bool _dailyMode;
+        Text _modeButtonLabel;
+        Text _modeHintText;
+        Text _launchButtonLabel;
+
         /// <summary>보드 표시 줄 수. 100줄을 다 받아도 화면에는 상위 10줄만 올린다.</summary>
         const int RankingRows = 10;
 
@@ -131,6 +141,29 @@ namespace Shmup.Presentation.Battle
         {
             DifficultySelect.Index = (DifficultySelect.Index + 1) % 3;
             RefreshDifficultyText();
+        }
+
+        void ToggleMode()
+        {
+            _dailyMode = !_dailyMode;
+            RefreshModeText();
+        }
+
+        void RefreshModeText()
+        {
+            if (_modeButtonLabel != null)
+                _modeButtonLabel.text = _dailyMode
+                    ? string.Format(UiText.ModeButtonDaily, _dailyDateLabel)
+                    : UiText.ModeButtonNormal;
+            if (_launchButtonLabel != null)
+                _launchButtonLabel.text = _dailyMode ? "LAUNCH DAILY" : "LAUNCH";
+            // 키보드 화면에는 버튼이 없다 — 안내 줄이 현재 모드를 대신 보여 준다.
+            if (_modeHintText != null)
+                _modeHintText.text = string.Format(
+                    UiText.DailyFormat,
+                    _dailyMode
+                        ? string.Format(UiText.ModeHintDaily, _dailyDateLabel)
+                        : UiText.ModeHintNormal);
         }
 
         void StartDailyRun()
@@ -476,10 +509,10 @@ namespace Shmup.Presentation.Battle
             // 데일리는 "다른 시드로 한 판"이 아니라 모두가 같은 시드로 겨루는 스코어링
             // 챌린지다 — 두 줄로 성격(GLOBAL SEED)과 오늘 날짜를 함께 읽히게 한다.
             const float dailyH = 40f;
-            UiKit.CreateTouchButton(parent, _font,
-                string.Format(UiText.DailyButtonTouch, _dailyDateLabel), 9,
+            var mode = UiKit.CreateTouchButton(parent, _font, "", 9,
                 new Vector2(0f, 1f), new Vector2(10f, y), new Vector2(w, dailyH),
-                StartDailyRun, "DailyButton");
+                ToggleMode, "ModeButton");
+            _modeButtonLabel = mode.GetComponentInChildren<Text>();
             y -= step + (dailyH - h);
 
             if (_suspended != null)
@@ -530,9 +563,11 @@ namespace Shmup.Presentation.Battle
                 ToggleRanking, "RankingButton");
 
             // 출격은 가장 크고 눈에 띄게 — 이 화면의 유일한 주 동작이다.
-            UiKit.CreateTouchButton(parent, _fontBold, "LAUNCH", 20,
+            var launch = UiKit.CreateTouchButton(parent, _fontBold, "LAUNCH", 20,
                 new Vector2(0.5f, 0f), new Vector2(0f, 118f), new Vector2(200f, 50f),
                 StartRun, "LaunchButton", accent: true);
+            _launchButtonLabel = launch.GetComponentInChildren<Text>();
+            RefreshModeText();
         }
 
         void Start()
@@ -625,9 +660,10 @@ namespace Shmup.Presentation.Battle
             _dailyDateLabel = todayUtc.ToString(
                 "MM-dd", System.Globalization.CultureInfo.InvariantCulture);
             var daily = UiKit.CreateCornerText(canvas.transform, _font,
-                string.Format(UiText.DailyFormat, _dailyDateLabel), 11, UiKit.TextMain,
+                string.Format(UiText.DailyFormat, UiText.ModeHintNormal), 11, UiKit.TextMain,
                 new Vector2(0f, 0.5f), new Vector2(14f, 12f), TextAnchor.MiddleLeft, "Daily");
             UiKit.AddShadow(daily);
+            _modeHintText = daily;
 
             // 마지막 런 리플레이 (REQ-018/019)
             _replay = ReplaySave.TryLoad();
@@ -651,6 +687,7 @@ namespace Shmup.Presentation.Battle
                 BuildTouchButtons(canvas.transform);
             }
             RefreshDifficultyText();
+            RefreshModeText();
         }
 
         static void Hide(Text text)
@@ -710,13 +747,12 @@ namespace Shmup.Presentation.Battle
                 || (gamepad != null && gamepad.dpad.up.wasPressedThisFrame))
                 CycleDifficulty();
 
-            // 데일리 런: 같은 날짜 → 전 세계 같은 시드 (Core DailySeed)
+            // 데일리 전환: 같은 날짜 → 전 세계 같은 시드 (Core DailySeed).
+            // 예전에는 D가 곧바로 출격이었는데, 출격 경로가 둘로 갈리면 "무엇으로
+            // 시작했는지"가 화면에 안 남는다 — 이제 모드만 바꾸고 출격은 LAUNCH다.
             if ((keyboard != null && keyboard.dKey.wasPressedThisFrame)
                 || (gamepad != null && gamepad.rightShoulder.wasPressedThisFrame))
-            {
-                StartDailyRun();
-                return;
-            }
+                ToggleMode();
 
             // 마지막 런 리플레이
             if (_replay != null &&
@@ -763,6 +799,12 @@ namespace Shmup.Presentation.Battle
 
         void StartRun()
         {
+            // 모드 선택이 여기 모인다 — 버튼이든 스페이스든 한 곳으로 흐른다.
+            if (_dailyMode)
+            {
+                StartDailyRun();
+                return;
+            }
             bool parsed = long.TryParse(_seedText, out long seed);
             DevArgs.RuntimeSeed = parsed ? seed : NewRandomSeed();
             DevArgs.RuntimeDaily = false;
