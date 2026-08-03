@@ -4,6 +4,34 @@
 
 ---
 
+## 2026-08-03 REQ-135 / REQ-136 — 소형 적 1.5배 + scrap 고철 감축
+
+**완료 (content):**
+- REQ-135: 소형 비행 잡졸 12종 `halfWidth`/`halfHeight` ×1.5 (`enemies.json`)
+- REQ-136: scrapyard breakable **77→50** (35.1%), REQ-129 분산 유지, 의도 벽 유지
+- 표: `Reviews/from-grok/req135-136-report.md`
+- **결정론 해시 변동** (히트박스 + 장애물 개수/좌표)
+
+### CLAUDE
+1. [ ] Resources `GameData/enemies.json` · `waves.json` 동기화
+2. [ ] (선택) stage1 잡졸 가독성·고철 밀도 체감 캡처
+3. [ ] 장애물 스프라이트가 Core half 상수에 묶여 있으면 크기 절반 연동 (아래 CODEX 후)
+
+### CODEX
+1. [ ] **REQ-136 크기 절반**: `ObstacleHalfWidth`/`ObstacleHalfHeight` 전역 0.5→0.25  
+   또는 scrapyard breakable 전용 per-obstacle half 필드 (스키마 확장).  
+   GameData obstacle DTO에 크기 필드 없음 — GROK 단독 불가.
+
+### GEMINI
+1. [ ] DeterminismAudit 베이스라인 갱신 (REQ-135/136)
+2. [ ] stage1 접촉 난이도·고철 밀도 교차 확인
+
+### 사람
+1. [ ] REQ-135 ×1.5 접촉 난이도 과한지 (대안 ×1.25 보고에 기술)
+2. [ ] 장애물 크기 절반 전역 vs scrap-only 정책
+
+---
+
 ## 2026-08-03 REQ-132 — stage1 잡졸 저빈도 사격 (안 A 적용)
 
 **완료 (content):**
