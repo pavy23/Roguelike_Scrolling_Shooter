@@ -98,8 +98,8 @@ namespace Shmup.Presentation.Battle
         int _lastCoreHp = -1;
         float _coreHitFlash = float.MaxValue;
 
-        /// <summary>피격 플래시 지속(초). 짧게 — 길면 몸 색이 하얗게 뜬다.</summary>
-        const float HitFlashSeconds = 0.09f;
+        /// <summary>피격 플래시 지속(초). 짧게 — 길면 몸 색이 통째로 물든다.</summary>
+        const float HitFlashSeconds = 0.12f;
 
         bool _visible;
         bool _shieldWasUp;
@@ -213,15 +213,22 @@ namespace Shmup.Presentation.Battle
         }
 
         /// <summary>
-        /// 흰색에서 원래 색으로 돌아오는 감쇠. 남은 시간을 직접 굴린다.
+        /// 피격 순간의 색. 흰색이 아니라 **빨강**이다.
+        ///
+        /// 처음엔 흰 섬광으로 냈는데, 하이브는 몸이 밝은 올리브라 흰색이 잘 안 읽혔다
+        /// (사람 지시 2026-08-03: "다리부분 피격당할때 빨간색 등으로 피격당하는지
+        /// 알게 해줘"). 맞고 있다는 신호는 배경·몸 색과 확실히 갈라져야 한다.
         /// </summary>
+        static readonly Color HitTint = new Color(2.6f, 0.45f, 0.35f, 1f);
+
+        /// <summary>피격색에서 원래 색으로 돌아오는 감쇠. 남은 시간을 직접 굴린다.</summary>
         Color Flash(ref float age)
         {
             if (age >= HitFlashSeconds) return Color.white;
             age += Time.deltaTime;
             float t = Mathf.Clamp01(age / HitFlashSeconds);
-            // 흰색 → 원색. 알파는 건드리지 않는다(떨어지는 다리의 페이드와 겹친다).
-            return Color.Lerp(new Color(2.4f, 2.2f, 2.2f, 1f), Color.white, t);
+            // 빨강 → 원색. 알파는 건드리지 않는다(떨어지는 다리의 페이드와 겹친다).
+            return Color.Lerp(HitTint, Color.white, t);
         }
 
         /// <summary>

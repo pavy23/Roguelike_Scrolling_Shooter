@@ -164,10 +164,12 @@ def draw_core(w, h, pal):
 def main():
     pal = hull_palette()
     sizes = part_sizes()
+    # 엔진·코어는 더 이상 여기서 그리지 않는다 — 함체에서 오려낸다
+    # (cut_warship_parts.py). 도형으로 그린 파츠는 정교한 함체 위에서 어디에 놓아도
+    # "붙인 판때기"로 보였다. 포탑만 남긴다: 갑판 위로 솟은 별개 물체라 함체에서
+    # 오려낼 그림이 없다(그 자리는 하늘이다).
     jobs = [
         ("warship_turret", draw_turret, sizes["turret_a"]),
-        ("warship_stern", draw_engine, sizes["engine"]),
-        ("warship_core", draw_core, sizes["core"]),
     ]
     for name, draw, size in jobs:
         image = draw(size[0], size[1], pal)
