@@ -12134,9 +12134,9 @@
         {
           "id": "core",
           "offsetX": 0.0,
-          "offsetY": 5.5,
+          "offsetY": 3.5,
           "halfWidth": 2.5,
-          "halfHeight": 1.75,
+          "halfHeight": 3.75,
           "hp": 9500,
           "isCore": true,
           "coreGatePartIds": [
@@ -12270,7 +12270,7 @@
           "offsetX": 0.0,
           "offsetY": 6.6875,
           "halfWidth": 1.5,
-          "halfHeight": 1.25,
+          "halfHeight": 1.8125,
           "hp": 900,
           "attack": {
             "type": "laser",
@@ -12346,9 +12346,9 @@
         {
           "id": "core",
           "offsetX": -11.0,
-          "offsetY": 0.0,
+          "offsetY": -3.0,
           "halfWidth": 2.5,
-          "halfHeight": 2.5,
+          "halfHeight": 5.5,
           "hp": 13800,
           "isCore": true,
           "attack": {
@@ -12789,7 +12789,7 @@
           "offsetX": 2.0,
           "offsetY": -7.80078125,
           "halfWidth": 1.6015625,
-          "halfHeight": 1.6015625,
+          "halfHeight": 2.19921875,
           "hp": 5000
         },
         {
@@ -13121,7 +13121,7 @@
           "offsetX": 0.0,
           "offsetY": -4.6015625,
           "halfWidth": 2.69921875,
-          "halfHeight": 1.6015625,
+          "halfHeight": 4.69921875,
           "hp": 11000,
           "attack": {
             "type": "spawnEnemy",
