@@ -44,6 +44,8 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Sprite _woundRightSprite;
         [Tooltip("머리 실드 — art-input/boss_hive_shield.png")]
         [SerializeField] Sprite _shieldSprite;
+        [Tooltip("단색 1px 스프라이트 (양손 에너지 발광에 쓴다)")]
+        [SerializeField] Sprite _glowSprite;
 
         /// <summary>이 보스에서만 조립을 켠다. 다른 보스는 기존 본체 렌더러 그대로다.</summary>
         const string HiveBossIdPrefix = "boss_hive";
@@ -61,8 +63,27 @@ namespace Shmup.Presentation.Battle
         /// <summary>잘린 다리가 떨어져 사라지기까지의 시간(초).</summary>
         const float LegFallSeconds = 0.9f;
 
+        /// <summary>
+        /// 양다리를 다 부순 뒤의 발광 위치 (아트 캔버스 128x256 기준 손 좌표를
+        /// 캔버스 중심에서의 유닛 오프셋으로 환산한 값).
+        ///
+        /// 사람 지시: "두 다리 다 파괴하고 나면 양팔이 움직이면서 미사일과 에너지탄을
+        /// 대량 발사하는 패턴." 탄막 자체는 Core/데이터가 쏘고(REQ-141), 여기서는
+        /// **그게 팔에서 나온다는 것**을 보이게 한다.
+        ///
+        /// 팔 그림을 잘라 실제로 휘두르는 것도 검토했지만, 오른팔이 몸통 앞으로
+        /// 겹쳐 지나가 깨끗한 분리선이 없다 — 잘못 자르면 다리에서 겪은 "관절이
+        /// 어색하다"가 재발한다. 그래서 자르지 않고 손끝에서 에너지가 터지게 한다.
+        /// </summary>
+        static readonly Vector2 LeftHandOffset = new Vector2(-2.75f, -3.25f);
+        static readonly Vector2 RightHandOffset = new Vector2(1.75f, -2.5f);
+
+        /// <summary>발광 한 번의 주기(초). 대량 발사라 짧게 몰아친다.</summary>
+        const float BarragePulseSeconds = 0.24f;
+
         SpriteRenderer _torso;
         SpriteRenderer _shield;
+        readonly SpriteRenderer[] _handGlows = new SpriteRenderer[2];
         readonly SpriteRenderer[] _legs = new SpriteRenderer[2];
         readonly SpriteRenderer[] _wounds = new SpriteRenderer[2];
         readonly bool[] _legDestroyed = new bool[2];
@@ -113,6 +134,7 @@ namespace Shmup.Presentation.Battle
 
             SyncLegs(parts, anchor, scale);
             SyncShield(parts, anchor, scale);
+            SyncBarrage(anchor, scale);
             _visible = true;
         }
 
@@ -285,6 +307,54 @@ namespace Shmup.Presentation.Battle
             _shield.enabled = false;
         }
 
+        /// <summary>
+        /// 양다리를 다 부순 뒤의 난사 연출 — 양손이 타오르고 몸통이 반동으로 흔들린다.
+        /// </summary>
+        void SyncBarrage(Vector3 anchor, float scale)
+        {
+            bool barrage = _legDestroyed[0] && _legDestroyed[1];
+            for (int i = 0; i < 2; i++)
+            {
+                _handGlows[i] = Ensure(
+                    _handGlows[i], i == 0 ? "HiveHandGlowL" : "HiveHandGlowR",
+                    _glowSprite, ShieldOrder);
+                if (_handGlows[i] == null) continue;
+                if (!barrage)
+                {
+                    SetEnabled(_handGlows[i], false);
+                    continue;
+                }
+
+                // 좌우가 엇갈려 터진다 — 동시에 터지면 팔이 아니라 조명으로 읽힌다.
+                float phase = Time.time / BarragePulseSeconds + (i == 0 ? 0f : 0.5f);
+                float pulse = 1f - Mathf.Repeat(phase, 1f);
+                Vector2 offset = i == 0 ? LeftHandOffset : RightHandOffset;
+                var glow = _handGlows[i];
+                glow.transform.localPosition =
+                    anchor + new Vector3(offset.x * scale, offset.y * scale, 0f);
+                float size = (0.6f + pulse * 1.5f) * scale;
+                glow.transform.localScale = new Vector3(size, size, 1f);
+                // 미사일의 주황과 에너지탄의 청록을 오가며 두 탄종을 예고한다.
+                glow.color = Color.Lerp(
+                    new Color(1f, 0.62f, 0.18f, pulse * 0.85f),
+                    new Color(0.5f, 0.95f, 1f, pulse * 0.85f),
+                    Mathf.PingPong(Time.time * 0.9f + i * 0.5f, 1f));
+                glow.enabled = true;
+            }
+
+            if (_torso == null) return;
+            if (!barrage)
+            {
+                _torso.transform.localRotation = Quaternion.identity;
+                return;
+            }
+            // 난사의 반동. 크게 흔들면 판정과 그림이 어긋나 보이므로 아주 얕게.
+            float sway = Mathf.Sin(Time.time * 11f);
+            _torso.transform.localPosition =
+                anchor + new Vector3(sway * 0.12f * scale, 0f, 0f);
+            _torso.transform.localRotation = Quaternion.Euler(0f, 0f, sway * 2.2f);
+        }
+
         void Place(SpriteRenderer renderer, Vector3 anchor, float scale)
         {
             if (renderer == null) return;
@@ -313,6 +383,8 @@ namespace Shmup.Presentation.Battle
             _coreHitFlash = float.MaxValue;
             SetEnabled(_torso, false);
             SetEnabled(_shield, false);
+            for (int i = 0; i < 2; i++) SetEnabled(_handGlows[i], false);
+            if (_torso != null) _torso.transform.localRotation = Quaternion.identity;
             for (int i = 0; i < 2; i++)
             {
                 SetEnabled(_legs[i], false);

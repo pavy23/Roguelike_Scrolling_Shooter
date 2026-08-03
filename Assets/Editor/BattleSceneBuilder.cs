@@ -1244,6 +1244,7 @@ namespace Shmup.EditorTools
                 LoadOrCachedSprite("boss_hive_wound_r.png", "boss_hive_wound_r"));
             SetReference(hiveView, "_shieldSprite",
                 LoadOrCachedSprite("boss_hive_shield.png", "boss_hive_shield"));
+            SetReference(hiveView, "_glowSprite", whiteSprite);   // 양손 난사 발광
             // 하이브가 화면을 소유하는 동안 범용 파츠 오버레이는 비켜난다
             // (전함과 같은 이유 - 같은 자리에 두 겹으로 그리면 사각형이 두 개로 읽힌다).
             SetReference(partsView, "_hiveView", hiveView);
