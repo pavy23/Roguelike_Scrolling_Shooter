@@ -72,6 +72,7 @@ SpriteAtlas:
     - 5a6f430142d9d6341b693262598ea6c7: 21300000
     - c0939801ff46aa1429fc620aef37e921: 21300000
     - 8ceb11212c6924e478c2ad47841ab9e5: 21300000
+    - e922b5419ef71864f9171acb615939ee: 21300000
     - 966ed451822d09842b60fb5e1405d117: 21300000
     - 0aa5885136f690244997ba9326643bc4: 21300000
     - 6ff4826123e5e1d4ba5e56d53370c033: 21300000
@@ -346,6 +347,7 @@ SpriteAtlas:
     - 3de6ae4fb5b72cd4ebf153aad4ad93bc: 21300000
     - 89ea225f7f6cdb74db1312ce77138e0c: 21300000
     - aee5727fabd9e734f9da80da3bded887: 21300000
+    - 2abbb77f206408d45aa01de8a75b1d64: 21300000
     - 7a899b7fea5158e4fb91b4b6e4f339ff: 21300000
     - 4804fd7f02c9f6d4ab627a2c28402cf2: 21300000
     - 75959d8f126449141bc6ed882795f63d: 21300000
@@ -377,6 +379,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 5a6f430142d9d6341b693262598ea6c7, type: 3}
   - {fileID: 21300000, guid: c0939801ff46aa1429fc620aef37e921, type: 3}
   - {fileID: 21300000, guid: 8ceb11212c6924e478c2ad47841ab9e5, type: 3}
+  - {fileID: 21300000, guid: e922b5419ef71864f9171acb615939ee, type: 3}
   - {fileID: 21300000, guid: 966ed451822d09842b60fb5e1405d117, type: 3}
   - {fileID: 21300000, guid: 0aa5885136f690244997ba9326643bc4, type: 3}
   - {fileID: 21300000, guid: 6ff4826123e5e1d4ba5e56d53370c033, type: 3}
@@ -651,6 +654,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 3de6ae4fb5b72cd4ebf153aad4ad93bc, type: 3}
   - {fileID: 21300000, guid: 89ea225f7f6cdb74db1312ce77138e0c, type: 3}
   - {fileID: 21300000, guid: aee5727fabd9e734f9da80da3bded887, type: 3}
+  - {fileID: 21300000, guid: 2abbb77f206408d45aa01de8a75b1d64, type: 3}
   - {fileID: 21300000, guid: 7a899b7fea5158e4fb91b4b6e4f339ff, type: 3}
   - {fileID: 21300000, guid: 4804fd7f02c9f6d4ab627a2c28402cf2, type: 3}
   - {fileID: 21300000, guid: 75959d8f126449141bc6ed882795f63d, type: 3}
@@ -681,6 +685,7 @@ SpriteAtlas:
   - anim_boss_stage1_00
   - anim_mini_core_04
   - boss_broodmother
+  - enemy_magnet_claw
   - anim_junk_roller_00
   - anim_zako_sine_01
   - anim_mini_crystal_00
@@ -955,6 +960,7 @@ SpriteAtlas:
   - enemy
   - fx_explosion_03
   - enemy_mini_destroyer
+  - enemy_mist_specter
   - anim_zako_straight_03
   - anim_elite_03
   - anim_mini_walker_02

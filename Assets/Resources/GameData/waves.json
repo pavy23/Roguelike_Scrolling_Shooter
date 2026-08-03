@@ -127,7 +127,7 @@
   },
   "segments": [
     {
-      "id": "seg_intro_line",
+      "id": "seg_intro_line_scrapyard",
       "difficultyMin": 1,
       "difficultyMax": 3,
       "weight": 12,
@@ -140,27 +140,27 @@
       "spawns": [
         {
           "tick": 40,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": 3.25
         },
         {
           "tick": 70,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": 3.25
         },
         {
           "tick": 100,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": 0
         },
         {
           "tick": 130,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": -3.25
         },
         {
           "tick": 160,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": -3.25
         },
         {
@@ -185,14 +185,279 @@
         },
         {
           "tick": 380,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": -4
         }
       ],
-      "intent": "REQ103a mid | masks[7] | theme=shared | 잡몹 라인 리듬 — 스치듯 처리하며 레인 감각"
+      "intent": "REQ145 theme-split of seg_intro_line → scrapyard | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | 잡몹 라인 리듬 — 스치듯 처리하며 레인 감각",
+      "theme": "scrapyard"
     },
     {
-      "id": "seg_sine_pair",
+      "id": "seg_intro_line_hive",
+      "difficultyMin": 1,
+      "difficultyMax": 3,
+      "weight": 12,
+      "lengthTicks": 600,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "spore_drifter",
+          "y": 3.25
+        },
+        {
+          "tick": 70,
+          "enemyId": "spore_drifter",
+          "y": 3.25
+        },
+        {
+          "tick": 100,
+          "enemyId": "spore_drifter",
+          "y": 0
+        },
+        {
+          "tick": 130,
+          "enemyId": "spore_drifter",
+          "y": -3.25
+        },
+        {
+          "tick": 160,
+          "enemyId": "spore_drifter",
+          "y": -3.25
+        },
+        {
+          "tick": 220,
+          "enemyId": "lancer_dart",
+          "y": 1.5
+        },
+        {
+          "tick": 250,
+          "enemyId": "lancer_dart",
+          "y": -1.5
+        },
+        {
+          "tick": 320,
+          "enemyId": "lancer_dart",
+          "y": 4
+        },
+        {
+          "tick": 350,
+          "enemyId": "lancer_dart",
+          "y": 0
+        },
+        {
+          "tick": 380,
+          "enemyId": "spore_drifter",
+          "y": -4
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_intro_line → hive | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | 잡몹 라인 리듬 — 스치듯 처리하며 레인 감각",
+      "theme": "hive"
+    },
+    {
+      "id": "seg_intro_line_fortress",
+      "difficultyMin": 1,
+      "difficultyMax": 3,
+      "weight": 12,
+      "lengthTicks": 600,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "interceptor_rush",
+          "y": 3.25
+        },
+        {
+          "tick": 70,
+          "enemyId": "interceptor_rush",
+          "y": 3.25
+        },
+        {
+          "tick": 100,
+          "enemyId": "interceptor_rush",
+          "y": 0
+        },
+        {
+          "tick": 130,
+          "enemyId": "interceptor_rush",
+          "y": -3.25
+        },
+        {
+          "tick": 160,
+          "enemyId": "interceptor_rush",
+          "y": -3.25
+        },
+        {
+          "tick": 220,
+          "enemyId": "interceptor_rush",
+          "y": 1.5
+        },
+        {
+          "tick": 250,
+          "enemyId": "interceptor_rush",
+          "y": -1.5
+        },
+        {
+          "tick": 320,
+          "enemyId": "interceptor_rush",
+          "y": 4
+        },
+        {
+          "tick": 350,
+          "enemyId": "interceptor_rush",
+          "y": 0
+        },
+        {
+          "tick": 380,
+          "enemyId": "interceptor_rush",
+          "y": -4
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_intro_line → fortress | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | 잡몹 라인 리듬 — 스치듯 처리하며 레인 감각",
+      "theme": "fortress"
+    },
+    {
+      "id": "seg_intro_line_nebula",
+      "difficultyMin": 1,
+      "difficultyMax": 3,
+      "weight": 12,
+      "lengthTicks": 600,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "mist_specter",
+          "y": 3.25
+        },
+        {
+          "tick": 70,
+          "enemyId": "mist_specter",
+          "y": 3.25
+        },
+        {
+          "tick": 100,
+          "enemyId": "mist_specter",
+          "y": 0
+        },
+        {
+          "tick": 130,
+          "enemyId": "wisp_spark",
+          "y": -3.25
+        },
+        {
+          "tick": 160,
+          "enemyId": "wisp_spark",
+          "y": -3.25
+        },
+        {
+          "tick": 220,
+          "enemyId": "wisp_spark",
+          "y": 1.5
+        },
+        {
+          "tick": 250,
+          "enemyId": "wisp_spark",
+          "y": -1.5
+        },
+        {
+          "tick": 320,
+          "enemyId": "wisp_spark",
+          "y": 4
+        },
+        {
+          "tick": 350,
+          "enemyId": "wisp_spark",
+          "y": 0
+        },
+        {
+          "tick": 380,
+          "enemyId": "wisp_spark",
+          "y": -4
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_intro_line → nebula | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | 잡몹 라인 리듬 — 스치듯 처리하며 레인 감각",
+      "theme": "nebula"
+    },
+    {
+      "id": "seg_intro_line_core",
+      "difficultyMin": 1,
+      "difficultyMax": 3,
+      "weight": 12,
+      "lengthTicks": 600,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "rift_blade",
+          "y": 3.25
+        },
+        {
+          "tick": 70,
+          "enemyId": "rift_blade",
+          "y": 3.25
+        },
+        {
+          "tick": 100,
+          "enemyId": "rift_blade",
+          "y": 0
+        },
+        {
+          "tick": 130,
+          "enemyId": "rift_blade",
+          "y": -3.25
+        },
+        {
+          "tick": 160,
+          "enemyId": "rift_blade",
+          "y": -3.25
+        },
+        {
+          "tick": 220,
+          "enemyId": "rift_blade",
+          "y": 1.5
+        },
+        {
+          "tick": 250,
+          "enemyId": "rift_blade",
+          "y": -1.5
+        },
+        {
+          "tick": 320,
+          "enemyId": "rift_blade",
+          "y": 4
+        },
+        {
+          "tick": 350,
+          "enemyId": "rift_blade",
+          "y": 0
+        },
+        {
+          "tick": 380,
+          "enemyId": "rift_blade",
+          "y": -4
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_intro_line → core | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | 잡몹 라인 리듬 — 스치듯 처리하며 레인 감각",
+      "theme": "core"
+    },
+    {
+      "id": "seg_sine_pair_scrapyard",
       "difficultyMin": 1,
       "difficultyMax": 2,
       "weight": 10,
@@ -205,22 +470,22 @@
       "spawns": [
         {
           "tick": 40,
-          "enemyId": "zako_sine",
+          "enemyId": "magnet_claw",
           "y": 4.75
         },
         {
           "tick": 40,
-          "enemyId": "zako_sine",
+          "enemyId": "magnet_claw",
           "y": -4.75
         },
         {
           "tick": 120,
-          "enemyId": "zako_sine",
+          "enemyId": "magnet_claw",
           "y": 4.75
         },
         {
           "tick": 120,
-          "enemyId": "zako_sine",
+          "enemyId": "magnet_claw",
           "y": -4.75
         },
         {
@@ -235,29 +500,294 @@
         },
         {
           "tick": 300,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": 5.5
         },
         {
           "tick": 300,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": -5.5
         },
         {
           "tick": 420,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": 4.75
         },
         {
           "tick": 420,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": -4.75
         }
       ],
-      "intent": "REQ103a early-open | masks[2] | theme=shared | 상하 사인 회피 — 중앙 통로 위치 선정"
+      "intent": "REQ145 theme-split of seg_sine_pair → scrapyard | same layout/difficulty/weight | REQ103a early-open | masks[2] | theme=shared | 상하 사인 회피 — 중앙 통로 위치 선정",
+      "theme": "scrapyard"
     },
     {
-      "id": "seg_turret_floor",
+      "id": "seg_sine_pair_hive",
+      "difficultyMin": 1,
+      "difficultyMax": 2,
+      "weight": 10,
+      "lengthTicks": 600,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        2
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "spore_drifter",
+          "y": 4.75
+        },
+        {
+          "tick": 40,
+          "enemyId": "spore_drifter",
+          "y": -4.75
+        },
+        {
+          "tick": 120,
+          "enemyId": "spore_drifter",
+          "y": 4.75
+        },
+        {
+          "tick": 120,
+          "enemyId": "spore_drifter",
+          "y": -4.75
+        },
+        {
+          "tick": 200,
+          "enemyId": "spore_drifter",
+          "y": 4.0
+        },
+        {
+          "tick": 200,
+          "enemyId": "spore_drifter",
+          "y": -4.0
+        },
+        {
+          "tick": 300,
+          "enemyId": "spore_drifter",
+          "y": 5.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "spore_drifter",
+          "y": -5.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "spore_drifter",
+          "y": 4.75
+        },
+        {
+          "tick": 420,
+          "enemyId": "spore_drifter",
+          "y": -4.75
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_sine_pair → hive | same layout/difficulty/weight | REQ103a early-open | masks[2] | theme=shared | 상하 사인 회피 — 중앙 통로 위치 선정",
+      "theme": "hive"
+    },
+    {
+      "id": "seg_sine_pair_fortress",
+      "difficultyMin": 1,
+      "difficultyMax": 2,
+      "weight": 10,
+      "lengthTicks": 600,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        2
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "interceptor_rush",
+          "y": 4.75
+        },
+        {
+          "tick": 40,
+          "enemyId": "interceptor_rush",
+          "y": -4.75
+        },
+        {
+          "tick": 120,
+          "enemyId": "interceptor_rush",
+          "y": 4.75
+        },
+        {
+          "tick": 120,
+          "enemyId": "interceptor_rush",
+          "y": -4.75
+        },
+        {
+          "tick": 200,
+          "enemyId": "sentry_drone",
+          "y": 4.0
+        },
+        {
+          "tick": 200,
+          "enemyId": "sentry_drone",
+          "y": -4.0
+        },
+        {
+          "tick": 300,
+          "enemyId": "interceptor_rush",
+          "y": 5.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "interceptor_rush",
+          "y": -5.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "interceptor_rush",
+          "y": 4.75
+        },
+        {
+          "tick": 420,
+          "enemyId": "interceptor_rush",
+          "y": -4.75
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_sine_pair → fortress | same layout/difficulty/weight | REQ103a early-open | masks[2] | theme=shared | 상하 사인 회피 — 중앙 통로 위치 선정",
+      "theme": "fortress"
+    },
+    {
+      "id": "seg_sine_pair_nebula",
+      "difficultyMin": 1,
+      "difficultyMax": 2,
+      "weight": 10,
+      "lengthTicks": 600,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        2
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "mist_specter",
+          "y": 4.75
+        },
+        {
+          "tick": 40,
+          "enemyId": "mist_specter",
+          "y": -4.75
+        },
+        {
+          "tick": 120,
+          "enemyId": "wisp_spark",
+          "y": 4.75
+        },
+        {
+          "tick": 120,
+          "enemyId": "wisp_spark",
+          "y": -4.75
+        },
+        {
+          "tick": 200,
+          "enemyId": "echo_wisp",
+          "y": 4.0
+        },
+        {
+          "tick": 200,
+          "enemyId": "echo_wisp",
+          "y": -4.0
+        },
+        {
+          "tick": 300,
+          "enemyId": "wisp_spark",
+          "y": 5.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "wisp_spark",
+          "y": -5.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "wisp_spark",
+          "y": 4.75
+        },
+        {
+          "tick": 420,
+          "enemyId": "wisp_spark",
+          "y": -4.75
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_sine_pair → nebula | same layout/difficulty/weight | REQ103a early-open | masks[2] | theme=shared | 상하 사인 회피 — 중앙 통로 위치 선정",
+      "theme": "nebula"
+    },
+    {
+      "id": "seg_sine_pair_core",
+      "difficultyMin": 1,
+      "difficultyMax": 2,
+      "weight": 10,
+      "lengthTicks": 600,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        2
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "rift_blade",
+          "y": 4.75
+        },
+        {
+          "tick": 40,
+          "enemyId": "rift_blade",
+          "y": -4.75
+        },
+        {
+          "tick": 120,
+          "enemyId": "rift_blade",
+          "y": 4.75
+        },
+        {
+          "tick": 120,
+          "enemyId": "rift_blade",
+          "y": -4.75
+        },
+        {
+          "tick": 200,
+          "enemyId": "phase_disc",
+          "y": 4.0
+        },
+        {
+          "tick": 200,
+          "enemyId": "phase_disc",
+          "y": -4.0
+        },
+        {
+          "tick": 300,
+          "enemyId": "rift_blade",
+          "y": 5.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "rift_blade",
+          "y": -5.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "rift_blade",
+          "y": 4.75
+        },
+        {
+          "tick": 420,
+          "enemyId": "rift_blade",
+          "y": -4.75
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_sine_pair → core | same layout/difficulty/weight | REQ103a early-open | masks[2] | theme=shared | 상하 사인 회피 — 중앙 통로 위치 선정",
+      "theme": "core"
+    },
+    {
+      "id": "seg_turret_floor_scrapyard",
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 9,
@@ -285,37 +815,37 @@
         },
         {
           "tick": 100,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": 3.0
         },
         {
           "tick": 160,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": 4.0
         },
         {
           "tick": 220,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 2.0
         },
         {
           "tick": 280,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": 3.5
         },
         {
           "tick": 340,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 1.0
         },
         {
           "tick": 420,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": 4.5
         },
         {
           "tick": 500,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": 2.5
         },
         {
@@ -338,10 +868,351 @@
           "hp": 20
         }
       ],
-      "intent": "REQ103a mid | masks[6] | theme=shared | 바닥 강화형 포탑 회피 + 상부 잡몹 정리"
+      "intent": "REQ145 theme-split of seg_turret_floor → scrapyard | same layout/difficulty/weight | REQ103a mid | masks[6] | theme=shared | 바닥 강화형 포탑 회피 + 상부 잡몹 정리",
+      "theme": "scrapyard"
     },
     {
-      "id": "seg_swarm_fast",
+      "id": "seg_turret_floor_hive",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "weight": 9,
+      "lengthTicks": 900,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        6
+      ],
+      "spawns": [
+        {
+          "tick": 60,
+          "enemyId": "hive_tentacle",
+          "y": -5.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "hive_tentacle",
+          "y": -5.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "hive_tentacle",
+          "y": -5.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "spore_drifter",
+          "y": 3.0
+        },
+        {
+          "tick": 160,
+          "enemyId": "spore_drifter",
+          "y": 4.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "sting_hornet",
+          "y": 2.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "spore_drifter",
+          "y": 3.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "sting_hornet",
+          "y": 1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "spore_drifter",
+          "y": 4.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "spore_drifter",
+          "y": 2.5
+        },
+        {
+          "tick": 600,
+          "enemyId": "elite_sine",
+          "y": 2.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": 4.0,
+          "hp": 20
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_turret_floor → hive | same layout/difficulty/weight | REQ103a mid | masks[6] | theme=shared | 바닥 강화형 포탑 회피 + 상부 잡몹 정리",
+      "theme": "hive"
+    },
+    {
+      "id": "seg_turret_floor_fortress",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "weight": 9,
+      "lengthTicks": 900,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        6
+      ],
+      "spawns": [
+        {
+          "tick": 60,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "interceptor_rush",
+          "y": 3.0
+        },
+        {
+          "tick": 160,
+          "enemyId": "interceptor_rush",
+          "y": 4.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "interceptor_rush",
+          "y": 2.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "interceptor_rush",
+          "y": 3.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "interceptor_rush",
+          "y": 1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "interceptor_rush",
+          "y": 4.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "interceptor_rush",
+          "y": 2.5
+        },
+        {
+          "tick": 600,
+          "enemyId": "zako_tank",
+          "y": 2.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": 4.0,
+          "hp": 20
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_turret_floor → fortress | same layout/difficulty/weight | REQ103a mid | masks[6] | theme=shared | 바닥 강화형 포탑 회피 + 상부 잡몹 정리",
+      "theme": "fortress"
+    },
+    {
+      "id": "seg_turret_floor_nebula",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "weight": 9,
+      "lengthTicks": 900,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        6
+      ],
+      "spawns": [
+        {
+          "tick": 60,
+          "enemyId": "phase_disc",
+          "y": -5.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "phase_disc",
+          "y": -5.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "phase_disc",
+          "y": -5.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "mist_specter",
+          "y": 3.0
+        },
+        {
+          "tick": 160,
+          "enemyId": "mist_specter",
+          "y": 4.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "wisp_spark",
+          "y": 2.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "wisp_spark",
+          "y": 3.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "wisp_spark",
+          "y": 1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "wisp_spark",
+          "y": 4.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "wisp_spark",
+          "y": 2.5
+        },
+        {
+          "tick": 600,
+          "enemyId": "elite_sine",
+          "y": 2.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": 4.0,
+          "hp": 20
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_turret_floor → nebula | same layout/difficulty/weight | REQ103a mid | masks[6] | theme=shared | 바닥 강화형 포탑 회피 + 상부 잡몹 정리",
+      "theme": "nebula"
+    },
+    {
+      "id": "seg_turret_floor_core",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "weight": 9,
+      "lengthTicks": 900,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        6
+      ],
+      "spawns": [
+        {
+          "tick": 60,
+          "enemyId": "laser_sentry",
+          "y": -5.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "laser_sentry",
+          "y": -5.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "laser_sentry",
+          "y": -5.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "rift_blade",
+          "y": 3.0
+        },
+        {
+          "tick": 160,
+          "enemyId": "rift_blade",
+          "y": 4.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "rift_blade",
+          "y": 2.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "rift_blade",
+          "y": 3.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "rift_blade",
+          "y": 1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "rift_blade",
+          "y": 4.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "rift_blade",
+          "y": 2.5
+        },
+        {
+          "tick": 600,
+          "enemyId": "guardian_sphere",
+          "y": 2.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": 4.0,
+          "hp": 20
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_turret_floor → core | same layout/difficulty/weight | REQ103a mid | masks[6] | theme=shared | 바닥 강화형 포탑 회피 + 상부 잡몹 정리",
+      "theme": "core"
+    },
+    {
+      "id": "seg_swarm_fast_scrapyard",
       "difficultyMin": 2,
       "difficultyMax": 3,
       "weight": 5,
@@ -354,92 +1225,92 @@
       "spawns": [
         {
           "tick": 30,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 4
         },
         {
           "tick": 58,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 2
         },
         {
           "tick": 86,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 0
         },
         {
           "tick": 114,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": -2
         },
         {
           "tick": 142,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": -4
         },
         {
           "tick": 170,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 3
         },
         {
           "tick": 198,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 1
         },
         {
           "tick": 226,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": -1
         },
         {
           "tick": 254,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": -3
         },
         {
           "tick": 282,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 4.5
         },
         {
           "tick": 310,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": -4.5
         },
         {
           "tick": 338,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 2.5
         },
         {
           "tick": 366,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": -2.5
         },
         {
           "tick": 394,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 0.5
         },
         {
           "tick": 422,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": -0.5
         },
         {
           "tick": 450,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 3.5
         },
         {
           "tick": 478,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": -3.5
         },
         {
           "tick": 506,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 0
         }
       ],
@@ -463,10 +1334,515 @@
           "hp": 15
         }
       ],
-      "intent": "REQ103a mid | masks[7] | theme=shared | valley | 고속 잡몹 폭주 — 순수 회피 리듬"
+      "intent": "REQ145 theme-split of seg_swarm_fast → scrapyard | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | valley | 고속 잡몹 폭주 — 순수 회피 리듬",
+      "theme": "scrapyard"
     },
     {
-      "id": "seg_mixed_mid",
+      "id": "seg_swarm_fast_hive",
+      "difficultyMin": 2,
+      "difficultyMax": 3,
+      "weight": 5,
+      "lengthTicks": 656,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 30,
+          "enemyId": "sting_hornet",
+          "y": 4
+        },
+        {
+          "tick": 58,
+          "enemyId": "sting_hornet",
+          "y": 2
+        },
+        {
+          "tick": 86,
+          "enemyId": "sting_hornet",
+          "y": 0
+        },
+        {
+          "tick": 114,
+          "enemyId": "sting_hornet",
+          "y": -2
+        },
+        {
+          "tick": 142,
+          "enemyId": "sting_hornet",
+          "y": -4
+        },
+        {
+          "tick": 170,
+          "enemyId": "sting_hornet",
+          "y": 3
+        },
+        {
+          "tick": 198,
+          "enemyId": "sting_hornet",
+          "y": 1
+        },
+        {
+          "tick": 226,
+          "enemyId": "sting_hornet",
+          "y": -1
+        },
+        {
+          "tick": 254,
+          "enemyId": "sting_hornet",
+          "y": -3
+        },
+        {
+          "tick": 282,
+          "enemyId": "sting_hornet",
+          "y": 4.5
+        },
+        {
+          "tick": 310,
+          "enemyId": "sting_hornet",
+          "y": -4.5
+        },
+        {
+          "tick": 338,
+          "enemyId": "sting_hornet",
+          "y": 2.5
+        },
+        {
+          "tick": 366,
+          "enemyId": "sting_hornet",
+          "y": -2.5
+        },
+        {
+          "tick": 394,
+          "enemyId": "sting_hornet",
+          "y": 0.5
+        },
+        {
+          "tick": 422,
+          "enemyId": "sting_hornet",
+          "y": -0.5
+        },
+        {
+          "tick": 450,
+          "enemyId": "sting_hornet",
+          "y": 3.5
+        },
+        {
+          "tick": 478,
+          "enemyId": "sting_hornet",
+          "y": -3.5
+        },
+        {
+          "tick": 506,
+          "enemyId": "sting_hornet",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": 1.5,
+          "hp": 15
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_swarm_fast → hive | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | valley | 고속 잡몹 폭주 — 순수 회피 리듬",
+      "theme": "hive"
+    },
+    {
+      "id": "seg_swarm_fast_fortress",
+      "difficultyMin": 2,
+      "difficultyMax": 3,
+      "weight": 5,
+      "lengthTicks": 656,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 30,
+          "enemyId": "interceptor_rush",
+          "y": 4
+        },
+        {
+          "tick": 58,
+          "enemyId": "interceptor_rush",
+          "y": 2
+        },
+        {
+          "tick": 86,
+          "enemyId": "interceptor_rush",
+          "y": 0
+        },
+        {
+          "tick": 114,
+          "enemyId": "interceptor_rush",
+          "y": -2
+        },
+        {
+          "tick": 142,
+          "enemyId": "interceptor_rush",
+          "y": -4
+        },
+        {
+          "tick": 170,
+          "enemyId": "interceptor_rush",
+          "y": 3
+        },
+        {
+          "tick": 198,
+          "enemyId": "interceptor_rush",
+          "y": 1
+        },
+        {
+          "tick": 226,
+          "enemyId": "interceptor_rush",
+          "y": -1
+        },
+        {
+          "tick": 254,
+          "enemyId": "interceptor_rush",
+          "y": -3
+        },
+        {
+          "tick": 282,
+          "enemyId": "interceptor_rush",
+          "y": 4.5
+        },
+        {
+          "tick": 310,
+          "enemyId": "interceptor_rush",
+          "y": -4.5
+        },
+        {
+          "tick": 338,
+          "enemyId": "interceptor_rush",
+          "y": 2.5
+        },
+        {
+          "tick": 366,
+          "enemyId": "interceptor_rush",
+          "y": -2.5
+        },
+        {
+          "tick": 394,
+          "enemyId": "interceptor_rush",
+          "y": 0.5
+        },
+        {
+          "tick": 422,
+          "enemyId": "interceptor_rush",
+          "y": -0.5
+        },
+        {
+          "tick": 450,
+          "enemyId": "interceptor_rush",
+          "y": 3.5
+        },
+        {
+          "tick": 478,
+          "enemyId": "interceptor_rush",
+          "y": -3.5
+        },
+        {
+          "tick": 506,
+          "enemyId": "interceptor_rush",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": 1.5,
+          "hp": 15
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_swarm_fast → fortress | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | valley | 고속 잡몹 폭주 — 순수 회피 리듬",
+      "theme": "fortress"
+    },
+    {
+      "id": "seg_swarm_fast_nebula",
+      "difficultyMin": 2,
+      "difficultyMax": 3,
+      "weight": 5,
+      "lengthTicks": 656,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 30,
+          "enemyId": "mist_specter",
+          "y": 4
+        },
+        {
+          "tick": 58,
+          "enemyId": "mist_specter",
+          "y": 2
+        },
+        {
+          "tick": 86,
+          "enemyId": "mist_specter",
+          "y": 0
+        },
+        {
+          "tick": 114,
+          "enemyId": "mist_specter",
+          "y": -2
+        },
+        {
+          "tick": 142,
+          "enemyId": "mist_specter",
+          "y": -4
+        },
+        {
+          "tick": 170,
+          "enemyId": "mist_specter",
+          "y": 3
+        },
+        {
+          "tick": 198,
+          "enemyId": "wisp_spark",
+          "y": 1
+        },
+        {
+          "tick": 226,
+          "enemyId": "wisp_spark",
+          "y": -1
+        },
+        {
+          "tick": 254,
+          "enemyId": "wisp_spark",
+          "y": -3
+        },
+        {
+          "tick": 282,
+          "enemyId": "wisp_spark",
+          "y": 4.5
+        },
+        {
+          "tick": 310,
+          "enemyId": "wisp_spark",
+          "y": -4.5
+        },
+        {
+          "tick": 338,
+          "enemyId": "wisp_spark",
+          "y": 2.5
+        },
+        {
+          "tick": 366,
+          "enemyId": "wisp_spark",
+          "y": -2.5
+        },
+        {
+          "tick": 394,
+          "enemyId": "wisp_spark",
+          "y": 0.5
+        },
+        {
+          "tick": 422,
+          "enemyId": "wisp_spark",
+          "y": -0.5
+        },
+        {
+          "tick": 450,
+          "enemyId": "wisp_spark",
+          "y": 3.5
+        },
+        {
+          "tick": 478,
+          "enemyId": "wisp_spark",
+          "y": -3.5
+        },
+        {
+          "tick": 506,
+          "enemyId": "wisp_spark",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": 1.5,
+          "hp": 15
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_swarm_fast → nebula | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | valley | 고속 잡몹 폭주 — 순수 회피 리듬",
+      "theme": "nebula"
+    },
+    {
+      "id": "seg_swarm_fast_core",
+      "difficultyMin": 2,
+      "difficultyMax": 3,
+      "weight": 5,
+      "lengthTicks": 656,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 30,
+          "enemyId": "rift_blade",
+          "y": 4
+        },
+        {
+          "tick": 58,
+          "enemyId": "rift_blade",
+          "y": 2
+        },
+        {
+          "tick": 86,
+          "enemyId": "rift_blade",
+          "y": 0
+        },
+        {
+          "tick": 114,
+          "enemyId": "rift_blade",
+          "y": -2
+        },
+        {
+          "tick": 142,
+          "enemyId": "rift_blade",
+          "y": -4
+        },
+        {
+          "tick": 170,
+          "enemyId": "rift_blade",
+          "y": 3
+        },
+        {
+          "tick": 198,
+          "enemyId": "rift_blade",
+          "y": 1
+        },
+        {
+          "tick": 226,
+          "enemyId": "rift_blade",
+          "y": -1
+        },
+        {
+          "tick": 254,
+          "enemyId": "rift_blade",
+          "y": -3
+        },
+        {
+          "tick": 282,
+          "enemyId": "rift_blade",
+          "y": 4.5
+        },
+        {
+          "tick": 310,
+          "enemyId": "rift_blade",
+          "y": -4.5
+        },
+        {
+          "tick": 338,
+          "enemyId": "rift_blade",
+          "y": 2.5
+        },
+        {
+          "tick": 366,
+          "enemyId": "rift_blade",
+          "y": -2.5
+        },
+        {
+          "tick": 394,
+          "enemyId": "rift_blade",
+          "y": 0.5
+        },
+        {
+          "tick": 422,
+          "enemyId": "rift_blade",
+          "y": -0.5
+        },
+        {
+          "tick": 450,
+          "enemyId": "rift_blade",
+          "y": 3.5
+        },
+        {
+          "tick": 478,
+          "enemyId": "rift_blade",
+          "y": -3.5
+        },
+        {
+          "tick": 506,
+          "enemyId": "rift_blade",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": 1.5,
+          "hp": 15
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_swarm_fast → core | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | valley | 고속 잡몹 폭주 — 순수 회피 리듬",
+      "theme": "core"
+    },
+    {
+      "id": "seg_mixed_mid_scrapyard",
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 11,
@@ -479,27 +1855,27 @@
       "spawns": [
         {
           "tick": 40,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": 2.5
         },
         {
           "tick": 70,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": -2.5
         },
         {
           "tick": 100,
-          "enemyId": "zako_sine",
+          "enemyId": "magnet_claw",
           "y": 4.0
         },
         {
           "tick": 130,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 0
         },
         {
           "tick": 180,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": 3.0
         },
         {
@@ -509,12 +1885,12 @@
         },
         {
           "tick": 280,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 2.0
         },
         {
           "tick": 320,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": -4.0
         },
         {
@@ -524,12 +1900,12 @@
         },
         {
           "tick": 440,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": 3.5
         },
         {
           "tick": 480,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": -3.5
         },
         {
@@ -539,12 +1915,12 @@
         },
         {
           "tick": 600,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 1.5
         },
         {
           "tick": 640,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": -1.5
         }
       ],
@@ -568,10 +1944,435 @@
           "hp": 25
         }
       ],
-      "intent": "REQ103a mid | masks[7] | theme=shared | valley | 잡몹 리듬 속 중형 앵커 화력 집중"
+      "intent": "REQ145 theme-split of seg_mixed_mid → scrapyard | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | valley | 잡몹 리듬 속 중형 앵커 화력 집중",
+      "theme": "scrapyard"
     },
     {
-      "id": "seg_turret_ceiling",
+      "id": "seg_mixed_mid_hive",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "weight": 11,
+      "lengthTicks": 790,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "spore_drifter",
+          "y": 2.5
+        },
+        {
+          "tick": 70,
+          "enemyId": "spore_drifter",
+          "y": -2.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "spore_drifter",
+          "y": 4.0
+        },
+        {
+          "tick": 130,
+          "enemyId": "sting_hornet",
+          "y": 0
+        },
+        {
+          "tick": 180,
+          "enemyId": "brood_spitter",
+          "y": 3.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "brood_spitter",
+          "y": -3.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "sting_hornet",
+          "y": 2.0
+        },
+        {
+          "tick": 320,
+          "enemyId": "spore_drifter",
+          "y": -4.0
+        },
+        {
+          "tick": 380,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 440,
+          "enemyId": "spore_drifter",
+          "y": 3.5
+        },
+        {
+          "tick": 480,
+          "enemyId": "spore_drifter",
+          "y": -3.5
+        },
+        {
+          "tick": 540,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 600,
+          "enemyId": "sting_hornet",
+          "y": 1.5
+        },
+        {
+          "tick": 640,
+          "enemyId": "sting_hornet",
+          "y": -1.5
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 17.5,
+          "y": 2.5,
+          "hp": 25
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_mixed_mid → hive | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | valley | 잡몹 리듬 속 중형 앵커 화력 집중",
+      "theme": "hive"
+    },
+    {
+      "id": "seg_mixed_mid_fortress",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "weight": 11,
+      "lengthTicks": 790,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "interceptor_rush",
+          "y": 2.5
+        },
+        {
+          "tick": 70,
+          "enemyId": "interceptor_rush",
+          "y": -2.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "interceptor_rush",
+          "y": 4.0
+        },
+        {
+          "tick": 130,
+          "enemyId": "interceptor_rush",
+          "y": 0
+        },
+        {
+          "tick": 180,
+          "enemyId": "mortar_drone",
+          "y": 3.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "mortar_drone",
+          "y": -3.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "interceptor_rush",
+          "y": 2.0
+        },
+        {
+          "tick": 320,
+          "enemyId": "interceptor_rush",
+          "y": -4.0
+        },
+        {
+          "tick": 380,
+          "enemyId": "zako_tank",
+          "y": 0
+        },
+        {
+          "tick": 440,
+          "enemyId": "interceptor_rush",
+          "y": 3.5
+        },
+        {
+          "tick": 480,
+          "enemyId": "interceptor_rush",
+          "y": -3.5
+        },
+        {
+          "tick": 540,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 600,
+          "enemyId": "interceptor_rush",
+          "y": 1.5
+        },
+        {
+          "tick": 640,
+          "enemyId": "interceptor_rush",
+          "y": -1.5
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 17.5,
+          "y": 2.5,
+          "hp": 25
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_mixed_mid → fortress | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | valley | 잡몹 리듬 속 중형 앵커 화력 집중",
+      "theme": "fortress"
+    },
+    {
+      "id": "seg_mixed_mid_nebula",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "weight": 11,
+      "lengthTicks": 790,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "mist_specter",
+          "y": 2.5
+        },
+        {
+          "tick": 70,
+          "enemyId": "mist_specter",
+          "y": -2.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "mist_specter",
+          "y": 4.0
+        },
+        {
+          "tick": 130,
+          "enemyId": "wisp_spark",
+          "y": 0
+        },
+        {
+          "tick": 180,
+          "enemyId": "void_moth",
+          "y": 3.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "void_moth",
+          "y": -3.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "wisp_spark",
+          "y": 2.0
+        },
+        {
+          "tick": 320,
+          "enemyId": "wisp_spark",
+          "y": -4.0
+        },
+        {
+          "tick": 380,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 440,
+          "enemyId": "wisp_spark",
+          "y": 3.5
+        },
+        {
+          "tick": 480,
+          "enemyId": "wisp_spark",
+          "y": -3.5
+        },
+        {
+          "tick": 540,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 600,
+          "enemyId": "wisp_spark",
+          "y": 1.5
+        },
+        {
+          "tick": 640,
+          "enemyId": "wisp_spark",
+          "y": -1.5
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 17.5,
+          "y": 2.5,
+          "hp": 25
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_mixed_mid → nebula | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | valley | 잡몹 리듬 속 중형 앵커 화력 집중",
+      "theme": "nebula"
+    },
+    {
+      "id": "seg_mixed_mid_core",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "weight": 11,
+      "lengthTicks": 790,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "rift_blade",
+          "y": 2.5
+        },
+        {
+          "tick": 70,
+          "enemyId": "rift_blade",
+          "y": -2.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "rift_blade",
+          "y": 4.0
+        },
+        {
+          "tick": 130,
+          "enemyId": "rift_blade",
+          "y": 0
+        },
+        {
+          "tick": 180,
+          "enemyId": "shard_prism",
+          "y": 3.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "shard_prism",
+          "y": -3.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "rift_blade",
+          "y": 2.0
+        },
+        {
+          "tick": 320,
+          "enemyId": "rift_blade",
+          "y": -4.0
+        },
+        {
+          "tick": 380,
+          "enemyId": "guardian_sphere",
+          "y": 0
+        },
+        {
+          "tick": 440,
+          "enemyId": "rift_blade",
+          "y": 3.5
+        },
+        {
+          "tick": 480,
+          "enemyId": "rift_blade",
+          "y": -3.5
+        },
+        {
+          "tick": 540,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 600,
+          "enemyId": "rift_blade",
+          "y": 1.5
+        },
+        {
+          "tick": 640,
+          "enemyId": "rift_blade",
+          "y": -1.5
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 17.5,
+          "y": 2.5,
+          "hp": 25
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_mixed_mid → core | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | valley | 잡몹 리듬 속 중형 앵커 화력 집중",
+      "theme": "core"
+    },
+    {
+      "id": "seg_turret_ceiling_scrapyard",
       "difficultyMin": 2,
       "difficultyMax": 5,
       "weight": 9,
@@ -599,37 +2400,37 @@
         },
         {
           "tick": 100,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": -3.0
         },
         {
           "tick": 160,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": -4.0
         },
         {
           "tick": 220,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": -2.0
         },
         {
           "tick": 280,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": -3.5
         },
         {
           "tick": 340,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": -1.0
         },
         {
           "tick": 420,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": -4.5
         },
         {
           "tick": 500,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": -2.5
         },
         {
@@ -658,10 +2459,375 @@
           "hp": 15
         }
       ],
-      "intent": "REQ103a mid | masks[3] | theme=shared | 천장 강화형 포탑 회피 + 하부 잡몹"
+      "intent": "REQ145 theme-split of seg_turret_ceiling → scrapyard | same layout/difficulty/weight | REQ103a mid | masks[3] | theme=shared | 천장 강화형 포탑 회피 + 하부 잡몹",
+      "theme": "scrapyard"
     },
     {
-      "id": "seg_sandwich",
+      "id": "seg_turret_ceiling_hive",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "weight": 9,
+      "lengthTicks": 900,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        3
+      ],
+      "spawns": [
+        {
+          "tick": 60,
+          "enemyId": "hive_tentacle",
+          "y": 5.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "hive_tentacle",
+          "y": 5.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "hive_tentacle",
+          "y": 5.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "spore_drifter",
+          "y": -3.0
+        },
+        {
+          "tick": 160,
+          "enemyId": "spore_drifter",
+          "y": -4.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "sting_hornet",
+          "y": -2.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "spore_drifter",
+          "y": -3.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "sting_hornet",
+          "y": -1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "spore_drifter",
+          "y": -4.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "spore_drifter",
+          "y": -2.5
+        },
+        {
+          "tick": 600,
+          "enemyId": "elite_sine",
+          "y": -2.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": -3.0,
+          "hp": 20
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": -1.5,
+          "hp": 15
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_turret_ceiling → hive | same layout/difficulty/weight | REQ103a mid | masks[3] | theme=shared | 천장 강화형 포탑 회피 + 하부 잡몹",
+      "theme": "hive"
+    },
+    {
+      "id": "seg_turret_ceiling_fortress",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "weight": 9,
+      "lengthTicks": 900,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        3
+      ],
+      "spawns": [
+        {
+          "tick": 60,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "interceptor_rush",
+          "y": -3.0
+        },
+        {
+          "tick": 160,
+          "enemyId": "interceptor_rush",
+          "y": -4.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "interceptor_rush",
+          "y": -2.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "interceptor_rush",
+          "y": -3.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "interceptor_rush",
+          "y": -1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "interceptor_rush",
+          "y": -4.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "interceptor_rush",
+          "y": -2.5
+        },
+        {
+          "tick": 600,
+          "enemyId": "zako_tank",
+          "y": -2.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": -3.0,
+          "hp": 20
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": -1.5,
+          "hp": 15
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_turret_ceiling → fortress | same layout/difficulty/weight | REQ103a mid | masks[3] | theme=shared | 천장 강화형 포탑 회피 + 하부 잡몹",
+      "theme": "fortress"
+    },
+    {
+      "id": "seg_turret_ceiling_nebula",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "weight": 9,
+      "lengthTicks": 900,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        3
+      ],
+      "spawns": [
+        {
+          "tick": 60,
+          "enemyId": "phase_disc",
+          "y": 5.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "phase_disc",
+          "y": 5.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "phase_disc",
+          "y": 5.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "wisp_spark",
+          "y": -3.0
+        },
+        {
+          "tick": 160,
+          "enemyId": "wisp_spark",
+          "y": -4.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "wisp_spark",
+          "y": -2.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "wisp_spark",
+          "y": -3.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "wisp_spark",
+          "y": -1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "wisp_spark",
+          "y": -4.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "wisp_spark",
+          "y": -2.5
+        },
+        {
+          "tick": 600,
+          "enemyId": "elite_sine",
+          "y": -2.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": -3.0,
+          "hp": 20
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": -1.5,
+          "hp": 15
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_turret_ceiling → nebula | same layout/difficulty/weight | REQ103a mid | masks[3] | theme=shared | 천장 강화형 포탑 회피 + 하부 잡몹",
+      "theme": "nebula"
+    },
+    {
+      "id": "seg_turret_ceiling_core",
+      "difficultyMin": 2,
+      "difficultyMax": 5,
+      "weight": 9,
+      "lengthTicks": 900,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        3
+      ],
+      "spawns": [
+        {
+          "tick": 60,
+          "enemyId": "laser_sentry",
+          "y": 5.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "laser_sentry",
+          "y": 5.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "laser_sentry",
+          "y": 5.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "rift_blade",
+          "y": -3.0
+        },
+        {
+          "tick": 160,
+          "enemyId": "rift_blade",
+          "y": -4.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "rift_blade",
+          "y": -2.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "rift_blade",
+          "y": -3.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "rift_blade",
+          "y": -1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "rift_blade",
+          "y": -4.5
+        },
+        {
+          "tick": 500,
+          "enemyId": "rift_blade",
+          "y": -2.5
+        },
+        {
+          "tick": 600,
+          "enemyId": "guardian_sphere",
+          "y": -2.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": -3.0,
+          "hp": 20
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": -1.5,
+          "hp": 15
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_turret_ceiling → core | same layout/difficulty/weight | REQ103a mid | masks[3] | theme=shared | 천장 강화형 포탑 회피 + 하부 잡몹",
+      "theme": "core"
+    },
+    {
+      "id": "seg_sandwich_scrapyard",
       "difficultyMin": 3,
       "difficultyMax": 5,
       "weight": 6,
@@ -706,47 +2872,47 @@
         },
         {
           "tick": 90,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": 2.0
         },
         {
           "tick": 90,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": -2.0
         },
         {
           "tick": 180,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": 3.0
         },
         {
           "tick": 180,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": -3.0
         },
         {
           "tick": 280,
-          "enemyId": "zako_fast",
+          "enemyId": "pipe_rat",
           "y": 0
         },
         {
           "tick": 340,
-          "enemyId": "zako_sine_slow",
+          "enemyId": "scrap_tumbler",
           "y": 2.5
         },
         {
           "tick": 340,
-          "enemyId": "zako_sine_slow",
+          "enemyId": "scrap_tumbler",
           "y": -2.5
         },
         {
           "tick": 420,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": 1.0
         },
         {
           "tick": 420,
-          "enemyId": "zako_straight",
+          "enemyId": "rust_skimmer",
           "y": -1.0
         },
         {
@@ -786,10 +2952,527 @@
           "hp": 30
         }
       ],
-      "intent": "REQ103a late-encroach | masks[7→3→2] | theme=shared | 상하 사격 압박 속 중형 격파 (위치+화력)"
+      "intent": "REQ145 theme-split of seg_sandwich → scrapyard | same layout/difficulty/weight | REQ103a late-encroach | masks[7→3→2] | theme=shared | 상하 사격 압박 속 중형 격파 (위치+화력)",
+      "theme": "scrapyard"
     },
     {
-      "id": "seg_sine_rush",
+      "id": "seg_sandwich_hive",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 6,
+      "lengthTicks": 840,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2
+      ],
+      "spawns": [
+        {
+          "tick": 50,
+          "enemyId": "hive_tentacle",
+          "y": -5.5
+        },
+        {
+          "tick": 50,
+          "enemyId": "hive_tentacle",
+          "y": 5.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "hive_tentacle",
+          "y": -5.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "hive_tentacle",
+          "y": 5.5
+        },
+        {
+          "tick": 230,
+          "enemyId": "hive_tentacle",
+          "y": -5.5
+        },
+        {
+          "tick": 230,
+          "enemyId": "hive_tentacle",
+          "y": 5.5
+        },
+        {
+          "tick": 90,
+          "enemyId": "spore_drifter",
+          "y": 2.0
+        },
+        {
+          "tick": 90,
+          "enemyId": "spore_drifter",
+          "y": -2.0
+        },
+        {
+          "tick": 180,
+          "enemyId": "spore_drifter",
+          "y": 3.0
+        },
+        {
+          "tick": 180,
+          "enemyId": "spore_drifter",
+          "y": -3.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "sting_hornet",
+          "y": 0
+        },
+        {
+          "tick": 340,
+          "enemyId": "brood_spitter",
+          "y": 2.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "brood_spitter",
+          "y": -2.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "spore_drifter",
+          "y": 1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "spore_drifter",
+          "y": -1.0
+        },
+        {
+          "tick": 520,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 620,
+          "enemyId": "elite_sine",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 16.0,
+          "y": 7.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": 3.25,
+          "hp": 30
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_sandwich → hive | same layout/difficulty/weight | REQ103a late-encroach | masks[7→3→2] | theme=shared | 상하 사격 압박 속 중형 격파 (위치+화력)",
+      "theme": "hive"
+    },
+    {
+      "id": "seg_sandwich_fortress",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 6,
+      "lengthTicks": 840,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2
+      ],
+      "spawns": [
+        {
+          "tick": 50,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 50,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 230,
+          "enemyId": "turret_ground",
+          "y": -5.5
+        },
+        {
+          "tick": 230,
+          "enemyId": "turret_ceiling",
+          "y": 5.5
+        },
+        {
+          "tick": 90,
+          "enemyId": "interceptor_rush",
+          "y": 2.0
+        },
+        {
+          "tick": 90,
+          "enemyId": "interceptor_rush",
+          "y": -2.0
+        },
+        {
+          "tick": 180,
+          "enemyId": "interceptor_rush",
+          "y": 3.0
+        },
+        {
+          "tick": 180,
+          "enemyId": "interceptor_rush",
+          "y": -3.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "interceptor_rush",
+          "y": 0
+        },
+        {
+          "tick": 340,
+          "enemyId": "mortar_drone",
+          "y": 2.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "mortar_drone",
+          "y": -2.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "interceptor_rush",
+          "y": 1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "interceptor_rush",
+          "y": -1.0
+        },
+        {
+          "tick": 520,
+          "enemyId": "zako_tank",
+          "y": 0
+        },
+        {
+          "tick": 620,
+          "enemyId": "elite_sine",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 16.0,
+          "y": 7.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": 3.25,
+          "hp": 30
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_sandwich → fortress | same layout/difficulty/weight | REQ103a late-encroach | masks[7→3→2] | theme=shared | 상하 사격 압박 속 중형 격파 (위치+화력)",
+      "theme": "fortress"
+    },
+    {
+      "id": "seg_sandwich_nebula",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 6,
+      "lengthTicks": 840,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2
+      ],
+      "spawns": [
+        {
+          "tick": 50,
+          "enemyId": "phase_disc",
+          "y": -5.5
+        },
+        {
+          "tick": 50,
+          "enemyId": "phase_disc",
+          "y": 5.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "phase_disc",
+          "y": -5.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "phase_disc",
+          "y": 5.5
+        },
+        {
+          "tick": 230,
+          "enemyId": "phase_disc",
+          "y": -5.5
+        },
+        {
+          "tick": 230,
+          "enemyId": "phase_disc",
+          "y": 5.5
+        },
+        {
+          "tick": 90,
+          "enemyId": "wisp_spark",
+          "y": 2.0
+        },
+        {
+          "tick": 90,
+          "enemyId": "wisp_spark",
+          "y": -2.0
+        },
+        {
+          "tick": 180,
+          "enemyId": "wisp_spark",
+          "y": 3.0
+        },
+        {
+          "tick": 180,
+          "enemyId": "wisp_spark",
+          "y": -3.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "wisp_spark",
+          "y": 0
+        },
+        {
+          "tick": 340,
+          "enemyId": "void_moth",
+          "y": 2.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "void_moth",
+          "y": -2.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "wisp_spark",
+          "y": 1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "wisp_spark",
+          "y": -1.0
+        },
+        {
+          "tick": 520,
+          "enemyId": "elite_sine",
+          "y": 0
+        },
+        {
+          "tick": 620,
+          "enemyId": "elite_sine",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 16.0,
+          "y": 7.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": 3.25,
+          "hp": 30
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_sandwich → nebula | same layout/difficulty/weight | REQ103a late-encroach | masks[7→3→2] | theme=shared | 상하 사격 압박 속 중형 격파 (위치+화력)",
+      "theme": "nebula"
+    },
+    {
+      "id": "seg_sandwich_core",
+      "difficultyMin": 3,
+      "difficultyMax": 5,
+      "weight": 6,
+      "lengthTicks": 840,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2
+      ],
+      "spawns": [
+        {
+          "tick": 50,
+          "enemyId": "laser_sentry",
+          "y": -5.5
+        },
+        {
+          "tick": 50,
+          "enemyId": "laser_sentry",
+          "y": 5.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "laser_sentry",
+          "y": -5.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "laser_sentry",
+          "y": 5.5
+        },
+        {
+          "tick": 230,
+          "enemyId": "laser_sentry",
+          "y": -5.5
+        },
+        {
+          "tick": 230,
+          "enemyId": "laser_sentry",
+          "y": 5.5
+        },
+        {
+          "tick": 90,
+          "enemyId": "rift_blade",
+          "y": 2.0
+        },
+        {
+          "tick": 90,
+          "enemyId": "rift_blade",
+          "y": -2.0
+        },
+        {
+          "tick": 180,
+          "enemyId": "rift_blade",
+          "y": 3.0
+        },
+        {
+          "tick": 180,
+          "enemyId": "rift_blade",
+          "y": -3.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "rift_blade",
+          "y": 0
+        },
+        {
+          "tick": 340,
+          "enemyId": "shard_prism",
+          "y": 2.5
+        },
+        {
+          "tick": 340,
+          "enemyId": "shard_prism",
+          "y": -2.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "rift_blade",
+          "y": 1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "rift_blade",
+          "y": -1.0
+        },
+        {
+          "tick": 520,
+          "enemyId": "guardian_sphere",
+          "y": 0
+        },
+        {
+          "tick": 620,
+          "enemyId": "elite_sine",
+          "y": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": 6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 10.0,
+          "y": -6.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 16.0,
+          "y": 7.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": 3.25,
+          "hp": 30
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_sandwich → core | same layout/difficulty/weight | REQ103a late-encroach | masks[7→3→2] | theme=shared | 상하 사격 압박 속 중형 격파 (위치+화력)",
+      "theme": "core"
+    },
+    {
+      "id": "seg_sine_rush_scrapyard",
       "difficultyMin": 1,
       "difficultyMax": 3,
       "weight": 10,
@@ -802,32 +3485,32 @@
       "spawns": [
         {
           "tick": 40,
-          "enemyId": "zako_sine",
+          "enemyId": "magnet_claw",
           "y": 3.5
         },
         {
           "tick": 70,
-          "enemyId": "zako_sine",
+          "enemyId": "magnet_claw",
           "y": -3.5
         },
         {
           "tick": 100,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": 4.5
         },
         {
           "tick": 130,
-          "enemyId": "zako_sine",
+          "enemyId": "junk_roller",
           "y": -4.5
         },
         {
           "tick": 180,
-          "enemyId": "zako_sine_slow",
+          "enemyId": "magnet_claw",
           "y": 2.0
         },
         {
           "tick": 220,
-          "enemyId": "zako_sine_slow",
+          "enemyId": "magnet_claw",
           "y": -2.0
         },
         {
@@ -852,7 +3535,7 @@
         },
         {
           "tick": 420,
-          "enemyId": "zako_sine_slow",
+          "enemyId": "scrap_tumbler",
           "y": 0
         },
         {
@@ -867,11 +3550,356 @@
         },
         {
           "tick": 580,
-          "enemyId": "zako_sine_slow",
+          "enemyId": "scrap_tumbler",
           "y": 0
         }
       ],
-      "intent": "REQ103a mid | masks[7] | theme=shared | valley | 사인 잡몹 러시 — 초반 친화(중형 앵커 제거, 리듬 학습)"
+      "intent": "REQ145 theme-split of seg_sine_rush → scrapyard | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | valley | 사인 잡몹 러시 — 초반 친화(중형 앵커 제거, 리듬 학습)",
+      "theme": "scrapyard"
+    },
+    {
+      "id": "seg_sine_rush_hive",
+      "difficultyMin": 1,
+      "difficultyMax": 3,
+      "weight": 10,
+      "lengthTicks": 730,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "spore_drifter",
+          "y": 3.5
+        },
+        {
+          "tick": 70,
+          "enemyId": "spore_drifter",
+          "y": -3.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "spore_drifter",
+          "y": 4.5
+        },
+        {
+          "tick": 130,
+          "enemyId": "spore_drifter",
+          "y": -4.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "brood_spitter",
+          "y": 2.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "brood_spitter",
+          "y": -2.0
+        },
+        {
+          "tick": 260,
+          "enemyId": "spore_drifter",
+          "y": 3.0
+        },
+        {
+          "tick": 300,
+          "enemyId": "spore_drifter",
+          "y": -3.0
+        },
+        {
+          "tick": 340,
+          "enemyId": "lancer_dart",
+          "y": 1.5
+        },
+        {
+          "tick": 380,
+          "enemyId": "lancer_dart",
+          "y": -1.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "brood_spitter",
+          "y": 0
+        },
+        {
+          "tick": 480,
+          "enemyId": "spore_drifter",
+          "y": 4.0
+        },
+        {
+          "tick": 520,
+          "enemyId": "spore_drifter",
+          "y": -4.0
+        },
+        {
+          "tick": 580,
+          "enemyId": "brood_spitter",
+          "y": 0
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_sine_rush → hive | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | valley | 사인 잡몹 러시 — 초반 친화(중형 앵커 제거, 리듬 학습)",
+      "theme": "hive"
+    },
+    {
+      "id": "seg_sine_rush_fortress",
+      "difficultyMin": 1,
+      "difficultyMax": 3,
+      "weight": 10,
+      "lengthTicks": 730,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "interceptor_rush",
+          "y": 3.5
+        },
+        {
+          "tick": 70,
+          "enemyId": "interceptor_rush",
+          "y": -3.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "interceptor_rush",
+          "y": 4.5
+        },
+        {
+          "tick": 130,
+          "enemyId": "interceptor_rush",
+          "y": -4.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "mortar_drone",
+          "y": 2.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "mortar_drone",
+          "y": -2.0
+        },
+        {
+          "tick": 260,
+          "enemyId": "sentry_drone",
+          "y": 3.0
+        },
+        {
+          "tick": 300,
+          "enemyId": "sentry_drone",
+          "y": -3.0
+        },
+        {
+          "tick": 340,
+          "enemyId": "interceptor_rush",
+          "y": 1.5
+        },
+        {
+          "tick": 380,
+          "enemyId": "interceptor_rush",
+          "y": -1.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "mortar_drone",
+          "y": 0
+        },
+        {
+          "tick": 480,
+          "enemyId": "sentry_drone",
+          "y": 4.0
+        },
+        {
+          "tick": 520,
+          "enemyId": "sentry_drone",
+          "y": -4.0
+        },
+        {
+          "tick": 580,
+          "enemyId": "mortar_drone",
+          "y": 0
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_sine_rush → fortress | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | valley | 사인 잡몹 러시 — 초반 친화(중형 앵커 제거, 리듬 학습)",
+      "theme": "fortress"
+    },
+    {
+      "id": "seg_sine_rush_nebula",
+      "difficultyMin": 1,
+      "difficultyMax": 3,
+      "weight": 10,
+      "lengthTicks": 730,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "mist_specter",
+          "y": 3.5
+        },
+        {
+          "tick": 70,
+          "enemyId": "mist_specter",
+          "y": -3.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "wisp_spark",
+          "y": 4.5
+        },
+        {
+          "tick": 130,
+          "enemyId": "wisp_spark",
+          "y": -4.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "void_moth",
+          "y": 2.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "void_moth",
+          "y": -2.0
+        },
+        {
+          "tick": 260,
+          "enemyId": "mist_specter",
+          "y": 3.0
+        },
+        {
+          "tick": 300,
+          "enemyId": "echo_wisp",
+          "y": -3.0
+        },
+        {
+          "tick": 340,
+          "enemyId": "wisp_spark",
+          "y": 1.5
+        },
+        {
+          "tick": 380,
+          "enemyId": "wisp_spark",
+          "y": -1.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "void_moth",
+          "y": 0
+        },
+        {
+          "tick": 480,
+          "enemyId": "echo_wisp",
+          "y": 4.0
+        },
+        {
+          "tick": 520,
+          "enemyId": "echo_wisp",
+          "y": -4.0
+        },
+        {
+          "tick": 580,
+          "enemyId": "void_moth",
+          "y": 0
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_sine_rush → nebula | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | valley | 사인 잡몹 러시 — 초반 친화(중형 앵커 제거, 리듬 학습)",
+      "theme": "nebula"
+    },
+    {
+      "id": "seg_sine_rush_core",
+      "difficultyMin": 1,
+      "difficultyMax": 3,
+      "weight": 10,
+      "lengthTicks": 730,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7
+      ],
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "rift_blade",
+          "y": 3.5
+        },
+        {
+          "tick": 70,
+          "enemyId": "rift_blade",
+          "y": -3.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "rift_blade",
+          "y": 4.5
+        },
+        {
+          "tick": 130,
+          "enemyId": "rift_blade",
+          "y": -4.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "shard_prism",
+          "y": 2.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "shard_prism",
+          "y": -2.0
+        },
+        {
+          "tick": 260,
+          "enemyId": "phase_disc",
+          "y": 3.0
+        },
+        {
+          "tick": 300,
+          "enemyId": "phase_disc",
+          "y": -3.0
+        },
+        {
+          "tick": 340,
+          "enemyId": "rift_blade",
+          "y": 1.5
+        },
+        {
+          "tick": 380,
+          "enemyId": "rift_blade",
+          "y": -1.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "shard_prism",
+          "y": 0
+        },
+        {
+          "tick": 480,
+          "enemyId": "phase_disc",
+          "y": 4.0
+        },
+        {
+          "tick": 520,
+          "enemyId": "phase_disc",
+          "y": -4.0
+        },
+        {
+          "tick": 580,
+          "enemyId": "shard_prism",
+          "y": 0
+        }
+      ],
+      "intent": "REQ145 theme-split of seg_sine_rush → core | same layout/difficulty/weight | REQ103a mid | masks[7] | theme=shared | valley | 사인 잡몹 러시 — 초반 친화(중형 앵커 제거, 리듬 학습)",
+      "theme": "core"
     },
     {
       "id": "seg_hive_spore_cloud",
@@ -1689,7 +4717,7 @@
       "spawns": [
         {
           "tick": 30,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 3
         },
         {
@@ -2615,7 +5643,7 @@
         },
         {
           "tick": 111,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": 2
         },
         {
@@ -2630,7 +5658,7 @@
         },
         {
           "tick": 225,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": -2
         },
         {
@@ -2645,7 +5673,7 @@
         },
         {
           "tick": 339,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": 0
         },
         {
@@ -2729,12 +5757,12 @@
         },
         {
           "tick": 100,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": 3
         },
         {
           "tick": 140,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": -3
         },
         {
@@ -2851,12 +5879,12 @@
       "spawns": [
         {
           "tick": 50,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": 3
         },
         {
           "tick": 100,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": -3
         },
         {
@@ -4766,12 +7794,12 @@
         },
         {
           "tick": 80,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 2
         },
         {
           "tick": 140,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": -2
         },
         {
@@ -4879,7 +7907,7 @@
         },
         {
           "tick": 70,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 0
         },
         {
@@ -4889,7 +7917,7 @@
         },
         {
           "tick": 130,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 3
         },
         {
@@ -6075,7 +9103,7 @@
         },
         {
           "tick": 200,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": 0.0
         },
         {
@@ -6196,7 +9224,7 @@
         },
         {
           "tick": 170,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": -1.5
         },
         {
@@ -6206,7 +9234,7 @@
         },
         {
           "tick": 230,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": -3.5
         },
         {
@@ -8248,12 +11276,12 @@
       "spawns": [
         {
           "tick": 40,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": 2
         },
         {
           "tick": 70,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": -2
         },
         {
@@ -9150,12 +12178,12 @@
         {
           "pattern": "spiral",
           "fireIntervalTicks": 10,
-          "ways": 5,
-          "bulletSpeed": 12.0,
+          "ways": 7,
+          "bulletSpeed": 10.0,
           "projectileKind": "mine",
-          "mineTravelTicks": 12,
-          "mineTelegraphTicks": 16,
-          "mineAcceleration": 2800,
+          "mineTravelTicks": 16,
+          "mineTelegraphTicks": 24,
+          "mineAcceleration": 36,
           "signaturePatternId": "brood",
           "signatureSpawnEnemyId": "hive_tentacle",
           "signatureHomingTurnLutSlotsPerTick": 2,

@@ -1017,6 +1017,13 @@ namespace Shmup.EditorTools
             AddEnemySprite("rust_skimmer", LoadExternalSprite("enemy_rust_skimmer.png", "enemy_rust_skimmer"));
             AddEnemySprite("junk_roller", LoadExternalSprite("enemy_junk_roller.png", "enemy_junk_roller"));
             AddEnemySprite("void_moth", LoadExternalSprite("enemy_void_moth.png", "enemy_void_moth"));
+            // REQ-146 테마 보강 졸개. 테마당 고유 졸개가 4종뿐이던 고철·성운에
+            // 하나씩 채웠다 — 종류가 부족하면 같은 적만 계속 나와 스테이지 성격이
+            // 흐려진다 (사람 지시 2026-08-03).
+            AddEnemySprite("magnet_claw",
+                LoadOrCachedSprite("enemy_magnet_claw.png", "enemy_magnet_claw"));
+            AddEnemySprite("mist_specter",
+                LoadOrCachedSprite("enemy_mist_specter.png", "enemy_mist_specter"));
             AddEnemySprite("shard_prism", LoadExternalSprite("enemy_shard_prism.png", "enemy_shard_prism"));
             AddEnemySprite("sting_hornet", LoadExternalSprite("enemy_sting_hornet.png", "enemy_sting_hornet"));
             AddEnemySprite("pipe_rat", LoadExternalSprite("enemy_pipe_rat.png", "enemy_pipe_rat"));

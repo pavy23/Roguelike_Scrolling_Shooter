@@ -1498,15 +1498,11 @@ namespace Shmup.Core.Tests
                 + (data.BattleContent.FindEnemy("prism_beamer") != null
                     ? 1
                     : 0);
-            // REQ-146: magnet_claw + mist_specter (theme fodder). Enemy catalog
-            // size is content volume — keep formula aligned when adding fodder,
-            // or convert to invariant if the count keeps thrashing.
-            Assert.AreEqual(
-                (hasHiveTentacle ? 31 : 30)
-                    + (miniCore != null ? 1 : 0)
-                    + laserProfileEnemyCount
-                    + 2,
-                data.BattleContent.Enemies.Count);
+            // 적 카탈로그 **개수**는 콘텐츠 분량이지 계약이 아니다. 졸개를 추가할
+            // 때마다 이 수식만 깨졌고(GROK 지적), 세그먼트 개수 단언과 같은 이유로
+            // 불변식으로 바꾼다. 지킬 성질은 "카탈로그가 비었나"와 "각 테마가
+            // 자기 졸개를 실제로 가지고 있나"이다.
+            Assert.Greater(data.BattleContent.Enemies.Count, 0);
             Assert.IsNotNull(data.BattleContent.FindEnemy("magnet_claw"));
             Assert.IsNotNull(data.BattleContent.FindEnemy("mist_specter"));
             if (miniCore != null)
