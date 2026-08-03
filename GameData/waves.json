@@ -338,17 +338,17 @@
       "spawns": [
         {
           "tick": 40,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 3.25
         },
         {
           "tick": 70,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 3.25
         },
         {
           "tick": 100,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 0
         },
         {
@@ -470,22 +470,22 @@
       "spawns": [
         {
           "tick": 40,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": 4.75
         },
         {
           "tick": 40,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": -4.75
         },
         {
           "tick": 120,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": 4.75
         },
         {
           "tick": 120,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": -4.75
         },
         {
@@ -668,12 +668,12 @@
       "spawns": [
         {
           "tick": 40,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 4.75
         },
         {
           "tick": 40,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": -4.75
         },
         {
@@ -1070,12 +1070,12 @@
         },
         {
           "tick": 100,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 3.0
         },
         {
           "tick": 160,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 4.0
         },
         {
@@ -1603,32 +1603,32 @@
       "spawns": [
         {
           "tick": 30,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 4
         },
         {
           "tick": 58,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 2
         },
         {
           "tick": 86,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 0
         },
         {
           "tick": 114,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": -2
         },
         {
           "tick": 142,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": -4
         },
         {
           "tick": 170,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 3
         },
         {
@@ -1865,7 +1865,7 @@
         },
         {
           "tick": 100,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": 4.0
         },
         {
@@ -1875,7 +1875,7 @@
         },
         {
           "tick": 180,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": 3.0
         },
         {
@@ -2173,17 +2173,17 @@
       "spawns": [
         {
           "tick": 40,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 2.5
         },
         {
           "tick": 70,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": -2.5
         },
         {
           "tick": 100,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 4.0
         },
         {
@@ -3485,12 +3485,12 @@
       "spawns": [
         {
           "tick": 40,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": 3.5
         },
         {
           "tick": 70,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": -3.5
         },
         {
@@ -3505,12 +3505,12 @@
         },
         {
           "tick": 180,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": 2.0
         },
         {
           "tick": 220,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": -2.0
         },
         {
@@ -3743,12 +3743,12 @@
       "spawns": [
         {
           "tick": 40,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 3.5
         },
         {
           "tick": 70,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": -3.5
         },
         {
@@ -3773,7 +3773,7 @@
         },
         {
           "tick": 260,
-          "enemyId": "echo_wisp",
+          "enemyId": "mist_specter",
           "y": 3.0
         },
         {
@@ -4717,7 +4717,7 @@
       "spawns": [
         {
           "tick": 30,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 3
         },
         {
@@ -5643,7 +5643,7 @@
         },
         {
           "tick": 111,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": 2
         },
         {
@@ -5658,7 +5658,7 @@
         },
         {
           "tick": 225,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": -2
         },
         {
@@ -5673,7 +5673,7 @@
         },
         {
           "tick": 339,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": 0
         },
         {
@@ -5757,12 +5757,12 @@
         },
         {
           "tick": 100,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": 3
         },
         {
           "tick": 140,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": -3
         },
         {
@@ -5879,12 +5879,12 @@
       "spawns": [
         {
           "tick": 50,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": 3
         },
         {
           "tick": 100,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": -3
         },
         {
@@ -7794,12 +7794,12 @@
         },
         {
           "tick": 80,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 2
         },
         {
           "tick": 140,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": -2
         },
         {
@@ -7907,7 +7907,7 @@
         },
         {
           "tick": 70,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 0
         },
         {
@@ -7917,7 +7917,7 @@
         },
         {
           "tick": 130,
-          "enemyId": "wisp_spark",
+          "enemyId": "mist_specter",
           "y": 3
         },
         {
@@ -9103,7 +9103,7 @@
         },
         {
           "tick": 200,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": 0.0
         },
         {
@@ -9224,7 +9224,7 @@
         },
         {
           "tick": 170,
-          "enemyId": "scrap_tumbler",
+          "enemyId": "magnet_claw",
           "y": -1.5
         },
         {
@@ -9234,7 +9234,7 @@
         },
         {
           "tick": 230,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": -3.5
         },
         {
@@ -11276,12 +11276,12 @@
       "spawns": [
         {
           "tick": 40,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": 2
         },
         {
           "tick": 70,
-          "enemyId": "junk_roller",
+          "enemyId": "magnet_claw",
           "y": -2
         },
         {

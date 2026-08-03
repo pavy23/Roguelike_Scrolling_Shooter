@@ -1498,11 +1498,17 @@ namespace Shmup.Core.Tests
                 + (data.BattleContent.FindEnemy("prism_beamer") != null
                     ? 1
                     : 0);
+            // REQ-146: magnet_claw + mist_specter (theme fodder). Enemy catalog
+            // size is content volume — keep formula aligned when adding fodder,
+            // or convert to invariant if the count keeps thrashing.
             Assert.AreEqual(
                 (hasHiveTentacle ? 31 : 30)
                     + (miniCore != null ? 1 : 0)
-                    + laserProfileEnemyCount,
+                    + laserProfileEnemyCount
+                    + 2,
                 data.BattleContent.Enemies.Count);
+            Assert.IsNotNull(data.BattleContent.FindEnemy("magnet_claw"));
+            Assert.IsNotNull(data.BattleContent.FindEnemy("mist_specter"));
             if (miniCore != null)
             {
                 Assert.IsNotNull(miniCore.MidBossProfile);
