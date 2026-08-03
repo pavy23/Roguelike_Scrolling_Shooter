@@ -423,6 +423,23 @@ namespace Shmup.Presentation.Battle
             && _sim != null && _sim.BossActive
             && _sim.BossParts != null && _sim.BossParts.Count > 0;
 
+        /// <summary>
+        /// 하이브도 전용 뷰가 화면을 소유한다 (HiveBossView).
+        ///
+        /// 이게 없어서 **에일리언이 두 마리로 보였다** — 전용 뷰가 잘라 만든 파츠를
+        /// 그리는 동안 본체 렌더러가 옛 boss_hive.png(128x96짜리 작은 그림)를 같은
+        /// 자리에 한 장 더 얹고 있었다. 사람 보고 2026-08-04: "이전 작은 사이즈
+        /// 에일리언 보스가 겹쳐있는 문제".
+        ///
+        /// 전함과 같은 이유·같은 조건이라 조건식을 복제한다 (뷰 참조를 새로
+        /// 직렬화하지 않으려는 것도 같다). 조건은 HiveBossView.Update와 맞춘다.
+        /// </summary>
+        bool HiveOwnsBossVisual =>
+            _sim != null && _sim.BossActive
+            && _sim.BossParts != null && _sim.BossParts.Count > 0
+            && BossStageId != null
+            && BossStageId.StartsWith("boss_hive", System.StringComparison.Ordinal);
+
         /// <summary>전함전이라 본체 스프라이트를 숨긴 상태 (격파 연출은 계속 나와야 한다).</summary>
         bool _bossVisualSuppressed;
 
@@ -1034,6 +1051,20 @@ namespace Shmup.Presentation.Battle
             // 경로로 제출을 닫는다 — 무적으로 5스테이지에서 시작한 점수가 보드에
             // 올라갈 이유가 없다. 판정은 Core(DevFlagsActive)가 하고 여기선 따르기만 한다.
             if (_run.DevFlagsActive) MarkCheatUsed();
+
+            // 개발자 패널로 시작한 런도 같은 취급이다. 스테이지 선택·무적·풀강화는
+            // 전부 "판을 건너뛰는" 수단이라 보드에 오를 이유가 없다.
+            if (devRunFlags && DevArgs.RuntimeDevRun) MarkCheatUsed();
+
+            // 게이지 전 슬롯 최대 (개발자 패널). 보스 패턴을 확인하려면 화력이
+            // 있어야 하는데, 매번 캡슐을 모으고 있을 수는 없다.
+            if (devRunFlags && DevArgs.RuntimeMaxPower && _run.PowerUpGauge != null)
+            {
+                MarkCheatUsed();
+                var maxed = new int[PowerUpGauge.SlotCount];
+                for (int i = 0; i < maxed.Length; i++) maxed[i] = int.MaxValue;
+                _run.PowerUpGauge.ImportLevels(maxed);   // 각 슬롯 상한으로 잘린다
+            }
 
             // 데일리 판정은 런 생성 앞에서 이미 내렸다 (Core에 선언해야 하므로).
             // 이어하기로 복원된 런은 Core가 저장에서 데일리 여부를 되살린다.
@@ -1951,7 +1982,8 @@ namespace Shmup.Presentation.Battle
             // 스크린샷(2026-08-03, St2 fortress)에서 "대형 보스전을 못 봤다"고 한 것이
             // 이것이다. 배가 배로 안 읽혔다.
             // BossPartsView가 같은 이유로 비켜나는 것(_warshipView.Active)과 한 쌍이다.
-            _bossVisualSuppressed = active && WarshipOwnsBossVisual;
+            _bossVisualSuppressed =
+                active && (WarshipOwnsBossVisual || HiveOwnsBossVisual);
             bool visible = active && !_bossVisualSuppressed;
             if (_bossRenderer.enabled != visible)
                 _bossRenderer.enabled = visible;

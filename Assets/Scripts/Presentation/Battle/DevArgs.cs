@@ -104,6 +104,26 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         public static bool RuntimeSeeded;
 
+        // ── 타이틀 개발자 패널이 채우는 런타임 지정 (URL 인자와 같은 자리) ──────
+        //
+        // URL 인자(?stage=3&warp=boss)는 브라우저 주소창을 고칠 수 있어야 쓸 수 있다.
+        // 폰이나 배포판에서 보스 패턴을 확인하려면 화면 안에 스위치가 있어야 한다
+        // (사람 지시 2026-08-04: "각 스테이지 (히든 보스 포함) 선택 플레이 버튼이
+        // 별도로 있으면 좋겠어. 스테이지 및 보스 패턴 디버깅 및 테스트 필요해").
+        //
+        // URL 인자보다 **우선**한다: 방금 화면에서 누른 것이 주소창에 남아 있던 값보다
+        // 의도에 가깝다. 개발 모드가 아니면 아래 getter들이 전부 무시한다.
+        public static int? RuntimeStartStage;
+        public static bool RuntimeGod;
+        public static bool RuntimeUncharted;
+        public static RunStageSection? RuntimeWarp;
+
+        /// <summary>게이지 전 슬롯을 최대 레벨로 시작한다 (개발자 패널 전용).</summary>
+        public static bool RuntimeMaxPower;
+
+        /// <summary>개발자 패널로 시작한 런인가 — 점수 제출을 막는 근거.</summary>
+        public static bool RuntimeDevRun;
+
         public static long? OverrideSeed
         {
             get
@@ -135,6 +155,7 @@ namespace Shmup.Presentation.Battle
         {
             get
             {
+                if (RuntimeStartStage.HasValue && DevMode) return RuntimeStartStage;
                 if (_startStageResolved) return _startStage;
                 _startStageResolved = true;
                 _startStage = ResolveStartStage();
@@ -162,6 +183,7 @@ namespace Shmup.Presentation.Battle
         {
             get
             {
+                if (RuntimeGod && DevMode) return true;
                 if (_godResolved) return _god;
                 _godResolved = true;
                 _god = DevMode
@@ -179,6 +201,7 @@ namespace Shmup.Presentation.Battle
         {
             get
             {
+                if (RuntimeUncharted && DevMode) return true;
                 if (_unchartedResolved) return _uncharted;
                 _unchartedResolved = true;
                 _uncharted = DevMode
@@ -199,6 +222,7 @@ namespace Shmup.Presentation.Battle
         {
             get
             {
+                if (RuntimeWarp.HasValue && DevMode) return RuntimeWarp;
                 if (_warpResolved) return _warp;
                 _warpResolved = true;
                 _warp = ResolveWarp();

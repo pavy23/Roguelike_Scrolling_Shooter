@@ -1,3 +1,4 @@
+using Shmup.Core.Simulation;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -79,6 +80,21 @@ namespace Shmup.Presentation.Battle
         /// 출격 버튼이 두 개였다 — 이제 여기서 고르고 LAUNCH 하나로 나간다.
         /// </summary>
         bool _dailyMode;
+
+        // ── 개발자 패널 (사람 지시 2026-08-04) ───────────────────────────────
+        //
+        // "각 스테이지 (히든 보스 포함) 선택 플레이 버튼이 별도로 있으면 좋겠어.
+        //  스테이지 및 보스 패턴 디버깅 및 테스트 필요해."
+        //
+        // URL 인자(?stage=3&warp=boss)로도 같은 일을 할 수 있지만 주소창을 고칠 수
+        // 있어야 한다. 폰이나 배포판에서 보스를 확인하려면 화면 안에 스위치가 필요하다.
+        // 개발 모드에서만 나오고, 여기서 시작한 런은 **점수 제출이 막힌다.**
+        int _devStage = 1;          // 1~5, 0 = 미지의 구역(히든 보스)
+        int _devWarp;               // 0 없음 / 1 중간보스 / 2 보스
+        bool _devGod = true;
+        bool _devMaxPower = true;
+        Text _devStageLabel, _devWarpLabel, _devGodLabel, _devPowerLabel;
+
         Text _modeButtonLabel;
         Text _modeHintText;
         Text _launchButtonLabel;
@@ -339,7 +355,7 @@ namespace Shmup.Presentation.Battle
                 // 고장으로 읽히지 않게 어느 보드가 비었는지 말해 준다.
                 _rankingBody.text = _rankingDaily
                     ? "NO DAILY ENTRIES YET - TRY ALL-TIME"
-                    : "NO ENTRIES YET";
+: "NO ENTRIES YET";
                 _rankingBody.color = UiKit.TextDim;
                 return;
             }
@@ -522,6 +538,99 @@ namespace Shmup.Presentation.Battle
         /// 터치 전용 버튼 열. 폰에서는 키보드 단축키 안내가 아무 의미가 없으므로, 안내 텍스트는
         /// 감추고 같은 동작을 하는 버튼으로 바꿔 놓는다.
         /// </summary>
+        void CycleDevStage()
+        {
+            // 1..5 → 0(미지의 구역) → 1
+            _devStage = _devStage >= 5 ? 0 : _devStage + 1;
+            RefreshDevPanel();
+        }
+
+        void CycleDevWarp()
+        {
+            _devWarp = (_devWarp + 1) % 3;
+            RefreshDevPanel();
+        }
+
+        void ToggleDevGod()
+        {
+            _devGod = !_devGod;
+            RefreshDevPanel();
+        }
+
+        void ToggleDevPower()
+        {
+            _devMaxPower = !_devMaxPower;
+            RefreshDevPanel();
+        }
+
+        void RefreshDevPanel()
+        {
+            if (_devStageLabel != null)
+                _devStageLabel.text = _devStage == 0
+                    ? "STAGE\nUNCHARTED"
+                    : $"STAGE\n{_devStage}";
+            if (_devWarpLabel != null)
+                _devWarpLabel.text = _devWarp == 2 ? "JUMP\nBOSS"
+                    : _devWarp == 1 ? "JUMP\nMID-BOSS" : "JUMP\nOFF";
+            if (_devGodLabel != null)
+                _devGodLabel.text = _devGod ? "GOD\nON" : "GOD\nOFF";
+            if (_devPowerLabel != null)
+                _devPowerLabel.text = _devMaxPower ? "POWER\nMAX" : "POWER\nNORMAL";
+        }
+
+        /// <summary>개발자 패널로 출격. 이 런은 점수 제출이 막힌다.</summary>
+        void StartDevRun()
+        {
+            DevArgs.RuntimeDevRun = true;
+            DevArgs.RuntimeGod = _devGod;
+            DevArgs.RuntimeMaxPower = _devMaxPower;
+            DevArgs.RuntimeUncharted = _devStage == 0;
+            DevArgs.RuntimeStartStage = _devStage == 0 ? (int?)null : _devStage;
+            DevArgs.RuntimeWarp = _devWarp == 2 ? RunStageSection.StageBoss
+                : _devWarp == 1 ? RunStageSection.MidBoss
+                : (RunStageSection?)null;
+            // 미지의 구역은 구간 자체가 히든 보스라, 점프를 켜면 거대 보스 앞에서 선다.
+            if (_devStage == 0 && _devWarp != 0)
+                DevArgs.RuntimeWarp = RunStageSection.HiddenBoss;
+            DevArgs.RuntimeDaily = false;
+            DevArgs.RuntimeSeeded = false;
+            StartRun();
+        }
+
+        /// <summary>
+        /// 개발자 패널 (개발 모드 전용). 오른쪽 아래에 세로로 쌓는다 — 랭킹/시드 열과
+        /// 겹치지 않고, 일반 플레이어에게는 애초에 나오지 않는다.
+        /// </summary>
+        void BuildDevPanel(Transform parent)
+        {
+            const float w = 104f, h = 30f, step = 33f;
+            float y = 150f;
+
+            Text Add(string name, UnityEngine.Events.UnityAction action)
+            {
+                var button = UiKit.CreateTouchButton(parent, _font, "", 9,
+                    new Vector2(1f, 0f), new Vector2(-10f, y), new Vector2(w, h),
+                    action, name);
+                y += step;
+                return button.GetComponentInChildren<Text>();
+            }
+
+            var launch = UiKit.CreateTouchButton(parent, _font, "DEV LAUNCH\nno submit", 9,
+                new Vector2(1f, 0f), new Vector2(-10f, y), new Vector2(w, h + 6f),
+                StartDevRun, "DevLaunch", accent: true);
+            y += step + 6f;
+            _devPowerLabel = Add("DevPower", ToggleDevPower);
+            _devGodLabel = Add("DevGod", ToggleDevGod);
+            _devWarpLabel = Add("DevWarp", CycleDevWarp);
+            _devStageLabel = Add("DevStage", CycleDevStage);
+
+            var header = UiKit.CreateCornerText(parent, _font, "DEV", 9,
+                UiKit.TextDim, new Vector2(1f, 0f), new Vector2(-10f, y + 4f),
+                TextAnchor.LowerRight, "DevHeader");
+            header.rectTransform.sizeDelta = new Vector2(w, 16f);
+            RefreshDevPanel();
+        }
+
         void BuildTouchButtons(Transform parent)
         {
             const float w = 132f, h = 34f, step = 38f;
@@ -564,7 +673,7 @@ namespace Shmup.Presentation.Battle
             float rightY = -150f;
 
             // 시드 버튼은 없앴다 (사람 지시 2026-08-03: "seed 부여 버튼은 필요없지
-            // 않나?"). 타이틀에 들어올 때마다 시드는 어차피 새로 뽑히고, 다시 뽑기
+// 않나?"). 타이틀에 들어올 때마다 시드는 어차피 새로 뽑히고, 다시 뽑기
             // 버튼은 그 위에 있으나 없으나 결과가 같았다. 값은 개발 모드에서만
             // 읽기 전용으로 남긴다 — 버그 재현에 시드가 필요하다.
             if (_seedUi && _seedValueText != null)
@@ -600,7 +709,7 @@ namespace Shmup.Presentation.Battle
             canvas.transform.SetParent(transform, false);
 
             // CODEX 계기판 시그니처: 상단 상태 스트립 — 장식이 아니라 "시스템이 켜져
-            // 있다"는 세계관 소품이다 (SYSTEM // READY).
+// 있다"는 세계관 소품이다 (SYSTEM // READY).
             var strip = new GameObject("StatusStrip");
             strip.transform.SetParent(canvas.transform, false);
             var stripImage = strip.AddComponent<Image>();
@@ -707,6 +816,10 @@ namespace Shmup.Presentation.Battle
                 Hide(replayText);
                 BuildTouchButtons(canvas.transform);
             }
+            // 개발자 패널은 개발 모드에서만. 터치/키보드 화면 양쪽에 붙인다 —
+            // 보스 확인은 폰에서도 해야 한다.
+            if (_seedUi) BuildDevPanel(canvas.transform);
+
             RefreshDifficultyText();
             RefreshModeText();
         }
@@ -770,7 +883,7 @@ namespace Shmup.Presentation.Battle
 
             // 데일리 전환: 같은 날짜 → 전 세계 같은 시드 (Core DailySeed).
             // 예전에는 D가 곧바로 출격이었는데, 출격 경로가 둘로 갈리면 "무엇으로
-            // 시작했는지"가 화면에 안 남는다 — 이제 모드만 바꾸고 출격은 LAUNCH다.
+// 시작했는지"가 화면에 안 남는다 — 이제 모드만 바꾸고 출격은 LAUNCH다.
             if ((keyboard != null && keyboard.dKey.wasPressedThisFrame)
                 || (gamepad != null && gamepad.rightShoulder.wasPressedThisFrame))
                 ToggleMode();

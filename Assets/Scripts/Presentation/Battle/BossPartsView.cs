@@ -15,10 +15,19 @@ namespace Shmup.Presentation.Battle
     [DisallowMultipleComponent]
     public sealed class BossPartsView : MonoBehaviour
     {
-        const float FlashDuration = 0.09f;
+        const float FlashDuration = 0.12f;
 
         /// <summary>피격 플래시 최대 알파. 이 값 그대로 나오는 것은 작은 파츠뿐이다.</summary>
-        const float MaxFlashAlpha = 0.55f;
+        const float MaxFlashAlpha = 0.62f;
+
+        /// <summary>
+        /// 피격 채움 색. **빨강이다.**
+        ///
+        /// 흰색이었을 때는 밝은 보스 아트 위에서 그냥 "하얀 박스"로 읽혔다 (사람 보고
+        /// 2026-08-04). 맞고 있다는 신호는 배경·보스 아트와 갈라져야 하고, 무적을
+        /// 뜻하는 청록 테두리와도 갈라져야 한다 — 색이 곧 문법이다.
+        /// </summary>
+        static readonly Color HitTint = new Color(1f, 0.28f, 0.24f, 1f);
 
         /// <summary>
         /// 이 면적(월드 유닛²)까지는 플래시를 최대 알파로 얹는다. 그보다 큰 파츠는
@@ -170,10 +179,16 @@ namespace Shmup.Presentation.Battle
                     // 두 가지로 나눠 막는다:
                     //   1) 면적이 클수록 알파를 낮춘다 — 작은 포탑은 스파크, 큰 파츠는 홍조
                     //   2) 시간에 따라 감쇠 — 상수 알파는 지속되는 판으로 읽힌다
+                    //   3) 색은 **빨강**이다 — 흰색은 배경·보스 아트와 섞여 "하얀 박스"로만
+                    //      읽혔다 (사람 보고 2026-08-04: "피격받을때 하얀색 박스만 보여서
+                    //      이상해. 파츠 붉은 빛 나게 해줘"). 맞고 있다는 신호는 배경과
+                    //      확실히 갈라져야 하고, 무적일 때의 청록과도 갈라져야 한다.
                     float area = overlay.size.x * overlay.size.y;
                     float sizeScale = Mathf.Clamp01(FlashAreaReference / Mathf.Max(area, 0.01f));
                     float decay = 1f - Mathf.Clamp01(age / FlashDuration);
-                    color = new Color(1f, 1f, 1f, MaxFlashAlpha * sizeScale * decay);
+                    color = new Color(
+                        HitTint.r, HitTint.g, HitTint.b,
+                        MaxFlashAlpha * sizeScale * decay);
                 }
                 else if (part.IsCore && part.CoreGated)
                 {

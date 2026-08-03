@@ -173,6 +173,60 @@ namespace Shmup.Core.Tests
             throw new DirectoryNotFoundException();
         }
 
+
+        /// <summary>
+        /// 함체를 전부 부수면 **로봇이 실제로 나오는가**.
+        ///
+        /// 데이터와 전환 훅은 각각 들어갔지만 둘을 이어 붙인 경로를 끝까지 돌려 본 적이
+        /// 없었고, 사람이 실플레이에서 "전함 파괴뒤 나오는 로봇도 반영 안됨"이라고
+        /// 보고했다. 실제 데이터로 파츠를 전부 깨뜨려 폼 전환까지 확인한다.
+        /// </summary>
+        [Test]
+        public void DestroyingEveryWarshipPartSpawnsTheRobotFormInsteadOfEndingTheBattle()
+        {
+            GameDataSet data = ParseRepositoryGameData();
+            var generator = new SegmentStageGenerator(data.StageGeneration);
+            int difficulty = StageDifficultyCurve.CreateDefault().GetDifficulty(3);
+            StagePlan plan = generator.GenerateRoute(
+                20240803UL, 3, difficulty, "fortress", EncounterType.Normal);
+            Assert.AreEqual("boss_fortress", plan.BossId);
+            Assert.NotNull(plan.WarshipEncounter);
+            Assert.NotNull(plan.Form2, "로봇 폼 데이터가 없다.");
+
+            BattleSimConfig config = data.CreateBattleSimConfig();
+            config.PlayerInvulnerable = true;
+            var battle = new BattleSim(
+                config, new Rng(20240803UL), plan, data.BattleContent,
+                data.CreatePowerUpGauge());
+
+            var input = InputCommand.None;
+            for (int tick = 0; tick < 40000 && !battle.BossActive; tick++)
+                battle.Step(in input);
+            Assert.IsTrue(battle.BossActive, "보스가 등장하지 않았다.");
+
+            // 살아 있는 파츠를 계속 때린다. 그룹 게이트 때문에 한 번에 하나씩만
+            // 열리므로, 매 틱 "지금 때릴 수 있는 것"을 찾아 때리는 방식이어야 한다.
+            for (int tick = 0; tick < 60000 && battle.BossFormIndex == 0; tick++)
+            {
+                var parts = battle.BossParts;
+                for (int i = 0; i < parts.Count; i++)
+                {
+                    BossPartState part = parts[i];
+                    if (part.Destroyed || part.Invulnerable) continue;
+                    battle.TrySpawnGhostMainShot(part.X, part.Y, 400);
+                }
+                battle.Step(in input);
+                if (battle.BossDefeated) break;
+            }
+
+            Assert.IsFalse(
+                battle.BossDefeated,
+                "함체를 다 부쉈는데 전투가 끝났다 — 로봇으로 넘어가지 않았다.");
+            Assert.AreEqual(
+                1, battle.BossFormIndex,
+                "두 번째 폼(로봇)으로 전환되지 않았다.");
+        }
+
         [Test]
         public void OpeningActStagesTheHullAtItsOwnAnchor()
         {

@@ -175,14 +175,21 @@ namespace Shmup.Presentation.Battle
 
                 if (_lastLegHp[side] > part.Hp && !part.Destroyed)
                     _legHitFlash[side] = 0f;
-                _lastLegHp[side] = part.Hp;
 
-                if (part.Destroyed && !_legDestroyed[side])
+                // 잘림 연출은 **멀쩡하던 다리가 방금 부서졌을 때만** 낸다.
+                // 이 뷰는 씬을 다시 읽지 않는 컨티뉴/이어하기에서도 살아 있어서,
+                // 이미 부서진 채로 등장한 보스에 대고 헛폭발을 터뜨릴 수 있다
+                // (사람 보고 2026-08-04: "컨티뉴 하면 기존 파츠가 이상하게 복귀").
+                // _lastLegHp가 0보다 크다 = 이 다리가 살아 있는 걸 본 적이 있다.
+                bool wasAliveOnScreen = _lastLegHp[side] > 0;
+                if (part.Destroyed && !_legDestroyed[side] && wasAliveOnScreen)
                 {
                     _legFallAge[side] = 0f;
                     TriggerLegSever(anchor);
                 }
                 _legDestroyed[side] = part.Destroyed;
+
+                _lastLegHp[side] = part.Hp;
 
                 DrawLeg(side, anchor, scale);
                 Place(_wounds[side], anchor, scale);
