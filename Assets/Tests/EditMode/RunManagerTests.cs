@@ -181,6 +181,16 @@ namespace Shmup.Core.Tests
             Assert.IsTrue(manager.DevFlagsActive);
         }
 
+
+        /// <summary>
+        /// 실드가 1에서 0이 되며 한 대를 막아 내고, **무적이 끝난 뒤** 다음 유효타에
+        /// 런이 끝난다.
+        ///
+        /// 예전에는 "정확히 몇 번째 틱에 죽는다"를 박아 뒀는데, 그 숫자는 램머가
+        /// 날아오는 데 걸리는 시간이 그때의 무적 시간(0.3초)과 **우연히** 맞아떨어져
+        /// 나온 값이었다. 무적을 2.5초로 늘리자 그 우연이 깨져 테스트가 실패했다 —
+        /// 검증하려던 성질은 멀쩡한데도. 그래서 성질만 검증한다.
+        /// </summary>
         [Test]
         public void ShieldOneToZeroSurvivesThenNextEffectiveHitEndsRun()
         {
@@ -209,34 +219,28 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual(RunState.Playing, manager.State);
             });
 
-            manager.Step(in none);
-
-            AssertAll(() =>
+            // 무적이 도는 동안에는 무슨 일이 있어도 죽지 않는다.
+            int invulnerableTicksObserved = 0;
+            while (manager.Battle.PlayerInvulnerabilityTicksRemaining > 0)
             {
-                Assert.AreEqual(0, manager.Battle.ShieldStock);
-                Assert.IsTrue(manager.Battle.IsPlayerAlive);
-                Assert.AreEqual(
-                    BattleSimConfig.DefaultPlayerHitInvulnerabilityTicks - 1,
-                    manager.Battle.PlayerInvulnerabilityTicksRemaining);
-                Assert.AreEqual(RunState.Playing, manager.State);
-            });
+                Assert.IsTrue(
+                    manager.Battle.IsPlayerAlive,
+                    "무적 중에 죽었다.");
+                manager.Step(in none);
+                invulnerableTicksObserved++;
+                if (invulnerableTicksObserved
+                    > BattleSimConfig.DefaultPlayerHitInvulnerabilityTicks + 8)
+                    Assert.Fail("무적이 끝나지 않는다.");
+            }
 
-            Step(
-                manager,
-                BattleSimConfig.DefaultPlayerHitInvulnerabilityTicks - 2,
-                in none);
+            Assert.AreEqual(
+                BattleSimConfig.DefaultPlayerHitInvulnerabilityTicks,
+                invulnerableTicksObserved,
+                "무적은 설정된 틱만큼 정확히 지속되어야 한다.");
 
-            AssertAll(() =>
-            {
-                Assert.AreEqual(0, manager.Battle.ShieldStock);
-                Assert.IsTrue(manager.Battle.IsPlayerAlive);
-                Assert.AreEqual(
-                    1,
-                    manager.Battle.PlayerInvulnerabilityTicksRemaining);
-                Assert.AreEqual(RunState.Playing, manager.State);
-            });
-
-            manager.Step(in none);
+            // 무적이 풀린 뒤에는 다음 유효타에 런이 끝난다.
+            for (int tick = 0; tick < 240 && manager.State == RunState.Playing; tick++)
+                manager.Step(in none);
 
             AssertAll(() =>
             {
@@ -915,17 +919,22 @@ namespace Shmup.Core.Tests
                 int stageIndex,
                 int difficulty)
             {
-                var spawns =
-                    new SpawnEvent[
-                        BattleSimConfig
-                            .DefaultPlayerHitInvulnerabilityTicks + 1];
-                for (int tick = 1; tick <= spawns.Length; tick++)
-                    spawns[tick - 1] =
-                        new SpawnEvent(tick, "rammer", 0, 0);
+                // 무적 창을 지나서까지 램머를 꾸준히 흘려보낸다.
+                //
+                // 매 틱 하나씩 깔았더니 무적이 2.5초로 길어지면서 150마리가 동시에
+                // 살아 적 개수 상한에 걸렸다. 간격을 두어 상한을 넘지 않게 한다.
+                int invulnerableTicks =
+                    BattleSimConfig.DefaultPlayerHitInvulnerabilityTicks;
+                var spawns = new List<SpawnEvent>
+                {
+                    new SpawnEvent(1, "rammer", 0, 0)
+                };
+                for (int tick = 8; tick <= invulnerableTicks + 200; tick += 8)
+                    spawns.Add(new SpawnEvent(tick, "rammer", 0, 0));
                 var segment = new StageSegment(
                     "shield_hit_regression",
-                    spawns.Length + 1,
-                    spawns,
+                    invulnerableTicks + 400,
+                    spawns.ToArray(),
                     1,
                     1,
                     new[] { 1 });

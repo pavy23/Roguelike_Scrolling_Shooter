@@ -797,7 +797,17 @@ namespace Shmup.EditorTools
         // ── 프리팹 ────────────────────────────────────────────────────────────────
 
         static GameObject WriteBulletPrefab(Sprite sprite)
-            => WriteSpritePrefab(BulletPrefabPath, "Bullet", sprite, 5);
+            // 정렬 30 = 보스보다 **앞**.
+            //
+            // 오래 5였다. 그때는 보스가 작아 탄이 곧 몸통 밖으로 나왔지만, 하이브를
+            // 16유닛으로 키우고 전함을 34x17로 키운 뒤로는 보스가 쏜 탄이 한참 동안
+            // 자기 그림 뒤에 숨는다. 사람 보고 2026-08-03: "다리 부수고 나면 눈에
+            // 보이지도 않는 효과가 있는데 너무 어렵다." 안 보이는 탄은 난이도가
+            // 아니라 결함이다.
+            //
+            // 보스 본체 15 · 하이브 파츠 14~17 · 전함 하드포인트 16 · 총구 섬광 21보다
+            // 위, 피격 플래시(90)와 HUD(98+)보다 아래.
+            => WriteSpritePrefab(BulletPrefabPath, "Bullet", sprite, 30);
 
         static GameObject WriteSpritePrefab(string prefabPath, string name, Sprite sprite, int sortingOrder)
         {
@@ -934,6 +944,10 @@ namespace Shmup.EditorTools
             AddBossSprite("boss_hive", LoadExternalSprite("boss_hive.png", "boss_hive"));
             AddBossSprite("boss_fortress", LoadExternalSprite("boss_fortress.png", "boss_fortress"));
             AddBossSprite("boss_storm", LoadExternalSprite("boss_storm.png", "boss_storm"));
+            // 전함 최종 폼 (REQ-139). 접두사가 boss_fortress보다 길어 우선한다 —
+            // 등록이 없으면 20유닛짜리 함체 그림이 5유닛 로봇 자리에 그려진다.
+            AddBossSprite("boss_fortress_robot",
+                LoadOrCachedSprite("boss_fortress_robot.png", "boss_fortress_robot"));
             AddBossSprite("boss_core", LoadExternalSprite("boss_core.png", "boss_core"));
             // St5+ 순환 보스 — 아트는 art-input에 이미 있었는데 등록이 빠져 있었다.
             // 등록이 없으면 ApplyBossSprite가 best=null로 이전 스프라이트를 유지해

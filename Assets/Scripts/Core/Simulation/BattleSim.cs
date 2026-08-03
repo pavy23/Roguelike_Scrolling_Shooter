@@ -1152,10 +1152,16 @@ namespace Shmup.Core.Simulation
         /// </summary>
         public const int ProvisionalMaxBombStock = 3;
         /// <summary>
-        /// Matches Presentation's existing 0.3 second damage flash at 60 Hz.
+        /// 피격 후 무적 시간. 사람 지시 2026-08-03: "피격 당했을 때 깜빡이면서
+        /// 2~3초 정도 무적시간이 있어야 할듯."
+        ///
+        /// 예전 값은 0.3초였다(Presentation의 피격 플래시 길이에 맞춘 값). 그 정도로는
+        /// 탄막 한가운데에서 실드를 깨고 나온 순간 곧바로 다음 탄에 다시 맞는다 —
+        /// 실드를 하나 쓴 대가가 "다음 탄까지 0.3초"인 셈이라 회복할 기회가 없다.
+        /// 2.5초면 빠져나올 시간이 되고, 뷰가 그동안 기체를 깜빡여 무적임을 알린다.
         /// </summary>
         public const int DefaultPlayerHitInvulnerabilityTicks =
-            3 * SimSpace.TicksPerSecond / 10;
+            5 * SimSpace.TicksPerSecond / 2;
         public const int DefaultBombInvulnerabilityTicks =
             3 * SimSpace.TicksPerSecond / 4;
 

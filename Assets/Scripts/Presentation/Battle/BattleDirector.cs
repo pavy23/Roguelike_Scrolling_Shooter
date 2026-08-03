@@ -282,8 +282,22 @@ namespace Shmup.Presentation.Battle
         float _muzzleAge = float.MaxValue;
         const float MuzzleDuration = 0.06f;
 
-        /// <summary>현재 콤보 배율 (MultiplierChanged 이벤트 추적, HUD 표시용).</summary>
-        public int ScoreMultiplier { get; private set; } = 1;
+        /// <summary>
+        /// 현재 콤보 배율 (HUD 표시용). **Core에게 매 프레임 물어본다.**
+        ///
+        /// 예전에는 MultiplierChanged 이벤트로만 따라갔고, 방이 바뀌어 새 BattleSim이
+        /// 서면 표시를 1로 되돌렸다. 그런데 Core는 방을 넘어갈 때 배율을 그대로
+        /// **이어받는다**(BattleContinuityState). 새 방에서는 값이 안 바뀌었으니
+        /// 이벤트도 안 오고, 화면만 x1에 멈춰 있었다.
+        ///
+        /// 사람이 네 번 보고한 "중간보스 진입 순간 배율 리셋 / 이후 배수가 아예 동작
+        /// 안 함"이 정확히 이것이다 — 규칙은 멀쩡했고 **화면이 거짓말을 했다.**
+        /// 실제 데이터로 1스테이지를 돌려 확인했다(Req140MultiplierAcrossRoomsTests):
+        /// 중간보스 진입 시 x16을 유지했고 전투 중 x32까지 올랐다.
+        ///
+        /// 그래서 파생값으로 바꾼다. 상태를 두 곳에 두면 언젠가 다시 어긋난다.
+        /// </summary>
+        public int ScoreMultiplier => _sim != null ? _sim.ScoreMultiplier : 1;
 
         /// <summary>이번 런에서 도달한 최고 배율 (게임오버 요약용).</summary>
         public int BestMultiplier { get; private set; } = 1;
@@ -699,7 +713,6 @@ namespace Shmup.Presentation.Battle
         void ResetRunSummary()
         {
             BestMultiplier = 1;
-            ScoreMultiplier = 1;
         }
 
         public void RestartRun()
@@ -836,13 +849,16 @@ namespace Shmup.Presentation.Battle
             var config = data.CreateBattleSimConfig();
             // 스키마에 아직 없는 잠정값 (스키마 v3 후보 — GameData로 옮기면 이 블록 제거)
             // EnemyDespawnX는 REQ-005 이후 Core 기본값(-22u, SimSpace 상수 파생)을 그대로 쓴다.
-            // 캡슐 히트박스 ×2 (사람 지시 2026-08-03: "먹는 아이템 크기가 너무 작아.
-            // 2배로 키워줘"). 캡슐 뷰는 이 판정 크기에 맞춰 그려지므로 여기만 키우면
-            // 그림과 판정이 함께 커진다 — 그림만 키우면 전함 함미에서 겪은 "보이는
-            // 것보다 판정이 작다"가 재발한다.
-            config.CapsuleHalfWidth = SimSpace.SubUnitsPerWorldUnit * 15 / 16;
+            // 캡슐 히트박스. 한 번 2배로 키웠다가(2026-08-03 "먹는 아이템 크기가
+            // 너무 작아") 같은 날 "이제 너무 크다, 3/4로"라고 다시 지시받아 0.75배를
+            // 곱한 값이다. 캡슐과 폭탄 아이템 뷰가 모두 이 판정 크기에 맞춰 그려지므로
+            // 여기만 바꾸면 그림과 판정이 함께 움직인다 — 그림만 줄이면 전함 함미에서
+            // 겪은 "보이는 것보다 판정이 크다"가 재발한다.
+            // (2 × 0.75 = 1.5배 → 15/16 × 3/4 = 45/64, 3/4 × 3/4 = 9/16. 둘 다
+            //  256 서브유닛 격자에 정확히 떨어진다: 180과 144.)
+            config.CapsuleHalfWidth = SimSpace.SubUnitsPerWorldUnit * 45 / 64;
             _capsuleHalfWidthSubUnits = config.CapsuleHalfWidth;
-            config.CapsuleHalfHeight = SimSpace.SubUnitsPerWorldUnit * 3 / 4;
+            config.CapsuleHalfHeight = SimSpace.SubUnitsPerWorldUnit * 9 / 16;
             config.PlayerMaxHp = 3;
 
             // 개발용 런 시작 조건 (REQ-096). 새 런에만 건다 — 리플레이는 기록 당시
@@ -1270,6 +1286,18 @@ namespace Shmup.Presentation.Battle
                             _juice.Hitstop(0.06f);
                         }
                         break;
+                    case SimEventType.BossFormChanged:
+                        // Core가 준 폼 id로 그림을 바꾼다. 등록이 없으면 접두사
+                        // 매칭이 원래 보스 그림으로 되돌아가므로 안전하다.
+                        _bossFormId = e.PartId;
+                        ApplyBossSprite();
+                        break;
+                    case SimEventType.BossFormTransitionStarted:
+                        // 함체가 무너지고 안에서 다음 폼이 나온다 (REQ-139).
+                        // 한 점에서 터뜨리면 20유닛짜리 배가 점 하나로 죽는다 —
+                        // 함체 길이를 따라 훑으며 무너뜨린다.
+                        SpawnHullCollapse(SimView.ToWorld(e.X, e.Y));
+                        break;
                     case SimEventType.BossSpawned:
                         // WARNING 배너는 스테이지 최종 보스(와 숨은 보스)에게만 띄운다
                         // ("중간보스 나올때 Warning 뜨는것도 이상함", 2026-07-30).
@@ -1373,7 +1401,6 @@ namespace Shmup.Presentation.Battle
                             0.4f, BlockedHitTint);
                         break;
                     case SimEventType.MultiplierChanged:
-                        ScoreMultiplier = e.Arg;
                         if (e.Arg > BestMultiplier) BestMultiplier = e.Arg;
                         break;
                     case SimEventType.KillExplosionTriggered:
@@ -1492,7 +1519,7 @@ namespace Shmup.Presentation.Battle
             if (_ghostView != null) _ghostView.ResetTrail();
 
             _sim = battle;
-            ScoreMultiplier = 1;   // 새 배틀 인스턴스 — 배율 표시 초기화
+            _bossFormId = null;    // 방이 바뀌면 폼도 처음부터다
             _lastBossHp = -1;      // 보스 피격 플래시 오인 방지
             ApplyStageTheme();
             ApplyBossSprite();
@@ -1530,11 +1557,20 @@ namespace Shmup.Presentation.Battle
                     _themeBackgrounds[i].SetActive(i == index);
         }
 
+        /// <summary>
+        /// 현재 보스 **폼**의 id. 2단 폼으로 넘어가면 Core가 이벤트로 알려 준다.
+        ///
+        /// 스테이지의 BossId만 보면 폼이 바뀌어도 그림이 그대로다. 전함처럼
+        /// "함체를 부수면 안에서 로봇이 나온다"(REQ-139)에서는 20유닛짜리 함체
+        /// 그림이 5유닛짜리 로봇 자리에 그려진다 — 반드시 갈라야 한다.
+        /// </summary>
+        string _bossFormId;
+
         void ApplyBossSprite()
         {
             if (_bossRenderer == null || _run == null || _run.StagePlan == null) return;
             if (_bossSpritePrefixes == null || _bossSprites == null) return;
-            string bossId = _run.StagePlan.BossId;
+            string bossId = _bossFormId ?? _run.StagePlan.BossId;
             int count = Mathf.Min(_bossSpritePrefixes.Length, _bossSprites.Length);
             Sprite best = null;
             int bestLength = -1;
@@ -1563,6 +1599,7 @@ namespace Shmup.Presentation.Battle
         void SyncViews()
         {
             _playerTransform.localPosition = SimView.ToWorld(_sim.PlayerX, _sim.PlayerY);
+            SyncPlayerInvulnerabilityBlink();
 
             TrackWeaponTypeChange();
             SyncGhost();
@@ -1575,6 +1612,40 @@ namespace Shmup.Presentation.Battle
             SyncShield();
             SyncBoss();
         }
+
+        /// <summary>
+        /// 무적 동안 기체를 깜빡인다 (사람 지시 2026-08-03: "피격 당했을 때
+        /// 깜빡이면서 2~3초 정도 무적시간이 있어야 할듯").
+        ///
+        /// 무적은 Core가 정하고 여기서는 **그 상태를 보이게만** 한다. 깜빡임이
+        /// 없으면 2.5초 동안 자기가 무적인 줄 모르고 계속 피하기만 한다 —
+        /// 무적은 도망칠 시간을 주려고 있는 것이라, 보이지 않으면 없는 것과 같다.
+        ///
+        /// 렌더러를 껐다 켜는 대신 알파만 흔든다. 끄면 기체가 어디 있는지 놓친다.
+        /// </summary>
+        void SyncPlayerInvulnerabilityBlink()
+        {
+            var renderer = PlayerRenderer;
+            if (renderer == null) return;
+            int remaining = _sim.PlayerInvulnerabilityTicksRemaining;
+            if (remaining <= 0)
+            {
+                if (_playerBlinking)
+                {
+                    _playerBlinking = false;
+                    var restored = renderer.color;
+                    renderer.color = new Color(restored.r, restored.g, restored.b, 1f);
+                }
+                return;
+            }
+            _playerBlinking = true;
+            // 틱 기반이라 프레임률과 무관하게 같은 속도로 깜빡인다.
+            bool bright = (remaining / 5) % 2 == 0;
+            var color = renderer.color;
+            renderer.color = new Color(color.r, color.g, color.b, bright ? 1f : 0.35f);
+        }
+
+        bool _playerBlinking;
 
         /// <summary>장애물 뷰 동기화 (REQ-023). 테마×계열로 스프라이트를 고른다.</summary>
         void SyncObstacles()
@@ -2474,6 +2545,37 @@ namespace Shmup.Presentation.Battle
             BossDeathCinematicRemaining = interval * boomCount + (midBoss ? 0.35f : 0.7f);
         }
 
+        /// <summary>
+        /// 함체 붕괴 (폼 전환). 보스 격파 연출과 달리 **가로로 길게** 훑는다 —
+        /// 전함은 길이가 정체성이라, 원형으로 터지면 배로 안 읽힌다.
+        /// </summary>
+        void SpawnHullCollapse(Vector3 center)
+        {
+            const int Booms = 22;
+            const float Interval = 0.11f;
+            float halfLength = _run != null && _run.StagePlan != null
+                ? _run.StagePlan.BossHalfWidth * SimView.WorldUnitsPerSubUnit
+                : 8f;
+
+            if (_juice != null)
+            {
+                _juice.Shake(1.0f);
+                _juice.Slowmo(0.5f, 0.5f);
+            }
+
+            SpawnExplosion(center, 1.8f);
+            for (int i = 0; i < Booms; i++)
+            {
+                // 함미(오른쪽)에서 함수(왼쪽)로 무너져 간다.
+                float t = i / (float)(Booms - 1);
+                float x = Mathf.Lerp(halfLength, -halfLength, t);
+                float y = Mathf.Sin(i * 2.39996f) * halfLength * 0.16f;
+                _pendingBoomPositions.Add(center + new Vector3(x, y, 0f));
+                _pendingBoomDelays.Add(Interval * (i + 1));
+            }
+            BossDeathCinematicRemaining = Interval * Booms + 0.5f;
+        }
+
         void TickBossDeathCinematic()
         {
             if (BossDeathCinematicRemaining <= 0f) return;
@@ -2651,6 +2753,11 @@ namespace Shmup.Presentation.Battle
                 }
 
                 view.localPosition = SimView.ToWorld(pickup.X, pickup.Y);
+                // 폭탄 아이템은 Core에서 **캡슐과 같은 판정 상자**를 쓴다(줍기 판정이
+                // _capsuleHalfWidth/Height로 되어 있다). 그런데 뷰는 배율을 안 걸어
+                // 원본 크기로 그려져 캡슐과 크기가 따로 놀았다 — 사람 지시대로
+                // 같은 자를 대 준다("폭탄 아이템 크기는 비슷하게 맞춰줘").
+                ApplyCapsuleScale(view);
                 // 표현 전용 회전 — 시뮬 판정은 축 정렬 박스라 영향이 없다.
                 view.localRotation = Quaternion.Euler(
                     0f, 0f, (Time.time * 90f + pickup.Id * 37f) % 360f);

@@ -68,6 +68,18 @@ namespace Shmup.Presentation.Battle
         readonly bool[] _legDestroyed = new bool[2];
         readonly float[] _legFallAge = { float.MaxValue, float.MaxValue };
 
+        // 피격 플래시. 하이브는 전용 뷰라 범용 파츠 오버레이(BossPartsView)가 비켜나
+        // 있고, 그 오버레이가 하던 피격 반응까지 함께 사라져 있었다 — 사람 보고
+        // 2026-08-03: "다리 부술 때도 피격하는 효과가 있으면 좋겠어."
+        // 맞고 있다는 신호가 없으면 플레이어는 약점을 때리고 있는지 알 수 없다.
+        readonly int[] _lastLegHp = { -1, -1 };
+        readonly float[] _legHitFlash = { float.MaxValue, float.MaxValue };
+        int _lastCoreHp = -1;
+        float _coreHitFlash = float.MaxValue;
+
+        /// <summary>피격 플래시 지속(초). 짧게 — 길면 몸 색이 하얗게 뜬다.</summary>
+        const float HitFlashSeconds = 0.09f;
+
         bool _visible;
         bool _shieldWasUp;
         float _shieldBreakAge = float.MaxValue;
@@ -97,6 +109,7 @@ namespace Shmup.Presentation.Battle
 
             _torso = Ensure(_torso, "HiveTorso", _torsoSprite, TorsoOrder);
             Place(_torso, anchor, scale);
+            SyncCoreFlash(parts);
 
             SyncLegs(parts, anchor, scale);
             SyncShield(parts, anchor, scale);
@@ -138,6 +151,10 @@ namespace Shmup.Presentation.Battle
                 _legs[side] = Ensure(_legs[side], side == 0 ? "HiveLegL" : "HiveLegR", legSprite, LegOrder);
                 _wounds[side] = Ensure(_wounds[side], side == 0 ? "HiveWoundL" : "HiveWoundR", woundSprite, WoundOrder);
 
+                if (_lastLegHp[side] > part.Hp && !part.Destroyed)
+                    _legHitFlash[side] = 0f;
+                _lastLegHp[side] = part.Hp;
+
                 if (part.Destroyed && !_legDestroyed[side])
                 {
                     _legFallAge[side] = 0f;
@@ -158,6 +175,33 @@ namespace Shmup.Presentation.Battle
                 }
         }
 
+        /// <summary>코어(=몸통)가 맞으면 몸통 전체가 번쩍인다.</summary>
+        void SyncCoreFlash(IReadOnlyList<BossPartState> parts)
+        {
+            if (_torso == null) return;
+            for (int i = 0; i < parts.Count; i++)
+            {
+                if (!parts[i].IsCore) continue;
+                int hp = parts[i].Hp;
+                if (_lastCoreHp > hp) _coreHitFlash = 0f;
+                _lastCoreHp = hp;
+                break;
+            }
+            _torso.color = Flash(ref _coreHitFlash);
+        }
+
+        /// <summary>
+        /// 흰색에서 원래 색으로 돌아오는 감쇠. 남은 시간을 직접 굴린다.
+        /// </summary>
+        Color Flash(ref float age)
+        {
+            if (age >= HitFlashSeconds) return Color.white;
+            age += Time.deltaTime;
+            float t = Mathf.Clamp01(age / HitFlashSeconds);
+            // 흰색 → 원색. 알파는 건드리지 않는다(떨어지는 다리의 페이드와 겹친다).
+            return Color.Lerp(new Color(2.4f, 2.2f, 2.2f, 1f), Color.white, t);
+        }
+
         /// <summary>
         /// 멀쩡한 다리는 제자리에, 방금 잘린 다리는 **떨어뜨린다**.
         /// 그냥 사라지면 "없어졌다"로 읽힌다 — 사람이 원한 건 "잘렸다"였다.
@@ -170,7 +214,7 @@ namespace Shmup.Presentation.Battle
             if (!_legDestroyed[side])
             {
                 Place(leg, anchor, scale);
-                leg.color = Color.white;
+                leg.color = Flash(ref _legHitFlash[side]);
                 leg.transform.localRotation = Quaternion.identity;
                 leg.enabled = true;
                 return;
@@ -265,6 +309,8 @@ namespace Shmup.Presentation.Battle
             _visible = false;
             _shieldWasUp = false;
             _shieldBreakAge = float.MaxValue;
+            _lastCoreHp = -1;
+            _coreHitFlash = float.MaxValue;
             SetEnabled(_torso, false);
             SetEnabled(_shield, false);
             for (int i = 0; i < 2; i++)
@@ -273,6 +319,8 @@ namespace Shmup.Presentation.Battle
                 SetEnabled(_wounds[i], false);
                 _legDestroyed[i] = false;
                 _legFallAge[i] = float.MaxValue;
+                _lastLegHp[i] = -1;
+                _legHitFlash[i] = float.MaxValue;
             }
         }
 

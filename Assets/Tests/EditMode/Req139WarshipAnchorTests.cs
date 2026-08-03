@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using NUnit.Framework;
+using Shmup.Core.Content;
 using Shmup.Core.Generation;
 using Shmup.Core.Simulation;
 
@@ -108,6 +110,67 @@ namespace Shmup.Core.Tests
                 if (encounter.Parts[i].PartId == partId)
                     return encounter.Parts[i];
             throw new InvalidOperationException(partId);
+        }
+
+        /// <summary>
+        /// REQ-139 3막: 함체를 다 부수면 **전투가 끝나지 않고** 로봇이 나온다.
+        ///
+        /// 실데이터로 검증한다 — 이건 밸런스 수치가 아니라 **설계**다. 요새전이
+        /// 두 번째 폼 없이 끝나 버리면 사람이 지시한 마지막 페이즈가 사라진 것이니
+        /// 이 테스트가 깨지는 게 맞다.
+        /// </summary>
+        [Test]
+        public void ClearingTheFortressHullHandsOffToTheRobotFormInsteadOfEndingTheBattle()
+        {
+            GameDataSet data = ParseRepositoryGameData();
+            StageBossTemplate fortress = null;
+            for (int i = 0; i < data.StageGeneration.Bosses.Count; i++)
+                if (data.StageGeneration.Bosses[i].BossId == "boss_fortress")
+                    fortress = data.StageGeneration.Bosses[i];
+
+            Assert.NotNull(fortress, "요새 보스가 데이터에 없다.");
+            Assert.NotNull(
+                fortress.WarshipEncounter,
+                "요새는 전함 조우로 굴러간다.");
+            Assert.NotNull(
+                fortress.Form2,
+                "함체를 부순 뒤 나올 두 번째 폼(로봇)이 있어야 한다.");
+            Assert.Greater(fortress.Form2.MaxHp, 0);
+            // 마지막 페이즈는 함체와 대비되어야 읽힌다 - 같은 덩치면 "안에서
+            // 나왔다"가 성립하지 않는다.
+            Assert.Less(
+                fortress.Form2.HalfWidth,
+                fortress.HalfWidth,
+                "로봇은 함체보다 작아야 한다.");
+            Assert.Greater(
+                fortress.Form2.TransitionTicks,
+                0,
+                "함체 붕괴에서 로봇 사출까지 연출 시간이 필요하다.");
+        }
+
+        static GameDataSet ParseRepositoryGameData()
+        {
+            string gameData = Path.Combine(FindRepositoryRoot(), "GameData");
+            return GameDataParser.Parse(
+                File.ReadAllText(Path.Combine(gameData, "enemies.json")),
+                File.ReadAllText(Path.Combine(gameData, "weapons.json")),
+                File.ReadAllText(Path.Combine(gameData, "waves.json")),
+                File.ReadAllText(Path.Combine(gameData, "rewards.json")),
+                File.ReadAllText(Path.Combine(gameData, "ships.json")),
+                File.ReadAllText(Path.Combine(gameData, "scoring.json")));
+        }
+
+        static string FindRepositoryRoot()
+        {
+            var current = new DirectoryInfo(
+                TestContext.CurrentContext.TestDirectory);
+            while (current != null)
+            {
+                if (Directory.Exists(Path.Combine(current.FullName, "GameData")))
+                    return current.FullName;
+                current = current.Parent;
+            }
+            throw new DirectoryNotFoundException();
         }
 
         [Test]

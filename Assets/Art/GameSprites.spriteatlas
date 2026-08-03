@@ -60,6 +60,7 @@ SpriteAtlas:
     - 76fbb250e635ab841b5d7d73c4573f02: 21300000
     - 7749c450eb95188478ed5b047b5dc446: 21300000
     - e1a4d450daa51e74e87aabdc908502ef: 21300000
+    - ef82d960191ff49429c5d1cfd074cad8: 21300000
     - 8fe5ae70a9664e84dba26603ee35f091: 21300000
     - d36cb4802c85c2b42b7d5a464cdce900: 21300000
     - 06df999026266854b8e66640b7e50e89: 21300000
@@ -364,6 +365,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 76fbb250e635ab841b5d7d73c4573f02, type: 3}
   - {fileID: 21300000, guid: 7749c450eb95188478ed5b047b5dc446, type: 3}
   - {fileID: 21300000, guid: e1a4d450daa51e74e87aabdc908502ef, type: 3}
+  - {fileID: 21300000, guid: ef82d960191ff49429c5d1cfd074cad8, type: 3}
   - {fileID: 21300000, guid: 8fe5ae70a9664e84dba26603ee35f091, type: 3}
   - {fileID: 21300000, guid: d36cb4802c85c2b42b7d5a464cdce900, type: 3}
   - {fileID: 21300000, guid: 06df999026266854b8e66640b7e50e89, type: 3}
@@ -667,6 +669,7 @@ SpriteAtlas:
   - boss_hive_wound_r
   - hive_mid
   - hud_icon_1
+  - boss_fortress_robot
   - fort_far_dusk
   - obstacle_scrap_debris
   - enemy_pipe_rat
