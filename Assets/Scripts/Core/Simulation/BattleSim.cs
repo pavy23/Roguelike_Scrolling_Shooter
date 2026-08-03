@@ -1416,6 +1416,22 @@ namespace Shmup.Core.Simulation
             ProvisionalShieldBonusScorePerStock;
 
         /// <summary>
+        /// REQ-133: score awarded per 100 damage dealt to a boss or boss part.
+        ///
+        /// Boss rooms are fodder-thin by design and their barrages are sparse, so a
+        /// player who is landing every shot can still have zero combo actions and
+        /// watch the multiplier decay one step every five seconds. Damage itself now
+        /// counts, which is what the player is actually doing during a boss fight.
+        ///
+        /// The default is deliberately small next to the defeat award, which is
+        /// <c>maxHp * 2</c>: at 10 per 100 damage, grinding a boss from full to zero
+        /// yields <c>maxHp * 0.1</c>, i.e. 5% of the defeat bonus. Killing still
+        /// dominates; chip damage only keeps the combo clock alive. GROK owns the
+        /// eventual GameData value.
+        /// </summary>
+        public int BossDamageScorePerHundred { get; set; } = 10;
+
+        /// <summary>
         /// Defaults sourced from player.json, main_shot, and the 40 by 22.5 unit view
         /// (640×360, ROADMAP M0). Spatial values scale the 24×14 originals by ×5/3
         /// (hitboxes ×1.5 to follow the sprite upsize). Power-up values remain
@@ -1701,6 +1717,7 @@ namespace Shmup.Core.Simulation
         readonly bool _usesSegmentScrollMultipliers;
         readonly int _maxObstacles, _obstacleHalfWidth, _obstacleHalfHeight;
         readonly int _obstacleContactDamage, _breakableObstacleScore;
+        readonly int _bossDamageScorePerHundred;
         readonly int _enemyHpMultiplierNumerator;
         readonly int _enemyHpMultiplierDenominator;
         readonly int _encounterEnemyHpMultiplierNumerator;
@@ -1917,6 +1934,8 @@ namespace Shmup.Core.Simulation
         int _playerHistoryCount;
         int _bulletHitRecordCount;
         int _multiplierLevel, _comboGauge, _ticksSinceLastComboAction;
+        // REQ-133: 100 데미지 단위로 점수를 줄 때 남는 자투리. 방마다 초기화된다.
+        int _bossDamageScoreCarry;
         bool _comboActionThisTick, _activateHeld, _bombHeld, _playerAlive;
         bool _runClearShieldBonusAwarded;
         int _playerInvulnerabilityTicksRemaining;
@@ -2187,6 +2206,7 @@ namespace Shmup.Core.Simulation
             _obstacleHalfWidth = config.ObstacleHalfWidth;
             _obstacleHalfHeight = config.ObstacleHalfHeight;
             _obstacleContactDamage = config.ObstacleContactDamage;
+            _bossDamageScorePerHundred = config.BossDamageScorePerHundred;
             _breakableObstacleScore = config.BreakableObstacleScore;
             _enemyHpMultiplierNumerator =
                 config.EnemyHpMultiplierNumerator;
@@ -6843,6 +6863,7 @@ namespace Shmup.Core.Simulation
 
             int hp = Damage.ApplyToHp(part.Hp, damage);
             int appliedDamage = part.Hp - hp;
+            RecordBossDamage(appliedDamage);   // REQ-133
             _bossHp = Damage.ApplyToHp(
                 _bossHp,
                 appliedDamage);
@@ -6910,7 +6931,9 @@ namespace Shmup.Core.Simulation
         {
             if (!BossActive || BossEntering || damage <= 0)
                 return false;
+            int previousBossHp = _bossHp;
             _bossHp = Damage.ApplyToHp(_bossHp, damage);
+            RecordBossDamage(previousBossHp - _bossHp);   // REQ-133
             if (_bossHp > 0)
             {
                 EmitEvent(
@@ -8938,6 +8961,32 @@ namespace Shmup.Core.Simulation
             _ticksSinceLastComboAction = 0;
         }
 
+        /// <summary>
+        /// REQ-133: boss damage counts as a combo action and pays a small score.
+        ///
+        /// Called only where damage was actually applied — a shot absorbed by an
+        /// invulnerable part must NOT keep the combo alive. That case already tells
+        /// the player it did nothing (the view draws a cyan deflect spark), so
+        /// rewarding it would make the screen lie in the other direction.
+        ///
+        /// Score is paid per whole 100 damage with the remainder carried, so a long
+        /// fight pays the same total no matter how the damage is chunked. Carrying
+        /// the remainder (instead of rounding each hit) keeps it deterministic and
+        /// stops rapid weak hits from paying nothing at all.
+        /// </summary>
+        void RecordBossDamage(int appliedDamage)
+        {
+            if (appliedDamage <= 0) return;
+            RecordComboAction();
+            if (_bossDamageScorePerHundred <= 0) return;
+
+            _bossDamageScoreCarry += appliedDamage;
+            if (_bossDamageScoreCarry < 100) return;
+            long chunks = _bossDamageScoreCarry / 100;
+            _bossDamageScoreCarry -= (int)(chunks * 100);
+            AwardScore(chunks * _bossDamageScorePerHundred);
+        }
+
         void AdvanceKillCombo()
         {
             AddComboGauge(_killComboGaugeGain);
@@ -10289,6 +10338,9 @@ namespace Shmup.Core.Simulation
                 || config.ObstacleHalfHeight < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(config.ObstacleHalfWidth));
+            if (config.BossDamageScorePerHundred < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(config.BossDamageScorePerHundred));
             if (config.ObstacleContactDamage < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(config.ObstacleContactDamage));
