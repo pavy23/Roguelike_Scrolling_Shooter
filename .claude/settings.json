@@ -1,0 +1,54 @@
+{
+  "$comment": [
+    "팀 공용 설정 (개인 설정은 settings.local.json — .gitignore에 있다).",
+    "훅은 두 가지 실패를 '20초 안에' 잡으려고 있다. 둘 다 2026-08-03~04 세션에서",
+    "실제로 여러 번 겪었고, 그때마다 발견 경로가 씬 재생성 → 테스트 → 빌드(3~5분)였다."
+  ],
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -X utf8 Tools/CsCheck/cs_syntax_check.py --changed",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -X utf8 Tools/CsCheck/subunit_grid_check.py --changed",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "$comment": [
+      "이 프로젝트에서 하루에도 수십 번 도는 명령들. 전부 읽기이거나 되돌릴 수",
+      "있는 로컬 작업이다. 배포(deploy_web.ps1)는 일부러 넣지 않았다 —",
+      "바깥으로 나가는 동작은 매번 확인받는 편이 낫다."
+    ],
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git add:*)",
+      "Bash(git stash:*)",
+      "Bash(python -X utf8 Tools/:*)",
+      "Bash(python Tools/:*)",
+      "Bash(node Tools/QaHarness/:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet build:*)",
+      "PowerShell(unity test:*)",
+      "PowerShell(unity build:*)",
+      "PowerShell(unity run:*)"
+    ]
+  }
+}
