@@ -9477,7 +9477,10 @@ static class Program
             }
         }
 
-        // --- St3 fortress untouched ---
+        // --- St3 fortress warship hull + robot form2 (REQ-139) ---
+        // Hull total HP stays locked; robot is an extra final act after the hull.
+        const int FortressRobotForm2Hp = 8_000;
+        const int FortressRobotTransitionTicks = 300;
         if (!byId.TryGetValue("boss_fortress", out StageBossTemplate fort)
             || fort.WarshipEncounter == null
             || fort.MaxHp != WarshipTotalHp)
@@ -9491,7 +9494,66 @@ static class Program
         {
             Console.WriteLine(
                 $"  fortress warship locked hp={fort.MaxHp} "
-                + $"parts={fort.Parts.Count} (unchanged)");
+                + $"parts={fort.Parts.Count}");
+            BossFormDefinition robot = fort.Form2;
+            if (robot == null)
+            {
+                Console.WriteLine(
+                    "FAIL 116: boss_fortress missing form2 robot phase.");
+                failures++;
+            }
+            else
+            {
+                double rHw = robot.HalfWidth
+                    / (double)SimSpace.SubUnitsPerWorldUnit;
+                double rHh = robot.HalfHeight
+                    / (double)SimSpace.SubUnitsPerWorldUnit;
+                Console.WriteLine(
+                    $"  fortress form2={robot.FormId} hp={robot.MaxHp} "
+                    + $"half={rHw:F1}×{rHh:F1} transition={robot.TransitionTicks}t "
+                    + $"phases={robot.Phases?.Count ?? 0}");
+                if (robot.MaxHp != FortressRobotForm2Hp)
+                {
+                    Console.WriteLine(
+                        $"FAIL 116: fortress robot hp {robot.MaxHp} "
+                        + $"!= {FortressRobotForm2Hp}.");
+                    failures++;
+                }
+                if (robot.TransitionTicks != FortressRobotTransitionTicks)
+                {
+                    Console.WriteLine(
+                        $"FAIL 116: fortress robot transition "
+                        + $"{robot.TransitionTicks}t "
+                        + $"!= {FortressRobotTransitionTicks}t.");
+                    failures++;
+                }
+                // Robot must be much smaller than the 17×8.5 hull for the
+                // "exit the wreck" read (half-extents well under 4u).
+                if (rHw > 4.0 || rHh > 4.0)
+                {
+                    Console.WriteLine(
+                        $"FAIL 116: fortress robot half {rHw:F1}×{rHh:F1} "
+                        + "too large vs hull (want agile pilot scale).");
+                    failures++;
+                }
+                bool hasLunge = false;
+                if (robot.Phases != null)
+                {
+                    for (int p = 0; p < robot.Phases.Count; p++)
+                    {
+                        if (robot.Phases[p].MovementPattern
+                            == BossMovementPattern.LungeReturn)
+                            hasLunge = true;
+                    }
+                }
+                if (!hasLunge)
+                {
+                    Console.WriteLine(
+                        "FAIL 116: fortress robot needs lungeReturn "
+                        + "(melee charge, distinct from hull missile/laser).");
+                    failures++;
+                }
+            }
         }
 
         // --- St4 storm: 5×4 + chain summon ladder ---

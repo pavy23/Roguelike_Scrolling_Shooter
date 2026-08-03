@@ -19,19 +19,26 @@
 - 표: `Reviews/from-grok/req139-report-phase2.md`
 - 검증: `dotnet test` **568/568**
 
+### 3차 완료 (content, form2 로봇 + sim 가드 해제)
+- `boss_fortress.form2` = `boss_fortress_robot` HP **8000** / half **2.5×2.0** / holdX **10** / transition **300t**
+- 패턴: lungeReturn + aimed → burst (함체 미사일/레이저와 분리). 파츠 0
+- 표: `Reviews/from-grok/req139-report-phase3.md`
+- 검증: `dotnet test` **568/568**
+
 ### CODEX
 1. [x] 그룹별 `anchorOffsetY`/`anchorTravelTicks` (af27d38, CLAUDE 대행) — 데이터 쪽 값은 GROK 2차에서 채움
-2. [ ] 로봇 폼 (`_bossForm2` 경로를 그룹 전멸에도)
-3. [ ] `advanceOnGroupCleared` (필요 시)
-4. [ ] `GameDataParserTests.RepositoryApprovedV2Files_ParseCompletely`: `RerollCost` expect **5→4** (REQ-137 실데이터)
+2. [x] 로봇 폼 경로 (ba556aa BeginWarshipFormTransition)
+3. [ ] **리뷰 요청**: sim `a8ee9eb` — warship+form2 카탈로그 가드 삭제 (CODEX limit으로 GROK 대행, §9-1). 의도 맞는지 확인만
+4. [ ] `advanceOnGroupCleared` (필요 시)
+5. [ ] `GameDataParserTests.RepositoryApprovedV2Files_ParseCompletely`: `RerollCost` expect **5→4** (REQ-137 실데이터)
 
 ### CLAUDE
-1. [x] Resources `GameData/waves.json` 동기화 (2차 커밋에 포함)
+1. [x] Resources `GameData/waves.json` 동기화 (2·3차 커밋에 포함)
 2. [ ] 거대 함체 아트 (본체 half 17×8.5에 맞춤) + 하드포인트 정렬 (engine y=7.0 반영)
-3. [ ] 정박 상승 연출 뷰 + 로봇 연출
+3. [ ] 정박 상승 연출 뷰 + **로봇 form2** 스프라이트/`BossFormTransitionStarted` 연출 (`boss_fortress_robot`)
 
 ### 사람
-1. [ ] 잠김 깊이(−9)·상승 1.5초 체감 확정 (로봇은 3차)
+1. [ ] 잠김 깊이(−9)·상승 1.5초·로봇 HP 8000 / 전환 5s 체감 확정
 
 ---
 

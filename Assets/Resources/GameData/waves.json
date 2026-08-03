@@ -9372,6 +9372,42 @@
             "anchorTravelTicks": 0
           }
         ]
+      },
+      "form2": {
+        "id": "boss_fortress_robot",
+        "transitionTicks": 300,
+        "hp": 8000,
+        "halfWidth": 2.5,
+        "halfHeight": 2.0,
+        "holdX": 10.0,
+        "phases": [
+          {
+            "pattern": "aimed",
+            "fireIntervalTicks": 18,
+            "ways": 3,
+            "bulletSpeed": 12.5,
+            "projectileKind": "heavy",
+            "movementPattern": "lungeReturn",
+            "movementAmplitude": 8.0,
+            "movementPeriodTicks": 90,
+            "movementTelegraphTicks": 18,
+            "partVulnerability": "all"
+          },
+          {
+            "pattern": "burst",
+            "fireIntervalTicks": 12,
+            "ways": 5,
+            "bulletSpeed": 14.0,
+            "telegraphTicks": 12,
+            "projectileKind": "heavy",
+            "movementPattern": "lungeReturn",
+            "movementAmplitude": 10.0,
+            "movementPeriodTicks": 72,
+            "movementTelegraphTicks": 12,
+            "partVulnerability": "all",
+            "hpThreshold": 0.5
+          }
+        ]
       }
     },
     {
