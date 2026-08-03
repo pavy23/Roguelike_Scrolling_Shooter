@@ -514,7 +514,7 @@
     {
       "id": "magnet_claw",
       "displayName": "Magnet Claw",
-      "hp": 72,
+      "hp": 36,
       "contactDamage": 1,
       "scoreValue": 210,
       "fireIntervalTicks": 140,
