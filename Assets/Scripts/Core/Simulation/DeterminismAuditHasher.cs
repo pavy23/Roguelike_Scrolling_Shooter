@@ -501,6 +501,8 @@ namespace Shmup.Core.Simulation
                 FoldString(group.GroupId);
                 FoldInt32((int)group.Role);
                 FoldInt32(group.AdvanceAfterTicks);
+                FoldInt32(group.AnchorOffsetY);
+                FoldInt32(group.AnchorTravelTicks);
                 FoldInt32(group.PartIds.Count);
                 for (int part = 0; part < group.PartIds.Count; part++)
                     FoldString(group.PartIds[part]);
@@ -517,6 +519,7 @@ namespace Shmup.Core.Simulation
             FoldInt64(encounter.ScrollRemainder);
             FoldInt32(encounter.ActiveGroupIndex);
             FoldInt32(encounter.ActiveGroupElapsedTicks);
+            FoldInt32(encounter.AnchorOffsetY);
             FoldBool(encounter.WarningActive);
             FoldBool(encounter.MidbossDefeated);
             FoldBool(encounter.CoreBattleActive);

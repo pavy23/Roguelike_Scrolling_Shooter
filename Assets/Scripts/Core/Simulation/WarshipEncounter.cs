@@ -61,7 +61,9 @@ namespace Shmup.Core.Simulation
     [DataContract]
     public sealed class WarshipEncounterSuspendData
     {
-        public const int CurrentSchemaVersion = 2;
+        // v3: vertical staging anchor (REQ-139). Older payloads restore with a
+        // zero anchor, which is exactly the pre-REQ-139 behaviour.
+        public const int CurrentSchemaVersion = 3;
 
         [DataMember(Order = 0)]
         public int schemaVersion;
@@ -89,6 +91,12 @@ namespace Shmup.Core.Simulation
         public int[] partHp;
         [DataMember(Order = 12)]
         public bool coreOpeningConsumed;
+        [DataMember(Order = 13)]
+        public int anchorFromY;
+        [DataMember(Order = 14)]
+        public int anchorTargetY;
+        [DataMember(Order = 15)]
+        public int anchorElapsedTicks;
     }
 
     /// <summary>
@@ -109,6 +117,13 @@ namespace Shmup.Core.Simulation
         long _scrollRemainder;
         int _activeGroupIndex = -1;
         int _activeGroupElapsedTicks;
+        // Vertical staging (REQ-139). The hull can begin an act low enough that
+        // only its superstructure is on screen and rise into frame for the next
+        // act. Kept as two integers plus an elapsed count so interpolation is
+        // exact and a restored run lands on the identical pixel.
+        int _anchorFromY;
+        int _anchorTargetY;
+        int _anchorElapsedTicks;
         int _destroyedAttritionParts;
         bool _warningEmitted;
         bool _midbossDefeated;
@@ -151,6 +166,40 @@ namespace Shmup.Core.Simulation
         public int WorldX => SaturateToInt(
             (long)_definition.OriginX - _scrollOffset);
         public int ActiveGroupIndex => _activeGroupIndex;
+
+        /// <summary>
+        /// Current vertical offset from <see cref="WarshipEncounterDefinition.OriginY"/>,
+        /// in sub-units. Interpolated with integer arithmetic only.
+        /// </summary>
+        public int AnchorOffsetY
+        {
+            get
+            {
+                if (_activeGroupIndex < 0) return _anchorTargetY;
+                int travel = _definition.Groups[_activeGroupIndex]
+                    .AnchorTravelTicks;
+                if (travel <= 0 || _anchorElapsedTicks >= travel)
+                    return _anchorTargetY;
+                long delta = (long)_anchorTargetY - _anchorFromY;
+                return SaturateToInt(
+                    _anchorFromY + delta * _anchorElapsedTicks / travel);
+            }
+        }
+
+        /// <summary>0 to 1 in thousandths: how far this act's move has run.
+        /// The view uses it to lead the camera and time the reveal.</summary>
+        public int AnchorTravelPermille
+        {
+            get
+            {
+                if (_activeGroupIndex < 0) return 1000;
+                int travel = _definition.Groups[_activeGroupIndex]
+                    .AnchorTravelTicks;
+                if (travel <= 0) return 1000;
+                if (_anchorElapsedTicks >= travel) return 1000;
+                return (int)((long)_anchorElapsedTicks * 1000 / travel);
+            }
+        }
         public int ActiveGroupElapsedTicks => _activeGroupElapsedTicks;
         public bool WarningActive => _activeGroupIndex < 0;
         public bool MidbossDefeated => _midbossDefeated;
@@ -255,7 +304,13 @@ namespace Shmup.Core.Simulation
                 && _tick >= _definition.WarningTicks)
                 ActivateGroup(0);
             else if (_activeGroupIndex >= 0)
+            {
                 _activeGroupElapsedTicks++;
+                int travel = _definition.Groups[_activeGroupIndex]
+                    .AnchorTravelTicks;
+                if (_anchorElapsedTicks < travel)
+                    _anchorElapsedTicks++;
+            }
 
             _tickOpen = true;
             RefreshPartView();
@@ -308,6 +363,9 @@ namespace Shmup.Core.Simulation
                 scrollRemainder = _scrollRemainder,
                 activeGroupIndex = _activeGroupIndex,
                 activeGroupElapsedTicks = _activeGroupElapsedTicks,
+                anchorFromY = _anchorFromY,
+                anchorTargetY = _anchorTargetY,
+                anchorElapsedTicks = _anchorElapsedTicks,
                 destroyedAttritionParts = _destroyedAttritionParts,
                 warningEmitted = _warningEmitted,
                 midbossDefeated = _midbossDefeated,
@@ -390,6 +448,9 @@ namespace Shmup.Core.Simulation
             _scrollRemainder = data.scrollRemainder;
             _activeGroupIndex = data.activeGroupIndex;
             _activeGroupElapsedTicks = data.activeGroupElapsedTicks;
+            _anchorFromY = data.anchorFromY;
+            _anchorTargetY = data.anchorTargetY;
+            _anchorElapsedTicks = data.anchorElapsedTicks;
             _destroyedAttritionParts = data.destroyedAttritionParts;
             _warningEmitted = data.warningEmitted;
             _midbossDefeated = data.midbossDefeated;
@@ -527,10 +588,15 @@ namespace Shmup.Core.Simulation
                 || groupIndex >= _definition.Groups.Count)
                 throw new InvalidOperationException(
                     "Warship group activation exceeded its definition.");
-            _activeGroupIndex = groupIndex;
-            _activeGroupElapsedTicks = 0;
             WarshipPartGroupDefinition group =
                 _definition.Groups[groupIndex];
+            // Start the vertical move from wherever the hull actually is, not
+            // from the previous act's target - an act can be cleared mid-travel.
+            _anchorFromY = AnchorOffsetY;
+            _activeGroupIndex = groupIndex;
+            _activeGroupElapsedTicks = 0;
+            _anchorElapsedTicks = 0;
+            _anchorTargetY = group.AnchorOffsetY;
             if (group.Role == WarshipGroupRole.FinalCore)
                 SetAtHoldX();
             Emit(
@@ -622,6 +688,7 @@ namespace Shmup.Core.Simulation
         int GetPartWorldY(int partIndex)
         {
             long world = (long)_definition.OriginY
+                + AnchorOffsetY
                 + _parts[partIndex].OffsetY;
             return world < int.MinValue
                 ? int.MinValue

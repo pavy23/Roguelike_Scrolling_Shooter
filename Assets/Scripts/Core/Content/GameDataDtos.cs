@@ -636,6 +636,10 @@ namespace Shmup.Core.Content
         public string[] partIds;
         [DataMember]
         public int? advanceAfterTicks;
+        [DataMember]
+        public decimal? anchorOffsetY;
+        [DataMember]
+        public int? anchorTravelTicks;
     }
 
     [DataContract]

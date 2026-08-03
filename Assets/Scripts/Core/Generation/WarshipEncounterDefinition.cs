@@ -27,8 +27,13 @@ namespace Shmup.Core.Generation
             string groupId,
             WarshipGroupRole role,
             IReadOnlyList<string> partIds,
-            int advanceAfterTicks)
+            int advanceAfterTicks,
+            int anchorOffsetY = 0,
+            int anchorTravelTicks = 0)
         {
+            if (anchorTravelTicks < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(anchorTravelTicks));
             if (string.IsNullOrEmpty(groupId))
                 throw new ArgumentException(
                     "Warship group id cannot be null or empty.",
@@ -76,6 +81,8 @@ namespace Shmup.Core.Generation
             GroupId = groupId;
             Role = role;
             AdvanceAfterTicks = advanceAfterTicks;
+            AnchorOffsetY = anchorOffsetY;
+            AnchorTravelTicks = anchorTravelTicks;
             _partIds = new ReadOnlyCollection<string>(copy);
         }
 
@@ -83,6 +90,23 @@ namespace Shmup.Core.Generation
         public WarshipGroupRole Role { get; }
         public IReadOnlyList<string> PartIds => _partIds;
         public int AdvanceAfterTicks { get; }
+
+        /// <summary>
+        /// Vertical anchor for this act, in sub-units relative to
+        /// <see cref="WarshipEncounterDefinition.OriginY"/>. Zero keeps the ship
+        /// where the previous act left it, so existing data is unaffected.
+        ///
+        /// This exists so an act can stage the hull off-screen: the opening act
+        /// can sit low enough that only its superstructure is visible, and a
+        /// later act can recentre it once that superstructure is gone.
+        /// </summary>
+        public int AnchorOffsetY { get; }
+
+        /// <summary>
+        /// Ticks spent travelling from the previous anchor to this one. Zero
+        /// snaps. Interpolation is integer-exact so replays stay identical.
+        /// </summary>
+        public int AnchorTravelTicks { get; }
     }
 
     /// <summary>

@@ -37,9 +37,12 @@ namespace Shmup.Core.Tests
             }
 
             Assert.AreEqual(0, encounter.ActiveGroupIndex);
-            AssertPartWorldX(encounter, SternPartId, 19);
-            AssertPartWorldX(encounter, ForwardTurretPartId, 15);
-            AssertPartWorldX(encounter, CorePartId, 9);
+            // 경고 구간 동안 함체는 오른쪽에서 들어오는 중이다 - 아직 정박점을
+            // 지나치지 않았어야 한다.
+            Assert.GreaterOrEqual(
+                encounter.WorldX,
+                boss.WarshipEncounter.HoldX);
+            AssertPartsRideHull(encounter, boss);
 
             while (encounter.Tick < 240)
             {
@@ -48,11 +51,9 @@ namespace Shmup.Core.Tests
             }
 
             Assert.AreEqual(
-                12 * SimSpace.SubUnitsPerWorldUnit,
+                boss.WarshipEncounter.HoldX,
                 encounter.WorldX);
-            AssertPartWorldX(encounter, SternPartId, 16);
-            AssertPartWorldX(encounter, ForwardTurretPartId, 12);
-            AssertPartWorldX(encounter, CorePartId, 6);
+            AssertPartsRideHull(encounter, boss);
 
             while (encounter.Tick < LongGateObservationTick)
             {
@@ -60,9 +61,10 @@ namespace Shmup.Core.Tests
                 AssertDamageablePartsInsidePlayfield(encounter);
             }
 
-            AssertPartWorldX(encounter, SternPartId, 16);
-            AssertPartWorldX(encounter, ForwardTurretPartId, 12);
-            AssertPartWorldX(encounter, CorePartId, 6);
+            Assert.AreEqual(
+                boss.WarshipEncounter.HoldX,
+                encounter.WorldX);
+            AssertPartsRideHull(encounter, boss);
 
             encounter.Step(new[]
             {
@@ -79,25 +81,22 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual(1, encounter.ActiveGroupIndex);
                 AssertDamageablePartsInsidePlayfield(encounter);
                 if (elapsed == 640 || elapsed == 719)
-                    AssertPartWorldX(
-                        encounter,
-                        ForwardTurretPartId,
-                        -20);
+                    AssertAttritionLineParkedAtLeftEdge(encounter);
             }
 
             encounter.Step(Array.Empty<WarshipDamageCommand>());
             Assert.AreEqual(2, encounter.ActiveGroupIndex);
             Assert.AreEqual(
-                12 * SimSpace.SubUnitsPerWorldUnit,
+                boss.WarshipEncounter.HoldX,
                 encounter.WorldX);
-            AssertPartWorldX(encounter, CorePartId, 6);
+            AssertPartsRideHull(encounter, boss);
             AssertDamageablePartsInsidePlayfield(encounter);
 
             for (int tick = 0; tick < LongGateObservationTick; tick++)
             {
                 encounter.Step(Array.Empty<WarshipDamageCommand>());
                 Assert.AreEqual(2, encounter.ActiveGroupIndex);
-                AssertPartWorldX(encounter, CorePartId, 6);
+                AssertPartsRideHull(encounter, boss);
                 AssertDamageablePartsInsidePlayfield(encounter);
             }
 
@@ -160,7 +159,8 @@ namespace Shmup.Core.Tests
                 stern.X,
                 SimSpace.PlayfieldHalfWidthSubUnits);
             Assert.AreEqual(
-                16 * SimSpace.SubUnitsPerWorldUnit,
+                plan.WarshipEncounter.HoldX
+                    + FindPartOffsetX(RepositoryFortressBoss(), SternPartId),
                 stern.X);
 
             int hpBefore = stern.Hp;
@@ -191,6 +191,61 @@ namespace Shmup.Core.Tests
                     SimSpace.PlayfieldHalfWidthSubUnits,
                     $"tick={encounter.Tick} part={part.PartId}");
             }
+        }
+
+        /// <summary>
+        /// 파츠가 **함체를 타고 간다**는 것을 검증한다.
+        ///
+        /// 예전에는 파츠마다 절대 월드 좌표(19·15·9…)를 박아 뒀는데, 함체 크기나
+        /// 파츠 배치를 조정할 때마다 이 테스트가 깨졌다 - 검증하려던 성질(파츠가
+        /// 함체에 붙어 함께 움직인다)과는 무관한 실패다. 관계식으로 바꾼다.
+        /// </summary>
+        static void AssertPartsRideHull(
+            WarshipEncounter encounter,
+            StageBossTemplate boss)
+        {
+            for (int i = 0; i < boss.Parts.Count; i++)
+            {
+                BossPartDefinition definition = boss.Parts[i];
+                Assert.AreEqual(
+                    encounter.WorldX + definition.OffsetX,
+                    FindPart(encounter, definition.PartId).X,
+                    $"tick={encounter.Tick} part={definition.PartId}");
+            }
+        }
+
+        static int FindPartOffsetX(
+            StageBossTemplate boss,
+            string partId)
+        {
+            for (int i = 0; i < boss.Parts.Count; i++)
+                if (boss.Parts[i].PartId == partId)
+                    return boss.Parts[i].OffsetX;
+            throw new InvalidOperationException(
+                $"Part '{partId}' is missing from the fortress template.");
+        }
+
+        /// <summary>
+        /// 소모전 구간은 **살아 있는 가장 왼쪽 파츠가 화면 왼쪽 끝에 닿을 때까지만**
+        /// 흘러간다. 예전에는 특정 포탑 하나의 좌표를 박아 확인했는데, 파츠 배치를
+        /// 바꾸면 "가장 왼쪽"이 다른 포탑이 되어 무관하게 깨졌다. 성질로 검증한다.
+        /// </summary>
+        static void AssertAttritionLineParkedAtLeftEdge(
+            WarshipEncounter encounter)
+        {
+            int leftmost = int.MaxValue;
+            for (int i = 0; i < encounter.Parts.Count; i++)
+            {
+                WarshipPartState part = encounter.Parts[i];
+                if (!part.Active || part.Destroyed)
+                    continue;
+                if (part.X < leftmost)
+                    leftmost = part.X;
+            }
+            Assert.AreEqual(
+                -SimSpace.PlayfieldHalfWidthSubUnits,
+                leftmost,
+                $"tick={encounter.Tick}");
         }
 
         static void AssertPartWorldX(

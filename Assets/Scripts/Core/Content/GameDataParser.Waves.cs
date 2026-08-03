@@ -768,7 +768,13 @@ namespace Shmup.Core.Content
                         RequireArray(
                             group.partIds,
                             groupPath + ".partIds"),
-                        group.advanceAfterTicks ?? 0);
+                        group.advanceAfterTicks ?? 0,
+                        group.anchorOffsetY.HasValue
+                            ? ToSubUnits(
+                                group.anchorOffsetY.Value,
+                                groupPath + ".anchorOffsetY")
+                            : 0,
+                        group.anchorTravelTicks ?? 0);
                 }
                 catch (ArgumentException exception)
                 {

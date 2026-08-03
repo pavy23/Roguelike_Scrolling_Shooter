@@ -1568,6 +1568,10 @@ namespace Shmup.Core.Simulation
         int WarshipActiveGroupIndex { get; }
         int WarshipDestroyedAttritionParts { get; }
         int WarshipCoreOpeningWays { get; }
+        /// <summary>Vertical staging offset of the hull, in sub-units. 0 off-warship.</summary>
+        int WarshipAnchorOffsetY { get; }
+        /// <summary>How far this act's vertical move has run, in thousandths.</summary>
+        int WarshipAnchorTravelPermille { get; }
         void Step(in InputCommand input);
     }
 
@@ -2806,6 +2810,14 @@ namespace Shmup.Core.Simulation
             _warshipEncounter == null
                 ? 0
                 : _warshipEncounter.DestroyedAttritionParts;
+        public int WarshipAnchorOffsetY =>
+            _warshipEncounter != null ? _warshipEncounter.AnchorOffsetY : 0;
+
+        public int WarshipAnchorTravelPermille =>
+            _warshipEncounter != null
+                ? _warshipEncounter.AnchorTravelPermille
+                : 1000;
+
         public int WarshipCoreOpeningWays =>
             _warshipEncounter == null
                 ? 0
@@ -6219,7 +6231,12 @@ namespace Shmup.Core.Simulation
         void SyncWarshipPositionAndVulnerability()
         {
             _bossX = _warshipEncounter.WorldX;
-            _bossY = _warshipDefinition.OriginY;
+            // The hull stages vertically between acts (REQ-139), so the body
+            // origin has to follow the anchor - otherwise the hit box stays put
+            // while the art moves, which is the exact mismatch that produced
+            // five "no damage" reports on the stern (see commit c3df07c).
+            _bossY = _warshipDefinition.OriginY
+                + _warshipEncounter.AnchorOffsetY;
             RefreshBossPartPositions();
         }
 
