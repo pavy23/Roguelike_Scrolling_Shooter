@@ -1200,11 +1200,18 @@ namespace Shmup.EditorTools
             SetReference(warshipView, "_pixelSprite", whiteSprite);
             SetReference(warshipView, "_hullSprite",
                 LoadExternalSprite("warship_hull.png", "warship_hull"));
+            // 함미·함수는 전용 아트가 들어오기 전까지 다른 보스 스프라이트를 빌려 썼는데,
+            // 사람이 스크린샷을 보고 "전함·코어·로봇 세 보스가 하나로 보인다"고 지적했다.
+            // 빌린 그림이 각자 다른 보스의 조형이라 배의 일부로 안 읽힌 것이다.
+            // 이제 함체와 같은 팔레트로 그린 전용 파츠를 쓰고, 없을 때만 옛 스프라이트로
+            // 되돌아간다 (art-input이 없는 클론에서도 씬 재생성이 아트를 잃지 않게).
             SetReference(warshipView, "_sternSprite",
-                LoadExternalSprite("boss_fortress.png", "boss_fortress"));
+                LoadExternalSprite("warship_stern.png", "warship_stern")
+                ?? LoadExternalSprite("boss_fortress.png", "boss_fortress"));
             SetReference(warshipView, "_turretSprite", laserTurretSprite);
             SetReference(warshipView, "_coreSprite",
-                LoadExternalSprite("boss_core.png", "boss_core"));
+                LoadExternalSprite("warship_core.png", "warship_core")
+                ?? LoadExternalSprite("boss_core.png", "boss_core"));
             // 전함이 떠 있는 동안 범용 파츠 오버레이는 비켜난다 (회색 사각 이중 표시 방지)
             SetReference(partsView, "_warshipView", warshipView);
 

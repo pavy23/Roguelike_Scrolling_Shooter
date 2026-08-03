@@ -53,6 +53,7 @@ SpriteAtlas:
     packedSpriteRenderDataKeys:
     - 954173008d05e4e42a567ab770ae6256: 21300000
     - 3b029c00c8285f94ea29c32ddede2078: 21300000
+    - 61dc3e00ca59a3246a533f9ca4ff0d96: 21300000
     - 3d127f00e54e0e54b98de63277603869: 21300000
     - c252bb40ed75f474e91deb0463db8c04: 21300000
     - 16745050ece65ff449571fdb7dd83aab: 21300000
@@ -286,6 +287,7 @@ SpriteAtlas:
     - 6af6dc1d5b5690449b03a7cb228e4c7e: 21300000
     - 61eaa02de2beef64e82e022b231b90d5: 21300000
     - 0ca3ac2d770a2e4439769590d4ae7ee0: 21300000
+    - 00c87e2d9b0aa354e8f064768a2c68af: 21300000
     - 48287e3d992542d4585ef77c6d64ec72: 21300000
     - 497d194df2de4274f888dc6f78005343: 21300000
     - 44424e4d97623ec488fe1585b4e1683b: 21300000
@@ -346,6 +348,7 @@ SpriteAtlas:
   m_PackedSprites:
   - {fileID: 21300000, guid: 954173008d05e4e42a567ab770ae6256, type: 3}
   - {fileID: 21300000, guid: 3b029c00c8285f94ea29c32ddede2078, type: 3}
+  - {fileID: 21300000, guid: 61dc3e00ca59a3246a533f9ca4ff0d96, type: 3}
   - {fileID: 21300000, guid: 3d127f00e54e0e54b98de63277603869, type: 3}
   - {fileID: 21300000, guid: c252bb40ed75f474e91deb0463db8c04, type: 3}
   - {fileID: 21300000, guid: 16745050ece65ff449571fdb7dd83aab, type: 3}
@@ -579,6 +582,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 6af6dc1d5b5690449b03a7cb228e4c7e, type: 3}
   - {fileID: 21300000, guid: 61eaa02de2beef64e82e022b231b90d5, type: 3}
   - {fileID: 21300000, guid: 0ca3ac2d770a2e4439769590d4ae7ee0, type: 3}
+  - {fileID: 21300000, guid: 00c87e2d9b0aa354e8f064768a2c68af, type: 3}
   - {fileID: 21300000, guid: 48287e3d992542d4585ef77c6d64ec72, type: 3}
   - {fileID: 21300000, guid: 497d194df2de4274f888dc6f78005343, type: 3}
   - {fileID: 21300000, guid: 44424e4d97623ec488fe1585b4e1683b, type: 3}
@@ -638,6 +642,7 @@ SpriteAtlas:
   m_PackedSpriteNamesToIndex:
   - anim_zako_tank_02
   - fort_far
+  - warship_core
   - anim_mortar_drone_03
   - anim_mini_horror_00
   - enemy_void_moth
@@ -871,6 +876,7 @@ SpriteAtlas:
   - enemy_mini_horror
   - anim_boss_fortress_02
   - anim_phase_disc_04
+  - warship_stern
   - anim_guardian_02
   - enemy_mortar_drone
   - ship_anim_00

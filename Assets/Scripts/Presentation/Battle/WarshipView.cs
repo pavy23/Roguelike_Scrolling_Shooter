@@ -13,14 +13,15 @@ namespace Shmup.Presentation.Battle
     /// 그룹 순서와 역할은 <see cref="BattleDirector.WarshipEncounter"/>(waves.json 계약)가 준다.
     /// 여기서는 **그리기만** 한다 — 어떤 그룹이 열리는지는 Core가 정한다.
     ///
-    /// 함체 아트가 아직 없다. 새로 그리지 않고 **조립**한다 (art-sample-approval:
-    /// 조형급 아트의 절차 생성 금지):
-    ///   1. 실루엣 — px_white 판 3장(중앙 척추 + 상/하 갑판 레일)을 파츠 오프셋에서
-    ///      산출한 크기로 깔아 "길고 어두운 함체"의 윤곽만 만든다. 조형이 아니라 그림자다.
-    ///   2. 하드포인트 — 기존 스프라이트를 파츠 위치에 그대로 얹는다.
-    ///      함미=boss_fortress, 포탑=obstacle_laser_turret, 함수=boss_core.
-    ///   3. 아트 슬롯 — art-input/warship_hull.png이 들어오면 1의 판 3장을 그 한 장이
-    ///      대체한다(하드포인트는 그대로). 씬 재생성만으로 교체된다.
+    /// 아트 (2026-08-03 사람 지시로 전용 아트 확정 — 그전까지는 임시 조립이었다):
+    ///   1. 함체 — art-input/warship_hull.png 한 장. 없으면 px_white 판 3장(척추 + 상/하
+    ///      갑판 레일)으로 어두운 윤곽만 그리는 예전 조립으로 되돌아간다.
+    ///   2. 하드포인트 — 함미=warship_stern, 함수=warship_core, 포탑=obstacle_laser_turret.
+    ///      함미·함수는 예전에 boss_fortress/boss_core를 빌려 썼는데, 각자 다른 보스의
+    ///      조형이라 사람이 "전함·코어·로봇 세 보스가 하나로 보인다"고 지적했다.
+    ///      지금은 함체와 같은 팔레트의 전용 파츠다 (파일이 없으면 옛 스프라이트로 폴백).
+    ///   3. 장착 기둥 — 갑판 포탑은 판정상 ±3.5유닛까지 벌어져 함체 그림 밖에 선다.
+    ///      판정은 Core 소관이라 옮기지 않고, 함체에서 포탑까지 기둥을 그려 잇는다.
     ///
     /// 그룹 피드백은 **Core가 말한 것만** 말한다:
     ///   - 파괴된 파츠      → 그을린 잔해 (함체는 계속 남는다)
@@ -44,6 +45,18 @@ namespace Shmup.Presentation.Battle
         // 겹치는 면적이 거의 없다 — 순서가 갈리지 않아도 눈에 잡히지 않는다.
         const int HullOrder = 4;
         const int HardpointOrder = 16;
+        /// <summary>장착 기둥은 함체 위·포탑 아래에 깐다.</summary>
+        const int PylonOrder = 10;
+        /// <summary>
+        /// 함체 그림의 반높이(유닛). warship_hull.png의 불투명 영역이 ±3.09유닛이라
+        /// 여기서부터가 "배 밖"이다. 기둥은 이 선부터 포탑까지만 그린다 — 중심선에서
+        /// 시작하면 기둥이 함체를 가로질러 지나가 배를 두 동강 낸 것처럼 보인다.
+        /// </summary>
+        const float HullEdgeY = 3.0f;
+        /// <summary>기둥 두께(유닛). 포탑 폭(2.5u)보다 확실히 얇아야 받침으로 읽힌다.</summary>
+        const float PylonWidth = 0.5f;
+        /// <summary>포탑 밑동에 물리는 여유 — 이음매가 뜨면 다시 "떠 있는" 것으로 읽힌다.</summary>
+        const float PylonOverlap = 0.4f;
 
         const float HitFlashSeconds = 0.09f;
         const float ActivateFlashSeconds = 0.32f;
@@ -55,6 +68,8 @@ namespace Shmup.Presentation.Battle
 
         static readonly Color HullTint = new Color(0.10f, 0.11f, 0.14f, 0.96f);
         static readonly Color DeckTint = new Color(0.16f, 0.17f, 0.21f, 0.96f);
+        /// <summary>장착 기둥 색 — 갑판보다 어둡게 깔아 포탑이 앞으로 서게 한다.</summary>
+        static readonly Color PylonTint = new Color(0.13f, 0.14f, 0.17f, 1f);
         static readonly Color Scorched = new Color(0.13f, 0.12f, 0.14f, 1f);
         static readonly Color DeepDim = new Color(0.30f, 0.34f, 0.42f, 1f);
         static readonly Color MildDim = new Color(0.62f, 0.64f, 0.68f, 1f);
@@ -68,11 +83,11 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Sprite _pixelSprite;
         [Tooltip("아트 슬롯: art-input/warship_hull.png. 있으면 실루엣 판을 대체한다.")]
         [SerializeField] Sprite _hullSprite;
-        [Tooltip("함미 추진기 블록 — 기존 boss_fortress 재사용.")]
+        [Tooltip("함미 추진기 블록 — art-input/warship_stern.png (없으면 boss_fortress 폴백).")]
         [SerializeField] Sprite _sternSprite;
         [Tooltip("함체 포탑 — 기존 obstacle_laser_turret 재사용.")]
         [SerializeField] Sprite _turretSprite;
-        [Tooltip("함수 코어 — 기존 boss_core 재사용.")]
+        [Tooltip("함수 코어 모듈 — art-input/warship_core.png (없으면 boss_core 폴백).")]
         [SerializeField] Sprite _coreSprite;
 
         SpriteRenderer _hullArt;
@@ -80,6 +95,15 @@ namespace Shmup.Presentation.Battle
         SpriteRenderer _deckTop;
         SpriteRenderer _deckBottom;
         readonly List<SpriteRenderer> _hardpoints = new List<SpriteRenderer>(8);
+
+        /// <summary>
+        /// 포탑 장착 파일런 (사람 지적 2026-08-03: "포탑이 배 밖에 떠 있다").
+        /// 갑판 하드포인트는 로컬 ±2.0·±3.5유닛에 서는데 함체 그림은 ±3.1유닛까지라
+        /// 바깥쪽 두 문이 허공에 뜬다. 판정 위치는 Core가 정하므로 옮길 수 없고,
+        /// 옮겨서도 안 된다 — 대신 함체에서 포탑까지 짧은 기둥을 그려 "여기 달려 있다"를
+        /// 만든다. 순수 장식이라 판정과 무관하다.
+        /// </summary>
+        readonly List<SpriteRenderer> _pylons = new List<SpriteRenderer>(8);
         readonly List<int> _partGroup = new List<int>(8);
         readonly List<int> _lastHp = new List<int>(8);
         readonly List<float> _hitFlash = new List<float>(8);
@@ -149,6 +173,8 @@ namespace Shmup.Presentation.Battle
             // 런 하나에 수십 개가 쌓인다 (게임 루프 Instantiate 금지, CLAUDE.md).
             for (int i = 0; i < _hardpoints.Count; i++)
                 SetEnabled(_hardpoints[i], false);
+            for (int i = 0; i < _pylons.Count; i++)
+                SetEnabled(_pylons[i], false);
             _partGroup.Clear();
             _lastHp.Clear();
             _hitFlash.Clear();
@@ -282,6 +308,44 @@ namespace Shmup.Presentation.Battle
             FitHardpointToHitbox(renderer, FindPartDefinition(part.PartId));
         }
 
+        /// <summary>
+        /// 갑판 포탑을 함체에 잇는 장착 기둥. 보스 중심선(y=0)에서 포탑까지 세로로
+        /// 깔고, 포탑 스프라이트 뒤(HullOrder와 HardpointOrder 사이)에 둔다.
+        /// 파괴된 파츠에는 그리지 않는다 — 떨어져 나간 자리에 기둥만 남으면 이상하다.
+        /// </summary>
+        void SyncPylon(int index, Vector3 partLocal, bool destroyed)
+        {
+            float offsetY = partLocal.y - (_root != null ? _root.localPosition.y : 0f);
+            // 함체 안에 있는 파츠는 기둥이 필요 없다 — 함미·코어와 안쪽 갑판 포탑이 여기다.
+            float outward = Mathf.Abs(offsetY) - HullEdgeY;
+            bool needed = !destroyed && outward > 0f;
+
+            while (_pylons.Count <= index) _pylons.Add(null);
+            if (!needed)
+            {
+                SetEnabled(_pylons[index], false);
+                return;
+            }
+            if (_pylons[index] == null)
+            {
+                _pylons[index] = EnsurePlate(
+                    null, $"WarshipPylon_{index:D2}", _pixelSprite, PylonOrder);
+                if (_pylons[index] == null) return;
+            }
+
+            // 함체 가장자리에서 포탑까지. 양 끝을 조금씩 물려 이음매가 뜨지 않게 한다.
+            float sign = Mathf.Sign(offsetY);
+            float span = outward + PylonOverlap * 2f;
+            float edgeY = (_root != null ? _root.localPosition.y : 0f) + sign * (HullEdgeY - PylonOverlap);
+            var pylon = _pylons[index];
+            pylon.transform.localPosition = new Vector3(
+                partLocal.x, edgeY + sign * span * 0.5f, partLocal.z);
+            pylon.transform.localScale = new Vector3(
+                PylonWidth / _unitX, span / _unitY, 1f);
+            if (pylon.color != PylonTint) pylon.color = PylonTint;
+            if (!pylon.enabled) pylon.enabled = true;
+        }
+
         SpriteRenderer EnsurePlate(SpriteRenderer existing, string name, Sprite sprite, int order)
         {
             if (existing != null) return existing;
@@ -403,6 +467,7 @@ namespace Shmup.Presentation.Battle
                 if (renderer == null) continue;
 
                 renderer.transform.localPosition = SimView.ToWorld(part.X, part.Y);
+                SyncPylon(i, renderer.transform.localPosition, part.Destroyed);
 
                 if (_lastHp[i] > part.Hp && !part.Destroyed) _hitFlash[i] = 0f;
                 _lastHp[i] = part.Hp;
@@ -464,6 +529,8 @@ namespace Shmup.Presentation.Battle
             SetEnabled(_deckBottom, false);
             for (int i = 0; i < _hardpoints.Count; i++)
                 SetEnabled(_hardpoints[i], false);
+            for (int i = 0; i < _pylons.Count; i++)
+                SetEnabled(_pylons[i], false);
             _partGroup.Clear();
             _lastHp.Clear();
             _hitFlash.Clear();
