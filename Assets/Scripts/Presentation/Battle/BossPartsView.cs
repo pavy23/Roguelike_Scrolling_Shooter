@@ -58,15 +58,34 @@ namespace Shmup.Presentation.Battle
         {
             EnsureRingSprite();
             if (_markSprite != null) return;
-            // 흰색 1px 스프라이트를 런타임 생성 (틴트만 바꿔 쓰므로 아트 파일이 불필요)
-            var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false)
+            // 가장자리가 부드러운 **원형 감쇠** 스프라이트를 런타임 생성한다.
+            //
+            // 예전에는 흰색 1px이었다. 그걸 파츠 크기로 늘리면 가장자리가 칼같이
+            // 잘린 직사각형이 되어, 색을 무엇으로 하든 "판때기"로 읽혔다 (흰색일 때
+            // 지적받고 빨강으로 바꿨더니 이번엔 붉은 판이 됐다). 가장자리가 흐려지면
+            // 같은 알파라도 **빛**으로 읽힌다.
+            const int size = 32;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
             {
-                filterMode = FilterMode.Point
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
             };
-            texture.SetPixel(0, 0, Color.white);
+            float half = (size - 1) * 0.5f;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    // 정규화 반경 → 안쪽은 꽉 차고 바깥 30%에서만 사그라진다.
+                    float dx = (x - half) / half;
+                    float dy = (y - half) / half;
+                    float r = Mathf.Sqrt(dx * dx + dy * dy);
+                    float a = Mathf.Clamp01(1f - Mathf.InverseLerp(0.55f, 1f, r));
+                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, a * a));
+                }
+            }
             texture.Apply();
             _markSprite = Sprite.Create(
-                texture, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f), 16f);
+                texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 16f);
         }
 
         /// <summary>
@@ -144,7 +163,11 @@ namespace Shmup.Presentation.Battle
             {
                 var part = parts[i];
                 var overlay = GetOverlay(part.PartId);
-                overlay.transform.localPosition = SimView.ToWorld(part.X, part.Y);
+                // 본체 그림이 숨쉬며 흔들리므로(BattleDirector.BossIdleOffsetY) 파츠
+                // 표시도 같은 오프셋을 탄다 — 둘이 따로 놀면 피격 표시가 몸에서
+                // 떨어져 나온 것처럼 보인다.
+                overlay.transform.localPosition = SimView.ToWorld(part.X, part.Y)
+                    + new Vector3(0f, _director != null ? _director.BossIdleOffsetY : 0f, 0f);
                 // 오버레이 크기 = 파츠 **판정** 크기. 예전에는 전 파츠 공통 3.5×3.5 고정이라
                 // 피격 플래시·파괴 그을림이 실제로 맞는 범위와 어긋났다 — 작은 포탑에는
                 // 과하게 크고, 큰 파츠에는 모자랐다. 방마다 정의가 바뀌므로 매 프레임 맞춘다.
@@ -173,22 +196,28 @@ namespace Shmup.Presentation.Battle
                 else if (age < FlashDuration)
                 {
                     _flashAge[part.PartId] = age + Time.deltaTime;
-                    // 큰 파츠에 균일한 흰 채움을 얹으면 "흰 판때기"가 되어 아트를 통째로
-                    // 덮는다 (미지의 구역 레비아탄 머리에서 실제로 그렇게 보였다 —
-                    // 무적 표시를 테두리로 바꾼 것과 같은 계열의 문제다).
-                    // 두 가지로 나눠 막는다:
-                    //   1) 면적이 클수록 알파를 낮춘다 — 작은 포탑은 스파크, 큰 파츠는 홍조
-                    //   2) 시간에 따라 감쇠 — 상수 알파는 지속되는 판으로 읽힌다
-                    //   3) 색은 **빨강**이다 — 흰색은 배경·보스 아트와 섞여 "하얀 박스"로만
-                    //      읽혔다 (사람 보고 2026-08-04: "피격받을때 하얀색 박스만 보여서
-                    //      이상해. 파츠 붉은 빛 나게 해줘"). 맞고 있다는 신호는 배경과
-                    //      확실히 갈라져야 하고, 무적일 때의 청록과도 갈라져야 한다.
+                    // 색은 **빨강**이다 — 흰색은 배경·보스 아트와 섞여 그냥 밝은 판으로
+                    // 읽혔다 (사람 보고 2026-08-04: "피격받을때 하얀색 박스만 보여서
+                    // 이상해. 파츠 붉은 빛 나게 해줘"). 무적의 청록과도 갈라진다.
+                    //
+                    // 하지만 색만 바꿔서는 부족했다: 큰 파츠는 여전히 **박스**로 보인다
+                    // (색을 빨강으로 바꾼 첫 빌드에서 레비아탄 머리가 붉은 판이 됐다).
+                    // 그래서 크기로 문법을 가른다 —
+                    //   작은 파츠(포탑 등) = 채움. 면적이 작아 아트를 덮지 않고 스파크로 읽힌다.
+                    //   큰 파츠           = **테두리**. 선은 아무리 진해도 그림을 가리지 않는다.
+                    // 어느 쪽이든 시간에 따라 감쇠한다 — 상수 알파는 지속되는 판이 된다.
                     float area = overlay.size.x * overlay.size.y;
-                    float sizeScale = Mathf.Clamp01(FlashAreaReference / Mathf.Max(area, 0.01f));
                     float decay = 1f - Mathf.Clamp01(age / FlashDuration);
-                    color = new Color(
-                        HitTint.r, HitTint.g, HitTint.b,
-                        MaxFlashAlpha * sizeScale * decay);
+                    if (area > FlashAreaReference)
+                    {
+                        ring = true;
+                        color = new Color(HitTint.r, HitTint.g, HitTint.b, decay);
+                    }
+                    else
+                    {
+                        color = new Color(
+                            HitTint.r, HitTint.g, HitTint.b, MaxFlashAlpha * decay);
+                    }
                 }
                 else if (part.IsCore && part.CoreGated)
                 {

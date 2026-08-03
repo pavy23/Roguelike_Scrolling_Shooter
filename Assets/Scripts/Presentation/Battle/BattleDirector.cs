@@ -1993,9 +1993,12 @@ namespace Shmup.Presentation.Battle
             // 아래 위치·틴트 갱신은 숨겨진 동안에도 계속 돈다 — 격파 연출이 본체
             // 렌더러의 위치를 폭발 중심으로 쓰기 때문이다(TriggerBossDeathSequence).
 
-            _bossRenderer.transform.localPosition = SimView.ToWorld(_sim.Boss.X, _sim.Boss.Y);
+            _bossRenderer.transform.localPosition =
+                SimView.ToWorld(_sim.Boss.X, _sim.Boss.Y)
+                + new Vector3(0f, BossIdleOffsetY, 0f);
             if (_run != null && _run.StagePlan != null)
                 ApplyIdleAnimation(_bossRenderer, _run.StagePlan.BossId, 0);
+            ApplyIdleBreath(_bossRenderer);
 
             // 보스 피격 플래시 + 빈사 맥동 (HP 바 외에 시각 피드백이 없던 문제)
             int bossHp = _sim.Boss.Hp;
@@ -2846,6 +2849,39 @@ namespace Shmup.Presentation.Battle
                 offset += _animFrameCounts[i];
             }
             if (start + count > _animFrames.Length) count = 0;
+        }
+
+        /// <summary>
+        /// 살아 있는 것처럼 보이게 하는 **표현 전용** 아이들 모션 (사람 지시 2026-08-04:
+        /// "브루드마더가 아무런 움직임이 없어서 너무 어색해서, 뭔가 애니메이션을
+        /// 넣어야할것 같아").
+        ///
+        /// 히든 보스 두 종은 데이터상 1·2페이즈가 `stationary`라 말 그대로 미동도 없다.
+        /// 그런데 밸런스는 방금 조정을 끝낸 참이라(REQ-153) 이동 패턴을 손대면 회피
+        /// 난이도가 통째로 바뀐다. 그래서 **판정은 그대로 두고 그림만** 숨쉬게 한다.
+        ///
+        /// 폭은 일부러 작다: 20유닛짜리 보스에 0.25유닛 흔들림이면 "살아 있다"로는
+        /// 읽히면서 "그림과 판정이 어긋난다"로는 읽히지 않는다. 파츠 오버레이도 같은
+        /// 오프셋을 쓰므로 둘이 따로 놀지 않는다.
+        /// </summary>
+        public float BossIdleOffsetY =>
+            _sim != null && _sim.BossActive
+                ? Mathf.Sin(Time.time * 0.9f) * 0.25f
+                : 0f;
+
+        /// <summary>숨쉬기(가로세로 반대 위상). 프레임 애니가 있는 보스는 건드리지 않는다.</summary>
+        void ApplyIdleBreath(SpriteRenderer renderer)
+        {
+            if (renderer == null || _run == null || _run.StagePlan == null) return;
+            GetAnimRange(_run.StagePlan.BossId, out _, out int frames);
+            if (frames > 0)
+            {
+                // 진짜 프레임 애니가 있으면 그쪽이 이미 살아 있다 — 겹쳐 흔들지 않는다.
+                renderer.transform.localScale = Vector3.one;
+                return;
+            }
+            float breath = Mathf.Sin(Time.time * 1.35f) * 0.015f;
+            renderer.transform.localScale = new Vector3(1f - breath, 1f + breath, 1f);
         }
 
         void ApplyIdleAnimation(SpriteRenderer renderer, string id, int desyncSalt)
