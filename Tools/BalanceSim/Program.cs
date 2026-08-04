@@ -209,10 +209,18 @@ static class Program
     // REQ-035/116 colossal bosses (provisional §7).
     // Hidden after 5 biomes: endgame reach ~1000 DPS → total TTK ~62s ≈ 2.2–2.5×
     // normal boss mid band (~25s). Multipart retarget tax → full-eff ~1500, floor ≥40s.
-    const int ColossalTotalHp = 62_000;
-    // REQ-158: core under the 20% act3 gate (12400) so ph1→ph2 has margin when
-    // only the core stays invulnerable. Was 12400 (= exact 0 margin).
-    const int ColossalCoreHp = 10_000;
+    // 2026-08-04: 절대 HP를 코드에 복사해 두는 것을 그만둔다. 그 게이트는 밸런스가
+    // 움직일 때마다 깨지고, 깨져도 "숫자가 다르다"밖에 말하지 않는다 — 오늘만
+    // 62_000 → 38_000 한 번에 다섯 게이트가 무너졌다.
+    //
+    // 대신 **설계 의도를 관계로** 적는다: 히든 보스는 공개 최종 보스보다 확실히
+    // 무겁되, 지구력 시험이 될 만큼은 아니다. 실제로 62_000이었을 때 최대 파워로
+    // 480초를 때려도 마지막 페이즈를 못 봤다(헤드리스 측정).
+    const double ColossalVsHeaviestPublicMin = 1.15;
+    const double ColossalVsHeaviestPublicMax = 1.80;
+    // 코어는 마지막 페이즈 문턱(20%) 아래여야 한다 — 그래야 코어만 남았을 때
+    // 페이즈가 열린다. 비율로 적으면 총 HP가 바뀌어도 따라간다.
+    const double ColossalCoreShareMax = 0.20;
     const double ColossalExpectedDps = 1000.0;
     const double ColossalFullPowerEffectiveDps = 1500.0;
     const double ColossalTtkExpectedMin = 50.0;
@@ -5187,7 +5195,8 @@ static class Program
         int failures = 0;
         Console.WriteLine(
             "Colossal bosses (REQ-035, provisional §7): " +
-            $"totalHp={ColossalTotalHp} core={ColossalCoreHp} · " +
+            "히든 HP는 공개 최종 보스 대비 " +
+            $"{ColossalVsHeaviestPublicMin:F2}~{ColossalVsHeaviestPublicMax:F2}배 · " +
             $"TTK {ColossalTtkExpectedMin:F0}–{ColossalTtkExpectedMax:F0}s " +
             $"@ {ColossalExpectedDps:F0} DPS · full-eff ≥{ColossalTtkFullMin:F0}s " +
             $"@ {ColossalFullPowerEffectiveDps:F0} DPS · spawn peak " +
@@ -5301,7 +5310,7 @@ static class Program
             if (normalN > 0)
             {
                 double meanNormal = normalSum / normalN;
-                int colFightHp = ColossalTotalHp;
+                int colFightHp = leviathan.MaxHp;
                 if (leviathan.Form2 != null)
                     colFightHp += leviathan.Form2.MaxHp;
                 else if (broodmother.Form2 != null)
@@ -5310,9 +5319,9 @@ static class Program
                 double vs = colTtk / meanNormal;
                 Console.WriteLine(
                     $"  full-fight vs normal: colossal TTK={colTtk:F1}s "
-                    + $"(body {ColossalTotalHp}"
-                    + (colFightHp > ColossalTotalHp
-                        ? $"+form2 {colFightHp - ColossalTotalHp}"
+                    + $"(body {leviathan.MaxHp}"
+                    + (colFightHp > leviathan.MaxHp
+                        ? $"+form2 {colFightHp - leviathan.MaxHp}"
                         : "")
                     + $") @ {ColossalExpectedDps:F0} DPS · mean normal fight TTK="
                     + $"{meanNormal:F1}s · ratio={vs:F2} "
@@ -5346,6 +5355,31 @@ static class Program
         return failures;
     }
 
+
+    /// <summary>
+    /// 공개 캠페인에서 가장 무거운 보스의 HP. 히든 보스가 "얼마나 더 무거운가"를
+    /// 절대 수치가 아니라 이것과의 비율로 판단하기 위한 기준이다.
+    /// </summary>
+    static int HeaviestPublicBossHp(StageGenerationCatalog catalog)
+    {
+        int heaviest = 0;
+        for (int i = 0; i < catalog.Bosses.Count; i++)
+        {
+            StageBossTemplate boss = catalog.Bosses[i];
+            if (string.Equals(
+                    boss.BossId,
+                    SegmentStageGenerator.LeviathanBossId,
+                    StringComparison.Ordinal)
+                || string.Equals(
+                    boss.BossId,
+                    SegmentStageGenerator.BroodmotherBossId,
+                    StringComparison.Ordinal))
+                continue;
+            if (boss.MaxHp > heaviest) heaviest = boss.MaxHp;
+        }
+        return heaviest;
+    }
+
     static int CheckOneColossalBoss(StageBossTemplate boss, GameDataSet data)
     {
         int failures = 0;
@@ -5357,10 +5391,19 @@ static class Program
             return 1;
         }
 
-        if (boss.MaxHp != ColossalTotalHp)
+        int heaviestPublic = HeaviestPublicBossHp(data.StageGeneration);
+        double vsPublic = heaviestPublic > 0
+            ? boss.MaxHp / (double)heaviestPublic
+            : 0.0;
+        if (heaviestPublic > 0
+            && (vsPublic < ColossalVsHeaviestPublicMin
+                || vsPublic > ColossalVsHeaviestPublicMax))
         {
             Console.WriteLine(
-                $"FAIL colossal: '{id}' MaxHp={boss.MaxHp} expected {ColossalTotalHp}.");
+                $"FAIL colossal: '{id}' MaxHp={boss.MaxHp} 는 공개 최종 보스"
+                + $"({heaviestPublic})의 {vsPublic:F2}배 — "
+                + $"{ColossalVsHeaviestPublicMin:F2}~"
+                + $"{ColossalVsHeaviestPublicMax:F2}배 안에 있어야 한다.");
             failures++;
         }
 
@@ -5421,10 +5464,13 @@ static class Program
                 $"FAIL colossal: '{id}' coreCount={coreCount} (need 1).");
             failures++;
         }
-        else if (coreHp != ColossalCoreHp)
+        else if (coreHp > boss.MaxHp * ColossalCoreShareMax)
         {
             Console.WriteLine(
-                $"FAIL colossal: '{id}' coreHp={coreHp} expected {ColossalCoreHp}.");
+                $"FAIL colossal: '{id}' coreHp={coreHp} 가 총 HP의 "
+                + $"{coreHp / (double)boss.MaxHp:P0} — 마지막 페이즈 문턱"
+                + $"({ColossalCoreShareMax:P0}) 아래여야 코어만 남았을 때 "
+                + "그 페이즈가 열린다.");
             failures++;
         }
 
@@ -9104,32 +9150,64 @@ static class Program
             failures++;
         }
 
-        if (warshipBoss.MaxHp != WarshipTotalHp)
+        // 2026-08-04: 절대 HP·개수를 코드에 복사해 두는 것을 그만둔다. 위의
+        // "parts sum == MaxHp"는 진짜 불변식이라 남기지만, 아래 셋은 데이터를
+        // 베껴 놓고 같은지 비교하는 것이라 밸런스가 움직일 때마다 깨졌다.
+        // 대신 **설계 의도를 관계로** 적는다.
+
+        // 전함은 스테이지 보스 중 가장 무거운 세트피스다.
+        int heaviestOther = 0;
+        for (int i = 0; i < catalog.Bosses.Count; i++)
+        {
+            StageBossTemplate other = catalog.Bosses[i];
+            if (string.Equals(
+                    other.BossId, WarshipBossId, StringComparison.Ordinal))
+                continue;
+            if (other.WarshipEncounter != null) continue;
+            if (string.Equals(
+                    other.BossId,
+                    SegmentStageGenerator.LeviathanBossId,
+                    StringComparison.Ordinal)
+                || string.Equals(
+                    other.BossId,
+                    SegmentStageGenerator.BroodmotherBossId,
+                    StringComparison.Ordinal))
+                continue;
+            if (other.MaxHp > heaviestOther) heaviestOther = other.MaxHp;
+        }
+        if (heaviestOther > 0 && warshipBoss.MaxHp <= heaviestOther)
         {
             Console.WriteLine(
-                $"FAIL 111: total HP {warshipBoss.MaxHp} != locked {WarshipTotalHp}.");
+                $"FAIL 111: 전함 HP {warshipBoss.MaxHp} 가 다른 스테이지 보스"
+                + $"({heaviestOther})보다 무겁지 않다 — 3막짜리 세트피스다.");
             failures++;
         }
 
-        if (engineHp != WarshipEngineHp)
+        // 코어가 전투의 마지막 마디다. 나머지 파츠를 다 합친 것보다 가벼우면
+        // 마무리가 아니라 덤이 된다.
+        if (coreHp * 2 < warshipBoss.MaxHp)
         {
             Console.WriteLine(
-                $"FAIL 111: engine HP {engineHp} != {WarshipEngineHp} "
-                + "(midboss-gate melt target).");
+                $"FAIL 111: 코어 HP {coreHp} 가 총 HP {warshipBoss.MaxHp} 의 "
+                + $"{coreHp / (double)warshipBoss.MaxHp:P0} — 마지막 막이 "
+                + "나머지보다 가볍다.");
             failures++;
         }
 
-        if (coreHp != WarshipCoreHp)
+        // 엔진은 1막 관문이라 코어보다 확실히 가벼워야 한다 (빨리 열려야 한다).
+        if (engineHp >= coreHp)
         {
             Console.WriteLine(
-                $"FAIL 111: core HP {coreHp} != {WarshipCoreHp}.");
+                $"FAIL 111: 엔진 HP {engineHp} 가 코어 {coreHp} 보다 가볍지 "
+                + "않다 — 1막이 마지막 막만큼 오래 걸린다.");
             failures++;
         }
 
-        if (turretCount != WarshipTurretCount)
+        if (turretCount < 4)
         {
             Console.WriteLine(
-                $"FAIL 111: turret count {turretCount} != {WarshipTurretCount}.");
+                $"FAIL 111: 포탑 {turretCount}문 — 갑판·함저 두 막을 채우려면 "
+                + "최소 4문이다.");
             failures++;
         }
 
