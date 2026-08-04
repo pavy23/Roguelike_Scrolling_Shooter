@@ -28,6 +28,10 @@ from PIL import Image
 
 OPENAI_URL = "https://api.openai.com/v1/images/generations"
 PIXELLAB_BASE = "https://api.pixellab.ai/v2"
+# xAI 이미지 (Grok). 크기 지정을 받지 않아 정사각 고정으로 나온다 — post에서 맞춘다.
+XAI_URL = "https://api.x.ai/v1/images/generations"
+# Google Gemini 이미지 ("Nano Banana"). 생성과 **편집**이 같은 엔드포인트다.
+GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
 def _post_json(url: str, payload: dict, token: str, timeout: int = 300) -> dict:
@@ -79,7 +83,8 @@ def _find_b64_images(node) -> list:
     found = []
     if isinstance(node, dict):
         for key, value in node.items():
-            if key in ("b64_json", "base64", "image_b64") and isinstance(value, str):
+            # Gemini는 inline_data.data / inlineData.data 로 준다.
+            if key in ("b64_json", "base64", "image_b64", "data") and isinstance(value, str):
                 found.append(value)
             else:
                 found.extend(_find_b64_images(value))
@@ -121,6 +126,65 @@ def cmd_openai(args) -> None:
     for i, b64 in enumerate(images):
         target = out if len(images) == 1 else out.with_name(f"{out.stem}_{i}{out.suffix}")
         _save_b64_png(b64, target)
+
+
+def cmd_xai(args) -> None:
+    """xAI(Grok) 이미지 생성.
+
+    크기·투명 배경 파라미터가 없다. 정사각으로 나오므로 post에서 규격을 잡고,
+    투명이 필요하면 --cutout으로 배경을 뚫어야 한다.
+    """
+    token = _require_env("XAI_API_KEY")
+    payload = {
+        "model": args.model,
+        "prompt": args.prompt,
+        "n": args.n,
+        "response_format": "b64_json",
+    }
+    result = _post_json(XAI_URL, payload, token, timeout=600)
+    images = _find_b64_images(result)
+    if not images:
+        raise SystemExit(f"이미지가 응답에 없다:\n{json.dumps(result)[:2000]}")
+    out = Path(args.out)
+    for i, b64 in enumerate(images):
+        target = out if len(images) == 1 else out.with_name(f"{out.stem}_{i}{out.suffix}")
+        _save_b64_png(b64, target)
+
+
+def cmd_gemini(args) -> None:
+    """Google Gemini 이미지 ("Nano Banana"). --ref 를 주면 **편집**이 된다.
+
+    편집이 되는 것이 이 모델의 요점이다. "이 스프라이트를 그대로 두고 부서진
+    버전으로" 같은 요구는 새로 그리는 모델로는 화풍이 어긋난다 — 실제로 전함
+    잔해가 그랬다.
+    """
+    key = _require_env("GEMINI_API_KEY")
+    parts = [{"text": args.prompt}]
+    for ref in (args.ref or []):
+        parts.append({
+            "inline_data": {
+                "mime_type": "image/png",
+                "data": _b64_of(Path(ref)),
+            }
+        })
+    url = f"{GEMINI_BASE}/{args.model}:generateContent?key={key}"
+    req = urllib.request.Request(
+        url,
+        data=json.dumps({"contents": [{"parts": parts}]}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=600) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        raise SystemExit(
+            f"HTTP {e.code} from {url.split('?')[0]}\n"
+            f"{e.read().decode('utf-8', errors='replace')}") from e
+    images = _find_b64_images(result)
+    if not images:
+        raise SystemExit(f"이미지가 응답에 없다:\n{json.dumps(result)[:2000]}")
+    _save_b64_png(images[0], Path(args.out))
 
 
 def cmd_pixen(args) -> None:
@@ -329,6 +393,21 @@ def main() -> None:
     p.add_argument("--opaque", action="store_true",
                    help="투명 배경을 끈다 — 패럴랙스 원경처럼 꽉 찬 장면용")
     p.set_defaults(func=cmd_openai)
+
+    p = sub.add_parser("xai", help="xAI(Grok) 이미지 — 크기·투명 지정 없음")
+    p.add_argument("--prompt", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument("--model", default="grok-2-image-1212")
+    p.add_argument("--n", type=int, default=1)
+    p.set_defaults(func=cmd_xai)
+
+    p = sub.add_parser("gemini", help="Gemini 이미지(Nano Banana) — --ref로 편집")
+    p.add_argument("--prompt", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument("--model", default="gemini-2.5-flash-image")
+    p.add_argument("--ref", action="append",
+                   help="참조/편집 대상 png (여러 번 줄 수 있다)")
+    p.set_defaults(func=cmd_gemini)
 
     p = sub.add_parser("pixen", help="PixelLab pixen으로 네이티브 저해상도 스프라이트 생성")
     p.add_argument("--prompt", required=True)
