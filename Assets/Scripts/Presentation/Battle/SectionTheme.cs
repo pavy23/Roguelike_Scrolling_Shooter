@@ -468,6 +468,121 @@ namespace Shmup.Presentation.Battle
                     particle = SectionParticle.Ember, particleDensity = 0.6f,
                     landmarkSlot = "core_landmark",
                     landmarkScaleStart = 1.6f, landmarkScaleEnd = 1.6f
+                },
+
+                // ── 히든 심해 (레비아탄) ────────────────────────────────────────
+                // 히든 구간은 방 하나 뒤 곧바로 보스다(REQ-159). 그래서 밝음→어둠의
+                // 긴 여정을 쓸 수 없다 — 처음부터 어둡게 시작해서 **더** 어두워진다.
+                // 색은 청록 단색. 공개 다섯 테마 어느 것과도 겹치지 않아야
+                // "여긴 지도에 없는 곳"으로 읽힌다.
+                new SectionTheme
+                {
+                    themeId = "abyss", section = SectionKind.Early, enterSeconds = 2f,
+                    wash = C(0.04f, 0.16f, 0.22f, 0.34f),
+                    layers = L(C(0.30f, 0.52f, 0.62f, 0.85f), 0.85f,
+                               C(0.42f, 0.70f, 0.78f), 0.90f,
+                               C(0.38f, 0.64f, 0.74f), 0.95f,
+                               C(0.32f, 0.56f, 0.68f), 1.00f,
+                               farSlot: "abyss_far_dusk", nearSlot: "abyss_fg"),
+                    particle = SectionParticle.Mote, particleDensity = 0.7f
+                },
+                new SectionTheme
+                {
+                    // 히든에는 중간보스가 없다. 등록해 두는 건 중립으로 떨어지지
+                    // 않게 하려는 안전장치일 뿐이다.
+                    themeId = "abyss", section = SectionKind.MidBoss, enterSeconds = 8f,
+                    wash = C(0.03f, 0.13f, 0.19f, 0.38f),
+                    layers = L(C(0.26f, 0.46f, 0.56f, 0.85f), 0.90f,
+                               C(0.38f, 0.64f, 0.74f), 0.95f,
+                               C(0.34f, 0.58f, 0.70f), 1.00f,
+                               C(0.28f, 0.50f, 0.64f), 1.05f,
+                               farSlot: "abyss_far_dusk", nearSlot: "abyss_fg"),
+                    particle = SectionParticle.Mote, particleDensity = 0.8f
+                },
+                new SectionTheme
+                {
+                    // 유일한 접근 구간. 수압이 조여 오듯 어두워지고, 저 앞에
+                    // 레비아탄보다 먼저 죽은 것의 골격이 다가온다.
+                    themeId = "abyss", section = SectionKind.Late, enterSeconds = 3f,
+                    enterShake = 0.35f,
+                    wash = C(0.02f, 0.09f, 0.14f, 0.44f),
+                    layers = L(C(0.18f, 0.34f, 0.44f, 0.90f), 0.95f,
+                               C(0.30f, 0.54f, 0.66f), 1.05f,
+                               C(0.26f, 0.48f, 0.62f), 1.15f,
+                               C(0.22f, 0.42f, 0.58f), 1.25f,
+                               farSlot: "abyss_far_dark", nearSlot: "abyss_fg"),
+                    particle = SectionParticle.Mote, particleDensity = 1.0f,
+                    landmarkSlot = "abyss_landmark",
+                    landmarkScaleStart = 0.7f, landmarkScaleEnd = 1.5f,
+                    landmarkGrowSeconds = 40f
+                },
+                new SectionTheme
+                {
+                    // 보스전 — 골격이 지나가고 나면 물이 완전히 죽는다.
+                    themeId = "abyss", section = SectionKind.Boss, enterSeconds = 2.5f,
+                    wash = C(0.02f, 0.07f, 0.11f, 0.50f),
+                    washPulseAmplitude = 0.08f, washPulseHz = 0.28f,
+                    layers = L(C(0.12f, 0.24f, 0.32f, 0.95f), 0.60f,
+                               C(0.24f, 0.46f, 0.58f), 0.65f,
+                               C(0.22f, 0.42f, 0.55f), 0.70f,
+                               C(0.18f, 0.36f, 0.50f), 0.75f,
+                               farSlot: "abyss_far_dark", nearSlot: "abyss_fg"),
+                    particle = SectionParticle.Mote, particleDensity = 0.5f
+                },
+
+                // ── 히든 둥지 (브루드마더) ──────────────────────────────────────
+                // abyss가 "차갑고 단단하다"면 여기는 "덥고 물렁하다". 두 히든
+                // 스테이지가 서로도 확실히 달라야 어느 쪽을 뽑았는지가 사건이 된다.
+                new SectionTheme
+                {
+                    themeId = "brood", section = SectionKind.Early, enterSeconds = 2f,
+                    wash = C(0.26f, 0.06f, 0.16f, 0.30f),
+                    layers = L(C(0.62f, 0.34f, 0.46f, 0.85f), 0.85f,
+                               C(0.78f, 0.46f, 0.52f), 0.90f,
+                               C(0.74f, 0.42f, 0.50f), 0.95f,
+                               C(0.68f, 0.38f, 0.48f), 1.00f,
+                               farSlot: "brood_far_dusk", nearSlot: "brood_fg"),
+                    particle = SectionParticle.Mote, particleDensity = 0.6f
+                },
+                new SectionTheme
+                {
+                    themeId = "brood", section = SectionKind.MidBoss, enterSeconds = 8f,
+                    wash = C(0.22f, 0.05f, 0.14f, 0.34f),
+                    layers = L(C(0.56f, 0.30f, 0.42f, 0.85f), 0.90f,
+                               C(0.72f, 0.42f, 0.48f), 0.95f,
+                               C(0.68f, 0.38f, 0.46f), 1.00f,
+                               C(0.62f, 0.34f, 0.44f), 1.05f,
+                               farSlot: "brood_far_dusk", nearSlot: "brood_fg"),
+                    particle = SectionParticle.Mote, particleDensity = 0.8f
+                },
+                new SectionTheme
+                {
+                    // 산란관이 천장에서 내려온다 — 알집이 부풀며 다가온다.
+                    themeId = "brood", section = SectionKind.Late, enterSeconds = 3f,
+                    enterShake = 0.3f,
+                    wash = C(0.18f, 0.04f, 0.12f, 0.40f),
+                    layers = L(C(0.44f, 0.22f, 0.34f, 0.90f), 0.95f,
+                               C(0.64f, 0.36f, 0.44f), 1.05f,
+                               C(0.60f, 0.32f, 0.42f), 1.15f,
+                               C(0.54f, 0.28f, 0.40f), 1.25f,
+                               farSlot: "brood_far_dark", nearSlot: "brood_fg"),
+                    particle = SectionParticle.Ember, particleDensity = 0.9f,
+                    landmarkSlot = "brood_landmark",
+                    landmarkScaleStart = 0.8f, landmarkScaleEnd = 1.55f,
+                    landmarkGrowSeconds = 40f
+                },
+                new SectionTheme
+                {
+                    // 보스전 — 알집이 일제히 밝아진다. 맥동이 심장 박동처럼 느리다.
+                    themeId = "brood", section = SectionKind.Boss, enterSeconds = 2.5f,
+                    wash = C(0.34f, 0.08f, 0.10f, 0.42f),
+                    washPulseAmplitude = 0.12f, washPulseHz = 0.22f,
+                    layers = L(C(0.34f, 0.16f, 0.26f, 0.95f), 0.60f,
+                               C(0.58f, 0.32f, 0.38f), 0.65f,
+                               C(0.55f, 0.30f, 0.36f), 0.70f,
+                               C(0.50f, 0.26f, 0.34f), 0.75f,
+                               farSlot: "brood_far_dark", nearSlot: "brood_fg"),
+                    particle = SectionParticle.Ember, particleDensity = 0.7f
                 }
             };
         }

@@ -107,7 +107,7 @@ def cmd_openai(args) -> None:
         "model": args.model,
         "prompt": args.prompt,
         "size": args.size,
-        "background": "transparent",
+        "background": "opaque" if getattr(args, "opaque", False) else "transparent",
         "output_format": "png",
         "n": args.n,
     }
@@ -313,6 +313,11 @@ def main() -> None:
     p.add_argument("--size", default="1024x1024")
     p.add_argument("--quality", default="high")
     p.add_argument("--n", type=int, default=1)
+    # 스프라이트는 투명 배경이 맞지만 **원경 배경은 화면을 꽉 채워야 한다**.
+    # 투명을 강제하면 모델이 하늘/바닥을 비워 버려서, 가로 타일링 크로스페이드가
+    # 그 빈 곳을 좌우 대칭 유령으로 만든다 (abyss/brood 1차 시도에서 실제로 그랬다).
+    p.add_argument("--opaque", action="store_true",
+                   help="투명 배경을 끈다 — 패럴랙스 원경처럼 꽉 찬 장면용")
     p.set_defaults(func=cmd_openai)
 
     p = sub.add_parser("pixen", help="PixelLab pixen으로 네이티브 저해상도 스프라이트 생성")

@@ -28,7 +28,7 @@ from PIL import Image
 W, H = 640, 360
 DEFAULT_OUT = Path(__file__).resolve().parents[3] / "art-input"
 
-PREFIXES = ["scrap", "hive", "fort", "nebula", "core"]
+PREFIXES = ["scrap", "hive", "fort", "nebula", "core", "abyss", "brood"]
 
 
 # ── 공통 ──────────────────────────────────────────────────────────────────────
@@ -171,6 +171,22 @@ FAR_RAMPS = {
         [(5, 8, 18), (13, 22, 46), (24, 44, 80), (38, 74, 122), (62, 116, 172), (112, 178, 224)],
         [(16, 96, 128), (28, 140, 180), (60, 188, 224), (140, 236, 250)],
     ),
+    # 히든 심해 — 청록 단색에 가깝다. 다섯 공개 테마 중 어느 것과도 색이 겹치지
+    # 않아야 "여긴 다른 곳"으로 읽힌다. 액센트는 생물발광(차가운 청록/백색).
+    "abyss": (
+        [(8, 14, 20), (16, 30, 40), (26, 50, 62), (40, 74, 86), (62, 104, 112), (110, 152, 152)],
+        [(16, 92, 104), (28, 138, 148), (66, 190, 194), (158, 240, 236)],
+        [(3, 6, 10), (8, 16, 24), (14, 28, 40), (22, 44, 60), (34, 66, 86), (62, 108, 128)],
+        [(10, 68, 84), (18, 108, 128), (40, 158, 176), (110, 216, 226)],
+    ),
+    # 히든 둥지 — 자홍/보라 살덩이. abyss와 정반대 색상환에 두어 두 히든 스테이지가
+    # 서로도 확실히 달라 보이게 한다. 액센트는 알집의 병든 호박색.
+    "brood": (
+        [(22, 10, 22), (48, 20, 42), (80, 34, 62), (116, 54, 80), (158, 86, 102), (208, 148, 152)],
+        [(148, 84, 22), (198, 124, 32), (238, 172, 60), (255, 220, 140)],
+        [(8, 4, 12), (20, 9, 24), (36, 16, 40), (56, 26, 58), (82, 44, 80), (128, 82, 118)],
+        [(112, 56, 14), (162, 92, 24), (212, 138, 44), (250, 200, 110)],
+    ),
 }
 
 BASE_STOPS = 16
@@ -242,6 +258,10 @@ FG_PALETTES = {
                (122, 112, 160), (72, 60, 140), (112, 96, 190), (162, 152, 232), (222, 216, 252)],
     "core": [(10, 14, 22), (20, 28, 42), (32, 44, 64), (48, 64, 90), (68, 90, 122),
              (96, 124, 158), (18, 96, 130), (30, 150, 194), (70, 204, 238), (162, 244, 252)],
+    "abyss": [(6, 12, 16), (12, 22, 30), (20, 36, 46), (30, 54, 66), (44, 76, 88),
+              (64, 104, 114), (14, 86, 98), (26, 134, 146), (62, 188, 194), (150, 238, 234)],
+    "brood": [(16, 8, 16), (30, 14, 28), (48, 24, 42), (70, 36, 58), (98, 54, 76),
+              (132, 80, 100), (128, 66, 18), (180, 106, 28), (226, 158, 54), (250, 212, 128)],
 }
 
 
@@ -555,9 +575,113 @@ def fg_core(rng):
     return idx
 
 
+def fg_abyss(rng):
+    """해구 바닥 — 무너진 침전 능선 + 굴뚝 열수공 + 위에서 내려오는 종유석.
+
+    심해의 압박감은 "위아래가 좁다"로 온다. 바닥과 천장을 둘 다 두껍게 물려서
+    플레이 통로를 가운데로 눌러 둔다 — 히든 구간이 공개 스테이지보다 답답해야 한다.
+    """
+    idx = np.zeros((H, W), np.uint8)
+    r = ridge1d(rng, [(1, 8), (2, 6), (4, 4), (7, 3), (12, 2), (20, 1.2)])
+    mounds, tops = _peaks(rng, 4, 26, 54, 34, 70)        # 침전 둔덕
+    height = np.clip(52 + r + mounds, 26, 132)
+    _fill_below(idx, height)
+
+    # 침전층 — 가로로 길게 눌린 무늬. 물속에 쌓인 것이라 결이 수평이다.
+    n = fbm2(rng, H, W, base=26, octaves=3)
+    yy = np.arange(H)[:, None]
+    inside = yy >= (H - height)[None, :]
+    band = (yy // 3) % 2 == 0
+    idx[inside & band & (n > 0.58)] = MID
+    idx[inside & (n < 0.30)] = DEEP
+
+    # 열수공 굴뚝 — 가늘고 높게 솟아 검은 연기를 뿜는다.
+    for cx in tops:
+        for _ in range(2):
+            x = int((cx + rng.integers(-40, 41)) % W)
+            base = H - height[x] + 3
+            hgt = int(rng.integers(30, 78))
+            for y in range(hgt):
+                half = max(1.5, 5.5 * (1 - y / hgt) + 1.0)
+                rect(idx, x - half, base - y, half * 2, 1, DARK)
+                rect(idx, x - half, base - y, 1, 1, MID)
+            disc(idx, x, base - hgt, 2.4, ACC0)          # 분출구
+            for k in range(5):                            # 흩어지는 연기 기둥
+                disc(idx, x + rng.integers(-6, 7), base - hgt - 6 - k * 7,
+                     rng.uniform(2.0, 4.4), DEEP)
+
+    # 생물발광 — 어둠 속에 떠 있는 점광. 이 테마의 유일한 밝은 것이다.
+    for _ in range(70):
+        x = int(rng.integers(0, W))
+        y = int(rng.integers(30, H - 20))
+        disc(idx, x, y, rng.uniform(0.8, 1.8), ACC1)
+        if rng.random() < 0.3:
+            disc(idx, x, y, 0.7, ACC3)
+
+    # 천장 종유석 — 바닥보다 길게 내려서 통로를 좁힌다.
+    ct = ridge1d(rng, [(1, 7), (3, 5), (6, 4), (11, 2.5), (18, 1.5)])
+    _fill_above(idx, np.clip(30 + np.abs(ct), 10, 66))
+    for i in range(14):
+        cx = int((i + 0.5) * W / 14 + rng.integers(-10, 10))
+        hgt = int(rng.integers(24, 78))
+        for y in range(hgt):
+            half = max(1.5, 7 * (1 - y / hgt))
+            rect(idx, cx - half, y, half * 2, 1, DARK)
+            rect(idx, cx - half, y, 1, 1, MID)
+        disc(idx, cx, hgt, 1.8, ACC2)                    # 끝의 발광점
+    return idx
+
+
+def fg_brood(rng):
+    """둥지 내벽 — 살덩이 둔덕 + 알집 무더기 + 위에서 늘어진 힘줄.
+
+    abyss가 "단단하고 차갑다"면 여기는 "물렁하고 축축하다". 실루엣을 둥글게
+    가고 수직선을 늘어지게 해서 같은 좁은 통로라도 체감이 다르게 만든다.
+    """
+    idx = np.zeros((H, W), np.uint8)
+    r = ridge1d(rng, [(1, 7), (2, 6), (3, 5), (5, 3.5), (9, 2)])
+    r = r * 0.4 + np.abs(r) * 0.2                        # 둥글게 — 뾰족함을 죽인다
+    lumps, tops = _peaks(rng, 6, 24, 52, 40, 84)
+    height = np.clip(46 + r + lumps, 22, 126)
+    _fill_below(idx, height)
+
+    # 살결 — 굵고 불규칙한 얼룩
+    n = fbm2(rng, H, W, base=12, octaves=4)
+    yy = np.arange(H)[:, None]
+    inside = yy >= (H - height)[None, :]
+    idx[inside & (n > 0.60)] = BODY
+    idx[inside & (n < 0.34)] = DEEP
+
+    # 알집 무더기 — 둔덕 위에 뭉쳐 붙는다. 안쪽이 병든 호박색으로 빛난다.
+    for cx in tops:
+        for _ in range(7):
+            x = int((cx + rng.integers(-46, 47)) % W)
+            y = int(H - height[x] * rng.uniform(0.15, 0.85))
+            rad = rng.uniform(4.0, 11.0)
+            disc(idx, x, y, rad, EDGE)
+            disc(idx, x, y, rad * 0.72, ACC0)
+            disc(idx, x, y, rad * 0.40, ACC2)
+            disc(idx, x - rad * 0.2, y - rad * 0.2, rad * 0.16, ACC3)
+
+    # 늘어진 힘줄 — 천장에서 통로 안으로 내려온다.
+    for _ in range(26):
+        x = int(rng.integers(0, W))
+        drop = int(rng.integers(40, 150))
+        sway = rng.integers(-18, 19)
+        thick_line(idx, x, 0, x + sway, drop, rng.uniform(1.5, 3.5), MID)
+        disc(idx, x + sway, drop, rng.uniform(1.6, 3.2), ACC1)
+
+    # 천장 막 — 두껍게. 위쪽이 무겁게 덮여 있어야 "안에 들어와 있다"로 읽힌다.
+    ct = ridge1d(rng, [(1, 8), (2, 6), (5, 4), (9, 2.5)])
+    _fill_above(idx, np.clip(34 + np.abs(ct), 12, 72))
+    return idx
+
+
 FG_BUILDERS = {"scrap": fg_scrap, "hive": fg_hive, "fort": fg_fort,
-               "nebula": fg_nebula, "core": fg_core}
-FG_SEEDS = {"scrap": 4101, "hive": 4202, "fort": 4303, "nebula": 4404, "core": 4505}
+               "nebula": fg_nebula, "core": fg_core,
+               "abyss": fg_abyss, "brood": fg_brood}
+FG_SEEDS = {"scrap": 4101, "hive": 4202, "fort": 4303, "nebula": 4404, "core": 4505,
+            "abyss": 4606, "brood": 4707}
 
 
 # ── 2-B) 랜드마크 (비반복 대형 오브젝트, 화면 높이의 1/2~2/3) ────────────────
@@ -580,6 +704,12 @@ LM_SPECS = {
     "core": (232, 232,
              [(10, 16, 30), (22, 38, 66), (36, 66, 104), (56, 100, 146), (92, 148, 190), (156, 210, 236)],
              [(126, 90, 22), (188, 146, 40), (238, 202, 88), (255, 246, 190)]),
+    "abyss": (400, 216,
+              [(6, 12, 18), (14, 28, 38), (24, 48, 60), (38, 74, 86), (60, 106, 114), (108, 156, 156)],
+              [(14, 88, 100), (26, 136, 146), (64, 190, 194), (156, 240, 236)]),
+    "brood": (296, 244,
+              [(18, 8, 18), (40, 18, 36), (68, 32, 56), (100, 50, 74), (140, 80, 96), (194, 138, 142)],
+              [(140, 78, 20), (192, 118, 30), (236, 168, 58), (255, 218, 138)]),
 }
 LM_RAMP_STOPS = 14
 
@@ -865,9 +995,115 @@ def lm_core(rng, w, h):
     return idx
 
 
+def lm_abyss(rng, w, h):
+    """가라앉은 거대 갈비뼈 — 레비아탄보다 먼저 죽은 무언가의 골격.
+
+    다가올 보스를 말로 하지 않고 크기로 말한다. 플레이어 기체 옆을 지나가는
+    이 뼈대가 레비아탄만 하다면, 레비아탄이 어느 정도인지 이미 안 셈이다.
+    """
+    idx = np.zeros((h, w), np.uint8)
+    yy, xx = np.mgrid[0:h, 0:w]
+    u = xx / (w - 1.0)
+
+    # 척추 — 완만하게 휘어 침전물에 반쯤 파묻힌다.
+    spine = 0.46 * h + 0.20 * h * np.sin(u * np.pi * 0.85 + 0.4)
+    core_band = np.abs(yy - spine) < (7 - 3 * u)
+    _shade(idx, core_band, np.clip(0.42 + 0.30 * (1 - u), 0, 1))
+
+    # 늑골 — 척추에서 아래로 벌어져 내려간다. 뒤쪽일수록 짧고 어둡다.
+    ribs = 17
+    for i in range(ribs):
+        t = (i + 0.5) / ribs
+        sx = t * w * 0.92
+        sy = 0.46 * h + 0.20 * h * np.sin(t * np.pi * 0.85 + 0.4)
+        span = (0.40 - 0.24 * t) * h
+        bow = (0.16 - 0.09 * t) * w
+        level = 0.52 - 0.30 * t
+        steps = int(span)
+        for k in range(steps):
+            f = k / max(1, steps - 1.0)
+            px = sx + bow * np.sin(f * np.pi * 0.62)
+            py = sy + span * f
+            if 0 <= px < w and 0 <= py < h:
+                disc(idx, px, py, max(1.0, 3.4 - 2.0 * t), 0, wrap=False)
+                m = np.zeros((h, w), bool)
+                y0, y1 = int(max(0, py - 4)), int(min(h, py + 5))
+                x0, x1 = int(max(0, px - 4)), int(min(w, px + 5))
+                sub = ((xx[y0:y1, x0:x1] - px) ** 2
+                       + (yy[y0:y1, x0:x1] - py) ** 2) <= max(1.0, 3.4 - 2.0 * t) ** 2
+                m[y0:y1, x0:x1] = sub
+                _shade(idx, m, np.full((h, w), np.clip(level, 0, 1)))
+
+    # 두개골 — 앞쪽(왼쪽)의 큰 덩어리. 눈구멍만 비워 둔다.
+    scx, scy, sr = w * 0.10, 0.44 * h, 0.17 * h
+    skull = ((xx - scx) / (sr * 1.5)) ** 2 + ((yy - scy) / sr) ** 2 <= 1.0
+    _shade(idx, skull, np.clip(0.60 - 0.25 * ((yy - scy) / max(1.0, sr)), 0, 1))
+    socket = ((xx - scx + sr * 0.5) ** 2 + (yy - scy + sr * 0.2) ** 2) <= (sr * 0.34) ** 2
+    idx[socket] = 0
+    # 눈구멍 안쪽의 생물발광 — 죽은 것이 아직 빛난다.
+    disc(idx, scx - sr * 0.5, scy - sr * 0.2, sr * 0.16, LM_RAMP_STOPS + 3, wrap=False)
+
+    # 침전물에 묻힌 아래쪽을 깎아 낸다 — 바닥선 아래는 보이지 않는다.
+    silt = 0.86 * h + 0.05 * h * np.sin(u * np.pi * 2.2)
+    idx[yy > silt] = 0
+
+    # 주변에 떠 있는 발광 미립자
+    for _ in range(90):
+        px, py = rng.uniform(0, w), rng.uniform(0, h * 0.88)
+        if idx[int(py), int(px)] == 0:
+            disc(idx, px, py, rng.uniform(0.7, 1.7),
+                 LM_RAMP_STOPS + int(rng.integers(1, 4)), wrap=False)
+    return idx
+
+
+def lm_brood(rng, w, h):
+    """산란관 — 천장에서 내려온 거대 기관. 알집이 매달려 부풀고 있다."""
+    idx = np.zeros((h, w), np.uint8)
+    yy, xx = np.mgrid[0:h, 0:w]
+    v = yy / (h - 1.0)
+
+    # 본체 — 위가 굵고 아래로 좁아지는 관. 마디마다 부풀어 있다.
+    cx = w * 0.5 + w * 0.06 * np.sin(v * np.pi * 1.4)
+    radius = (0.30 - 0.16 * v) * w * (1.0 + 0.14 * np.sin(v * np.pi * 6.0))
+    body = np.abs(xx - cx) <= radius
+    # 왼쪽에서 오는 빛 — 관 왼쪽이 밝고 오른쪽이 어둡다.
+    lit = np.clip(0.78 - 0.62 * (xx - cx + radius) / np.maximum(1.0, radius * 2), 0, 1)
+    _shade(idx, body, lit)
+
+    # 마디 주름 — 가로로 감긴 띠
+    for k in range(11):
+        t = (k + 0.5) / 11
+        band = (np.abs(v - t) < 0.012) & body
+        _shade(idx, band, np.full((h, w), 0.22))
+
+    # 매달린 알집 — 관 아래쪽에 무겁게 뭉친다.
+    for _ in range(22):
+        t = rng.uniform(0.30, 0.98)
+        py = t * h
+        rad = rng.uniform(7.0, 20.0) * (0.5 + t)
+        px = w * 0.5 + w * 0.06 * np.sin(t * np.pi * 1.4) \
+            + rng.choice([-1, 1]) * ((0.30 - 0.16 * t) * w + rad * 0.55)
+        if not (0 <= px < w and 0 <= py < h):
+            continue
+        disc(idx, px, py, rad, LM_RAMP_STOPS - 4, wrap=False)
+        disc(idx, px, py, rad * 0.74, LM_RAMP_STOPS + 1, wrap=False)
+        disc(idx, px, py, rad * 0.42, LM_RAMP_STOPS + 3, wrap=False)
+        thick_line(idx, px, py - rad, w * 0.5, py - rad * 1.8, 2.0,
+                   LM_RAMP_STOPS - 6, wrap=False)
+
+    # 끝에서 늘어진 힘줄
+    for _ in range(9):
+        sx = w * 0.5 + rng.integers(-int(w * 0.12), int(w * 0.12))
+        thick_line(idx, sx, h * 0.92, sx + rng.integers(-24, 25), h - 1,
+                   rng.uniform(1.5, 3.0), LM_RAMP_STOPS - 8, wrap=False)
+    return idx
+
+
 LM_BUILDERS = {"scrap": lm_scrap, "hive": lm_hive, "fort": lm_fort,
-               "nebula": lm_nebula, "core": lm_core}
-LM_SEEDS = {"scrap": 5101, "hive": 5202, "fort": 5303, "nebula": 5404, "core": 5505}
+               "nebula": lm_nebula, "core": lm_core,
+               "abyss": lm_abyss, "brood": lm_brood}
+LM_SEEDS = {"scrap": 5101, "hive": 5202, "fort": 5303, "nebula": 5404, "core": 5505,
+            "abyss": 5606, "brood": 5707}
 
 
 # ── 실행 ──────────────────────────────────────────────────────────────────────

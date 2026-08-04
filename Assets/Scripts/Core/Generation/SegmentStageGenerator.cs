@@ -1353,7 +1353,8 @@ namespace Shmup.Core.Generation
             for (int i = 0; i < _catalog.Bosses.Count; i++)
             {
                 StageBossTemplate boss = _catalog.Bosses[i];
-                if (IsHiddenOnlyColossalBoss(boss.BossId))
+                if (IsHiddenOnlyColossalBoss(boss.BossId)
+                    && !IsHiddenOnlyTheme(themeId))
                     continue;
                 if (boss.Supports(stageIndex, difficulty)
                     && boss.SupportsTheme(themeId)
@@ -1926,7 +1927,14 @@ namespace Shmup.Core.Generation
             for (int i = 0; i < _catalog.Bosses.Count; i++)
             {
                 StageBossTemplate boss = _catalog.Bosses[i];
-                if (IsHiddenOnlyColossalBoss(boss.BossId))
+                // 히든 보스는 공개 테마의 스테이지 끝에 나타나면 안 된다. 하지만
+                // 자기 전용 테마(abyss/brood)에서는 **그 보스가 유일한 종착점**이다 —
+                // 무조건 건너뛰면 히든 접근 구간이 "도달 가능한 보스가 없다"로
+                // 조립 자체에 실패한다. REQ-159에서 실제로 그랬고, 증상은 크래시가
+                // 아니라 "히든 테마로는 아무 스테이지도 만들어지지 않음"이었다.
+                // 공개 테마는 abyss/brood를 부르지 않으므로 새는 길은 없다.
+                if (IsHiddenOnlyColossalBoss(boss.BossId)
+                    && !IsHiddenOnlyTheme(themeId))
                     continue;
                 if (boss.Supports(stageIndex, difficulty)
                     && boss.SupportsTheme(themeId)

@@ -1898,7 +1898,10 @@ namespace Shmup.EditorTools
         /// </summary>
         static void CreateSectionArtSlots(SectionThemeDirector sectionThemes)
         {
-            string[] prefixes = { "scrap", "hive", "fort", "nebula", "core" };
+            // abyss/brood는 히든 전용이다 — 레비아탄·브루드마더로 가는 구간이
+            // 직전 바이옴을 재사용하지 않게 하려고 REQ-159에서 추가했다.
+            string[] prefixes =
+                { "scrap", "hive", "fort", "nebula", "core", "abyss", "brood" };
             string[] suffixes = { "far_dusk", "far_dark", "fg", "landmark" };
 
             var keys = new List<string>();
@@ -1907,7 +1910,9 @@ namespace Shmup.EditorTools
                 foreach (string suffix in suffixes)
                 {
                     string key = $"{prefix}_{suffix}";
-                    var sprite = LoadExternalSprite($"{key}.png", key);
+                    // art-input이 없는 머신에서도 이미 임포트된 것을 쓴다 —
+                    // 이걸 안 하면 씬 재생성이 배경을 통째로 잃는다.
+                    var sprite = LoadOrCachedSprite($"{key}.png", key);
                     if (sprite == null) continue;
                     keys.Add(key);
                     sprites.Add(sprite);
