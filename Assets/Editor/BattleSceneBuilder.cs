@@ -993,9 +993,14 @@ namespace Shmup.EditorTools
 
             // 보스 HP 바: 상단 중앙, px_white 스케일 방식. BossActive 동안만 director가 켠다.
             var bossHpRoot = new GameObject("BossHp");
-            // 실드 0 경고 띠(상단 10px ≈ 화면 위 0.625u)와 겹치지 않게 그 아래에 둔다.
-            // 경고를 끄는 것이 아니라 바가 비키는 것이 맞다 (사람 교정, 2026-07-31).
-            bossHpRoot.transform.localPosition = new Vector3(0f, 9.7f, 0f);
+            // 화면 **아래**, 게이지 줄 바로 위다 (사람 지시 2026-08-04: "pause 버튼과
+            // 보스 에너지바가 겹치니 보스 에너지 바를 옵션무기 UI 위로 해보자").
+            // 위쪽에 두었을 때는 상단 중앙의 PAUSE 버튼과 자리를 다퉜다.
+            //
+            // 게이지 줄은 화면 아래 4px에서 시작해 34px 높이다(PowerUpHudView).
+            // 640×360을 40×22.5 유닛으로 보므로 1유닛 = 16px → 줄 윗변은 화면
+            // 아래에서 38/16 ≈ 2.38유닛. 그 위에 여유를 두고 앉힌다.
+            bossHpRoot.transform.localPosition = new Vector3(0f, -8.1f, 0f);
             var hpBack = new GameObject("Back");
             hpBack.transform.SetParent(bossHpRoot.transform, false);
             var hpBackRenderer = hpBack.AddComponent<SpriteRenderer>();

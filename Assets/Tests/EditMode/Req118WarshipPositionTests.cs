@@ -84,9 +84,9 @@ namespace Shmup.Core.Tests
                 encounter.Step(Array.Empty<WarshipDamageCommand>());
                 Assert.AreEqual(1, encounter.ActiveGroupIndex);
                 AssertDamageablePartsInsidePlayfield(encounter);
-                // 이동이 끝난 뒤(후반부)에는 정박해 있어야 한다.
-                if (elapsed > attritionTicks * 3 / 4)
-                    AssertAttritionLineParked(encounter, beforeX);
+                // 매 틱 확인한다 — 순간이동은 어느 한 틱에서 일어나므로
+                // 후반부만 보면 놓친다.
+                AssertAttritionLineWalks(encounter, beforeX);
             }
 
             encounter.Step(Array.Empty<WarshipDamageCommand>());
@@ -252,15 +252,30 @@ namespace Shmup.Core.Tests
         /// 정지 좌표는 파츠 배치가 정하는 값이라 박아 둘 것이 아니다 — 멈췄다는
         /// 사실과 화면 안이라는 사실만 지킨다.
         /// </summary>
-        static void AssertAttritionLineParked(
+        /// <summary>
+        /// 소모전 동안 함체가 **걸어서** 움직인다. 한때는 "후반에는 멈춰 있다"로
+        /// 적어 두었는데, 사람이 "천천히 이동해야 하는데 갑자기 워프를 해버려"라고
+        /// 한 뒤 이동 속도를 늦추자 그 단언이 깨졌다 — 멈추는 것은 원래 요구가
+        /// 아니었다. 지킬 것은 **한 틱에 튀지 않는다**는 것이다.
+        /// </summary>
+        static void AssertAttritionLineWalks(
             WarshipEncounter encounter, int previousWorldX)
         {
-            Assert.AreEqual(
-                previousWorldX,
-                encounter.WorldX,
-                $"tick={encounter.Tick} — 소모전 구간이 아직 흘러가고 있다.");
+            int step = Math.Abs(encounter.WorldX - previousWorldX);
+            Assert.LessOrEqual(
+                step,
+                MaximumWalkStepSubUnits,
+                $"tick={encounter.Tick} — 함체가 한 틱에 {step} 서브유닛 움직였다. "
+                + "이건 걷는 게 아니라 순간이동이다.");
             AssertDamageablePartsInsidePlayfield(encounter);
         }
+
+        /// <summary>
+        /// 한 틱에 허용되는 최대 이동. 스크롤 속도(월드 유닛/초)를 틱으로 환산한
+        /// 값보다 클 이유가 없다 — 넉넉히 1 월드유닛/틱으로 잡아 두면 정상 이동은
+        /// 전부 통과하고 순간이동만 걸린다.
+        /// </summary>
+        const int MaximumWalkStepSubUnits = SimSpace.SubUnitsPerWorldUnit;
 
         static void AssertPartWorldX(
             WarshipEncounter encounter,

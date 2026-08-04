@@ -42,14 +42,12 @@ namespace Shmup.Presentation.Battle
         Image[] _frames;
         Text[] _labels;
         Image[][] _pips;
-        Text _shieldText;
 
         /// <summary>게이지 슬롯 식별용 — 실드만 표기 규칙이 다르다(레벨 아님, 스톡).</summary>
         const string ShieldNameKey = "shield";
         const string MissileNameKey = "missile";
         const string OptionNameKey = "option";
         int _builtCount = -1;
-        int _shownShield = int.MinValue;
 
         // 계약 잠금 플래시 (REQ-094). SELECT를 눌렀는데 게이지가 꿈쩍도 않으면 고장으로
         // 읽힌다 — 계약이 막고 있다는 말을 게이지 바로 위에서 한 번 해 준다.
@@ -102,11 +100,9 @@ namespace Shmup.Presentation.Battle
             _group.interactable = false;
             _group.blocksRaycasts = false;
 
-            // 실드 잔량 — 좌하단. "몇 대를 맞아야 죽는지"가 항상 읽혀야 한다.
-            _shieldText = UiKit.CreateCornerText(_canvas.transform, _font, "", 12,
-                UiKit.TextMain, new Vector2(0f, 0f), new Vector2(8f, 46f),
-                TextAnchor.LowerLeft, "ShieldCount");
-            UiKit.AddShadow(_shieldText);
+            // 좌하단 실드 숫자는 뺐다 (사람 지시 2026-08-04: "왼쪽 실드 숫자는
+            // 빼도 될듯 (실드 개수가 옵션에 있으니)"). 게이지 줄의 SHIELD 슬롯이
+            // 같은 값을 이미 보여 준다 — 같은 숫자를 두 곳에 두면 화면만 좁아진다.
 
             // 게이지 슬롯 줄(높이 SlotHeight, y=4) 바로 위. 슬롯을 가리지 않으면서
             // 시선이 게이지에 있을 때 같은 시야에 들어오는 자리다.
@@ -135,6 +131,10 @@ namespace Shmup.Presentation.Battle
             _pips = new Image[count][];
 
             float total = count * SlotWidth + (count - 1) * SlotGap;
+            // 줄 전체를 왼쪽으로 민다. 가운데 정렬이면 오른쪽 끝 슬롯이 우하단
+            // 폭탄 버튼 밑에 깔린다 (사람 지적 2026-08-04). 폭탄 버튼 폭(64) +
+            // 여백(14+8)만큼 비켜 주면 둘이 만나지 않는다.
+            const float BombButtonClearance = 86f;
             for (int i = 0; i < count; i++)
             {
                 var go = new GameObject($"GaugeSlot{i}");
@@ -148,7 +148,9 @@ namespace Shmup.Presentation.Battle
                 rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0f);
                 rect.pivot = new Vector2(0.5f, 0f);
                 rect.anchoredPosition = new Vector2(
-                    -total / 2f + SlotWidth / 2f + i * (SlotWidth + SlotGap), 4f);
+                    -total / 2f + SlotWidth / 2f + i * (SlotWidth + SlotGap)
+                        - BombButtonClearance / 2f,
+                    4f);
                 rect.sizeDelta = new Vector2(SlotWidth, SlotHeight);
                 _frames[i] = frame;
 
@@ -264,7 +266,6 @@ namespace Shmup.Presentation.Battle
             var gauge = _director != null ? _director.Gauge : null;
             if (gauge == null) return;
 
-            UpdateShieldCount();
 
             int count = gauge.GaugeSlotCount;
             if (count <= 0) return;
@@ -445,17 +446,5 @@ namespace Shmup.Presentation.Battle
             }
         }
 
-        void UpdateShieldCount()
-        {
-            if (_shieldText == null || _director == null) return;
-            int shield = _director.ShieldRemaining;
-            if (shield == _shownShield) return;
-            _shownShield = shield;
-            _shieldText.text = $"SHIELD x{shield}";
-            // 0 = 다음 피격이 죽음. 숫자만 슬쩍 바꾸면 못 보고 지나간다.
-            _shieldText.color = shield <= 0
-                ? UiKit.TextDanger
-                : shield == 1 ? new Color(1f, 0.75f, 0.35f, 1f) : UiKit.TextMain;
-        }
     }
 }

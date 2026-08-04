@@ -54,7 +54,9 @@ namespace Shmup.Presentation.Battle
             // 설명 없이 연결된다 ("이쁘게 누르기 편한 아이콘으로", 2026-07-31).
             var button = UiKit.CreateTouchButton(
                 canvas.transform, _font, "", 9,
-                new Vector2(1f, 0f), new Vector2(-14f, 46f), new Vector2(64f, 64f),
+                // y를 46에서 12로 내렸다 (사람 지시 2026-08-04: "폭탄 버튼은
+                // 아래로 빼고"). 46은 게이지 줄과 같은 높이라 둘이 붙어 보였다.
+                new Vector2(1f, 0f), new Vector2(-14f, 12f), new Vector2(64f, 64f),
                 OnTap, "BombButton", accent: true);
 
             _background = button.targetGraphic as Image;
