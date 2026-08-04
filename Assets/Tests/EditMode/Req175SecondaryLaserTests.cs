@@ -87,9 +87,13 @@ namespace Shmup.Core.Tests
                 fullHalf,
                 coreHalfWidth * 0.6,
                 $"빔이 {fullHalf:F2}유닛으로 코어({coreHalfWidth:F2})보다 너무 얇다.");
+            // 상한을 2.2배로 올렸다. 사람이 2026-08-04에 "페이즈3 레이저는 지금보다
+            // 2배 두껍게"라고 지시해 코어 반폭의 2배가 됐다 — 데이터가 맞고 이
+            // 상한이 낡은 것이다. 그래도 상한을 없애지는 않는다: 화면 높이의
+            // 절반(11.25유닛)을 넘으면 피할 곳이 사라져 패턴이 아니라 처형이 된다.
             Assert.LessOrEqual(
                 fullHalf,
-                coreHalfWidth * 1.6,
+                coreHalfWidth * 2.2,
                 $"빔이 {fullHalf:F2}유닛으로 코어({coreHalfWidth:F2})보다 너무 굵다.");
 
             // 빔이 꺼져 있는 시간이 켜져 있는 시간보다 길어야 한다 — 늘 켜져
