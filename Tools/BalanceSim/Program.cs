@@ -144,12 +144,15 @@ static class Program
     const string WarshipBossId = "boss_fortress";
     const string WarshipEncounterId = "fortress_warship";
     const int WarshipTotalHp = 19_600;
-    const int WarshipEngineHp = 2200;
-    const int WarshipCoreHp = 13_800;
+    // REQ-157: P1 midboss = engine + 2 deck turrets; P2 attrition = 2 keel (stronger);
+    // P3 finalCore. HP redistributed so wall-clock does not balloon.
+    const int WarshipEngineHp = 1000;
+    const int WarshipCoreHp = 14_800;
     const int WarshipTurretCount = 4;
-    const int WarshipTurretHp = 900;
+    const int WarshipDeckTurretHp = 700;
+    const int WarshipKeelTurretHp = 1200;
     const int WarshipWarningTicks = 180;
-    const int WarshipAttritionTicks = 720;
+    const int WarshipAttritionTicks = 600;
     const int WarshipBaseCoreWays = 9;
     const int WarshipWaysReductionPerTurret = 2;
     const int WarshipMinCoreWays = 3;
@@ -9051,11 +9054,53 @@ static class Program
             failures++;
         }
 
-        if (turretCount > 0 && turretHpSum / turretCount != WarshipTurretHp)
+        // REQ-157: deck turrets (a/b) and keel turrets (c/d) have different HP bands.
+        int deckTurretHp = 0;
+        int keelTurretHp = 0;
+        int deckTurretCount = 0;
+        int keelTurretCount = 0;
+        for (int i = 0; i < warshipBoss.Parts.Count; i++)
+        {
+            BossPartDefinition p = warshipBoss.Parts[i];
+            if (p.PartId == null || !p.PartId.StartsWith("turret_", StringComparison.Ordinal))
+                continue;
+            if (string.Equals(p.PartId, "turret_a", StringComparison.Ordinal)
+                || string.Equals(p.PartId, "turret_b", StringComparison.Ordinal))
+            {
+                deckTurretCount++;
+                deckTurretHp += p.MaxHp;
+            }
+            else if (string.Equals(p.PartId, "turret_c", StringComparison.Ordinal)
+                || string.Equals(p.PartId, "turret_d", StringComparison.Ordinal))
+            {
+                keelTurretCount++;
+                keelTurretHp += p.MaxHp;
+            }
+        }
+        if (deckTurretCount != 2 || keelTurretCount != 2)
         {
             Console.WriteLine(
-                $"FAIL 111: avg turret HP {turretHpSum / (double)turretCount:F0} "
-                + $"!= {WarshipTurretHp}.");
+                $"FAIL 157: expected 2 deck + 2 keel turrets, got deck={deckTurretCount} keel={keelTurretCount}.");
+            failures++;
+        }
+        if (deckTurretCount > 0 && deckTurretHp / deckTurretCount != WarshipDeckTurretHp)
+        {
+            Console.WriteLine(
+                $"FAIL 157: deck turret HP {deckTurretHp / Math.Max(1, deckTurretCount)} "
+                + $"!= {WarshipDeckTurretHp}.");
+            failures++;
+        }
+        if (keelTurretCount > 0 && keelTurretHp / keelTurretCount != WarshipKeelTurretHp)
+        {
+            Console.WriteLine(
+                $"FAIL 157: keel turret HP {keelTurretHp / Math.Max(1, keelTurretCount)} "
+                + $"!= {WarshipKeelTurretHp}.");
+            failures++;
+        }
+        if (WarshipKeelTurretHp <= WarshipDeckTurretHp)
+        {
+            Console.WriteLine(
+                "FAIL 157: keel turrets must be stronger (HP) than deck turrets.");
             failures++;
         }
 
@@ -9103,10 +9148,17 @@ static class Program
                 failures++;
             }
 
-            if (stern.PartIds.Count != 1
-                || !string.Equals(stern.PartIds[0], "engine", StringComparison.Ordinal))
+            // REQ-157 phase map:
+            // P1 midbossGate = engine + deck turrets a/b (upper)
+            // P2 attritionLine = keel turrets c/d (lower, stronger)
+            // P3 finalCore = core
+            if (stern.PartIds.Count != 3
+                || !string.Equals(stern.PartIds[0], "engine", StringComparison.Ordinal)
+                || !string.Equals(stern.PartIds[1], "turret_a", StringComparison.Ordinal)
+                || !string.Equals(stern.PartIds[2], "turret_b", StringComparison.Ordinal))
             {
-                Console.WriteLine("FAIL 111: stern midbossGate must be ['engine'].");
+                Console.WriteLine(
+                    "FAIL 157: stern midbossGate must be ['engine','turret_a','turret_b'].");
                 failures++;
             }
 
@@ -9117,11 +9169,31 @@ static class Program
                 failures++;
             }
 
-            if (hull.PartIds.Count != WarshipTurretCount)
+            if (hull.PartIds.Count != 2
+                || !string.Equals(hull.PartIds[0], "turret_c", StringComparison.Ordinal)
+                || !string.Equals(hull.PartIds[1], "turret_d", StringComparison.Ordinal))
             {
                 Console.WriteLine(
-                    $"FAIL 111: hull partIds {hull.PartIds.Count} "
-                    + $"!= {WarshipTurretCount}.");
+                    "FAIL 157: hull attritionLine must be ['turret_c','turret_d'].");
+                failures++;
+            }
+
+            // Visible vertical staging: low → high → center (travel must be visible).
+            if (stern.AnchorOffsetY >= 0
+                || hull.AnchorOffsetY <= 0
+                || bow.AnchorOffsetY != 0)
+            {
+                Console.WriteLine(
+                    $"FAIL 157: anchors should be low/high/center, got "
+                    + $"{stern.AnchorOffsetY}/{hull.AnchorOffsetY}/{bow.AnchorOffsetY}.");
+                failures++;
+            }
+            if (hull.AnchorTravelTicks < 90 || hull.AnchorTravelTicks > 150
+                || bow.AnchorTravelTicks < 90 || bow.AnchorTravelTicks > 150)
+            {
+                Console.WriteLine(
+                    $"FAIL 157: travel ticks should be 90..150, got "
+                    + $"hull={hull.AnchorTravelTicks} bow={bow.AnchorTravelTicks}.");
                 failures++;
             }
         }
@@ -9180,11 +9252,14 @@ static class Program
         double fullTtk = warshipBoss.MaxHp / BossFullPowerDps;
         double warnSec = WarshipWarningTicks / (double)SimSpace.TicksPerSecond;
         double attrSec = WarshipAttritionTicks / (double)SimSpace.TicksPerSecond;
-        double engineSec = engineHp / Math.Max(1.0, reachDps);
+        // REQ-157: midboss gate is engine + deck turrets (all must melt).
+        double gateHp = engineHp + deckTurretHp;
+        double gateSec = gateHp / Math.Max(1.0, reachDps);
         double coreSec = coreHp / Math.Max(1.0, reachDps);
-        // Optimistic wall-clock: warning + engine melt + full attrition timer + core.
-        // (Attrition is time-gated; turret HP optional.)
-        double wallClock = warnSec + engineSec + attrSec + coreSec;
+        // Optimistic wall-clock: warning + gate melt + attrition timer + core.
+        // (Attrition is time-gated; keel turret HP optional for progress.)
+        double wallClock = warnSec + gateSec + attrSec + coreSec;
+        double engineSec = gateSec; // log alias for existing format string
         // Legacy midboss + boss ST reference.
         int midWalkerHp = 0;
         EnemyDefinition walker = content.FindEnemy("mini_walker");
