@@ -140,8 +140,16 @@ namespace Shmup.Core.Tests
 
             while (ticks < TickBudget)
             {
+                // 런이 끝났다고 곧바로 성공이라 하면 안 된다. 예전에는 그렇게
+                // 적어 두어서, **두 번째 폼을 한 번도 보지 않고 끝난 경우까지
+                // 통과**시켰다 — 사람이 "브루드마더는 마지막 페이즈가 없네"라고
+                // 보고한 것을 이 테스트가 놓친 이유가 이것이다.
                 if (run.State != RunState.Playing)
-                    return null;   // 보상 선택/클리어까지 갔으면 죽은 것이다.
+                    return sawSecondForm
+                        ? null
+                        : $"{ticks}틱에 런이 끝났는데(상태 {run.State}) 두 번째 "
+                          + $"폼을 한 번도 보지 못했다. 격파 {LastDefeated}, "
+                          + $"살아있는 파츠 {LastAlive}, 보스HP {LastBossHp}.";
                 if (!(run.Battle is BattleSim battle))
                     return "히든 보스 방인데 BattleSim이 아니다.";
 
@@ -169,6 +177,9 @@ namespace Shmup.Core.Tests
                     }
                 }
 
+                LastDefeated = battle.BossDefeated;
+                LastAlive = CountAlive(battle);
+                LastBossHp = battle.Boss.Hp;
                 run.Step(InputCommand.None);
                 ticks++;
 
@@ -192,6 +203,10 @@ namespace Shmup.Core.Tests
 
             return $"{TickBudget}틱 안에 끝나지 않았다.";
         }
+
+        static bool LastDefeated;
+        static int LastAlive;
+        static int LastBossHp;
 
         static long RemainingHp(BattleSim battle)
         {

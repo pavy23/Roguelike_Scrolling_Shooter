@@ -6405,6 +6405,15 @@ namespace Shmup.Core.Simulation
                 source.Gimmick);
         }
 
+        /// <summary>
+        /// 보스방 계획 조립을 테스트에서 직접 부르기 위한 창구 (REQ-165).
+        /// 이 조립이 form2를 잃은 적이 있어, 싸우지 않고도 검사할 수 있어야 한다.
+        /// </summary>
+        public static StagePlan CreateBiomeBossPlanForTests(StagePlan source)
+        {
+            return CreateBiomeBossPlan(source);
+        }
+
         static StagePlan CreateBiomeBossPlan(StagePlan source)
         {
             return CreateBossOnlyPlan(
@@ -6442,7 +6451,17 @@ namespace Shmup.Core.Simulation
                 encounterType,
                 source.BossParts,
                 source.Gimmick,
-                source.WarshipEncounter);
+                source.WarshipEncounter,
+                // **Form2를 반드시 넘긴다.** 여기서 빠뜨렸더니 두 번째 형태를 가진
+                // 보스가 전부 첫 형태에서 그냥 죽었다 — 전함 안에서 나오는 로봇,
+                // 최종 보스의 두 번째 형태, 히든 보스 둘의 마지막 페이즈가 모두
+                // 이 한 줄 때문에 화면에 나온 적이 없다.
+                //
+                // 조용한 이유: 데이터에도 있고 생성기도 넘겨준다. 이 함수만 보스방
+                // 계획을 다시 조립하면서 마지막 인자를 빠뜨렸고, 빠진 인자는
+                // 기본값 null이라 컴파일도 통과한다. 사람이 "브루드마더는 마지막
+                // 페이즈가 없네"라고 세 번 보고한 뒤에야 찾았다.
+                source.Form2);
         }
 
         void BeginStageOneGhostRecordingIfNeeded()

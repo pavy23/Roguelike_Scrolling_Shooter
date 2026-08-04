@@ -1012,17 +1012,13 @@ namespace Shmup.EditorTools
 
             // 보스 HP 바: 상단 중앙, px_white 스케일 방식. BossActive 동안만 director가 켠다.
             var bossHpRoot = new GameObject("BossHp");
-            // 화면 **아래**, 게이지 줄 바로 위다 (사람 지시 2026-08-04: "pause 버튼과
-            // 보스 에너지바가 겹치니 보스 에너지 바를 옵션무기 UI 위로 해보자").
-            // 위쪽에 두었을 때는 상단 중앙의 PAUSE 버튼과 자리를 다퉜다.
+            // 화면 **위**로 되돌렸다. PAUSE 버튼과 겹쳐서 한 번 아래로 내렸는데,
+            // 사람이 "HP는 기존처럼 위쪽에 배치해줘. 잘안보이네"라고 했다 —
+            // 아래는 게이지 줄·폭탄 버튼과 시선이 몰려 바가 묻힌다. 자리를 비킨
+            // 것은 PAUSE 버튼 쪽이다 (좌하단으로 옮겼다 — PauseScreen 참고).
             //
-            // 게이지 줄은 화면 아래 4px에서 시작해 34px 높이다(PowerUpHudView).
-            // 640×360을 40×22.5 유닛으로 보므로 1유닛 = 16px → 줄 윗변은 화면
-            // 아래에서 38/16 ≈ 2.38유닛. 그 위에 여유를 두고 앉힌다.
-            // 화면 바닥(-11.25)에 붙인다. -8.1로 두었더니 플레이 영역 한가운데에
-            // 떠 있어 탄막과 겹쳤다 — 게이지 줄은 레터박스 **밖**이라, "옵션 무기
-            // UI 위"는 곧 플레이 영역의 아래 끝이다.
-            bossHpRoot.transform.localPosition = new Vector3(0f, -10.4f, 0f);
+            // 실드 0 경고 띠(상단 10px ≈ 화면 위 0.625u)와 겹치지 않게 그 아래에 둔다.
+            bossHpRoot.transform.localPosition = new Vector3(0f, 9.7f, 0f);
             var hpBack = new GameObject("Back");
             hpBack.transform.SetParent(bossHpRoot.transform, false);
             var hpBackRenderer = hpBack.AddComponent<SpriteRenderer>();
