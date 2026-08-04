@@ -143,16 +143,20 @@ static class Program
     // Total HP ≈ mini_walker(1600) + old boss_fortress(18000) = midboss+boss setpiece.
     const string WarshipBossId = "boss_fortress";
     const string WarshipEncounterId = "fortress_warship";
-    const int WarshipTotalHp = 19_600;
-    // REQ-157: P1 midboss = engine + 2 deck turrets; P2 attrition = 2 keel (stronger);
-    // P3 finalCore. HP redistributed so wall-clock does not balloon.
-    const int WarshipEngineHp = 1000;
-    const int WarshipCoreHp = 14_800;
-    const int WarshipTurretCount = 4;
-    const int WarshipDeckTurretHp = 700;
-    const int WarshipKeelTurretHp = 1200;
+    // 데이터 스냅샷 (REQ-168 ×2 + REQ-177 deck +200). parts sum 불변식은 데이터 자체 검사.
+    const int WarshipTotalHp = 44_400;
+    // REQ-157: P1 midboss = engine + 2 deck turrets; P2 attrition = keel (stronger);
+    // P3 finalCore. REQ-168: keel 4문(c–f). REQ-177: deck "조금만" 1400→1600.
+    const int WarshipEngineHp = 2000;
+    const int WarshipCoreHp = 29_600;
+    const int WarshipTurretCount = 6;
+    const int WarshipDeckTurretHp = 1600;
+    const int WarshipKeelTurretHp = 2400;
     const int WarshipWarningTicks = 180;
-    const int WarshipAttritionTicks = 600;
+    // REQ-179: advanceAfterTicks 는 교착 방지 안전장치. 네 문 전멸이 정상 경로
+    // (Core가 전멸 시 즉시 3막). 600t(10s)는 너무 짧아 타이머가 정상 경로가 됐다
+    // → 4800t(80s). pure ST 함저 9600@720 ≈ 13.3s 의 6배.
+    const int WarshipAttritionTicks = 4800;
     const int WarshipBaseCoreWays = 9;
     const int WarshipWaysReductionPerTurret = 2;
     const int WarshipMinCoreWays = 3;
@@ -166,7 +170,8 @@ static class Program
     const double WarshipTtkExpectedMin = 44.0;
     const double WarshipTtkExpectedMax = 72.0;
     const double WarshipTtkFullMin = 16.0;
-    // 벽시계 하한 = 경고 + 소모전 타이머 + 코어 ST (엔진·포탑을 녹이지 않은 경우).
+    // 벽시계 = 경고 + 1막 관문 녹이기 + 2막 함저 전멸(정상) + 코어 ST.
+    // 타이머(80s)는 안전장치라 정상 경로 합산에 넣지 않는다 (REQ-179).
     const double WarshipWallClockMinSeconds = 45.0;
     const double WarshipWallClockMaxSeconds = 95.0;
     // Ghost L1 main-shot fixed firepower (Core GhostReplayConfig defaults).
@@ -9225,7 +9230,7 @@ static class Program
             failures++;
         }
 
-        // REQ-157: deck turrets (a/b) and keel turrets (c/d) have different HP bands.
+        // REQ-157 + REQ-168: deck a/b, keel c–f (4문). HP bands differ by deck/keel.
         int deckTurretHp = 0;
         int keelTurretHp = 0;
         int deckTurretCount = 0;
@@ -9241,17 +9246,17 @@ static class Program
                 deckTurretCount++;
                 deckTurretHp += p.MaxHp;
             }
-            else if (string.Equals(p.PartId, "turret_c", StringComparison.Ordinal)
-                || string.Equals(p.PartId, "turret_d", StringComparison.Ordinal))
+            else
             {
+                // turret_c / d / e / f (and any future keel id)
                 keelTurretCount++;
                 keelTurretHp += p.MaxHp;
             }
         }
-        if (deckTurretCount != 2 || keelTurretCount != 2)
+        if (deckTurretCount != 2 || keelTurretCount != 4)
         {
             Console.WriteLine(
-                $"FAIL 157: expected 2 deck + 2 keel turrets, got deck={deckTurretCount} keel={keelTurretCount}.");
+                $"FAIL 157/168: expected 2 deck + 4 keel turrets, got deck={deckTurretCount} keel={keelTurretCount}.");
             failures++;
         }
         if (deckTurretCount > 0 && deckTurretHp / deckTurretCount != WarshipDeckTurretHp)
@@ -9340,12 +9345,15 @@ static class Program
                 failures++;
             }
 
-            if (hull.PartIds.Count != 2
+            // REQ-168: hull attrition = 4 keel turrets c–f.
+            if (hull.PartIds.Count != 4
                 || !string.Equals(hull.PartIds[0], "turret_c", StringComparison.Ordinal)
-                || !string.Equals(hull.PartIds[1], "turret_d", StringComparison.Ordinal))
+                || !string.Equals(hull.PartIds[1], "turret_d", StringComparison.Ordinal)
+                || !string.Equals(hull.PartIds[2], "turret_e", StringComparison.Ordinal)
+                || !string.Equals(hull.PartIds[3], "turret_f", StringComparison.Ordinal))
             {
                 Console.WriteLine(
-                    "FAIL 157: hull attritionLine must be ['turret_c','turret_d'].");
+                    "FAIL 157/168: hull attritionLine must be ['turret_c'..'turret_f'].");
                 failures++;
             }
 
@@ -9359,11 +9367,12 @@ static class Program
                     + $"{stern.AnchorOffsetY}/{hull.AnchorOffsetY}/{bow.AnchorOffsetY}.");
                 failures++;
             }
-            if (hull.AnchorTravelTicks < 90 || hull.AnchorTravelTicks > 150
-                || bow.AnchorTravelTicks < 90 || bow.AnchorTravelTicks > 150)
+            // REQ-168: travel stretched for readable ship motion (was 90..150).
+            if (hull.AnchorTravelTicks < 180 || hull.AnchorTravelTicks > 300
+                || bow.AnchorTravelTicks < 120 || bow.AnchorTravelTicks > 240)
             {
                 Console.WriteLine(
-                    $"FAIL 157: travel ticks should be 90..150, got "
+                    $"FAIL 157/168: travel ticks out of band, got "
                     + $"hull={hull.AnchorTravelTicks} bow={bow.AnchorTravelTicks}.");
                 failures++;
             }
@@ -9422,13 +9431,22 @@ static class Program
         double pureStTtk = warshipBoss.MaxHp / Math.Max(1.0, reachDps);
         double fullTtk = warshipBoss.MaxHp / BossFullPowerDps;
         double warnSec = WarshipWarningTicks / (double)SimSpace.TicksPerSecond;
-        double attrSec = WarshipAttritionTicks / (double)SimSpace.TicksPerSecond;
+        double attrSafetySec = WarshipAttritionTicks / (double)SimSpace.TicksPerSecond;
         // REQ-157: midboss gate is engine + deck turrets (all must melt).
         double gateHp = engineHp + deckTurretHp;
         double gateSec = gateHp / Math.Max(1.0, reachDps);
         double coreSec = coreHp / Math.Max(1.0, reachDps);
-        // Optimistic wall-clock: warning + gate melt + attrition timer + core.
-        // (Attrition is time-gated; keel turret HP optional for progress.)
+        // REQ-179: attrition 정상 경로 = 함저 전멸. 타이머는 교착 안전장치.
+        double keelMeltSec = keelTurretHp / Math.Max(1.0, reachDps);
+        if (attrSafetySec < keelMeltSec * 3.0)
+        {
+            Console.WriteLine(
+                $"FAIL 179: attrition safety {attrSafetySec:F0}s < 3× keel melt "
+                + $"{keelMeltSec:F1}s — timer would still be the normal path.");
+            failures++;
+        }
+        // Optimistic wall-clock: warning + gate + keel wipe + core (not the safety timer).
+        double attrSec = keelMeltSec;
         double wallClock = warnSec + gateSec + attrSec + coreSec;
         double engineSec = gateSec; // log alias for existing format string
         // Legacy midboss + boss ST reference.
