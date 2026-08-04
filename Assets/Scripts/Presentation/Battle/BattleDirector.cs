@@ -1165,13 +1165,17 @@ namespace Shmup.Presentation.Battle
                 // 개발자 패널에서 테마/히든 보스를 지정했으면, 그 결과가 나오는 시드를
                 // 찾아 쓴다. Core에 강제 입구를 뚫지 않는 이유는 그 경로가 결정론의
                 // 심장이기 때문이다 — 시드를 고르는 것은 원래 Presentation의 일이다.
+                // 개발자 패널(RuntimeColossal)과 URL 인자(?colossal=)를 같이 본다 —
+                // 헤드리스 검증은 패널을 누를 수 없으므로 URL 경로가 없으면
+                // 두 거대 보스 중 한 쪽이 영영 검사되지 않는다.
+                string devColossal = DevArgs.ColossalChoice;
                 if (devRunFlags && !dailyRun && !_replayMode
                     && (!string.IsNullOrEmpty(DevArgs.RuntimeTheme)
-                        || !string.IsNullOrEmpty(DevArgs.RuntimeColossal)))
+                        || !string.IsNullOrEmpty(devColossal)))
                 {
                     Seed = FindSeedFor(
                         data, config, selectedShip, diffNum, diffDen, runConfig,
-                        DevArgs.RuntimeTheme, DevArgs.RuntimeColossal, Seed);
+                        DevArgs.RuntimeTheme, devColossal, Seed);
                 }
 
                 bool attachMeta = runConfig == null && _meta != null;
@@ -1213,7 +1217,7 @@ namespace Shmup.Presentation.Battle
 
             // 게이지 전 슬롯 최대 (개발자 패널). 보스 패턴을 확인하려면 화력이
             // 있어야 하는데, 매번 캡슐을 모으고 있을 수는 없다.
-            if (devRunFlags && DevArgs.RuntimeMaxPower && _run.PowerUpGauge != null)
+            if (devRunFlags && DevArgs.MaxPower && _run.PowerUpGauge != null)
             {
                 MarkCheatUsed();
                 var maxed = new int[PowerUpGauge.SlotCount];

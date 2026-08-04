@@ -37,6 +37,26 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         const string UnchartedKey = "uncharted";
 
+        /// <summary>
+        /// 파워업 게이지 전 슬롯 최대 (REQ-164). `--power=max` 또는 `?dev=1&power=max`.
+        ///
+        /// 지금까지 이건 타이틀 개발자 패널로만 켤 수 있었다. 그래서 헤드리스
+        /// 검증이 히든 보스를 **끝까지 볼 수 없었다** — 62,000 HP를 기본 화력으로
+        /// 깎으려면 몇십 분이 걸린다. "마지막 페이즈가 안 나온다"는 보고를 화면으로
+        /// 확인할 방법이 없었던 이유가 이것이다.
+        /// </summary>
+        const string PowerKey = "power";
+
+        /// <summary>
+        /// 어느 거대 보스를 볼지 (REQ-164). `--colossal=leviathan` 또는
+        /// `?dev=1&uncharted=1&colossal=broodmother`.
+        ///
+        /// 종류는 시드가 정하므로, 지정이 없으면 원하는 쪽이 나올 때까지 시드를
+        /// 갈아 봐야 한다. 두 보스를 각각 확인해야 하는 회귀에서는 그게 곧
+        /// "한 쪽만 검사하고 넘어감"이 된다.
+        /// </summary>
+        const string ColossalKey = "colossal";
+
         static bool _devMode;
         static bool _devModeResolved;
 
@@ -218,6 +238,44 @@ namespace Shmup.Presentation.Battle
                     && TryReadArg(UnchartedKey, out string raw)
                     && IsTruthy(raw);
                 return _uncharted;
+            }
+        }
+
+        static bool _maxPowerResolved;
+        static bool _maxPower;
+
+        /// <summary>파워업 전 슬롯 최대. 개발 모드가 아니면 항상 false.</summary>
+        public static bool MaxPower
+        {
+            get
+            {
+                if (RuntimeMaxPower && DevMode) return true;
+                if (_maxPowerResolved) return _maxPower;
+                _maxPowerResolved = true;
+                _maxPower = DevMode
+                    && TryReadArg(PowerKey, out string raw)
+                    && IsTruthy(raw);
+                return _maxPower;
+            }
+        }
+
+        static bool _colossalResolved;
+        static string _colossal;
+
+        /// <summary>보고 싶은 거대 보스 id. 지정이 없으면 null(시드가 정한다).</summary>
+        public static string ColossalChoice
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(RuntimeColossal) && DevMode)
+                    return RuntimeColossal;
+                if (_colossalResolved) return _colossal;
+                _colossalResolved = true;
+                _colossal = DevMode && TryReadArg(ColossalKey, out string raw)
+                    && !string.IsNullOrEmpty(raw)
+                    ? raw.ToLowerInvariant()
+                    : null;
+                return _colossal;
             }
         }
 
