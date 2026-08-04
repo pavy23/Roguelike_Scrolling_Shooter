@@ -14449,16 +14449,16 @@
         },
         {
           "id": "turret_c",
-          "offsetX": -4.0,
-          "offsetY": -5.125,
+          "offsetX": -8.0,
+          "offsetY": -4.3125,
           "halfWidth": 1.75,
           "halfHeight": 1.5,
-          "hp": 2400,
+          "hp": 1600,
           "attack": {
             "type": "laser",
-            "intervalTicks": 400,
+            "intervalTicks": 560,
             "laser": {
-              "cycleIntervalTicks": 400,
+              "cycleIntervalTicks": 560,
               "telegraphTicks": 48,
               "firingTicks": 8,
               "sustainTicks": 50,
@@ -14476,16 +14476,16 @@
         },
         {
           "id": "turret_d",
-          "offsetX": -8.0,
-          "offsetY": -4.3125,
+          "offsetX": -5.0,
+          "offsetY": -4.921875,
           "halfWidth": 1.75,
           "halfHeight": 1.5,
-          "hp": 2400,
+          "hp": 1600,
           "attack": {
             "type": "laser",
-            "intervalTicks": 470,
+            "intervalTicks": 660,
             "laser": {
-              "cycleIntervalTicks": 470,
+              "cycleIntervalTicks": 660,
               "telegraphTicks": 52,
               "firingTicks": 8,
               "sustainTicks": 50,
@@ -14507,12 +14507,12 @@
           "offsetY": -5.53125,
           "halfWidth": 1.75,
           "halfHeight": 1.5,
-          "hp": 2400,
+          "hp": 1600,
           "attack": {
             "type": "laser",
-            "intervalTicks": 540,
+            "intervalTicks": 760,
             "laser": {
-              "cycleIntervalTicks": 540,
+              "cycleIntervalTicks": 760,
               "telegraphTicks": 56,
               "firingTicks": 8,
               "sustainTicks": 50,
@@ -14530,17 +14530,71 @@
         },
         {
           "id": "turret_f",
-          "offsetX": -6.0,
-          "offsetY": -4.71875,
+          "offsetX": 2.0,
+          "offsetY": -6.34375,
           "halfWidth": 1.75,
           "halfHeight": 1.5,
-          "hp": 2400,
+          "hp": 1600,
           "attack": {
             "type": "laser",
-            "intervalTicks": 610,
+            "intervalTicks": 860,
             "laser": {
-              "cycleIntervalTicks": 610,
+              "cycleIntervalTicks": 860,
               "telegraphTicks": 60,
+              "firingTicks": 8,
+              "sustainTicks": 50,
+              "dissipateTicks": 12,
+              "startOffsetX": 0.0,
+              "startOffsetY": 0.0,
+              "endOffsetX": 0.0,
+              "endOffsetY": -16.0,
+              "thinHalfWidth": 0.25,
+              "fullHalfWidth": 0.875,
+              "damage": 2,
+              "aimsAtPlayer": true
+            }
+          }
+        },
+        {
+          "id": "turret_g",
+          "offsetX": 5.0,
+          "offsetY": -6.953125,
+          "halfWidth": 1.75,
+          "halfHeight": 1.5,
+          "hp": 1600,
+          "attack": {
+            "type": "laser",
+            "intervalTicks": 960,
+            "laser": {
+              "cycleIntervalTicks": 960,
+              "telegraphTicks": 64,
+              "firingTicks": 8,
+              "sustainTicks": 50,
+              "dissipateTicks": 12,
+              "startOffsetX": 0.0,
+              "startOffsetY": 0.0,
+              "endOffsetX": 0.0,
+              "endOffsetY": -16.0,
+              "thinHalfWidth": 0.25,
+              "fullHalfWidth": 0.875,
+              "damage": 2,
+              "aimsAtPlayer": true
+            }
+          }
+        },
+        {
+          "id": "turret_h",
+          "offsetX": 8.0,
+          "offsetY": -7.5625,
+          "halfWidth": 1.75,
+          "halfHeight": 1.5,
+          "hp": 1600,
+          "attack": {
+            "type": "laser",
+            "intervalTicks": 1060,
+            "laser": {
+              "cycleIntervalTicks": 1060,
+              "telegraphTicks": 68,
               "firingTicks": 8,
               "sustainTicks": 50,
               "dissipateTicks": 12,
@@ -14615,7 +14669,9 @@
               "turret_c",
               "turret_d",
               "turret_e",
-              "turret_f"
+              "turret_f",
+              "turret_g",
+              "turret_h"
             ],
             "advanceAfterTicks": 4800,
             "anchorOffsetY": 3.0,
