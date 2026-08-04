@@ -1338,7 +1338,15 @@ namespace Shmup.EditorTools
             SetReference(warshipView, "_sternSprite",
                 LoadExternalSprite("warship_stern.png", "warship_stern")
                 ?? LoadExternalSprite("boss_fortress.png", "boss_fortress"));
-            SetReference(warshipView, "_turretSprite", laserTurretSprite);
+            // 전함 전용 함포 (2026-08-04). 예전에는 잡몹용 obstacle_laser_turret를
+            // 빌려 썼는데 회적색 32×32라 남색 함체 위에서 겉돌았다 — 사람이
+            // "포대가 그래픽이 어색한데 몸체랑 맞춰줘"라고 했다. 함체 팔레트
+            // (남색·강청 + 호박 경고등)로 다시 그렸고 판정 크기(48×40)와 1:1이라
+            // 늘어나지 않는다. 없으면 옛 스프라이트로 폴백한다.
+            var warshipTurret = LoadOrCachedSprite(
+                "warship_turret.png", "warship_turret");
+            SetReference(warshipView, "_turretSprite",
+                warshipTurret != null ? warshipTurret : laserTurretSprite);
             // 부서진 모습 (사람 지시 2026-08-04 "각 페이즈별로 파괴되는 부위도
             // 나오게 그려줘"). 없으면 뷰가 그을음 틴트만 쓴다.
             SetReference(warshipView, "_turretWreckSprite",

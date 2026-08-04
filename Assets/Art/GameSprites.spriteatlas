@@ -172,6 +172,7 @@ SpriteAtlas:
     - c1e806a5fa8e32144bebed9dc99e3eb3: 21300000
     - 370118a597efeef4eb0ac929b0bf9982: 21300000
     - 4df2f9b521fad3c4caf3c49e095e3afd: 21300000
+    - 39ea5bc5663944542b91cb9fc2e02117: 21300000
     - b88958d57e3b75d42875d935efdfb303: 21300000
     - 39dbf5f53afc8cd48b8990b6b01853be: 21300000
     - 74b7e4165d2c9d64b828bca68e7e5b62: 21300000
@@ -511,6 +512,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: c1e806a5fa8e32144bebed9dc99e3eb3, type: 3}
   - {fileID: 21300000, guid: 370118a597efeef4eb0ac929b0bf9982, type: 3}
   - {fileID: 21300000, guid: 4df2f9b521fad3c4caf3c49e095e3afd, type: 3}
+  - {fileID: 21300000, guid: 39ea5bc5663944542b91cb9fc2e02117, type: 3}
   - {fileID: 21300000, guid: b88958d57e3b75d42875d935efdfb303, type: 3}
   - {fileID: 21300000, guid: 39dbf5f53afc8cd48b8990b6b01853be, type: 3}
   - {fileID: 21300000, guid: 74b7e4165d2c9d64b828bca68e7e5b62, type: 3}
@@ -849,6 +851,7 @@ SpriteAtlas:
   - anim_pipe_rat_00
   - enemy_echo_wisp
   - anim_mini_destroyer_02
+  - warship_turret
   - anim_elite_02
   - shield
   - anim_boss_broodmother_04
