@@ -800,6 +800,27 @@ namespace Shmup.Core.Content
         /// </summary>
         [DataMember]
         public LaserAttackDto secondaryLaser;
+        /// <summary>
+        /// Optional bullet volley on its own cycle, layered on a non-projectile
+        /// primary (e.g. laser turrets that also spit bullets). Rejected when the
+        /// primary is already aimedSpread / radialSpread.
+        /// </summary>
+        [DataMember]
+        public BossPartBurstDto secondaryBurst;
+    }
+
+    [DataContract]
+    internal sealed class BossPartBurstDto
+    {
+        [DataMember]
+        public int? cycleIntervalTicks;
+        [DataMember]
+        public int? ways;
+        [DataMember]
+        public decimal? bulletSpeed;
+        /// <summary>Default true — 겨냥 부채꼴. false면 전방위.</summary>
+        [DataMember]
+        public bool? aimed;
     }
 
     [DataContract]

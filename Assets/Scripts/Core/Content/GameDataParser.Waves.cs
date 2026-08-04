@@ -1289,7 +1289,41 @@ namespace Shmup.Core.Content
                             source.effectOffsetY.Value,
                             path + ".effectOffsetY")
                         : 0,
-                    secondaryLaser);
+                    secondaryLaser,
+                    ParseBossPartBurst(
+                        source.secondaryBurst,
+                        path + ".secondaryBurst"));
+            }
+            catch (ArgumentException error)
+            {
+                throw Error(path, error.Message);
+            }
+        }
+
+        /// <summary>
+        /// 부무장 탄막(REQ-177). 필수 값이 빠지면 조용히 0으로 두지 않고
+        /// 그 자리에서 실패시킨다 — 탄막이 안 나가는 이유를 화면에서 찾게 되면
+        /// 원인에 도달하는 데 몇 배가 든다.
+        /// </summary>
+        static BossPartBurstDefinition ParseBossPartBurst(
+            BossPartBurstDto source,
+            string path)
+        {
+            if (source == null)
+                return null;
+            ExactFraction speed = ToPerTickSpeed(
+                Require(source.bulletSpeed, path + ".bulletSpeed"),
+                path + ".bulletSpeed");
+            try
+            {
+                return new BossPartBurstDefinition(
+                    Require(
+                        source.cycleIntervalTicks,
+                        path + ".cycleIntervalTicks"),
+                    Require(source.ways, path + ".ways"),
+                    speed.Numerator,
+                    speed.Denominator,
+                    source.aimed ?? true);
             }
             catch (ArgumentException error)
             {

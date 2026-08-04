@@ -1871,6 +1871,8 @@ namespace Shmup.Core.Simulation
         int[] _bossPartFireCooldowns;
         /// <summary>Independent cycle timer for BossPartAttackProfile.SecondaryLaser.</summary>
         int[] _bossPartSecondaryLaserCooldowns;
+        /// <summary>Independent cycle timer for BossPartAttackProfile.SecondaryBurst.</summary>
+        int[] _bossPartSecondaryBurstCooldowns;
         int[] _bossPartRegenerationRemaining;
         bool[] _bossPartsEverDestroyed;
         bool[] _bossPartContactHitThisCycle;
@@ -2370,6 +2372,8 @@ namespace Shmup.Core.Simulation
             _bossPartFireCooldowns =
                 new int[_bossPartDefinitions.Count];
             _bossPartSecondaryLaserCooldowns =
+                new int[_bossPartDefinitions.Count];
+            _bossPartSecondaryBurstCooldowns =
                 new int[_bossPartDefinitions.Count];
             _bossPartRegenerationRemaining =
                 new int[_bossPartDefinitions.Count];
@@ -2984,6 +2988,10 @@ namespace Shmup.Core.Simulation
                     attack.SecondaryLaser == null
                         ? 0
                         : attack.SecondaryLaser.CycleIntervalTicks;
+                _bossPartSecondaryBurstCooldowns[i] =
+                    attack.SecondaryBurst == null
+                        ? 0
+                        : attack.SecondaryBurst.CycleIntervalTicks;
                 if (definition.Attack.Type
                     == BossPartAttackType.SpawnEnemy)
                 {
@@ -5484,6 +5492,10 @@ namespace Shmup.Core.Simulation
                     attack.SecondaryLaser == null
                         ? 0
                         : attack.SecondaryLaser.CycleIntervalTicks;
+                _bossPartSecondaryBurstCooldowns[i] =
+                    attack.SecondaryBurst == null
+                        ? 0
+                        : attack.SecondaryBurst.CycleIntervalTicks;
             }
             ConfigureSegmentChainSchedule(phase);
             if (emitChanged)
@@ -6225,6 +6237,10 @@ namespace Shmup.Core.Simulation
                     attack.SecondaryLaser == null
                         ? 0
                         : attack.SecondaryLaser.CycleIntervalTicks;
+                _bossPartSecondaryBurstCooldowns[i] =
+                    attack.SecondaryBurst == null
+                        ? 0
+                        : attack.SecondaryBurst.CycleIntervalTicks;
                 _bossPartRegenerationRemaining[i] = 0;
                 _bossPartContactHitThisCycle[i] = false;
                 _bossPartStates[i] = new BossPartState(
@@ -6341,6 +6357,68 @@ namespace Shmup.Core.Simulation
                             attack.SecondaryLaser.CycleIntervalTicks;
                     }
                 }
+                // REQ-177: 부무장 탄막도 주 공격과 독립된 주기로 돈다. 이동 중
+                // 억제는 위쪽 hold 검사가 이미 걸러 주므로 여기서 다시 보지 않는다
+                // — 뒤쪽 포탑은 이동 중 레이저도 탄막도 쉰다.
+                if (attack.SecondaryBurst != null)
+                {
+                    if (_bossPartSecondaryBurstCooldowns[i] > 0)
+                        _bossPartSecondaryBurstCooldowns[i]--;
+                    if (_bossPartSecondaryBurstCooldowns[i] == 0)
+                    {
+                        FireBossPartBurst(i, attack.SecondaryBurst);
+                        _bossPartSecondaryBurstCooldowns[i] =
+                            attack.SecondaryBurst.CycleIntervalTicks;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 부무장 탄막 한 발. 주 공격의 탄막 경로와 같은 규칙(탄 상한, 부채꼴
+        /// 각도, 전방위 분할)을 쓰되 발사원은 그 파츠다.
+        /// </summary>
+        void FireBossPartBurst(
+            int partIndex,
+            BossPartBurstDefinition burst)
+        {
+            BossPartState part = _bossPartStates[partIndex];
+            int available = Math.Max(
+                0,
+                _maxEnemyBullets - CountEnemyBullets());
+            int shots = Math.Min(burst.Ways, available);
+            for (int i = 0; i < shots; i++)
+            {
+                int targetX = PlayerX;
+                int targetY = PlayerY;
+                int rotation;
+                if (burst.Aimed)
+                {
+                    long centeredIndex = 2L * i - (burst.Ways - 1L);
+                    rotation = (int)(
+                        (centeredIndex * SpreadStepLutSlots / 2)
+                        % SineLut.Length);
+                }
+                else
+                {
+                    rotation = (int)(
+                        (long)i * SineLut.Length / burst.Ways);
+                    int sin = SineLut[rotation];
+                    int cos = SineLut[
+                        (rotation + SineLut.Length / 4)
+                        % SineLut.Length];
+                    targetX = SaturateToInt((long)part.X + cos);
+                    targetY = SaturateToInt((long)part.Y + sin);
+                    rotation = 0;
+                }
+                SpawnEnemyAimedBullet(
+                    part.X,
+                    part.Y,
+                    targetX,
+                    targetY,
+                    burst.BulletSpeedNumerator,
+                    burst.BulletSpeedDenominator,
+                    rotation);
             }
         }
 
@@ -6455,6 +6533,25 @@ namespace Shmup.Core.Simulation
                         ? secondaryInterval
                         : secondaryInterval - remainder;
                 }
+                BossPartBurstDefinition burst =
+                    definition.Attack.SecondaryBurst;
+                if (burst == null
+                    || restored.Destroyed
+                    || !restored.Active)
+                {
+                    _bossPartSecondaryBurstCooldowns[i] =
+                        burst == null ? 0 : burst.CycleIntervalTicks;
+                }
+                else
+                {
+                    int elapsed =
+                        _warshipEncounter.ActiveGroupElapsedTicks;
+                    int burstInterval = burst.CycleIntervalTicks;
+                    int remainder = elapsed % burstInterval;
+                    _bossPartSecondaryBurstCooldowns[i] = remainder == 0
+                        ? burstInterval
+                        : burstInterval - remainder;
+                }
             }
             _bossHp = aggregateHp;
             if (!_warshipEncounter.Completed)
@@ -6540,6 +6637,10 @@ namespace Shmup.Core.Simulation
                     attack.SecondaryLaser == null
                         ? 0
                         : attack.SecondaryLaser.CycleIntervalTicks;
+                _bossPartSecondaryBurstCooldowns[i] =
+                    attack.SecondaryBurst == null
+                        ? 0
+                        : attack.SecondaryBurst.CycleIntervalTicks;
                 _bossPartContactHitThisCycle[i] = false;
                 EmitBossPartEvent(
                     SimEventType.BossPartRegenerated,
@@ -7132,6 +7233,10 @@ namespace Shmup.Core.Simulation
                 definition.Attack.SecondaryLaser == null
                     ? 0
                     : definition.Attack.SecondaryLaser.CycleIntervalTicks;
+            _bossPartSecondaryBurstCooldowns[partIndex] =
+                definition.Attack.SecondaryBurst == null
+                    ? 0
+                    : definition.Attack.SecondaryBurst.CycleIntervalTicks;
             _bossPartContactHitThisCycle[partIndex] = false;
             EmitBossPartEvent(
                 SimEventType.BossPartDestroyed,
@@ -7269,6 +7374,8 @@ namespace Shmup.Core.Simulation
             _bossPartFireCooldowns =
                 new int[_bossPartDefinitions.Count];
             _bossPartSecondaryLaserCooldowns =
+                new int[_bossPartDefinitions.Count];
+            _bossPartSecondaryBurstCooldowns =
                 new int[_bossPartDefinitions.Count];
             _bossPartRegenerationRemaining =
                 new int[_bossPartDefinitions.Count];

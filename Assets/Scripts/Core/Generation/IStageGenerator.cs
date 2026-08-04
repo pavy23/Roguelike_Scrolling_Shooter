@@ -707,7 +707,8 @@ namespace Shmup.Core.Generation
             int effectMaxSpeedDenominator = 1,
             int effectOffsetX = 0,
             int effectOffsetY = 0,
-            Simulation.LaserAttackDefinition secondaryLaser = null)
+            Simulation.LaserAttackDefinition secondaryLaser = null,
+            BossPartBurstDefinition secondaryBurst = null)
         {
             if (!Enum.IsDefined(typeof(BossPartAttackType), type))
                 throw new ArgumentOutOfRangeException(nameof(type));
@@ -777,6 +778,14 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException(
                     "Primary laser attacks cannot also carry a secondary laser.",
                     nameof(secondaryLaser));
+            // 주 공격이 이미 탄막이면 부무장 탄막을 겹치지 못하게 한다 —
+            // 그 경우엔 주 공격의 ways/interval을 조정하는 것이 옳다.
+            if (secondaryBurst != null
+                && (type == BossPartAttackType.AimedSpread
+                    || type == BossPartAttackType.RadialSpread))
+                throw new ArgumentException(
+                    "Projectile primaries cannot also carry a secondary burst.",
+                    nameof(secondaryBurst));
             if (type != BossPartAttackType.Suction
                 && effectMaxSpeedNumerator != 0)
                 throw new ArgumentException(
@@ -811,6 +820,7 @@ namespace Shmup.Core.Generation
             ContactDamage = contactDamage;
             LaserAttack = laserAttack;
             SecondaryLaser = secondaryLaser;
+            SecondaryBurst = secondaryBurst;
         }
 
         public BossPartAttackType Type { get; }
@@ -837,6 +847,58 @@ namespace Shmup.Core.Generation
         /// Null for legacy single-attack parts.
         /// </summary>
         public Simulation.LaserAttackDefinition SecondaryLaser { get; }
+        /// <summary>
+        /// Optional bullet volley running on its own cycle alongside the
+        /// primary attack (REQ-177). Null for parts that only do one thing.
+        /// </summary>
+        public BossPartBurstDefinition SecondaryBurst { get; }
+    }
+
+    /// <summary>
+    /// 주 공격과 **별개 주기로** 나가는 탄막 한 발.
+    ///
+    /// 사람 지시 2026-08-05: "전함 페이즈 2에서 레이저와 별개로 일반 탄막도
+    /// 발사하게 해줘. 너무 빡빡하진 않게."
+    ///
+    /// 왜 새 정의가 필요했나: 파츠 하나에는 공격 하나뿐이라, 2막 여섯 문을 전부
+    /// 레이저로 두면서 탄막을 얹을 방법이 없었다. 2막 그룹에는 그 여섯 문 말고
+    /// 다른 파츠가 없어 "다른 파츠에 탄막을 준다"도 불가능하다. 레이저 쪽에 이미
+    /// 있던 SecondaryLaser와 같은 모양으로 탄막판을 만든다.
+    /// </summary>
+    public sealed class BossPartBurstDefinition
+    {
+        public BossPartBurstDefinition(
+            int cycleIntervalTicks,
+            int ways,
+            int bulletSpeedNumerator,
+            int bulletSpeedDenominator,
+            bool aimed)
+        {
+            if (cycleIntervalTicks < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(cycleIntervalTicks));
+            if (ways < 1)
+                throw new ArgumentOutOfRangeException(nameof(ways));
+            if (bulletSpeedNumerator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(bulletSpeedNumerator));
+            if (bulletSpeedDenominator < 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(bulletSpeedDenominator));
+
+            CycleIntervalTicks = cycleIntervalTicks;
+            Ways = ways;
+            BulletSpeedNumerator = bulletSpeedNumerator;
+            BulletSpeedDenominator = bulletSpeedDenominator;
+            Aimed = aimed;
+        }
+
+        public int CycleIntervalTicks { get; }
+        public int Ways { get; }
+        public int BulletSpeedNumerator { get; }
+        public int BulletSpeedDenominator { get; }
+        /// <summary>플레이어를 겨냥한 부채꼴인가, 전방위인가.</summary>
+        public bool Aimed { get; }
     }
 
     /// <summary>

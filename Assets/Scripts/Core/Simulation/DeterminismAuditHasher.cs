@@ -477,6 +477,19 @@ namespace Shmup.Core.Simulation
             FoldInt32(attack.ContactDamage);
             FoldLaserDefinition(attack.LaserAttack);
             FoldLaserDefinition(attack.SecondaryLaser);
+            FoldBurstDefinition(attack.SecondaryBurst);
+        }
+
+        void FoldBurstDefinition(BossPartBurstDefinition burst)
+        {
+            FoldBool(burst != null);
+            if (burst == null)
+                return;
+            FoldInt32(burst.CycleIntervalTicks);
+            FoldInt32(burst.Ways);
+            FoldInt32(burst.BulletSpeedNumerator);
+            FoldInt32(burst.BulletSpeedDenominator);
+            FoldBool(burst.Aimed);
         }
 
         void FoldWarshipDefinition(WarshipEncounterDefinition definition)
