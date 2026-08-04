@@ -157,12 +157,18 @@ static class Program
     const int WarshipWaysReductionPerTurret = 2;
     const int WarshipMinCoreWays = 3;
     // Pure ST TTK at St3 reach DPS (no retarget tax). Mid+boss legacy ≈ 25s boss + ~3s mid.
-    const double WarshipTtkExpectedMin = 22.0;
-    const double WarshipTtkExpectedMax = 36.0;
-    const double WarshipTtkFullMin = 8.0;
-    // Wall-clock floor includes warning + attrition timer + core ST (no engine/turret melt).
-    const double WarshipWallClockMinSeconds = 28.0;
-    const double WarshipWallClockMaxSeconds = 55.0;
+    // 2026-08-04: 사람이 "각 페이스당 HP를 두배로" 요청해 파츠 HP가 전부 2배가
+    // 됐다(REQ-168). 벽시계 밴드는 그 직접적 결과이므로 같이 올린다 — 밴드를
+    // 그대로 두면 의도한 변경이 매번 FAIL로 보인다.
+    //
+    // 이 값들은 데이터 복사본이 아니라 **얼마나 긴 전투이길 바라는가**라서
+    // 관계로 바꾸지 않고 절대값으로 남긴다. 다만 왜 이 숫자인지는 적어 둔다.
+    const double WarshipTtkExpectedMin = 44.0;
+    const double WarshipTtkExpectedMax = 72.0;
+    const double WarshipTtkFullMin = 16.0;
+    // 벽시계 하한 = 경고 + 소모전 타이머 + 코어 ST (엔진·포탑을 녹이지 않은 경우).
+    const double WarshipWallClockMinSeconds = 45.0;
+    const double WarshipWallClockMaxSeconds = 95.0;
     // Ghost L1 main-shot fixed firepower (Core GhostReplayConfig defaults).
     const int GhostFixedWeaponLevel = 1;
     const int GhostFireIntervalTicks = 8;
@@ -8160,7 +8166,10 @@ static class Program
         int coreBeamerSegs = 0;
         int scrapyardLaserSegs = 0;
         int peakLaserSourcesInSegment = 0;
-        const int designPeakSources = 4;
+        // 2026-08-04: Core MaxLasers를 8 → 24로 올렸다. 이 상한은 "동시에 몇
+        // 줄기가 화면에 있어도 읽히는가"라는 가독성 기준이지 용량 기준이 아니다.
+        // 전함 함저 포탑만 4문이라 4는 이제 너무 좁다.
+        const int designPeakSources = 8;
         foreach (StageSegmentTemplate seg in data.StageGeneration.Segments)
         {
             int enemyLaserSpawns = 0;
@@ -8281,7 +8290,7 @@ static class Program
             failures++;
         }
 
-        // Design peak ≤4 keeps concurrent fire well under MaxLasers=8.
+        // 동시 발사가 MaxLasers(24) 아래로 넉넉히 유지되는지 + 화면이 읽히는지.
         if (peakLaserSourcesInSegment > designPeakSources)
         {
             Console.WriteLine(
@@ -9728,12 +9737,15 @@ static class Program
         // Hull total HP stays locked; robot is an extra final act after the hull.
         const int FortressRobotForm2Hp = 8_000;
         const int FortressRobotTransitionTicks = 300;
+        // HP 절대값 잠금은 뺐다 — 사람이 각 막 HP를 2배로 올렸고(REQ-168),
+        // 그때마다 이 게이트가 깨진다. 지켜야 할 것은 "전함 조우가 붙어 있고
+        // 두 번째 형태(로봇)가 있다"는 구조다.
         if (!byId.TryGetValue("boss_fortress", out StageBossTemplate fort)
             || fort.WarshipEncounter == null
-            || fort.MaxHp != WarshipTotalHp)
+            || fort.Form2 == null)
         {
             Console.WriteLine(
-                "FAIL 116: boss_fortress warship must remain locked "
+                "FAIL 116: boss_fortress에 전함 조우 또는 두 번째 형태가 없다 "
                 + $"(hp {WarshipTotalHp}).");
             failures++;
         }
@@ -10019,9 +10031,20 @@ static class Program
                             / (double)SimSpace.SubUnitsPerWorldUnit;
                         double endX = rule.Attack.LaserAttack.EndOffsetX
                             / (double)SimSpace.SubUnitsPerWorldUnit;
-                        // REQ-154: phase-3 signature beam. REQ-162: thicker presence band
-                        // (fullHalfW up to 4.0) + longer endOffset past playfield left edge.
-                        hasRailLaser = fullW >= 1.2 && fullW <= 4.0 && endX <= -30.0;
+                        // REQ-154: 3페이즈 시그니처 빔. 사람 지시 2026-08-04로
+                        // "화면 절반 크기"까지 커졌다 — 화면 높이 22.5유닛의 절반이
+                        // 11.25이므로 fullHalfWidth 5.625가 그 값이다.
+                        //
+                        // 상한을 화면 절반으로 둔다. 그보다 굵으면 피할 곳이 없어
+                        // 패턴이 아니라 처형이 된다.
+                        //
+                        // endOffsetX 하한은 뺐다 — 이제 Core가 모든 레이저를 화면
+                        // 끝까지 늘린다(방향은 데이터가, 길이는 화면이 정한다).
+                        // 데이터의 끝 좌표는 방향만 뜻하므로 길이로 판정할 수 없다.
+                        const double halfScreenHalfWidth = 45.0 / 4.0 / 2.0;
+                        hasRailLaser = fullW >= 1.2
+                            && fullW <= halfScreenHalfWidth
+                            && endX < 0.0;
                         Console.WriteLine(
                             $"  leviathan railgun beam fullHalfW={fullW:F2} "
                             + $"endOffsetX={endX:F1}");
@@ -10035,7 +10058,7 @@ static class Program
             {
                 Console.WriteLine(
                     "FAIL 116: leviathan missing anchor parts or "
-                    + "railgun fullHalfWidth 1.2–4.0 / endOffset ≤ -30.");
+                    + "railgun fullHalfWidth 1.2~5.625(화면 절반) / 왼쪽 방향.");
                 failures++;
             }
         }
@@ -10071,10 +10094,13 @@ static class Program
             Console.WriteLine(
                 $"  broodmother parts={brood.Parts.Count} regen={regenParts} "
                 + $"sacs={sacs} suction={(hasSuction ? "OK" : "BAD")}");
-            if (regenParts < 2 || sacs < 3 || !hasSuction)
+            // 재생 촉수 요구는 뺐다 (사람 지시 2026-08-04: "한번 부순 부위는 다시
+            // 타격 못하게 처리해줘"). 부순 것이 돌아오면 플레이어가 한 일이
+            // 지워진다 — 이 게이트는 그 반대를 강제하고 있었다.
+            if (regenParts > 0 || sacs < 3 || !hasSuction)
             {
                 Console.WriteLine(
-                    "FAIL 116: broodmother needs ≥2 regen tentacles, "
+                    "FAIL 116: broodmother는 재생 파츠가 없어야 하고 "
                     + "3 sacs, and suction with effectMaxSpeed.");
                 failures++;
             }

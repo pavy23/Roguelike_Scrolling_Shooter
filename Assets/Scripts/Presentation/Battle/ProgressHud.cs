@@ -59,20 +59,25 @@ namespace Shmup.Presentation.Battle
             // 데일리 뱃지 — 진행도 바로 위. "지금 어떤 모드인가"를 런 내내 알 수 있어야 한다
             // (사람 피드백 2026-08-01). 앰버 한 색 액센트라 계기판 언어를 깨지 않는다.
             _dailyBadge = UiKit.CreateCornerText(canvas.transform, _font, UiText.DailyBadge, 9,
-                UiKit.TextAccent, new Vector2(0f, 1f), new Vector2(8f, -16f),
+                // 좌상단은 PAUSE 버튼 자리가 됐다 — 글자를 오른쪽으로 비킨다.
+                UiKit.TextAccent, new Vector2(0f, 1f), new Vector2(84f, -12f),
                 TextAnchor.UpperLeft, "DailyBadge");
             UiKit.AddShadow(_dailyBadge, 1f);
             _dailyBadge.gameObject.SetActive(false);
 
+            // 스테이지 표기는 **보스 체력바 바로 아래**다 (사람 지시 2026-08-04).
+            // 체력바는 월드 y 9.7에 있고 화면 위에서 약 1.9유닛(=30px) 내려온
+            // 자리가 그 아래다. 둘을 붙여 두면 "어느 판의 누구를 상대하는가"가
+            // 한 덩어리로 읽힌다 — 예전처럼 좌상단에 흩어져 있으면 따로 논다.
             _progressText = UiKit.CreateCornerText(canvas.transform, _font, "", 11,
-                UiKit.TextDim, new Vector2(0f, 1f), new Vector2(8f, -30f),
-                TextAnchor.UpperLeft, "Progress");
+                UiKit.TextDim, new Vector2(0.5f, 1f), new Vector2(0f, -34f),
+                TextAnchor.UpperCenter, "Progress");
             UiKit.AddShadow(_progressText);
 
             // 활성 계약 (REQ-070). 계약이 스테이지 전체에 걸리는데 표시가 없으면
             // "왜 적이 많지?"가 버그로 읽힌다 — 내가 고른 조건임을 계속 보여 준다.
             _contractText = UiKit.CreateCornerText(canvas.transform, _font, "", 9,
-                UiKit.TextDim, new Vector2(0f, 1f), new Vector2(8f, -44f),
+                UiKit.TextDim, new Vector2(0f, 1f), new Vector2(84f, -26f),
                 TextAnchor.UpperLeft, "Contract");
             UiKit.AddShadow(_contractText);
 

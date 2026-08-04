@@ -1252,7 +1252,16 @@ namespace Shmup.Core.Simulation
         public int BombBossPartDamageCap { get; set; } = 250;
         public int BombNoDropWeight { get; set; } = 100;
         public int MaxBombPickups { get; set; } = 16;
-        public int MaxLasers { get; set; } = 8;
+        /// <summary>
+        /// 동시에 살아 있을 수 있는 레이저 수. **넘치면 그 빔은 발사되지 않는다**
+        /// (TryStartLaser가 LaserCapacityExceeded를 내고 그냥 돌아간다).
+        ///
+        /// 8은 전함 포탑이 4문이던 시절 값이다. 지금은 포탑만 6문이고 여기에
+        /// 레이저 잡몹(laser_sentry · prism_beamer)과 플레이어 레이저가 겹친다 —
+        /// 사람이 "레이저가 중간에 끊긴다"고 본 것의 절반이 이것이다(나머지 절반은
+        /// 뷰의 슬롯 부족이었고 그쪽은 24로 올렸다).
+        /// </summary>
+        public int MaxLasers { get; set; } = 24;
         public int PlayerHalfWidth { get; set; }
         public int PlayerHalfHeight { get; set; }
         public int CapsuleHalfWidth { get; set; }

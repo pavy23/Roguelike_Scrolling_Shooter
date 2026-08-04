@@ -60,15 +60,13 @@ namespace Shmup.Presentation.Battle
                 // 폰에는 ESC가 없다 — 일시정지를 열 수단이 UI에 없으면 런에서 나갈 방법이 없다.
                 var toggleCanvas = UiKit.CreateCanvas("PauseToggleCanvas", 79);
                 toggleCanvas.transform.SetParent(transform, false);
-                // **좌하단**이다. 상단 중앙에 두었더니 보스 HP 바와 자리를 다퉜다
-                // (사람 지적 2026-08-04). HP 바는 화면 위가 제자리이고 — 아래로
-                // 내렸더니 "잘 안보이네"라는 보고가 돌아왔다 — 비켜야 하는 쪽은
-                // 버튼이다.
+                // **좌측 상단**이다 (사람 지시 2026-08-04). 상단 중앙은 보스 HP 바
+                // 자리라 비켜야 했고, 좌하단으로 한 번 갔다가 좌상단으로 확정됐다.
                 //
-                // 좌하단은 실드 숫자를 빼면서 비었고, 우하단 폭탄 버튼과도
-                // 화면 반대편이라 엄지끼리 부딪히지 않는다.
+                // 여기 있던 진행도·계약 표시는 오른쪽으로 밀었다 (ProgressHud) —
+                // 버튼은 손가락이 닿는 자리가 정해져 있지만 글자는 어디로든 갈 수 있다.
                 var toggleButton = UiKit.CreateTouchButton(toggleCanvas.transform, _font, "PAUSE", 10,
-                    new Vector2(0f, 0f), new Vector2(14f, 12f), new Vector2(62f, 30f),
+                    new Vector2(0f, 1f), new Vector2(14f, -12f), new Vector2(62f, 30f),
                     TogglePause, "PauseToggle");
                 // 이 영역을 기체 드래그에서 빼 둔다 — 안 그러면 서로를 오작동시킨다.
                 if (TouchControls.Instance != null)
