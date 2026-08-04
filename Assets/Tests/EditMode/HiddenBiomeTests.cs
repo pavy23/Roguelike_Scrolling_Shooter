@@ -100,7 +100,7 @@ namespace Shmup.Core.Tests
         }
 
         [Test]
-        public void QualifiedRunAddsTwoRoomsAndProducesPerfectClear()
+        public void QualifiedRunAddsHiddenRoomsAndProducesPerfectClear()
         {
             MetaState meta = MetaState.CreateDefault(
                 ShipDefinition.CreateDefault());
@@ -115,7 +115,11 @@ namespace Shmup.Core.Tests
             Assert.IsTrue(run.IsHiddenBiome);
             Assert.IsTrue(run.IsBiomeBoss);
             Assert.AreEqual(run.BiomeCount, run.BiomeIndex);
-            Assert.AreEqual(2, run.RoomIndex);
+            // 히든 구간의 방 수는 설정이 정한다 — 여기에 숫자를 적어 두면
+            // 구성이 바뀔 때마다 무관하게 깨진다.
+            Assert.AreEqual(
+                RunProgressionConfig.HiddenRooms,
+                run.RoomIndex);
             Assert.AreEqual(4, run.EliteRoomsCleared);
             Assert.AreEqual(2, run.NoHitBiomesCleared);
             Assert.AreEqual(0, run.RareEncountersCleared);
@@ -537,6 +541,13 @@ namespace Shmup.Core.Tests
                     null,
                     null,
                     _encounterType);
+            }
+
+            // 이 가짜 생성기는 IRouteStageGenerator가 아니므로 히든 접근 구간의
+            // 테마 교체 경로를 타지 않는다. null이 곧 "전용 테마 없음"이다.
+            public string GetColossalBossThemeId(ColossalBossKind kind)
+            {
+                return null;
             }
 
             public bool CanGenerateColossalBoss(

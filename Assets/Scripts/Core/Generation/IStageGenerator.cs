@@ -136,6 +136,17 @@ namespace Shmup.Core.Generation
             int stageIndex,
             int difficulty,
             ColossalBossKind kind);
+
+        /// <summary>
+        /// 이 거대 보스가 자기 스테이지에 입히는 테마. 히든 스테이지가 직전
+        /// 바이옴을 그대로 재사용하지 않고 보스에 맞는 분위기를 갖게 하려는 것이다
+        /// (사람 보고 2026-08-04: "히든 스테이지가 기존 스테이지 재활용인데
+        /// 각 보스 타입에 따라 맞는 분위기로 새로 만들어줘").
+        ///
+        /// 데이터가 아직 전용 테마를 갖지 않으면 null을 돌려준다 — 그 경우
+        /// 호출자는 종전 동작(마지막 바이옴 테마 재사용)으로 남는다.
+        /// </summary>
+        string GetColossalBossThemeId(ColossalBossKind kind);
     }
 
     public enum EncounterType

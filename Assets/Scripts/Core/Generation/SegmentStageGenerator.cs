@@ -1192,6 +1192,25 @@ namespace Shmup.Core.Generation
                 selected.Form2);
         }
 
+        public string GetColossalBossThemeId(ColossalBossKind kind)
+        {
+            string id = GetColossalBossId(kind);
+            if (id == null)
+                return null;
+            for (int i = 0; i < _catalog.Bosses.Count; i++)
+            {
+                StageBossTemplate candidate = _catalog.Bosses[i];
+                if (string.Equals(
+                        candidate.BossId,
+                        id,
+                        StringComparison.Ordinal))
+                    return string.IsNullOrEmpty(candidate.ThemeId)
+                        ? null
+                        : candidate.ThemeId;
+            }
+            return null;
+        }
+
         static string GetColossalBossId(ColossalBossKind kind)
         {
             switch (kind)

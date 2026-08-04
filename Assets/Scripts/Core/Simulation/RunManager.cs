@@ -605,7 +605,18 @@ namespace Shmup.Core.Simulation
         public const int DefaultBiomeCount = 5;
         public const int DefaultRoomsPerBiome = 3;
         public const int DefaultFinalStageIndex = DefaultBiomeCount;
-        public const int HiddenRooms = 2;
+        /// <summary>
+        /// 히든 바이옴의 일반 방 수. 사람 결정 2026-08-04: "중간보스는 없이
+        /// 스테이지에서 바로 보스로 빠지는 구성으로 가자" — 한 구간을 지나면
+        /// 곧바로 거대 보스다.
+        /// </summary>
+        public const int HiddenRooms = 1;
+
+        /// <summary>
+        /// 위 값이 2였던 시절에 저장된 중단 데이터를 읽어 주기 위한 값.
+        /// 검증에만 쓰고 생성에는 쓰지 않는다.
+        /// </summary>
+        public const int LegacyHiddenRooms = 2;
 
         /// <summary>
         /// Legacy constructor: one regular room per biome. Existing callers and
@@ -4545,8 +4556,14 @@ namespace Shmup.Core.Simulation
                     "Suspend biome progression is invalid.",
                     nameof(data));
             }
+            // 히든 방 수가 2에서 1로 줄었다(REQ-159 — 중간 구간 없이 바로 보스로).
+            // 줄어들기 전에 저장된 중단 데이터는 roomIndex=2를 담고 있으므로,
+            // 그것을 거부하면 진행 중이던 런이 로드에서 통째로 날아간다.
+            // 예전 상한까지는 받아 주고, 아래에서 보스 직전으로 접어 준다.
             int roomLimit = hiddenBiomePosition
-                ? RunProgressionConfig.HiddenRooms
+                ? Math.Max(
+                    RunProgressionConfig.HiddenRooms,
+                    RunProgressionConfig.LegacyHiddenRooms)
                 : data.roomsPerBiome;
             if (data.roomsPerBiome < 1
                 || data.roomIndex < 1
@@ -4571,8 +4588,15 @@ namespace Shmup.Core.Simulation
                     + (data.isBiomeBoss
                         ? data.roomsPerBiome
                         : data.roomIndex - 1);
+            // 히든 보스 앞에서 저장된 예전 데이터는 방 하나를 더 지나온 값을
+            // 담고 있다. 그 차이만큼은 허용한다 (위 roomLimit 주석 참고).
+            long legacyRoomsCleared = hiddenBiomePosition && data.isBiomeBoss
+                ? (long)data.biomeCount * data.roomsPerBiome
+                    + RunProgressionConfig.LegacyHiddenRooms
+                : expectedRoomsCleared;
             if (expectedRoomsCleared > int.MaxValue
-                || data.roomsCleared != (int)expectedRoomsCleared)
+                || (data.roomsCleared != (int)expectedRoomsCleared
+                    && data.roomsCleared != (int)legacyRoomsCleared))
                 throw new ArgumentException(
                     "Suspend roomsCleared must match the room boundary.",
                     nameof(data));
@@ -5571,6 +5595,42 @@ namespace Shmup.Core.Simulation
             return copy;
         }
 
+        /// <summary>
+        /// 히든 보스로 가는 접근 구간을 그 보스 전용 테마로 생성한다.
+        /// 전용 테마가 없거나 생성기가 그 테마를 만들 수 없으면 false —
+        /// 호출자는 종전 경로(마지막 바이옴 테마 재사용)로 남는다. 데이터가
+        /// 먼저 오든 코드가 먼저 오든 어느 쪽도 깨지지 않게 하려는 것이다.
+        /// </summary>
+        bool TryGenerateHiddenApproach(
+            ulong generationSeed,
+            int battleSequenceBiomeIndex,
+            out StagePlan plan)
+        {
+            plan = null;
+            if (!(_stageGenerator is IRouteStageGenerator routeGenerator)
+                || !(_stageGenerator is IColossalBossStageGenerator colossal))
+                return false;
+
+            string themeId =
+                colossal.GetColossalBossThemeId(SelectedColossalBoss);
+            if (string.IsNullOrEmpty(themeId))
+                return false;
+            if (!routeGenerator.CanGenerateRoute(
+                    themeId,
+                    battleSequenceBiomeIndex,
+                    Difficulty,
+                    EncounterType.Normal))
+                return false;
+
+            plan = routeGenerator.GenerateRoute(
+                generationSeed,
+                battleSequenceBiomeIndex,
+                Difficulty,
+                themeId,
+                EncounterType.Normal);
+            return plan != null;
+        }
+
         void BuildCurrentStage()
         {
             ApplyCurrentLoadoutProfiles();
@@ -5598,6 +5658,17 @@ namespace Shmup.Core.Simulation
                     generationBiomeIndex,
                     Difficulty,
                     SelectedColossalBoss);
+            }
+            else if (IsHiddenBiome
+                && TryGenerateHiddenApproach(
+                    generationSeed,
+                    battleSequenceBiomeIndex,
+                    out StagePlan hiddenApproach))
+            {
+                // 히든 스테이지는 직전 바이옴을 재사용하지 않고 보스에 맞는
+                // 분위기를 입는다. 데이터에 전용 테마가 아직 없으면 여기로 오지
+                // 않고 아래의 종전 경로로 떨어진다.
+                generated = hiddenApproach;
             }
             else if (_stageGenerator is IRouteStageGenerator routeGenerator)
             {
