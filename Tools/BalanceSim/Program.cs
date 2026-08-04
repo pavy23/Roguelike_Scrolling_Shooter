@@ -9936,8 +9936,9 @@ static class Program
                             / (double)SimSpace.SubUnitsPerWorldUnit;
                         double endX = rule.Attack.LaserAttack.EndOffsetX
                             / (double)SimSpace.SubUnitsPerWorldUnit;
-                        // REQ-154: phase-3 half-screen beam may exceed the old 1.2–1.6 band.
-                        hasRailLaser = fullW >= 1.2 && fullW <= 3.0 && endX <= -25.0;
+                        // REQ-154: phase-3 signature beam. REQ-162: thicker presence band
+                        // (fullHalfW up to 4.0) + longer endOffset past playfield left edge.
+                        hasRailLaser = fullW >= 1.2 && fullW <= 4.0 && endX <= -30.0;
                         Console.WriteLine(
                             $"  leviathan railgun beam fullHalfW={fullW:F2} "
                             + $"endOffsetX={endX:F1}");
@@ -9951,7 +9952,7 @@ static class Program
             {
                 Console.WriteLine(
                     "FAIL 116: leviathan missing anchor parts or "
-                    + "railgun fullHalfWidth 1.2–1.6 / endOffset ≤ -25.");
+                    + "railgun fullHalfWidth 1.2–4.0 / endOffset ≤ -30.");
                 failures++;
             }
         }

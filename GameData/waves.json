@@ -14338,9 +14338,6 @@
           "mineTravelTicks": 16,
           "mineTelegraphTicks": 28,
           "mineAcceleration": 2,
-          "signaturePatternId": "brood",
-          "signatureSpawnEnemyId": "hive_tentacle",
-          "signatureHomingTurnLutSlotsPerTick": 1,
           "movementPattern": "verticalSine",
           "movementAmplitude": 4.25,
           "movementPeriodTicks": 54,
@@ -14454,19 +14451,19 @@
           "hp": 1200,
           "attack": {
             "type": "laser",
-            "intervalTicks": 140,
+            "intervalTicks": 200,
             "laser": {
-              "cycleIntervalTicks": 140,
-              "telegraphTicks": 32,
-              "firingTicks": 10,
-              "sustainTicks": 72,
+              "cycleIntervalTicks": 200,
+              "telegraphTicks": 48,
+              "firingTicks": 8,
+              "sustainTicks": 50,
               "dissipateTicks": 12,
-              "startOffsetX": -1.5,
-              "startOffsetY": 0.0,
-              "endOffsetX": -28.0,
-              "endOffsetY": 2.0,
+              "startOffsetX": 0.0,
+              "startOffsetY": 14.0,
+              "endOffsetX": 0.0,
+              "endOffsetY": -16.0,
               "thinHalfWidth": 0.25,
-              "fullHalfWidth": 1.0,
+              "fullHalfWidth": 0.875,
               "damage": 2
             }
           }
@@ -14480,19 +14477,19 @@
           "hp": 1200,
           "attack": {
             "type": "laser",
-            "intervalTicks": 148,
+            "intervalTicks": 220,
             "laser": {
-              "cycleIntervalTicks": 148,
-              "telegraphTicks": 28,
-              "firingTicks": 10,
-              "sustainTicks": 80,
+              "cycleIntervalTicks": 220,
+              "telegraphTicks": 52,
+              "firingTicks": 8,
+              "sustainTicks": 50,
               "dissipateTicks": 12,
-              "startOffsetX": -1.5,
-              "startOffsetY": 0.0,
-              "endOffsetX": -28.0,
-              "endOffsetY": 3.5,
+              "startOffsetX": 0.0,
+              "startOffsetY": 14.0,
+              "endOffsetX": 0.0,
+              "endOffsetY": -16.0,
               "thinHalfWidth": 0.25,
-              "fullHalfWidth": 1.0,
+              "fullHalfWidth": 0.875,
               "damage": 2
             }
           }
@@ -14517,9 +14514,9 @@
         "id": "fortress_warship",
         "eventEntityId": 110,
         "warningTicks": 180,
-        "originX": 24.0,
+        "originX": 18.0,
         "originY": 0.0,
-        "scrollSpeedPerSecond": 3.0,
+        "scrollSpeedPerSecond": 1.5,
         "baseCoreOpeningWays": 9,
         "waysReductionPerTurret": 2,
         "minimumCoreOpeningWays": 3,
@@ -14543,7 +14540,7 @@
               "turret_d"
             ],
             "advanceAfterTicks": 600,
-            "anchorOffsetY": 5.0,
+            "anchorOffsetY": 3.0,
             "anchorTravelTicks": 120
           },
           {
@@ -15192,19 +15189,19 @@
               "invulnerable": false,
               "attack": {
                 "type": "laser",
-                "intervalTicks": 300,
+                "intervalTicks": 360,
                 "laser": {
-                  "cycleIntervalTicks": 300,
-                  "telegraphTicks": 150,
-                  "firingTicks": 10,
-                  "sustainTicks": 72,
-                  "dissipateTicks": 20,
+                  "cycleIntervalTicks": 360,
+                  "telegraphTicks": 180,
+                  "firingTicks": 12,
+                  "sustainTicks": 108,
+                  "dissipateTicks": 24,
                   "startOffsetX": -3.8984375,
                   "startOffsetY": 0.0,
-                  "endOffsetX": -27.3984375,
+                  "endOffsetX": -32.0,
                   "endOffsetY": 0.0,
-                  "thinHalfWidth": 0.25,
-                  "fullHalfWidth": 2.5,
+                  "thinHalfWidth": 0.75,
+                  "fullHalfWidth": 3.75,
                   "damage": 1
                 }
               }
@@ -15512,19 +15509,19 @@
               "invulnerable": false,
               "attack": {
                 "type": "laser",
-                "intervalTicks": 300,
+                "intervalTicks": 320,
                 "laser": {
-                  "cycleIntervalTicks": 300,
-                  "telegraphTicks": 140,
+                  "cycleIntervalTicks": 320,
+                  "telegraphTicks": 150,
                   "firingTicks": 8,
-                  "sustainTicks": 54,
+                  "sustainTicks": 48,
                   "dissipateTicks": 16,
                   "startOffsetX": -1.5,
-                  "startOffsetY": 1.5,
-                  "endOffsetX": -26.0,
-                  "endOffsetY": 5.0,
+                  "startOffsetY": 2.0,
+                  "endOffsetX": -34.0,
+                  "endOffsetY": 9.0,
                   "thinHalfWidth": 0.25,
-                  "fullHalfWidth": 1.5,
+                  "fullHalfWidth": 1.25,
                   "damage": 1
                 }
               }
@@ -15535,19 +15532,19 @@
               "invulnerable": false,
               "attack": {
                 "type": "laser",
-                "intervalTicks": 320,
+                "intervalTicks": 340,
                 "laser": {
-                  "cycleIntervalTicks": 320,
-                  "telegraphTicks": 150,
+                  "cycleIntervalTicks": 340,
+                  "telegraphTicks": 160,
                   "firingTicks": 8,
-                  "sustainTicks": 54,
+                  "sustainTicks": 48,
                   "dissipateTicks": 16,
                   "startOffsetX": -1.5,
-                  "startOffsetY": -1.5,
-                  "endOffsetX": -26.0,
-                  "endOffsetY": -5.0,
+                  "startOffsetY": -2.0,
+                  "endOffsetX": -34.0,
+                  "endOffsetY": -9.0,
                   "thinHalfWidth": 0.25,
-                  "fullHalfWidth": 1.5,
+                  "fullHalfWidth": 1.25,
                   "damage": 1
                 }
               }
@@ -15557,9 +15554,22 @@
               "active": true,
               "invulnerable": false,
               "attack": {
-                "type": "spawnEnemy",
-                "intervalTicks": 600,
-                "spawnEnemyId": "zako_straight"
+                "type": "laser",
+                "intervalTicks": 300,
+                "laser": {
+                  "cycleIntervalTicks": 300,
+                  "telegraphTicks": 140,
+                  "firingTicks": 8,
+                  "sustainTicks": 48,
+                  "dissipateTicks": 16,
+                  "startOffsetX": -1.5,
+                  "startOffsetY": 0.75,
+                  "endOffsetX": -34.0,
+                  "endOffsetY": 4.5,
+                  "thinHalfWidth": 0.25,
+                  "fullHalfWidth": 1.25,
+                  "damage": 1
+                }
               }
             },
             {
@@ -15567,9 +15577,22 @@
               "active": true,
               "invulnerable": false,
               "attack": {
-                "type": "spawnEnemy",
-                "intervalTicks": 600,
-                "spawnEnemyId": "zako_straight"
+                "type": "laser",
+                "intervalTicks": 310,
+                "laser": {
+                  "cycleIntervalTicks": 310,
+                  "telegraphTicks": 145,
+                  "firingTicks": 8,
+                  "sustainTicks": 48,
+                  "dissipateTicks": 16,
+                  "startOffsetX": -1.5,
+                  "startOffsetY": -0.75,
+                  "endOffsetX": -34.0,
+                  "endOffsetY": -4.5,
+                  "thinHalfWidth": 0.25,
+                  "fullHalfWidth": 1.25,
+                  "damage": 1
+                }
               }
             },
             {
@@ -15591,16 +15614,16 @@
                 "intervalTicks": 280,
                 "laser": {
                   "cycleIntervalTicks": 280,
-                  "telegraphTicks": 130,
+                  "telegraphTicks": 150,
                   "firingTicks": 8,
-                  "sustainTicks": 48,
+                  "sustainTicks": 54,
                   "dissipateTicks": 16,
                   "startOffsetX": -3.0,
                   "startOffsetY": 0.0,
-                  "endOffsetX": -26.0,
+                  "endOffsetX": -34.0,
                   "endOffsetY": 0.0,
-                  "thinHalfWidth": 0.25,
-                  "fullHalfWidth": 2.0,
+                  "thinHalfWidth": 0.375,
+                  "fullHalfWidth": 1.75,
                   "damage": 1
                 }
               }
