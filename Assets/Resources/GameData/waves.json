@@ -14456,9 +14456,9 @@
           "hp": 1600,
           "attack": {
             "type": "laser",
-            "intervalTicks": 560,
+            "intervalTicks": 280,
             "laser": {
-              "cycleIntervalTicks": 560,
+              "cycleIntervalTicks": 280,
               "telegraphTicks": 48,
               "firingTicks": 8,
               "sustainTicks": 50,
@@ -14473,8 +14473,8 @@
               "aimsAtPlayer": true
             },
             "secondaryBurst": {
-              "cycleIntervalTicks": 240,
-              "ways": 3,
+              "cycleIntervalTicks": 155,
+              "ways": 6,
               "bulletSpeed": 4.0,
               "aimed": true
             }
@@ -14489,9 +14489,9 @@
           "hp": 1600,
           "attack": {
             "type": "laser",
-            "intervalTicks": 660,
+            "intervalTicks": 330,
             "laser": {
-              "cycleIntervalTicks": 660,
+              "cycleIntervalTicks": 330,
               "telegraphTicks": 52,
               "firingTicks": 8,
               "sustainTicks": 50,
@@ -14506,8 +14506,8 @@
               "aimsAtPlayer": true
             },
             "secondaryBurst": {
-              "cycleIntervalTicks": 340,
-              "ways": 3,
+              "cycleIntervalTicks": 220,
+              "ways": 6,
               "bulletSpeed": 4.0,
               "aimed": true
             }
@@ -14522,9 +14522,9 @@
           "hp": 1600,
           "attack": {
             "type": "laser",
-            "intervalTicks": 760,
+            "intervalTicks": 380,
             "laser": {
-              "cycleIntervalTicks": 760,
+              "cycleIntervalTicks": 380,
               "telegraphTicks": 56,
               "firingTicks": 8,
               "sustainTicks": 50,
@@ -14539,8 +14539,8 @@
               "aimsAtPlayer": true
             },
             "secondaryBurst": {
-              "cycleIntervalTicks": 440,
-              "ways": 3,
+              "cycleIntervalTicks": 285,
+              "ways": 6,
               "bulletSpeed": 4.0,
               "aimed": true
             }
@@ -14555,9 +14555,9 @@
           "hp": 1600,
           "attack": {
             "type": "laser",
-            "intervalTicks": 860,
+            "intervalTicks": 430,
             "laser": {
-              "cycleIntervalTicks": 860,
+              "cycleIntervalTicks": 430,
               "telegraphTicks": 60,
               "firingTicks": 8,
               "sustainTicks": 50,
@@ -14572,8 +14572,8 @@
               "aimsAtPlayer": true
             },
             "secondaryBurst": {
-              "cycleIntervalTicks": 540,
-              "ways": 3,
+              "cycleIntervalTicks": 350,
+              "ways": 6,
               "bulletSpeed": 4.0,
               "aimed": true
             }
@@ -14588,9 +14588,9 @@
           "hp": 1600,
           "attack": {
             "type": "laser",
-            "intervalTicks": 960,
+            "intervalTicks": 480,
             "laser": {
-              "cycleIntervalTicks": 960,
+              "cycleIntervalTicks": 480,
               "telegraphTicks": 64,
               "firingTicks": 8,
               "sustainTicks": 50,
@@ -14605,8 +14605,8 @@
               "aimsAtPlayer": true
             },
             "secondaryBurst": {
-              "cycleIntervalTicks": 640,
-              "ways": 3,
+              "cycleIntervalTicks": 415,
+              "ways": 6,
               "bulletSpeed": 4.0,
               "aimed": true
             }
@@ -14621,9 +14621,9 @@
           "hp": 1600,
           "attack": {
             "type": "laser",
-            "intervalTicks": 1060,
+            "intervalTicks": 530,
             "laser": {
-              "cycleIntervalTicks": 1060,
+              "cycleIntervalTicks": 530,
               "telegraphTicks": 68,
               "firingTicks": 8,
               "sustainTicks": 50,
@@ -14638,8 +14638,8 @@
               "aimsAtPlayer": true
             },
             "secondaryBurst": {
-              "cycleIntervalTicks": 740,
-              "ways": 3,
+              "cycleIntervalTicks": 480,
+              "ways": 6,
               "bulletSpeed": 4.0,
               "aimed": true
             }
