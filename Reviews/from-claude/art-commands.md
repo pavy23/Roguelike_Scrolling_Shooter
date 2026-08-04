@@ -119,3 +119,53 @@ python Tools/ArtGen/artgen.py animate \
 unity run . -- -executeMethod Shmup.EditorTools.BattleSceneBuilder.Build \
   -logFile scene.log --non-interactive --no-banner
 ```
+
+## 모델 섞어 쓰기 (2026-08-04 검증)
+
+각 모델의 강점이 다르다. **한 모델로 끝내지 말고 이어 붙이는 쪽이 나은 경우가 있다.**
+
+| 모델 | 잘하는 것 | 못하는 것 |
+|---|---|---|
+| PixelLab | 네이티브 픽셀 격자, 애니메이션 | 256px 상한, 복잡한 구도 지정 |
+| gpt-image-1.5 | 구도·소재 해석, 투명, 크기 자유 | 축소하면 격자가 무너짐 |
+| Grok | 배경 분위기·깊이감 | 투명·크기 불가, 대비가 낮아 변환에 약함 |
+| Gemini `--ref` | **기존 그림의 팔레트·질감 계승** | 내용 정확도 |
+
+### 조합 1 — 구도는 gpt-image, 격자는 PixelLab (**검증됨, 효과 큼**)
+
+단순 축소로 뭉개지던 것이 살아난다. `compare_chain.png` 2번 칸.
+
+```bash
+python Tools/ArtGen/artgen.py openai --model gpt-image-1.5 --size 1024x1024 \
+  --quality high --out out/raw/x.png --prompt "<구도를 자세히>"
+python Tools/ArtGen/artgen.py pixelart --src out/raw/x.png --target 64x48 \
+  --seed <고정> --out out/raw/x_px.png
+python Tools/ArtGen/artgen.py post --src out/raw/x_px.png --target 64x48 \
+  --cutout 40 --colors 32 --out Assets/Art/Sprites/x.png
+```
+
+`--cutout`을 빼지 마라 — 변환기는 **불투명 배경**으로 돌려준다.
+
+언제 쓰나: 소재가 복잡하거나 배치를 정확히 지시해야 할 때(파츠가 여럿인 기계,
+특정 방향으로 무너지는 잔해). 단순한 물체는 PixelLab 직접이 여전히 낫다.
+
+### 조합 2 — 내용은 PixelLab, 팔레트는 Gemini
+
+기존 에셋과 색이 어긋날 때. Gemini는 팔레트 계승이 확실히 강했다.
+
+```bash
+python Tools/ArtGen/artgen.py gemini \
+  --ref <새로_만든_스프라이트>.png --ref <기존_에셋>.png \
+  --out out/raw/recolored.png \
+  --prompt "Recolor the FIRST image to use exactly the palette and shading style
+   of the SECOND image. Keep the first image's shapes and composition unchanged.
+   Transparent background, hard pixel edges, no anti-aliasing."
+```
+
+**내용을 반드시 눈으로 검수해라.** Gemini는 색은 맞추지만 형태를 바꿔 놓기도 한다.
+
+### 쓰지 않는 조합
+
+- **Grok → PixelLab 변환**: Grok 출력이 저대비 회화풍이라 변환기가 형태를 못 잡는다
+  (`compare_chain.png` 3번 칸 — 검은 덩어리가 됐다).
+- **Grok → 전경/중경/랜드마크**: 투명 배경을 지원하지 않는다. 애초에 불가.

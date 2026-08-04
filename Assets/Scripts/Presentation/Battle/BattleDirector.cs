@@ -288,6 +288,12 @@ namespace Shmup.Presentation.Battle
         static readonly Color PunchTint = new Color(1f, 0.45f, 0.45f);
         readonly List<Vector3> _pendingBoomPositions = new List<Vector3>(8);
         readonly List<float> _pendingBoomDelays = new List<float>(8);
+        /// <summary>
+        /// 예약 폭발의 크기. 예전에는 전부 기본 크기였는데, 거대 보스 파츠가
+        /// 무너질 때 작은 폭발만 흩어져 규모가 읽히지 않았다. 위치·지연과 항상
+        /// 같은 길이로 유지한다.
+        /// </summary>
+        readonly List<float> _pendingBoomScales = new List<float>(8);
         float _muzzleAge = float.MaxValue;
         const float MuzzleDuration = 0.06f;
 
@@ -460,6 +466,7 @@ namespace Shmup.Presentation.Battle
                     0f);
                 _pendingBoomPositions.Add(at + offset);
                 _pendingBoomDelays.Add(0.07f * (i + 1));
+                _pendingBoomScales.Add(0.9f);
             }
         }
 
@@ -1664,12 +1671,7 @@ namespace Shmup.Presentation.Battle
                         // 기존 폭발을 그대로 쓴다. **스코어 팝업은 띄우지 않는다** —
                         // Core는 파츠 파괴에 점수를 주지 않으므로(격파 시 EnemyKilled로
                         // 한 번에 준다) 여기서 숫자를 띄우면 합계와 어긋난다.
-                        SpawnExplosion(SimView.ToWorld(e.X, e.Y), 1.5f);
-                        if (_juice != null)
-                        {
-                            _juice.Shake(0.25f);
-                            _juice.Hitstop(0.05f);
-                        }
+                        SpawnPartDestruction(e.PartId, SimView.ToWorld(e.X, e.Y));
                         break;
                     case SimEventType.SegmentChainSpawned:
                         // St4 번개룡 소환 (REQ-115b). 체인은 보스 뒤에서 미끄러져 나오므로
@@ -2756,6 +2758,7 @@ namespace Shmup.Presentation.Battle
                 _pendingBoomPositions.Add(center + new Vector3(
                     Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius * 0.8f, 0f));
                 _pendingBoomDelays.Add(interval * (i + 1));
+                _pendingBoomScales.Add(1f);
             }
 
             // 마지막 폭발 뒤 여운까지 카드를 막는다.
@@ -2766,6 +2769,60 @@ namespace Shmup.Presentation.Battle
         /// 함체 붕괴 (폼 전환). 보스 격파 연출과 달리 **가로로 길게** 훑는다 —
         /// 전함은 길이가 정체성이라, 원형으로 터지면 배로 안 읽힌다.
         /// </summary>
+        /// <summary>
+        /// 파츠 파괴 연출. **크기에 비례한다.**
+        ///
+        /// 예전에는 어떤 파츠든 1.5배 폭발 하나였다. 작은 포탑에는 맞았지만 화면
+        /// 절반을 차지하는 거대 보스 파츠가 부서져도 가운데에 점 하나가 터질
+        /// 뿐이라, 사람이 "부위가 파괴되는 연출이 없음"이라고 보고했다
+        /// (2026-08-04). 실제로는 있었는데 파츠에 비해 너무 작았던 것이다.
+        ///
+        /// 파츠 판정 크기를 읽어 폭발 크기를 키우고, 넓은 파츠는 그 면적에
+        /// 흩뿌려 연달아 터뜨린다 — 큰 것이 무너지는 데는 시간이 걸려야 한다.
+        /// </summary>
+        void SpawnPartDestruction(string partId, Vector3 center)
+        {
+            float halfW = 0.6f, halfH = 0.6f;
+            var definitions = BossPartDefinitions;
+            if (definitions != null && !string.IsNullOrEmpty(partId))
+                for (int i = 0; i < definitions.Count; i++)
+                    if (string.Equals(
+                            definitions[i].PartId,
+                            partId,
+                            System.StringComparison.Ordinal))
+                    {
+                        halfW = definitions[i].HalfWidth * SimView.WorldUnitsPerSubUnit;
+                        halfH = definitions[i].HalfHeight * SimView.WorldUnitsPerSubUnit;
+                        break;
+                    }
+
+            float span = Mathf.Max(halfW, halfH);
+            // 1.5는 예전 고정값 — 작은 파츠에서 지금과 같게 보이도록 바닥으로 둔다.
+            float scale = Mathf.Clamp(span * 1.6f, 1.5f, 5.0f);
+            SpawnExplosion(center, scale);
+
+            // 넓은 파츠일수록 여러 번. 판정 안쪽에만 뿌려 파츠 밖에서 터지지 않게 한다.
+            int extra = Mathf.Clamp(Mathf.RoundToInt(span * 2.2f) - 1, 0, 7);
+            for (int i = 0; i < extra; i++)
+            {
+                // 황금각 — 적은 개수로도 뭉치지 않고 고르게 흩어진다.
+                float angle = i * 2.39996f;
+                float radius = Mathf.Sqrt((i + 1f) / (extra + 1f));
+                _pendingBoomPositions.Add(center + new Vector3(
+                    Mathf.Cos(angle) * halfW * 0.7f * radius,
+                    Mathf.Sin(angle) * halfH * 0.7f * radius,
+                    0f));
+                _pendingBoomDelays.Add(0.07f * (i + 1));
+                _pendingBoomScales.Add(scale * 0.6f);
+            }
+
+            if (_juice != null)
+            {
+                _juice.Shake(Mathf.Clamp(0.25f + span * 0.12f, 0.25f, 0.8f));
+                _juice.Hitstop(Mathf.Clamp(0.05f + span * 0.02f, 0.05f, 0.16f));
+            }
+        }
+
         void SpawnHullCollapse(Vector3 center)
         {
             const int Booms = 22;
@@ -2789,6 +2846,7 @@ namespace Shmup.Presentation.Battle
                 float y = Mathf.Sin(i * 2.39996f) * halfLength * 0.16f;
                 _pendingBoomPositions.Add(center + new Vector3(x, y, 0f));
                 _pendingBoomDelays.Add(Interval * (i + 1));
+                _pendingBoomScales.Add(1.4f);
             }
             BossDeathCinematicRemaining = Interval * Booms + 0.5f;
         }
@@ -2807,9 +2865,10 @@ namespace Shmup.Presentation.Battle
                 float delay = _pendingBoomDelays[i] - Time.deltaTime;
                 if (delay <= 0f)
                 {
-                    SpawnExplosion(_pendingBoomPositions[i]);
+                    SpawnExplosion(_pendingBoomPositions[i], _pendingBoomScales[i]);
                     _pendingBoomPositions.RemoveAt(i);
                     _pendingBoomDelays.RemoveAt(i);
+                    _pendingBoomScales.RemoveAt(i);
                 }
                 else
                 {
