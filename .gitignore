@@ -50,3 +50,8 @@ Tools/DeterminismAudit/obj/
 /test*.log
 /test-results-*.xml
 /results.xml
+
+# 헤드리스 QA 산출물 · Unity 배치 로그 (재현 가능하고 매번 바뀐다)
+out/
+*.log
+Tools/ArtGen/out/
