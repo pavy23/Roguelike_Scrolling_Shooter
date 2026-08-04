@@ -5221,7 +5221,8 @@ static class Program
                 Console.WriteLine("  parity: min-path within soft band.");
             }
 
-            // REQ-116: 3-act TTK vs mean normal boss (exclude tutorial stage1).
+            // REQ-116/154: full-fight TTK vs mean normal boss (exclude tutorial stage1).
+            // Body MaxHp stays the 3-act pool; form2 (phase 4) adds to real fight length.
             double normalSum = 0.0;
             int normalN = 0;
             for (int i = 0; i < BossExpectedDps.Length; i++)
@@ -5240,11 +5241,20 @@ static class Program
             if (normalN > 0)
             {
                 double meanNormal = normalSum / normalN;
-                double colTtk = ColossalTotalHp / ColossalExpectedDps;
+                int colFightHp = ColossalTotalHp;
+                if (leviathan.Form2 != null)
+                    colFightHp += leviathan.Form2.MaxHp;
+                else if (broodmother.Form2 != null)
+                    colFightHp += broodmother.Form2.MaxHp;
+                double colTtk = colFightHp / ColossalExpectedDps;
                 double vs = colTtk / meanNormal;
                 Console.WriteLine(
-                    $"  3-act vs normal: colossal TTK={colTtk:F1}s @ "
-                    + $"{ColossalExpectedDps:F0} DPS · mean normal fight TTK="
+                    $"  full-fight vs normal: colossal TTK={colTtk:F1}s "
+                    + $"(body {ColossalTotalHp}"
+                    + (colFightHp > ColossalTotalHp
+                        ? $"+form2 {colFightHp - ColossalTotalHp}"
+                        : "")
+                    + $") @ {ColossalExpectedDps:F0} DPS · mean normal fight TTK="
                     + $"{meanNormal:F1}s · ratio={vs:F2} "
                     + $"(gate [{ColossalVsNormalTtkMinRatio:F1},"
                     + $"{ColossalVsNormalTtkMaxRatio:F1}])");
@@ -5252,7 +5262,7 @@ static class Program
                     || vs > ColossalVsNormalTtkMaxRatio)
                 {
                     Console.WriteLine(
-                        $"FAIL colossal: 3-act/normal TTK ratio {vs:F2} outside "
+                        $"FAIL colossal: full-fight/normal TTK ratio {vs:F2} outside "
                         + $"[{ColossalVsNormalTtkMinRatio:F1},"
                         + $"{ColossalVsNormalTtkMaxRatio:F1}].");
                     failures++;
@@ -9772,7 +9782,8 @@ static class Program
                             / (double)SimSpace.SubUnitsPerWorldUnit;
                         double endX = rule.Attack.LaserAttack.EndOffsetX
                             / (double)SimSpace.SubUnitsPerWorldUnit;
-                        hasRailLaser = fullW >= 1.2 && fullW <= 1.6 && endX <= -25.0;
+                        // REQ-154: phase-3 half-screen beam may exceed the old 1.2–1.6 band.
+                        hasRailLaser = fullW >= 1.2 && fullW <= 3.0 && endX <= -25.0;
                         Console.WriteLine(
                             $"  leviathan railgun beam fullHalfW={fullW:F2} "
                             + $"endOffsetX={endX:F1}");
