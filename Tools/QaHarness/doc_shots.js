@@ -39,8 +39,17 @@ const SCENES = [
   // 전함은 막마다 자리와 패턴이 바뀐다 — 한 런에서 세 시점을 찍는다.
   { name: 'warship', query: 'dev=1&god=1&stage=3&warp=boss', seed: 2264451436,
     launch: true, at: [10, 70, 150] },
-  { name: 'leviathan', query: 'dev=1&god=1&uncharted=1&warp=boss', seed: 475252250,
+  // 이름을 'leviathan'으로 두었었는데 이 시드는 실제로 브루드마더가 나온다.
+  // 어차피 합성 단계에서 정체를 가리므로 중립적인 이름이 맞다.
+  { name: 'hidden_boss', query: 'dev=1&god=1&uncharted=1&warp=boss', seed: 475252250,
     launch: true, at: [20] },
+  // 미지의 구역 접근 구간 (REQ-159). 어느 거대 보스가 나오느냐로 **장소 자체가
+  // 갈린다** — 그게 이 두 장의 요점이라 시드를 하나씩 박아 둔다.
+  // (거대 보스도 시드가 정한다. 아래 두 시드는 각각 레비아탄/브루드마더가 나온다.)
+  { name: 'hidden_abyss', query: 'dev=1&god=1&uncharted=1', seed: 1002505124,
+    launch: true, at: [18] },
+  { name: 'hidden_brood', query: 'dev=1&god=1&uncharted=1', seed: 3300877803,
+    launch: true, at: [18] },
 ];
 
 async function capture(browser, scene) {
