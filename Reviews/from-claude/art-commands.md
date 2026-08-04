@@ -111,9 +111,19 @@ python Tools/ArtGen/artgen.py animate \
 시드를 반드시 적어 두어라. 안 그러면 프레임 하나를 다시 뽑을 때 나머지와
 질감이 어긋난다.
 
-## 임포트
+## 임포트 — **art-input이 원본이다**
 
-`Assets/Art/Sprites/`에 넣은 뒤 **씬을 재생성해야** 배선이 붙는다:
+새 그림은 `art-input/<이름>.png`에 넣어라. `Assets/Art/Sprites/`는 **산출물**이고,
+씬 재생성이 art-input을 그 위에 복사한다.
+
+Assets에만 넣으면 다음 재생성에서 **조용히 옛 버전으로 되돌아간다.** 2026-08-04에
+새로 그린 11장(전함 코어 + 공개 5테마의 전경·랜드마크)이 실제로 그렇게 사라졌고,
+사람이 "코어가 왜 디자인 보여준거랑 다른게 적용됐지?"라고 물어서야 알았다.
+컴파일도 테스트도 임포트 검사도 전부 통과한다 — 파일은 멀쩡하고 내용만 옛것이라서.
+
+    python Tools/CsCheck/art_source_check.py   # 둘이 어긋나면 잡아 준다
+
+넣은 뒤 **씬을 재생성해야** 배선이 붙는다:
 
 ```bash
 unity run . -- -executeMethod Shmup.EditorTools.BattleSceneBuilder.Build \

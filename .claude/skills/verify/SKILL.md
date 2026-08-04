@@ -17,6 +17,8 @@ Unity 변경은 **네 단계를 순서대로** 통과해야 신뢰할 수 있다
 # 0. 값싼 그물부터 (Unity 없이 20초)
 python -X utf8 Tools/CsCheck/cs_syntax_check.py --changed
 python -X utf8 Tools/CsCheck/subunit_grid_check.py --changed
+python -X utf8 Tools/CsCheck/sprite_import_check.py     # PPU 16 · Point 인가
+python -X utf8 Tools/CsCheck/art_source_check.py        # art-input 원본과 같은가
 cd Tools/CoreStandalone && dotnet test && cd ../..
 
 # 1. 씬 재생성 — 아트·프리팹·직렬화 참조가 바뀌었으면 필수
