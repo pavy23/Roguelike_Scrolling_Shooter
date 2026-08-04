@@ -151,15 +151,10 @@ namespace Shmup.Core.Tests
             Assert.Less(hpAfterDamage, hpBeforeDamage);
             Assert.Greater(hpAfterDamage, 0);
 
-            stern = battle.BossParts[sternIndex];
-            Assert.IsTrue(battle.TrySpawnGhostMainShot(
-                stern.X,
-                stern.Y,
-                stern.Hp));
-            run.Step(InputCommand.None);
-            bool midBossDefeated = HasEvent(
-                battle.EventsThisTick,
-                SimEventType.MidBossDefeated);
+            // 1막이 열리는 조건은 **midbossGate 그룹 전체 파괴**다. 어떤 파츠가
+            // 그 그룹에 속하는지는 데이터가 정하므로, 이름을 적어두는 대신
+            // "지금 때릴 수 있는 것을 다 부순다"로 표현한다.
+            bool midBossDefeated = DestroyEveryVulnerablePart(run, battle);
             Assert.IsTrue(battle.BossParts[sternIndex].Destroyed);
             Assert.AreEqual(1, battle.WarshipActiveGroupIndex);
 
@@ -174,6 +169,43 @@ namespace Shmup.Core.Tests
                 battle.BossParts[sternIndex].Hp,
                 midBossDefeated,
                 hasher.Hash);
+        }
+
+        /// <summary>
+        /// 지금 때릴 수 있는 파츠를 전부 파괴한다. 반환값은 그 과정에서
+        /// MidBossDefeated가 발생했는지 여부.
+        /// </summary>
+        static bool DestroyEveryVulnerablePart(RunManager run, BattleSim battle)
+        {
+            bool midBossDefeated = false;
+            for (int guard = 0; guard < battle.BossParts.Count + 1; guard++)
+            {
+                int target = -1;
+                for (int i = 0; i < battle.BossParts.Count; i++)
+                {
+                    BossPartState part = battle.BossParts[i];
+                    if (!part.Destroyed && !part.Invulnerable && part.Hp > 0)
+                    {
+                        target = i;
+                        break;
+                    }
+                }
+                if (target < 0)
+                    return midBossDefeated;
+
+                BossPartState victim = battle.BossParts[target];
+                Assert.IsTrue(battle.TrySpawnGhostMainShot(
+                    victim.X,
+                    victim.Y,
+                    victim.Hp));
+                run.Step(InputCommand.None);
+                midBossDefeated |= HasEvent(
+                    battle.EventsThisTick,
+                    SimEventType.MidBossDefeated);
+            }
+
+            Assert.Fail("Vulnerable warship parts never ran out.");
+            return false;
         }
 
         static void AdvanceToBiomeBoss(RunManager run)

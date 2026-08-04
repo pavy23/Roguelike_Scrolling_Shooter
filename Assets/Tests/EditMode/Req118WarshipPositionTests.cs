@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
 using Shmup.Core.Content;
@@ -66,22 +67,25 @@ namespace Shmup.Core.Tests
                 encounter.WorldX);
             AssertPartsRideHull(encounter, boss);
 
-            encounter.Step(new[]
-            {
-                new WarshipDamageCommand(
-                    SternPartId,
-                    FindPart(encounter, SternPartId).MaxHp)
-            });
+            // 1막을 여는 조건은 "engine 하나"가 아니라 **midbossGate 그룹 전체**다.
+            // 구성은 데이터가 정하므로 데이터에서 읽는다 — 여기에 파츠 id를
+            // 적어두면 밸런스 변경 때마다 무관하게 깨진다 (REQ-157에서 실제로 깨졌다).
+            encounter.Step(GateClearingDamage(encounter, boss));
             Assert.AreEqual(1, encounter.ActiveGroupIndex);
             AssertDamageablePartsInsidePlayfield(encounter);
 
-            for (int elapsed = 1; elapsed < 720; elapsed++)
+            // 소모전은 타이머로 넘어간다. 그 길이는 데이터가 정한다 — 여기에 숫자를
+            // 적어두면 밸런스가 바뀔 때마다 무관하게 깨진다.
+            int attritionTicks =
+                boss.WarshipEncounter.Groups[1].AdvanceAfterTicks;
+            for (int elapsed = 1; elapsed < attritionTicks; elapsed++)
             {
                 int beforeX = encounter.WorldX;
                 encounter.Step(Array.Empty<WarshipDamageCommand>());
                 Assert.AreEqual(1, encounter.ActiveGroupIndex);
                 AssertDamageablePartsInsidePlayfield(encounter);
-                if (elapsed == 640 || elapsed == 719)
+                // 이동이 끝난 뒤(후반부)에는 정박해 있어야 한다.
+                if (elapsed > attritionTicks * 3 / 4)
                     AssertAttritionLineParked(encounter, beforeX);
             }
 
@@ -267,6 +271,24 @@ namespace Shmup.Core.Tests
                 expectedWorldUnits * SimSpace.SubUnitsPerWorldUnit,
                 FindPart(encounter, partId).X,
                 $"tick={encounter.Tick} part={partId}");
+        }
+
+        /// <summary>
+        /// midbossGate 그룹의 모든 파츠를 한 번에 없애는 피해 명령. 그룹 구성이
+        /// 바뀌어도 따라간다.
+        /// </summary>
+        static WarshipDamageCommand[] GateClearingDamage(
+            WarshipEncounter encounter,
+            StageBossTemplate boss)
+        {
+            IReadOnlyList<string> gateParts =
+                boss.WarshipEncounter.Groups[0].PartIds;
+            var commands = new WarshipDamageCommand[gateParts.Count];
+            for (int i = 0; i < commands.Length; i++)
+                commands[i] = new WarshipDamageCommand(
+                    gateParts[i],
+                    FindPart(encounter, gateParts[i]).MaxHp);
+            return commands;
         }
 
         static WarshipPartState FindPart(
