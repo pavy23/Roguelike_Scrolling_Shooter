@@ -14371,7 +14371,7 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 19600,
+      "hp": 44000,
       "halfWidth": 17.0,
       "halfHeight": 8.5,
       "holdX": 12.0,
@@ -14382,7 +14382,7 @@
           "offsetY": 3.75,
           "halfWidth": 3.0,
           "halfHeight": 2.0,
-          "hp": 1000,
+          "hp": 2000,
           "attack": {
             "type": "aimedSpread",
             "intervalTicks": 48,
@@ -14396,7 +14396,7 @@
           "offsetY": 6.1875,
           "halfWidth": 1.5,
           "halfHeight": 1.25,
-          "hp": 700,
+          "hp": 1400,
           "attack": {
             "type": "laser",
             "intervalTicks": 200,
@@ -14422,7 +14422,7 @@
           "offsetY": 6.6875,
           "halfWidth": 1.5,
           "halfHeight": 1.8125,
-          "hp": 700,
+          "hp": 1400,
           "attack": {
             "type": "laser",
             "intervalTicks": 180,
@@ -14448,7 +14448,7 @@
           "offsetY": -5.125,
           "halfWidth": 1.75,
           "halfHeight": 1.5,
-          "hp": 1200,
+          "hp": 2400,
           "attack": {
             "type": "laser",
             "intervalTicks": 200,
@@ -14474,7 +14474,7 @@
           "offsetY": -4.3125,
           "halfWidth": 1.75,
           "halfHeight": 1.5,
-          "hp": 1200,
+          "hp": 2400,
           "attack": {
             "type": "laser",
             "intervalTicks": 220,
@@ -14495,12 +14495,64 @@
           }
         },
         {
+          "id": "turret_e",
+          "offsetX": -2.0,
+          "offsetY": -5.53125,
+          "halfWidth": 1.75,
+          "halfHeight": 1.5,
+          "hp": 2400,
+          "attack": {
+            "type": "laser",
+            "intervalTicks": 240,
+            "laser": {
+              "cycleIntervalTicks": 240,
+              "telegraphTicks": 56,
+              "firingTicks": 8,
+              "sustainTicks": 50,
+              "dissipateTicks": 12,
+              "startOffsetX": 0.0,
+              "startOffsetY": 14.0,
+              "endOffsetX": 0.0,
+              "endOffsetY": -16.0,
+              "thinHalfWidth": 0.25,
+              "fullHalfWidth": 0.875,
+              "damage": 2
+            }
+          }
+        },
+        {
+          "id": "turret_f",
+          "offsetX": -6.0,
+          "offsetY": -4.71875,
+          "halfWidth": 1.75,
+          "halfHeight": 1.5,
+          "hp": 2400,
+          "attack": {
+            "type": "laser",
+            "intervalTicks": 260,
+            "laser": {
+              "cycleIntervalTicks": 260,
+              "telegraphTicks": 60,
+              "firingTicks": 8,
+              "sustainTicks": 50,
+              "dissipateTicks": 12,
+              "startOffsetX": 0.0,
+              "startOffsetY": 14.0,
+              "endOffsetX": 0.0,
+              "endOffsetY": -16.0,
+              "thinHalfWidth": 0.25,
+              "fullHalfWidth": 0.875,
+              "damage": 2
+            }
+          }
+        },
+        {
           "id": "core",
           "offsetX": -11.0,
           "offsetY": -3.0,
           "halfWidth": 2.5,
           "halfHeight": 5.5,
-          "hp": 14800,
+          "hp": 29600,
           "isCore": true,
           "attack": {
             "type": "radialSpread",
@@ -14537,11 +14589,13 @@
             "role": "attritionLine",
             "partIds": [
               "turret_c",
-              "turret_d"
+              "turret_d",
+              "turret_e",
+              "turret_f"
             ],
             "advanceAfterTicks": 600,
             "anchorOffsetY": 3.0,
-            "anchorTravelTicks": 120
+            "anchorTravelTicks": 240
           },
           {
             "id": "bow",
@@ -14550,7 +14604,7 @@
               "core"
             ],
             "anchorOffsetY": 0.0,
-            "anchorTravelTicks": 120
+            "anchorTravelTicks": 180
           }
         ]
       },
@@ -14852,7 +14906,7 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 62000,
+      "hp": 38000,
       "halfWidth": 9.80078125,
       "halfHeight": 10.0,
       "holdX": 9.0,
@@ -14863,7 +14917,7 @@
           "offsetY": 8.80078125,
           "halfWidth": 4.0,
           "halfHeight": 1.69921875,
-          "hp": 7500,
+          "hp": 4600,
           "attack": {
             "type": "aimedSpread",
             "intervalTicks": 64,
@@ -14877,7 +14931,7 @@
           "offsetY": 5.30078125,
           "halfWidth": 2.80078125,
           "halfHeight": 2.3984375,
-          "hp": 7000,
+          "hp": 4300,
           "attack": {
             "type": "aimedSpread",
             "intervalTicks": 56,
@@ -14891,7 +14945,7 @@
           "offsetY": -0.3984375,
           "halfWidth": 2.19921875,
           "halfHeight": 2.3984375,
-          "hp": 3500,
+          "hp": 2200,
           "attack": {
             "type": "meleeCharge",
             "intervalTicks": 220,
@@ -14905,7 +14959,7 @@
           "offsetY": -5.6015625,
           "halfWidth": 2.0,
           "halfHeight": 3.0,
-          "hp": 3500,
+          "hp": 2200,
           "attack": {
             "type": "meleeCharge",
             "intervalTicks": 240,
@@ -14919,7 +14973,7 @@
           "offsetY": -0.19921875,
           "halfWidth": 1.5,
           "halfHeight": 2.80078125,
-          "hp": 5500
+          "hp": 3400
         },
         {
           "id": "lower_launcher",
@@ -14927,7 +14981,7 @@
           "offsetY": -5.6015625,
           "halfWidth": 5.19921875,
           "halfHeight": 1.6015625,
-          "hp": 7500,
+          "hp": 4600,
           "attack": {
             "type": "radialSpread",
             "intervalTicks": 80,
@@ -14941,7 +14995,7 @@
           "offsetY": -7.80078125,
           "halfWidth": 1.6015625,
           "halfHeight": 2.19921875,
-          "hp": 6500
+          "hp": 4000
         },
         {
           "id": "railgun",
@@ -14949,7 +15003,7 @@
           "offsetY": 1.3984375,
           "halfWidth": 3.8984375,
           "halfHeight": 0.80078125,
-          "hp": 5000
+          "hp": 3000
         },
         {
           "id": "rib_gate",
@@ -14957,7 +15011,7 @@
           "offsetY": 0.6015625,
           "halfWidth": 2.3984375,
           "halfHeight": 3.19921875,
-          "hp": 6000
+          "hp": 3700
         },
         {
           "id": "core",
@@ -14965,7 +15019,7 @@
           "offsetY": 1.0,
           "halfWidth": 1.6015625,
           "halfHeight": 1.80078125,
-          "hp": 10000,
+          "hp": 6000,
           "isCore": true,
           "coreGatePartIds": [
             "shield_emitter"
@@ -15270,7 +15324,7 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 62000,
+      "hp": 38000,
       "halfWidth": 9.25,
       "halfHeight": 9.30078125,
       "holdX": 9.0,
@@ -15281,8 +15335,7 @@
           "offsetY": 0.3984375,
           "halfWidth": 2.80078125,
           "halfHeight": 3.19921875,
-          "hp": 1500,
-          "regenerationTicks": 900,
+          "hp": 900,
           "attack": {
             "type": "aimedSpread",
             "intervalTicks": 72,
@@ -15296,8 +15349,7 @@
           "offsetY": 0.6015625,
           "halfWidth": 2.80078125,
           "halfHeight": 3.19921875,
-          "hp": 1500,
-          "regenerationTicks": 900,
+          "hp": 900,
           "attack": {
             "type": "aimedSpread",
             "intervalTicks": 80,
@@ -15311,7 +15363,7 @@
           "offsetY": -0.30078125,
           "halfWidth": 1.80078125,
           "halfHeight": 1.69921875,
-          "hp": 10000,
+          "hp": 6200,
           "attack": {
             "type": "spawnEnemy",
             "intervalTicks": 480,
@@ -15324,7 +15376,7 @@
           "offsetY": -0.30078125,
           "halfWidth": 1.80078125,
           "halfHeight": 1.69921875,
-          "hp": 10000,
+          "hp": 6200,
           "attack": {
             "type": "spawnEnemy",
             "intervalTicks": 480,
@@ -15337,7 +15389,7 @@
           "offsetY": -4.6015625,
           "halfWidth": 2.69921875,
           "halfHeight": 4.69921875,
-          "hp": 11000,
+          "hp": 6700,
           "attack": {
             "type": "spawnEnemy",
             "intervalTicks": 480,
@@ -15350,7 +15402,7 @@
           "offsetY": 6.8984375,
           "halfWidth": 3.30078125,
           "halfHeight": 3.3984375,
-          "hp": 18000
+          "hp": 11100
         },
         {
           "id": "heart_core",
@@ -15358,7 +15410,7 @@
           "offsetY": 0.0,
           "halfWidth": 1.8984375,
           "halfHeight": 2.5,
-          "hp": 10000,
+          "hp": 6000,
           "isCore": true,
           "coreGatePartIds": [
             "sac_left",
