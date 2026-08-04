@@ -12715,8 +12715,8 @@
           "hp": 5000,
           "attack": {
             "type": "aimedSpread",
-            "intervalTicks": 72,
-            "ways": 3,
+            "intervalTicks": 64,
+            "ways": 4,
             "bulletSpeed": 7.0
           }
         },
@@ -12729,9 +12729,9 @@
           "hp": 4500,
           "attack": {
             "type": "aimedSpread",
-            "intervalTicks": 64,
-            "ways": 4,
-            "bulletSpeed": 7.5
+            "intervalTicks": 56,
+            "ways": 5,
+            "bulletSpeed": 7.0
           }
         },
         {
@@ -12743,7 +12743,7 @@
           "hp": 4000,
           "attack": {
             "type": "meleeCharge",
-            "intervalTicks": 240,
+            "intervalTicks": 220,
             "effectSpeed": 10.0,
             "contactDamage": 1
           }
@@ -12757,7 +12757,7 @@
           "hp": 4000,
           "attack": {
             "type": "meleeCharge",
-            "intervalTicks": 260,
+            "intervalTicks": 240,
             "effectSpeed": 9.0,
             "contactDamage": 1
           }
@@ -12779,9 +12779,9 @@
           "hp": 5000,
           "attack": {
             "type": "radialSpread",
-            "intervalTicks": 90,
-            "ways": 5,
-            "bulletSpeed": 6.0
+            "intervalTicks": 80,
+            "ways": 6,
+            "bulletSpeed": 6.5
           }
         },
         {
@@ -12830,8 +12830,8 @@
       "phases": [
         {
           "pattern": "aimed",
-          "fireIntervalTicks": 70,
-          "ways": 4,
+          "fireIntervalTicks": 56,
+          "ways": 5,
           "bulletSpeed": 7.0,
           "projectileKind": "normal",
           "movementPattern": "stationary",
@@ -12851,13 +12851,13 @@
             },
             {
               "partId": "blade_limb_upper",
-              "active": true,
-              "invulnerable": false
+              "active": false,
+              "invulnerable": true
             },
             {
               "partId": "blade_limb_lower",
-              "active": true,
-              "invulnerable": false
+              "active": false,
+              "invulnerable": true
             },
             {
               "partId": "rear_engine",
@@ -12893,8 +12893,8 @@
         },
         {
           "pattern": "radial",
-          "fireIntervalTicks": 64,
-          "ways": 5,
+          "fireIntervalTicks": 48,
+          "ways": 4,
           "bulletSpeed": 7.0,
           "projectileKind": "heavy",
           "movementPattern": "stationary",
@@ -12906,22 +12906,46 @@
             {
               "partId": "turret_spine",
               "active": true,
-              "invulnerable": false
+              "invulnerable": false,
+              "attack": {
+                "type": "aimedSpread",
+                "intervalTicks": 72,
+                "ways": 3,
+                "bulletSpeed": 7.0
+              }
             },
             {
               "partId": "head_cowl",
               "active": true,
-              "invulnerable": false
+              "invulnerable": false,
+              "attack": {
+                "type": "aimedSpread",
+                "intervalTicks": 64,
+                "ways": 3,
+                "bulletSpeed": 7.0
+              }
             },
             {
               "partId": "blade_limb_upper",
-              "active": false,
-              "invulnerable": true
+              "active": true,
+              "invulnerable": false,
+              "attack": {
+                "type": "meleeCharge",
+                "intervalTicks": 200,
+                "effectSpeed": 10.0,
+                "contactDamage": 1
+              }
             },
             {
               "partId": "blade_limb_lower",
-              "active": false,
-              "invulnerable": true
+              "active": true,
+              "invulnerable": false,
+              "attack": {
+                "type": "meleeCharge",
+                "intervalTicks": 220,
+                "effectSpeed": 9.0,
+                "contactDamage": 1
+              }
             },
             {
               "partId": "rear_engine",
@@ -12931,7 +12955,13 @@
             {
               "partId": "lower_launcher",
               "active": true,
-              "invulnerable": false
+              "invulnerable": false,
+              "attack": {
+                "type": "radialSpread",
+                "intervalTicks": 90,
+                "ways": 5,
+                "bulletSpeed": 6.5
+              }
             },
             {
               "partId": "shield_emitter",
@@ -12940,26 +12970,8 @@
             },
             {
               "partId": "railgun",
-              "active": true,
-              "invulnerable": false,
-              "attack": {
-                "type": "laser",
-                "intervalTicks": 280,
-                "laser": {
-                  "cycleIntervalTicks": 280,
-                  "telegraphTicks": 120,
-                  "firingTicks": 10,
-                  "sustainTicks": 90,
-                  "dissipateTicks": 20,
-                  "startOffsetX": -3.8984375,
-                  "startOffsetY": 0.0,
-                  "endOffsetX": -27.3984375,
-                  "endOffsetY": 0.0,
-                  "thinHalfWidth": 0.25,
-                  "fullHalfWidth": 1.203125,
-                  "damage": 1
-                }
-              }
+              "active": false,
+              "invulnerable": true
             },
             {
               "partId": "rib_gate",
@@ -12974,18 +12986,15 @@
           ]
         },
         {
-          "pattern": "spiral",
-          "fireIntervalTicks": 28,
-          "ways": 10,
-          "bulletSpeed": 9.0,
-          "projectileKind": "mine",
-          "mineTravelTicks": 18,
-          "mineTelegraphTicks": 20,
-          "mineAcceleration": 2800,
-          "movementPattern": "verticalSine",
-          "movementAmplitude": 1.5,
-          "movementPeriodTicks": 90,
-          "partVulnerability": "all",
+          "pattern": "aimed",
+          "fireIntervalTicks": 72,
+          "ways": 3,
+          "bulletSpeed": 7.0,
+          "projectileKind": "heavy",
+          "movementPattern": "stationary",
+          "movementAmplitude": 0,
+          "movementPeriodTicks": 1,
+          "partVulnerability": "legacy",
           "hpThreshold": 0.2,
           "partRules": [
             {
@@ -13010,8 +13019,8 @@
             },
             {
               "partId": "rear_engine",
-              "active": false,
-              "invulnerable": true
+              "active": true,
+              "invulnerable": false
             },
             {
               "partId": "lower_launcher",
@@ -13025,13 +13034,31 @@
             },
             {
               "partId": "railgun",
-              "active": false,
-              "invulnerable": true
+              "active": true,
+              "invulnerable": false,
+              "attack": {
+                "type": "laser",
+                "intervalTicks": 300,
+                "laser": {
+                  "cycleIntervalTicks": 300,
+                  "telegraphTicks": 150,
+                  "firingTicks": 10,
+                  "sustainTicks": 72,
+                  "dissipateTicks": 20,
+                  "startOffsetX": -3.8984375,
+                  "startOffsetY": 0.0,
+                  "endOffsetX": -27.3984375,
+                  "endOffsetY": 0.0,
+                  "thinHalfWidth": 0.25,
+                  "fullHalfWidth": 2.5,
+                  "damage": 1
+                }
+              }
             },
             {
               "partId": "rib_gate",
-              "active": false,
-              "invulnerable": true
+              "active": true,
+              "invulnerable": false
             },
             {
               "partId": "core",
@@ -13039,14 +13066,50 @@
               "invulnerable": false,
               "attack": {
                 "type": "radialSpread",
-                "intervalTicks": 36,
-                "ways": 12,
-                "bulletSpeed": 9.0
+                "intervalTicks": 64,
+                "ways": 6,
+                "bulletSpeed": 7.0
               }
             }
           ]
         }
-      ]
+      ],
+      "form2": {
+        "id": "boss_leviathan_drone",
+        "transitionTicks": 180,
+        "hp": 7500,
+        "halfWidth": 2.5,
+        "halfHeight": 2.5,
+        "holdX": 10.0,
+        "phases": [
+          {
+            "pattern": "aimed",
+            "fireIntervalTicks": 24,
+            "ways": 3,
+            "bulletSpeed": 8.0,
+            "projectileKind": "heavy",
+            "movementPattern": "lungeReturn",
+            "movementAmplitude": 6.0,
+            "movementPeriodTicks": 90,
+            "movementTelegraphTicks": 18,
+            "partVulnerability": "all"
+          },
+          {
+            "pattern": "burst",
+            "fireIntervalTicks": 14,
+            "ways": 4,
+            "bulletSpeed": 8.5,
+            "telegraphTicks": 12,
+            "projectileKind": "heavy",
+            "movementPattern": "lungeReturn",
+            "movementAmplitude": 7.5,
+            "movementPeriodTicks": 72,
+            "movementTelegraphTicks": 12,
+            "partVulnerability": "all",
+            "hpThreshold": 0.5
+          }
+        ]
+      }
     },
     {
       "id": "boss_broodmother",
@@ -13069,10 +13132,10 @@
           "hp": 1500,
           "regenerationTicks": 900,
           "attack": {
-            "type": "meleeCharge",
-            "intervalTicks": 210,
-            "effectSpeed": 8.0,
-            "contactDamage": 1
+            "type": "aimedSpread",
+            "intervalTicks": 72,
+            "ways": 4,
+            "bulletSpeed": 6.5
           }
         },
         {
@@ -13085,9 +13148,9 @@
           "regenerationTicks": 900,
           "attack": {
             "type": "aimedSpread",
-            "intervalTicks": 84,
-            "ways": 5,
-            "bulletSpeed": 6.0
+            "intervalTicks": 80,
+            "ways": 4,
+            "bulletSpeed": 6.5
           }
         },
         {
@@ -13161,8 +13224,8 @@
       "phases": [
         {
           "pattern": "radial",
-          "fireIntervalTicks": 70,
-          "ways": 4,
+          "fireIntervalTicks": 56,
+          "ways": 5,
           "bulletSpeed": 7.0,
           "projectileKind": "normal",
           "movementPattern": "stationary",
@@ -13209,9 +13272,9 @@
         },
         {
           "pattern": "aimed",
-          "fireIntervalTicks": 56,
+          "fireIntervalTicks": 48,
           "ways": 4,
-          "bulletSpeed": 7.5,
+          "bulletSpeed": 7.0,
           "projectileKind": "heavy",
           "movementPattern": "stationary",
           "movementAmplitude": 0,
@@ -13222,12 +13285,24 @@
             {
               "partId": "tentacle_left",
               "active": true,
-              "invulnerable": false
+              "invulnerable": false,
+              "attack": {
+                "type": "meleeCharge",
+                "intervalTicks": 200,
+                "effectSpeed": 8.0,
+                "contactDamage": 1
+              }
             },
             {
               "partId": "tentacle_right",
               "active": true,
-              "invulnerable": false
+              "invulnerable": false,
+              "attack": {
+                "type": "meleeCharge",
+                "intervalTicks": 220,
+                "effectSpeed": 8.0,
+                "contactDamage": 1
+              }
             },
             {
               "partId": "sac_left",
@@ -13265,49 +13340,115 @@
           ]
         },
         {
-          "pattern": "spiral",
-          "fireIntervalTicks": 24,
-          "ways": 10,
-          "bulletSpeed": 9.5,
-          "projectileKind": "mine",
-          "mineTravelTicks": 16,
-          "mineTelegraphTicks": 18,
-          "mineAcceleration": 3000,
-          "movementPattern": "verticalSine",
-          "movementAmplitude": 1.25,
-          "movementPeriodTicks": 80,
+          "pattern": "radial",
+          "fireIntervalTicks": 72,
+          "ways": 3,
+          "bulletSpeed": 7.0,
+          "projectileKind": "heavy",
+          "movementPattern": "stationary",
+          "movementAmplitude": 0,
+          "movementPeriodTicks": 1,
           "partVulnerability": "all",
           "hpThreshold": 0.2,
           "partRules": [
             {
               "partId": "tentacle_left",
               "active": true,
-              "invulnerable": false
+              "invulnerable": false,
+              "attack": {
+                "type": "laser",
+                "intervalTicks": 300,
+                "laser": {
+                  "cycleIntervalTicks": 300,
+                  "telegraphTicks": 140,
+                  "firingTicks": 8,
+                  "sustainTicks": 54,
+                  "dissipateTicks": 16,
+                  "startOffsetX": -1.5,
+                  "startOffsetY": 1.5,
+                  "endOffsetX": -26.0,
+                  "endOffsetY": 5.0,
+                  "thinHalfWidth": 0.25,
+                  "fullHalfWidth": 1.5,
+                  "damage": 1
+                }
+              }
             },
             {
               "partId": "tentacle_right",
               "active": true,
-              "invulnerable": false
+              "invulnerable": false,
+              "attack": {
+                "type": "laser",
+                "intervalTicks": 320,
+                "laser": {
+                  "cycleIntervalTicks": 320,
+                  "telegraphTicks": 150,
+                  "firingTicks": 8,
+                  "sustainTicks": 54,
+                  "dissipateTicks": 16,
+                  "startOffsetX": -1.5,
+                  "startOffsetY": -1.5,
+                  "endOffsetX": -26.0,
+                  "endOffsetY": -5.0,
+                  "thinHalfWidth": 0.25,
+                  "fullHalfWidth": 1.5,
+                  "damage": 1
+                }
+              }
             },
             {
               "partId": "sac_left",
               "active": true,
-              "invulnerable": false
+              "invulnerable": false,
+              "attack": {
+                "type": "spawnEnemy",
+                "intervalTicks": 600,
+                "spawnEnemyId": "zako_straight"
+              }
             },
             {
               "partId": "sac_right",
               "active": true,
-              "invulnerable": false
+              "invulnerable": false,
+              "attack": {
+                "type": "spawnEnemy",
+                "intervalTicks": 600,
+                "spawnEnemyId": "zako_straight"
+              }
             },
             {
               "partId": "sac_lower",
               "active": true,
-              "invulnerable": false
+              "invulnerable": false,
+              "attack": {
+                "type": "spawnEnemy",
+                "intervalTicks": 600,
+                "spawnEnemyId": "zako_straight"
+              }
             },
             {
               "partId": "maw",
-              "active": false,
-              "invulnerable": true
+              "active": true,
+              "invulnerable": false,
+              "attack": {
+                "type": "laser",
+                "intervalTicks": 280,
+                "laser": {
+                  "cycleIntervalTicks": 280,
+                  "telegraphTicks": 130,
+                  "firingTicks": 8,
+                  "sustainTicks": 48,
+                  "dissipateTicks": 16,
+                  "startOffsetX": -3.0,
+                  "startOffsetY": 0.0,
+                  "endOffsetX": -26.0,
+                  "endOffsetY": 0.0,
+                  "thinHalfWidth": 0.25,
+                  "fullHalfWidth": 2.0,
+                  "damage": 1
+                }
+              }
             },
             {
               "partId": "heart_core",
@@ -13315,14 +13456,48 @@
               "invulnerable": false,
               "attack": {
                 "type": "radialSpread",
-                "intervalTicks": 32,
-                "ways": 12,
-                "bulletSpeed": 9.5
+                "intervalTicks": 64,
+                "ways": 5,
+                "bulletSpeed": 7.0
               }
             }
           ]
         }
-      ]
+      ],
+      "form2": {
+        "id": "boss_broodmother_spawn",
+        "transitionTicks": 180,
+        "hp": 7500,
+        "halfWidth": 2.25,
+        "halfHeight": 2.25,
+        "holdX": 10.0,
+        "phases": [
+          {
+            "pattern": "radial",
+            "fireIntervalTicks": 28,
+            "ways": 4,
+            "bulletSpeed": 8.0,
+            "projectileKind": "normal",
+            "movementPattern": "figureEight",
+            "movementAmplitude": 2.5,
+            "movementPeriodTicks": 84,
+            "partVulnerability": "all"
+          },
+          {
+            "pattern": "aimed",
+            "fireIntervalTicks": 18,
+            "ways": 3,
+            "bulletSpeed": 8.5,
+            "projectileKind": "heavy",
+            "movementPattern": "lungeReturn",
+            "movementAmplitude": 6.5,
+            "movementPeriodTicks": 72,
+            "movementTelegraphTicks": 14,
+            "partVulnerability": "all",
+            "hpThreshold": 0.5
+          }
+        ]
+      }
     }
   ],
   "gimmicks": [

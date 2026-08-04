@@ -24,6 +24,26 @@ namespace Shmup.Presentation.Battle
         // 게임오버 / 완주
         public const string GameOverTitle = "GAME OVER";
         public const string RunClearedTitle = "RUN COMPLETE";
+
+        // 완주에도 두 종류가 있다 (사람 지시 2026-08-04: "일반 클리어 / 히든보스
+        // 클리어에 따른 별도의 클리어 축하 그림과 메시지"). 같은 문면으로 끝내면
+        // 미지의 구역을 잡은 런과 5바이옴만 돈 런이 구분되지 않는다 — 그러면
+        // 히든 루트가 존재하는지조차 모르고 게임을 끝낸다.
+        public const string RunClearedPerfectTitle = "PERFECT CLEAR";
+
+        /// <summary>미지의 구역까지 잡은 완전 클리어.</summary>
+        public const string RunClearedPerfectBody =
+            "미지의 구역까지 돌파했다. 이 게임이 감춰 둔 것을 전부 봤다.";
+
+        /// <summary>일반 완주 + 히든 조건을 이미 채웠던 경우.</summary>
+        public const string RunClearedHiddenReadyBody =
+            "5개 섹터 돌파. 이번 런은 미지의 구역이 열려 있었다 —\n"
+            + "마지막 항로에서 UNCHARTED를 고르면 거대 보스가 기다린다.";
+
+        /// <summary>일반 완주 + 히든 조건 미달.</summary>
+        public const string RunClearedHiddenLockedBody =
+            "5개 섹터 돌파. 조건 3개 중 2개를 채우면 극한 항로가 열린다 —\n"
+            + "{0}";
         public const string GameOverHints =
             "[ENTER] / (A) REDEPLOY - KEEP POWER-UPS      [R] / (B) TITLE";
         public const string RunClearedHints =

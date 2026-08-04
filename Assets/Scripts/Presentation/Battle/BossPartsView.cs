@@ -200,24 +200,25 @@ namespace Shmup.Presentation.Battle
                     // 읽혔다 (사람 보고 2026-08-04: "피격받을때 하얀색 박스만 보여서
                     // 이상해. 파츠 붉은 빛 나게 해줘"). 무적의 청록과도 갈라진다.
                     //
-                    // 하지만 색만 바꿔서는 부족했다: 큰 파츠는 여전히 **박스**로 보인다
-                    // (색을 빨강으로 바꾼 첫 빌드에서 레비아탄 머리가 붉은 판이 됐다).
-                    // 그래서 크기로 문법을 가른다 —
-                    //   작은 파츠(포탑 등) = 채움. 면적이 작아 아트를 덮지 않고 스파크로 읽힌다.
-                    //   큰 파츠           = **테두리**. 선은 아무리 진해도 그림을 가리지 않는다.
-                    // 어느 쪽이든 시간에 따라 감쇠한다 — 상수 알파는 지속되는 판이 된다.
+                    // 크기별로 **채움/테두리를 갈랐던 규칙은 되돌렸다.** 그 규칙은 마크가
+                    // 각진 1px 사각형이던 시절의 대응이었는데, 지금 마크는 가장자리가
+                    // 사그라지는 원형이라 큰 파츠를 채워도 판때기가 되지 않는다.
+                    //
+                    // 되돌린 이유는 실제 증상이다: 레비아탄은 파츠 10개 중 7개가 커서
+                    // 전부 테두리로 갔고, 테두리는 0.12초 동안 1px 선이라 사실상 안
+                    // 보였다 (사람 보고 2026-08-04: "레비아탄은 어딜 때리고 있는지
+                    // 전혀 피격 이팩트가 없어서 모르겠어").
+                    //
+                    // 대신 면적에 반비례해 옅게 한다 — 작은 포탑은 또렷한 스파크,
+                    // 큰 파츠는 넓게 번지는 홍조. 다만 **바닥을 둔다**: 아무리 커도
+                    // 최대의 40%까지만 옅어진다. 안 보이는 피드백은 없는 것과 같다.
                     float area = overlay.size.x * overlay.size.y;
+                    float sizeScale = Mathf.Clamp(
+                        FlashAreaReference / Mathf.Max(area, 0.01f), 0.4f, 1f);
                     float decay = 1f - Mathf.Clamp01(age / FlashDuration);
-                    if (area > FlashAreaReference)
-                    {
-                        ring = true;
-                        color = new Color(HitTint.r, HitTint.g, HitTint.b, decay);
-                    }
-                    else
-                    {
-                        color = new Color(
-                            HitTint.r, HitTint.g, HitTint.b, MaxFlashAlpha * decay);
-                    }
+                    color = new Color(
+                        HitTint.r, HitTint.g, HitTint.b,
+                        MaxFlashAlpha * sizeScale * decay);
                 }
                 else if (part.IsCore && part.CoreGated)
                 {

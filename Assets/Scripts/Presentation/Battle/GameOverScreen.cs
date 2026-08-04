@@ -17,6 +17,12 @@ namespace Shmup.Presentation.Battle
 
         GameObject _root;
         Text _titleText, _scoreText, _statsText, _extraText, _modifierText, _hintsText;
+
+        // 완주 축하 그림 (사람 지시 2026-08-04). 죽었을 때는 뜨지 않는다 —
+        // 패배 화면에 축하 일러스트를 걸면 그 자체로 조롱이 된다.
+        [SerializeField] Sprite _clearStandardSprite;
+        [SerializeField] Sprite _clearPerfectSprite;
+        Image _clearArt;
         Text _bonusText, _continueWarning;
         Button _retryButton, _titleButton, _continueButton;
         Text _continueLabel;
@@ -70,6 +76,19 @@ namespace Shmup.Presentation.Battle
             // 288 = 상단 요약 6줄(보너스 줄 포함, ~154px) + 하단 3단(경고·버튼열·제출,
             // ~114px) + 여유. 컨티뉴 줄이 붙으면서 224로는 두 블록이 겹친다.
             var panel = UiKit.CreatePanel(canvas.transform, new Vector2(400f, 288f));
+
+            // 축하 그림은 패널 **위쪽 바깥**에 건다. 안에 넣으면 요약 여섯 줄을
+            // 밀어내야 하는데, 점수·통계는 완주 화면의 본론이라 밀 수 없다.
+            var artGo = new GameObject("ClearArt");
+            artGo.transform.SetParent(panel, false);
+            _clearArt = artGo.AddComponent<Image>();
+            _clearArt.raycastTarget = false;
+            _clearArt.preserveAspect = true;
+            var artRect = _clearArt.rectTransform;
+            artRect.anchorMin = artRect.anchorMax = artRect.pivot = new Vector2(0.5f, 1f);
+            artRect.anchoredPosition = new Vector2(0f, 150f);
+            artRect.sizeDelta = new Vector2(256f, 144f);
+            _clearArt.enabled = false;
 
             _titleText = UiKit.CreateCornerText(panel, _fontBold, UiText.GameOverTitle, 22, UiKit.TextDanger,
                 new Vector2(0.5f, 1f), new Vector2(0f, -14f), TextAnchor.UpperCenter, "Title");
@@ -331,8 +350,22 @@ namespace Shmup.Presentation.Battle
                 _shownRun = _director.RunNumber;
                 _shownCleared = _director.IsRunCleared;
                 bool cleared = _shownCleared;
-                _titleText.text = cleared ? UiText.RunClearedTitle : UiText.GameOverTitle;
+                // 완주에도 두 종류가 있다 (사람 지시 2026-08-04). 미지의 구역까지 잡은
+                // 런과 5바이옴만 돈 런을 같은 문면으로 끝내면, 히든 루트가 있다는
+                // 사실조차 모른 채 게임을 끝낸다.
+                bool perfect = _director.CompletionGrade
+                    == Shmup.Core.Simulation.RunCompletionGrade.PerfectClear;
+                _titleText.text = !cleared ? UiText.GameOverTitle
+                    : perfect ? UiText.RunClearedPerfectTitle
+                    : UiText.RunClearedTitle;
                 _titleText.color = cleared ? UiKit.TextAccent : UiKit.TextDanger;
+                if (_clearArt != null)
+                {
+                    var art = !cleared ? null
+                        : perfect ? _clearPerfectSprite : _clearStandardSprite;
+                    _clearArt.sprite = art;
+                    _clearArt.enabled = art != null;
+                }
                 _hintsText.text = cleared
                     ? UiText.RunClearedHints
                     : (CanContinue() ? UiText.GameOverHintsContinue : UiText.GameOverHints);
@@ -368,7 +401,9 @@ namespace Shmup.Presentation.Battle
                 _extraText.text =
                     $"BEST COMBO x{_director.BestMultiplier}   GRAZE {stats.GrazeCount}"
                     + $"   BOMBS {stats.BombsUsed}   HITS {stats.HitsTaken}";
-                _modifierText.text = DescribeModifiers(_director.ActiveModifiers);
+                _modifierText.text = cleared
+                    ? ClearMessage(perfect)
+                    : DescribeModifiers(_director.ActiveModifiers);
                 _bonusText.text = DescribeBonuses();
             }
 
@@ -435,6 +470,24 @@ namespace Shmup.Presentation.Battle
         /// 컨티뉴 사용은 보드 스키마에 실어 보낼 칸이 아직 없어(서버 필드 미배포)
         /// 이 요약에만 남는다. 보드 표기는 후속 제안으로 넘겼다.
         /// </summary>
+        /// <summary>
+        /// 완주 축하 문면. 세 갈래다 — 완전 클리어 / 히든이 열려 있었던 완주 /
+        /// 조건 미달 완주. 마지막 경우에는 **무엇이 모자랐는지** 숫자로 보여 준다.
+        ///
+        /// 조건(엘리트 3 · 무피해 2 · 희귀 1 중 2개)은 게임 안 어디에도 적혀 있지
+        /// 않았다. 그러면 미지의 구역은 우연히 열리는 기능이 된다 — 완주 화면은
+        /// 그것을 말해 줄 마지막 자리다.
+        /// </summary>
+        string ClearMessage(bool perfect)
+        {
+            if (perfect) return UiText.RunClearedPerfectBody;
+            return _director.HiddenConditionsMet >= 2
+                ? UiText.RunClearedHiddenReadyBody
+                : string.Format(
+                    UiText.RunClearedHiddenLockedBody,
+                    _director.HiddenConditionsDetail);
+        }
+
         string DescribeBonuses()
         {
             if (_director == null) return "";

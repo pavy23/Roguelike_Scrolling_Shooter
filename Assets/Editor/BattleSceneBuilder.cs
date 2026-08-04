@@ -957,8 +957,39 @@ namespace Shmup.EditorTools
                 LoadExternalSprite("boss_broodmother.png", "boss_broodmother"));
             AddBossSprite("boss_leviathan",
                 LoadExternalSprite("boss_leviathan.png", "boss_leviathan"));
+            // 히든 보스 4페이즈 = form2 소형 비행체 (REQ-154). 접두사가 본체보다 길어
+            // 우선한다 — 등록이 없으면 10유닛짜리 본체 그림이 2.5유닛 자리에 그려진다
+            // (전함 로봇에서 겪은 것과 같은 문제).
+            AddBossSprite("boss_leviathan_drone",
+                LoadOrCachedSprite("boss_leviathan_drone.png", "boss_leviathan_drone"));
+            AddBossSprite("boss_broodmother_spawn",
+                LoadOrCachedSprite("boss_broodmother_spawn.png", "boss_broodmother_spawn"));
             SetStringArray(director, "_bossSpritePrefixes", bossPrefixes.ToArray());
             SetReferenceArray(director, "_bossSprites", bossSprites.ToArray());
+
+            // 보상 화면 초상화 (REQ-156). 전투용 본체 스프라이트와 따로 등록한다 —
+            // 하이브와 전함은 조각을 조립해 그리므로 등록된 본체 그림이 조립 이전의
+            // 구버전이고, 그걸 보상 카드에 걸면 방금 싸운 보스와 다른 그림이 뜬다.
+            var portraitPrefixes = new List<string>();
+            var portraits = new List<Sprite>();
+            void AddPortrait(string prefix, Sprite sprite)
+            {
+                if (sprite == null) return;
+                portraitPrefixes.Add(prefix);
+                portraits.Add(sprite);
+            }
+            AddPortrait("boss_hive",
+                LoadOrCachedSprite("boss_hive_torso.png", "boss_hive_torso"));
+            AddPortrait("boss_fortress",
+                LoadOrCachedSprite("warship_hull.png", "warship_hull"));
+            AddPortrait("boss_fortress_robot",
+                LoadOrCachedSprite("boss_fortress_robot.png", "boss_fortress_robot"));
+            AddPortrait("boss_leviathan_drone",
+                LoadOrCachedSprite("boss_leviathan_drone.png", "boss_leviathan_drone"));
+            AddPortrait("boss_broodmother_spawn",
+                LoadOrCachedSprite("boss_broodmother_spawn.png", "boss_broodmother_spawn"));
+            SetStringArray(director, "_bossPortraitPrefixes", portraitPrefixes.ToArray());
+            SetReferenceArray(director, "_bossPortraits", portraits.ToArray());
 
             // 보스 HP 바: 상단 중앙, px_white 스케일 방식. BossActive 동안만 director가 켠다.
             var bossHpRoot = new GameObject("BossHp");
@@ -1189,6 +1220,12 @@ namespace Shmup.EditorTools
             SetReference(gameOver, "_director", director);
             SetReference(gameOver, "_font", uiFont);
             SetReference(gameOver, "_fontBold", uiFontBold);
+            // 완주 축하 그림 두 장 (REQ-155). 일반 완주와 미지의 구역까지 잡은
+            // 완전 클리어를 그림으로도 가른다 — 문면만 다르면 "끝났다"로만 읽힌다.
+            SetReference(gameOver, "_clearStandardSprite",
+                LoadOrCachedSprite("clear_standard.png", "clear_standard"));
+            SetReference(gameOver, "_clearPerfectSprite",
+                LoadOrCachedSprite("clear_perfect.png", "clear_perfect"));
             var onboarding = battleRoot.AddComponent<OnboardingHints>();
             SetReference(onboarding, "_director", director);
             SetReference(onboarding, "_font", uiFont);

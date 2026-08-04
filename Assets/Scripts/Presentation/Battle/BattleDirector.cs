@@ -59,6 +59,15 @@ namespace Shmup.Presentation.Battle
         [SerializeField] string[] _bossSpritePrefixes;
         [SerializeField] Sprite[] _bossSprites;
 
+        // 보상 화면에 쓰는 **초상화**. 전투용 본체 스프라이트와 따로 두는 이유:
+        // 하이브와 전함은 화면에서 여러 조각을 조립해 그리고, 등록된 본체 그림
+        // (boss_hive.png 128x96 등)은 그 조립 이전의 **구버전**이다. 그걸 보상
+        // 카드에 걸면 방금 싸운 보스와 다른 그림이 뜬다 (사람 지시 2026-08-04:
+        // "스테이지와 보스 그림 더 잘보이게 추가하고 최신 버전으로 변경").
+        [Tooltip("StagePlan.BossId 접두어 → 보상 화면 초상화 (없으면 본체 스프라이트).")]
+        [SerializeField] string[] _bossPortraitPrefixes;
+        [SerializeField] Sprite[] _bossPortraits;
+
         // 아이들 애니메이션 (M4): 접두어별 프레임 시퀀스를 평탄화해 직렬화 (빌더가 채움).
         [SerializeField] string[] _animPrefixes;
         [SerializeField] int[] _animFrameCounts;
@@ -729,6 +738,77 @@ namespace Shmup.Presentation.Battle
         /// <summary>완주 등급 (미완주 = None). 결과 요약과 스코어보드 제출이 읽는다.</summary>
         public RunCompletionGrade CompletionGrade =>
             _run != null ? _run.CompletionGrade : RunCompletionGrade.None;
+
+        /// <summary>
+        /// 방금 상대한 보스의 초상화. 등록이 없으면 전투용 본체 스프라이트로 되돌아간다.
+        /// 보상 화면이 "무엇을 잡았는지"를 보여 주는 데 쓴다.
+        /// </summary>
+        public Sprite CurrentBossPortrait
+        {
+            get
+            {
+                string bossId = BossStageId;
+                if (string.IsNullOrEmpty(bossId)) return null;
+                Sprite best = LongestPrefixSprite(
+                    bossId, _bossPortraitPrefixes, _bossPortraits);
+                return best != null
+                    ? best
+                    : LongestPrefixSprite(bossId, _bossSpritePrefixes, _bossSprites);
+            }
+        }
+
+        static Sprite LongestPrefixSprite(string id, string[] prefixes, Sprite[] sprites)
+        {
+            if (prefixes == null || sprites == null) return null;
+            Sprite best = null;
+            int bestLength = -1;
+            int count = Mathf.Min(prefixes.Length, sprites.Length);
+            for (int i = 0; i < count; i++)
+            {
+                string prefix = prefixes[i];
+                if (string.IsNullOrEmpty(prefix) || sprites[i] == null) continue;
+                if (id.StartsWith(prefix, System.StringComparison.Ordinal)
+                    && prefix.Length > bestLength)
+                {
+                    best = sprites[i];
+                    bestLength = prefix.Length;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>보상 화면 머리글 — "STAGE 3 · FORTRESS" 형태.</summary>
+        public string StageContextLabel
+        {
+            get
+            {
+                string theme = CurrentThemeId;
+                return string.IsNullOrEmpty(theme)
+                    ? $"STAGE {StageIndex}"
+                    : $"STAGE {StageIndex}  ·  {theme.ToUpperInvariant()}";
+            }
+        }
+
+        /// <summary>
+        /// 이번 런에서 히든 조건을 몇 개 채웠나 (0~3). 완주 화면이 "미지의 구역이
+        /// 열려 있었다 / 조금만 더였다"를 말하는 데 쓴다 — 조건을 모른 채 끝나면
+        /// 미지의 구역은 우연히 열리는 기능으로 남는다.
+        /// </summary>
+        public int HiddenConditionsMet =>
+            _run != null
+                ? RunManager.CountHiddenBiomeConditions(
+                    _run.EliteRoomsCleared,
+                    _run.NoHitBiomesCleared,
+                    _run.RareEncountersCleared)
+                : 0;
+
+        /// <summary>조건별 진행 상황 — 무엇이 모자랐는지 한 줄로 보여 준다.</summary>
+        public string HiddenConditionsDetail =>
+            _run == null
+                ? string.Empty
+                : $"ELITE {Mathf.Min(_run.EliteRoomsCleared, 3)}/3   "
+                  + $"NO-HIT {Mathf.Min(_run.NoHitBiomesCleared, 2)}/2   "
+                  + $"RARE {Mathf.Min(_run.RareEncountersCleared, 1)}/1";
 
         /// <summary>
         /// 난이도 라벨. 타이틀의 <see cref="DifficultySelect"/> 값이 아니라 런에 굳어 있는
