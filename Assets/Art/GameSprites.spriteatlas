@@ -73,6 +73,7 @@ SpriteAtlas:
     - 6fe5920105c62ac468c2fed81dcc8f1a: 21300000
     - 5a6f430142d9d6341b693262598ea6c7: 21300000
     - c0939801ff46aa1429fc620aef37e921: 21300000
+    - becae011f387914458ca02eff0f9967b: 21300000
     - 8ceb11212c6924e478c2ad47841ab9e5: 21300000
     - e922b5419ef71864f9171acb615939ee: 21300000
     - 966ed451822d09842b60fb5e1405d117: 21300000
@@ -295,6 +296,7 @@ SpriteAtlas:
     - b10fb03cc2a52834fae379557adf6996: 21300000
     - 7c9e423c61afaa646aff931c0121156f: 21300000
     - 52a3a35c343d78b449ee4d920aac5d26: 21300000
+    - cf546e5c15302474ea83bcd252c18c56: 21300000
     - 971a6f5c40c24714a94b1ceace32aff9: 21300000
     - c3d3386cfabb08342a9447409ea5e5ba: 21300000
     - aa46096c18b05fd47ba2a0b0cbf60fbd: 21300000
@@ -410,6 +412,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 6fe5920105c62ac468c2fed81dcc8f1a, type: 3}
   - {fileID: 21300000, guid: 5a6f430142d9d6341b693262598ea6c7, type: 3}
   - {fileID: 21300000, guid: c0939801ff46aa1429fc620aef37e921, type: 3}
+  - {fileID: 21300000, guid: becae011f387914458ca02eff0f9967b, type: 3}
   - {fileID: 21300000, guid: 8ceb11212c6924e478c2ad47841ab9e5, type: 3}
   - {fileID: 21300000, guid: e922b5419ef71864f9171acb615939ee, type: 3}
   - {fileID: 21300000, guid: 966ed451822d09842b60fb5e1405d117, type: 3}
@@ -632,6 +635,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: b10fb03cc2a52834fae379557adf6996, type: 3}
   - {fileID: 21300000, guid: 7c9e423c61afaa646aff931c0121156f, type: 3}
   - {fileID: 21300000, guid: 52a3a35c343d78b449ee4d920aac5d26, type: 3}
+  - {fileID: 21300000, guid: cf546e5c15302474ea83bcd252c18c56, type: 3}
   - {fileID: 21300000, guid: 971a6f5c40c24714a94b1ceace32aff9, type: 3}
   - {fileID: 21300000, guid: c3d3386cfabb08342a9447409ea5e5ba, type: 3}
   - {fileID: 21300000, guid: aa46096c18b05fd47ba2a0b0cbf60fbd, type: 3}
@@ -746,6 +750,7 @@ SpriteAtlas:
   - anim_zako_fast_00
   - anim_boss_stage1_00
   - anim_mini_core_04
+  - laser_cap
   - boss_broodmother
   - enemy_magnet_claw
   - anim_junk_roller_00
@@ -968,6 +973,7 @@ SpriteAtlas:
   - nebula_landmark
   - bullet_laser
   - hive_far_dark
+  - laser_soft
   - fx_explosion_00
   - anim_scrap_tumbler_02
   - brood_landmark

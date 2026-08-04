@@ -45,6 +45,22 @@ namespace Shmup.Presentation.Battle
         [Tooltip("예고 중 발사 원점에 띄우는 차지 글로우. 비면 픽셀 스프라이트로 대체한다.")]
         [SerializeField] Sprite _glowSprite;
 
+        /// <summary>
+        /// 세로 가우시안 감쇠가 **알파에 구워진** 8×64 띠 (art-input/laser_soft.png).
+        ///
+        /// 사람 지시 2026-08-04로 후보 C를 채택했다. 예전에는 단색 사각형 두 겹이라
+        /// 가장자리가 딱 떨어져 "색칠한 막대"로 읽혔다 — 상용 게임 레이저와의 차이는
+        /// 기술이 아니라 **감쇠**다. 감쇠를 사각형 여러 겹으로 흉내 내면 겹마다
+        /// 드로우콜이 붙고 경계가 계단으로 남으므로, 알파에 구워 한 겹으로 끝낸다.
+        /// 가로로 아무리 늘려도 세로 단면은 그대로다.
+        ///
+        /// 없으면 픽셀 스프라이트로 폴백한다(예전 각진 모습).
+        /// </summary>
+        [SerializeField] Sprite _softSprite;
+
+        /// <summary>총구·착탄 플레어 (art-input/laser_cap.png). 방사 감쇠 + 십자 스파이크.</summary>
+        [SerializeField] Sprite _capSprite;
+
         [SerializeField] Transform _root;
 
         [Tooltip("동시에 그릴 수 있는 레이저 수. Core의 MaxLasers와 맞춘다.")]
@@ -136,12 +152,26 @@ namespace Shmup.Presentation.Battle
 
         // 정렬: 보스(15)·보스 파츠(16)보다 앞. 보스가 자기 몸에서 쏘는 빔의 원점이
         // 몸통에 가려지면 "어디서 나오는지"가 안 보인다.
+        const int OuterOrder = 16;
         const int BandOrder = 17;
         const int CoreOrder = 18;
+        /// <summary>캡은 빔 위에 얹는다 — 끝점이 빔에 묻히면 터진 느낌이 죽는다.</summary>
+        const int CapOrder = 19;
 
+        /// <summary>바깥 광채는 본체보다 이만큼 넓다.</summary>
+        const float OuterWidthScale = 2.6f;
+        /// <summary>바깥 광채 최대 알파. 옅어야 광채이지 띠가 되면 안 된다.</summary>
+        const float OuterAlphaScale = 0.34f;
+        /// <summary>착탄 캡 크기 (본체 두께 대비).</summary>
+        const float ImpactSizeScale = 2.2f;
+
+        /// <summary>가장 넓고 옅은 바깥 광채. 빔이 공기를 밀어내는 것처럼 보이게 한다.</summary>
+        readonly List<SpriteRenderer> _outers = new List<SpriteRenderer>(8);
         readonly List<SpriteRenderer> _bands = new List<SpriteRenderer>(8);
         readonly List<SpriteRenderer> _cores = new List<SpriteRenderer>(8);
         readonly List<SpriteRenderer> _glows = new List<SpriteRenderer>(8);
+        /// <summary>착탄점 스플래시. 빔이 "어디에 닿는지"를 말해 준다.</summary>
+        readonly List<SpriteRenderer> _impacts = new List<SpriteRenderer>(8);
 
         // 이번 프레임에 살아 있는 레이저 id — 사라진 빔의 추적 기록을 걷어낸다.
         readonly HashSet<int> _seen = new HashSet<int>();
@@ -160,11 +190,19 @@ namespace Shmup.Presentation.Battle
         float _unitX = 1f;
         float _unitY = 1f;
         float _glowUnit = 1f;
+        /// <summary>감쇠 띠 스프라이트의 단위 크기. 없으면 픽셀 스프라이트 값을 쓴다.</summary>
+        float _softUnitX = 1f;
+        float _softUnitY = 1f;
+        float _capUnit = 1f;
 
         void Start()
         {
             var parent = _root != null ? _root : transform;
             var glowSprite = _glowSprite != null ? _glowSprite : _pixelSprite;
+            // 감쇠 띠·캡이 없으면 예전 각진 모습으로 폴백한다 — 아트가 빠져도
+            // 레이저가 아예 안 보이는 것보다는 낫다.
+            var beamSprite = _softSprite != null ? _softSprite : _pixelSprite;
+            var capSprite = _capSprite != null ? _capSprite : glowSprite;
 
             if (_pixelSprite != null)
             {
@@ -178,11 +216,25 @@ namespace Shmup.Presentation.Battle
                 if (size > 0.0001f) _glowUnit = size;
             }
 
+            if (beamSprite != null)
+            {
+                Vector3 size = beamSprite.bounds.size;
+                if (size.x > 0.0001f) _softUnitX = size.x;
+                if (size.y > 0.0001f) _softUnitY = size.y;
+            }
+            if (capSprite != null)
+            {
+                float size = capSprite.bounds.size.x;
+                if (size > 0.0001f) _capUnit = size;
+            }
+
             for (int i = 0; i < _capacity; i++)
             {
-                _bands.Add(CreateRenderer(parent, $"Laser_{i:D2}_Band", _pixelSprite, BandOrder));
-                _cores.Add(CreateRenderer(parent, $"Laser_{i:D2}_Core", _pixelSprite, CoreOrder));
-                _glows.Add(CreateRenderer(parent, $"Laser_{i:D2}_Glow", glowSprite, CoreOrder));
+                _outers.Add(CreateRenderer(parent, $"Laser_{i:D2}_Outer", beamSprite, OuterOrder));
+                _bands.Add(CreateRenderer(parent, $"Laser_{i:D2}_Band", beamSprite, BandOrder));
+                _cores.Add(CreateRenderer(parent, $"Laser_{i:D2}_Core", beamSprite, CoreOrder));
+                _glows.Add(CreateRenderer(parent, $"Laser_{i:D2}_Muzzle", capSprite, CapOrder));
+                _impacts.Add(CreateRenderer(parent, $"Laser_{i:D2}_Impact", capSprite, CapOrder));
             }
         }
 
@@ -221,9 +273,11 @@ namespace Shmup.Presentation.Battle
             // 남은 슬롯은 끈다 (풀이므로 파괴하지 않는다).
             for (; slot < _bands.Count; slot++)
             {
+                if (_outers[slot].enabled) _outers[slot].enabled = false;
                 if (_bands[slot].enabled) _bands[slot].enabled = false;
                 if (_cores[slot].enabled) _cores[slot].enabled = false;
                 if (_glows[slot].enabled) _glows[slot].enabled = false;
+                if (_impacts[slot].enabled) _impacts[slot].enabled = false;
             }
 
             ForgetDeadBeams();
@@ -311,9 +365,11 @@ namespace Shmup.Presentation.Battle
 
         void Draw(int slot, in LaserState laser)
         {
+            var outer = _outers[slot];
             var band = _bands[slot];
             var core = _cores[slot];
             var glow = _glows[slot];
+            var impact = _impacts[slot];
 
             Vector3 start = SimView.ToWorld(laser.StartX, laser.StartY);
             Vector3 end = SimView.ToWorld(laser.EndX, laser.EndY);
@@ -321,9 +377,11 @@ namespace Shmup.Presentation.Battle
             float length = delta.magnitude;
             if (length <= 0.0001f)
             {
+                outer.enabled = false;
                 band.enabled = false;
                 core.enabled = false;
                 glow.enabled = false;
+                impact.enabled = false;
                 return;
             }
 
@@ -419,25 +477,58 @@ namespace Shmup.Presentation.Battle
             // 원점(Start)에 뿌리를 박고 선단만 앞으로 뻗는다 — 중심이 아니라 시작점이
             // 고정돼야 "쏘아 나간다"로 읽힌다.
             Vector3 center = start + delta * (0.5f * grow);
-            PlaceQuad(band, center, rotation, length * grow, bandThickness, bandColor);
-            PlaceQuad(core, center, rotation, length * grow, coreThickness, coreColor);
+            float drawn = length * grow;
 
-            if (glowAlpha > 0.01f && chargeSize > 0.001f)
+            // 후보 C: 바깥 광채 → 본체 → 흰 코어. 세 겹 다 감쇠가 구워진 같은
+            // 스프라이트라, 겹칠수록 가운데가 단단해지고 바깥이 부드럽게 사라진다.
+            Color outerColor = bandColor;
+            outerColor.a = bandColor.a * OuterAlphaScale;
+            PlaceQuad(
+                outer, center, rotation, drawn,
+                bandThickness * OuterWidthScale, outerColor);
+            PlaceQuad(band, center, rotation, drawn, bandThickness, bandColor);
+            PlaceQuad(core, center, rotation, drawn, coreThickness, coreColor);
+
+            // 총구 플레어 — 원점에 박혀 "여기서 나온다"를 말한다.
+            PlaceCap(glow, start, rotation, chargeSize, glowAlpha,
+                player ? PlayerCore : bandColor);
+
+            // 착탄 스플래시 — 선단에 붙어 "여기에 닿는다"를 말한다. 뻗는 중에는
+            // 선단이 곧 현재 끝이므로 grow를 따라간다. 예고 중에는 띄우지 않는다 —
+            // 아직 아무 데도 닿지 않았는데 착탄점이 있으면 거짓말이 된다.
+            bool hitting = laser.Phase == LaserPhase.Firing
+                || laser.Phase == LaserPhase.Sustaining;
+            PlaceCap(
+                impact,
+                start + delta * grow,
+                rotation,
+                hitting ? coreThickness * ImpactSizeScale : 0f,
+                hitting ? coreColor.a * 0.9f : 0f,
+                coreColor);
+        }
+
+        /// <summary>총구·착탄 캡 한 장. 크기나 알파가 0이면 끈다.</summary>
+        void PlaceCap(
+            SpriteRenderer renderer,
+            Vector3 position,
+            Quaternion rotation,
+            float size,
+            float alpha,
+            Color color)
+        {
+            if (alpha <= 0.01f || size <= 0.001f)
             {
-                var t = glow.transform;
-                t.localPosition = start;
-                t.localRotation = rotation;
-                float scale = chargeSize / _glowUnit;
-                t.localScale = new Vector3(scale, scale, 1f);
-                Color glowColor = player ? PlayerCore : bandColor;
-                glowColor.a = glowAlpha;
-                glow.color = glowColor;
-                if (!glow.enabled) glow.enabled = true;
+                if (renderer.enabled) renderer.enabled = false;
+                return;
             }
-            else if (glow.enabled)
-            {
-                glow.enabled = false;
-            }
+            var t = renderer.transform;
+            t.localPosition = position;
+            t.localRotation = rotation;
+            float scale = size / _capUnit;
+            t.localScale = new Vector3(scale, scale, 1f);
+            color.a = Mathf.Min(1f, alpha);
+            renderer.color = color;
+            if (!renderer.enabled) renderer.enabled = true;
         }
 
         /// <summary>
@@ -456,7 +547,7 @@ namespace Shmup.Presentation.Battle
             var t = renderer.transform;
             t.localPosition = center;
             t.localRotation = rotation;
-            t.localScale = new Vector3(length / _unitX, thickness / _unitY, 1f);
+            t.localScale = new Vector3(length / _softUnitX, thickness / _softUnitY, 1f);
             renderer.color = color;
             if (!renderer.enabled) renderer.enabled = true;
         }

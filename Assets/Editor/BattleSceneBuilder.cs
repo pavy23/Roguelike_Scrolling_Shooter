@@ -1360,7 +1360,13 @@ namespace Shmup.EditorTools
             // 예고 중 발사 원점 차지 글로우 — 머즐 플래시 스프라이트를 재활용한다
             // ("갑자기 출현한다", 2026-08-02). 어디서 나오는지 보여야 피할 방향이 정해진다.
             SetReference(laserView, "_glowSprite",
-                LoadExternalSprite("fx_muzzle_00.png", "fx_muzzle_00"));
+                LoadOrCachedSprite("fx_muzzle_00.png", "fx_muzzle_00"));
+            // 후보 C (사람 확정 2026-08-04): 감쇠가 알파에 구워진 띠 + 총구/착탄 캡.
+            // 없으면 뷰가 픽셀 스프라이트로 폴백해 예전 각진 모습이 된다.
+            SetReference(laserView, "_softSprite",
+                LoadOrCachedSprite("laser_soft.png", "laser_soft"));
+            SetReference(laserView, "_capSprite",
+                LoadOrCachedSprite("laser_cap.png", "laser_cap"));
             SetReference(laserView, "_root", laserRoot.transform);
 
             // St4 번개룡 = 세그먼트 체인 미니언 (REQ-115b). Core가 Enemies가 아니라
