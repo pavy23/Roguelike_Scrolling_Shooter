@@ -307,9 +307,16 @@ namespace Shmup.Presentation.Battle
             renderer.name = $"WarshipHardpoint_{index:D2}_{part.PartId}";
             renderer.sprite = sprite;
             renderer.flipX = flip;
+            // 함저(용골)에 달린 포탑은 **위아래를 뒤집어** 건다. 갑판 포탑과 같은
+            // 그림을 그대로 쓰면 포신이 하늘을 향한 채 배 밑에 붙어 있어 "거꾸로
+            // 매달린 포탑"으로 읽힌다. 판정 원점보다 아래에 있는 파츠가 함저다 —
+            // 데이터가 포탑을 옮겨도 그림이 따라온다.
+            var partDefinition = FindPartDefinition(part.PartId);
+            bool keelMounted = partDefinition != null && partDefinition.OffsetY < 0;
+            renderer.flipY = keelMounted;
             renderer.color = Color.white;
             renderer.enabled = sprite != null;
-            FitHardpointToHitbox(renderer, FindPartDefinition(part.PartId));
+            FitHardpointToHitbox(renderer, partDefinition);
         }
 
         /// <summary>

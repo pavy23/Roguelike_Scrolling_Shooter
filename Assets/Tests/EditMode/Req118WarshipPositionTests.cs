@@ -77,18 +77,24 @@ namespace Shmup.Core.Tests
 
             for (int elapsed = 1; elapsed < 720; elapsed++)
             {
+                int beforeX = encounter.WorldX;
                 encounter.Step(Array.Empty<WarshipDamageCommand>());
                 Assert.AreEqual(1, encounter.ActiveGroupIndex);
                 AssertDamageablePartsInsidePlayfield(encounter);
                 if (elapsed == 640 || elapsed == 719)
-                    AssertAttritionLineParkedAtLeftEdge(encounter);
+                    AssertAttritionLineParked(encounter, beforeX);
             }
 
             encounter.Step(Array.Empty<WarshipDamageCommand>());
             Assert.AreEqual(2, encounter.ActiveGroupIndex);
-            Assert.AreEqual(
+            // 마지막 막은 정박점으로 **되돌아간다** — 그 자리에 있는 것이 아니다.
+            // 예전에는 활성화 순간 좌표를 바꿔 버려서(SetAtHoldX) 함체가 한 프레임에
+            // 순간이동했고, 사람이 "갑자기 워프를 해버려"라고 보고했다(2026-08-04).
+            // 이제는 소모전이 끝난 자리에서 스크롤 속도로 걸어 돌아온다.
+            Assert.Less(
+                encounter.WorldX,
                 boss.WarshipEncounter.HoldX,
-                encounter.WorldX);
+                "마지막 막은 소모전이 끝난 왼쪽 자리에서 시작해야 한다.");
             AssertPartsRideHull(encounter, boss);
             AssertDamageablePartsInsidePlayfield(encounter);
 
@@ -99,6 +105,13 @@ namespace Shmup.Core.Tests
                 AssertPartsRideHull(encounter, boss);
                 AssertDamageablePartsInsidePlayfield(encounter);
             }
+
+            // 되돌아오는 이동은 **끝나야** 한다. 걸어 돌아오다 멈추거나 지나쳐 버리면
+            // 함체가 화면 밖으로 나가거나 코어를 때릴 수 없는 자리에 선다.
+            Assert.AreEqual(
+                boss.WarshipEncounter.HoldX,
+                encounter.WorldX,
+                "마지막 막에서 정박점으로 되돌아오지 못했다.");
 
             encounter.Step(new[]
             {
@@ -226,26 +239,23 @@ namespace Shmup.Core.Tests
         }
 
         /// <summary>
-        /// 소모전 구간은 **살아 있는 가장 왼쪽 파츠가 화면 왼쪽 끝에 닿을 때까지만**
-        /// 흘러간다. 예전에는 특정 포탑 하나의 좌표를 박아 확인했는데, 파츠 배치를
-        /// 바꾸면 "가장 왼쪽"이 다른 포탑이 되어 무관하게 깨졌다. 성질로 검증한다.
+        /// 소모전 구간은 **어느 시점엔가 멈춘다.** 계속 흘러가면 함체가 화면 밖으로
+        /// 사라진다.
+        ///
+        /// 예전에는 "살아 있는 가장 왼쪽 파츠가 화면 끝에 정확히 닿는다"로 확인했는데,
+        /// 이동 한계가 **앞으로 상대할 파츠까지 보도록** 바뀌면서(마지막 막이 열릴 때
+        /// 코어가 화면 밖에 서 있던 문제) 더 이른 자리에서 멈추게 됐다. 정확한
+        /// 정지 좌표는 파츠 배치가 정하는 값이라 박아 둘 것이 아니다 — 멈췄다는
+        /// 사실과 화면 안이라는 사실만 지킨다.
         /// </summary>
-        static void AssertAttritionLineParkedAtLeftEdge(
-            WarshipEncounter encounter)
+        static void AssertAttritionLineParked(
+            WarshipEncounter encounter, int previousWorldX)
         {
-            int leftmost = int.MaxValue;
-            for (int i = 0; i < encounter.Parts.Count; i++)
-            {
-                WarshipPartState part = encounter.Parts[i];
-                if (!part.Active || part.Destroyed)
-                    continue;
-                if (part.X < leftmost)
-                    leftmost = part.X;
-            }
             Assert.AreEqual(
-                -SimSpace.PlayfieldHalfWidthSubUnits,
-                leftmost,
-                $"tick={encounter.Tick}");
+                previousWorldX,
+                encounter.WorldX,
+                $"tick={encounter.Tick} — 소모전 구간이 아직 흘러가고 있다.");
+            AssertDamageablePartsInsidePlayfield(encounter);
         }
 
         static void AssertPartWorldX(

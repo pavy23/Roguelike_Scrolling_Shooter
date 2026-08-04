@@ -472,7 +472,13 @@ namespace Shmup.Core.Simulation
             }
             if (_definition.Groups[_activeGroupIndex].Role
                     == WarshipGroupRole.AttritionLine)
+            {
                 AdvanceAttritionScroll();
+                return;
+            }
+            if (_definition.Groups[_activeGroupIndex].Role
+                    == WarshipGroupRole.FinalCore)
+                ScrollTowardHold();
         }
 
         void AdvanceScrollToHold()
@@ -512,14 +518,25 @@ namespace Shmup.Core.Simulation
             }
         }
 
+        /// <summary>
+        /// 소모전 막에서 함체가 흘러갈 수 있는 한계.
+        ///
+        /// **지금 막의 파츠만 보면 안 된다.** 예전에는 그랬고, 그래서 소모전이
+        /// 끝났을 때 함수(코어)가 이미 화면 왼쪽 밖에 있었다. 그 사실은
+        /// 마지막 막 시작에서 좌표를 순간이동시켜 가리고 있었을 뿐이다 —
+        /// 순간이동을 없애자(사람 보고 2026-08-04 "갑자기 워프를 해버려")
+        /// 코어가 화면 밖에 선 채로 막이 열리는 것이 드러났다.
+        ///
+        /// 그래서 **앞으로 상대할 파츠까지** 함께 본다. 함체는 뒤에 나올 부위가
+        /// 화면에 남는 선까지만 흘러간다.
+        /// </summary>
         long MaximumVisibleAttritionScrollOffset()
         {
             long maximumOffset = long.MaxValue;
-            WarshipPartGroupDefinition group =
-                _definition.Groups[_activeGroupIndex];
-            for (int i = 0; i < group.PartIds.Count; i++)
+            for (int partIndex = 0; partIndex < _parts.Count; partIndex++)
             {
-                int partIndex = FindPartIndex(group.PartIds[i]);
+                if (_partGroups[partIndex] < _activeGroupIndex)
+                    continue;                    // 이미 지나온 막의 부위
                 if (_partHp[partIndex] == 0)
                     continue;
                 long partMaximum = (long)_definition.OriginX
@@ -597,8 +614,6 @@ namespace Shmup.Core.Simulation
             _activeGroupElapsedTicks = 0;
             _anchorElapsedTicks = 0;
             _anchorTargetY = group.AnchorOffsetY;
-            if (group.Role == WarshipGroupRole.FinalCore)
-                SetAtHoldX();
             Emit(
                 SimEventType.WarshipGroupActivated,
                 WorldX,
@@ -695,11 +710,40 @@ namespace Shmup.Core.Simulation
                 : world > int.MaxValue ? int.MaxValue : (int)world;
         }
 
-        void SetAtHoldX()
+        /// <summary>
+        /// 마지막 막에서 정박점으로 **되돌아간다**. 예전에는 그 자리에서 좌표를 바꿔
+        /// 버려서(SetAtHoldX) 함체가 한 프레임에 순간이동했다 — 사람 보고 2026-08-04:
+        /// "부위가 파괴되면 전함이 천천히 이동해야하는데 갑자기 워프를 해버려."
+        ///
+        /// 소모전 막에서 함체는 살아 있는 파츠가 화면 끝에 닿을 때까지 왼쪽으로
+        /// 흘러간다. 그래서 마지막 막이 열릴 때 정박점은 **오른쪽**에 있고, 지금까지의
+        /// 스크롤과 반대 방향으로 움직여야 한다. 속도는 같은 값을 쓰고 나머지도
+        /// 그대로 굴려 정수 정확도를 지킨다.
+        /// </summary>
+        void ScrollTowardHold()
         {
-            _scrollOffset = (long)_definition.OriginX
-                - _definition.HoldX;
-            _scrollRemainder = 0;
+            long holdOffset = (long)_definition.OriginX - _definition.HoldX;
+            if (_scrollOffset == holdOffset)
+            {
+                _scrollRemainder = 0;
+                return;
+            }
+            if (_scrollOffset < holdOffset)
+            {
+                AdvanceScrollUpTo(holdOffset);
+                return;
+            }
+            long total = _scrollRemainder + _definition.ScrollSpeedNumerator;
+            long step = total / _definition.ScrollSpeedDenominator;
+            long nextOffset = _scrollOffset - step;
+            if (nextOffset <= holdOffset)
+            {
+                _scrollOffset = holdOffset;
+                _scrollRemainder = 0;
+                return;
+            }
+            _scrollOffset = nextOffset;
+            _scrollRemainder = total % _definition.ScrollSpeedDenominator;
         }
 
         static int SaturateToInt(long value)
