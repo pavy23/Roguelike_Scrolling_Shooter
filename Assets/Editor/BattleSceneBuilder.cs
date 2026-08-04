@@ -1584,6 +1584,11 @@ namespace Shmup.EditorTools
             AddTheme("fortress", "Background_Fortress", "fort");
             AddTheme("nebula", "Background_Nebula", "nebula");
             AddTheme("core", "Background_Core", "core");
+            // 히든 전용 (REQ-159). 이 루트가 없으면 director가 켤 배경을 못 찾아
+            // **직전 바이옴의 배경이 그대로 남는다** — 테마만 바꾸고 여기를 안 늘려서
+            // abyss 스테이지가 보라색으로 나왔다.
+            AddTheme("abyss", "Background_Abyss", "abyss");
+            AddTheme("brood", "Background_Brood", "brood");
 
             // 두 번째 이후 테마는 director의 ApplyStageTheme이 켤 때까지 꺼 둔다.
             for (int i = 1; i < themeRoots.Count; i++)
@@ -1598,9 +1603,11 @@ namespace Shmup.EditorTools
         static GameObject CreateThemeRoot(
             BattleDirector director, string rootName, Sprite starsFar, Sprite starsNear, string themePrefix)
         {
-            var themeFar = LoadExternalSprite($"{themePrefix}_far.png", $"{themePrefix}_far");
-            var themeMid = LoadExternalSprite($"{themePrefix}_mid.png", $"{themePrefix}_mid");
-            var themeNear = LoadExternalSprite($"{themePrefix}_near.png", $"{themePrefix}_near");
+            // art-input이 없는 머신에서도 이미 임포트된 것을 쓴다 — 이걸 안 하면
+            // 씬 재생성이 배경 레이어를 통째로 잃고 테마 루트가 아예 안 만들어진다.
+            var themeFar = LoadOrCachedSprite($"{themePrefix}_far.png", $"{themePrefix}_far");
+            var themeMid = LoadOrCachedSprite($"{themePrefix}_mid.png", $"{themePrefix}_mid");
+            var themeNear = LoadOrCachedSprite($"{themePrefix}_near.png", $"{themePrefix}_near");
             // 기본 테마(첫 번째)는 테마 스프라이트가 없어도 별만으로 만든다.
             if (themeFar == null && themeMid == null && themeNear == null
                 && themePrefix != "scrap")
@@ -1658,7 +1665,7 @@ namespace Shmup.EditorTools
             var landmark = new GameObject("Landmark");
             landmark.transform.SetParent(root.transform, false);
             var landmarkRenderer = landmark.AddComponent<SpriteRenderer>();
-            landmarkRenderer.sprite = LoadExternalSprite(
+            landmarkRenderer.sprite = LoadOrCachedSprite(
                 $"{themePrefix}_landmark.png", $"{themePrefix}_landmark");
             landmarkRenderer.sortingOrder = -84;   // 중경(-85) 앞, 워시(0) 뒤
             landmarkRenderer.enabled = false;
