@@ -1211,13 +1211,17 @@ namespace Shmup.EditorTools
             // LoadExternalSprite는 멱등이라 이미 임포트된 에셋을 그대로 재사용한다.
             SetStringArray(contractScreen, "_themeIds",
                 new[] { "scrapyard", "hive", "fortress", "nebula", "core" });
+            // 프리뷰 배경은 **원경**이다. 중경(_mid)은 투명 배경 위 낱개 오브젝트라
+            // 카드 안에서 "스테이지"로 읽히지 않았다 — 덩어리 몇 개가 떠 있을 뿐이다
+            // (사람 지시 2026-08-04: "카드 안쪽에 스테이지 배경과 보스 일부 보이는
+            // 정도로"). 원경은 화면을 꽉 채우는 장면이라 창밖 풍경으로 읽힌다.
             SetReferenceArray(contractScreen, "_themeBgs", new UnityEngine.Object[]
             {
-                LoadExternalSprite("scrap_mid.png", "scrap_mid"),
-                LoadExternalSprite("hive_mid.png", "hive_mid"),
-                LoadExternalSprite("fort_mid.png", "fort_mid"),
-                LoadExternalSprite("nebula_mid.png", "nebula_mid"),
-                LoadExternalSprite("core_mid.png", "core_mid"),
+                LoadOrCachedSprite("scrap_far.png", "scrap_far"),
+                LoadOrCachedSprite("hive_far.png", "hive_far"),
+                LoadOrCachedSprite("fort_far.png", "fort_far"),
+                LoadOrCachedSprite("nebula_far.png", "nebula_far"),
+                LoadOrCachedSprite("core_far.png", "core_far"),
             });
             SetReferenceArray(contractScreen, "_themeBosses", new UnityEngine.Object[]
             {

@@ -273,6 +273,22 @@ namespace Shmup.Presentation.Battle
             }
             float width = 2f * partDefinition.HalfWidth * SimView.WorldUnitsPerSubUnit;
             float height = 2f * partDefinition.HalfHeight * SimView.WorldUnitsPerSubUnit;
+
+            // 코어는 **비율을 지킨다.** 판정은 2.5×5.5(세로로 긴 사각형)인데 그림은
+            // 정원이라, 판정에 맞춰 늘리면 원이 세로로 찌그러지고 방사 무늬가
+            // 눌린다 — 사람이 "네모낳게 끊기듯"이라고 한 것이 이것이다.
+            // 판정은 게임플레이 사각형이지 그림 액자가 아니다.
+            //
+            // 포탑은 종전대로 둔다. 그쪽 그림은 원래 가로로 긴 상자에 맞춰 그렸고,
+            // 지금까지 어색하다는 말이 없었다.
+            if (partDefinition.IsCore)
+            {
+                float uniform = Mathf.Min(width / native.x, height / native.y);
+                renderer.transform.localScale =
+                    new Vector3(uniform, uniform, 1f);
+                return;
+            }
+
             renderer.transform.localScale =
                 new Vector3(width / native.x, height / native.y, 1f);
         }

@@ -25,7 +25,6 @@ namespace Shmup.Presentation.Battle
 
         // 방금 잡은 보스와 스테이지 (사람 지시 2026-08-04). 보상 화면에는 그림이
         // 아예 없어서 "무엇을 이기고 받는 보상인지"가 화면에서 끊겨 있었다.
-        Image _bossArt;
         Text _contextText;
         readonly Image[] _boxBorders = new Image[MaxOptions];
         readonly Text[] _boxTexts = new Text[MaxOptions];
@@ -66,26 +65,17 @@ namespace Shmup.Presentation.Battle
 
             UiKit.CreateDim(canvas.transform, new Color(0f, 0.01f, 0.05f, 0.55f));
 
-            // 잡은 보스를 제목 위에 크게 건다. 어두운 배경 위라 실루엣이 그대로 읽힌다.
-            var artGo = new GameObject("BossArt");
-            artGo.transform.SetParent(canvas.transform, false);
-            _bossArt = artGo.AddComponent<Image>();
-            _bossArt.raycastTarget = false;
-            _bossArt.preserveAspect = true;
-            var artRect = _bossArt.rectTransform;
-            artRect.anchorMin = artRect.anchorMax = artRect.pivot = new Vector2(0.5f, 1f);
-            // 카드는 화면 중앙(높이 84)에 있고 그 위가 통째로 비어 있다 — 초상화는
-            // 크게 잡아야 "무엇을 이겼는지"가 한눈에 읽힌다.
-            artRect.anchoredPosition = new Vector2(0f, -10f);
-            artRect.sizeDelta = new Vector2(320f, 112f);
-            _bossArt.enabled = false;
+            // 보스 초상화는 **뺐다** (사람 지시 2026-08-04: "보상 카드 위에 보스가
+            // 어색하게 있네 없애야 할듯"). 카드 위 빈 자리를 채우려고 크게 걸었는데,
+            // 전투용 스프라이트가 어두운 판 위에 덩그러니 떠 있어 붙여 놓은 것으로
+            // 보였다. 무엇을 이겼는지는 아래 StageContextLabel이 글로 말해 준다.
 
             _contextText = UiKit.CreateCornerText(canvas.transform, _font, "", 10,
-                UiKit.TextDim, new Vector2(0.5f, 1f), new Vector2(0f, -126f),
+                UiKit.TextDim, new Vector2(0.5f, 1f), new Vector2(0f, -34f),
                 TextAnchor.UpperCenter, "Context");
 
             _titleText = UiKit.CreateCornerText(canvas.transform, _fontBold, UiText.RewardTitle, 16,
-                UiKit.TextAccent, new Vector2(0.5f, 1f), new Vector2(0f, -144f),
+                UiKit.TextAccent, new Vector2(0.5f, 1f), new Vector2(0f, -52f),
                 TextAnchor.UpperCenter, "Title");
 
             // 효과 설명이 한 줄 늘어나 카드를 높였다 (150×3 + 간격 = 478 < 640이라 폭은 그대로).
@@ -209,15 +199,6 @@ namespace Shmup.Presentation.Battle
                     _titleText.text = midStage
                         ? UiText.MidRewardTitle : UiText.RewardTitle;
 
-                // 방금 잡은 보스와 그 스테이지를 보여 준다. 초상화는 전투용 본체
-                // 스프라이트가 아니라 별도 등록을 쓴다 — 하이브·전함은 조립해 그리므로
-                // 본체 그림이 구버전이다(BattleDirector.CurrentBossPortrait 참조).
-                if (_bossArt != null)
-                {
-                    Sprite portrait = _director.CurrentBossPortrait;
-                    _bossArt.sprite = portrait;
-                    _bossArt.enabled = portrait != null;
-                }
                 if (_contextText != null)
                     _contextText.text = _director.StageContextLabel;
                 LayoutBoxes(Mathf.Clamp(options.Count, 1, MaxOptions));

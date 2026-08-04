@@ -44,7 +44,6 @@ namespace Shmup.Presentation.Battle
         readonly GameObject[] _previewRoots = new GameObject[MaxOptions];
         readonly Image[] _previewBgs = new Image[MaxOptions];
         readonly Image[] _previewBosses = new Image[MaxOptions];
-        readonly Image[] _previewEnemies = new Image[MaxOptions];
         readonly Text[] _previewLabels = new Text[MaxOptions];
         bool _built;
         int _cursor;
@@ -152,11 +151,19 @@ namespace Shmup.Presentation.Battle
             rootRect.anchoredPosition = new Vector2(0f, -4f);
             rootRect.sizeDelta = new Vector2(-8f, PreviewHeight);
 
+            // 카드 밖으로 새지 않게 잘라 낸다. 보스를 크게 걸어 **일부만** 보이게
+            // 하려면 클리핑이 먼저 있어야 한다 — 없으면 카드 밖으로 삐져나온다.
+            root.AddComponent<RectMask2D>();
+
             var bg = new GameObject("Bg").AddComponent<Image>();
             bg.transform.SetParent(rootRect, false);
             bg.raycastTarget = false;
             // 프리뷰는 창밖 풍경 — 카드 잉크보다 살짝 어둡게 눌러 텍스트와 싸우지 않게
-            bg.color = new Color(0.62f, 0.66f, 0.74f, 1f);
+            // 원경 그림을 그대로 보여 준다. 예전에는 0.62까지 눌렀는데, 그건 중경
+            // 조각 몇 개를 배경처럼 보이게 하려던 보정이었다. 진짜 장면이 들어온
+            // 지금은 살짝만 눌러 라벨 가독성만 지킨다.
+            bg.color = new Color(0.86f, 0.88f, 0.92f, 1f);
+            bg.preserveAspect = false;
             var bgRect = bg.rectTransform;
             bgRect.anchorMin = Vector2.zero;
             bgRect.anchorMax = Vector2.one;
@@ -164,22 +171,19 @@ namespace Shmup.Presentation.Battle
             bgRect.offsetMax = Vector2.zero;
             _previewBgs[index] = bg;
 
-            var enemy = new GameObject("Enemy").AddComponent<Image>();
-            enemy.transform.SetParent(rootRect, false);
-            enemy.raycastTarget = false;
-            enemy.preserveAspect = true;
-            var enemyRect = enemy.rectTransform;
-            enemyRect.anchorMin = enemyRect.anchorMax = new Vector2(0.24f, 0.52f);
-            enemyRect.sizeDelta = new Vector2(26f, 26f);
-            _previewEnemies[index] = enemy;
+            // 잡몹 아이콘은 뺐다. 배경·보스·라벨까지 넣으면 54px 높이 안에서
+            // 셋이 서로를 밀어낸다 — 사람이 원한 것은 "배경과 보스 일부"다.
 
             var boss = new GameObject("Boss").AddComponent<Image>();
             boss.transform.SetParent(rootRect, false);
             boss.raycastTarget = false;
             boss.preserveAspect = true;
             var bossRect = boss.rectTransform;
-            bossRect.anchorMin = bossRect.anchorMax = new Vector2(0.72f, 0.55f);
-            bossRect.sizeDelta = new Vector2(44f, 40f);
+            // 오른쪽 끝에 **크게** 걸어 일부만 보이게 한다. 카드 안에 통째로 넣으면
+            // 44px짜리 조그만 도장이 되어 무엇인지 읽히지 않았다. 잘려 있는 편이
+            // 크기도 전해지고 "다 보여 주지 않는다"는 인상도 남는다.
+            bossRect.anchorMin = bossRect.anchorMax = new Vector2(0.86f, 0.5f);
+            bossRect.sizeDelta = new Vector2(96f, 88f);
             _previewBosses[index] = boss;
 
             var label = UiKit.CreateText(rootRect, _fontBold, "", 9,
@@ -225,8 +229,6 @@ namespace Shmup.Presentation.Battle
             if (!show) return;
 
             _previewBgs[i].sprite = At(_themeBgs, theme);
-            _previewEnemies[i].sprite = At(_themeEnemies, theme);
-            _previewEnemies[i].enabled = _previewEnemies[i].sprite != null;
             _previewBosses[i].sprite = At(_themeBosses, theme);
             _previewBosses[i].enabled = _previewBosses[i].sprite != null;
             _previewLabels[i].text =
