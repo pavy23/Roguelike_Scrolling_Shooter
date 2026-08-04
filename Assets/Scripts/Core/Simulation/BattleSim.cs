@@ -1869,6 +1869,8 @@ namespace Shmup.Core.Simulation
         BossPartState[] _bossPartStates;
         ReadOnlyCollection<BossPartState> _readOnlyBossParts;
         int[] _bossPartFireCooldowns;
+        /// <summary>Independent cycle timer for BossPartAttackProfile.SecondaryLaser.</summary>
+        int[] _bossPartSecondaryLaserCooldowns;
         int[] _bossPartRegenerationRemaining;
         bool[] _bossPartsEverDestroyed;
         bool[] _bossPartContactHitThisCycle;
@@ -2366,6 +2368,8 @@ namespace Shmup.Core.Simulation
                 new BossPartState[_bossPartDefinitions.Count];
             _readOnlyBossParts = Array.AsReadOnly(_bossPartStates);
             _bossPartFireCooldowns =
+                new int[_bossPartDefinitions.Count];
+            _bossPartSecondaryLaserCooldowns =
                 new int[_bossPartDefinitions.Count];
             _bossPartRegenerationRemaining =
                 new int[_bossPartDefinitions.Count];
@@ -2967,8 +2971,12 @@ namespace Shmup.Core.Simulation
                     IsBossPartActive(i),
                     definition.IsCore,
                     false);
-                _bossPartFireCooldowns[i] =
-                    GetBossPartAttack(i).IntervalTicks;
+                BossPartAttackProfile attack = GetBossPartAttack(i);
+                _bossPartFireCooldowns[i] = attack.IntervalTicks;
+                _bossPartSecondaryLaserCooldowns[i] =
+                    attack.SecondaryLaser == null
+                        ? 0
+                        : attack.SecondaryLaser.CycleIntervalTicks;
                 if (definition.Attack.Type
                     == BossPartAttackType.SpawnEnemy)
                 {
@@ -5462,8 +5470,14 @@ namespace Shmup.Core.Simulation
             _bossPatternVolleyIndex = 0;
             RefreshBossPartPositions();
             for (int i = 0; i < _bossPartDefinitions.Count; i++)
-                _bossPartFireCooldowns[i] =
-                    GetBossPartAttack(i).IntervalTicks;
+            {
+                BossPartAttackProfile attack = GetBossPartAttack(i);
+                _bossPartFireCooldowns[i] = attack.IntervalTicks;
+                _bossPartSecondaryLaserCooldowns[i] =
+                    attack.SecondaryLaser == null
+                        ? 0
+                        : attack.SecondaryLaser.CycleIntervalTicks;
+            }
             ConfigureSegmentChainSchedule(phase);
             if (emitChanged)
             {
@@ -6198,8 +6212,12 @@ namespace Shmup.Core.Simulation
                     _bossPartDefinitions[i];
                 int maxHp = ScaleEnemyHp(definition.MaxHp);
                 aggregateHp = SaturatingAddDamage(aggregateHp, maxHp);
-                _bossPartFireCooldowns[i] =
-                    GetBossPartAttack(i).IntervalTicks;
+                BossPartAttackProfile attack = GetBossPartAttack(i);
+                _bossPartFireCooldowns[i] = attack.IntervalTicks;
+                _bossPartSecondaryLaserCooldowns[i] =
+                    attack.SecondaryLaser == null
+                        ? 0
+                        : attack.SecondaryLaser.CycleIntervalTicks;
                 _bossPartRegenerationRemaining[i] = 0;
                 _bossPartContactHitThisCycle[i] = false;
                 _bossPartStates[i] = new BossPartState(
@@ -6295,6 +6313,23 @@ namespace Shmup.Core.Simulation
                         }
                         break;
                 }
+                // REQ-175: secondary laser is independent of primary type/cooldown.
+                if (attack.SecondaryLaser != null)
+                {
+                    if (_bossPartSecondaryLaserCooldowns[i] > 0)
+                        _bossPartSecondaryLaserCooldowns[i]--;
+                    if (_bossPartSecondaryLaserCooldowns[i] == 0)
+                    {
+                        TryStartLaser(
+                            LaserSourceKind.BossPart,
+                            i,
+                            attack.SecondaryLaser,
+                            state.X,
+                            state.Y);
+                        _bossPartSecondaryLaserCooldowns[i] =
+                            attack.SecondaryLaser.CycleIntervalTicks;
+                    }
+                }
             }
         }
 
@@ -6388,6 +6423,27 @@ namespace Shmup.Core.Simulation
                         ? interval
                         : interval - remainder;
                 }
+                Simulation.LaserAttackDefinition secondary =
+                    definition.Attack.SecondaryLaser;
+                if (secondary == null
+                    || restored.Destroyed
+                    || !restored.Active)
+                {
+                    _bossPartSecondaryLaserCooldowns[i] =
+                        secondary == null
+                            ? 0
+                            : secondary.CycleIntervalTicks;
+                }
+                else
+                {
+                    int elapsed =
+                        _warshipEncounter.ActiveGroupElapsedTicks;
+                    int secondaryInterval = secondary.CycleIntervalTicks;
+                    int remainder = elapsed % secondaryInterval;
+                    _bossPartSecondaryLaserCooldowns[i] = remainder == 0
+                        ? secondaryInterval
+                        : secondaryInterval - remainder;
+                }
             }
             _bossHp = aggregateHp;
             if (!_warshipEncounter.Completed)
@@ -6467,8 +6523,12 @@ namespace Shmup.Core.Simulation
                 _bossHp = SaturatingAddDamage(
                     _bossHp,
                     previous.MaxHp);
-                _bossPartFireCooldowns[i] =
-                    GetBossPartAttack(i).IntervalTicks;
+                BossPartAttackProfile attack = GetBossPartAttack(i);
+                _bossPartFireCooldowns[i] = attack.IntervalTicks;
+                _bossPartSecondaryLaserCooldowns[i] =
+                    attack.SecondaryLaser == null
+                        ? 0
+                        : attack.SecondaryLaser.CycleIntervalTicks;
                 _bossPartContactHitThisCycle[i] = false;
                 EmitBossPartEvent(
                     SimEventType.BossPartRegenerated,
@@ -7057,6 +7117,10 @@ namespace Shmup.Core.Simulation
             _bossPartsEverDestroyed[partIndex] = true;
             _bossPartFireCooldowns[partIndex] =
                 definition.Attack.IntervalTicks;
+            _bossPartSecondaryLaserCooldowns[partIndex] =
+                definition.Attack.SecondaryLaser == null
+                    ? 0
+                    : definition.Attack.SecondaryLaser.CycleIntervalTicks;
             _bossPartContactHitThisCycle[partIndex] = false;
             EmitBossPartEvent(
                 SimEventType.BossPartDestroyed,
@@ -7192,6 +7256,8 @@ namespace Shmup.Core.Simulation
                 new BossPartState[_bossPartDefinitions.Count];
             _readOnlyBossParts = Array.AsReadOnly(_bossPartStates);
             _bossPartFireCooldowns =
+                new int[_bossPartDefinitions.Count];
+            _bossPartSecondaryLaserCooldowns =
                 new int[_bossPartDefinitions.Count];
             _bossPartRegenerationRemaining =
                 new int[_bossPartDefinitions.Count];

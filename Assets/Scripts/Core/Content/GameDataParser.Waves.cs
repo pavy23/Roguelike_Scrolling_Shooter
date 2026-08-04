@@ -1256,6 +1256,16 @@ namespace Shmup.Core.Content
                 : new ExactFraction(0, 1);
             try
             {
+                Simulation.LaserAttackDefinition primaryLaser =
+                    source.laser == null
+                        ? null
+                        : ParseLaser(source.laser, path + ".laser");
+                Simulation.LaserAttackDefinition secondaryLaser =
+                    source.secondaryLaser == null
+                        ? null
+                        : ParseLaser(
+                            source.secondaryLaser,
+                            path + ".secondaryLaser");
                 return new BossPartAttackProfile(
                     type,
                     source.intervalTicks ?? 0,
@@ -1266,9 +1276,7 @@ namespace Shmup.Core.Content
                     effectSpeed.Denominator,
                     spawnEnemyId,
                     source.contactDamage ?? 0,
-                    source.laser == null
-                        ? null
-                        : ParseLaser(source.laser, path + ".laser"),
+                    primaryLaser,
                     effectMaxSpeed.Numerator,
                     effectMaxSpeed.Denominator,
                     source.effectOffsetX.HasValue
@@ -1280,7 +1288,8 @@ namespace Shmup.Core.Content
                         ? ToSubUnits(
                             source.effectOffsetY.Value,
                             path + ".effectOffsetY")
-                        : 0);
+                        : 0,
+                    secondaryLaser);
             }
             catch (ArgumentException error)
             {
