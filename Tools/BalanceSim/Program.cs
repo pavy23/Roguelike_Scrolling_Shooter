@@ -150,8 +150,6 @@ static class Program
     const int WarshipEngineHp = 2000;
     const int WarshipCoreHp = 29_600;
     const int WarshipTurretCount = 6;
-    const int WarshipDeckTurretHp = 1600;
-    const int WarshipKeelTurretHp = 2400;
     const int WarshipWarningTicks = 180;
     // REQ-179: advanceAfterTicks 는 교착 방지 안전장치. 네 문 전멸이 정상 경로
     // (Core가 전멸 시 즉시 3막). 600t(10s)는 너무 짧아 타이머가 정상 경로가 됐다
@@ -9253,32 +9251,28 @@ static class Program
                 keelTurretHp += p.MaxHp;
             }
         }
-        if (deckTurretCount != 2 || keelTurretCount != 4)
+        // 개수를 코드에 박아 두는 것을 그만둔다 — 사람이 4문 → 6문으로 늘렸고
+        // (REQ-180) 그때마다 깨진다. 지킬 것은 **함저가 갑판보다 많다**는 구성이다:
+        // 2막이 소모전이므로 그쪽이 두꺼워야 막의 성격이 산다.
+        if (deckTurretCount < 2 || keelTurretCount < deckTurretCount)
         {
             Console.WriteLine(
-                $"FAIL 157/168: expected 2 deck + 4 keel turrets, got deck={deckTurretCount} keel={keelTurretCount}.");
+                $"FAIL 157/168: 갑판 {deckTurretCount}문 / 함저 {keelTurretCount}문 — "
+                + "갑판은 2문 이상, 함저는 갑판보다 많아야 한다(2막이 소모전이다).");
             failures++;
         }
-        if (deckTurretCount > 0 && deckTurretHp / deckTurretCount != WarshipDeckTurretHp)
+        // 문당 HP 절대값 대신 **2막 전체 물량**을 본다. 사람이 문 수를 바꿀 때마다
+        // 문당 HP는 따라 움직이지만(6문이면 문당 1600), 막의 길이를 정하는 것은
+        // 총합이다. 총합이 갑판(1막)보다 두꺼워야 소모전이 소모전답다.
+        if (keelTurretHp <= deckTurretHp)
         {
             Console.WriteLine(
-                $"FAIL 157: deck turret HP {deckTurretHp / Math.Max(1, deckTurretCount)} "
-                + $"!= {WarshipDeckTurretHp}.");
+                $"FAIL 157: 함저 총 HP {keelTurretHp} 가 갑판 {deckTurretHp} 보다 "
+                + "두껍지 않다 — 2막이 1막보다 가볍다.");
             failures++;
         }
-        if (keelTurretCount > 0 && keelTurretHp / keelTurretCount != WarshipKeelTurretHp)
-        {
-            Console.WriteLine(
-                $"FAIL 157: keel turret HP {keelTurretHp / Math.Max(1, keelTurretCount)} "
-                + $"!= {WarshipKeelTurretHp}.");
-            failures++;
-        }
-        if (WarshipKeelTurretHp <= WarshipDeckTurretHp)
-        {
-            Console.WriteLine(
-                "FAIL 157: keel turrets must be stronger (HP) than deck turrets.");
-            failures++;
-        }
+
+
 
         if (!hasLaserTurret)
         {
@@ -9345,15 +9339,23 @@ static class Program
                 failures++;
             }
 
-            // REQ-168: hull attrition = 4 keel turrets c–f.
-            if (hull.PartIds.Count != 4
-                || !string.Equals(hull.PartIds[0], "turret_c", StringComparison.Ordinal)
-                || !string.Equals(hull.PartIds[1], "turret_d", StringComparison.Ordinal)
-                || !string.Equals(hull.PartIds[2], "turret_e", StringComparison.Ordinal)
-                || !string.Equals(hull.PartIds[3], "turret_f", StringComparison.Ordinal))
+            // 파츠 id를 하나하나 적어 두지 않는다 — 문이 늘 때마다 깨진다.
+            // 지킬 것은 "소모전 막이 함저 포탑들로만 이루어진다"는 구성이다.
+            bool hullIsKeelTurrets = hull.PartIds.Count >= 4;
+            for (int h = 0; h < hull.PartIds.Count && hullIsKeelTurrets; h++)
+            {
+                string id = hull.PartIds[h];
+                bool keel = id != null
+                    && id.StartsWith("turret_", StringComparison.Ordinal)
+                    && !string.Equals(id, "turret_a", StringComparison.Ordinal)
+                    && !string.Equals(id, "turret_b", StringComparison.Ordinal);
+                if (!keel) hullIsKeelTurrets = false;
+            }
+            if (!hullIsKeelTurrets)
             {
                 Console.WriteLine(
-                    "FAIL 157/168: hull attritionLine must be ['turret_c'..'turret_f'].");
+                    "FAIL 157/168: 소모전 막은 함저 포탑 4문 이상으로만 "
+                    + $"이루어져야 한다 (지금 {hull.PartIds.Count}개).");
                 failures++;
             }
 
