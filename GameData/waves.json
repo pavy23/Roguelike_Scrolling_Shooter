@@ -11,7 +11,9 @@
     "hive",
     "fortress",
     "nebula",
-    "core"
+    "core",
+    "abyss",
+    "brood"
   ],
   "contracts": {
     "standardContractId": "standard_route",
@@ -12033,6 +12035,2158 @@
       "postMidbossOutcomes": [
         "cleanKill"
       ]
+    },
+    {
+      "id": "seg_abyss_pressure_trench",
+      "difficultyMin": 4,
+      "difficultyMax": 7,
+      "weight": 10,
+      "lengthTicks": 1270,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2
+      ],
+      "theme": "abyss",
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "zako_tank",
+          "y": 3.0
+        },
+        {
+          "tick": 40,
+          "enemyId": "zako_tank",
+          "y": -3.0
+        },
+        {
+          "tick": 100,
+          "enemyId": "guardian_sphere",
+          "y": 0.0
+        },
+        {
+          "tick": 160,
+          "enemyId": "laser_sentry",
+          "y": 4.5
+        },
+        {
+          "tick": 160,
+          "enemyId": "laser_sentry",
+          "y": -4.5
+        },
+        {
+          "tick": 220,
+          "enemyId": "zako_tank",
+          "y": 2.0
+        },
+        {
+          "tick": 250,
+          "enemyId": "zako_tank",
+          "y": -2.0
+        },
+        {
+          "tick": 300,
+          "enemyId": "elite_sine",
+          "y": 0.0
+        },
+        {
+          "tick": 360,
+          "enemyId": "phase_disc",
+          "y": 3.5
+        },
+        {
+          "tick": 400,
+          "enemyId": "phase_disc",
+          "y": -3.5
+        },
+        {
+          "tick": 460,
+          "enemyId": "shard_prism",
+          "y": 0.0
+        },
+        {
+          "tick": 520,
+          "enemyId": "mortar_drone",
+          "y": 4.0
+        },
+        {
+          "tick": 560,
+          "enemyId": "mortar_drone",
+          "y": -4.0
+        },
+        {
+          "tick": 620,
+          "enemyId": "zako_tank",
+          "y": 1.5
+        },
+        {
+          "tick": 660,
+          "enemyId": "zako_tank",
+          "y": -1.5
+        },
+        {
+          "tick": 720,
+          "enemyId": "guardian_sphere",
+          "y": 2.5
+        },
+        {
+          "tick": 760,
+          "enemyId": "guardian_sphere",
+          "y": -2.5
+        },
+        {
+          "tick": 840,
+          "enemyId": "laser_sentry",
+          "y": 0.0
+        },
+        {
+          "tick": 920,
+          "enemyId": "elite_sine",
+          "y": 3.0
+        },
+        {
+          "tick": 960,
+          "enemyId": "elite_sine",
+          "y": -3.0
+        },
+        {
+          "tick": 1040,
+          "enemyId": "shard_prism",
+          "y": 0.0
+        },
+        {
+          "tick": 1120,
+          "enemyId": "zako_tank",
+          "y": 0.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 16.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 20.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": 2.0,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": -2.0,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 22.0,
+          "y": 0.0,
+          "hp": 60
+        }
+      ],
+      "intent": "REQ159 abyss | masks[7→3→2] | 심해 압력 해구 — 느리고 단단한 탱크·가디언 벽 | no-midboss | length 1200",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.25,
+          "yPerSecond": 0.15
+        }
+      }
+    },
+    {
+      "id": "seg_abyss_wreck_field",
+      "difficultyMin": 4,
+      "difficultyMax": 7,
+      "weight": 9,
+      "lengthTicks": 1230,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3
+      ],
+      "theme": "abyss",
+      "spawns": [
+        {
+          "tick": 30,
+          "enemyId": "scrap_tumbler",
+          "y": 4.0
+        },
+        {
+          "tick": 50,
+          "enemyId": "scrap_tumbler",
+          "y": -4.0
+        },
+        {
+          "tick": 90,
+          "enemyId": "turret_ground",
+          "y": -5.0
+        },
+        {
+          "tick": 90,
+          "enemyId": "turret_ceiling",
+          "y": 5.0
+        },
+        {
+          "tick": 140,
+          "enemyId": "junk_roller",
+          "y": 2.0
+        },
+        {
+          "tick": 170,
+          "enemyId": "junk_roller",
+          "y": -2.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "zako_tank",
+          "y": 0.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "laser_sentry",
+          "y": 3.5
+        },
+        {
+          "tick": 320,
+          "enemyId": "laser_sentry",
+          "y": -3.5
+        },
+        {
+          "tick": 380,
+          "enemyId": "magnet_claw",
+          "y": 1.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "magnet_claw",
+          "y": -1.0
+        },
+        {
+          "tick": 480,
+          "enemyId": "guardian_sphere",
+          "y": 0.0
+        },
+        {
+          "tick": 540,
+          "enemyId": "scrap_tumbler",
+          "y": 3.0
+        },
+        {
+          "tick": 580,
+          "enemyId": "scrap_tumbler",
+          "y": -3.0
+        },
+        {
+          "tick": 640,
+          "enemyId": "prism_beamer",
+          "y": 4.5
+        },
+        {
+          "tick": 680,
+          "enemyId": "prism_beamer",
+          "y": -4.5
+        },
+        {
+          "tick": 740,
+          "enemyId": "zako_tank",
+          "y": 2.5
+        },
+        {
+          "tick": 780,
+          "enemyId": "zako_tank",
+          "y": -2.5
+        },
+        {
+          "tick": 850,
+          "enemyId": "elite_sine",
+          "y": 0.0
+        },
+        {
+          "tick": 920,
+          "enemyId": "turret_ground",
+          "y": -5.0
+        },
+        {
+          "tick": 920,
+          "enemyId": "turret_ceiling",
+          "y": 5.0
+        },
+        {
+          "tick": 1000,
+          "enemyId": "shard_prism",
+          "y": 0.0
+        },
+        {
+          "tick": 1080,
+          "enemyId": "mortar_drone",
+          "y": 0.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 13.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 17.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 21.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 12.0,
+          "y": 1.5,
+          "hp": 50
+        },
+        {
+          "type": "breakable",
+          "x": 15.0,
+          "y": -1.5,
+          "hp": 50
+        },
+        {
+          "type": "breakable",
+          "x": 19.0,
+          "y": 2.5,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 23.0,
+          "y": -2.5,
+          "hp": 55
+        }
+      ],
+      "intent": "REQ159 abyss | masks[7→3] | 침몰 잔해 지대 — 고철·터렛·자석 집게 | 레비아탄 예고",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.3,
+          "yPerSecond": -0.1
+        }
+      }
+    },
+    {
+      "id": "seg_abyss_biolum_bloom",
+      "difficultyMin": 5,
+      "difficultyMax": 7,
+      "weight": 8,
+      "lengthTicks": 1270,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2,
+        2
+      ],
+      "theme": "abyss",
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "void_moth",
+          "y": 3.0
+        },
+        {
+          "tick": 60,
+          "enemyId": "void_moth",
+          "y": -3.0
+        },
+        {
+          "tick": 80,
+          "enemyId": "void_moth",
+          "y": 0.0
+        },
+        {
+          "tick": 120,
+          "enemyId": "echo_wisp",
+          "y": 4.0
+        },
+        {
+          "tick": 140,
+          "enemyId": "echo_wisp",
+          "y": -4.0
+        },
+        {
+          "tick": 180,
+          "enemyId": "phase_disc",
+          "y": 2.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "phase_disc",
+          "y": -2.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "guardian_sphere",
+          "y": 0.0
+        },
+        {
+          "tick": 340,
+          "enemyId": "void_moth",
+          "y": 3.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "void_moth",
+          "y": -1.5
+        },
+        {
+          "tick": 380,
+          "enemyId": "void_moth",
+          "y": 1.5
+        },
+        {
+          "tick": 440,
+          "enemyId": "laser_sentry",
+          "y": 4.5
+        },
+        {
+          "tick": 480,
+          "enemyId": "laser_sentry",
+          "y": -4.5
+        },
+        {
+          "tick": 540,
+          "enemyId": "zako_tank",
+          "y": 0.0
+        },
+        {
+          "tick": 600,
+          "enemyId": "echo_wisp",
+          "y": 2.5
+        },
+        {
+          "tick": 630,
+          "enemyId": "echo_wisp",
+          "y": -2.5
+        },
+        {
+          "tick": 700,
+          "enemyId": "shard_prism",
+          "y": 1.5
+        },
+        {
+          "tick": 760,
+          "enemyId": "shard_prism",
+          "y": -1.5
+        },
+        {
+          "tick": 840,
+          "enemyId": "elite_sine",
+          "y": 0.0
+        },
+        {
+          "tick": 920,
+          "enemyId": "phase_disc",
+          "y": 3.0
+        },
+        {
+          "tick": 960,
+          "enemyId": "phase_disc",
+          "y": -3.0
+        },
+        {
+          "tick": 1040,
+          "enemyId": "guardian_sphere",
+          "y": 0.0
+        },
+        {
+          "tick": 1120,
+          "enemyId": "prism_beamer",
+          "y": 0.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 13.0,
+          "y": 0.0,
+          "hp": 45
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": 2.0,
+          "hp": 50
+        },
+        {
+          "type": "breakable",
+          "x": 21.0,
+          "y": -2.0,
+          "hp": 50
+        }
+      ],
+      "intent": "REQ159 abyss | masks[7→3→2→2] | 생물발광 꽃 — 어둠 위습 후 중형 앵커 | vision gimmick 연계",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.2,
+          "yPerSecond": 0.35
+        }
+      }
+    },
+    {
+      "id": "seg_abyss_depth_columns",
+      "difficultyMin": 4,
+      "difficultyMax": 7,
+      "weight": 8,
+      "lengthTicks": 1170,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2
+      ],
+      "theme": "abyss",
+      "spawns": [
+        {
+          "tick": 35,
+          "enemyId": "laser_sentry",
+          "y": 5.0
+        },
+        {
+          "tick": 35,
+          "enemyId": "laser_sentry",
+          "y": -5.0
+        },
+        {
+          "tick": 90,
+          "enemyId": "zako_tank",
+          "y": 3.0
+        },
+        {
+          "tick": 120,
+          "enemyId": "zako_tank",
+          "y": -3.0
+        },
+        {
+          "tick": 180,
+          "enemyId": "phase_disc",
+          "y": 0.0
+        },
+        {
+          "tick": 240,
+          "enemyId": "mortar_drone",
+          "y": 4.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "mortar_drone",
+          "y": -4.0
+        },
+        {
+          "tick": 340,
+          "enemyId": "guardian_sphere",
+          "y": 2.0
+        },
+        {
+          "tick": 380,
+          "enemyId": "guardian_sphere",
+          "y": -2.0
+        },
+        {
+          "tick": 450,
+          "enemyId": "elite_sine",
+          "y": 0.0
+        },
+        {
+          "tick": 520,
+          "enemyId": "zako_tank",
+          "y": 4.0
+        },
+        {
+          "tick": 560,
+          "enemyId": "zako_tank",
+          "y": -4.0
+        },
+        {
+          "tick": 620,
+          "enemyId": "prism_beamer",
+          "y": 3.5
+        },
+        {
+          "tick": 660,
+          "enemyId": "prism_beamer",
+          "y": -3.5
+        },
+        {
+          "tick": 740,
+          "enemyId": "shard_prism",
+          "y": 0.0
+        },
+        {
+          "tick": 820,
+          "enemyId": "laser_sentry",
+          "y": 0.0
+        },
+        {
+          "tick": 900,
+          "enemyId": "zako_tank",
+          "y": 1.5
+        },
+        {
+          "tick": 940,
+          "enemyId": "zako_tank",
+          "y": -1.5
+        },
+        {
+          "tick": 1020,
+          "enemyId": "guardian_sphere",
+          "y": 0.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 15.0,
+          "y": 2.5,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 15.0,
+          "y": -2.5,
+          "hp": 55
+        },
+        {
+          "type": "breakable",
+          "x": 20.0,
+          "y": 0.0,
+          "hp": 60
+        }
+      ],
+      "intent": "REQ159 abyss | masks[7→3→2] | 심연 기둥 — 상하 레이저·탱크 교차",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.28,
+          "yPerSecond": 0.0
+        }
+      }
+    },
+    {
+      "id": "seg_abyss_leviathan_approach",
+      "difficultyMin": 5,
+      "difficultyMax": 7,
+      "weight": 7,
+      "lengthTicks": 1310,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2,
+        2
+      ],
+      "theme": "abyss",
+      "spawns": [
+        {
+          "tick": 30,
+          "enemyId": "zako_tank",
+          "y": 3.5
+        },
+        {
+          "tick": 50,
+          "enemyId": "zako_tank",
+          "y": -3.5
+        },
+        {
+          "tick": 70,
+          "enemyId": "zako_tank",
+          "y": 0.0
+        },
+        {
+          "tick": 130,
+          "enemyId": "laser_sentry",
+          "y": 4.5
+        },
+        {
+          "tick": 130,
+          "enemyId": "laser_sentry",
+          "y": -4.5
+        },
+        {
+          "tick": 190,
+          "enemyId": "guardian_sphere",
+          "y": 2.0
+        },
+        {
+          "tick": 230,
+          "enemyId": "guardian_sphere",
+          "y": -2.0
+        },
+        {
+          "tick": 300,
+          "enemyId": "scrap_tumbler",
+          "y": 4.0
+        },
+        {
+          "tick": 320,
+          "enemyId": "scrap_tumbler",
+          "y": -4.0
+        },
+        {
+          "tick": 380,
+          "enemyId": "elite_sine",
+          "y": 1.5
+        },
+        {
+          "tick": 420,
+          "enemyId": "elite_sine",
+          "y": -1.5
+        },
+        {
+          "tick": 490,
+          "enemyId": "shard_prism",
+          "y": 0.0
+        },
+        {
+          "tick": 560,
+          "enemyId": "mortar_drone",
+          "y": 3.0
+        },
+        {
+          "tick": 600,
+          "enemyId": "mortar_drone",
+          "y": -3.0
+        },
+        {
+          "tick": 670,
+          "enemyId": "phase_disc",
+          "y": 2.5
+        },
+        {
+          "tick": 710,
+          "enemyId": "phase_disc",
+          "y": -2.5
+        },
+        {
+          "tick": 780,
+          "enemyId": "zako_tank",
+          "y": 0.0
+        },
+        {
+          "tick": 850,
+          "enemyId": "prism_beamer",
+          "y": 4.0
+        },
+        {
+          "tick": 890,
+          "enemyId": "prism_beamer",
+          "y": -4.0
+        },
+        {
+          "tick": 960,
+          "enemyId": "guardian_sphere",
+          "y": 0.0
+        },
+        {
+          "tick": 1040,
+          "enemyId": "laser_sentry",
+          "y": 2.0
+        },
+        {
+          "tick": 1080,
+          "enemyId": "laser_sentry",
+          "y": -2.0
+        },
+        {
+          "tick": 1160,
+          "enemyId": "shard_prism",
+          "y": 0.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 11.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 15.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 19.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 23.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 13.0,
+          "y": 1.0,
+          "hp": 60
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": -1.0,
+          "hp": 60
+        },
+        {
+          "type": "breakable",
+          "x": 21.0,
+          "y": 2.0,
+          "hp": 65
+        },
+        {
+          "type": "breakable",
+          "x": 21.0,
+          "y": -2.0,
+          "hp": 65
+        }
+      ],
+      "intent": "REQ159 abyss | masks[7→3→2→2] | 레비아탄 접근로 — 최고 밀도 단단한 배치 | 한 방이 전부",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.35,
+          "yPerSecond": 0.2
+        }
+      }
+    },
+    {
+      "id": "seg_brood_hatch_rush",
+      "difficultyMin": 4,
+      "difficultyMax": 7,
+      "weight": 10,
+      "lengthTicks": 1290,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3
+      ],
+      "theme": "brood",
+      "spawns": [
+        {
+          "tick": 30,
+          "enemyId": "lancer_dart",
+          "y": 3.0
+        },
+        {
+          "tick": 40,
+          "enemyId": "lancer_dart",
+          "y": 0.0
+        },
+        {
+          "tick": 50,
+          "enemyId": "lancer_dart",
+          "y": -3.0
+        },
+        {
+          "tick": 70,
+          "enemyId": "sting_hornet",
+          "y": 4.0
+        },
+        {
+          "tick": 80,
+          "enemyId": "sting_hornet",
+          "y": -4.0
+        },
+        {
+          "tick": 90,
+          "enemyId": "sting_hornet",
+          "y": 1.5
+        },
+        {
+          "tick": 120,
+          "enemyId": "lancer_dart",
+          "y": -1.5
+        },
+        {
+          "tick": 130,
+          "enemyId": "lancer_dart",
+          "y": 3.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "lancer_dart",
+          "y": -3.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "brood_spitter",
+          "y": 0.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "zako_fast",
+          "y": 2.0
+        },
+        {
+          "tick": 230,
+          "enemyId": "zako_fast",
+          "y": -2.0
+        },
+        {
+          "tick": 240,
+          "enemyId": "zako_fast",
+          "y": 4.0
+        },
+        {
+          "tick": 250,
+          "enemyId": "zako_fast",
+          "y": -4.0
+        },
+        {
+          "tick": 300,
+          "enemyId": "hive_tentacle",
+          "y": 5.0
+        },
+        {
+          "tick": 300,
+          "enemyId": "hive_tentacle",
+          "y": -5.0
+        },
+        {
+          "tick": 350,
+          "enemyId": "lancer_dart",
+          "y": 1.0
+        },
+        {
+          "tick": 360,
+          "enemyId": "lancer_dart",
+          "y": -1.0
+        },
+        {
+          "tick": 370,
+          "enemyId": "lancer_dart",
+          "y": 3.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "spore_drifter",
+          "y": 2.5
+        },
+        {
+          "tick": 450,
+          "enemyId": "spore_drifter",
+          "y": -2.5
+        },
+        {
+          "tick": 480,
+          "enemyId": "spore_drifter",
+          "y": 0.0
+        },
+        {
+          "tick": 540,
+          "enemyId": "brood_spitter",
+          "y": 3.0
+        },
+        {
+          "tick": 580,
+          "enemyId": "brood_spitter",
+          "y": -3.0
+        },
+        {
+          "tick": 640,
+          "enemyId": "sting_hornet",
+          "y": 0.0
+        },
+        {
+          "tick": 650,
+          "enemyId": "sting_hornet",
+          "y": 2.5
+        },
+        {
+          "tick": 660,
+          "enemyId": "sting_hornet",
+          "y": -2.5
+        },
+        {
+          "tick": 720,
+          "enemyId": "interceptor_rush",
+          "y": 4.0
+        },
+        {
+          "tick": 740,
+          "enemyId": "interceptor_rush",
+          "y": -4.0
+        },
+        {
+          "tick": 760,
+          "enemyId": "interceptor_rush",
+          "y": 0.0
+        },
+        {
+          "tick": 820,
+          "enemyId": "hive_tentacle",
+          "y": 5.0
+        },
+        {
+          "tick": 820,
+          "enemyId": "hive_tentacle",
+          "y": -5.0
+        },
+        {
+          "tick": 880,
+          "enemyId": "lancer_dart",
+          "y": 1.5
+        },
+        {
+          "tick": 890,
+          "enemyId": "lancer_dart",
+          "y": -1.5
+        },
+        {
+          "tick": 900,
+          "enemyId": "lancer_dart",
+          "y": 3.5
+        },
+        {
+          "tick": 910,
+          "enemyId": "lancer_dart",
+          "y": -3.5
+        },
+        {
+          "tick": 980,
+          "enemyId": "brood_spitter",
+          "y": 0.0
+        },
+        {
+          "tick": 1050,
+          "enemyId": "zako_fast",
+          "y": 2.0
+        },
+        {
+          "tick": 1060,
+          "enemyId": "zako_fast",
+          "y": -2.0
+        },
+        {
+          "tick": 1070,
+          "enemyId": "zako_fast",
+          "y": 0.0
+        },
+        {
+          "tick": 1140,
+          "enemyId": "sting_hornet",
+          "y": 0.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": 2.5,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": -2.5,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 22.0,
+          "y": 0.0,
+          "hp": 45
+        }
+      ],
+      "intent": "REQ159 brood | masks[7→3] | 부화 러시 — 약하고 빠른 새끼 떼 | 브루드 예고",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.22,
+          "yPerSecond": 0.4
+        }
+      }
+    },
+    {
+      "id": "seg_brood_nest_corridor",
+      "difficultyMin": 4,
+      "difficultyMax": 7,
+      "weight": 9,
+      "lengthTicks": 1250,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2
+      ],
+      "theme": "brood",
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "hive_tentacle",
+          "y": 5.0
+        },
+        {
+          "tick": 40,
+          "enemyId": "hive_tentacle",
+          "y": -5.0
+        },
+        {
+          "tick": 80,
+          "enemyId": "spore_drifter",
+          "y": 2.0
+        },
+        {
+          "tick": 100,
+          "enemyId": "spore_drifter",
+          "y": -2.0
+        },
+        {
+          "tick": 140,
+          "enemyId": "lancer_dart",
+          "y": 0.0
+        },
+        {
+          "tick": 150,
+          "enemyId": "lancer_dart",
+          "y": 3.0
+        },
+        {
+          "tick": 160,
+          "enemyId": "lancer_dart",
+          "y": -3.0
+        },
+        {
+          "tick": 200,
+          "enemyId": "brood_spitter",
+          "y": 4.0
+        },
+        {
+          "tick": 240,
+          "enemyId": "brood_spitter",
+          "y": -4.0
+        },
+        {
+          "tick": 290,
+          "enemyId": "sting_hornet",
+          "y": 1.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "sting_hornet",
+          "y": -1.5
+        },
+        {
+          "tick": 310,
+          "enemyId": "sting_hornet",
+          "y": 4.5
+        },
+        {
+          "tick": 360,
+          "enemyId": "hive_tentacle",
+          "y": 5.0
+        },
+        {
+          "tick": 360,
+          "enemyId": "hive_tentacle",
+          "y": -5.0
+        },
+        {
+          "tick": 410,
+          "enemyId": "zako_fast",
+          "y": 0.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "zako_fast",
+          "y": 2.5
+        },
+        {
+          "tick": 430,
+          "enemyId": "zako_fast",
+          "y": -2.5
+        },
+        {
+          "tick": 490,
+          "enemyId": "spore_drifter",
+          "y": 3.0
+        },
+        {
+          "tick": 520,
+          "enemyId": "spore_drifter",
+          "y": -3.0
+        },
+        {
+          "tick": 580,
+          "enemyId": "brood_spitter",
+          "y": 0.0
+        },
+        {
+          "tick": 640,
+          "enemyId": "lancer_dart",
+          "y": 4.0
+        },
+        {
+          "tick": 650,
+          "enemyId": "lancer_dart",
+          "y": -4.0
+        },
+        {
+          "tick": 660,
+          "enemyId": "lancer_dart",
+          "y": 1.0
+        },
+        {
+          "tick": 670,
+          "enemyId": "lancer_dart",
+          "y": -1.0
+        },
+        {
+          "tick": 740,
+          "enemyId": "hive_tentacle",
+          "y": 5.0
+        },
+        {
+          "tick": 740,
+          "enemyId": "hive_tentacle",
+          "y": -5.0
+        },
+        {
+          "tick": 800,
+          "enemyId": "interceptor_rush",
+          "y": 2.0
+        },
+        {
+          "tick": 820,
+          "enemyId": "interceptor_rush",
+          "y": -2.0
+        },
+        {
+          "tick": 880,
+          "enemyId": "sting_hornet",
+          "y": 0.0
+        },
+        {
+          "tick": 900,
+          "enemyId": "sting_hornet",
+          "y": 3.0
+        },
+        {
+          "tick": 920,
+          "enemyId": "sting_hornet",
+          "y": -3.0
+        },
+        {
+          "tick": 1000,
+          "enemyId": "brood_spitter",
+          "y": 1.5
+        },
+        {
+          "tick": 1040,
+          "enemyId": "brood_spitter",
+          "y": -1.5
+        },
+        {
+          "tick": 1100,
+          "enemyId": "spore_drifter",
+          "y": 0.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 16.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 20.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": 0.0,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": 2.0,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 22.0,
+          "y": -2.0,
+          "hp": 40
+        }
+      ],
+      "intent": "REQ159 brood | masks[7→3→2] | 둥지 복도 — 벽 촉수 + 알집 스포어 압박",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.18,
+          "yPerSecond": 0.25
+        }
+      }
+    },
+    {
+      "id": "seg_brood_sac_burst",
+      "difficultyMin": 5,
+      "difficultyMax": 7,
+      "weight": 8,
+      "lengthTicks": 1270,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3
+      ],
+      "theme": "brood",
+      "spawns": [
+        {
+          "tick": 25,
+          "enemyId": "spore_drifter",
+          "y": 3.5
+        },
+        {
+          "tick": 35,
+          "enemyId": "spore_drifter",
+          "y": -3.5
+        },
+        {
+          "tick": 45,
+          "enemyId": "spore_drifter",
+          "y": 0.0
+        },
+        {
+          "tick": 70,
+          "enemyId": "spore_drifter",
+          "y": 2.0
+        },
+        {
+          "tick": 80,
+          "enemyId": "spore_drifter",
+          "y": -2.0
+        },
+        {
+          "tick": 110,
+          "enemyId": "lancer_dart",
+          "y": 4.0
+        },
+        {
+          "tick": 120,
+          "enemyId": "lancer_dart",
+          "y": -4.0
+        },
+        {
+          "tick": 130,
+          "enemyId": "lancer_dart",
+          "y": 1.5
+        },
+        {
+          "tick": 140,
+          "enemyId": "lancer_dart",
+          "y": -1.5
+        },
+        {
+          "tick": 180,
+          "enemyId": "brood_spitter",
+          "y": 0.0
+        },
+        {
+          "tick": 220,
+          "enemyId": "zako_fast",
+          "y": 3.0
+        },
+        {
+          "tick": 230,
+          "enemyId": "zako_fast",
+          "y": -3.0
+        },
+        {
+          "tick": 240,
+          "enemyId": "zako_fast",
+          "y": 0.0
+        },
+        {
+          "tick": 280,
+          "enemyId": "sting_hornet",
+          "y": 4.5
+        },
+        {
+          "tick": 290,
+          "enemyId": "sting_hornet",
+          "y": -4.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "sting_hornet",
+          "y": 2.0
+        },
+        {
+          "tick": 310,
+          "enemyId": "sting_hornet",
+          "y": -2.0
+        },
+        {
+          "tick": 360,
+          "enemyId": "hive_tentacle",
+          "y": 5.0
+        },
+        {
+          "tick": 360,
+          "enemyId": "hive_tentacle",
+          "y": -5.0
+        },
+        {
+          "tick": 410,
+          "enemyId": "lancer_dart",
+          "y": 0.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "lancer_dart",
+          "y": 3.0
+        },
+        {
+          "tick": 430,
+          "enemyId": "lancer_dart",
+          "y": -3.0
+        },
+        {
+          "tick": 490,
+          "enemyId": "spore_drifter",
+          "y": 1.0
+        },
+        {
+          "tick": 500,
+          "enemyId": "spore_drifter",
+          "y": -1.0
+        },
+        {
+          "tick": 510,
+          "enemyId": "spore_drifter",
+          "y": 4.0
+        },
+        {
+          "tick": 520,
+          "enemyId": "spore_drifter",
+          "y": -4.0
+        },
+        {
+          "tick": 580,
+          "enemyId": "brood_spitter",
+          "y": 2.5
+        },
+        {
+          "tick": 620,
+          "enemyId": "brood_spitter",
+          "y": -2.5
+        },
+        {
+          "tick": 690,
+          "enemyId": "interceptor_rush",
+          "y": 0.0
+        },
+        {
+          "tick": 710,
+          "enemyId": "interceptor_rush",
+          "y": 3.5
+        },
+        {
+          "tick": 730,
+          "enemyId": "interceptor_rush",
+          "y": -3.5
+        },
+        {
+          "tick": 800,
+          "enemyId": "sting_hornet",
+          "y": 1.5
+        },
+        {
+          "tick": 810,
+          "enemyId": "sting_hornet",
+          "y": -1.5
+        },
+        {
+          "tick": 820,
+          "enemyId": "sting_hornet",
+          "y": 0.0
+        },
+        {
+          "tick": 880,
+          "enemyId": "hive_tentacle",
+          "y": 5.0
+        },
+        {
+          "tick": 880,
+          "enemyId": "hive_tentacle",
+          "y": -5.0
+        },
+        {
+          "tick": 940,
+          "enemyId": "lancer_dart",
+          "y": 2.0
+        },
+        {
+          "tick": 950,
+          "enemyId": "lancer_dart",
+          "y": -2.0
+        },
+        {
+          "tick": 960,
+          "enemyId": "lancer_dart",
+          "y": 4.0
+        },
+        {
+          "tick": 970,
+          "enemyId": "lancer_dart",
+          "y": -4.0
+        },
+        {
+          "tick": 1040,
+          "enemyId": "brood_spitter",
+          "y": 0.0
+        },
+        {
+          "tick": 1110,
+          "enemyId": "zako_fast",
+          "y": 1.0
+        },
+        {
+          "tick": 1120,
+          "enemyId": "zako_fast",
+          "y": -1.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "breakable",
+          "x": 13.0,
+          "y": 3.0,
+          "hp": 35
+        },
+        {
+          "type": "breakable",
+          "x": 13.0,
+          "y": -3.0,
+          "hp": 35
+        },
+        {
+          "type": "breakable",
+          "x": 17.0,
+          "y": 0.0,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 21.0,
+          "y": 2.5,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 21.0,
+          "y": -2.5,
+          "hp": 40
+        }
+      ],
+      "intent": "REQ159 brood | masks[7→3] | 산란낭 파열 — 스포어·랜서 연속 파도",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.2,
+          "yPerSecond": -0.3
+        }
+      }
+    },
+    {
+      "id": "seg_brood_tendon_weave",
+      "difficultyMin": 4,
+      "difficultyMax": 7,
+      "weight": 8,
+      "lengthTicks": 1200,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2,
+        2
+      ],
+      "theme": "brood",
+      "spawns": [
+        {
+          "tick": 40,
+          "enemyId": "hive_tentacle",
+          "y": 5.0
+        },
+        {
+          "tick": 60,
+          "enemyId": "hive_tentacle",
+          "y": -5.0
+        },
+        {
+          "tick": 100,
+          "enemyId": "lancer_dart",
+          "y": 2.0
+        },
+        {
+          "tick": 110,
+          "enemyId": "lancer_dart",
+          "y": -2.0
+        },
+        {
+          "tick": 120,
+          "enemyId": "lancer_dart",
+          "y": 0.0
+        },
+        {
+          "tick": 160,
+          "enemyId": "mist_specter",
+          "y": 3.0
+        },
+        {
+          "tick": 180,
+          "enemyId": "mist_specter",
+          "y": -3.0
+        },
+        {
+          "tick": 230,
+          "enemyId": "sting_hornet",
+          "y": 1.0
+        },
+        {
+          "tick": 240,
+          "enemyId": "sting_hornet",
+          "y": -1.0
+        },
+        {
+          "tick": 250,
+          "enemyId": "sting_hornet",
+          "y": 4.0
+        },
+        {
+          "tick": 300,
+          "enemyId": "brood_spitter",
+          "y": 0.0
+        },
+        {
+          "tick": 350,
+          "enemyId": "hive_tentacle",
+          "y": 5.0
+        },
+        {
+          "tick": 370,
+          "enemyId": "hive_tentacle",
+          "y": -5.0
+        },
+        {
+          "tick": 420,
+          "enemyId": "zako_fast",
+          "y": 2.5
+        },
+        {
+          "tick": 430,
+          "enemyId": "zako_fast",
+          "y": -2.5
+        },
+        {
+          "tick": 440,
+          "enemyId": "zako_fast",
+          "y": 0.0
+        },
+        {
+          "tick": 500,
+          "enemyId": "spore_drifter",
+          "y": 3.5
+        },
+        {
+          "tick": 530,
+          "enemyId": "spore_drifter",
+          "y": -3.5
+        },
+        {
+          "tick": 590,
+          "enemyId": "lancer_dart",
+          "y": 4.0
+        },
+        {
+          "tick": 600,
+          "enemyId": "lancer_dart",
+          "y": -4.0
+        },
+        {
+          "tick": 610,
+          "enemyId": "lancer_dart",
+          "y": 1.5
+        },
+        {
+          "tick": 620,
+          "enemyId": "lancer_dart",
+          "y": -1.5
+        },
+        {
+          "tick": 690,
+          "enemyId": "mist_specter",
+          "y": 0.0
+        },
+        {
+          "tick": 720,
+          "enemyId": "mist_specter",
+          "y": 2.5
+        },
+        {
+          "tick": 780,
+          "enemyId": "brood_spitter",
+          "y": 3.0
+        },
+        {
+          "tick": 820,
+          "enemyId": "brood_spitter",
+          "y": -3.0
+        },
+        {
+          "tick": 880,
+          "enemyId": "interceptor_rush",
+          "y": 0.0
+        },
+        {
+          "tick": 900,
+          "enemyId": "interceptor_rush",
+          "y": -2.0
+        },
+        {
+          "tick": 960,
+          "enemyId": "sting_hornet",
+          "y": 1.5
+        },
+        {
+          "tick": 970,
+          "enemyId": "sting_hornet",
+          "y": -1.5
+        },
+        {
+          "tick": 980,
+          "enemyId": "sting_hornet",
+          "y": 3.5
+        },
+        {
+          "tick": 1050,
+          "enemyId": "hive_tentacle",
+          "y": 5.0
+        },
+        {
+          "tick": 1050,
+          "enemyId": "hive_tentacle",
+          "y": -5.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 14.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 18.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 22.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 16.0,
+          "y": 1.5,
+          "hp": 40
+        },
+        {
+          "type": "breakable",
+          "x": 20.0,
+          "y": -1.5,
+          "hp": 40
+        }
+      ],
+      "intent": "REQ159 brood | masks[7→3→2→2] | 건 직조 — 촉수 회랑 + 안개 스펙터",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.25,
+          "yPerSecond": 0.35
+        }
+      }
+    },
+    {
+      "id": "seg_brood_mother_approach",
+      "difficultyMin": 5,
+      "difficultyMax": 7,
+      "weight": 7,
+      "lengthTicks": 1330,
+      "entryLaneMask": 7,
+      "exitLaneMask": 7,
+      "traversableLaneMasks": [
+        7,
+        3,
+        2,
+        2
+      ],
+      "theme": "brood",
+      "spawns": [
+        {
+          "tick": 25,
+          "enemyId": "lancer_dart",
+          "y": 3.0
+        },
+        {
+          "tick": 35,
+          "enemyId": "lancer_dart",
+          "y": -3.0
+        },
+        {
+          "tick": 45,
+          "enemyId": "lancer_dart",
+          "y": 0.0
+        },
+        {
+          "tick": 55,
+          "enemyId": "lancer_dart",
+          "y": 4.5
+        },
+        {
+          "tick": 65,
+          "enemyId": "lancer_dart",
+          "y": -4.5
+        },
+        {
+          "tick": 100,
+          "enemyId": "sting_hornet",
+          "y": 1.5
+        },
+        {
+          "tick": 110,
+          "enemyId": "sting_hornet",
+          "y": -1.5
+        },
+        {
+          "tick": 120,
+          "enemyId": "sting_hornet",
+          "y": 3.0
+        },
+        {
+          "tick": 130,
+          "enemyId": "sting_hornet",
+          "y": -3.0
+        },
+        {
+          "tick": 170,
+          "enemyId": "hive_tentacle",
+          "y": 5.0
+        },
+        {
+          "tick": 170,
+          "enemyId": "hive_tentacle",
+          "y": -5.0
+        },
+        {
+          "tick": 210,
+          "enemyId": "spore_drifter",
+          "y": 0.0
+        },
+        {
+          "tick": 230,
+          "enemyId": "spore_drifter",
+          "y": 2.5
+        },
+        {
+          "tick": 250,
+          "enemyId": "spore_drifter",
+          "y": -2.5
+        },
+        {
+          "tick": 300,
+          "enemyId": "brood_spitter",
+          "y": 4.0
+        },
+        {
+          "tick": 340,
+          "enemyId": "brood_spitter",
+          "y": -4.0
+        },
+        {
+          "tick": 380,
+          "enemyId": "brood_spitter",
+          "y": 0.0
+        },
+        {
+          "tick": 440,
+          "enemyId": "zako_fast",
+          "y": 1.0
+        },
+        {
+          "tick": 450,
+          "enemyId": "zako_fast",
+          "y": -1.0
+        },
+        {
+          "tick": 460,
+          "enemyId": "zako_fast",
+          "y": 3.5
+        },
+        {
+          "tick": 470,
+          "enemyId": "zako_fast",
+          "y": -3.5
+        },
+        {
+          "tick": 530,
+          "enemyId": "lancer_dart",
+          "y": 0.0
+        },
+        {
+          "tick": 540,
+          "enemyId": "lancer_dart",
+          "y": 2.0
+        },
+        {
+          "tick": 550,
+          "enemyId": "lancer_dart",
+          "y": -2.0
+        },
+        {
+          "tick": 560,
+          "enemyId": "lancer_dart",
+          "y": 4.0
+        },
+        {
+          "tick": 570,
+          "enemyId": "lancer_dart",
+          "y": -4.0
+        },
+        {
+          "tick": 640,
+          "enemyId": "hive_tentacle",
+          "y": 5.0
+        },
+        {
+          "tick": 640,
+          "enemyId": "hive_tentacle",
+          "y": -5.0
+        },
+        {
+          "tick": 700,
+          "enemyId": "interceptor_rush",
+          "y": 2.5
+        },
+        {
+          "tick": 720,
+          "enemyId": "interceptor_rush",
+          "y": -2.5
+        },
+        {
+          "tick": 740,
+          "enemyId": "interceptor_rush",
+          "y": 0.0
+        },
+        {
+          "tick": 800,
+          "enemyId": "sting_hornet",
+          "y": 1.0
+        },
+        {
+          "tick": 810,
+          "enemyId": "sting_hornet",
+          "y": -1.0
+        },
+        {
+          "tick": 820,
+          "enemyId": "sting_hornet",
+          "y": 3.0
+        },
+        {
+          "tick": 830,
+          "enemyId": "sting_hornet",
+          "y": -3.0
+        },
+        {
+          "tick": 900,
+          "enemyId": "brood_spitter",
+          "y": 1.5
+        },
+        {
+          "tick": 940,
+          "enemyId": "brood_spitter",
+          "y": -1.5
+        },
+        {
+          "tick": 1000,
+          "enemyId": "spore_drifter",
+          "y": 0.0
+        },
+        {
+          "tick": 1020,
+          "enemyId": "spore_drifter",
+          "y": 4.0
+        },
+        {
+          "tick": 1040,
+          "enemyId": "spore_drifter",
+          "y": -4.0
+        },
+        {
+          "tick": 1100,
+          "enemyId": "lancer_dart",
+          "y": 2.0
+        },
+        {
+          "tick": 1110,
+          "enemyId": "lancer_dart",
+          "y": -2.0
+        },
+        {
+          "tick": 1120,
+          "enemyId": "lancer_dart",
+          "y": 0.0
+        },
+        {
+          "tick": 1180,
+          "enemyId": "brood_spitter",
+          "y": 0.0
+        }
+      ],
+      "obstacles": [
+        {
+          "type": "solid",
+          "x": 12.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 16.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 20.0,
+          "y": 5.5,
+          "hp": 0
+        },
+        {
+          "type": "solid",
+          "x": 24.0,
+          "y": -5.5,
+          "hp": 0
+        },
+        {
+          "type": "breakable",
+          "x": 14.0,
+          "y": 0.0,
+          "hp": 45
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": 2.0,
+          "hp": 45
+        },
+        {
+          "type": "breakable",
+          "x": 18.0,
+          "y": -2.0,
+          "hp": 45
+        },
+        {
+          "type": "breakable",
+          "x": 22.0,
+          "y": 0.0,
+          "hp": 50
+        }
+      ],
+      "intent": "REQ159 brood | masks[7→3→2→2] | 브루드마더 접근로 — 최고 밀도 새끼 파도 | 한 방이 전부",
+      "environment": {
+        "drift": {
+          "xPerSecond": -0.3,
+          "yPerSecond": 0.45
+        }
+      }
     }
   ],
   "bosses": [
@@ -12712,7 +14866,7 @@
           "offsetY": 8.80078125,
           "halfWidth": 4.0,
           "halfHeight": 1.69921875,
-          "hp": 5000,
+          "hp": 7500,
           "attack": {
             "type": "aimedSpread",
             "intervalTicks": 64,
@@ -12726,7 +14880,7 @@
           "offsetY": 5.30078125,
           "halfWidth": 2.80078125,
           "halfHeight": 2.3984375,
-          "hp": 4500,
+          "hp": 7000,
           "attack": {
             "type": "aimedSpread",
             "intervalTicks": 56,
@@ -12740,7 +14894,7 @@
           "offsetY": -0.3984375,
           "halfWidth": 2.19921875,
           "halfHeight": 2.3984375,
-          "hp": 4000,
+          "hp": 3500,
           "attack": {
             "type": "meleeCharge",
             "intervalTicks": 220,
@@ -12754,7 +14908,7 @@
           "offsetY": -5.6015625,
           "halfWidth": 2.0,
           "halfHeight": 3.0,
-          "hp": 4000,
+          "hp": 3500,
           "attack": {
             "type": "meleeCharge",
             "intervalTicks": 240,
@@ -12768,7 +14922,7 @@
           "offsetY": -0.19921875,
           "halfWidth": 1.5,
           "halfHeight": 2.80078125,
-          "hp": 3500
+          "hp": 5500
         },
         {
           "id": "lower_launcher",
@@ -12776,7 +14930,7 @@
           "offsetY": -5.6015625,
           "halfWidth": 5.19921875,
           "halfHeight": 1.6015625,
-          "hp": 5000,
+          "hp": 7500,
           "attack": {
             "type": "radialSpread",
             "intervalTicks": 80,
@@ -12790,7 +14944,7 @@
           "offsetY": -7.80078125,
           "halfWidth": 1.6015625,
           "halfHeight": 2.19921875,
-          "hp": 5000
+          "hp": 6500
         },
         {
           "id": "railgun",
@@ -12798,7 +14952,7 @@
           "offsetY": 1.3984375,
           "halfWidth": 3.8984375,
           "halfHeight": 0.80078125,
-          "hp": 9000
+          "hp": 5000
         },
         {
           "id": "rib_gate",
@@ -12806,7 +14960,7 @@
           "offsetY": 0.6015625,
           "halfWidth": 2.3984375,
           "halfHeight": 3.19921875,
-          "hp": 9600
+          "hp": 6000
         },
         {
           "id": "core",
@@ -12814,7 +14968,7 @@
           "offsetY": 1.0,
           "halfWidth": 1.6015625,
           "halfHeight": 1.80078125,
-          "hp": 12400,
+          "hp": 10000,
           "isCore": true,
           "coreGatePartIds": [
             "shield_emitter"
@@ -12970,8 +15124,8 @@
             },
             {
               "partId": "railgun",
-              "active": false,
-              "invulnerable": true
+              "active": true,
+              "invulnerable": false
             },
             {
               "partId": "rib_gate",
@@ -13109,7 +15263,8 @@
             "hpThreshold": 0.5
           }
         ]
-      }
+      },
+      "theme": "abyss"
     },
     {
       "id": "boss_broodmother",
@@ -13198,7 +15353,7 @@
           "offsetY": 6.8984375,
           "halfWidth": 3.30078125,
           "halfHeight": 3.3984375,
-          "hp": 15600
+          "hp": 18000
         },
         {
           "id": "heart_core",
@@ -13206,7 +15361,7 @@
           "offsetY": 0.0,
           "halfWidth": 1.8984375,
           "halfHeight": 2.5,
-          "hp": 12400,
+          "hp": 10000,
           "isCore": true,
           "coreGatePartIds": [
             "sac_left",
@@ -13497,7 +15652,8 @@
             "hpThreshold": 0.5
           }
         ]
-      }
+      },
+      "theme": "brood"
     }
   ],
   "gimmicks": [
@@ -13525,6 +15681,16 @@
       "theme": "core",
       "visionObscured": false,
       "timeLimitTicks": 12000
+    },
+    {
+      "theme": "abyss",
+      "visionObscured": true,
+      "timeLimitTicks": 0
+    },
+    {
+      "theme": "brood",
+      "visionObscured": false,
+      "timeLimitTicks": 0
     }
   ]
 }

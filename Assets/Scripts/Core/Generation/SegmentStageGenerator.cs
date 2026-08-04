@@ -872,6 +872,21 @@ namespace Shmup.Core.Generation
         const int HazardCenterOffsetSubUnits = 256;
         public const string LeviathanBossId = "boss_leviathan";
         public const string BroodmotherBossId = "boss_broodmother";
+        /// <summary>REQ-159: leviathan hidden-path presentation theme.</summary>
+        public const string HiddenThemeAbyss = "abyss";
+        /// <summary>REQ-159: broodmother hidden-path presentation theme.</summary>
+        public const string HiddenThemeBrood = "brood";
+
+        /// <summary>
+        /// Hidden-only themes stay in the catalog (segments/bosses/gimmicks) but
+        /// must not enter the primary 5-biome run order or normal GenerateRoute
+        /// loops. Core routes uncharted rooms to these separately (REQ-159).
+        /// </summary>
+        public static bool IsHiddenOnlyTheme(string themeId)
+        {
+            return string.Equals(themeId, HiddenThemeAbyss, StringComparison.Ordinal)
+                || string.Equals(themeId, HiddenThemeBrood, StringComparison.Ordinal);
+        }
 
         readonly StageGenerationCatalog _catalog;
         readonly int _validLanes;
@@ -1731,9 +1746,25 @@ namespace Shmup.Core.Generation
 
         string[] BuildThemeOrder(ulong seed)
         {
-            var runOrder = new string[_catalog.ThemeIds.Count];
-            for (int i = 0; i < runOrder.Length; i++)
-                runOrder[i] = _catalog.ThemeIds[i];
+            // Primary biome order only — hidden themes (abyss/brood) are catalog
+            // entries for uncharted rooms, not stages 1–5 (REQ-159).
+            int primaryCount = 0;
+            for (int i = 0; i < _catalog.ThemeIds.Count; i++)
+                if (!IsHiddenOnlyTheme(_catalog.ThemeIds[i]))
+                    primaryCount++;
+
+            var runOrder = new string[primaryCount];
+            int write = 0;
+            for (int i = 0; i < _catalog.ThemeIds.Count; i++)
+            {
+                string themeId = _catalog.ThemeIds[i];
+                if (IsHiddenOnlyTheme(themeId))
+                    continue;
+                runOrder[write++] = themeId;
+            }
+
+            if (runOrder.Length == 0)
+                return runOrder;
 
             Rng permutationRng = new Rng(seed)
                 .Fork(StageGenerationStream)

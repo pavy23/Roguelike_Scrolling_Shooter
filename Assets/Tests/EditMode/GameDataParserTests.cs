@@ -1755,6 +1755,10 @@ namespace Shmup.Core.Tests
             {
                 string themeId =
                     data.StageGeneration.ThemeIds[themeIndex];
+                // REQ-159: abyss/brood are colossal-only hidden corridors —
+                // normal GenerateRoute has no non-colossal boss for them.
+                if (SegmentStageGenerator.IsHiddenOnlyTheme(themeId))
+                    continue;
                 for (int difficulty = 2;
                     difficulty <= 5;
                     difficulty++)
