@@ -607,9 +607,17 @@ namespace Shmup.Core.Simulation
                     "Warship group activation exceeded its definition.");
             WarshipPartGroupDefinition group =
                 _definition.Groups[groupIndex];
-            // Start the vertical move from wherever the hull actually is, not
-            // from the previous act's target - an act can be cleared mid-travel.
-            _anchorFromY = AnchorOffsetY;
+            // 첫 막은 **이미 그 자리에서 등장한다.** 예전에는 앵커 0에서 시작해
+            // 1막이 열리는 프레임에 목표(-4.5)로 즉시 튀었다 — 이동 시간이 0이라
+            // 보간이 없다. 사람이 "처음 등장할때 또 위치가 툭 끊기듯 바뀌네.
+            // 첫 페이즈 공격하려고 위치 잡은 위치를 기준으로 등장해줘"라고 한
+            // 것이 이것이다.
+            //
+            // 두 번째 막부터는 지금 있는 자리에서 출발한다 — 막이 이동 도중에
+            // 끝날 수 있으므로 목표가 아니라 실제 위치가 기준이어야 한다.
+            _anchorFromY = groupIndex == 0
+                ? group.AnchorOffsetY
+                : AnchorOffsetY;
             _activeGroupIndex = groupIndex;
             _activeGroupElapsedTicks = 0;
             _anchorElapsedTicks = 0;

@@ -2791,10 +2791,20 @@ namespace Shmup.Core.Simulation
         public bool TimeLimitExpired => _timeLimitExpired;
         public ReadOnlySpan<SimEvent> EventsThisTick => new ReadOnlySpan<SimEvent>(_events, 0, _eventCount);
         public bool BossActive => _bossSpawned && !_bossDefeated;
+        /// <summary>
+        /// 아직 들어오는 중인가. 이 동안은 피격 판정이 없다 (ApplyDamageToBoss*가
+        /// 거부한다) — 화면 밖에서 들어오는 것을 때리는 것은 사격이 아니다.
+        ///
+        /// 전함은 경고가 끝나도 **정박점까지 미끄러져 들어온다.** 예전에는 경고만
+        /// 보고 판정을 열어서, 아직 오른쪽에서 들어오는 중인 함체가 맞았다
+        /// (사람 지시 2026-08-04: "전함은 다 등장하고부터 피격판정 있게").
+        /// </summary>
         public bool BossEntering =>
             BossActive
             && (_warshipEncounter != null
                 ? _warshipEncounter.WarningActive
+                    || _warshipEncounter.WorldX
+                        > _warshipEncounter.Definition.HoldX
                 : _bossX > _bossHoldX);
         public bool BossTransitioning =>
             _bossTransitionTicksRemaining > 0;

@@ -245,14 +245,23 @@ namespace Shmup.Core.Tests
             RunManager run,
             BattleSim battle)
         {
+            // **정박까지 기다린다.** 그룹이 열렸다고 곧바로 때릴 수 있는 것이
+            // 아니다 — 전함은 경고가 끝나도 정박점까지 미끄러져 들어오고, 그
+            // 동안은 판정이 없다 (사람 지시 2026-08-04: "전함은 다 등장하고부터
+            // 피격판정 있게"). 예전에는 그룹 활성만 보고 곧장 쏴서, 아직 들어오는
+            // 중인 함체에 0 데미지가 들어갔다.
             for (int tick = 0; tick < WarshipActivationTickBudget; tick++)
             {
-                if (battle.BossActive
-                    && battle.WarshipActiveGroupIndex == 0)
-                    return true;
+                if (IsSternReady(battle)) return true;
                 run.Step(InputCommand.None);
             }
+            return IsSternReady(battle);
+        }
+
+        static bool IsSternReady(BattleSim battle)
+        {
             return battle.BossActive
+                && !battle.BossEntering
                 && battle.WarshipActiveGroupIndex == 0;
         }
 

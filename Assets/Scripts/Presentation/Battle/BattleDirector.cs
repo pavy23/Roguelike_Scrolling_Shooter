@@ -358,6 +358,16 @@ namespace Shmup.Presentation.Battle
         /// <summary>보스전 진행 중 여부 (BgmPlayer 보스 트랙 전환용).</summary>
         public bool BossActive => _sim != null && _sim.BossActive;
 
+        /// <summary>
+        /// 보스가 기체를 빨아들이는 중인가 (브루드마더 최종 패턴).
+        ///
+        /// Core는 처음부터 이 상태를 내보내고 있었는데 **Presentation에 그것을
+        /// 읽는 코드가 한 줄도 없었다** — 판정만 있고 그림이 없어서, 기체가
+        /// 끌려가는데 왜 끌려가는지 알 수 없었다 (사람 보고 2026-08-04:
+        /// "브루드마더 빨아들이는건 아무런 이팩트가 없어서 모르겠어").
+        /// </summary>
+        public bool SuctionActive => _sim != null && _sim.SuctionActive;
+
         /// <summary>이번 방의 보스 id (waves.json). 보스별 전용 뷰가 자기 차례인지 가른다.</summary>
         public string BossStageId =>
             _run != null && _run.StagePlan != null ? _run.StagePlan.BossId : null;
@@ -1518,6 +1528,13 @@ namespace Shmup.Presentation.Battle
                         // 한 점에서 터뜨리면 20유닛짜리 배가 점 하나로 죽는다 —
                         // 함체 길이를 따라 훑으며 무너뜨린다.
                         SpawnHullCollapse(SimView.ToWorld(e.X, e.Y));
+                        // **두 번째 형태가 온다는 것을 말한다.** 사람이 "0까지
+                        // 가도 안바뀜"이라고 세 번 보고했는데, Core는 모든 경로에서
+                        // 전환이 일어난다(테스트로 확인). 그러면 화면이 그것을
+                        // 말하지 않는 것이 문제다 — HP 바가 0이 되고 사라진 뒤
+                        // 3초 동안 아무 신호가 없으면 "끝났는데 안 끝났다"로 읽힌다.
+                        // 등장 배너를 다시 띄워 그 3초를 사건으로 만든다.
+                        if (_bossIntro != null) _bossIntro.Trigger();
                         break;
                     case SimEventType.BossSpawned:
                         // WARNING 배너는 스테이지 최종 보스(와 숨은 보스)에게만 띄운다

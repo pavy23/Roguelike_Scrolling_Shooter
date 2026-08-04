@@ -1354,6 +1354,16 @@ namespace Shmup.EditorTools
             // 적·지형 지속 레이저 (REQ-042). Core가 선분과 4단계를 노출하고 여기서 그린다.
             var laserRoot = new GameObject("Lasers");
             laserRoot.transform.SetParent(battleRoot.transform, false);
+            // 흡입 연출 (브루드마더 최종 패턴). Core는 SuctionActive를 계속
+            // 내보내고 있었는데 읽는 쪽이 없어 화면이 아무 말도 하지 않았다.
+            var suctionView = battleRoot.AddComponent<SuctionView>();
+            SetReference(suctionView, "_director", director);
+            SetReference(suctionView, "_root", laserRoot.transform);
+            SetReference(suctionView, "_ringSprite",
+                LoadOrCachedSprite("laser_cap.png", "laser_cap"));
+            SetReference(suctionView, "_softSprite",
+                LoadOrCachedSprite("laser_soft.png", "laser_soft"));
+
             var laserView = battleRoot.AddComponent<LaserBeamView>();
             SetReference(laserView, "_director", director);
             SetReference(laserView, "_pixelSprite", whiteSprite);
