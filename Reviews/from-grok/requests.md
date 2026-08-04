@@ -1695,3 +1695,13 @@ Core 내장과 동일: 캡슐×3 / 4슬롯 각 +1 / 선체 maxHP +1, weight 균�
 
 GameDataParserTests segment count 60��92 after theme-split. Applied on content branch as data-coupled expectation; please review.
 
+
+## 2026-08-04 REQ-157 — 전함 3페이즈 재배치 (content 완료)
+
+보고: `Reviews/from-grok/req-157-warship-three-phase.md`
+
+### CODEX 요청 (테스트 3건)
+
+midbossGate가 `['engine','turret_a','turret_b']`로 바뀌어 **engine만 파괴해도 그룹이 안 넘어감**.
+Req117×2, Req118×1이 ActiveGroupIndex=1 단언에서 실패 (569/572).
+midbossGate 전 파츠를 순회 파괴하도록 테스트를 고쳐 달라.

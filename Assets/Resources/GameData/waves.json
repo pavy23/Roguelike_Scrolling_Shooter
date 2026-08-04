@@ -12231,7 +12231,7 @@
           "offsetY": 3.75,
           "halfWidth": 3.0,
           "halfHeight": 2.0,
-          "hp": 2200,
+          "hp": 1000,
           "attack": {
             "type": "aimedSpread",
             "intervalTicks": 48,
@@ -12245,15 +12245,15 @@
           "offsetY": 6.1875,
           "halfWidth": 1.5,
           "halfHeight": 1.25,
-          "hp": 900,
+          "hp": 700,
           "attack": {
             "type": "laser",
             "intervalTicks": 200,
             "laser": {
               "cycleIntervalTicks": 200,
-              "telegraphTicks": 48,
+              "telegraphTicks": 40,
               "firingTicks": 8,
-              "sustainTicks": 56,
+              "sustainTicks": 50,
               "dissipateTicks": 12,
               "startOffsetX": -1.5,
               "startOffsetY": 0.0,
@@ -12271,15 +12271,15 @@
           "offsetY": 6.6875,
           "halfWidth": 1.5,
           "halfHeight": 1.8125,
-          "hp": 900,
+          "hp": 700,
           "attack": {
             "type": "laser",
             "intervalTicks": 180,
             "laser": {
               "cycleIntervalTicks": 180,
-              "telegraphTicks": 40,
+              "telegraphTicks": 36,
               "firingTicks": 8,
-              "sustainTicks": 48,
+              "sustainTicks": 45,
               "dissipateTicks": 12,
               "startOffsetX": -1.5,
               "startOffsetY": 0.0,
@@ -12294,52 +12294,52 @@
         {
           "id": "turret_c",
           "offsetX": -4.0,
-          "offsetY": 3.875,
-          "halfWidth": 1.5,
-          "halfHeight": 1.25,
-          "hp": 900,
+          "offsetY": -5.125,
+          "halfWidth": 1.75,
+          "halfHeight": 1.5,
+          "hp": 1200,
           "attack": {
             "type": "laser",
-            "intervalTicks": 160,
+            "intervalTicks": 140,
             "laser": {
-              "cycleIntervalTicks": 160,
-              "telegraphTicks": 36,
-              "firingTicks": 6,
-              "sustainTicks": 40,
-              "dissipateTicks": 10,
+              "cycleIntervalTicks": 140,
+              "telegraphTicks": 32,
+              "firingTicks": 10,
+              "sustainTicks": 72,
+              "dissipateTicks": 12,
               "startOffsetX": -1.5,
               "startOffsetY": 0.0,
               "endOffsetX": -28.0,
-              "endOffsetY": 1.5,
+              "endOffsetY": 2.0,
               "thinHalfWidth": 0.25,
-              "fullHalfWidth": 0.75,
-              "damage": 1
+              "fullHalfWidth": 1.0,
+              "damage": 2
             }
           }
         },
         {
           "id": "turret_d",
           "offsetX": -8.0,
-          "offsetY": 3.0,
-          "halfWidth": 1.5,
-          "halfHeight": 1.25,
-          "hp": 900,
+          "offsetY": -4.3125,
+          "halfWidth": 1.75,
+          "halfHeight": 1.5,
+          "hp": 1200,
           "attack": {
             "type": "laser",
-            "intervalTicks": 220,
+            "intervalTicks": 148,
             "laser": {
-              "cycleIntervalTicks": 220,
-              "telegraphTicks": 50,
-              "firingTicks": 8,
-              "sustainTicks": 60,
-              "dissipateTicks": 14,
+              "cycleIntervalTicks": 148,
+              "telegraphTicks": 28,
+              "firingTicks": 10,
+              "sustainTicks": 80,
+              "dissipateTicks": 12,
               "startOffsetX": -1.5,
               "startOffsetY": 0.0,
               "endOffsetX": -28.0,
-              "endOffsetY": 3.0,
+              "endOffsetY": 3.5,
               "thinHalfWidth": 0.25,
-              "fullHalfWidth": 0.75,
-              "damage": 1
+              "fullHalfWidth": 1.0,
+              "damage": 2
             }
           }
         },
@@ -12349,7 +12349,7 @@
           "offsetY": -3.0,
           "halfWidth": 2.5,
           "halfHeight": 5.5,
-          "hp": 13800,
+          "hp": 14800,
           "isCore": true,
           "attack": {
             "type": "radialSpread",
@@ -12374,23 +12374,23 @@
             "id": "stern",
             "role": "midbossGate",
             "partIds": [
-              "engine"
+              "engine",
+              "turret_a",
+              "turret_b"
             ],
-            "anchorOffsetY": -4.0,
+            "anchorOffsetY": -4.5,
             "anchorTravelTicks": 0
           },
           {
             "id": "hull",
             "role": "attritionLine",
             "partIds": [
-              "turret_a",
-              "turret_b",
               "turret_c",
               "turret_d"
             ],
-            "advanceAfterTicks": 720,
-            "anchorOffsetY": 0.0,
-            "anchorTravelTicks": 90
+            "advanceAfterTicks": 600,
+            "anchorOffsetY": 5.0,
+            "anchorTravelTicks": 120
           },
           {
             "id": "bow",
@@ -12399,7 +12399,7 @@
               "core"
             ],
             "anchorOffsetY": 0.0,
-            "anchorTravelTicks": 0
+            "anchorTravelTicks": 120
           }
         ]
       },
