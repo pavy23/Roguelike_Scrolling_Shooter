@@ -706,7 +706,8 @@ namespace Shmup.Core.Generation
             int effectMaxSpeedNumerator = 0,
             int effectMaxSpeedDenominator = 1,
             int effectOffsetX = 0,
-            int effectOffsetY = 0)
+            int effectOffsetY = 0,
+            Simulation.LaserAttackDefinition secondaryLaser = null)
         {
             if (!Enum.IsDefined(typeof(BossPartAttackType), type))
                 throw new ArgumentOutOfRangeException(nameof(type));
@@ -772,6 +773,10 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException(
                     "Only laser attacks may specify a laser profile.",
                     nameof(laserAttack));
+            if (type == BossPartAttackType.Laser && secondaryLaser != null)
+                throw new ArgumentException(
+                    "Primary laser attacks cannot also carry a secondary laser.",
+                    nameof(secondaryLaser));
             if (type != BossPartAttackType.Suction
                 && effectMaxSpeedNumerator != 0)
                 throw new ArgumentException(
@@ -805,6 +810,7 @@ namespace Shmup.Core.Generation
             SpawnEnemyId = spawnEnemyId;
             ContactDamage = contactDamage;
             LaserAttack = laserAttack;
+            SecondaryLaser = secondaryLaser;
         }
 
         public BossPartAttackType Type { get; }
@@ -826,6 +832,11 @@ namespace Shmup.Core.Generation
         public string SpawnEnemyId { get; }
         public int ContactDamage { get; }
         public Simulation.LaserAttackDefinition LaserAttack { get; }
+        /// <summary>
+        /// Optional second laser cycle on a non-laser primary (REQ-175).
+        /// Null for legacy single-attack parts.
+        /// </summary>
+        public Simulation.LaserAttackDefinition SecondaryLaser { get; }
     }
 
     /// <summary>

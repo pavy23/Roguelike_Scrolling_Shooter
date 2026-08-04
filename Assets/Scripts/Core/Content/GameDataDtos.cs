@@ -794,6 +794,12 @@ namespace Shmup.Core.Content
         public int? contactDamage;
         [DataMember]
         public LaserAttackDto laser;
+        /// <summary>
+        /// Optional secondary laser layered on a non-laser primary (e.g. radialSpread
+        /// missiles + periodic mega beam). Ignored / rejected when type is laser.
+        /// </summary>
+        [DataMember]
+        public LaserAttackDto secondaryLaser;
     }
 
     [DataContract]

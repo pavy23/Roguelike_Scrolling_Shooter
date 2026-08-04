@@ -14456,9 +14456,9 @@
           "hp": 2400,
           "attack": {
             "type": "laser",
-            "intervalTicks": 200,
+            "intervalTicks": 400,
             "laser": {
-              "cycleIntervalTicks": 200,
+              "cycleIntervalTicks": 400,
               "telegraphTicks": 48,
               "firingTicks": 8,
               "sustainTicks": 50,
@@ -14469,7 +14469,8 @@
               "endOffsetY": -16.0,
               "thinHalfWidth": 0.25,
               "fullHalfWidth": 0.875,
-              "damage": 2
+              "damage": 2,
+              "aimsAtPlayer": true
             }
           }
         },
@@ -14482,9 +14483,9 @@
           "hp": 2400,
           "attack": {
             "type": "laser",
-            "intervalTicks": 220,
+            "intervalTicks": 470,
             "laser": {
-              "cycleIntervalTicks": 220,
+              "cycleIntervalTicks": 470,
               "telegraphTicks": 52,
               "firingTicks": 8,
               "sustainTicks": 50,
@@ -14495,7 +14496,8 @@
               "endOffsetY": -16.0,
               "thinHalfWidth": 0.25,
               "fullHalfWidth": 0.875,
-              "damage": 2
+              "damage": 2,
+              "aimsAtPlayer": true
             }
           }
         },
@@ -14508,9 +14510,9 @@
           "hp": 2400,
           "attack": {
             "type": "laser",
-            "intervalTicks": 240,
+            "intervalTicks": 540,
             "laser": {
-              "cycleIntervalTicks": 240,
+              "cycleIntervalTicks": 540,
               "telegraphTicks": 56,
               "firingTicks": 8,
               "sustainTicks": 50,
@@ -14521,7 +14523,8 @@
               "endOffsetY": -16.0,
               "thinHalfWidth": 0.25,
               "fullHalfWidth": 0.875,
-              "damage": 2
+              "damage": 2,
+              "aimsAtPlayer": true
             }
           }
         },
@@ -14534,9 +14537,9 @@
           "hp": 2400,
           "attack": {
             "type": "laser",
-            "intervalTicks": 260,
+            "intervalTicks": 610,
             "laser": {
-              "cycleIntervalTicks": 260,
+              "cycleIntervalTicks": 610,
               "telegraphTicks": 60,
               "firingTicks": 8,
               "sustainTicks": 50,
@@ -14547,7 +14550,8 @@
               "endOffsetY": -16.0,
               "thinHalfWidth": 0.25,
               "fullHalfWidth": 0.875,
-              "damage": 2
+              "damage": 2,
+              "aimsAtPlayer": true
             }
           }
         },
@@ -14563,7 +14567,22 @@
             "type": "radialSpread",
             "intervalTicks": 36,
             "ways": 9,
-            "bulletSpeed": 11.0
+            "bulletSpeed": 11.0,
+            "secondaryLaser": {
+              "cycleIntervalTicks": 600,
+              "telegraphTicks": 180,
+              "firingTicks": 12,
+              "sustainTicks": 72,
+              "dissipateTicks": 24,
+              "startOffsetX": 0.0,
+              "startOffsetY": 0.0,
+              "endOffsetX": -32.0,
+              "endOffsetY": 0.0,
+              "thinHalfWidth": 0.75,
+              "fullHalfWidth": 2.5,
+              "damage": 2,
+              "aimsAtPlayer": false
+            }
           }
         }
       ],

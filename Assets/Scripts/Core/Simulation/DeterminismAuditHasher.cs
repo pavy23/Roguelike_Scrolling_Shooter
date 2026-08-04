@@ -476,6 +476,7 @@ namespace Shmup.Core.Simulation
             FoldString(attack.SpawnEnemyId);
             FoldInt32(attack.ContactDamage);
             FoldLaserDefinition(attack.LaserAttack);
+            FoldLaserDefinition(attack.SecondaryLaser);
         }
 
         void FoldWarshipDefinition(WarshipEncounterDefinition definition)
@@ -572,6 +573,7 @@ namespace Shmup.Core.Simulation
             FoldInt32(laser.ThinHalfWidth);
             FoldInt32(laser.FullHalfWidth);
             FoldInt32(laser.Damage);
+            FoldBool(laser.AimsAtPlayer);
         }
 
         void FoldRewards(IReadOnlyList<RewardOption> rewards)

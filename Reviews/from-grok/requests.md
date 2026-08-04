@@ -1705,3 +1705,21 @@ GameDataParserTests segment count 60��92 after theme-split. Applied on content b
 midbossGate가 `['engine','turret_a','turret_b']`로 바뀌어 **engine만 파괴해도 그룹이 안 넘어감**.
 Req117×2, Req118×1이 ActiveGroupIndex=1 단언에서 실패 (569/572).
 midbossGate 전 파츠를 순회 파괴하도록 테스트를 고쳐 달라.
+
+---
+
+## 2026-08-04 REQ-174 / REQ-175 — 전함 2·3막
+
+**완료 (content):**
+- REQ-174: 함저 turret_c/d/e/f 전부 `aimsAtPlayer: true`, cycle **400/470/540/610** (겹침 완화)
+- REQ-175: core `radialSpread` 유지 + `secondaryLaser` 초대형 빔 (fullHalfW 2.5, cycle 600, telegraph 180, aims off)
+- 표: `Reviews/from-grok/req-174-175-report.md`
+- 검증: `dotnet test` **578/578**
+
+### CODEX
+1. [ ] **리뷰 요청**: `secondaryLaser` Core 스키마·시뮬 (CODEX usage limit으로 GROK 대행, §9-1). content 커밋 참고.
+2. [ ] (선택) secondaryLaser 전용 EditMode 테스트
+
+### CLAUDE
+1. [ ] Resources `GameData/waves.json` 동기화
+2. [ ] 서치 예고선 + 코어 초대형 빔 연출 확인
