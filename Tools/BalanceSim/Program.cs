@@ -210,7 +210,9 @@ static class Program
     // Hidden after 5 biomes: endgame reach ~1000 DPS → total TTK ~62s ≈ 2.2–2.5×
     // normal boss mid band (~25s). Multipart retarget tax → full-eff ~1500, floor ≥40s.
     const int ColossalTotalHp = 62_000;
-    const int ColossalCoreHp = 12_400; // act3 20% of 62000
+    // REQ-158: core under the 20% act3 gate (12400) so ph1→ph2 has margin when
+    // only the core stays invulnerable. Was 12400 (= exact 0 margin).
+    const int ColossalCoreHp = 10_000;
     const double ColossalExpectedDps = 1000.0;
     const double ColossalFullPowerEffectiveDps = 1500.0;
     const double ColossalTtkExpectedMin = 50.0;
@@ -235,6 +237,20 @@ static class Program
         SegmentStageGenerator.LeviathanBossId,
         SegmentStageGenerator.BroodmotherBossId,
     };
+
+    // REQ-159: hidden-only presentation themes (not primary 5 biomes).
+    // Core must exclude these from normal ThemeIds run order / GenerateRoute
+    // loops — BalanceSim skips them in 5-biome coverage checks.
+    const string HiddenThemeAbyss = "abyss";
+    const string HiddenThemeBrood = "brood";
+    const string ColossalThemeLeviathan = HiddenThemeAbyss;
+    const string ColossalThemeBroodmother = HiddenThemeBrood;
+
+    static bool IsHiddenOnlyTheme(string themeId)
+    {
+        return string.Equals(themeId, HiddenThemeAbyss, StringComparison.Ordinal)
+            || string.Equals(themeId, HiddenThemeBrood, StringComparison.Ordinal);
+    }
 
     // REQ-116 / REQ-138 hive redesign anchors (provisional §7).
     // REQ-138 (2026-08-03 human): elongated hive body 8×14.5 → half 4.0×7.25.
@@ -448,13 +464,39 @@ static class Program
             int n = themeTagged[theme];
             Console.WriteLine(
                 $"  themed segs theme={theme,-10} n={n} " +
-                $"(need ≥{MinThemeTaggedSegments})");
+                $"(need ≥{MinThemeTaggedSegments})"
+                + (IsHiddenOnlyTheme(theme) ? " [hidden]" : string.Empty));
             if (n < MinThemeTaggedSegments)
             {
                 Console.WriteLine(
                     $"FAIL coverage: theme '{theme}' has {n} tagged segments " +
                     $"< {MinThemeTaggedSegments}.");
                 failures++;
+            }
+
+            // Hidden themes are post-biome bonus rooms (REQ-159): only high-diff
+            // bands are required. Normal biomes still need d2–5 (and d1 for S1).
+            if (IsHiddenOnlyTheme(theme))
+            {
+                for (int diff = 4; diff <= 7; diff++)
+                {
+                    int matching = 0;
+                    foreach (StageSegmentTemplate seg in catalog.Segments)
+                    {
+                        if (!seg.SupportsDifficulty(diff) || !seg.SupportsTheme(theme))
+                            continue;
+                        matching++;
+                    }
+
+                    if (matching < catalog.SegmentsPerStage)
+                    {
+                        Console.WriteLine(
+                            $"FAIL coverage: hidden theme={theme} diff={diff} has {matching} " +
+                            $"eligible segments < segmentsPerStage={catalog.SegmentsPerStage}.");
+                        failures++;
+                    }
+                }
+                continue;
             }
 
             // Difficulty band coverage for themed segments (null-theme fillers allowed,
@@ -483,9 +525,13 @@ static class Program
             }
         }
 
-        // Boss stage/diff ranges must accept any stage index 1..5 for every theme.
+        // Boss stage/diff ranges must accept any stage index 1..5 for every
+        // primary biome theme. Hidden themes use colossal bosses only (excluded
+        // from normal Generate) — validated in CheckColossalBosses / REQ-159.
         foreach (string theme in catalog.ThemeIds)
         {
+            if (IsHiddenOnlyTheme(theme))
+                continue;
             for (int stage = 1; stage <= 5; stage++)
             {
                 for (int diff = 1; diff <= 5; diff++)
@@ -502,11 +548,19 @@ static class Program
         }
 
         // Full assembly: force theme as themes[0], stageIndex=1, each difficulty.
+        // Skip hidden themes — no non-colossal boss can assemble them yet (Core REQ-159).
         const ulong baseSeed = 0x7E4E26UL;
         int assemblyFails = 0;
         int assemblyOk = 0;
         foreach (string theme in catalog.ThemeIds)
         {
+            if (IsHiddenOnlyTheme(theme))
+            {
+                Console.WriteLine(
+                    $"  skip forced assembly for hidden theme={theme} " +
+                    "(colossal-only; Core routes hidden rooms).");
+                continue;
+            }
             StageGenerationCatalog forced = CatalogWithPrimaryTheme(catalog, theme);
             var gen = new SegmentStageGenerator(forced);
             for (int difficulty = 1; difficulty <= 5; difficulty++)
@@ -4541,6 +4595,9 @@ static class Program
             for (int ti = 0; ti < catalog.ThemeIds.Count; ti++)
             {
                 string theme = catalog.ThemeIds[ti];
+                // REQ-159: hidden themes have no non-colossal route bosses.
+                if (IsHiddenOnlyTheme(theme))
+                    continue;
                 for (int s = 0; s < EncounterSampleSeeds; s++)
                 {
                     ulong seed = baseSeed
@@ -5416,11 +5473,23 @@ static class Program
             failures++;
         }
 
-        if (boss.ThemeId != null)
+        // REQ-159: colossal bosses bind to hidden presentation themes.
+        bool isLeviathanBoss = string.Equals(
+            id, SegmentStageGenerator.LeviathanBossId, StringComparison.Ordinal);
+        string wantTheme = isLeviathanBoss
+            ? ColossalThemeLeviathan
+            : ColossalThemeBroodmother;
+        if (!string.Equals(boss.ThemeId, wantTheme, StringComparison.Ordinal))
         {
             Console.WriteLine(
-                $"WARN colossal: '{id}' theme={boss.ThemeId} — prefer null theme " +
-                "so ThemeIds list stays 5 biomes; exclusivity needs Core filter.");
+                $"FAIL colossal: '{id}' theme={NullLabel(boss.ThemeId)} " +
+                $"expected '{wantTheme}' (REQ-159 hidden path).");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine(
+                $"    theme={boss.ThemeId} [hidden path OK]");
         }
 
         // REQ-116: 3-act phase gates at 50% / 20% remaining.
@@ -8618,9 +8687,16 @@ static class Program
             failures++;
         }
 
-        // cleanKill: ≥1 per theme, and EV slightly better (fewer spawns / more capsule).
+        // cleanKill: ≥1 per primary biome theme (hidden themes are boss-corridor
+        // rooms with no midboss branch — cleanKill not required, REQ-159).
         foreach (string theme in catalog.ThemeIds)
         {
+            if (IsHiddenOnlyTheme(theme))
+            {
+                Console.WriteLine(
+                    $"    cleanKill theme={theme,-10} n={cleanKillByTheme[theme]} [hidden skip]");
+                continue;
+            }
             int n = cleanKillByTheme[theme];
             Console.WriteLine($"    cleanKill theme={theme,-10} n={n}");
             if (n < 1)
@@ -8745,6 +8821,9 @@ static class Program
         for (int t = 0; t < catalog.ThemeIds.Count; t++)
         {
             string theme = catalog.ThemeIds[t];
+            // REQ-159: hidden corridors have no midboss cleanKill branch.
+            if (IsHiddenOnlyTheme(theme))
+                continue;
             // cleanKill templates are late-band (dMin≥3). Early diffs may
             // legally fall back to Default; enforce tagged pool at 3 and 5.
             int stage = Math.Max(3, t + 1);
