@@ -107,6 +107,11 @@ async function main() {
   if (args.stage) q.push(`stage=${args.stage}`);
   // 미지의 구역 직행 (REQ-123). warp=boss와 같이 쓰면 거대 보스 앞에서 시작한다.
   if (args.uncharted) q.push('uncharted=1');
+  // 테마·거대보스는 시드가 정한다. 고정하지 않으면 --stage 3이 전함을 보장하지
+  // 않는다 — 실제로 nebula 보스를 찍어 놓고 FAIL을 뱉은 적이 있다.
+  if (args.theme) q.push(`theme=${args.theme}`);
+  if (args.colossal) q.push(`colossal=${args.colossal}`);
+  if (args.power) q.push(`power=${args.power}`);
   if (args.warp) q.push(`warp=${args.warp}`);
   const url = `${BASE}?${q.join('&')}`;
   console.log('url:', url);
@@ -131,10 +136,24 @@ async function main() {
   await sleep(3500);   // 워프는 Awake에서 끝나므로 이 시점이면 이미 목표 구간이다
   await page.screenshot({ path: path.join(outDir, '000_arrived.png') });
 
-  // 관찰 — 1초 간격으로 HP바 폭을 수치로 기록
+  // 관찰 — 1초 간격으로 HP바 폭을 수치로 기록.
+  //
+  // 기체를 **위아래로 훑는다.** 예전에는 y=0에 고정해 두었는데, 그 높이에 판정이
+  // 없는 보스는 데미지가 0으로 나와 멀쩡한 빌드가 FAIL로 보였다. 실제로 전함
+  // 갑판 포탑(y>0)과 하이브 상단 파츠를 이 한계 때문에 확인할 수 없었고,
+  // "무데미지" 오판이 다섯 번 났다.
+  //
+  // 위/아래를 번갈아 길게 눌러 화면 높이를 왕복시킨다 — 어느 높이에 판정이
+  // 있든 몇 초 안에 한 번은 지나간다.
   const samples = [];
+  let sweepDown = true;
   for (let t = 0; t < args.seconds; t++) {
+    const key = sweepDown ? 'ArrowDown' : 'ArrowUp';
+    await page.keyboard.down(key);
     await sleep(1000);
+    await page.keyboard.up(key);
+    // 4초마다 방향을 바꾼다. 화면 높이(22.5유닛)를 한 번 지나기에 넉넉하다.
+    if (t % 4 === 3) sweepDown = !sweepDown;
     const png = await shotPng(page);
     samples.push({ t, hp: measureBossHpBar(png) });
     if (t % 10 === 9) {

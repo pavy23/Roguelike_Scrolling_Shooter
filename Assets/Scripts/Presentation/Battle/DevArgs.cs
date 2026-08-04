@@ -57,6 +57,15 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         const string ColossalKey = "colossal";
 
+        /// <summary>
+        /// 보고 싶은 스테이지 테마 (REQ-164). `?dev=1&stage=3&theme=fortress`.
+        ///
+        /// 테마 순서는 시드가 정한다. 지정이 없으면 `--stage 3`이 전함을 보장하지
+        /// 않는다 — 실제로 전함을 확인하려던 헤드리스 회귀가 nebula 보스를 찍어
+        /// 놓고 "100초 무데미지 FAIL"을 뱉었다. 그건 회귀가 아니라 다른 보스였다.
+        /// </summary>
+        const string ThemeKey = "theme";
+
         static bool _devMode;
         static bool _devModeResolved;
 
@@ -256,6 +265,26 @@ namespace Shmup.Presentation.Battle
                     && TryReadArg(PowerKey, out string raw)
                     && IsTruthy(raw);
                 return _maxPower;
+            }
+        }
+
+        static bool _themeResolved;
+        static string _theme;
+
+        /// <summary>보고 싶은 테마 id. 지정이 없으면 null(시드가 정한다).</summary>
+        public static string ThemeChoice
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(RuntimeTheme) && DevMode)
+                    return RuntimeTheme;
+                if (_themeResolved) return _theme;
+                _themeResolved = true;
+                _theme = DevMode && TryReadArg(ThemeKey, out string raw)
+                    && !string.IsNullOrEmpty(raw)
+                    ? raw.ToLowerInvariant()
+                    : null;
+                return _theme;
             }
         }
 

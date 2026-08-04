@@ -1176,13 +1176,14 @@ namespace Shmup.Presentation.Battle
                 // 헤드리스 검증은 패널을 누를 수 없으므로 URL 경로가 없으면
                 // 두 거대 보스 중 한 쪽이 영영 검사되지 않는다.
                 string devColossal = DevArgs.ColossalChoice;
+                string devTheme = DevArgs.ThemeChoice;
                 if (devRunFlags && !dailyRun && !_replayMode
-                    && (!string.IsNullOrEmpty(DevArgs.RuntimeTheme)
+                    && (!string.IsNullOrEmpty(devTheme)
                         || !string.IsNullOrEmpty(devColossal)))
                 {
                     Seed = FindSeedFor(
                         data, config, selectedShip, diffNum, diffDen, runConfig,
-                        DevArgs.RuntimeTheme, devColossal, Seed);
+                        devTheme, devColossal, Seed);
                 }
 
                 bool attachMeta = runConfig == null && _meta != null;
