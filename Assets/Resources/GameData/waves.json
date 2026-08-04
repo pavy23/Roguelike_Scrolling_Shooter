@@ -14473,7 +14473,7 @@
               "aimsAtPlayer": true
             },
             "secondaryBurst": {
-              "cycleIntervalTicks": 155,
+              "cycleIntervalTicks": 78,
               "ways": 6,
               "bulletSpeed": 4.0,
               "aimed": true
@@ -14506,7 +14506,7 @@
               "aimsAtPlayer": true
             },
             "secondaryBurst": {
-              "cycleIntervalTicks": 220,
+              "cycleIntervalTicks": 110,
               "ways": 6,
               "bulletSpeed": 4.0,
               "aimed": true
@@ -14539,7 +14539,7 @@
               "aimsAtPlayer": true
             },
             "secondaryBurst": {
-              "cycleIntervalTicks": 285,
+              "cycleIntervalTicks": 143,
               "ways": 6,
               "bulletSpeed": 4.0,
               "aimed": true
@@ -14572,7 +14572,7 @@
               "aimsAtPlayer": true
             },
             "secondaryBurst": {
-              "cycleIntervalTicks": 350,
+              "cycleIntervalTicks": 175,
               "ways": 6,
               "bulletSpeed": 4.0,
               "aimed": true
@@ -14605,7 +14605,7 @@
               "aimsAtPlayer": true
             },
             "secondaryBurst": {
-              "cycleIntervalTicks": 415,
+              "cycleIntervalTicks": 208,
               "ways": 6,
               "bulletSpeed": 4.0,
               "aimed": true
@@ -14638,7 +14638,7 @@
               "aimsAtPlayer": true
             },
             "secondaryBurst": {
-              "cycleIntervalTicks": 480,
+              "cycleIntervalTicks": 240,
               "ways": 6,
               "bulletSpeed": 4.0,
               "aimed": true

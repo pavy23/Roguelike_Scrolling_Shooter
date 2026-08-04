@@ -196,9 +196,21 @@ async function main() {
   }
 
   // 어서션: 보스 HP가 실제로 깎였는가 (데미지 경로 살아 있음)
+  //
+  // **첫값과 끝값을 비교하면 안 된다.** 전함처럼 막이 넘어가는 보스는 다음 막이
+  // 열릴 때 바가 다시 꽉 찬다. 그러면 끝값 > 첫값이 되어 멀쩡히 깎이고 있는
+  // 빌드가 FAIL로 나온다 — 2026-08-05에 252 → 317로 그렇게 뒤집혔고, 같은 런의
+  // 표본은 감소 구간이 49번이었다. 대신 **줄어든 양을 전부 더한다**: 회복(막 전환)은
+  // 무시하고 깎인 폭만 누적하므로 몇 단이든 상관이 없다.
   const first = samples.find((s) => s.hp > 50);
   const last = [...samples].reverse().find((s) => s.hp > 0);
-  const damaged = first && last && last.hp < first.hp;
+  let totalDrop = 0;
+  for (let i = 1; i < samples.length; i++) {
+    const prev = samples[i - 1].hp, cur = samples[i].hp;
+    if (prev > 50 && cur > 0 && cur < prev) totalDrop += prev - cur;
+  }
+  // 바 폭은 픽셀이라 1~2px은 렌더 흔들림일 수 있다. 20px이면 명백한 감소다.
+  const damaged = totalDrop >= 20;
   const bulletTicks = samples.filter((s) => s.enemyBullets > 0).length;
   const report = {
     url,
@@ -208,6 +220,7 @@ async function main() {
     hpFirst: first ? first.hp : null,
     hpLast: last ? last.hp : null,
     hpDropped: !!damaged,
+    hpTotalDrop: totalDrop,
     samples,
     errors,
   };
@@ -215,7 +228,7 @@ async function main() {
 
   const pass = errors.length === 0 && damaged;
   console.log(`console errors: ${errors.length}`);
-  console.log(`boss hp bar: ${report.hpFirst} → ${report.hpLast} (dropped=${report.hpDropped})`);
+  console.log(`boss hp bar: ${report.hpFirst} → ${report.hpLast} (dropped=${report.hpDropped}, 누적감소 ${totalDrop}px)`);
   console.log(
     `enemy bullets: ${report.enemyBulletSeconds}/${samples.length}s `
     + `(peak ${report.enemyBulletPeak}px)`);
