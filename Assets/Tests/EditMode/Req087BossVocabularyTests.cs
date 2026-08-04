@@ -221,9 +221,24 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(2, sim.Lasers.Count);
             Assert.AreEqual(4, CountEnemyBullets(sim));
-            Assert.AreEqual(
-                -sim.Lasers[0].EndX + 2 * sim.Boss.X,
-                sim.Lasers[1].EndX);
+            // 두 빔이 **서로 반대 방향**으로 나간다. 예전에는 끝점이 보스를 중심으로
+            // 정확히 대칭인지를 봤는데, 이제 빔이 화면 끝까지 뻗으므로(2026-08-04)
+            // 보스가 중앙에서 벗어나면 좌우 거리가 달라 대칭이 깨진다. 지켜야 할
+            // 것은 좌표가 아니라 "양쪽으로 쏜다"는 성질이다.
+            long left = (long)sim.Lasers[0].EndX - sim.Lasers[0].StartX;
+            long right = (long)sim.Lasers[1].EndX - sim.Lasers[1].StartX;
+            Assert.AreNotEqual(
+                Math.Sign(left),
+                Math.Sign(right),
+                "두 빔이 같은 쪽으로 나간다 — 좌우 한 쌍이어야 한다.");
+            Assert.GreaterOrEqual(
+                Math.Abs(left),
+                SimSpace.PlayfieldHalfWidthSubUnits - Math.Abs(sim.Boss.X),
+                "왼쪽 빔이 화면 끝까지 닿지 않는다.");
+            Assert.GreaterOrEqual(
+                Math.Abs(right),
+                SimSpace.PlayfieldHalfWidthSubUnits - Math.Abs(sim.Boss.X),
+                "오른쪽 빔이 화면 끝까지 닿지 않는다.");
         }
 
         [Test]

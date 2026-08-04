@@ -7944,23 +7944,102 @@ namespace Shmup.Core.Simulation
                 phaseEnd = definition.LifetimeTicks;
                 halfWidth = definition.ThinHalfWidth;
             }
+            int startX = SaturateToInt(
+                (long)sourceX + definition.StartOffsetX);
+            int startY = SaturateToInt(
+                (long)sourceY + definition.StartOffsetY);
+            ExtendLaserToPlayfieldEdge(
+                startX,
+                startY,
+                SaturateToInt((long)sourceX + definition.EndOffsetX),
+                SaturateToInt((long)sourceY + definition.EndOffsetY),
+                out int endX,
+                out int endY);
+
             return new LaserState(
                 id,
                 sourceKind,
                 sourceEntityId,
-                SaturateToInt(
-                    (long)sourceX + definition.StartOffsetX),
-                SaturateToInt(
-                    (long)sourceY + definition.StartOffsetY),
-                SaturateToInt(
-                    (long)sourceX + definition.EndOffsetX),
-                SaturateToInt(
-                    (long)sourceY + definition.EndOffsetY),
+                startX,
+                startY,
+                endX,
+                endY,
                 phase,
                 thickness,
                 halfWidth,
                 phaseEnd - age,
                 definition.Damage);
+        }
+
+        /// <summary>
+        /// 레이저를 **화면 끝까지** 늘린다 (사람 지시 2026-08-04: "레이저는 중간에
+        /// 끊김없이 항상 화면 끝까지 뻗어나가게 해줘").
+        ///
+        /// 데이터의 endOffset은 발사원 기준 상대 좌표라, 함체가 어디에 서 있느냐에
+        /// 따라 빔이 허공에서 끝났다 — 전함 갑판 포탑은 x=-12에서 멈춰 왼쪽 8유닛이
+        /// 비었다. 데이터마다 숫자를 늘리는 대신 규칙으로 세운다: **방향은 데이터가,
+        /// 길이는 화면이 정한다.**
+        ///
+        /// 뷰가 아니라 여기서 늘리는 이유는 판정이 곧 그림이어야 하기 때문이다.
+        /// 뷰에서만 늘리면 화면 끝까지 빛나는데 맞지는 않는 거짓말이 된다.
+        ///
+        /// 정수만 쓴다 — 두 축 중 **먼저 경계에 닿는 쪽**을 교차 곱으로 고르고,
+        /// 그 축을 기준으로 나머지를 비례 배분한다. 나눗셈은 절삭이지만
+        /// 결정론적이다(AGENTS.md §4).
+        /// </summary>
+        static void ExtendLaserToPlayfieldEdge(
+            int startX,
+            int startY,
+            int rawEndX,
+            int rawEndY,
+            out int endX,
+            out int endY)
+        {
+            long dx = (long)rawEndX - startX;
+            long dy = (long)rawEndY - startY;
+            if (dx == 0 && dy == 0)
+            {
+                endX = rawEndX;
+                endY = rawEndY;
+                return;
+            }
+
+            // 경계보다 살짝 밖까지 뻗어야 화면 가장자리에서 끊긴 것처럼 보이지 않는다.
+            long limitX = SimSpace.PlayfieldHalfWidthSubUnits
+                + SimSpace.DespawnMarginSubUnits;
+            long limitY = SimSpace.PlayfieldHalfHeightSubUnits
+                + SimSpace.DespawnMarginSubUnits;
+
+            // 각 축에서 경계까지 남은 거리 (진행 방향으로).
+            long spanX = dx > 0 ? limitX - startX
+                : dx < 0 ? startX + limitX : 0;
+            long spanY = dy > 0 ? limitY - startY
+                : dy < 0 ? startY + limitY : 0;
+            if (spanX < 0) spanX = 0;
+            if (spanY < 0) spanY = 0;
+
+            long absDx = Math.Abs(dx);
+            long absDy = Math.Abs(dy);
+
+            // spanX/absDx 와 spanY/absDy 중 작은 쪽이 먼저 닿는다 — 교차 곱으로 비교.
+            bool xBinds = absDy == 0
+                || (absDx != 0 && spanX * absDy <= spanY * absDx);
+
+            if (xBinds && absDx != 0)
+            {
+                endX = SaturateToInt(startX + (dx > 0 ? spanX : -spanX));
+                endY = SaturateToInt(startY + dy * spanX / absDx);
+            }
+            else if (absDy != 0)
+            {
+                endY = SaturateToInt(startY + (dy > 0 ? spanY : -spanY));
+                endX = SaturateToInt(startX + dx * spanY / absDy);
+            }
+            else
+            {
+                endX = rawEndX;
+                endY = rawEndY;
+            }
         }
 
         void RemoveLaserAt(int index)

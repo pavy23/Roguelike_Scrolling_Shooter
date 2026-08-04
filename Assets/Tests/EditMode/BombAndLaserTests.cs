@@ -330,9 +330,17 @@ namespace Shmup.Core.Tests
                 Assert.AreEqual(
                     sim.Enemies[0].X - 100,
                     sim.Lasers[0].StartX);
-                Assert.AreEqual(
-                    sim.Enemies[0].X + 100,
-                    sim.Lasers[0].EndX);
+                // 끝점은 **화면 끝**이다 (2026-08-04). 이 테스트가 지키는 것은
+                // "빔이 움직이는 적에게 붙어 다닌다"이지 길이가 아니다 — 길이는
+                // 이제 데이터가 아니라 화면이 정한다.
+                Assert.Greater(
+                    sim.Lasers[0].EndX,
+                    sim.Lasers[0].StartX,
+                    "빔이 오른쪽으로 뻗어야 한다.");
+                Assert.GreaterOrEqual(
+                    sim.Lasers[0].EndX,
+                    SimSpace.PlayfieldHalfWidthSubUnits,
+                    "빔이 화면 오른쪽 끝까지 닿아야 한다.");
                 Assert.AreEqual(
                     sim.Enemies[0].Y,
                     sim.Lasers[0].StartY);
