@@ -202,6 +202,25 @@ namespace Shmup.Core.Simulation
 
         /// <summary>0 to 1 in thousandths: how far this act's move has run.
         /// The view uses it to lead the camera and time the reveal.</summary>
+        /// <summary>
+        /// 함체가 지금 세로로 **이동 중인가.**
+        ///
+        /// 2막에서 이동 중에는 앞쪽 포탑만 쏘고 멈추면 전부 쏜다 (사람 지시
+        /// 2026-08-05: "움직일땐 앞의 3개 레이저, 멈추면 6개 전부 레이저 쏘자").
+        /// 이동 중에 여섯이 다 쏘면 화면이 잠기고, 아무도 안 쏘면 썰렁하다 —
+        /// 그 사이를 만드는 것이 이 상태다.
+        /// </summary>
+        public bool AnchorMoving
+        {
+            get
+            {
+                if (_activeGroupIndex < 0) return false;
+                int travel = _definition.Groups[_activeGroupIndex]
+                    .AnchorTravelTicks;
+                return travel > 0 && _anchorElapsedTicks < travel;
+            }
+        }
+
         public int AnchorTravelPermille
         {
             get

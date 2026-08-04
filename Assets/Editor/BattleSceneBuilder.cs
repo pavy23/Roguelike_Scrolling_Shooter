@@ -1768,6 +1768,9 @@ namespace Shmup.EditorTools
             // 적·지형 레이저 (Tools/SfxGen/sfxgen_laser.py 후보 b). 예고 차지 → 발사 잽.
             SetReference(player, "_laserCharge", LoadClip("sfx_laser_charge"));
             SetReference(player, "_laserFire", LoadClip("sfx_laser_fire"));
+            // 초대형 빔 전용 발사음 (반폭 2유닛 초과). 없으면 SfxPlayer가 기존
+            // 발사음으로 폴백한다.
+            SetReference(player, "_laserFireHeavy", LoadClip("sfx_laser_heavy"));
             SetReference(director, "_sfx", player);
         }
 

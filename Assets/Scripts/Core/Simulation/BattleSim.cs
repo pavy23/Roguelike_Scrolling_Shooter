@@ -6290,6 +6290,9 @@ namespace Shmup.Core.Simulation
                     || !state.Active
                     || IsBossPartInvulnerable(i))
                     continue;
+                // 이동 중인 전함은 **앞쪽 포탑만** 쏜다 (사람 지시 2026-08-05).
+                if (IsWarshipPartHoldingFireWhileMoving(i))
+                    continue;
                 BossPartAttackProfile attack =
                     GetBossPartAttack(i);
                 switch (attack.Type)
@@ -8119,6 +8122,31 @@ namespace Shmup.Core.Simulation
                 halfWidth,
                 phaseEnd - age,
                 definition.Damage);
+        }
+
+        /// <summary>
+        /// 이동 중인 전함에서 이 파츠가 사격을 참는가.
+        ///
+        /// 사람 지시 2026-08-05: "움직일땐 앞의 3개 레이저, 멈추면 6개 전부 레이저
+        /// 쏘자." 이동 구간이 무음이면 썰렁하고, 여섯이 다 쏘면 움직이는 배를
+        /// 피하면서 여섯 줄기를 피해야 해서 잠긴다. 그 사이를 만든다.
+        ///
+        /// "앞"은 **플레이어 쪽(왼쪽)**이다 — 함체 중심보다 왼쪽에 달린 포탑이
+        /// 앞이고, 그 절반만 이동 중에 쏜다. 개수를 세지 않고 위치로 정하므로
+        /// 문이 6문이든 8문이든 규칙이 그대로 산다.
+        ///
+        /// 지금 열려 있는 막의 파츠에만 적용한다 — 다른 막의 파츠는 어차피
+        /// 무적이라 여기까지 오지 않는다.
+        /// </summary>
+        bool IsWarshipPartHoldingFireWhileMoving(int partIndex)
+        {
+            if (_warshipEncounter == null
+                || !_warshipEncounter.AnchorMoving)
+                return false;
+            if (partIndex < 0 || partIndex >= _bossPartDefinitions.Count)
+                return false;
+            // 함체 중심보다 오른쪽(뒤)이면 이동 중에는 쉰다.
+            return _bossPartDefinitions[partIndex].OffsetX > 0;
         }
 
         /// <summary>

@@ -29,6 +29,23 @@ namespace Shmup.Presentation.Battle
         [SerializeField] AudioClip _laserCharge;   // 적·지형 레이저 예고 차지 (REQ-042)
         [SerializeField] AudioClip _laserFire;     // 적·지형 레이저 발사
 
+        /// <summary>
+        /// 초대형 빔 발사음. 반폭이 <see cref="HeavyBeamHalfWidthSubUnits"/>를
+        /// 넘는 빔에만 쓴다 (사람 지시 2026-08-05: "3페이즈 대형 레이저는 소리가
+        /// 너무 썰렁해서 대형 레이저를 쏘는 박력있는 레이저음으로").
+        ///
+        /// 기존 발사음은 잡몹 빔(반폭 0.25유닛)에 맞춰 짧고 얇다. 화면을 관통하는
+        /// 반폭 5유닛 빔에 그것을 붙이면 크기와 소리가 어긋난다.
+        /// </summary>
+        [SerializeField] AudioClip _laserFireHeavy;
+
+        /// <summary>
+        /// 이 반폭(서브유닛)을 넘으면 초대형 빔 소리를 쓴다. 2유닛 = 512 —
+        /// 잡몹 빔(0.25)과 갑판 포탑(0.75~0.875)은 아래, 코어 빔(5.0)과 레비아탄
+        /// 레일건(5.625)은 위다.
+        /// </summary>
+        const int HeavyBeamHalfWidthSubUnits = 512;
+
         /// <summary>선택 함선의 주무기 계열 — 발사음을 계열별로 바꾼다 (REQ-022 후속).</summary>
         public Shmup.Core.WeaponType WeaponFamily { get; set; } = Shmup.Core.WeaponType.Vulcan;
 
@@ -60,6 +77,9 @@ namespace Shmup.Presentation.Battle
         const int MaxTrackedLasers = 64;
 
         const float HostileLaserFireVolume = 0.5f;
+
+        /// <summary>초대형 빔은 더 크게 — 화면을 관통하는 것이 조용하면 안 된다.</summary>
+        const float HeavyBeamFireVolume = 0.72f;
         const float PlayerBeamFireVolume = 0.15f;
 
         public void PlayEvents(ReadOnlySpan<SimEvent> events)
@@ -89,7 +109,13 @@ namespace Shmup.Presentation.Battle
                 if (events[i].Type != SimEventType.LaserFired
                     || !_hostileLasers.Contains(events[i].EntityId))
                     continue;
-                PlayOnce(16, _laserFire, HostileLaserFireVolume);
+                // LaserFired의 Arg는 그 빔의 반폭이다 — 굵기로 소리를 고른다.
+                bool heavy = events[i].Arg >= HeavyBeamHalfWidthSubUnits
+                    && _laserFireHeavy != null;
+                PlayOnce(
+                    16,
+                    heavy ? _laserFireHeavy : _laserFire,
+                    heavy ? HeavyBeamFireVolume : HostileLaserFireVolume);
                 break;
             }
 
