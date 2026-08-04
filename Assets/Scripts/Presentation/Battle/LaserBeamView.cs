@@ -110,8 +110,16 @@ namespace Shmup.Presentation.Battle
 
         // ── 두께 (월드 유닛, PPU 16 → 1u = 16px) ──────────────────────────────
 
-        /// <summary>예고 띠 = 실제 빔 폭의 이 비율. 살짝 좁혀 발사와 헷갈리지 않게 한다.</summary>
-        const float TelegraphWidthFraction = 0.85f;
+        /// <summary>
+        /// 예고 띠 = 실제 빔 폭의 이 비율. **1.0이다** — 예고는 "여기까지 위험하다"를
+        /// 말하는 것이므로 실제 폭과 같아야 한다.
+        ///
+        /// 예전에는 0.85로 살짝 좁혀 두었다. 얇은 빔에서는 티가 안 났지만, 3막
+        /// 코어 빔이 반폭 5유닛으로 굵어지자 예고와 실제가 눈에 띄게 달라졌다 —
+        /// 사람이 "서치레이저 / 실제레이저 크기가 다른거 수정해줘 (실제 레이저
+        /// 기준)"라고 했다. 예고가 실제보다 좁으면 예고선 밖에 서 있다가 맞는다.
+        /// </summary>
+        const float TelegraphWidthFraction = 1.0f;
 
         /// <summary>예고 띠 최소 두께 (6px). 얇은 빔이라도 폰 화면에서 읽혀야 한다.</summary>
         const float MinTelegraphThickness = 0.375f;
@@ -164,6 +172,12 @@ namespace Shmup.Presentation.Battle
         const float OuterAlphaScale = 0.34f;
         /// <summary>착탄 캡 크기 (본체 두께 대비).</summary>
         const float ImpactSizeScale = 2.2f;
+
+        /// <summary>
+        /// 총구 캡 크기 (본체 두께 대비). 1보다 커야 캡의 원호가 빔의 네모난
+        /// 시작 단면을 덮어 둥글게 만든다.
+        /// </summary>
+        const float MuzzleCapWidthScale = 1.35f;
 
         /// <summary>가장 넓고 옅은 바깥 광채. 빔이 공기를 밀어내는 것처럼 보이게 한다.</summary>
         readonly List<SpriteRenderer> _outers = new List<SpriteRenderer>(8);
@@ -490,7 +504,16 @@ namespace Shmup.Presentation.Battle
             PlaceQuad(core, center, rotation, drawn, coreThickness, coreColor);
 
             // 총구 플레어 — 원점에 박혀 "여기서 나온다"를 말한다.
-            PlaceCap(glow, start, rotation, chargeSize, glowAlpha,
+            //
+            // 크기가 **빔 두께를 따라간다.** 예전에는 고정 상수라, 굵은 빔에서는
+            // 캡이 빔보다 작아 시작부가 네모로 뚝 잘렸다 (사람 지적 2026-08-05:
+            // "레이저 크기가 커지면서 시작부분이 부드럽게 커브가 져야하는데
+            // 네모처럼 되어있는 부분도 수정해줘").
+            //
+            // 캡은 방사 감쇠라, 빔 두께보다 조금 크게 걸면 그 원호가 빔의 시작
+            // 단면을 덮어 둥근 머리가 된다.
+            float capSize = Mathf.Max(chargeSize, bandThickness * MuzzleCapWidthScale);
+            PlaceCap(glow, start, rotation, capSize, glowAlpha,
                 player ? PlayerCore : bandColor);
 
             // 착탄 스플래시 — 선단에 붙어 "여기에 닿는다"를 말한다. 뻗는 중에는

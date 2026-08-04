@@ -396,7 +396,13 @@ THEMES = {
         # 들렸다. 112로 올려 히든과 36bpm을 벌리고, 하이햇을 열어 앞으로 미는
         # 맥을 준다 — 히든은 하이햇이 없어 그것만으로도 질감이 갈린다.
         # 178bpm 전투곡보다는 여전히 훨씬 느리므로 "웅장하고 위압적으로"는 지킨다.
-        bpm=112, bars=16, motif_seed=131,
+        # 2026-08-05: 사람이 "보스 BGM은 (히든 말고) 지금보다 좀 더 경쾌하게"라고
+        # 했다. 112에서 132로 올리고 리듬을 앞으로 미는 편성으로 바꾼다.
+        #
+        # 화성(프리지안 도미넌트)은 그대로 둔다 — 위압은 거기서 나오고, 사람이
+        # 처음 요구한 "웅장하고 위압적으로"를 버리는 것이 아니라 그 위에 추진력을
+        # 얹는 것이다. 히든(76bpm)과는 56bpm 벌어져 더 확실히 갈린다.
+        bpm=132, bars=16, motif_seed=131,
         scale=[0, 1, 4, 5, 7, 8, 10, 12],                       # 프리지안 도미넌트
         chords_a=[(-24, "maj"), (-24, "maj"), (-23, "maj"), (-23, "maj"),
                   (-24, "maj"), (-24, "maj"), (-29, "min"), (-29, "min")],
@@ -405,10 +411,13 @@ THEMES = {
                   (-26, "maj"), (-26, "maj"), (-24, "maj"), (-24, "maj")],
         # 에코도 170→140으로 조인다. 템포가 빨라지면 같은 지연이 다음 박에 겹쳐
         # 뭉개진다 — 느린 곡에서 공간을 주던 값이 빠른 곡에서는 흙탕물이 된다.
-        pad="brass", echo=(140, 0.30),
-        arr=dict(lead_voice="octave", lead_mode="anthem", bass="whole_octave",
-                 arp="fifth_pad", drums="epic", swing=0.0, hat=1.0,
-                 lead_gain=0.38, pad_gain=0.34),
+        # 편성도 앞으로 민다: 온음표 베이스 → 옥타브 바운스, 지속형 5도 패드 →
+        # 16분 아르페지오, epic → drive 드럼. 리드는 옥타브 유니즌을 유지해
+        # 무게를 남기되 anthem(길게 끄는) 대신 motif(움직이는)로 바꾼다.
+        pad="brass", echo=(120, 0.26),
+        arr=dict(lead_voice="octave", lead_mode="motif", bass="octave_bounce",
+                 arp="dense16", drums="drive", swing=0.0, hat=1.0,
+                 lead_gain=0.40, pad_gain=0.30),
     ),
     "boss_hidden": dict(
         # 히든 보스 — 스테이지 보스보다 한 단계 더 무겁게.
