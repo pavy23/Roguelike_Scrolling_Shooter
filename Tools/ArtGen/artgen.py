@@ -249,13 +249,23 @@ def cmd_post(args) -> None:
         src = src.crop(bbox)
 
     width, height = (int(v) for v in args.target.lower().split("x"))
-    fit = max if args.cover else min          # cover: 꽉 채우고 중앙 크롭 (배경용)
-    scale = fit(width / src.width, height / src.height)
-    new_size = (max(1, round(src.width * scale)), max(1, round(src.height * scale)))
-    resized = src.resize(new_size, Image.NEAREST)
+    if args.stretch:
+        # 종횡비를 버리고 **정확히** 목표 크기로 늘린다.
+        #
+        # 배경 레이어(원경·전경)는 화면을 빈틈없이 덮어야 하고 가로로 타일링된다.
+        # 비율을 지키면 좌우에 투명 여백이 남아 (a) 타일마다 세로 이음매가 보이고
+        # (b) 화면을 못 채운다 — 사람이 "뒤를 꽉채우는게 아니라 가운데만 조그맣게
+        # 들어가면 안됨"이라고 보고한 것이 이것이다. cover로 채우면 이번엔 위아래
+        # 띠(전경의 핵심)가 잘려 나간다. 세로로 약간 눌리는 쪽이 낫다.
+        canvas = src.resize((width, height), Image.NEAREST)
+    else:
+        fit = max if args.cover else min      # cover: 꽉 채우고 중앙 크롭
+        scale = fit(width / src.width, height / src.height)
+        new_size = (max(1, round(src.width * scale)), max(1, round(src.height * scale)))
+        resized = src.resize(new_size, Image.NEAREST)
 
-    canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    canvas.paste(resized, ((width - new_size[0]) // 2, (height - new_size[1]) // 2))
+        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        canvas.paste(resized, ((width - new_size[0]) // 2, (height - new_size[1]) // 2))
 
     final = _quantize(canvas, args.colors)
     out = Path(args.out)
@@ -351,6 +361,8 @@ def main() -> None:
     p.add_argument("--cutout", type=int, default=0,
                    help="가장자리 플러드 필로 배경 제거 (색 허용오차, 0이면 비활성)")
     p.add_argument("--cover", action="store_true", help="배경용: 꽉 채우고 중앙 크롭")
+    p.add_argument("--stretch", action="store_true",
+                   help="배경 레이어용: 종횡비 무시하고 정확히 target 크기로 늘린다")
     p.add_argument("--out", required=True)
     p.set_defaults(func=cmd_post)
 

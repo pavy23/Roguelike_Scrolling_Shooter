@@ -93,12 +93,22 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Sprite _turretSprite;
         [Tooltip("함수 코어 모듈 — art-input/warship_core.png (없으면 boss_core 폴백).")]
         [SerializeField] Sprite _coreSprite;
+        /// <summary>
+        /// 파괴된 상태 그림. 사람 지시 2026-08-04: "각 페이즈별로 파괴되는 부위도
+        /// 나오게 그려줘". 예전에는 같은 그림에 그을음 틴트만 얹어서, 부순 포탑이
+        /// 그냥 어두워진 멀쩡한 포탑으로 보였다 — 무엇을 해냈는지 화면이 말해
+        /// 주지 않았다.
+        /// </summary>
+        [SerializeField] Sprite _turretWreckSprite;
+        [SerializeField] Sprite _sternWreckSprite;
 
         SpriteRenderer _hullArt;
         SpriteRenderer _spine;
         SpriteRenderer _deckTop;
         SpriteRenderer _deckBottom;
         readonly List<SpriteRenderer> _hardpoints = new List<SpriteRenderer>(8);
+        /// <summary>파츠별 "부서진 모습" 그림. 없으면 null(그을음 틴트만).</summary>
+        readonly List<Sprite> _wreckSprites = new List<Sprite>(8);
 
         /// <summary>
         /// 포탑 장착 파일런 (사람 지적 2026-08-03: "포탑이 배 밖에 떠 있다").
@@ -291,6 +301,13 @@ namespace Shmup.Presentation.Battle
                 }
             }
             if (sprite == null) { sprite = _turretSprite; flip = false; }
+
+            // 이 파츠가 부서졌을 때 걸 그림을 기억해 둔다. BindHardpoint은 최초
+            // 1회만 돌기 때문에, 전투 중 파괴는 갱신 루프에서 갈아 끼워야 한다.
+            while (_wreckSprites.Count <= index) _wreckSprites.Add(null);
+            _wreckSprites[index] = sprite == _sternSprite
+                ? _sternWreckSprite
+                : _turretWreckSprite;
 
             while (_hardpoints.Count <= index)
             {
@@ -491,7 +508,21 @@ namespace Shmup.Presentation.Battle
 
                 Color tint;
                 if (part.Destroyed)
+                {
                     tint = Scorched;
+                    // 그림 자체를 잔해로 바꾼다. 틴트만 어둡게 하면 "부순 포탑"이
+                    // "그늘에 있는 멀쩡한 포탑"과 구별되지 않는다.
+                    if (i < _wreckSprites.Count
+                        && _wreckSprites[i] != null
+                        && renderer.sprite != _wreckSprites[i])
+                    {
+                        renderer.sprite = _wreckSprites[i];
+                        // 잔해 그림은 원본과 크기가 다르다 — 판정에 다시 맞추지
+                        // 않으면 부순 순간 파츠가 커지거나 작아진다.
+                        FitHardpointToHitbox(
+                            renderer, FindPartDefinition(part.PartId));
+                    }
+                }
                 else if (part.Invulnerable)
                 {
                     // 무적은 "아직 열리지 않았다"의 가장 강한 상태 — 암전에 청록 맥동을

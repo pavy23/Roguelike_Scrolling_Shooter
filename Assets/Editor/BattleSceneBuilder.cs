@@ -709,7 +709,24 @@ namespace Shmup.EditorTools
         {
             var sprite = LoadExternalSprite(externalFileName, assetName);
             if (sprite != null) return sprite;
-            return AssetDatabase.LoadAssetAtPath<Sprite>($"{SpriteDir}/{assetName}.png");
+
+            // 이미 프로젝트에 들어와 있는 것을 쓸 때도 **임포터 설정을 반드시 건다.**
+            //
+            // 안 걸었더니 이런 일이 났다 (사람 보고 2026-08-04 "히든 스테이지 배경이
+            // 뒤를 꽉채우는게 아니라 가운데만 조그맣게 들어가면 안됨"): Assets에 직접
+            // 복사해 넣은 PNG는 Unity 기본값으로 임포트된다 — PPU 100(정상 16),
+            // 필터 Bilinear(정상 Point). 640×360 배경이 6.4×3.6 유닛짜리 흐릿한
+            // 조각이 되어 화면 가운데에 조그맣게 박혔다.
+            //
+            // art-input 경로는 LoadExternalSprite가 이미 이걸 하고 있었다. 폴백
+            // 경로만 빠져 있었고, 그 폴백은 내가 이 세션에서 추가한 것이다.
+            // 파일이 디스크에 있으면 **먼저 설정을 걸고** 읽는다. 순서를 반대로
+            // 했더니(읽어서 null이면 포기) 방금 복사해 넣어 아직 임포트되지 않은
+            // 파일이 그대로 빠져나가, 나중에 Unity가 기본값으로 임포트해 버렸다.
+            string assetPath = $"{SpriteDir}/{assetName}.png";
+            if (!File.Exists(assetPath)) return null;
+            ApplySpriteImporter(assetPath);
+            return AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
         }
 
         /// <summary>art-input/fx_explosion_00.png…을 순서대로 임포트한다 (M2 폭발 애니).</summary>
@@ -728,7 +745,9 @@ namespace Shmup.EditorTools
             var frames = new List<Sprite>();
             for (int i = 0; i < 16; i++)
             {
-                var sprite = LoadExternalSprite($"{prefix}{i:d2}.png", $"{prefix}{i:d2}");
+                // art-input이 없는 머신에서도 이미 임포트된 프레임을 쓴다 —
+                // 이걸 안 하면 씬 재생성이 애니메이션을 통째로 잃는다.
+                var sprite = LoadOrCachedSprite($"{prefix}{i:d2}.png", $"{prefix}{i:d2}");
                 if (sprite == null) break;
                 frames.Add(sprite);
             }
@@ -1000,7 +1019,10 @@ namespace Shmup.EditorTools
             // 게이지 줄은 화면 아래 4px에서 시작해 34px 높이다(PowerUpHudView).
             // 640×360을 40×22.5 유닛으로 보므로 1유닛 = 16px → 줄 윗변은 화면
             // 아래에서 38/16 ≈ 2.38유닛. 그 위에 여유를 두고 앉힌다.
-            bossHpRoot.transform.localPosition = new Vector3(0f, -8.1f, 0f);
+            // 화면 바닥(-11.25)에 붙인다. -8.1로 두었더니 플레이 영역 한가운데에
+            // 떠 있어 탄막과 겹쳤다 — 게이지 줄은 레터박스 **밖**이라, "옵션 무기
+            // UI 위"는 곧 플레이 영역의 아래 끝이다.
+            bossHpRoot.transform.localPosition = new Vector3(0f, -10.4f, 0f);
             var hpBack = new GameObject("Back");
             hpBack.transform.SetParent(bossHpRoot.transform, false);
             var hpBackRenderer = hpBack.AddComponent<SpriteRenderer>();
@@ -1094,7 +1116,11 @@ namespace Shmup.EditorTools
                 "rust_skimmer", "junk_roller", "void_moth", "shard_prism",
                 "sting_hornet", "pipe_rat", "phase_disc", "rift_blade",
                 "mini_destroyer", "mini_horror", "mini_walker", "mini_crystal", "mini_core",
-                "boss_stage1", "boss_hive", "boss_fortress", "boss_storm", "boss_core"
+                "boss_stage1", "boss_hive", "boss_fortress", "boss_storm", "boss_core",
+                // 히든 보스 둘은 여기 빠져 있었다 — 사람 보고 2026-08-04
+                // "히든 보스 애니메이션이 없음"의 정체다. 그림은 있는데 아무도
+                // 등록하지 않아 정지 화면으로 서 있었다.
+                "boss_leviathan", "boss_broodmother"
             })
                 AddAnim(prefix);
             SetStringArray(director, "_animPrefixes", animPrefixes.ToArray());
@@ -1313,6 +1339,12 @@ namespace Shmup.EditorTools
                 LoadExternalSprite("warship_stern.png", "warship_stern")
                 ?? LoadExternalSprite("boss_fortress.png", "boss_fortress"));
             SetReference(warshipView, "_turretSprite", laserTurretSprite);
+            // 부서진 모습 (사람 지시 2026-08-04 "각 페이즈별로 파괴되는 부위도
+            // 나오게 그려줘"). 없으면 뷰가 그을음 틴트만 쓴다.
+            SetReference(warshipView, "_turretWreckSprite",
+                LoadOrCachedSprite("warship_turret_wreck.png", "warship_turret_wreck"));
+            SetReference(warshipView, "_sternWreckSprite",
+                LoadOrCachedSprite("warship_stern_wreck.png", "warship_stern_wreck"));
             SetReference(warshipView, "_coreSprite",
                 LoadExternalSprite("warship_core.png", "warship_core")
                 ?? LoadExternalSprite("boss_core.png", "boss_core"));

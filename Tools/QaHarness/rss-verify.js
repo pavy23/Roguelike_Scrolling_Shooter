@@ -39,11 +39,17 @@ function parseArgs(argv) {
 // 강하다. 좌표를 박아 두면 캔버스 크기가 바뀔 때 조용히 틀리므로 색으로 찾는다.
 
 /** 보스 HP바(상단 주황/적색 가로 막대)의 픽셀 폭. 없으면 0. */
+// 보스 HP 바는 2026-08-04에 화면 위(y 9.7u)에서 아래(y -10.4u)로 옮겼다
+// (PAUSE 버튼과 자리를 다퉜다). 이 함수는 화면 전체를 훑으므로 위치가 바뀌어도
+// 찾지만, 어디를 보는지 모르면 "바를 못 찾음 = FAIL"을 회귀로 오해하게 된다.
 function measureBossHpBar(png) {
   const { width, height, data } = png;
   let best = 0;
-  // 상단 1/3만 훑는다 — 하단 게이지 HUD의 주황 글자에 걸리지 않게.
-  for (let y = 0; y < Math.floor(height / 3); y++) {
+  // 화면 전체를 훑는다. 예전에는 상단 1/3만 봤는데(하단 게이지 HUD의 주황 글자를
+  // 피하려고), 바가 아래로 옮겨간 순간 "바 없음 = FAIL"이 되어 멀쩡한 빌드가
+  // 회귀로 보였다. 대신 **아주 긴 가로 연속**만 바로 인정한다 — 글자는 그렇게
+  // 길게 이어지지 않는다.
+  for (let y = 0; y < height; y++) {
     let run = 0;
     let longest = 0;
     for (let x = 0; x < width; x++) {
@@ -54,7 +60,9 @@ function measureBossHpBar(png) {
       run = bar ? run + 1 : 0;
       if (run > longest) longest = run;
     }
-    if (longest > best) best = longest;
+    // 게이지 라벨 글자는 길어야 수십 px다. 바는 16월드유닛(≈380px)이라
+    // 하한을 두면 둘이 섞이지 않는다.
+    if (longest >= 120 && longest > best) best = longest;
   }
   return best;
 }

@@ -1119,15 +1119,20 @@ def build(prefix, out_dir, src_dir):
     make_far_variant(src, out_dir / f"{prefix}_far_dark.png", dark_base, dark_acc,
                      gamma=1.22, tone="dark", target_lum=DARK_LUM)
 
-    rng = np.random.default_rng(FG_SEEDS[prefix])
-    save_indexed(FG_BUILDERS[prefix](rng), FG_PALETTES[prefix],
-                 out_dir / f"{prefix}_fg.png")
-
-    w, h, body, acc = LM_SPECS[prefix]
-    rng = np.random.default_rng(LM_SEEDS[prefix])
-    idx = LM_BUILDERS[prefix](rng, w, h)
-    pal = [tuple(c) for c in ramp(body, LM_RAMP_STOPS)] + [tuple(c) for c in ramp(acc, 4)]
-    save_indexed(idx, pal, out_dir / f"{prefix}_landmark.png")
+    # fg / landmark는 **더 이상 여기서 만들지 않는다** (사람 지시 2026-08-04:
+    # "스테이지 배경이 매우 허접함. 제대로 그려진 걸로 다 덮는게 맞을듯?
+    # 어색하게 파이썬으로 그려진거 다 빼자").
+    #
+    # 절차 생성은 타일 이음매와 색 수를 수학적으로 보장하는 장점이 있었지만,
+    # 화면에서는 결국 도형을 쌓아 놓은 것으로 읽혔다 — 랜드마크가 특히 그랬다
+    # (레비아탄 골격이 지네처럼 보였다). 지금은 gpt-image-1.5로 그리고
+    # post 단계에서 규격·색 수를 잡는다.
+    #
+    # 아래 FG_BUILDERS / LM_BUILDERS와 그 팔레트는 남겨 둔다. 원경 리매핑
+    # (far_dusk/far_dark)은 여전히 여기서 하고, 언젠가 절차 생성이 다시
+    # 필요해질 때 되살릴 자리를 지우면 그때 처음부터 다시 써야 한다.
+    #
+    # 생성 명령은 Reviews/from-claude/art-commands.md 에 적어 두었다.
 
 
 def main():

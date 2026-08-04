@@ -1,25 +1,10 @@
 fileFormatVersion: 2
-guid: 28de4202c58941f47a7e25240fa53006
+guid: 7dabf8674392ac94a919b378210de1b3
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -1287463571928389408
-    second: abyss_mid_0
-  - first:
-      213: -5334381937544100003
-    second: abyss_mid_1
-  - first:
-      213: -7168163806541591019
-    second: abyss_mid_2
-  - first:
-      213: 578654783578567822
-    second: abyss_mid_3
-  - first:
-      213: -1793400848503443863
-    second: abyss_mid_4
-  - first:
-      213: 7172401890410374445
-    second: abyss_mid_5
+      213: -6395465886360855014
+    second: anim_boss_broodmother_01_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -141,13 +126,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: abyss_mid_0
+      name: anim_boss_broodmother_01_0
       rect:
         serializedVersion: 2
-        x: 24
-        y: 142
-        width: 146
-        height: 68
+        x: 15
+        y: 19
+        width: 290
+        height: 300
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -156,118 +141,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 0e8e3fdd3b2022ee0800000000000000
-      internalID: -1287463571928389408
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: abyss_mid_1
-      rect:
-        serializedVersion: 2
-        x: 165
-        y: 159
-        width: 6
-        height: 7
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: d578c6cf3e778f5b0800000000000000
-      internalID: -5334381937544100003
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: abyss_mid_2
-      rect:
-        serializedVersion: 2
-        x: 219
-        y: 138
-        width: 135
-        height: 131
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 51ec64b1ff0958c90800000000000000
-      internalID: -7168163806541591019
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: abyss_mid_3
-      rect:
-        serializedVersion: 2
-        x: 366
-        y: 141
-        width: 94
-        height: 50
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: e84f7c6b57bc70800800000000000000
-      internalID: 578654783578567822
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: abyss_mid_4
-      rect:
-        serializedVersion: 2
-        x: 461
-        y: 143
-        width: 66
-        height: 20
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 96e611d1e6f8c17e0800000000000000
-      internalID: -1793400848503443863
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: abyss_mid_5
-      rect:
-        serializedVersion: 2
-        x: 515
-        y: 147
-        width: 93
-        height: 99
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: d252040b48d798360800000000000000
-      internalID: 7172401890410374445
+      spriteID: a1e155639adbe37a0800000000000000
+      internalID: -6395465886360855014
       vertices: []
       indices: 
       edges: []
@@ -286,12 +161,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      abyss_mid_0: -1287463571928389408
-      abyss_mid_1: -5334381937544100003
-      abyss_mid_2: -7168163806541591019
-      abyss_mid_3: 578654783578567822
-      abyss_mid_4: -1793400848503443863
-      abyss_mid_5: 7172401890410374445
+      anim_boss_broodmother_01_0: -6395465886360855014
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
