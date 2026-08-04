@@ -123,6 +123,7 @@ namespace Shmup.Core.Tests
             var seenBullets = new HashSet<int>();
             var seenLasers = new HashSet<int>();
             int spawnedBehindPlayer = 0;
+            int turretBullets = 0;
             int observed = 0;
             for (; observed < ObservationTicks; observed++)
             {
@@ -135,6 +136,13 @@ namespace Shmup.Core.Tests
                         continue;
                     if (!seenBullets.Add(bullet.Id))
                         continue;
+                    // **포탑에서 나온 탄만 센다.** 처음에는 적탄을 전부 셌는데,
+                    // 보스방에 남아 있던 잡몹 탄이 섞여 들어와 "탄막이 나온다"가
+                    // 참이 됐다. 그 바람에 빌드에 부무장이 통째로 빠졌는데도
+                    // 이 테스트가 통과했다 (2026-08-05).
+                    if (!IsNearActivePart(battle, bullet))
+                        continue;
+                    turretBullets++;
                     // 플레이어보다 왼쪽에서 생긴 탄은 플레이어를 향해 날아갈 수
                     // 없다 — 뒤에서 생겨 그대로 화면 밖으로 빠진다.
                     if (bullet.X < battle.PlayerX)
@@ -154,9 +162,10 @@ namespace Shmup.Core.Tests
                 0,
                 "2막에서 레이저가 나오지 않았다 — 관측 자체가 틀렸다.");
             Assert.Greater(
-                seenBullets.Count,
+                turretBullets,
                 0,
-                "2막에서 탄막이 한 발도 나오지 않았다.");
+                "2막 포탑에서 탄막이 한 발도 나오지 않았다 "
+                + $"(적탄 전체는 {seenBullets.Count}발).");
 
             // "탄이 생성됐다"와 "탄이 보인다"는 다르다. 함체가 왼쪽으로 밀려
             // 서면 앞쪽 포탑이 플레이어보다 왼쪽에 놓이고, 거기서 나간 겨냥탄은
@@ -165,7 +174,7 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 0,
                 spawnedBehindPlayer,
-                $"{seenBullets.Count}발 중 {spawnedBehindPlayer}발이 플레이어 "
+                $"{turretBullets}발 중 {spawnedBehindPlayer}발이 플레이어 "
                 + "뒤에서 생겼다 — 함체가 왼쪽으로 너무 밀려 섰다.");
 
             // 2막 정지 위치가 화면 중앙 근처여야 한다 (사람 지시 2026-08-05:
@@ -180,15 +189,35 @@ namespace Shmup.Core.Tests
             // 관측 창에서 실측한 발사율도 상한 안이어야 한다. 데이터 검사만으로는
             // 파서가 값을 흘렸는지 알 수 없다.
             double seconds = observed / (double)SimSpace.TicksPerSecond;
-            double perSecond = seenBullets.Count / seconds;
+            double perSecond = turretBullets / seconds;
             Assert.LessOrEqual(
                 perSecond,
                 MaxCombinedBulletsPerSecond,
                 $"실측 {perSecond:F2}발/초로 상한을 넘었다.");
 
             TestContext.WriteLine(
-                $"2막 {observed}틱 관측: 탄 {seenBullets.Count}발"
+                $"2막 {observed}틱 관측: 포탑탄 {turretBullets}발"
                 + $"({perSecond:F2}/초), 레이저 {seenLasers.Count}줄.");
+        }
+
+        /// <summary>
+        /// 이 탄이 **살아 있는 보스 파츠 자리에서** 생겼는가. 갓 생성된 탄은 아직
+        /// 발사원 위에 있으므로 근접으로 귀속시킬 수 있다. 반폭 한 칸(1유닛)이면
+        /// 포탑끼리(최소 3유닛 간격)는 섞이지 않고 잡몹 탄은 걸러진다.
+        /// </summary>
+        static bool IsNearActivePart(BattleSim battle, BulletState bullet)
+        {
+            const int Tolerance = SimSpace.SubUnitsPerWorldUnit;
+            for (int i = 0; i < battle.BossParts.Count; i++)
+            {
+                BossPartState part = battle.BossParts[i];
+                if (part.Destroyed || !part.Active)
+                    continue;
+                if (System.Math.Abs(part.X - bullet.X) <= Tolerance
+                    && System.Math.Abs(part.Y - bullet.Y) <= Tolerance)
+                    return true;
+            }
+            return false;
         }
 
         static StageBossTemplate FindWarshipBoss(GameDataSet data)

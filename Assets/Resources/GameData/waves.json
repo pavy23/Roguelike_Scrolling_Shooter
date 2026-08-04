@@ -14471,6 +14471,12 @@
               "fullHalfWidth": 0.875,
               "damage": 2,
               "aimsAtPlayer": true
+            },
+            "secondaryBurst": {
+              "cycleIntervalTicks": 240,
+              "ways": 3,
+              "bulletSpeed": 4.0,
+              "aimed": true
             }
           }
         },
@@ -14498,6 +14504,12 @@
               "fullHalfWidth": 0.875,
               "damage": 2,
               "aimsAtPlayer": true
+            },
+            "secondaryBurst": {
+              "cycleIntervalTicks": 340,
+              "ways": 3,
+              "bulletSpeed": 4.0,
+              "aimed": true
             }
           }
         },
@@ -14525,6 +14537,12 @@
               "fullHalfWidth": 0.875,
               "damage": 2,
               "aimsAtPlayer": true
+            },
+            "secondaryBurst": {
+              "cycleIntervalTicks": 440,
+              "ways": 3,
+              "bulletSpeed": 4.0,
+              "aimed": true
             }
           }
         },
@@ -14552,6 +14570,12 @@
               "fullHalfWidth": 0.875,
               "damage": 2,
               "aimsAtPlayer": true
+            },
+            "secondaryBurst": {
+              "cycleIntervalTicks": 540,
+              "ways": 3,
+              "bulletSpeed": 4.0,
+              "aimed": true
             }
           }
         },
@@ -14579,6 +14603,12 @@
               "fullHalfWidth": 0.875,
               "damage": 2,
               "aimsAtPlayer": true
+            },
+            "secondaryBurst": {
+              "cycleIntervalTicks": 640,
+              "ways": 3,
+              "bulletSpeed": 4.0,
+              "aimed": true
             }
           }
         },
@@ -14606,6 +14636,12 @@
               "fullHalfWidth": 0.875,
               "damage": 2,
               "aimsAtPlayer": true
+            },
+            "secondaryBurst": {
+              "cycleIntervalTicks": 740,
+              "ways": 3,
+              "bulletSpeed": 4.0,
+              "aimed": true
             }
           }
         },

@@ -95,6 +95,8 @@ namespace Shmup.Presentation.Battle
         long _overlayKey = long.MinValue;
 
         // St4 체인 관측값 (REQ-115b). XOR 키와 달리 정확 비교라 상쇄되지 않는다.
+        int _lastCoreEnemyBullets = -1;
+        int _lastDrawnBullets = -1;
         int _lastChainSegments = -1;
         int _lastChainDrawn = -1;
 
@@ -155,6 +157,11 @@ namespace Shmup.Presentation.Battle
             var coreChains = _director.SegmentChains;
             int chainSegments = coreChains != null ? coreChains.Count : 0;
             int chainDrawn = _chains != null ? _chains.VisibleSegmentCount : 0;
+            // 적탄 Core/뷰. 체인의 seg/drawn과 같은 이유로 둘을 나눠 적는다 —
+            // "탄막이 안 보인다"가 Core가 안 쏜 것인지 뷰가 안 그린 것인지
+            // 화면에서 바로 갈라야 한다 (2026-08-05).
+            int coreEnemyBullets = _director.CoreEnemyBulletCount;
+            int drawnBullets = _director.DrawnBulletViewCount;
             long key = ((long)_director.RunNumber << 48)
                      ^ ((long)_director.StageIndex << 40)
                      ^ ((long)_director.PlayerHp << 32)
@@ -182,6 +189,8 @@ namespace Shmup.Presentation.Battle
             if (key != _overlayKey
                 || chainSegments != _lastChainSegments
                 || chainDrawn != _lastChainDrawn
+                || coreEnemyBullets != _lastCoreEnemyBullets
+                || drawnBullets != _lastDrawnBullets
                 || playerCoreY10 != _lastPlayerCoreY10
                 || playerViewY10 != _lastPlayerViewY10
                 || playerRendererOn != _lastPlayerRendererOn
@@ -190,6 +199,8 @@ namespace Shmup.Presentation.Battle
                 _overlayKey = key;
                 _lastChainSegments = chainSegments;
                 _lastChainDrawn = chainDrawn;
+                _lastCoreEnemyBullets = coreEnemyBullets;
+                _lastDrawnBullets = drawnBullets;
                 _lastPlayerCoreY10 = playerCoreY10;
                 _lastPlayerViewY10 = playerViewY10;
                 _lastPlayerRendererOn = playerRendererOn;
@@ -216,6 +227,7 @@ namespace Shmup.Presentation.Battle
                     : "";
                 // St4 번개룡: Core 체인 기수 / 뷰가 그린 절 수. 0/0이면 아직 안 나왔고,
                 // n/0이면 뷰가 죽은 것이다 (build26/27의 "안 보인다"가 바로 이 상태였다).
+                string bullets = $"   ebul {coreEnemyBullets}/{drawnBullets}drawn";
                 string chains = chainSegments > 0 || chainDrawn > 0
                     ? $"   chain {chainSegments}seg/{chainDrawn}drawn"
                     : "";
@@ -224,7 +236,7 @@ namespace Shmup.Presentation.Battle
                     $"   py {playerCoreY10 / 10f:0.0} ty {playerViewY10 / 10f:0.0}"
                     + $" ren {(playerRendererOn ? 1 : 0)} sc {playerSortingOrder}";
                 _overlayText =
-                    $"run {_director.RunNumber}   stage {_director.StageIndex}{theme}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{player}{section}{ghost}{warship}{chains}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --warp=boss jumps, --god survives)";
+                    $"run {_director.RunNumber}   stage {_director.StageIndex}{theme}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{player}{section}{ghost}{warship}{bullets}{chains}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --warp=boss jumps, --god survives)";
             }
             GUI.Label(new Rect(8, 4, Screen.width - 16, _style.fontSize * 3), _overlayText, _style);
         }

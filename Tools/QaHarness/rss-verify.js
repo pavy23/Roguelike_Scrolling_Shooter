@@ -80,6 +80,33 @@ function countNear(png, [r, g, b], tol = 40) {
   return n;
 }
 
+/**
+ * 화면에 떠 있는 **적탄** 픽셀 수. enemy_shot.png의 본색 (255,77,166)을 센다.
+ *
+ * 왜 필요한가: 2026-08-05에 "포탑에서 탄이 안 나온다"는 보고를 받고 Core를
+ * 재보니 30초에 69발이 생성되고 있었다. Core는 쏘는데 화면에는 없었다 —
+ * 그 간극을 수치로 볼 방법이 없어서 스크린샷을 한 장씩 눈으로 뒤졌다.
+ *
+ * HUD에도 같은 계열 분홍이 있어 **플레이필드만** 본다. 좌표를 박지 않으려고
+ * 화면 가장자리 비율로 자른다 — 레터박스가 바뀌어도 따라간다.
+ */
+function countEnemyBullets(png) {
+  const { width, height, data } = png;
+  const x0 = Math.floor(width * 0.14), x1 = Math.floor(width * 0.87);
+  const y0 = Math.floor(height * 0.14), y1 = Math.floor(height * 0.78);
+  let n = 0;
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const i = (y * width + x) << 2;
+      if (data[i + 3] < 128) continue;
+      if (Math.abs(data[i] - 255) <= 40
+        && Math.abs(data[i + 1] - 77) <= 50
+        && Math.abs(data[i + 2] - 166) <= 50) n++;
+    }
+  }
+  return n;
+}
+
 async function shotPng(page) {
   return PNG.sync.read(await page.screenshot({ encoding: 'binary' }));
 }
@@ -155,8 +182,15 @@ async function main() {
     // 4초마다 방향을 바꾼다. 화면 높이(22.5유닛)를 한 번 지나기에 넉넉하다.
     if (t % 4 === 3) sweepDown = !sweepDown;
     const png = await shotPng(page);
-    samples.push({ t, hp: measureBossHpBar(png) });
-    if (t % 10 === 9) {
+    samples.push({
+      t,
+      hp: measureBossHpBar(png),
+      enemyBullets: countEnemyBullets(png),
+    });
+    // --frames all: 매 초 저장. 드물게 일어나는 연출(간헐 탄막·페이즈 전환)은
+    // 10초 간격 표본으로는 놓친다 — 2026-08-05 "탄막이 안 보인다"를 좇을 때
+    // 스파이크가 뜬 그 1초를 볼 방법이 없어서 추가했다.
+    if (args.frames === 'all' || t % 10 === 9) {
       await page.screenshot({ path: path.join(outDir, `${String(t + 1).padStart(3, '0')}_t.png`) });
     }
   }
@@ -165,9 +199,12 @@ async function main() {
   const first = samples.find((s) => s.hp > 50);
   const last = [...samples].reverse().find((s) => s.hp > 0);
   const damaged = first && last && last.hp < first.hp;
+  const bulletTicks = samples.filter((s) => s.enemyBullets > 0).length;
   const report = {
     url,
     consoleErrors: errors.length,
+    enemyBulletSeconds: bulletTicks,
+    enemyBulletPeak: samples.reduce((m, s) => Math.max(m, s.enemyBullets), 0),
     hpFirst: first ? first.hp : null,
     hpLast: last ? last.hp : null,
     hpDropped: !!damaged,
@@ -179,6 +216,9 @@ async function main() {
   const pass = errors.length === 0 && damaged;
   console.log(`console errors: ${errors.length}`);
   console.log(`boss hp bar: ${report.hpFirst} → ${report.hpLast} (dropped=${report.hpDropped})`);
+  console.log(
+    `enemy bullets: ${report.enemyBulletSeconds}/${samples.length}s `
+    + `(peak ${report.enemyBulletPeak}px)`);
   console.log(pass ? 'PASS' : 'FAIL');
   await browser.close();
   process.exit(pass ? 0 : 1);

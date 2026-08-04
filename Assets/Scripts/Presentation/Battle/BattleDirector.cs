@@ -544,6 +544,31 @@ namespace Shmup.Presentation.Battle
             _sim != null ? _sim.SegmentChains : null;
 
         /// <summary>
+        /// 지금 Core가 굴리는 **적탄** 수. 체인의 seg/drawn과 같은 용도다 —
+        /// Core가 만든 것과 화면에 그려진 것을 갈라 봐야 "안 보인다"의 책임이
+        /// 어느 쪽인지 정해진다.
+        ///
+        /// 2026-08-05에 "포탑 탄막이 안 보인다"를 좇으면서 이게 없어 스크린샷을
+        /// 색으로 훑었고, 피격 플래시를 탄으로 잘못 세어 한참을 돌아갔다.
+        /// </summary>
+        public int CoreEnemyBulletCount
+        {
+            get
+            {
+                if (_sim == null) return 0;
+                var bullets = _sim.Bullets;
+                int n = 0;
+                for (int i = 0; i < bullets.Count; i++)
+                    if (bullets[i].Faction == BulletFaction.Enemy) n++;
+                return n;
+            }
+        }
+
+        /// <summary>지금 살아 있는 탄 뷰 수 (아군탄 포함).</summary>
+        public int DrawnBulletViewCount =>
+            _bulletViews != null ? _bulletViews.Count : 0;
+
+        /// <summary>
         /// 체인 절 히트박스 반폭(서브유닛). Core의 절 상태는 좌표와 HP만 주고 크기는
         /// 페이즈 정의에 있으므로, 이 방 보스의 페이즈(2형태 포함)에서 읽어 온다.
         /// 0이면 이 방에 체인이 없다 — 뷰는 그때 자기 기본값으로 그린다.

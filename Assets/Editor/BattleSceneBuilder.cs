@@ -644,6 +644,22 @@ namespace Shmup.EditorTools
             Debug.Log($"[BattleSceneBuilder] SpriteAtlas 생성: {atlasPath} (폴더 {SpriteDir} 참조)");
         }
 
+        /// <summary>
+        /// GameData/*.json(GROK 소유 원본)을 Resources 사본으로 밀어 넣는다.
+        ///
+        /// **빌드가 직접 부른다.** 예전에는 씬 재생성에서만 불렀는데, 아트가 안
+        /// 바뀌었으면 씬 재생성을 건너뛰는 것이 자연스러워서 데이터만 바뀐 날에는
+        /// 사본이 통째로 낡은 채 빌드됐다. 2026-08-05에 전함 2막 부무장 탄막이
+        /// 그렇게 날아갔다 — Core 테스트는 원본을 읽어 582개가 다 통과하는데
+        /// 게임에는 그 기능이 아예 없었고, 원인을 찾는 데 왕복을 여러 번 했다.
+        /// 사람이 기억해야 하는 단계로 두지 않는다.
+        /// </summary>
+        public static void SyncGameDataToResources()
+        {
+            CopyGameDataToResources();
+            AssetDatabase.SaveAssets();
+        }
+
         static void CopyGameDataToResources()
         {
             const string targetDir = "Assets/Resources/GameData";
