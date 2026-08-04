@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization.Json;
 using NUnit.Framework;
@@ -190,22 +191,34 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(4, focused.WarshipDestroyedAttritionParts);
             Assert.AreEqual(0, untouched.WarshipDestroyedAttritionParts);
 
-            Step(focused, InputCommand.None);
-            Step(untouched, InputCommand.None);
-            Step(focused, InputCommand.None);
-            Step(untouched, InputCommand.None);
-            Assert.AreEqual(2, focused.WarshipActiveGroupIndex);
-            Assert.AreEqual(2, untouched.WarshipActiveGroupIndex);
-            Assert.AreEqual(100, focused.Boss.X);
-            Assert.AreEqual(100, untouched.Boss.X);
+            // 네 문을 다 부순 쪽은 **타이머를 기다리지 않고** 곧바로 3막으로 간다
+            // (사람 지시 2026-08-04). 손대지 않은 쪽만 타이머로 넘어가므로 두
+            // 시뮬레이션의 전환 시점이 갈린다 — 예전에는 같은 틱이라고 적어 두었다.
+            Assert.AreEqual(
+                2,
+                focused.WarshipActiveGroupIndex,
+                "다 부쉈는데도 소모전이 끝나지 않았다.");
+            Assert.AreEqual(
+                1,
+                untouched.WarshipActiveGroupIndex,
+                "손대지 않았는데 소모전이 벌써 끝났다.");
             Assert.AreEqual(3, focused.WarshipCoreOpeningWays);
-            Assert.AreEqual(9, untouched.WarshipCoreOpeningWays);
             Assert.AreEqual(3, EventArg(
                 focused.EventsThisTick,
                 SimEventType.WarshipCoreBattleStarted));
+
+            // 손대지 않은 쪽은 타이머가 다 돌 때까지 기다린다.
+            for (int guard = 0;
+                guard < 4000 && untouched.WarshipActiveGroupIndex < 2;
+                guard++)
+                Step(untouched, InputCommand.None);
+            Assert.AreEqual(2, untouched.WarshipActiveGroupIndex);
+            Assert.AreEqual(9, untouched.WarshipCoreOpeningWays);
             Assert.AreEqual(9, EventArg(
                 untouched.EventsThisTick,
                 SimEventType.WarshipCoreBattleStarted));
+            Assert.AreEqual(100, focused.Boss.X);
+            Assert.AreEqual(100, untouched.Boss.X);
 
             Step(focused, InputCommand.None);
             Step(untouched, InputCommand.None);
@@ -218,23 +231,25 @@ namespace Shmup.Core.Tests
         {
             const ulong seed = 0x1133UL;
             BattleSim source = CreateBattle(seed, bombs: 3);
-            var recorder = new InputRecorder(16);
-            InputCommand[] commands =
+            var recorder = new InputRecorder(64);
+            // **격파까지 필요한 만큼** 입력을 만든다. 예전에는 6개로 고정해 뒀는데,
+            // 막 전환 규칙이 바뀌자(소모전이 전멸로 넘어간다) 그 6개로는 죽지
+            // 않았다 — 이 테스트가 지키는 것은 "기록한 입력이 그대로 재생된다"이지
+            // 몇 번 만에 죽는가가 아니다.
+            var commandList = new List<InputCommand>(64);
+            var hashList = new List<ulong>(64);
+            for (int i = 0; i < 48 && !source.BossDefeated; i++)
             {
-                InputCommand.None,
-                BombInput(),
-                InputCommand.None,
-                BombInput(),
-                InputCommand.None,
-                BombInput()
-            };
-            var hashes = new ulong[commands.Length];
-            for (int i = 0; i < commands.Length; i++)
-            {
-                recorder.Record(in commands[i]);
-                Step(source, commands[i]);
-                hashes[i] = Audit(source);
+                InputCommand command = i % 2 == 1
+                    ? BombInput()
+                    : InputCommand.None;
+                recorder.Record(in command);
+                Step(source, command);
+                commandList.Add(command);
+                hashList.Add(Audit(source));
             }
+            InputCommand[] commands = commandList.ToArray();
+            ulong[] hashes = hashList.ToArray();
             Assert.IsTrue(source.BossDefeated);
             Assert.IsTrue(HasEvent(
                 source.EventsThisTick,

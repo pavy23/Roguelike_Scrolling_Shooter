@@ -178,8 +178,14 @@ namespace Shmup.Core.Tests
         static bool DestroyEveryVulnerablePart(RunManager run, BattleSim battle)
         {
             bool midBossDefeated = false;
+            // **막이 넘어가면 멈춘다.** 소모전도 이제 전멸하면 즉시 다음 막으로
+            // 가므로(2026-08-04), 계속 부수면 3막까지 지나가 버린다. 이 헬퍼가
+            // 확인하려는 것은 "1막을 다 부수면 2막이 열린다"이다.
+            int startGroup = battle.WarshipActiveGroupIndex;
             for (int guard = 0; guard < battle.BossParts.Count + 1; guard++)
             {
+                if (battle.WarshipActiveGroupIndex != startGroup)
+                    return midBossDefeated;
                 int target = -1;
                 for (int i = 0; i < battle.BossParts.Count; i++)
                 {

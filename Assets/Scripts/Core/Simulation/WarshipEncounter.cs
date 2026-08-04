@@ -156,6 +156,20 @@ namespace Shmup.Core.Simulation
             }
             _parts = new ReadOnlyCollection<BossPartDefinition>(copy);
             _eventBuffer = new SimEvent[parts.Count + 6];
+
+            // **경고 구간부터 1막 높이에 있다.** 예전에는 앵커가 0으로 시작해서,
+            // 경고가 끝나고 1막이 열리는 프레임에 목표(-4.5)로 뚝 떨어졌다 —
+            // 사람이 사진 두 장으로 보고한 그 끊김이다("처음엔 약간 위쪽에서
+            // 등장하다가 갑자기 아래 위치로 부자연스럽게 끊기듯 이동해").
+            //
+            // AnchorOffsetY는 그룹이 열리기 전(_activeGroupIndex < 0)에는
+            // _anchorTargetY를 그대로 돌려주므로, 여기서 1막 목표로 잡아 두면
+            // 등장부터 그 자리에 선다.
+            if (_definition.Groups.Count > 0)
+            {
+                _anchorTargetY = _definition.Groups[0].AnchorOffsetY;
+                _anchorFromY = _anchorTargetY;
+            }
             RefreshPartView();
         }
 
@@ -335,6 +349,14 @@ namespace Shmup.Core.Simulation
             }
             if (!_tickOpen)
                 return;
+            // 소모전은 **네 문을 다 부숴야** 넘어간다 (사람 지시 2026-08-04:
+            // "아래 포대 4개가 다 부서지지도 않았는데 끝나버리는데 다 부숴야
+            // 페이즈 3으로 이동하도록 고쳐줘").
+            //
+            // 파괴는 ApplyDamageCore에서 IsGroupDestroyed로 이미 처리한다 —
+            // 여기 남은 타이머는 **교착 방지 안전장치**다. 포탑 하나가 닿지 않는
+            // 자리에 서면 전투가 영원히 끝나지 않으므로 완전히 없애지는 않는다.
+            // 다만 정상 경로가 되면 안 되므로 데이터의 주기를 넉넉히 잡아야 한다.
             if (!_completed
                 && _activeGroupIndex >= 0
                 && _definition.Groups[_activeGroupIndex].Role
@@ -576,6 +598,12 @@ namespace Shmup.Core.Simulation
 
             if (!IsGroupDestroyed(_activeGroupIndex))
                 return;
+            if (group.Role == WarshipGroupRole.AttritionLine)
+            {
+                // 다 부쉈으면 타이머를 기다리지 않는다.
+                ActivateGroup(_activeGroupIndex + 1);
+                return;
+            }
             if (group.Role == WarshipGroupRole.MidbossGate)
             {
                 _midbossDefeated = true;

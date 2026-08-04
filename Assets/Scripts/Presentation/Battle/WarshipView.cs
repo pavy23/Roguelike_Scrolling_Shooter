@@ -170,8 +170,16 @@ namespace Shmup.Presentation.Battle
                 Rebuild(definition, parts);
 
             Vector3 bossWorld = _director.BossWorldPosition;
+            // **함체와 파츠를 한 덩어리로 움직인다.** 예전에는 함체와 하드포인트를
+            // 각각 절대 좌표로 놓았는데, Pixel Perfect 카메라가 렌더러마다 따로
+            // 픽셀 격자에 스냅해서 배가 움직일 때 서로 1px씩 어긋났다 — 사람이
+            // "약점들 위치의 그래픽도 끊기듯 부자연스럽다"고 한 것이 이것이다.
+            //
+            // 부모(_root)만 보스 위치로 옮기고 자식은 고정된 상대 좌표를 쓰면
+            // 통째로 같은 양만큼 스냅되므로 서로 어긋날 수 없다.
+            if (_root != null) _root.localPosition = bossWorld;
             SyncHull(parts, bossWorld);
-            SyncHardpoints(parts);
+            SyncHardpoints(parts, bossWorld);
             _visible = true;
         }
 
@@ -359,7 +367,7 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         void SyncPylon(int index, Vector3 partLocal, bool destroyed)
         {
-            float offsetY = partLocal.y - (_root != null ? _root.localPosition.y : 0f);
+            float offsetY = partLocal.y;
             // 함체 안에 있는 파츠는 기둥이 필요 없다 — 함미·코어와 안쪽 갑판 포탑이 여기다.
             float outward = Mathf.Abs(offsetY) - HullEdgeY;
             bool needed = !destroyed && outward > 0f;
@@ -380,7 +388,7 @@ namespace Shmup.Presentation.Battle
             // 함체 가장자리에서 포탑까지. 양 끝을 조금씩 물려 이음매가 뜨지 않게 한다.
             float sign = Mathf.Sign(offsetY);
             float span = outward + PylonOverlap * 2f;
-            float edgeY = (_root != null ? _root.localPosition.y : 0f) + sign * (HullEdgeY - PylonOverlap);
+            float edgeY = sign * (HullEdgeY - PylonOverlap);
             var pylon = _pylons[index];
             pylon.transform.localPosition = new Vector3(
                 partLocal.x, edgeY + sign * span * 0.5f, partLocal.z);
@@ -431,7 +439,7 @@ namespace Shmup.Presentation.Battle
                 _hullArt = EnsurePlate(_hullArt, "WarshipHull", _hullSprite, HullOrder);
                 if (_hullArt != null)
                 {
-                    _hullArt.transform.localPosition = bossWorld;
+                    _hullArt.transform.localPosition = Vector3.zero;
                     _hullArt.color = Color.white;
                     _hullArt.enabled = true;
                 }
@@ -468,7 +476,9 @@ namespace Shmup.Presentation.Battle
 
         // ── 파츠 그룹 ─────────────────────────────────────────────────────────
 
-        void SyncHardpoints(IReadOnlyList<BossPartState> parts)
+        void SyncHardpoints(
+            IReadOnlyList<BossPartState> parts,
+            Vector3 bossWorld)
         {
             int groupCount = _definition.Groups.Count;
 
@@ -510,7 +520,8 @@ namespace Shmup.Presentation.Battle
                 if (_partGroup[i] == 1 && !part.Destroyed) attritionAlive++;
                 if (renderer == null) continue;
 
-                renderer.transform.localPosition = SimView.ToWorld(part.X, part.Y);
+                renderer.transform.localPosition =
+                    SimView.ToWorld(part.X, part.Y) - bossWorld;
                 SyncPylon(i, renderer.transform.localPosition, part.Destroyed);
 
                 if (_lastHp[i] > part.Hp && !part.Destroyed) _hitFlash[i] = 0f;
