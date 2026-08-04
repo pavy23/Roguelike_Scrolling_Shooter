@@ -34,11 +34,29 @@ unity build --target WebGL \
   --log-file build.log --no-tail --non-interactive --no-banner
 
 # 4. 헤드리스 플레이 확인 (화면을 실제로 본다)
-cd Builds/Web && python -m http.server 8099 --bind 127.0.0.1 &
+#
+# **서버는 이미 떠 있으면 다시 띄우지 마라.** 검증할 때마다 새로 띄우면 같은
+# 포트라 첫 번째만 듣고 나머지는 좀비로 쌓인다 — 2026-08-04에 11개까지 쌓였고
+# 사람이 "지금 실행중인건 뭐야?"라고 묻고서야 알았다. 공유 PC다 (AGENTS.md §9).
+curl -s -o /dev/null http://127.0.0.1:8099/index.html   || (cd Builds/Web && python -m http.server 8099 --bind 127.0.0.1 &)
 node Tools/QaHarness/rss-verify.js --stage 3 --warp boss --seconds 60 --out ./out/check
 ```
 
 `unity` CLI를 쓴다. **`Unity.exe -batchmode` 직접 호출 금지** (사람 지시).
+
+## 끝나고 치울 것
+
+헤드리스 확인이 끝나면 남긴 프로세스를 확인해라. 하네스(puppeteer)는 스스로
+브라우저를 닫지만 **로컬 서버는 안 닫힌다.**
+
+```bash
+# 지금 떠 있는 내 서버 보기
+powershell -Command "Get-CimInstance Win32_Process -Filter \"Name like 'python%'\" |
+  Where-Object { \$_.CommandLine -match 'http.server 8099' } |
+  Select-Object ProcessId"
+```
+
+세션을 마칠 때는 정리한다. 하나만 남기고 재사용하는 편이 낫다.
 
 ## 실패를 읽는 법
 
