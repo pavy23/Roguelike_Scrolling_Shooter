@@ -585,9 +585,20 @@ namespace Shmup.Core.Simulation
         ///
         /// 그래서 **앞으로 상대할 파츠까지** 함께 본다. 함체는 뒤에 나올 부위가
         /// 화면에 남는 선까지만 흘러간다.
+        ///
+        /// 다만 "화면에 남는다"를 화면 끝에 딱 붙이는 것으로 잡았더니 함체가
+        /// 왼쪽으로 밀려 섰다 (사람 보고 2026-08-05: "페이즈2때 보스 전함 위치를
+        /// 좀더 가운데쪽으로 옮기자. 지금 좀 왼쪽으로 치우쳐져 있음"). 2막 정지
+        /// 위치가 -9유닛이었는데 플레이어는 -13유닛에 있어서, 여섯 문 중 앞 두
+        /// 문이 **플레이어보다 왼쪽**에 섰다. 거기서 나간 겨냥탄은 플레이어 뒤에서
+        /// 생겨 그대로 화면 밖으로 빠졌다 — 2막 탄막 69발 중 24발이 그랬고,
+        /// 그래서 "탄막이 전혀 안 보인다"는 보고가 나왔다. 위치가 치우친 것과
+        /// 탄막이 안 보이는 것은 같은 원인이었다.
         /// </summary>
         long MaximumVisibleAttritionScrollOffset()
         {
+            long margin = (long)SimSpace.PlayfieldHalfWidthSubUnits
+                * AttritionLeftMarginPermille / 1000;
             long maximumOffset = long.MaxValue;
             for (int partIndex = 0; partIndex < _parts.Count; partIndex++)
             {
@@ -597,12 +608,24 @@ namespace Shmup.Core.Simulation
                     continue;
                 long partMaximum = (long)_definition.OriginX
                     + _parts[partIndex].OffsetX
-                    + SimSpace.PlayfieldHalfWidthSubUnits;
+                    + SimSpace.PlayfieldHalfWidthSubUnits
+                    - margin;
                 if (partMaximum < maximumOffset)
                     maximumOffset = partMaximum;
             }
             return maximumOffset;
         }
+
+        /// <summary>
+        /// 소모전 정지선을 화면 왼쪽 끝에서 얼마나 안쪽에 둘 것인가 (화면 반폭 기준
+        /// 천분율).
+        ///
+        /// 화면 반폭의 45%다. 절대 좌표가 아니라 비율인 이유: 해상도나 플레이필드가
+        /// 바뀌어도 "가장자리에 붙지 않는다"는 의도가 유지돼야 한다. 이 값에서
+        /// 정지 위치가 나온다 — 정지 X = 여백 - (가장 왼쪽 파츠 오프셋의 절대값을
+        /// 화면 반폭에서 뺀 값). 전함 기준으로 -9유닛이던 것이 0유닛이 된다.
+        /// </summary>
+        const int AttritionLeftMarginPermille = 450;
 
         void ApplyDamageCore(in WarshipDamageCommand command)
         {

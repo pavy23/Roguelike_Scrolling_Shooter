@@ -122,6 +122,7 @@ namespace Shmup.Core.Tests
 
             var seenBullets = new HashSet<int>();
             var seenLasers = new HashSet<int>();
+            int spawnedBehindPlayer = 0;
             int observed = 0;
             for (; observed < ObservationTicks; observed++)
             {
@@ -130,8 +131,14 @@ namespace Shmup.Core.Tests
                 for (int i = 0; i < battle.Bullets.Count; i++)
                 {
                     BulletState bullet = battle.Bullets[i];
-                    if (bullet.Faction == BulletFaction.Enemy)
-                        seenBullets.Add(bullet.Id);
+                    if (bullet.Faction != BulletFaction.Enemy)
+                        continue;
+                    if (!seenBullets.Add(bullet.Id))
+                        continue;
+                    // 플레이어보다 왼쪽에서 생긴 탄은 플레이어를 향해 날아갈 수
+                    // 없다 — 뒤에서 생겨 그대로 화면 밖으로 빠진다.
+                    if (bullet.X < battle.PlayerX)
+                        spawnedBehindPlayer++;
                 }
                 for (int i = 0; i < battle.Lasers.Count; i++)
                 {
@@ -150,6 +157,25 @@ namespace Shmup.Core.Tests
                 seenBullets.Count,
                 0,
                 "2막에서 탄막이 한 발도 나오지 않았다.");
+
+            // "탄이 생성됐다"와 "탄이 보인다"는 다르다. 함체가 왼쪽으로 밀려
+            // 서면 앞쪽 포탑이 플레이어보다 왼쪽에 놓이고, 거기서 나간 겨냥탄은
+            // 플레이어 뒤에서 생겨 화면 밖으로 빠진다. 실제로 69발 중 24발이
+            // 그랬고 사람에게는 "탄막이 전혀 안 보인다"로 보였다.
+            Assert.AreEqual(
+                0,
+                spawnedBehindPlayer,
+                $"{seenBullets.Count}발 중 {spawnedBehindPlayer}발이 플레이어 "
+                + "뒤에서 생겼다 — 함체가 왼쪽으로 너무 밀려 섰다.");
+
+            // 2막 정지 위치가 화면 중앙 근처여야 한다 (사람 지시 2026-08-05:
+            // "좀더 가운데쪽으로"). 절대 좌표 대신 화면 반폭 대비로 본다.
+            int restX = battle.WarshipWorldX;
+            Assert.LessOrEqual(
+                System.Math.Abs(restX),
+                SimSpace.PlayfieldHalfWidthSubUnits / 3,
+                $"2막 함체가 x={restX / (double)SimSpace.SubUnitsPerWorldUnit:F1}"
+                + "유닛에 섰다 — 화면 중앙에서 너무 벗어났다.");
 
             // 관측 창에서 실측한 발사율도 상한 안이어야 한다. 데이터 검사만으로는
             // 파서가 값을 흘렸는지 알 수 없다.
