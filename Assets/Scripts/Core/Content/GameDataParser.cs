@@ -378,7 +378,9 @@ namespace Shmup.Core.Content
                 ToSubUnits(
                     Require(source.fullHalfWidth, path + ".fullHalfWidth"),
                     path + ".fullHalfWidth"),
-                Require(source.damage, path + ".damage"));
+                Require(source.damage, path + ".damage"),
+                // 없으면 false — 기존 데이터는 전부 방향 고정이다.
+                source.aimsAtPlayer ?? false);
         }
 
         static EnemyMovementParseResult ParseLegacyMovement(EnemyDto source, string path)

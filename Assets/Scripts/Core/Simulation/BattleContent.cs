@@ -669,7 +669,8 @@ namespace Shmup.Core.Simulation
             int endOffsetY,
             int thinHalfWidth,
             int fullHalfWidth,
-            int damage)
+            int damage,
+            bool aimsAtPlayer = false)
         {
             if (cycleIntervalTicks < 1)
                 throw new ArgumentOutOfRangeException(nameof(cycleIntervalTicks));
@@ -720,6 +721,7 @@ namespace Shmup.Core.Simulation
             ThinHalfWidth = thinHalfWidth;
             FullHalfWidth = fullHalfWidth;
             Damage = damage;
+            AimsAtPlayer = aimsAtPlayer;
         }
 
         public int CycleIntervalTicks { get; }
@@ -734,6 +736,20 @@ namespace Shmup.Core.Simulation
         public int ThinHalfWidth { get; }
         public int FullHalfWidth { get; }
         public int Damage { get; }
+
+        /// <summary>
+        /// 예고 시작 순간 플레이어 쪽으로 방향을 정하는가 (2026-08-04).
+        ///
+        /// **한 번만 조준한다.** 계속 따라다니면 피할 수 없고, 고정이면 서 있기만
+        /// 해도 안 맞는다 — 사람이 "처음 주인공 기체 위치를 서칭한번 하고 그 쪽으로
+        /// 발사"라고 한 그 중간이다. 조준 시점이 예고 시작인 것이 중요하다:
+        /// 예고선이 뜬 뒤 움직이면 피할 수 있어야 한다.
+        ///
+        /// 길이는 여기서 정하지 않는다 — BattleSim이 화면 끝까지 늘린다.
+        /// 여기서 정하는 것은 **방향**뿐이다.
+        /// </summary>
+        public bool AimsAtPlayer { get; }
+
         public int LifetimeTicks =>
             TelegraphTicks + FiringTicks + SustainTicks + DissipateTicks;
     }

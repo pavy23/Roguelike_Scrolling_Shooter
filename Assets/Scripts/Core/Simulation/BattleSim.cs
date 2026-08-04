@@ -5693,6 +5693,65 @@ namespace Shmup.Core.Simulation
                 _bossY);
         }
 
+        /// <summary>
+        /// 발사구에서 플레이어를 향하도록 끝 오프셋을 돌린다 (사람 지시 2026-08-04:
+        /// "처음 주인공 기체 위치를 서칭한번 하고 그 쪽으로 발사").
+        ///
+        /// 길이는 의미가 없다 — BattleSim이 어차피 화면 끝까지 늘린다. 여기서
+        /// 정하는 것은 **방향**뿐이므로, 원래 길이를 그대로 쓰되 방향만 바꾼다.
+        /// 플레이어가 발사구와 같은 자리면 돌릴 방향이 없으니 원본을 둔다.
+        /// </summary>
+        LaserAttackDefinition AimLaserAtPlayer(
+            LaserAttackDefinition definition,
+            int sourceX,
+            int sourceY)
+        {
+            long muzzleX = (long)sourceX + definition.StartOffsetX;
+            long muzzleY = (long)sourceY + definition.StartOffsetY;
+            long toPlayerX = PlayerX - muzzleX;
+            long toPlayerY = PlayerY - muzzleY;
+            if (toPlayerX == 0 && toPlayerY == 0)
+                return definition;
+
+            long spanX = (long)definition.EndOffsetX - definition.StartOffsetX;
+            long spanY = (long)definition.EndOffsetY - definition.StartOffsetY;
+            long reach = IntegerLength(spanX, spanY);
+            if (reach <= 0)
+                return definition;
+
+            long distance = IntegerLength(toPlayerX, toPlayerY);
+            if (distance <= 0)
+                return definition;
+
+            // 방향 단위벡터를 원래 사거리로 되돌린다 (정수 나눗셈 = 절삭, 결정론).
+            long endX = definition.StartOffsetX + toPlayerX * reach / distance;
+            long endY = definition.StartOffsetY + toPlayerY * reach / distance;
+            if (endX == definition.StartOffsetX && endY == definition.StartOffsetY)
+                return definition;   // 생성자가 같은 끝점을 거부한다
+
+            return CloneLaser(
+                definition,
+                definition.StartOffsetX,
+                definition.StartOffsetY,
+                SaturateToInt(endX),
+                SaturateToInt(endY));
+        }
+
+        /// <summary>정수 벡터 길이 (뉴턴법 제곱근). float를 쓰지 않는다 — AGENTS.md §4.</summary>
+        static long IntegerLength(long x, long y)
+        {
+            long squared = x * x + y * y;
+            if (squared <= 0) return 0;
+            long guess = squared;
+            long next = (guess + 1) / 2;
+            while (next < guess)
+            {
+                guess = next;
+                next = (guess + squared / guess) / 2;
+            }
+            return guess;
+        }
+
         static LaserAttackDefinition MirrorLaserVertically(
             LaserAttackDefinition source)
         {
@@ -5735,7 +5794,8 @@ namespace Shmup.Core.Simulation
                 endY,
                 source.ThinHalfWidth,
                 source.FullHalfWidth,
-                source.Damage);
+                source.Damage,
+                source.AimsAtPlayer);
         }
 
         void TrySpawnBossScrap(Generation.BossPhase phase)
@@ -7718,6 +7778,11 @@ namespace Shmup.Core.Simulation
                 throw new InvalidOperationException(
                     "The laser id counter is exhausted.");
             int id = _nextLaserId++;
+            // 조준 레이저는 **이 순간 한 번** 플레이어 쪽으로 방향을 정하고, 그
+            // 방향을 이 발사 내내 유지한다. 정의를 복제해 넣으므로 이후 틱에서
+            // 다시 조준되지 않는다 — 계속 따라오면 피할 수 없다.
+            if (definition.AimsAtPlayer)
+                definition = AimLaserAtPlayer(definition, sourceX, sourceY);
             _laserDefinitions.Add(definition);
             _laserAges.Add(0);
             _lasers.Add(CreateLaserState(

@@ -126,6 +126,9 @@ namespace Shmup.Core.Content
         public decimal? fullHalfWidth;
         [DataMember]
         public int? damage;
+        /// <summary>예고 시작 순간 플레이어 쪽으로 방향을 정한다 (한 번만).</summary>
+        [DataMember]
+        public bool? aimsAtPlayer;
     }
 
     [DataContract]

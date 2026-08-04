@@ -526,11 +526,19 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException(
                     "Scrap-throw signatures require positive obstacle HP and gravity.",
                     nameof(signaturePattern));
+            // 유도율 0을 허용한다 (2026-08-04). 예전에는 1 이상을 강제해서,
+            // "발사된 다음에는 유도하지 마라"는 요구를 데이터로 표현할 방법이
+            // 없었다 — 유도를 끄려면 Brood 시그니처를 통째로 빼는 수밖에 없었고,
+            // 그러자 **소환 패턴까지 같이 사라졌다**(사람 보고: "하이브보스 마지막
+            // 유도탄 패턴이 아예 없어졌네").
+            //
+            // 0은 "조준은 발사 순간에만, 그 뒤로는 직진"이라는 뜻이다. 소환은
+            // 그대로 일어난다. 소환 대상 id는 여전히 필수다 — 그게 없으면
+            // 시그니처가 아무 일도 하지 않는다.
             if (signaturePattern == BossSignaturePattern.Brood
-                && (string.IsNullOrEmpty(signatureSpawnEnemyId)
-                    || signatureHomingTurnLutSlotsPerTick < 1))
+                && string.IsNullOrEmpty(signatureSpawnEnemyId))
                 throw new ArgumentException(
-                    "Brood signatures require a spawn enemy id and positive homing turn rate.",
+                    "Brood signatures require a spawn enemy id.",
                     nameof(signaturePattern));
             if ((signaturePattern == BossSignaturePattern.LaserGrid
                     || signaturePattern == BossSignaturePattern.Lightning
