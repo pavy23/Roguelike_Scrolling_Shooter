@@ -86,8 +86,10 @@ namespace Shmup.Presentation.Battle
             _clearArt.preserveAspect = true;
             var artRect = _clearArt.rectTransform;
             artRect.anchorMin = artRect.anchorMax = artRect.pivot = new Vector2(0.5f, 1f);
-            artRect.anchoredPosition = new Vector2(0f, 150f);
-            artRect.sizeDelta = new Vector2(256f, 144f);
+            // 원본이 320x180(참조 해상도 640x360의 정확히 절반)이라 정수배로 그린다 —
+            // 어중간한 배율은 픽셀 아트에서 계단이 뭉개진다.
+            artRect.anchoredPosition = new Vector2(0f, 176f);
+            artRect.sizeDelta = new Vector2(320f, 180f);
             _clearArt.enabled = false;
 
             _titleText = UiKit.CreateCornerText(panel, _fontBold, UiText.GameOverTitle, 22, UiKit.TextDanger,
