@@ -206,16 +206,14 @@ static class Program
     const double BombKillExpClearRatioMax = 1.40; // bomb splash kills never reseed kill_explosion
     const double BombKillExpVsBaselineWarn = 5.0;
 
-    // REQ-035/116 colossal bosses (provisional §7).
-    // Hidden after 5 biomes: endgame reach ~1000 DPS → total TTK ~62s ≈ 2.2–2.5×
-    // normal boss mid band (~25s). Multipart retarget tax → full-eff ~1500, floor ≥40s.
-    // 2026-08-04: 절대 HP를 코드에 복사해 두는 것을 그만둔다. 그 게이트는 밸런스가
-    // 움직일 때마다 깨지고, 깨져도 "숫자가 다르다"밖에 말하지 않는다 — 오늘만
-    // 62_000 → 38_000 한 번에 다섯 게이트가 무너졌다.
+    // REQ-035/116/169 colossal bosses (provisional §7).
+    // Hidden after 5 biomes: endgame reach ~1000 DPS. Multipart retarget tax →
+    // full-eff ~1500. 2026-08-04: 절대 HP를 코드에 복사해 두지 않는다.
     //
-    // 대신 **설계 의도를 관계로** 적는다: 히든 보스는 공개 최종 보스보다 확실히
-    // 무겁되, 지구력 시험이 될 만큼은 아니다. 실제로 62_000이었을 때 최대 파워로
-    // 480초를 때려도 마지막 페이즈를 못 봤다(헤드리스 측정).
+    // 설계 의도(관계): 히든 본체는 공개 **최종** 보스(core, 전함 세트피스 제외)
+    // 대비 1.15~1.80배. REQ-169 사람 확정: 본체 50_000 (core 28k의 1.79배) —
+    // 전함(44k)보다 무겁고 구 62k보다는 가볍다. 헤드리스 "480초 미달"은 조준
+    // 없는 하네스 측정(실측 ~141 HP/s)이었고, form2 누락 버그도 겹쳐 있었다.
     const double ColossalVsHeaviestPublicMin = 1.15;
     const double ColossalVsHeaviestPublicMax = 1.80;
     // 코어는 마지막 페이즈 문턱(20%) 아래여야 한다 — 그래야 코어만 남았을 때
@@ -223,12 +221,14 @@ static class Program
     const double ColossalCoreShareMax = 0.20;
     const double ColossalExpectedDps = 1000.0;
     const double ColossalFullPowerEffectiveDps = 1500.0;
-    const double ColossalTtkExpectedMin = 50.0;
-    const double ColossalTtkExpectedMax = 70.0;
-    const double ColossalTtkFullMin = 40.0;
-    // REQ-116: 3-act fight TTK / mean normal-boss TTK band.
-    const double ColossalVsNormalTtkMinRatio = 2.0;
-    const double ColossalVsNormalTtkMaxRatio = 2.5;
+    // 50k @1000 DPS = 50s · @1500 full-eff ≈ 33s. 구 62k 밴드([50,70]/≥40)는
+    // 절대 HP 락과 같아서 REQ-169 본체에 맞춰 완화한다.
+    const double ColossalTtkExpectedMin = 45.0;
+    const double ColossalTtkExpectedMax = 60.0;
+    const double ColossalTtkFullMin = 30.0;
+    // body+form2 대비 평균 공개 보스 전투 TTK. 50k+7.5k≈57s / mean~40s ≈ 1.4.
+    const double ColossalVsNormalTtkMinRatio = 1.20;
+    const double ColossalVsNormalTtkMaxRatio = 1.80;
     const double ColossalHoldX = 9.0;
     const double ColossalLeviHalfW = 9.8;
     const double ColossalLeviHalfH = 10.0;
@@ -5357,8 +5357,10 @@ static class Program
 
 
     /// <summary>
-    /// 공개 캠페인에서 가장 무거운 보스의 HP. 히든 보스가 "얼마나 더 무거운가"를
-    /// 절대 수치가 아니라 이것과의 비율로 판단하기 위한 기준이다.
+    /// 공개 캠페인 **최종 보스** 기준 HP. 히든이 "얼마나 더 무거운가"를
+    /// 절대 수치가 아니라 이것과의 비율로 판단한다.
+    /// 전함(warship setpiece)은 제외 — REQ-168로 44k까지 올린 3막 세트피스라
+    /// 최종 보스(core)와 성격이 다르고, 포함하면 히든 50k가 1.14배로 하한에 걸린다.
     /// </summary>
     static int HeaviestPublicBossHp(StageGenerationCatalog catalog)
     {
@@ -5374,6 +5376,9 @@ static class Program
                     boss.BossId,
                     SegmentStageGenerator.BroodmotherBossId,
                     StringComparison.Ordinal))
+                continue;
+            // 전함 조우 세트피스는 "공개 최종 보스" 비교 대상이 아니다.
+            if (boss.WarshipEncounter != null)
                 continue;
             if (boss.MaxHp > heaviest) heaviest = boss.MaxHp;
         }
