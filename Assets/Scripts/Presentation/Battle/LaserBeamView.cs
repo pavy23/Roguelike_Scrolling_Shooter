@@ -48,7 +48,17 @@ namespace Shmup.Presentation.Battle
         [SerializeField] Transform _root;
 
         [Tooltip("동시에 그릴 수 있는 레이저 수. Core의 MaxLasers와 맞춘다.")]
-        [SerializeField] int _capacity = 8;
+        /// <summary>
+        /// 동시에 그릴 수 있는 빔 수. **모자라면 넘치는 빔은 아예 안 그려진다** —
+        /// 판정은 살아 있는데 화면에 없으니 "레이저가 중간에 끊긴다"로 보인다
+        /// (사람 보고 2026-08-04).
+        ///
+        /// 8은 전함 포탑이 4문이던 시절 값이다. 지금은 포탑만 6문이고 여기에
+        /// 레이저 잡몹(laser_sentry · prism_beamer) 여러 마리와 플레이어 레이저가
+        /// 겹칠 수 있다. 렌더러는 풀이고 꺼져 있을 때는 비용이 없으므로 넉넉히
+        /// 잡는 편이 맞다.
+        /// </summary>
+        [SerializeField] int _capacity = 24;
 
         // ── 색 ────────────────────────────────────────────────────────────────
         // 적 빔은 적색 계열, 아군(PRISM BEAM)은 시안 계열로 갈라 둔다. 화면에 둘이
