@@ -2840,6 +2840,13 @@ namespace Shmup.Core.Simulation
             _warshipEncounter == null
                 ? 0
                 : _warshipEncounter.DestroyedAttritionParts;
+        /// <summary>
+        /// 함체 중심의 세계 X. 파츠 오프셋의 기준선이다 — 보스 본체 좌표(HoldX)와
+        /// 전혀 다른 값이라, 앞/뒤를 가르려면 반드시 이쪽을 봐야 한다.
+        /// </summary>
+        public int WarshipWorldX =>
+            _warshipEncounter != null ? _warshipEncounter.WorldX : 0;
+
         public int WarshipAnchorOffsetY =>
             _warshipEncounter != null ? _warshipEncounter.AnchorOffsetY : 0;
 
@@ -6283,6 +6290,7 @@ namespace Shmup.Core.Simulation
 
         void UpdateActiveBossPartAttacks()
         {
+            PrimeWarshipMovingFireCooldowns();
             for (int i = 0; i < _bossPartDefinitions.Count; i++)
             {
                 BossPartState state = _bossPartStates[i];
@@ -8138,6 +8146,76 @@ namespace Shmup.Core.Simulation
         /// 지금 열려 있는 막의 파츠에만 적용한다 — 다른 막의 파츠는 어차피
         /// 무적이라 여기까지 오지 않는다.
         /// </summary>
+        /// <summary>
+        /// 이동 중인 전함의 **앞쪽** 포탑이 이동 창 안에서 실제로 한 발씩 쏘도록
+        /// 첫 발 쿨다운을 당긴다.
+        ///
+        /// 왜 필요한가: 2막 포탑 주기는 560~1060틱(9~18초)인데 함체 이동은
+        /// 240틱(4초)이다. 막이 시작될 때 쿨다운을 통째로 깔면 이동하는 4초
+        /// 동안 아무도 발사 시점에 도달하지 못한다. 그래서 "이동 중엔 앞의 3개가
+        /// 쏜다"는 규칙을 넣어도 화면에는 아무 변화가 없었다 — 억제할 발사 자체가
+        /// 없었기 때문이다.
+        ///
+        /// 배치 방식: 앞쪽 포탑 n개를 이동 구간에 고르게 끼워 넣는다. k번째는
+        /// travel*k/(n+1) 틱에 쏜다. 3개·240틱이면 60/120/180틱 — 넷으로 나눈
+        /// 자리라 시작·도착 순간과 겹치지 않는다. 쿨다운을 **줄이기만** 하므로
+        /// 매 틱 호출해도 결과가 같고(멱등), 데이터의 주기값을 늘리거나 하드코딩된
+        /// 숫자를 새로 만들지 않는다.
+        /// </summary>
+        void PrimeWarshipMovingFireCooldowns()
+        {
+            if (_warshipEncounter == null || !_warshipEncounter.AnchorMoving)
+                return;
+            int travel = _warshipEncounter.ActiveAnchorTravelTicks;
+            if (travel <= 0)
+                return;
+            int elapsed = _warshipEncounter.ActiveAnchorElapsedTicks;
+            int frontCount = 0;
+            for (int i = 0; i < _bossPartDefinitions.Count; i++)
+            {
+                if (IsWarshipMovingFireEligible(i))
+                    frontCount++;
+            }
+            if (frontCount == 0)
+                return;
+            int slot = 0;
+            for (int i = 0; i < _bossPartDefinitions.Count; i++)
+            {
+                if (!IsWarshipMovingFireEligible(i))
+                    continue;
+                slot++;
+                int targetTick = (int)((long)travel * slot / (frontCount + 1));
+                // **목표 시점을 지나면 손을 뗀다.** 계속 눌러 두면 발사 직후
+                // 되돌아온 쿨다운까지 매 틱 0으로 깎여 한 문이 연사하고, 레이저
+                // 슬롯을 다 먹어 나머지 포탑이 아예 못 쏜다 — 실제로 그렇게 돼서
+                // 앞쪽 세 문 중 하나만 나갔다.
+                if (elapsed >= targetTick)
+                    continue;
+                int remaining = targetTick - elapsed;
+                if (_bossPartFireCooldowns[i] > remaining)
+                    _bossPartFireCooldowns[i] = remaining;
+            }
+        }
+
+        /// <summary>
+        /// 이동 중에 쏠 자격이 있는 파츠인가 — 살아 있고, 뒤쪽이라 쉬는 대상이
+        /// 아니고, 실제로 발사 쿨다운을 쓰는 공격을 가진 파츠.
+        /// </summary>
+        bool IsWarshipMovingFireEligible(int partIndex)
+        {
+            BossPartState state = _bossPartStates[partIndex];
+            if (state.Destroyed
+                || !state.Active
+                || IsBossPartInvulnerable(partIndex)
+                || IsWarshipPartHoldingFireWhileMoving(partIndex))
+                return false;
+            BossPartAttackType type = GetBossPartAttack(partIndex).Type;
+            return type != BossPartAttackType.None
+                && type != BossPartAttackType.VerticalMovement
+                && type != BossPartAttackType.MeleeCharge
+                && type != BossPartAttackType.Suction;
+        }
+
         bool IsWarshipPartHoldingFireWhileMoving(int partIndex)
         {
             if (_warshipEncounter == null

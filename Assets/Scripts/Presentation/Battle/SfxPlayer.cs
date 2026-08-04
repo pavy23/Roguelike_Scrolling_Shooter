@@ -104,19 +104,28 @@ namespace Shmup.Presentation.Battle
             // 같은 이유로 적대 레이저 발사가 채널을 먼저 잡는다. 플레이어 빔 점화가
             // 같은 틱에 끼면 (거의 안 들리는 0.15로) 적 레이저를 삼켜 버린다 —
             // 나를 노리는 빔이 내가 켠 빔에 묻히는 것이 가장 나쁜 경우다.
+            // **첫 빔이 아니라 가장 굵은 빔으로 고른다.** 처음에는 첫 이벤트에서
+            // 곧장 break했는데, 코어의 초대형 빔은 포탑 빔들과 같은 틱에 점화되는
+            // 일이 흔하다. 얇은 쪽이 먼저 오면 채널을 먹고 끝나서, 화면에는 반폭
+            // 5유닛 빔이 나가는데 귀에는 잡몹 발사음만 들렸다.
+            int widestHalfWidth = -1;
             for (int i = 0; i < events.Length; i++)
             {
                 if (events[i].Type != SimEventType.LaserFired
                     || !_hostileLasers.Contains(events[i].EntityId))
                     continue;
                 // LaserFired의 Arg는 그 빔의 반폭이다 — 굵기로 소리를 고른다.
-                bool heavy = events[i].Arg >= HeavyBeamHalfWidthSubUnits
+                if (events[i].Arg > widestHalfWidth)
+                    widestHalfWidth = events[i].Arg;
+            }
+            if (widestHalfWidth >= 0)
+            {
+                bool heavy = widestHalfWidth >= HeavyBeamHalfWidthSubUnits
                     && _laserFireHeavy != null;
                 PlayOnce(
                     16,
                     heavy ? _laserFireHeavy : _laserFire,
                     heavy ? HeavyBeamFireVolume : HostileLaserFireVolume);
-                break;
             }
 
             for (int i = 0; i < events.Length; i++)

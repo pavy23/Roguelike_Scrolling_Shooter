@@ -221,6 +221,21 @@ namespace Shmup.Core.Simulation
             }
         }
 
+        /// <summary>
+        /// 지금 막의 함체 이동 길이(틱). 0이면 그 막은 제자리에서 시작한다.
+        ///
+        /// BattleSim이 이 값을 알아야 하는 이유: 2막 포탑 주기는 560~1060틱인데
+        /// 이동은 240틱이다. 막이 바뀔 때 쿨다운을 통째로 깔면 이동 4초 동안
+        /// **한 발도** 안 나가서 "이동 중엔 앞 3개만" 규칙이 발동할 기회조차
+        /// 없다. 앞쪽 포탑의 첫 발을 이 창 안에 배치하려고 노출한다.
+        /// </summary>
+        public int ActiveAnchorElapsedTicks => _anchorElapsedTicks;
+
+        public int ActiveAnchorTravelTicks =>
+            _activeGroupIndex < 0
+                ? 0
+                : _definition.Groups[_activeGroupIndex].AnchorTravelTicks;
+
         public int AnchorTravelPermille
         {
             get
