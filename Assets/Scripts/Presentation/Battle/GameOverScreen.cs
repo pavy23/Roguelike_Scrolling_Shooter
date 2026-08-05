@@ -50,7 +50,7 @@ namespace Shmup.Presentation.Battle
         int _shownContinueStock = -1;
 
         /// <summary>버튼 열 좌표. 컨티뉴가 끼면 두 칸이 양옆으로 밀린다.</summary>
-        const float TouchButtonY = 44f;
+        const float TouchButtonY = 36f;
         const float TouchButtonSpread = 66f;
         const float TouchButtonSpreadWide = 132f;
         const float SubmitY = 40f;
@@ -121,19 +121,26 @@ namespace Shmup.Presentation.Battle
             _clearArt.enabled = false;
 
             _titleText = UiKit.CreateCornerText(panel, _fontBold, UiText.GameOverTitle, 20, UiKit.TextDanger,
-                new Vector2(0.5f, 1f), new Vector2(0f, -172f), TextAnchor.UpperCenter, "Title");
+                new Vector2(0.5f, 1f), new Vector2(0f, -170f), TextAnchor.UpperCenter, "Title");
             _scoreText = UiKit.CreateCornerText(panel, _fontBold, "", 11, UiKit.TextAccent,
-                new Vector2(0.5f, 1f), new Vector2(0f, -198f), TextAnchor.UpperCenter, "Score");
+                new Vector2(0.5f, 1f), new Vector2(0f, -194f), TextAnchor.UpperCenter, "Score");
             _statsText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextMain,
-                new Vector2(0.5f, 1f), new Vector2(0f, -214f), TextAnchor.UpperCenter, "Stats");
+                new Vector2(0.5f, 1f), new Vector2(0f, -209f), TextAnchor.UpperCenter, "Stats");
             _extraText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextDim,
-                new Vector2(0.5f, 1f), new Vector2(0f, -230f), TextAnchor.UpperCenter, "Extra");
+                new Vector2(0.5f, 1f), new Vector2(0f, -254f), TextAnchor.UpperCenter, "Extra");
+            // 완주 본문은 유일하게 긴 문장이라 패널 폭(400)을 넘겼다 — 텍스트 상자가
+            // 300 고정이고 넘침 모드가 Overflow라 그냥 삐져나온다 (사람 보고
+            // 2026-08-05: "글자가 삐져나오잖아"). 이 줄만 상자를 패널 안쪽 폭으로
+            // 넓히고 **줄바꿈**을 켠다. 두 줄이 되어도 아래 줄과 겹치지 않도록
+            // 아래 두 줄(모디파이어·보너스)은 그만큼 내려 잡았다.
+            _extraText.rectTransform.sizeDelta = new Vector2(372f, 30f);
+            _extraText.horizontalOverflow = HorizontalWrapMode.Wrap;
             _modifierText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextAccent,
-                new Vector2(0.5f, 1f), new Vector2(0f, -246f), TextAnchor.UpperCenter, "Modifiers");
+                new Vector2(0.5f, 1f), new Vector2(0f, -224f), TextAnchor.UpperCenter, "Modifiers");
             // 실드 보너스(REQ-105)와 컨티뉴 사용 표시(REQ-104). 둘 다 "이 점수가 어떻게
             // 만들어졌는가"에 대한 단서라 점수 줄과 같은 앰버 계열로 한 줄에 둔다.
             _bonusText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextAccent,
-                new Vector2(0.5f, 1f), new Vector2(0f, -262f), TextAnchor.UpperCenter, "Bonus");
+                new Vector2(0.5f, 1f), new Vector2(0f, -239f), TextAnchor.UpperCenter, "Bonus");
             // 그림 유무에 따라 통째로 끌어올릴 대상 (아래 앵커 요소는 패널 높이를
             // 따라오므로 여기 넣지 않는다).
             foreach (var text in new[]
@@ -171,7 +178,7 @@ namespace Shmup.Presentation.Battle
             _continueLabel = _continueButton.GetComponentInChildren<Text>();
             _continueWarning = UiKit.CreateCornerText(panel, _font, UiText.ContinueWarning, 9,
                 UiKit.TextDanger, new Vector2(0.5f, 0f),
-                new Vector2(0f, touch ? 82f : 72f), TextAnchor.LowerCenter, "ContinueWarning");
+                new Vector2(0f, touch ? 74f : 66f), TextAnchor.LowerCenter, "ContinueWarning");
             _continueButton.gameObject.SetActive(false);
             _continueWarning.gameObject.SetActive(false);
 
@@ -179,7 +186,7 @@ namespace Shmup.Presentation.Battle
             // 지켜 헤어라인 셀로 둔다 — 제출은 선택지지 이 화면의 주 동작이 아니다.
             _submitButton = UiKit.CreateTouchButton(panel, _font, SubmitIdleLabel, 11,
                 new Vector2(0.5f, 0f),
-                touch ? new Vector2(0f, 8f) : new Vector2(0f, SubmitY),
+                touch ? new Vector2(0f, 4f) : new Vector2(0f, SubmitY),
                 touch ? new Vector2(256f, 30f) : new Vector2(160f, 28f),
                 SubmitScore, "SubmitButton");
             _submitLabel = _submitButton.GetComponentInChildren<Text>();

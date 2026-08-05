@@ -37,8 +37,8 @@ namespace Shmup.Presentation.Battle
 
         /// <summary>미지의 구역까지 잡은 완전 클리어.</summary>
         public const string RunClearedPerfectBody =
-            "YOU BROKE THROUGH THE UNCHARTED ZONE. "
-            + "NOTHING THIS GAME HID IS STILL HIDDEN.";
+            "UNCHARTED ZONE BREACHED. "
+            + "NOTHING THIS GAME HID REMAINS HIDDEN.";
 
         /// <summary>일반 완주 + 히든 조건을 이미 채웠던 경우.</summary>
         public const string RunClearedHiddenReadyBody =
