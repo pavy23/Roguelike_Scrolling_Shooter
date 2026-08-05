@@ -169,7 +169,16 @@ namespace Shmup.Core.Simulation
         /// EntityId = boss id, X/Y = blocked bullet impact point,
         /// Arg = 0 damage, PartId = invulnerable part id.
         /// </summary>
-        BossPartHitBlocked = 50
+        BossPartHitBlocked = 50,
+        /// <summary>
+        /// 근접 공격 예고. EntityId = 보스 id, X/Y = 그 파츠 위치,
+        /// Arg = 예고 길이(틱), PartId = 예고 중인 파츠 id.
+        ///
+        /// 사람 지시 2026-08-05: 레비아탄 낫팔 휘두르기 / 브루드마더 촉수 찌르기에
+        /// "번쩍임 등으로 사전 예고"가 있어야 한다. 근접 공격은 본체가 통째로
+        /// 앞으로 밀고 들어오는 것이라, 예고가 없으면 피할 방법이 없다.
+        /// </summary>
+        BossPartMeleeTelegraphed = 51
     }
 
     /// <summary>One event that happened during the last Step. Coordinates are subunits.</summary>
@@ -1887,6 +1896,8 @@ namespace Shmup.Core.Simulation
         readonly bool _isMidBossBattle;
         int _bossId, _bossX, _bossY, _bossHp, _bossPhase, _bossAge, _bossFireCooldown;
         int _bossPhaseAge;
+        /// <summary>때릴 수 있는 파츠가 하나도 없는 상태가 이어진 틱 수.</summary>
+        int _bossNothingDamageableTicks;
         int _bossMovementAnchorY;
         int _bossMovementPhaseOffsetTicks;
         int _bossMovementTransitionOffsetX;
@@ -3336,6 +3347,30 @@ namespace Shmup.Core.Simulation
                 x,
                 y,
                 partIndex,
+                _bossPartDefinitions[partIndex].PartId);
+        }
+
+        /// <summary>
+        /// 파츠 이벤트인데 Arg에 파츠 index가 아니라 **다른 값**을 실어야 할 때.
+        /// 근접 예고는 연출이 예고 길이만큼 번쩍여야 해서 그 길이를 실어 보낸다 —
+        /// 파츠는 PartId로 찾으면 된다.
+        /// </summary>
+        void EmitBossPartEvent(
+            SimEventType type,
+            int x,
+            int y,
+            int arg,
+            int partIndex)
+        {
+            if (_eventCount == _events.Length)
+                throw new InvalidOperationException(
+                    "The preallocated simulation event buffer is exhausted.");
+            _events[_eventCount++] = new SimEvent(
+                type,
+                _bossId,
+                x,
+                y,
+                arg,
                 _bossPartDefinitions[partIndex].PartId);
         }
 
@@ -5208,6 +5243,7 @@ namespace Shmup.Core.Simulation
 
             _bossAge++;
             AdvanceTimedBossPhase();
+            AdvanceBossPhaseIfNothingIsDamageable();
             EmitPendingBossTelegraph();
             Generation.BossPhase phase = _bossPhases[_bossPhase];
             if (_bossPartDefinitions.Count > 0)
@@ -6278,16 +6314,32 @@ namespace Shmup.Core.Simulation
                     verticalMovementActive = true;
                 else if (attack.Type == BossPartAttackType.MeleeCharge)
                 {
+                    // 예고 → 돌진. 예고 길이가 0이면 예전처럼 곧장 밀고 들어온다.
+                    //
+                    // 예고 구간에는 **움직이지 않는다.** 그 자리에 서서 번쩍이는
+                    // 것이 예고이고, 움직이면서 알리는 것은 예고가 아니라 통보다.
                     int cycle = _bossAge % attack.IntervalTicks;
+                    int telegraph = attack.MeleeTelegraphTicks;
                     int chargeTicks = Math.Max(
                         1,
                         attack.IntervalTicks / 4);
-                    if (cycle < chargeTicks)
+                    if (telegraph > 0 && cycle == 0)
+                    {
+                        BossPartState telegraphing = _bossPartStates[i];
+                        EmitBossPartEvent(
+                            SimEventType.BossPartMeleeTelegraphed,
+                            telegraphing.X,
+                            telegraphing.Y,
+                            telegraph,
+                            i);
+                    }
+                    int chargeCycle = cycle - telegraph;
+                    if (chargeCycle >= 0 && chargeCycle < chargeTicks)
                     {
                         chargeOffset = Math.Max(
                             chargeOffset,
                             AdvancePositiveFraction(
-                                cycle,
+                                chargeCycle,
                                 attack.EffectSpeedNumerator,
                                 attack.EffectSpeedDenominator));
                     }
@@ -7275,6 +7327,59 @@ namespace Shmup.Core.Simulation
 
             return DefeatBoss(_bossX, _bossY);
         }
+
+        /// <summary>
+        /// **때릴 수 있는 파츠가 하나도 없으면 다음 페이즈를 연다.**
+        ///
+        /// 페이즈 전환은 원래 데미지가 들어간 순간에만 다시 계산된다
+        /// (<see cref="UpdateBossPhaseFromHp"/>는 피격 경로에서만 불린다). 그래서
+        /// "지금 페이즈에서 깎을 수 있는 것을 다 깎았는데 다음 문턱에는 못 미치는"
+        /// 상태에 빠지면 **영원히 그대로다.** 더 때릴 것이 없으니 데미지가 없고,
+        /// 데미지가 없으니 페이즈도 안 넘어간다.
+        ///
+        /// 2026-08-05에 브루드마더가 정확히 이 상태로 멈췄다 (사람 보고: "HP가 0이
+        /// 되지 않음"). ph0에서 주머니를 다 부수기 전에 HP가 50% 아래로 떨어지면
+        /// ph1이 열리고, ph1 규칙이 주머니를 **다시 무적으로** 만들어 남은 주머니
+        /// HP가 잠긴다. 남은 것은 sac_left 2,494 + 무적 코어 7,895 = 10,389인데
+        /// ph2 문턱은 10,000이라 389 차이로 갇힌다.
+        ///
+        /// 데이터로도 고치지만(페이즈 재설계), 이 부류는 데이터를 만질 때마다
+        /// 다시 생길 수 있어서 시뮬레이션이 스스로 막는다. 유예를 두는 이유는
+        /// 등장·형태 전환처럼 잠깐 모두가 무적인 정상 구간이 있기 때문이다.
+        /// </summary>
+        void AdvanceBossPhaseIfNothingIsDamageable()
+        {
+            if (_bossPartDefinitions.Count == 0
+                || _bossHp <= 0
+                || _bossPhase + 1 >= _bossPhases.Count)
+            {
+                _bossNothingDamageableTicks = 0;
+                return;
+            }
+            for (int i = 0; i < _bossPartDefinitions.Count; i++)
+            {
+                if (_bossPartStates[i].Destroyed)
+                    continue;
+                if (!IsBossPartInvulnerable(i))
+                {
+                    _bossNothingDamageableTicks = 0;
+                    return;
+                }
+            }
+            _bossNothingDamageableTicks++;
+            if (_bossNothingDamageableTicks < NothingDamageableGraceTicks)
+                return;
+            _bossNothingDamageableTicks = 0;
+            EnterBossPhase(_bossPhase + 1, true);
+        }
+
+        /// <summary>
+        /// 아무것도 못 때리는 상태를 몇 틱 견딘 뒤에 페이즈를 넘길 것인가.
+        /// 1초다 — 등장 연출이나 형태 전환처럼 정상적으로 잠깐 전부 무적인
+        /// 구간을 페이즈 폭주로 오해하지 않을 만큼 길고, 사람이 "멈췄다"고
+        /// 느끼기 전에 풀릴 만큼 짧다.
+        /// </summary>
+        const int NothingDamageableGraceTicks = SimSpace.TicksPerSecond;
 
         void UpdateBossPhaseFromHp()
         {

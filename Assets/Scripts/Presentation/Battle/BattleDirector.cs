@@ -325,6 +325,8 @@ namespace Shmup.Presentation.Battle
 
         /// <summary>스테이지 기믹 시각화 (REQ-055) — 통로 벽 접촉 번쩍임에 필요하다.</summary>
         [SerializeField] StageGimmickView _gimmickView;
+        [Tooltip("근접 공격 예고를 그 파츠 위에 띄우려면 필요하다.")]
+        [SerializeField] BossPartsView _bossPartsView;
         int _lastBossHp = -1;
         float _bossFlashAge = float.MaxValue;
 
@@ -1706,6 +1708,15 @@ namespace Shmup.Presentation.Battle
                         // 기록이 끝났거나 최종 보스가 먼저 끝났다. 사라지는 이유는
                         // 화면에 설명하지 않는다 — 시간이 다 됐다는 페이드면 족하다.
                         if (_ghostView != null) _ghostView.OnEnded();
+                        break;
+                    case SimEventType.BossPartMeleeTelegraphed:
+                        // 근접 공격 예고 (사람 지시 2026-08-05: "번쩍임 등으로
+                        // 사전 예고 있음"). 본체가 통째로 밀고 들어오는 공격이라
+                        // 예고가 없으면 화면 어디에 있든 피할 수 없다.
+                        // Arg = 예고 길이(틱).
+                        if (_bossPartsView != null)
+                            _bossPartsView.OnMeleeTelegraph(
+                                e.PartId, e.Arg / (float)SimSpace.TicksPerSecond);
                         break;
                     case SimEventType.BossPartDestroyed:
                         // 멀티파트 보스의 파츠가 떨어졌다. 지금까지 아무 연출도 없어서

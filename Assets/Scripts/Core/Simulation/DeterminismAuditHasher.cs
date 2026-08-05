@@ -478,6 +478,7 @@ namespace Shmup.Core.Simulation
             FoldLaserDefinition(attack.LaserAttack);
             FoldLaserDefinition(attack.SecondaryLaser);
             FoldBurstDefinition(attack.SecondaryBurst);
+            FoldInt32(attack.MeleeTelegraphTicks);
         }
 
         void FoldBurstDefinition(BossPartBurstDefinition burst)

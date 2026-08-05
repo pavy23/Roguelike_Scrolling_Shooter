@@ -1306,6 +1306,7 @@ namespace Shmup.EditorTools
             var partsView = battleRoot.AddComponent<BossPartsView>();
             SetReference(partsView, "_director", director);
             SetReference(partsView, "_root", partsRoot.transform);
+            SetReference(director, "_bossPartsView", partsView);
 
             // St3 거대 전함 (REQ-110/111). 전용 함체 아트가 아직 없어서 **조립**한다:
             // px_white 판으로 어두운 실루엣을 깔고 그 위에 기존 스프라이트를 파츠 위치에
@@ -1467,6 +1468,8 @@ namespace Shmup.EditorTools
             if (mainCamera != null)
                 SetReference(juice, "_cameraTransform", mainCamera.transform);
             SetReference(director, "_juice", juice);
+            SetReference(
+                battleRoot.GetComponent<BossPartsView>(), "_juice", juice);
             SetReference(options, "_juice", juice);
             SetReference(lowHp, "_juice", juice);
             // 전함 그룹 전환 흔들림 (함미 전멸 = 중간보스 격파와 같은 무게)

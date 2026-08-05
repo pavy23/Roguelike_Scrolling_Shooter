@@ -43,6 +43,8 @@ namespace Shmup.Presentation.Battle
         /// 전함은 파츠마다 실제 스프라이트를 얹으므로 그 위에 회색 사각까지 겹치면
         /// 포탑이 뭉개지고, 파괴/무적 표현이 두 컴포넌트에서 이중으로 나온다.
         /// </summary>
+        [Tooltip("접근성: 플래시 감쇠 설정을 읽는다.")]
+        [SerializeField] JuiceDirector _juice;
         [SerializeField] WarshipView _warshipView;
         [Tooltip("하이브 조립 뷰가 화면을 소유하면 범용 오버레이는 비켜난다.")]
         [SerializeField] HiveBossView _hiveView;
@@ -96,6 +98,28 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         public int FlashingPartCount { get; private set; }
 
+        /// <summary>
+        /// 근접 공격 예고 색. 피격(붉은색)과 **갈라야** 한다 — 피격은 "내가 맞혔다"고
+        /// 하는 말이고 예고는 "곧 맞는다"는 경고다. 둘이 같은 색이면 경고가 성과로
+        /// 읽힌다. 노란빛 경고색은 레이저 예고선과 같은 어휘다.
+        /// </summary>
+        static readonly Color MeleeTelegraphTint = new Color(1f, 0.85f, 0.25f, 1f);
+
+        /// <summary>예고 중인 파츠 id → 남은 시간(초).</summary>
+        readonly Dictionary<string, float> _meleeTelegraph =
+            new Dictionary<string, float>(4);
+
+        /// <summary>
+        /// 근접 공격 예고 시작 (Core의 BossPartMeleeTelegraphed).
+        /// 예고 길이만큼 그 파츠를 경고색으로 **깜빡인다** — 계속 켜 두면 상태로
+        /// 읽히고, 깜빡여야 "지금 무슨 일이 일어난다"로 읽힌다.
+        /// </summary>
+        public void OnMeleeTelegraph(string partId, float seconds)
+        {
+            if (string.IsNullOrEmpty(partId) || seconds <= 0f) return;
+            _meleeTelegraph[partId] = seconds;
+        }
+
         void Update()
         {
             if (_director == null || _root == null || _markSprite == null) return;
@@ -143,6 +167,26 @@ namespace Shmup.Presentation.Battle
                 _lastHp[part.PartId] = part.Hp;
 
                 float age = _flashAge.TryGetValue(part.PartId, out float a) ? a : float.MaxValue;
+                // 근접 예고가 살아 있으면 그것이 최우선이다 — 피격 플래시보다
+                // 위험한 정보다.
+                if (_meleeTelegraph.TryGetValue(part.PartId, out float warn)
+                    && warn > 0f && !part.Destroyed)
+                {
+                    warn -= Time.deltaTime;
+                    if (warn <= 0f) _meleeTelegraph.Remove(part.PartId);
+                    else _meleeTelegraph[part.PartId] = warn;
+                    // 8Hz 점멸. 예고가 길어도 눈이 놓치지 않는다.
+                    float blink = Mathf.PingPong(Time.time * 16f, 1f);
+                    if (_juice != null && _juice.FlashReduced) blink *= 0.4f;
+                    overlay.color = new Color(
+                        MeleeTelegraphTint.r,
+                        MeleeTelegraphTint.g,
+                        MeleeTelegraphTint.b,
+                        MaxFlashAlpha * (0.35f + blink * 0.65f));
+                    overlay.enabled = true;
+                    if (overlay.sprite != _markSprite) overlay.sprite = _markSprite;
+                    continue;
+                }
                 Color color;
                 if (warshipOwnsArt)
                 {

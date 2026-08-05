@@ -1292,7 +1292,8 @@ namespace Shmup.Core.Content
                     secondaryLaser,
                     ParseBossPartBurst(
                         source.secondaryBurst,
-                        path + ".secondaryBurst"));
+                        path + ".secondaryBurst"),
+                    source.meleeTelegraphTicks ?? 0);
             }
             catch (ArgumentException error)
             {

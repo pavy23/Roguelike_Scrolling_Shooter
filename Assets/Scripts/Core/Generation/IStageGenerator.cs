@@ -708,7 +708,8 @@ namespace Shmup.Core.Generation
             int effectOffsetX = 0,
             int effectOffsetY = 0,
             Simulation.LaserAttackDefinition secondaryLaser = null,
-            BossPartBurstDefinition secondaryBurst = null)
+            BossPartBurstDefinition secondaryBurst = null,
+            int meleeTelegraphTicks = 0)
         {
             if (!Enum.IsDefined(typeof(BossPartAttackType), type))
                 throw new ArgumentOutOfRangeException(nameof(type));
@@ -732,6 +733,22 @@ namespace Shmup.Core.Generation
                     nameof(effectMaxSpeedDenominator));
             if (contactDamage < 0)
                 throw new ArgumentOutOfRangeException(nameof(contactDamage));
+            if (meleeTelegraphTicks < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(meleeTelegraphTicks));
+            if (meleeTelegraphTicks > 0
+                && type != BossPartAttackType.MeleeCharge)
+                throw new ArgumentException(
+                    "Only melee-charge attacks may specify a telegraph.",
+                    nameof(meleeTelegraphTicks));
+            // 예고 + 돌진이 한 주기를 넘으면 돌진이 잘려 나간다.
+            if (type == BossPartAttackType.MeleeCharge
+                && meleeTelegraphTicks > 0
+                && meleeTelegraphTicks + Math.Max(1, intervalTicks / 4)
+                    > intervalTicks)
+                throw new ArgumentException(
+                    "Melee telegraph leaves no room for the charge.",
+                    nameof(meleeTelegraphTicks));
             if ((type == BossPartAttackType.AimedSpread
                     || type == BossPartAttackType.RadialSpread)
                 && (intervalTicks < 1 || ways < 1
@@ -821,6 +838,7 @@ namespace Shmup.Core.Generation
             LaserAttack = laserAttack;
             SecondaryLaser = secondaryLaser;
             SecondaryBurst = secondaryBurst;
+            MeleeTelegraphTicks = meleeTelegraphTicks;
         }
 
         public BossPartAttackType Type { get; }
@@ -852,6 +870,14 @@ namespace Shmup.Core.Generation
         /// primary attack (REQ-177). Null for parts that only do one thing.
         /// </summary>
         public BossPartBurstDefinition SecondaryBurst { get; }
+        /// <summary>
+        /// 근접 돌진 **전에** 멈춰 서서 예고하는 길이(틱). 0이면 예고 없이 곧장
+        /// 밀고 들어온다 — 예전 동작이다.
+        ///
+        /// 사람 지시 2026-08-05: "번쩍임 등으로 사전 예고 있음". 근접 공격은 본체가
+        /// 통째로 앞으로 오는 것이라, 예고가 없으면 화면 어디에 있든 피할 수 없다.
+        /// </summary>
+        public int MeleeTelegraphTicks { get; }
     }
 
     /// <summary>

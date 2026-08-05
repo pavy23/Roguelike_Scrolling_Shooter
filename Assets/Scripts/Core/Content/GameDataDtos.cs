@@ -807,6 +807,12 @@ namespace Shmup.Core.Content
         /// </summary>
         [DataMember]
         public BossPartBurstDto secondaryBurst;
+        /// <summary>
+        /// meleeCharge 전용. 돌진 전에 그 자리에서 멈춰 예고하는 길이(틱).
+        /// 없거나 0이면 예고 없이 곧장 밀고 들어온다.
+        /// </summary>
+        [DataMember]
+        public int? meleeTelegraphTicks;
     }
 
     [DataContract]
