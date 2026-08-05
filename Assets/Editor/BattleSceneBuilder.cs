@@ -1235,11 +1235,16 @@ namespace Shmup.EditorTools
                 LoadOrCachedSprite("nebula_far.png", "nebula_far"),
                 LoadOrCachedSprite("core_far.png", "core_far"),
             });
+            // 카드에 걸리는 보스 그림은 **지금 화면에 나오는 그것**이어야 한다.
+            // 하이브와 전함은 조각을 조립해 그리므로 boss_hive/boss_fortress는
+            // 조립 이전의 구버전이다 — 그걸 카드에 걸면 방금 본 보스와 다른 그림이
+            // 뜬다 (사람 지적 2026-08-05: "스테이지 선택 카드에서 전함/하이브가
+            // 이전 버전이네"). 보상 화면 초상화는 이미 아래와 같은 그림을 쓴다.
             SetReferenceArray(contractScreen, "_themeBosses", new UnityEngine.Object[]
             {
                 LoadExternalSprite("boss_stage1.png", "boss_stage1"),
-                LoadExternalSprite("boss_hive.png", "boss_hive"),
-                LoadExternalSprite("boss_fortress.png", "boss_fortress"),
+                LoadOrCachedSprite("boss_hive_torso.png", "boss_hive_torso"),
+                LoadOrCachedSprite("warship_hull.png", "warship_hull"),
                 LoadExternalSprite("boss_storm.png", "boss_storm"),
                 LoadExternalSprite("boss_core.png", "boss_core"),
             });

@@ -11,6 +11,9 @@ namespace Shmup.Core.Tests
     [TestFixture]
     public sealed class Req118WarshipPositionTests
     {
+        /// <summary>등장에 허용하는 최대 시간. 경고 + 화면 진입을 넉넉히 덮는다.</summary>
+        const int EntranceTickBudget = 1_800;
+
         const string FortressThemeId = "fortress";
         const string FortressBossId = "boss_fortress";
         const string SternPartId = "engine";
@@ -29,15 +32,23 @@ namespace Shmup.Core.Tests
                 boss.WarshipEncounter,
                 boss.Parts);
 
+            // **경고 틱 수로 세지 않는다.** 1막은 경고가 끝나고 **함체가 화면
+            // 안에 들어온 뒤** 열린다 — 등장 거리를 늘리면(2026-08-05) 그 시점이
+            // 뒤로 밀린다. 시점을 박아 두면 연출을 손볼 때마다 테스트가 깨지고,
+            // 정작 지켜야 할 것("때릴 수 있는 파츠는 화면 안에 있다")은 그대로다.
             for (int tick = 1;
-                tick <= boss.WarshipEncounter.WarningTicks;
+                tick <= EntranceTickBudget
+                    && encounter.ActiveGroupIndex < 0;
                 tick++)
             {
                 encounter.Step(Array.Empty<WarshipDamageCommand>());
                 AssertDamageablePartsInsidePlayfield(encounter);
             }
 
-            Assert.AreEqual(0, encounter.ActiveGroupIndex);
+            Assert.AreEqual(
+                0,
+                encounter.ActiveGroupIndex,
+                $"{EntranceTickBudget}틱 안에 1막이 열리지 않았다.");
             // 경고 구간 동안 함체는 오른쪽에서 들어오는 중이다 - 아직 정박점을
             // 지나치지 않았어야 한다.
             Assert.GreaterOrEqual(
@@ -45,7 +56,12 @@ namespace Shmup.Core.Tests
                 boss.WarshipEncounter.HoldX);
             AssertPartsRideHull(encounter, boss);
 
-            while (encounter.Tick < 240)
+            // **정박 시점을 틱으로 박지 않는다.** 240틱은 등장 거리와 스크롤
+            // 속도가 예전 값(origin 18 / 1.5)일 때의 숫자였다. 지켜야 할 것은
+            // "언젠가 정박점에 서고 그 뒤로는 더 흘러가지 않는다"이지 "4초에
+            // 선다"가 아니다.
+            while (encounter.Tick < EntranceTickBudget
+                && encounter.WorldX > boss.WarshipEncounter.HoldX)
             {
                 encounter.Step(Array.Empty<WarshipDamageCommand>());
                 AssertDamageablePartsInsidePlayfield(encounter);
@@ -53,7 +69,8 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(
                 boss.WarshipEncounter.HoldX,
-                encounter.WorldX);
+                encounter.WorldX,
+                "정박점에 서지 않았다.");
             AssertPartsRideHull(encounter, boss);
 
             while (encounter.Tick < LongGateObservationTick)

@@ -10,6 +10,9 @@ namespace Shmup.Core.Tests
     [TestFixture]
     public sealed class Req119WarshipPlayerContinuityTests
     {
+        /// <summary>등장(경고 + 화면 진입)에 허용하는 최대 시간.</summary>
+        const int EntranceTickBudget = 1_800;
+
         const ulong FortressSeed = 2UL;
         const int FortressStageIndex = 3;
         const string FortressThemeId = "fortress";
@@ -35,7 +38,10 @@ namespace Shmup.Core.Tests
             long expectedScrollX = battle.ScrollX;
             int warningTicks = run.StagePlan.WarshipEncounter.WarningTicks;
 
-            for (int tick = 1; tick <= warningTicks; tick++)
+            for (int tick = 1;
+                tick <= EntranceTickBudget
+                    && battle.WarshipActiveGroupIndex < 0;
+                tick++)
             {
                 run.Step(InputCommand.None);
                 Assert.AreEqual(
@@ -78,7 +84,10 @@ namespace Shmup.Core.Tests
                     || battle.WarshipActiveGroupIndex != 0;
                 tick++)
             {
-                Assert.Less(tick, warningTicks + 2);
+                // 1막은 경고가 끝난 **뒤 함체가 화면에 들어와야** 열린다.
+                // 경고 틱 + 2로 잡아 두었더니 등장 거리를 늘린 순간 깨졌다 —
+                // 여기서 확인할 것은 "곧 열린다"이지 "몇 틱에 열린다"가 아니다.
+                Assert.Less(tick, EntranceTickBudget);
                 InputCommand input = FireTowardStern(battle);
                 run.Step(in input);
                 Assert.IsTrue(battle.IsPlayerAlive);

@@ -348,8 +348,14 @@ namespace Shmup.Core.Simulation
                     _definition.WarningTicks,
                     null);
             }
+            // **화면 안에 들어온 다음에 연다.** 경고 시간만 세고 열었더니, 함체가
+            // 아직 오른쪽 밖에 있는데 함미가 이미 때릴 수 있는 상태가 됐다 —
+            // 못 때리는 곳에 판정만 있는 것이다 (사람 지시 2026-08-04: "전함은
+            // 다 등장하고부터 피격판정 있게"). 등장을 화면 밖에서 시작하도록
+            // 늘리자(2026-08-05) 그 구멍이 8초로 벌어졌다.
             if (_activeGroupIndex < 0
-                && _tick >= _definition.WarningTicks)
+                && _tick >= _definition.WarningTicks
+                && FirstGroupHasEnteredPlayfield())
                 ActivateGroup(0);
             else if (_activeGroupIndex >= 0)
             {
@@ -682,6 +688,21 @@ namespace Shmup.Core.Simulation
                     _destroyedAttritionParts,
                     group.GroupId);
             }
+        }
+
+        /// <summary>
+        /// 첫 막의 파츠가 **전부 화면 안**에 들어왔는가. 하나라도 오른쪽 밖이면
+        /// 아직 등장 중이다.
+        /// </summary>
+        bool FirstGroupHasEnteredPlayfield()
+        {
+            for (int i = 0; i < _parts.Count; i++)
+            {
+                if (_partGroups[i] != 0) continue;
+                if (GetPartWorldX(i) > SimSpace.PlayfieldHalfWidthSubUnits)
+                    return false;
+            }
+            return true;
         }
 
         void ActivateGroup(int groupIndex)

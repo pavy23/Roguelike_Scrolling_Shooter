@@ -1723,3 +1723,35 @@ midbossGate 전 파츠를 순회 파괴하도록 테스트를 고쳐 달라.
 ### CLAUDE
 1. [ ] Resources `GameData/waves.json` 동기화
 2. [ ] 서치 예고선 + 코어 초대형 빔 연출 확인
+
+---
+
+## 2026-08-05 — 전함 등장 연출 (originX 오프스크린 + 스크롤 가속)
+
+**완료 (content, 미커밋):**
+- `boss_fortress.warship.originX` **18.0 → 38.0**
+- `boss_fortress.warship.scrollSpeedPerSecond` **1.5 → 3.0**
+- `warningTicks` / `anchorTravelTicks` / `holdX` **불변**
+- 표: `Reviews/from-grok/warship-entrance-scroll-2026-08-05.md`
+
+### 계산 (holdX = boss 템플릿 **12.0**, halfWidth **17.0**)
+- (a) 등장 순간 함체 왼쪽 끝: `38 - 17 = 21.0` (화면 우측 경계 20 바깥)
+- (b) 정박까지: `(38 - 12) / 3.0 ≈ 8.67s` (목표 8~11s 안)
+
+### 검증 `dotnet test`
+- **584 / 586** — Req117 / Req176 / Req177 **PASS**
+- **FAIL 2** (타이밍 하드코딩 — 데이터 쪽이 맞음)
+
+### CODEX 요청
+1. [ ] `Req118WarshipPositionTests.RepositoryFortressWarshipKeepsDamageablePartsInPlayfieldForEntireEncounter`
+   - `while (encounter.Tick < 240)` 후 `WorldX == HoldX` 가정이 **4초 정박**에 묶여 있음.
+   - 새 값: 정박 시각 = `ceil((originX-holdX)/speed * 60)` ≈ **520틱(8.67s)**.
+   - 게이트 활성화( tick=warningTicks=180) 시 WorldX≈29, stern `turret_a`(ox+4)≈33 **플레이필드 밖** — 경고 중 스크롤 중인 정상 상태.
+   - 고침: 정박 시각을 데이터에서 계산하거나, 게이트 직후 구간은 "Active 파츠가 들어올 때까지 스크롤"만 검사.
+2. [ ] `Req119WarshipPlayerContinuityTests.RepositoryFortressAutoFireDamagesSternSoonAfterGateActivation`
+   - `AutoFireDamageTickBudget = 240` 이 게이트 직후 4초 안 피격을 강제.
+   - 새 배치에서는 함미가 게이트 직후 아직 우측에 있어 탄이 닿지 않음.
+   - 고침: 예산 = 정박 여유 + 사거리, 또는 stern이 플레이필드에 들어온 뒤부터 카운트.
+
+### 사람
+1. [ ] 등장 8.7s 체감 확정 (원하면 originX/speed 재조정 — holdX 12 기준)
