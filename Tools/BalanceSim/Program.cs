@@ -215,29 +215,32 @@ static class Program
     const double BombKillExpClearRatioMax = 1.40; // bomb splash kills never reseed kill_explosion
     const double BombKillExpVsBaselineWarn = 5.0;
 
-    // REQ-035/116/169 colossal bosses (provisional §7).
-    // Hidden after 5 biomes: endgame reach ~1000 DPS. Multipart retarget tax →
-    // full-eff ~1500. 2026-08-04: 절대 HP를 코드에 복사해 두지 않는다.
+    // REQ-035/116/169/181 colossal bosses (provisional §7).
+    // 2026-08-05: 구 게이트 endgame reach 1000 DPS는 3~5배 낙관적이었다.
+    // 성공 기준은 Req181(power=max · 위아래 스윕 · 실제 무기) 실측 TTK 90–120s.
+    // 하네스 유효 DPS ≈ 레비 615 / 브루드 595 (사람 수기 306/211보다 높다 —
+    // 무적·연속 사격·완벽한 스윕). 게이트 DPS는 하네스에 맞춘다.
     //
-    // 설계 의도(관계): 히든 본체는 공개 **최종** 보스(core, 전함 세트피스 제외)
-    // 대비 1.15~1.80배. REQ-169 사람 확정: 본체 50_000 (core 28k의 1.79배) —
-    // 전함(44k)보다 무겁고 구 62k보다는 가볍다. 헤드리스 "480초 미달"은 조준
-    // 없는 하네스 측정(실측 ~141 HP/s)이었고, form2 누락 버그도 겹쳐 있었다.
-    const double ColossalVsHeaviestPublicMin = 1.15;
-    const double ColossalVsHeaviestPublicMax = 1.80;
-    // 코어는 마지막 페이즈 문턱(20%) 아래여야 한다 — 그래야 코어만 남았을 때
-    // 페이즈가 열린다. 비율로 적으면 총 HP가 바뀌어도 따라간다.
-    const double ColossalCoreShareMax = 0.20;
-    const double ColossalExpectedDps = 1000.0;
-    const double ColossalFullPowerEffectiveDps = 1500.0;
-    // 50k @1000 DPS = 50s · @1500 full-eff ≈ 33s. 구 62k 밴드([50,70]/≥40)는
-    // 절대 HP 락과 같아서 REQ-169 본체에 맞춰 완화한다.
-    const double ColossalTtkExpectedMin = 45.0;
-    const double ColossalTtkExpectedMax = 60.0;
-    const double ColossalTtkFullMin = 30.0;
-    // body+form2 대비 평균 공개 보스 전투 TTK. 50k+7.5k≈57s / mean~40s ≈ 1.4.
-    const double ColossalVsNormalTtkMinRatio = 1.20;
-    const double ColossalVsNormalTtkMaxRatio = 1.80;
+    // 절대 HP를 코드에 복사하지 않는다 — form1+form2 × 하네스 DPS로 TTK 밴드.
+    const double ColossalVsHeaviestPublicMin = 0.55;
+    const double ColossalVsHeaviestPublicMax = 2.00;
+    // 코어는 마지막 form1 페이즈 문턱(30%) 아래여야 한다.
+    const double ColossalCoreShareMax = 0.30;
+    // Req181 harness effective DPS (power=max vertical sweep).
+    const double ColossalExpectedDpsLeviathan = 615.0;
+    const double ColossalExpectedDpsBroodmother = 595.0;
+    // Fallback mid for shared prints.
+    const double ColossalExpectedDps = 600.0;
+    // Measured harness numbers already are power=max; full-eff ≈ expected.
+    const double ColossalFullPowerEffectiveDpsLeviathan = 615.0;
+    const double ColossalFullPowerEffectiveDpsBroodmother = 595.0;
+    // form1+form2 TTK @ harness DPS (success band 90–120s).
+    const double ColossalTtkExpectedMin = 90.0;
+    const double ColossalTtkExpectedMax = 120.0;
+    const double ColossalTtkFullMin = 85.0;
+    // body+form2 TTK vs mean normal boss fight. ~102s / ~40s ≈ 2.55.
+    const double ColossalVsNormalTtkMinRatio = 1.80;
+    const double ColossalVsNormalTtkMaxRatio = 3.50;
     const double ColossalHoldX = 9.0;
     const double ColossalLeviHalfW = 9.8;
     const double ColossalLeviHalfH = 10.0;
@@ -5203,13 +5206,13 @@ static class Program
     {
         int failures = 0;
         Console.WriteLine(
-            "Colossal bosses (REQ-035, provisional §7): " +
-            "히든 HP는 공개 최종 보스 대비 " +
+            "Colossal bosses (REQ-035/181, provisional §7): " +
+            "히든 본체 HP는 공개 최종 보스 대비 " +
             $"{ColossalVsHeaviestPublicMin:F2}~{ColossalVsHeaviestPublicMax:F2}배 · " +
-            $"TTK {ColossalTtkExpectedMin:F0}–{ColossalTtkExpectedMax:F0}s " +
-            $"@ {ColossalExpectedDps:F0} DPS · full-eff ≥{ColossalTtkFullMin:F0}s " +
-            $"@ {ColossalFullPowerEffectiveDps:F0} DPS · spawn peak " +
-            $"vs MaxEnemies={ColossalMaxEnemiesCap}");
+            $"form1+form2 TTK {ColossalTtkExpectedMin:F0}–{ColossalTtkExpectedMax:F0}s " +
+            $"@ measured DPS (levi {ColossalExpectedDpsLeviathan:F0} / " +
+            $"brood {ColossalExpectedDpsBroodmother:F0}) · full-eff ≥" +
+            $"{ColossalTtkFullMin:F0}s · spawn peak vs MaxEnemies={ColossalMaxEnemiesCap}");
 
         var byId = new Dictionary<string, StageBossTemplate>(StringComparer.Ordinal);
         IReadOnlyList<StageBossTemplate> bosses = data.StageGeneration.Bosses;
@@ -5275,13 +5278,13 @@ static class Program
             }
         }
 
-        // Parity: same total/core HP; min-path (gates+core) should stay close.
+        // Parity: min-path TTK at per-boss measured DPS (soft).
         if (leviathan != null && broodmother != null)
         {
             int levMin = MinPathHp(leviathan);
             int broodMin = MinPathHp(broodmother);
-            double levMinTtk = levMin / ColossalExpectedDps;
-            double broodMinTtk = broodMin / ColossalExpectedDps;
+            double levMinTtk = levMin / ColossalExpectedDpsLeviathan;
+            double broodMinTtk = broodMin / ColossalExpectedDpsBroodmother;
             double ratio = Math.Max(levMin, broodMin) / (double)Math.Min(levMin, broodMin);
             Console.WriteLine(
                 $"  parity min-path: leviathan={levMin}hp TTK≈{levMinTtk:F1}s · " +
@@ -5292,15 +5295,15 @@ static class Program
                 Console.WriteLine(
                     $"WARN colossal: min-path HP ratio {ratio:F2} > " +
                     $"{ColossalMinPathParityMaxRatio:F2} — broodmother is intentionally " +
-                    "harder (3 sac gates + regen); not a hard fail (§7).");
+                    "harder (3 sac gates); not a hard fail (§7).");
             }
             else
             {
                 Console.WriteLine("  parity: min-path within soft band.");
             }
 
-            // REQ-116/154: full-fight TTK vs mean normal boss (exclude tutorial stage1).
-            // Body MaxHp stays the 3-act pool; form2 (phase 4) adds to real fight length.
+            // REQ-116/154/181: full-fight TTK vs mean normal boss (exclude tutorial stage1).
+            // form1+form2 at measured DPS; average both colossals for the ratio gate.
             double normalSum = 0.0;
             int normalN = 0;
             for (int i = 0; i < BossExpectedDps.Length; i++)
@@ -5319,20 +5322,16 @@ static class Program
             if (normalN > 0)
             {
                 double meanNormal = normalSum / normalN;
-                int colFightHp = leviathan.MaxHp;
-                if (leviathan.Form2 != null)
-                    colFightHp += leviathan.Form2.MaxHp;
-                else if (broodmother.Form2 != null)
-                    colFightHp += broodmother.Form2.MaxHp;
-                double colTtk = colFightHp / ColossalExpectedDps;
+                int levFight = ColossalFightHp(leviathan);
+                int broodFight = ColossalFightHp(broodmother);
+                double levTtk = levFight / ColossalExpectedDpsLeviathan;
+                double broodTtk = broodFight / ColossalExpectedDpsBroodmother;
+                double colTtk = (levTtk + broodTtk) * 0.5;
                 double vs = colTtk / meanNormal;
                 Console.WriteLine(
-                    $"  full-fight vs normal: colossal TTK={colTtk:F1}s "
-                    + $"(body {leviathan.MaxHp}"
-                    + (colFightHp > leviathan.MaxHp
-                        ? $"+form2 {colFightHp - leviathan.MaxHp}"
-                        : "")
-                    + $") @ {ColossalExpectedDps:F0} DPS · mean normal fight TTK="
+                    $"  full-fight vs normal: mean colossal TTK={colTtk:F1}s "
+                    + $"(levi {levFight}hp/{levTtk:F1}s · brood {broodFight}hp/"
+                    + $"{broodTtk:F1}s) @ measured DPS · mean normal fight TTK="
                     + $"{meanNormal:F1}s · ratio={vs:F2} "
                     + $"(gate [{ColossalVsNormalTtkMinRatio:F1},"
                     + $"{ColossalVsNormalTtkMaxRatio:F1}])");
@@ -5350,9 +5349,8 @@ static class Program
             // Feel-difficulty note (subtractive vs additive) — always printed.
             Console.WriteLine(
                 "  feel: leviathan is subtractive (kill shield→core min path); " +
-                "broodmother is additive (sac gates + tentacle regen + " +
-                "3× spawn). Same total/core HP keeps ST melt parity; " +
-                "time-pressure favors leviathan if player stalls on brood.");
+                "broodmother is additive (sac gates + 3× spawn). " +
+                "Different total HP keeps wall-clock parity at measured DPS.");
         }
 
         // Normal generation must never surface colossal IDs (hidden-only).
@@ -5488,30 +5486,36 @@ static class Program
             failures++;
         }
 
-        double ttkTotal = boss.MaxHp / ColossalExpectedDps;
-        double ttkCore = coreHp / ColossalExpectedDps;
-        double ttkFullEff = boss.MaxHp / ColossalFullPowerEffectiveDps;
-        double ttkFullRaw = boss.MaxHp / BossFullPowerDps;
+        // REQ-181: gate form1+form2 TTK at per-boss measured DPS (power=max).
+        double expectedDps = ColossalMeasuredDps(id);
+        double fullEffDps = ColossalFullPowerEffectiveDps(id);
+        int fightHp = ColossalFightHp(boss);
+        int form2Hp = fightHp - boss.MaxHp;
+        double ttkTotal = fightHp / expectedDps;
+        double ttkCore = coreHp / expectedDps;
+        double ttkFullEff = fightHp / fullEffDps;
+        double ttkFullRaw = fightHp / BossFullPowerDps;
         bool midOk = ttkTotal >= ColossalTtkExpectedMin
             && ttkTotal <= ColossalTtkExpectedMax;
         bool fullOk = ttkFullEff >= ColossalTtkFullMin;
 
         Console.WriteLine(
             $"  {id,-20} parts={boss.Parts.Count} sum={partSum} core={coreHp} " +
-            $"gatesHp={gateHp} stage={boss.StageIndexMin}-{boss.StageIndexMax} " +
+            $"gatesHp={gateHp} form2={form2Hp} fight={fightHp} " +
+            $"stage={boss.StageIndexMin}-{boss.StageIndexMax} " +
             $"diff={boss.DifficultyMin}-{boss.DifficultyMax} " +
             $"theme={NullLabel(boss.ThemeId)}");
         Console.WriteLine(
-            $"    total @ {ColossalExpectedDps:F0} DPS → TTK={ttkTotal:F1}s " +
+            $"    form1+form2 @ {expectedDps:F0} DPS → TTK={ttkTotal:F1}s " +
             $"[{(midOk ? "midOK" : "OUT")}]  core-only TTK={ttkCore:F1}s  " +
-            $"full-eff@{ColossalFullPowerEffectiveDps:F0} → {ttkFullEff:F1}s " +
+            $"full-eff@{fullEffDps:F0} → {ttkFullEff:F1}s " +
             $"[{(fullOk ? "floorOK" : "BELOW")}]  raw-full@{BossFullPowerDps:F0} → " +
             $"{ttkFullRaw:F1}s (info)");
 
         if (!midOk)
         {
             Console.WriteLine(
-                $"FAIL colossal: '{id}' total TTK {ttkTotal:F1}s outside " +
+                $"FAIL colossal: '{id}' form1+form2 TTK {ttkTotal:F1}s outside " +
                 $"[{ColossalTtkExpectedMin:F0},{ColossalTtkExpectedMax:F0}]s.");
             failures++;
         }
@@ -5552,31 +5556,32 @@ static class Program
                 $"    theme={boss.ThemeId} [hidden path OK]");
         }
 
-        // REQ-116: 3-act phase gates at 50% / 20% remaining.
+        // REQ-181: form1 is 3 phases (ph1/ph2/ph3); form2 is ph4. Gates at 70%/30%.
         if (boss.Phases == null || boss.Phases.Count != 3)
         {
             Console.WriteLine(
-                $"FAIL colossal: '{id}' needs exactly 3 phases (3-act), " +
-                $"got {boss.Phases?.Count ?? 0}.");
+                $"FAIL colossal: '{id}' needs exactly 3 form1 phases " +
+                $"(+ form2 as ph4), got {boss.Phases?.Count ?? 0}.");
             failures++;
         }
         else
         {
             BossPhase p1 = boss.Phases[1];
             BossPhase p2 = boss.Phases[2];
+            // 0.7 → 7/10, 0.3 → 3/10 (DecimalToFraction).
             bool p1ok = p1.HasHpThreshold
-                && p1.HpThresholdNumerator * 2 == p1.HpThresholdDenominator;
+                && p1.HpThresholdNumerator * 10 == p1.HpThresholdDenominator * 7;
             bool p2ok = p2.HasHpThreshold
-                && p2.HpThresholdNumerator * 5 == p2.HpThresholdDenominator;
+                && p2.HpThresholdNumerator * 10 == p2.HpThresholdDenominator * 3;
             Console.WriteLine(
                 $"    act gates: p1={p1.HpThresholdNumerator}/{p1.HpThresholdDenominator} "
                 + $"p2={p2.HpThresholdNumerator}/{p2.HpThresholdDenominator} "
-                + $"[{(p1ok && p2ok ? "50/20 OK" : "BAD")}]");
+                + $"[{(p1ok && p2ok ? "70/30 OK" : "BAD")}]");
             if (!p1ok || !p2ok)
             {
                 Console.WriteLine(
-                    $"FAIL colossal: '{id}' act thresholds must be 1/2 then 1/5 "
-                    + "(50% / 20% remaining).");
+                    $"FAIL colossal: '{id}' act thresholds must be 7/10 then 3/10 "
+                    + "(70% / 30% remaining).");
                 failures++;
             }
 
@@ -5588,6 +5593,42 @@ static class Program
                     + $"{boss.Phases[0].FireIntervalTicks} must exceed act2 "
                     + $"{boss.Phases[1].FireIntervalTicks} (entrance valley).");
                 failures++;
+            }
+
+            // Density mono: body bullets/s must rise across form1 phases.
+            double dens0 = ColossalBodyDensity(boss.Phases[0]);
+            double dens1 = ColossalBodyDensity(boss.Phases[1]);
+            double dens2 = ColossalBodyDensity(boss.Phases[2]);
+            Console.WriteLine(
+                $"    body density: ph1={dens0:F2}/s ph2={dens1:F2}/s "
+                + $"ph3={dens2:F2}/s");
+            if (!(dens0 < dens1 && dens1 < dens2))
+            {
+                Console.WriteLine(
+                    $"FAIL colossal: '{id}' body density must rise "
+                    + "ph1 < ph2 < ph3.");
+                failures++;
+            }
+
+            if (boss.Form2 == null || boss.Form2.Phases == null
+                || boss.Form2.Phases.Count < 1)
+            {
+                Console.WriteLine(
+                    $"FAIL colossal: '{id}' needs form2 (ph4) with phases.");
+                failures++;
+            }
+            else
+            {
+                double densF2 = ColossalBodyDensity(boss.Form2.Phases[0]);
+                Console.WriteLine(
+                    $"    form2 dens={densF2:F2}/s (must exceed form1 ph3)");
+                if (densF2 <= dens2)
+                {
+                    Console.WriteLine(
+                        $"FAIL colossal: '{id}' form2 body density {densF2:F2} "
+                        + $"must exceed form1 ph3 {dens2:F2}.");
+                    failures++;
+                }
             }
         }
 
@@ -5682,6 +5723,57 @@ static class Program
             }
         }
         return coreHp + gateHp;
+    }
+
+    /// <summary>form1 + form2 HP pool (real fight length).</summary>
+    static int ColossalFightHp(StageBossTemplate boss)
+    {
+        int fight = boss.MaxHp;
+        if (boss.Form2 != null)
+            fight += boss.Form2.MaxHp;
+        return fight;
+    }
+
+    /// <summary>
+    /// REQ-181 measured power=max DPS (vertical sweep). Per-boss because
+    /// multipart hitboxes yield different effective rates on the same weapons.
+    /// </summary>
+    static double ColossalMeasuredDps(string bossId)
+    {
+        if (string.Equals(
+                bossId,
+                SegmentStageGenerator.LeviathanBossId,
+                StringComparison.Ordinal))
+            return ColossalExpectedDpsLeviathan;
+        if (string.Equals(
+                bossId,
+                SegmentStageGenerator.BroodmotherBossId,
+                StringComparison.Ordinal))
+            return ColossalExpectedDpsBroodmother;
+        return ColossalExpectedDps;
+    }
+
+    static double ColossalFullPowerEffectiveDps(string bossId)
+    {
+        if (string.Equals(
+                bossId,
+                SegmentStageGenerator.LeviathanBossId,
+                StringComparison.Ordinal))
+            return ColossalFullPowerEffectiveDpsLeviathan;
+        if (string.Equals(
+                bossId,
+                SegmentStageGenerator.BroodmotherBossId,
+                StringComparison.Ordinal))
+            return ColossalFullPowerEffectiveDpsBroodmother;
+        return ColossalExpectedDps;
+    }
+
+    /// <summary>Body-pattern bullets per second (ways × tick rate / interval).</summary>
+    static double ColossalBodyDensity(BossPhase phase)
+    {
+        if (phase.FireIntervalTicks <= 0)
+            return 0.0;
+        return phase.Ways * (double)SimSpace.TicksPerSecond / phase.FireIntervalTicks;
     }
 
     static int CheckColossalExcludedFromNormalGen(SegmentStageGenerator generator)

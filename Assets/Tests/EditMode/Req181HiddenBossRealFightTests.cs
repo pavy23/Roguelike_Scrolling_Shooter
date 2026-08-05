@@ -23,9 +23,13 @@ namespace Shmup.Core.Tests
     /// 10,000에 **389 차이로** 못 닿아 영원히 갇혔다.
     ///
     /// 그래서 이 테스트는 고르지 않는다. 플레이어를 화면 위아래로 훑게 하고
-    /// 쏘게만 한 뒤, HP가 0이 되는지만 본다. 걸리는 시간도 함께 적어 둔다 —
-    /// 밸런스 게이트는 1000 DPS를 가정하는데 실측은 그 1/3~1/5이라, 그 숫자가
-    /// 어긋나면 "게이트는 통과하는데 화면에서는 안 끝나는" 상태가 다시 생긴다.
+    /// 쏘게만 한 뒤, HP가 0이 되는지만 본다.
+    ///
+    /// **두 가지 자세로 잰다.** 보스에 바짝 붙어 쏘는 쪽과 제자리에서 쏘는 쪽이다.
+    /// 하나만 재면 그 하나에 맞춰 수치를 잡게 되는데, 붙어서 싸우는 봇은 사람보다
+    /// 훨씬 효율적이라 거기에 맞추면 **사람에게는 훨씬 긴 싸움**이 된다. 실제로
+    /// 2026-08-05에 그렇게 잡을 뻔했다 — 붙은 봇 100초에 맞췄더니 총 HP가 재조정
+    /// 전보다 오히려 늘었다. 사람의 실제 시간은 이 두 값 사이 어딘가다.
     /// </summary>
     [TestFixture]
     public sealed class Req181HiddenBossRealFightTests
@@ -36,8 +40,9 @@ namespace Shmup.Core.Tests
         /// <summary>데미지가 이만큼 이어지지 않으면 "더 때릴 것이 없다"로 본다.</summary>
         const int StallTicks = 3_000;            // 50초
 
-        [Test]
-        public void BothHiddenBossesDieUnderOrdinaryFire()
+        [TestCase(true, TestName = "붙어서 싸운다")]
+        [TestCase(false, TestName = "떨어져서 싸운다")]
+        public void BothHiddenBossesDieUnderOrdinaryFire(bool closeIn)
         {
             GameDataSet data = ParseRepositoryGameData();
             var generator = new SegmentStageGenerator(data.StageGeneration);
@@ -61,13 +66,15 @@ namespace Shmup.Core.Tests
                 for (int i = 0; i < maxed.Length; i++) maxed[i] = int.MaxValue;
                 run.PowerUpGauge.ImportLevels(maxed);
 
-                string outcome = FightWithOrdinaryFire(run, out int ticks);
+                string outcome = FightWithOrdinaryFire(run, closeIn, out int ticks);
                 double seconds = ticks / (double)SimSpace.TicksPerSecond;
                 TestContext.WriteLine(
-                    $"{run.SelectedColossalBoss}: {seconds:F0}초 ({ticks}틱) → "
-                    + (outcome ?? "격파"));
+                    $"{run.SelectedColossalBoss} ({(closeIn ? "붙어서" : "떨어져서")}): "
+                    + $"{seconds:F0}초 ({ticks}틱) → " + (outcome ?? "격파"));
                 if (outcome != null)
-                    failures.AppendLine($"{run.SelectedColossalBoss}: {outcome}");
+                    failures.AppendLine(
+                        $"{run.SelectedColossalBoss}"
+                        + $"({(closeIn ? "붙어서" : "떨어져서")}): {outcome}");
             }
 
             Assert.AreEqual(2, seen.Count, "거대 보스 두 종류를 다 만나지 못했다.");
@@ -83,7 +90,8 @@ namespace Shmup.Core.Tests
         /// 양옆 촉수를 영영 못 때려서, 데이터가 멀쩡한 레비아탄까지 "멈췄다"로
         /// 나왔다. 판정이 어디에 있든 몇 초 안에 한 번은 지나가야 한다.
         /// </summary>
-        static string FightWithOrdinaryFire(RunManager run, out int ticks)
+        static string FightWithOrdinaryFire(
+            RunManager run, bool closeIn, out int ticks)
         {
             ticks = 0;
             // 접근 구간을 먼저 지난다. 방은 시간만 지나서는 안 넘어가고 적을
@@ -115,7 +123,7 @@ namespace Shmup.Core.Tests
                         ? null
                         : $"런이 {run.State}로 끝났다.";
                 int moveY = (ticks / 90) % 2 == 0 ? 1 : -1;
-                run.Step(new InputCommand(1, moveY, true, false));
+                run.Step(new InputCommand(closeIn ? 1 : 0, moveY, true, false));
                 ticks++;
 
                 int hp = battle.Boss.Hp;
