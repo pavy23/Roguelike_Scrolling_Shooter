@@ -1508,7 +1508,7 @@ namespace Shmup.EditorTools
             SetReferenceArray(sectionThemes, "_themeRoots", themeRoots);
             CreateSectionArtSlots(sectionThemes);
 
-            CreateHud(director, hudSlotSprite, hudPipSprite, sectionThemes, warshipView, chainView);
+            CreateHud(director, hudSlotSprite, hudPipSprite, sectionThemes, warshipView, chainView, partsView);
             CreateSfx(director);
             CreateBgm(director);
 
@@ -1958,7 +1958,7 @@ namespace Shmup.EditorTools
         static void CreateHud(
             BattleDirector director, Sprite slotSprite, Sprite pipSprite,
             SectionThemeDirector sectionThemes, WarshipView warshipView,
-            SegmentChainView chainView)
+            SegmentChainView chainView, BossPartsView partsView)
         {
             var hudRoot = new GameObject("Hud");
 
@@ -1973,6 +1973,7 @@ namespace Shmup.EditorTools
             SetReference(cheats, "_sectionThemes", sectionThemes);   // F7 구간 룩 미리보기
             SetReference(cheats, "_warship", warshipView);           // 전함 그룹/포탑 잔량 한 조각
             SetReference(cheats, "_chains", chainView);              // St4 체인: Core 절 수 vs 그린 절 수
+            SetReference(cheats, "_bossParts", partsView);           // 붉은 피격 플래시가 몇 개 떠 있는가
         }
 
         /// <summary>

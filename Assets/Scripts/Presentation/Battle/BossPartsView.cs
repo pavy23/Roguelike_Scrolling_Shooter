@@ -145,20 +145,38 @@ namespace Shmup.Presentation.Battle
         readonly Dictionary<string, float> _flashAge = new Dictionary<string, float>(12);
         readonly List<string> _keys = new List<string>(12);
 
+        /// <summary>
+        /// 지금 붉게 번쩍이고 있는 파츠 수. 개발 HUD가 읽는다.
+        ///
+        /// 왜 노출하나: 플래시는 0.12초라 헤드리스 스크린샷(≈250ms 간격)으로는
+        /// 우연에 기대야 잡힌다. 2026-08-05에 "전함 약점에 피격 이팩트가 없다"를
+        /// 확인하려다 붉은 픽셀을 세는 방식으로 두 번 헛짚었다 — 플레이어 레이저와
+        /// 보스 레이저가 둘 다 붉어서 구분이 안 됐다. 숫자 하나면 끝난다.
+        /// </summary>
+        public int FlashingPartCount { get; private set; }
+
         void Update()
         {
             if (_director == null || _root == null || _markSprite == null) return;
             var parts = _director.BossParts;
+            // **전함에서는 피격 플래시만 남긴다.** 전함은 파괴·무적 상태를 자기
+            // 아트로(잔해 그림, 청록 맥동) 말하므로 그 두 겹은 겹치면 안 되지만,
+            // 피격만은 다른 보스·졸개와 같은 연출이어야 한다 — 사람 지적
+            // 2026-08-05: "그냥 다른 보스들이나 졸개처럼 깜빡이는 빨강처리하면
+            // 되는거 아닌가". 예전에는 전함이면 이 뷰를 통째로 껐고, 그래서
+            // 전함의 약점만 맞아도 아무 표시가 없었다.
+            bool warshipOwnsArt = _warshipView != null && _warshipView.Active;
             bool active = _director.BossActive && parts != null && parts.Count > 0
-                && (_warshipView == null || !_warshipView.Active)
                 && (_hiveView == null || !_hiveView.Active);
             if (!active)
             {
                 if (_overlays.Count > 0) HideAll();
+                FlashingPartCount = 0;
                 return;
             }
 
             var bossWorld = _director.BossWorldPosition;
+            int flashing = 0;
             for (int i = 0; i < parts.Count; i++)
             {
                 var part = parts[i];
@@ -188,7 +206,26 @@ namespace Shmup.Presentation.Battle
                 // 채움(그을림·피격 플래시)과 테두리(무적 실드)를 스프라이트로 가른다.
                 // 무적은 오래 켜져 있는 상태라 채우면 보스 아트를 통째로 덮는다.
                 bool ring = false;
-                if (part.Destroyed)
+                if (warshipOwnsArt)
+                {
+                    // 전함: 피격 플래시 한 겹만. 파괴·무적은 WarshipView 담당이다.
+                    if (age < FlashDuration && !part.Destroyed)
+                    {
+                        _flashAge[part.PartId] = age + Time.deltaTime;
+                        float area = overlay.size.x * overlay.size.y;
+                        float sizeScale = Mathf.Clamp(
+                            FlashAreaReference / Mathf.Max(area, 0.01f), 0.4f, 1f);
+                        float decay = 1f - Mathf.Clamp01(age / FlashDuration);
+                        color = new Color(
+                            HitTint.r, HitTint.g, HitTint.b,
+                            MaxFlashAlpha * sizeScale * decay);
+                    }
+                    else
+                    {
+                        color = Color.clear;
+                    }
+                }
+                else if (part.Destroyed)
                 {
                     // 파괴 자국. 예전에는 0.72 알파의 회흑색 한 겹이었는데, 크고
                     // 복잡한 히든 보스 그림 위에서는 **그림자로 읽혔다** — 사람이
@@ -253,7 +290,9 @@ namespace Shmup.Presentation.Battle
                 if (overlay.sprite != wanted) overlay.sprite = wanted;
                 overlay.color = color;
                 overlay.enabled = color.a > 0.01f;
+                if (!part.Destroyed && age < FlashDuration) flashing++;
             }
+            FlashingPartCount = flashing;
         }
 
         BossPartDefinition FindPartDefinition(string partId)
@@ -273,7 +312,9 @@ namespace Shmup.Presentation.Battle
             go.transform.SetParent(_root, false);
             var renderer = go.AddComponent<SpriteRenderer>();
             renderer.sprite = _markSprite;
-            renderer.sortingOrder = 16;   // 보스(15) 위
+            // 보스 본체(15)와 전함 하드포인트(16)보다 위. 16에 두면 전함에서
+            // 하드포인트와 순서가 갈리지 않아 플래시가 파츠 뒤로 숨는다.
+            renderer.sortingOrder = 17;
             renderer.drawMode = SpriteDrawMode.Sliced;
             renderer.size = new Vector2(3.5f, 3.5f);
             renderer.enabled = false;

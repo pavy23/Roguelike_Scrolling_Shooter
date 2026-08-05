@@ -33,6 +33,8 @@ namespace Shmup.Presentation.Battle
         /// 두 숫자가 어긋나면 그때가 뷰 문제고, 둘 다 0이면 Core가 안 소환한 것이다.
         /// </summary>
         [SerializeField] SegmentChainView _chains;
+        [Tooltip("붉은 피격 플래시가 지금 몇 개 떠 있는가 — 스크린샷으로는 못 잡는다.")]
+        [SerializeField] BossPartsView _bossParts;
 
         /// <summary>F3으로 오버레이 표시 전환. 개발 모드에서만 의미가 있고 기본 표시다.</summary>
         static bool _overlayVisible;
@@ -95,6 +97,7 @@ namespace Shmup.Presentation.Battle
         long _overlayKey = long.MinValue;
 
         // St4 체인 관측값 (REQ-115b). XOR 키와 달리 정확 비교라 상쇄되지 않는다.
+        int _lastFlashingParts = -1;
         int _lastCoreEnemyBullets = -1;
         int _lastDrawnBullets = -1;
         int _lastChainSegments = -1;
@@ -162,6 +165,8 @@ namespace Shmup.Presentation.Battle
             // 화면에서 바로 갈라야 한다 (2026-08-05).
             int coreEnemyBullets = _director.CoreEnemyBulletCount;
             int drawnBullets = _director.DrawnBulletViewCount;
+            // 붉게 번쩍이는 파츠 수. 0.12초라 스크린샷으로는 못 잡는다.
+            int flashingParts = _bossParts != null ? _bossParts.FlashingPartCount : 0;
             long key = ((long)_director.RunNumber << 48)
                      ^ ((long)_director.StageIndex << 40)
                      ^ ((long)_director.PlayerHp << 32)
@@ -191,6 +196,7 @@ namespace Shmup.Presentation.Battle
                 || chainDrawn != _lastChainDrawn
                 || coreEnemyBullets != _lastCoreEnemyBullets
                 || drawnBullets != _lastDrawnBullets
+                || flashingParts != _lastFlashingParts
                 || playerCoreY10 != _lastPlayerCoreY10
                 || playerViewY10 != _lastPlayerViewY10
                 || playerRendererOn != _lastPlayerRendererOn
@@ -201,6 +207,7 @@ namespace Shmup.Presentation.Battle
                 _lastChainDrawn = chainDrawn;
                 _lastCoreEnemyBullets = coreEnemyBullets;
                 _lastDrawnBullets = drawnBullets;
+                _lastFlashingParts = flashingParts;
                 _lastPlayerCoreY10 = playerCoreY10;
                 _lastPlayerViewY10 = playerViewY10;
                 _lastPlayerRendererOn = playerRendererOn;
@@ -227,7 +234,8 @@ namespace Shmup.Presentation.Battle
                     : "";
                 // St4 번개룡: Core 체인 기수 / 뷰가 그린 절 수. 0/0이면 아직 안 나왔고,
                 // n/0이면 뷰가 죽은 것이다 (build26/27의 "안 보인다"가 바로 이 상태였다).
-                string bullets = $"   ebul {coreEnemyBullets}/{drawnBullets}drawn";
+                string bullets = $"   ebul {coreEnemyBullets}/{drawnBullets}drawn"
+                    + $"   hitfx {flashingParts}";
                 string chains = chainSegments > 0 || chainDrawn > 0
                     ? $"   chain {chainSegments}seg/{chainDrawn}drawn"
                     : "";

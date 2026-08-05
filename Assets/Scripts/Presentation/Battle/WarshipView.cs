@@ -58,7 +58,6 @@ namespace Shmup.Presentation.Battle
         /// <summary>포탑 밑동에 물리는 여유 — 이음매가 뜨면 다시 "떠 있는" 것으로 읽힌다.</summary>
         const float PylonOverlap = 0.4f;
 
-        const float HitFlashSeconds = 0.09f;
         const float ActivateFlashSeconds = 0.32f;
 
         /// <summary>함체 판 여백(월드 유닛). 파츠가 실루엣 가장자리에 걸리면 배가 짧아 보인다.</summary>
@@ -119,8 +118,6 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         readonly List<SpriteRenderer> _pylons = new List<SpriteRenderer>(8);
         readonly List<int> _partGroup = new List<int>(8);
-        readonly List<int> _lastHp = new List<int>(8);
-        readonly List<float> _hitFlash = new List<float>(8);
         readonly List<float> _activateFlash = new List<float>(8);
         readonly List<bool> _wasInvulnerable = new List<bool>(8);
 
@@ -198,8 +195,6 @@ namespace Shmup.Presentation.Battle
             for (int i = 0; i < _pylons.Count; i++)
                 SetEnabled(_pylons[i], false);
             _partGroup.Clear();
-            _lastHp.Clear();
-            _hitFlash.Clear();
             _activateFlash.Clear();
             _wasInvulnerable.Clear();
 
@@ -217,8 +212,6 @@ namespace Shmup.Presentation.Battle
             {
                 int group = FindGroup(definition, parts[i].PartId);
                 _partGroup.Add(group);
-                _lastHp.Add(parts[i].Hp);
-                _hitFlash.Add(float.MaxValue);
                 _activateFlash.Add(float.MaxValue);
                 // 등장 중에는 Core가 모든 파츠를 무적으로 잠근다. 첫 관측을 무적으로
                 // 잡아 두면 잠금이 풀리는 프레임이 그대로 "열렸다" 플래시가 된다.
@@ -524,9 +517,6 @@ namespace Shmup.Presentation.Battle
                     SimView.ToWorld(part.X, part.Y) - bossWorld;
                 SyncPylon(i, renderer.transform.localPosition, part.Destroyed);
 
-                if (_lastHp[i] > part.Hp && !part.Destroyed) _hitFlash[i] = 0f;
-                _lastHp[i] = part.Hp;
-
                 // 무적 해제 = 이 파츠가 지금 열렸다. 그룹 전환 플래시와 같은 연출로
                 // 묶는다 — 등장 종료(전 파츠)와 코어 게이트 개방(함수)이 둘 다 여기다.
                 if (_wasInvulnerable[i] && !part.Invulnerable && !part.Destroyed)
@@ -571,12 +561,12 @@ namespace Shmup.Presentation.Battle
                     tint = Color.Lerp(tint, Color.white, t);
                 }
 
-                float hit = _hitFlash[i];
-                if (hit < HitFlashSeconds)
-                {
-                    _hitFlash[i] = hit + dt;
-                    tint = Color.Lerp(Color.white, tint, Mathf.Clamp01(hit / HitFlashSeconds));
-                }
+                // 피격 플래시는 여기서 그리지 않는다. 다른 보스·졸개와 **같은
+                // 연출**이어야 해서 BossPartsView의 붉은 오버레이를 그대로 쓴다
+                // (사람 지적 2026-08-05: "그냥 다른 보스들이나 졸개처럼 깜빡이는
+                // 빨강처리하면 되는거 아닌가"). 예전에는 여기서 흰색으로 보간했는데,
+                // 때릴 수 있는 파츠는 기본 틴트가 이미 흰색이라 Lerp(흰, 흰)이 되어
+                // 아무 변화도 없었다 — 전함만 피격 표시가 없던 이유다.
 
                 if (renderer.color != tint) renderer.color = tint;
                 if (!renderer.enabled && renderer.sprite != null) renderer.enabled = true;
@@ -601,8 +591,6 @@ namespace Shmup.Presentation.Battle
             for (int i = 0; i < _pylons.Count; i++)
                 SetEnabled(_pylons[i], false);
             _partGroup.Clear();
-            _lastHp.Clear();
-            _hitFlash.Clear();
             _activateFlash.Clear();
             _wasInvulnerable.Clear();
             AttritionAlive = 0;
