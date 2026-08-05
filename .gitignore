@@ -57,3 +57,8 @@ out/
 Tools/ArtGen/out/
 .env.local
 *.env.local
+
+# QA 산출물은 실행할 때마다 다시 생긴다 — 저장소에 담지 않는다.
+QA/reports/captures/
+QA/reports/diffs/
+scratch_*.png
