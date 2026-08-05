@@ -128,13 +128,12 @@ namespace Shmup.Presentation.Battle
         {
             switch (section)
             {
-                // 히든 보스: 1~3페이즈는 히든곡, **마지막 코어 페이즈(두 번째
-                // 형태)만** 일반 보스곡이다 (사람 지시 2026-08-05). 본체가 무너지고
-                // 작은 코어가 나오는 순간 곡이 바뀌는 것이 그 장면의 신호다.
+                // 히든 보스는 **처음부터 끝까지 히든곡**이다. 잠깐 일반 보스곡으로
+                // 갈아타 봤는데(2026-08-05), 사람이 듣고 "페이즈4로 넘어갈 때 잠깐
+                // 들리는 옛날 bgm을 그대로 유지해줘. 일반 보스 음악으로 넘어가지
+                // 말고"라고 정했다. 형태가 바뀌어도 곡은 이어진다 — 같은 싸움이다.
                 case RunStageSection.HiddenBoss:
-                    return secondForm
-                        ? (_stageBossClip != null ? _stageBossClip : _bossClip)
-                        : (_hiddenBossClip != null ? _hiddenBossClip : _bossClip);
+                    return _hiddenBossClip != null ? _hiddenBossClip : _bossClip;
                 case RunStageSection.StageBoss:
                     return _stageBossClip != null ? _stageBossClip : _bossClip;
                 default:

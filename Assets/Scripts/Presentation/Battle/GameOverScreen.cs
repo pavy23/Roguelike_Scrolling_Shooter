@@ -27,6 +27,21 @@ namespace Shmup.Presentation.Battle
         Button _retryButton, _titleButton, _continueButton;
         Text _continueLabel;
         Image _dim;
+        RectTransform _panelRect;
+
+        /// <summary>
+        /// 축하 그림이 차지하는 세로 길이(그림 162 + 여백 6). 그림이 없는
+        /// 게임오버에서는 이만큼 패널을 줄이고 글줄을 끌어올린다 — 안 그러면
+        /// 카드 위쪽에 빈 구멍이 남는다.
+        /// </summary>
+        const float ArtBlockHeight = 168f;
+
+        /// <summary>그림이 있을 때의 패널 높이. 640x360 기준을 넘기면 잘린다.</summary>
+        const float PanelHeightWithArt = 360f;
+
+        readonly System.Collections.Generic.List<(RectTransform Rect, float Y)>
+            _topAnchoredTexts =
+                new System.Collections.Generic.List<(RectTransform, float)>(6);
         int _shownRun = int.MinValue;
         bool _shownCleared;
 
@@ -35,10 +50,10 @@ namespace Shmup.Presentation.Battle
         int _shownContinueStock = -1;
 
         /// <summary>버튼 열 좌표. 컨티뉴가 끼면 두 칸이 양옆으로 밀린다.</summary>
-        const float TouchButtonY = 58f;
+        const float TouchButtonY = 44f;
         const float TouchButtonSpread = 66f;
         const float TouchButtonSpreadWide = 132f;
-        const float SubmitY = 48f;
+        const float SubmitY = 40f;
         const float SubmitSpread = 84f;
 
         /// <summary>스코어보드 제출 상태. Sending/Done에서는 버튼이 다시 눌리지 않는다.</summary>
@@ -75,7 +90,9 @@ namespace Shmup.Presentation.Battle
             // 위치가 그대로고, 힌트는 하단 앵커라 바닥에 붙어 따라 내려간다).
             // 288 = 상단 요약 6줄(보너스 줄 포함, ~154px) + 하단 3단(경고·버튼열·제출,
             // ~114px) + 여유. 컨티뉴 줄이 붙으면서 224로는 두 블록이 겹친다.
-            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(400f, 460f));
+            var panel = UiKit.CreatePanel(
+                canvas.transform, new Vector2(400f, PanelHeightWithArt));
+            _panelRect = panel as RectTransform ?? panel.GetComponent<RectTransform>();
 
             // 축하 그림을 패널 **안쪽 위**에 넣는다 (사람 지시 2026-08-05:
             // "클리어 이미지도 아래 네모난 카드 안에 들어오도록"). 예전에는 패널
@@ -86,6 +103,12 @@ namespace Shmup.Presentation.Battle
             // 288x162는 원본 320x180의 0.9배다. 정수배가 아니라 픽셀 아트로서는
             // 손해지만, 패널 폭 400에 320을 넣으면 좌우 여백이 40씩뿐이라 그림이
             // 카드에 낀 것처럼 보인다. 카드 안에 놓이는 것이 이번 요구다.
+            //
+            // **패널 높이는 360을 넘기면 안 된다.** UI 캔버스는 640x360 기준 정수
+            // 배율(PixelUiScaler)이라, 기준 높이를 넘는 패널은 화면에서 잘린다.
+            // 그림을 넣으면서 460으로 키웠더니 폰에서 아래 버튼 줄이 통째로
+            // 잘려 나갔다 (사람 보고 2026-08-05, 첨부 스크린샷). 그림 크기는
+            // 그대로 두고 글줄 간격과 버튼 높이를 깎아 360 안에 넣는다.
             var artGo = new GameObject("ClearArt");
             artGo.transform.SetParent(panel, false);
             _clearArt = artGo.AddComponent<Image>();
@@ -93,24 +116,34 @@ namespace Shmup.Presentation.Battle
             _clearArt.preserveAspect = true;
             var artRect = _clearArt.rectTransform;
             artRect.anchorMin = artRect.anchorMax = artRect.pivot = new Vector2(0.5f, 1f);
-            artRect.anchoredPosition = new Vector2(0f, -12f);
+            artRect.anchoredPosition = new Vector2(0f, -6f);
             artRect.sizeDelta = new Vector2(288f, 162f);
             _clearArt.enabled = false;
 
-            _titleText = UiKit.CreateCornerText(panel, _fontBold, UiText.GameOverTitle, 22, UiKit.TextDanger,
-                new Vector2(0.5f, 1f), new Vector2(0f, -200f), TextAnchor.UpperCenter, "Title");
+            _titleText = UiKit.CreateCornerText(panel, _fontBold, UiText.GameOverTitle, 20, UiKit.TextDanger,
+                new Vector2(0.5f, 1f), new Vector2(0f, -172f), TextAnchor.UpperCenter, "Title");
             _scoreText = UiKit.CreateCornerText(panel, _fontBold, "", 11, UiKit.TextAccent,
-                new Vector2(0.5f, 1f), new Vector2(0f, -238f), TextAnchor.UpperCenter, "Score");
+                new Vector2(0.5f, 1f), new Vector2(0f, -198f), TextAnchor.UpperCenter, "Score");
             _statsText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextMain,
-                new Vector2(0.5f, 1f), new Vector2(0f, -260f), TextAnchor.UpperCenter, "Stats");
+                new Vector2(0.5f, 1f), new Vector2(0f, -214f), TextAnchor.UpperCenter, "Stats");
             _extraText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextDim,
-                new Vector2(0.5f, 1f), new Vector2(0f, -282f), TextAnchor.UpperCenter, "Extra");
+                new Vector2(0.5f, 1f), new Vector2(0f, -230f), TextAnchor.UpperCenter, "Extra");
             _modifierText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextAccent,
-                new Vector2(0.5f, 1f), new Vector2(0f, -304f), TextAnchor.UpperCenter, "Modifiers");
+                new Vector2(0.5f, 1f), new Vector2(0f, -246f), TextAnchor.UpperCenter, "Modifiers");
             // 실드 보너스(REQ-105)와 컨티뉴 사용 표시(REQ-104). 둘 다 "이 점수가 어떻게
             // 만들어졌는가"에 대한 단서라 점수 줄과 같은 앰버 계열로 한 줄에 둔다.
             _bonusText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextAccent,
-                new Vector2(0.5f, 1f), new Vector2(0f, -326f), TextAnchor.UpperCenter, "Bonus");
+                new Vector2(0.5f, 1f), new Vector2(0f, -262f), TextAnchor.UpperCenter, "Bonus");
+            // 그림 유무에 따라 통째로 끌어올릴 대상 (아래 앵커 요소는 패널 높이를
+            // 따라오므로 여기 넣지 않는다).
+            foreach (var text in new[]
+            {
+                _titleText, _scoreText, _statsText,
+                _extraText, _modifierText, _bonusText
+            })
+                _topAnchoredTexts.Add(
+                    (text.rectTransform, text.rectTransform.anchoredPosition.y));
+
             _hintsText = UiKit.CreateCornerText(panel, _font,
                 UiText.GameOverHints, 11, UiKit.TextDim,
                 new Vector2(0.5f, 0f), new Vector2(0f, 16f), TextAnchor.LowerCenter, "Hints");
@@ -121,10 +154,10 @@ namespace Shmup.Presentation.Battle
                 _hintsText.gameObject.SetActive(false);
                 _retryButton = UiKit.CreateTouchButton(panel, _font, "REDEPLOY", 11,
                     new Vector2(0.5f, 0f), new Vector2(-TouchButtonSpread, TouchButtonY),
-                    new Vector2(124f, 36f), Retry, "RetryButton", accent: true);
+                    new Vector2(124f, 32f), Retry, "RetryButton", accent: true);
                 _titleButton = UiKit.CreateTouchButton(panel, _font, "TITLE", 11,
                     new Vector2(0.5f, 0f), new Vector2(TouchButtonSpread, TouchButtonY),
-                    new Vector2(124f, 36f), ToTitle, "TitleButton");
+                    new Vector2(124f, 32f), ToTitle, "TitleButton");
             }
 
             // 컨티뉴 (REQ-104). 재고가 있고 Core가 허용할 때만 나타난다 — 데일리 런과
@@ -133,12 +166,12 @@ namespace Shmup.Presentation.Battle
             _continueButton = UiKit.CreateTouchButton(panel, _font, "CONTINUE", 11,
                 new Vector2(0.5f, 0f),
                 touch ? new Vector2(0f, TouchButtonY) : new Vector2(SubmitSpread, SubmitY),
-                touch ? new Vector2(124f, 36f) : new Vector2(160f, 30f),
+                touch ? new Vector2(124f, 32f) : new Vector2(160f, 28f),
                 UseContinue, "ContinueButton");
             _continueLabel = _continueButton.GetComponentInChildren<Text>();
             _continueWarning = UiKit.CreateCornerText(panel, _font, UiText.ContinueWarning, 9,
                 UiKit.TextDanger, new Vector2(0.5f, 0f),
-                new Vector2(0f, touch ? 100f : 82f), TextAnchor.LowerCenter, "ContinueWarning");
+                new Vector2(0f, touch ? 82f : 72f), TextAnchor.LowerCenter, "ContinueWarning");
             _continueButton.gameObject.SetActive(false);
             _continueWarning.gameObject.SetActive(false);
 
@@ -146,8 +179,8 @@ namespace Shmup.Presentation.Battle
             // 지켜 헤어라인 셀로 둔다 — 제출은 선택지지 이 화면의 주 동작이 아니다.
             _submitButton = UiKit.CreateTouchButton(panel, _font, SubmitIdleLabel, 11,
                 new Vector2(0.5f, 0f),
-                touch ? new Vector2(0f, 14f) : new Vector2(0f, SubmitY),
-                touch ? new Vector2(256f, 36f) : new Vector2(160f, 30f),
+                touch ? new Vector2(0f, 8f) : new Vector2(0f, SubmitY),
+                touch ? new Vector2(256f, 30f) : new Vector2(160f, 28f),
                 SubmitScore, "SubmitButton");
             _submitLabel = _submitButton.GetComponentInChildren<Text>();
 
@@ -155,6 +188,28 @@ namespace Shmup.Presentation.Battle
             _dim.transform.SetAsFirstSibling();
 
             _root.SetActive(false);
+        }
+
+        /// <summary>
+        /// 그림이 있으면 원래 자리, 없으면 그림 높이만큼 끌어올리고 패널도 줄인다.
+        /// 완주 두 종류(PERFECT / CLEAR)는 그림만 다르고 배치는 같다 — 사람 지시
+        /// 2026-08-05: "퍼팩트 클리어 말고 일반 클리어도 똑같이 처리해줘".
+        /// </summary>
+        void ApplyArtLayout(bool hasArt)
+        {
+            float shift = hasArt ? 0f : ArtBlockHeight;
+            for (int i = 0; i < _topAnchoredTexts.Count; i++)
+            {
+                var (rect, baseY) = _topAnchoredTexts[i];
+                if (rect == null) continue;
+                var position = rect.anchoredPosition;
+                position.y = baseY + shift;
+                rect.anchoredPosition = position;
+            }
+            if (_panelRect == null) return;
+            var size = _panelRect.sizeDelta;
+            size.y = PanelHeightWithArt - shift;
+            _panelRect.sizeDelta = size;
         }
 
         void Retry()
@@ -372,6 +427,7 @@ namespace Shmup.Presentation.Battle
                         : perfect ? _clearPerfectSprite : _clearStandardSprite;
                     _clearArt.sprite = art;
                     _clearArt.enabled = art != null;
+                    ApplyArtLayout(art != null);
                 }
                 _hintsText.text = cleared
                     ? UiText.RunClearedHints
