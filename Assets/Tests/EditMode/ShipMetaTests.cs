@@ -41,11 +41,17 @@ namespace Shmup.Core.Tests
                 300);
             MetaState state = MetaState.CreateDefault(starter);
 
-            state.CreditScore(500);
+            // 점수를 그대로 크레딧으로 주지 않는다(2026-08-05: 2.5%). 환산율은
+            // 사람이 화면을 보고 정하는 값이라, 여기서 숫자를 베끼면 비율을 손볼
+            // 때마다 관계없는 테스트가 깨진다 — **비율에서 필요한 점수를 거꾸로
+            // 구한다.**
+            long needed = 500L * 1000L / MetaState.ScoreToCurrencyPermille;
+            state.CreditScore(needed);
+            long credited = needed * MetaState.ScoreToCurrencyPermille / 1000L;
             Assert.IsTrue(state.TryUnlock(ship));
             state.SelectShip(ship.Id);
 
-            Assert.AreEqual(200L, state.TotalCurrency);
+            Assert.AreEqual(credited - 300L, state.TotalCurrency);
             CollectionAssert.AreEqual(
                 new[] { "b_ship", "default" },
                 state.UnlockedShipIds);
@@ -81,10 +87,15 @@ namespace Shmup.Core.Tests
                 1,
                 new[] { 0, 0, 0, 0 },
                 100);
-            state.CreditScore(99);
+            long shortfall = 99L * 1000L / MetaState.ScoreToCurrencyPermille;
+            state.CreditScore(shortfall);
+            long banked = state.TotalCurrency;
 
             Assert.IsFalse(state.TryUnlock(expensive));
-            Assert.AreEqual(99L, state.TotalCurrency);
+            Assert.AreEqual(
+                banked,
+                state.TotalCurrency,
+                "해금에 실패했는데 크레딧이 줄었다.");
             Assert.IsFalse(state.IsUnlocked(expensive.Id));
         }
 

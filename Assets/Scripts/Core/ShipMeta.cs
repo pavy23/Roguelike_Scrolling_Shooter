@@ -479,13 +479,31 @@ namespace Shmup.Core
             return data;
         }
 
-        /// <summary>Adds a completed run's non-negative score to currency.</summary>
+        /// <summary>
+        /// 완주한 런의 점수를 크레딧으로 바꿔 더한다.
+        ///
+        /// **점수 전액이 아니라 <see cref="ScoreToCurrencyPermille"/>만큼이다.**
+        /// 1:1이던 시절에는 퍼펙트 클리어 한 판(약 440만 점)으로 컨티뉴 8개와 기체
+        /// 둘(합 19만 4천)을 스물두 번 살 수 있었다 — 살 것이 남지 않으면 경제가
+        /// 아니다 (사람 지시 2026-08-05: "보상은 2.5%로 고치자").
+        /// </summary>
         public void CreditScore(long score)
         {
             if (score < 0)
                 throw new ArgumentOutOfRangeException(nameof(score));
-            TotalCurrency = checked(TotalCurrency + score);
+            long credited = score * ScoreToCurrencyPermille / 1000;
+            TotalCurrency = checked(TotalCurrency + credited);
         }
+
+        /// <summary>
+        /// 점수의 몇 천분율이 크레딧이 되는가. 25 = 2.5%.
+        ///
+        /// 이 값에서 나오는 감각: 중간 런(100만 점)이 25,000크레딧이라 컨티뉴를
+        /// 가득(44,000) 채우려면 두 판, 기체 해금(50,000)은 클리어 한 판이다.
+        /// 초반에는 컨티뉴가 진짜 선택이 되고, 클리어할 실력이 되면 한 판에 하나씩
+        /// 열린다.
+        /// </summary>
+        public const long ScoreToCurrencyPermille = 25;
 
         public long GetContinuePurchasePrice(
             ContinueEconomyConfig config = null)

@@ -113,14 +113,15 @@ namespace Shmup.Core.Tests
         }
 
         /// <summary>
-        /// REQ-139 3막: 함체를 다 부수면 **전투가 끝나지 않고** 로봇이 나온다.
+        /// REQ-139 3막: 함체를 다 부수면 **거기서 전투가 끝난다.**
         ///
-        /// 실데이터로 검증한다 — 이건 밸런스 수치가 아니라 **설계**다. 요새전이
-        /// 두 번째 폼 없이 끝나 버리면 사람이 지시한 마지막 페이즈가 사라진 것이니
-        /// 이 테스트가 깨지는 게 맞다.
+        /// 예전에는 함체 안에서 로봇이 튀어나오는 네 번째 페이즈가 있었고, 이
+        /// 테스트도 그것을 요구했다. 사람이 2026-08-05에 없애기로 정했다 —
+        /// "전함보스는 전함 부수면 그냥 끝 (마지막 로봇 단독 페이즈 없음)".
+        /// 설계 결정이 뒤집혔으므로 기대값도 뒤집는다.
         /// </summary>
         [Test]
-        public void ClearingTheFortressHullHandsOffToTheRobotFormInsteadOfEndingTheBattle()
+        public void ClearingTheFortressHullEndsTheBattle()
         {
             GameDataSet data = ParseRepositoryGameData();
             StageBossTemplate fortress = null;
@@ -132,20 +133,9 @@ namespace Shmup.Core.Tests
             Assert.NotNull(
                 fortress.WarshipEncounter,
                 "요새는 전함 조우로 굴러간다.");
-            Assert.NotNull(
+            Assert.IsNull(
                 fortress.Form2,
-                "함체를 부순 뒤 나올 두 번째 폼(로봇)이 있어야 한다.");
-            Assert.Greater(fortress.Form2.MaxHp, 0);
-            // 마지막 페이즈는 함체와 대비되어야 읽힌다 - 같은 덩치면 "안에서
-            // 나왔다"가 성립하지 않는다.
-            Assert.Less(
-                fortress.Form2.HalfWidth,
-                fortress.HalfWidth,
-                "로봇은 함체보다 작아야 한다.");
-            Assert.Greater(
-                fortress.Form2.TransitionTicks,
-                0,
-                "함체 붕괴에서 로봇 사출까지 연출 시간이 필요하다.");
+                "전함은 두 번째 폼 없이 끝난다 — 함체를 부수면 그것으로 끝이다.");
         }
 
         static GameDataSet ParseRepositoryGameData()
@@ -182,7 +172,7 @@ namespace Shmup.Core.Tests
         /// 보고했다. 실제 데이터로 파츠를 전부 깨뜨려 폼 전환까지 확인한다.
         /// </summary>
         [Test]
-        public void DestroyingEveryWarshipPartSpawnsTheRobotFormInsteadOfEndingTheBattle()
+        public void DestroyingEveryWarshipPartEndsTheBattle()
         {
             GameDataSet data = ParseRepositoryGameData();
             var generator = new SegmentStageGenerator(data.StageGeneration);
@@ -191,7 +181,7 @@ namespace Shmup.Core.Tests
                 20240803UL, 3, difficulty, "fortress", EncounterType.Normal);
             Assert.AreEqual("boss_fortress", plan.BossId);
             Assert.NotNull(plan.WarshipEncounter);
-            Assert.NotNull(plan.Form2, "로봇 폼 데이터가 없다.");
+            Assert.IsNull(plan.Form2, "전함에 두 번째 폼이 남아 있다.");
 
             BattleSimConfig config = data.CreateBattleSimConfig();
             config.PlayerInvulnerable = true;
@@ -206,7 +196,7 @@ namespace Shmup.Core.Tests
 
             // 살아 있는 파츠를 계속 때린다. 그룹 게이트 때문에 한 번에 하나씩만
             // 열리므로, 매 틱 "지금 때릴 수 있는 것"을 찾아 때리는 방식이어야 한다.
-            for (int tick = 0; tick < 60000 && battle.BossFormIndex == 0; tick++)
+            for (int tick = 0; tick < 60000 && !battle.BossDefeated; tick++)
             {
                 var parts = battle.BossParts;
                 for (int i = 0; i < parts.Count; i++)
@@ -219,12 +209,12 @@ namespace Shmup.Core.Tests
                 if (battle.BossDefeated) break;
             }
 
-            Assert.IsFalse(
+            Assert.IsTrue(
                 battle.BossDefeated,
-                "함체를 다 부쉈는데 전투가 끝났다 — 로봇으로 넘어가지 않았다.");
+                "함체를 다 부쉈는데 전투가 끝나지 않았다.");
             Assert.AreEqual(
-                1, battle.BossFormIndex,
-                "두 번째 폼(로봇)으로 전환되지 않았다.");
+                0, battle.BossFormIndex,
+                "두 번째 폼으로 넘어갔다 — 전함은 함체가 끝이다.");
         }
 
         [Test]

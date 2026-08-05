@@ -15,7 +15,8 @@
 // 13) Boss redesign: TTK 22–32s @ 4-room avg biome DPS, full-power ≥6s, 3 phases, threat mono.
 // 14) REQ-034: missile families + option formations ST DPS / situation roles / combo gates.
 // 15) REQ-035/116: colossal bosses (parts sum/core, 3-act TTK 2–2.5× normal, brood spawn, parity).
-// 16) REQ-116: boss redesign tables (St1 move ladder, St2 tentacles, St4 chains, St5 form2).
+// 16) REQ-116: boss redesign tables (St1 move ladder, St2 tentacles, St4 chains,
+//     St3 warship-only, St5 single-form core heavier than prior stage bosses).
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -278,10 +279,9 @@ static class Program
     const double HiveHalfH = 7.25;
     const double StormHalfW = 5.0;
     const double StormHalfH = 4.0;
-    const int CoreForm1Hp = 28_000;
-    const int CoreForm2Hp = 14_000;
-    const int CoreForm2TransitionTicks = 180;
-    const double CoreForm2TotalVsForm1MaxRatio = 1.60; // 42000/28000 = 1.5
+    // Core HP is human §7 — do not pin an absolute value here. REQ-116 only
+    // locks the relationship: final boss body heavier than prior non-warship
+    // stage bosses (see CheckReq116BossRedesign).
 
     static int Main()
     {
@@ -9731,8 +9731,11 @@ static class Program
 
     /// <summary>
     /// REQ-116 boss redesign structural gates (provisional §7):
-    /// St1 movement ladder, St2 tentacles 5×4, St4 segment chains, St5 form2,
-    /// fortress untouched, colossal part vocab, St5 ghost+form2 density.
+    /// St1 movement ladder, St2 tentacles 5×4, St4 segment chains,
+    /// St3 warship hull only (no robot form2 — human 2026-08-05),
+    /// St5 single-form core heavier than prior non-warship stage bosses
+    /// (no prism form2 — human 2026-08-05), colossal part vocab, St5 ghost share.
+    /// Absolute final-boss HP is human §7; this gate locks structure + relations.
     /// </summary>
     static int CheckReq116BossRedesign(
         GameDataSet data,
@@ -9845,85 +9848,30 @@ static class Program
             }
         }
 
-        // --- St3 fortress warship hull + robot form2 (REQ-139) ---
-        // Hull total HP stays locked; robot is an extra final act after the hull.
-        const int FortressRobotForm2Hp = 8_000;
-        const int FortressRobotTransitionTicks = 300;
-        // HP 절대값 잠금은 뺐다 — 사람이 각 막 HP를 2배로 올렸고(REQ-168),
-        // 그때마다 이 게이트가 깨진다. 지켜야 할 것은 "전함 조우가 붙어 있고
-        // 두 번째 형태(로봇)가 있다"는 구조다.
+        // --- St3 fortress: warship encounter only (human 2026-08-05) ---
+        // Hull destroy ends the fight. Robot form2 is intentionally absent —
+        // do not re-require it. Absolute hull HP is gated by REQ-111, not here.
+        // Structure we keep: warship encounter attached, no second form.
         if (!byId.TryGetValue("boss_fortress", out StageBossTemplate fort)
-            || fort.WarshipEncounter == null
-            || fort.Form2 == null)
+            || fort.WarshipEncounter == null)
         {
             Console.WriteLine(
-                "FAIL 116: boss_fortress에 전함 조우 또는 두 번째 형태가 없다 "
-                + $"(hp {WarshipTotalHp}).");
+                "FAIL 116: boss_fortress must define a warship encounter "
+                + $"(expected id snapshot hp {WarshipTotalHp}).");
             failures++;
         }
         else
         {
             Console.WriteLine(
-                $"  fortress warship locked hp={fort.MaxHp} "
-                + $"parts={fort.Parts.Count}");
-            BossFormDefinition robot = fort.Form2;
-            if (robot == null)
+                $"  fortress warship id={fort.WarshipEncounter.EncounterId} "
+                + $"hp={fort.MaxHp} parts={fort.Parts?.Count ?? 0} "
+                + $"form2={(fort.Form2 == null ? "none" : fort.Form2.FormId)}");
+            if (fort.Form2 != null)
             {
                 Console.WriteLine(
-                    "FAIL 116: boss_fortress missing form2 robot phase.");
+                    "FAIL 116: boss_fortress must not define form2 "
+                    + "(human 2026-08-05: hull destroy ends the fight).");
                 failures++;
-            }
-            else
-            {
-                double rHw = robot.HalfWidth
-                    / (double)SimSpace.SubUnitsPerWorldUnit;
-                double rHh = robot.HalfHeight
-                    / (double)SimSpace.SubUnitsPerWorldUnit;
-                Console.WriteLine(
-                    $"  fortress form2={robot.FormId} hp={robot.MaxHp} "
-                    + $"half={rHw:F1}×{rHh:F1} transition={robot.TransitionTicks}t "
-                    + $"phases={robot.Phases?.Count ?? 0}");
-                if (robot.MaxHp != FortressRobotForm2Hp)
-                {
-                    Console.WriteLine(
-                        $"FAIL 116: fortress robot hp {robot.MaxHp} "
-                        + $"!= {FortressRobotForm2Hp}.");
-                    failures++;
-                }
-                if (robot.TransitionTicks != FortressRobotTransitionTicks)
-                {
-                    Console.WriteLine(
-                        $"FAIL 116: fortress robot transition "
-                        + $"{robot.TransitionTicks}t "
-                        + $"!= {FortressRobotTransitionTicks}t.");
-                    failures++;
-                }
-                // Robot must be much smaller than the 17×8.5 hull for the
-                // "exit the wreck" read (half-extents well under 4u).
-                if (rHw > 4.0 || rHh > 4.0)
-                {
-                    Console.WriteLine(
-                        $"FAIL 116: fortress robot half {rHw:F1}×{rHh:F1} "
-                        + "too large vs hull (want agile pilot scale).");
-                    failures++;
-                }
-                bool hasLunge = false;
-                if (robot.Phases != null)
-                {
-                    for (int p = 0; p < robot.Phases.Count; p++)
-                    {
-                        if (robot.Phases[p].MovementPattern
-                            == BossMovementPattern.LungeReturn)
-                            hasLunge = true;
-                    }
-                }
-                if (!hasLunge)
-                {
-                    Console.WriteLine(
-                        "FAIL 116: fortress robot needs lungeReturn "
-                        + "(melee charge, distinct from hull missile/laser).");
-                    failures++;
-                }
             }
         }
 
@@ -9981,7 +9929,12 @@ static class Program
             }
         }
 
-        // --- St5 core: form1 28000 + form2 prism 14000 ---
+        // --- St5 core: single form (human 2026-08-05) ---
+        // Prism form2 is gone — one destroy ends the fight. Absolute HP (e.g.
+        // 33600) is human §7 and must not be pinned here; we only require that
+        // the final boss body is heavier than prior non-warship stage bosses.
+        // Warship (fortress) is excluded: its multipartite hull budget is a
+        // different fight shape (gated by REQ-111), not a single-body climax.
         if (!byId.TryGetValue("boss_core", out StageBossTemplate core))
         {
             Console.WriteLine("FAIL 116: missing boss_core.");
@@ -9989,114 +9942,75 @@ static class Program
         }
         else
         {
-            BossFormDefinition form2 = core.Form2;
             Console.WriteLine(
-                $"  core form1={core.MaxHp} form2="
-                + $"{(form2 == null ? "null" : form2.FormId + "/" + form2.MaxHp)} "
-                + $"transition={form2?.TransitionTicks ?? 0}t");
-            if (core.MaxHp != CoreForm1Hp)
+                $"  core hp={core.MaxHp} phases={core.Phases?.Count ?? 0} "
+                + $"form2={(core.Form2 == null ? "none" : core.Form2.FormId)}");
+            if (core.Form2 != null)
             {
                 Console.WriteLine(
-                    $"FAIL 116: core form1 hp {core.MaxHp} != {CoreForm1Hp}.");
+                    "FAIL 116: boss_core must not define form2 "
+                    + "(human 2026-08-05: single form, destroy once).");
                 failures++;
             }
-            if (form2 == null)
-            {
-                Console.WriteLine("FAIL 116: core missing form2 prism avatar.");
-                failures++;
-            }
-            else
-            {
-                if (form2.MaxHp != CoreForm2Hp)
-                {
-                    Console.WriteLine(
-                        $"FAIL 116: form2 hp {form2.MaxHp} != {CoreForm2Hp}.");
-                    failures++;
-                }
-                if (form2.TransitionTicks != CoreForm2TransitionTicks)
-                {
-                    Console.WriteLine(
-                        $"FAIL 116: form2 transition {form2.TransitionTicks} "
-                        + $"!= {CoreForm2TransitionTicks}.");
-                    failures++;
-                }
-                if (form2.Phases == null || form2.Phases.Count < 1)
-                {
-                    Console.WriteLine("FAIL 116: form2 needs phase set.");
-                    failures++;
-                }
-                else
-                {
-                    bool hasPrism = false;
-                    bool hasRadial = false;
-                    for (int p = 0; p < form2.Phases.Count; p++)
-                    {
-                        BossPhase ph = form2.Phases[p];
-                        if (ph.SignaturePattern == BossSignaturePattern.PrismCore
-                            || ph.LaserAttack != null)
-                            hasPrism = true;
-                        if (ph.FirePattern == BossFirePattern.Radial
-                            || ph.FirePattern == BossFirePattern.Spiral)
-                            hasRadial = true;
-                    }
-                    if (!hasPrism || !hasRadial)
-                    {
-                        Console.WriteLine(
-                            "FAIL 116: form2 needs prism beam + radial/spiral mix.");
-                        failures++;
-                    }
-                }
 
-                double totalRatio =
-                    (core.MaxHp + form2.MaxHp) / (double)core.MaxHp;
+            // Relational HP: final boss > max(prior non-warship stage bosses).
+            string[] priorBossIds =
+            {
+                "boss_stage1", "boss_hive", "boss_storm",
+            };
+            int maxPriorHp = 0;
+            string maxPriorId = "";
+            for (int i = 0; i < priorBossIds.Length; i++)
+            {
+                if (!byId.TryGetValue(priorBossIds[i], out StageBossTemplate prior))
+                    continue;
+                if (prior.MaxHp > maxPriorHp)
+                {
+                    maxPriorHp = prior.MaxHp;
+                    maxPriorId = prior.BossId;
+                }
+            }
+            Console.WriteLine(
+                $"  core hp relation: {core.MaxHp} vs max prior "
+                + $"{maxPriorId}={maxPriorHp} (warship excluded)");
+            if (maxPriorHp <= 0 || core.MaxHp <= maxPriorHp)
+            {
                 Console.WriteLine(
-                    $"  core total fight hp={core.MaxHp + form2.MaxHp} "
-                    + $"ratio vs form1={totalRatio:F2} "
-                    + $"(max {CoreForm2TotalVsForm1MaxRatio:F2})");
-                if (totalRatio > CoreForm2TotalVsForm1MaxRatio)
-                {
-                    Console.WriteLine(
-                        $"FAIL 116: form1+form2 ratio {totalRatio:F2} > "
-                        + $"{CoreForm2TotalVsForm1MaxRatio:F2}.");
-                    failures++;
-                }
+                    $"FAIL 116: boss_core hp {core.MaxHp} must exceed "
+                    + $"prior non-warship stage bosses "
+                    + $"(max {maxPriorId}={maxPriorHp}).");
+                failures++;
+            }
 
-                // Ghost density with form2 window: ghost share still bonus-only.
-                double stage5Reach = 1050.0;
-                for (int i = 0; i < BossExpectedDps.Length; i++)
-                    if (string.Equals(
-                            BossExpectedDps[i].Id,
-                            "boss_core",
-                            StringComparison.Ordinal))
-                        stage5Reach = BossExpectedDps[i].ExpectedDps;
-                double form1Ttk = core.MaxHp / stage5Reach;
-                double form2Ttk = form2.MaxHp / stage5Reach;
-                double transitionSec =
-                    form2.TransitionTicks / (double)SimSpace.TicksPerSecond;
-                double fightTtk = form1Ttk + form2Ttk + transitionSec;
-                GhostReplayConfig ghost = GhostReplayConfig.CreateDefault();
-                WeaponDefinition main = data.BattleContent.FindWeapon(
-                    PowerUpSlot.MainShot);
-                if (main != null)
+            // Ghost share of St5 reach remains bonus-only (unchanged intent).
+            double stage5Reach = 1050.0;
+            for (int i = 0; i < BossExpectedDps.Length; i++)
+                if (string.Equals(
+                        BossExpectedDps[i].Id,
+                        "boss_core",
+                        StringComparison.Ordinal))
+                    stage5Reach = BossExpectedDps[i].ExpectedDps;
+            double fightTtk = core.MaxHp / stage5Reach;
+            WeaponDefinition main = data.BattleContent.FindWeapon(
+                PowerUpSlot.MainShot);
+            if (main != null)
+            {
+                int ghostDmg = Damage.Compute(
+                    main.BaseDamage, GhostFixedWeaponLevel);
+                double ghostDps = ghostDmg
+                    * (double)SimSpace.TicksPerSecond
+                    / Math.Max(1, GhostFireIntervalTicks);
+                double ghostShare = ghostDps / stage5Reach;
+                Console.WriteLine(
+                    $"  St5 ghost: fightTTK≈{fightTtk:F1}s "
+                    + $"ghostShare={ghostShare:P1} "
+                    + $"(max {GhostMaxShareOfStage5Reach:P0})");
+                if (ghostShare > GhostMaxShareOfStage5Reach)
                 {
-                    int ghostDmg = Damage.Compute(
-                        main.BaseDamage, GhostFixedWeaponLevel);
-                    double ghostDps = ghostDmg
-                        * (double)SimSpace.TicksPerSecond
-                        / Math.Max(1, GhostFireIntervalTicks);
-                    double ghostShare = ghostDps / stage5Reach;
                     Console.WriteLine(
-                        $"  St5 ghost+form2: fightTTK≈{fightTtk:F1}s "
-                        + $"(f1={form1Ttk:F1}+f2={form2Ttk:F1}"
-                        + $"+tr={transitionSec:F1}) "
-                        + $"ghostShare={ghostShare:P1}");
-                    if (ghostShare > GhostMaxShareOfStage5Reach)
-                    {
-                        Console.WriteLine(
-                            $"FAIL 116: ghost share {ghostShare:P1} exceeds "
-                            + "bonus-only cap during form2 window.");
-                        failures++;
-                    }
+                        $"FAIL 116: ghost share {ghostShare:P1} exceeds "
+                        + "bonus-only cap vs St5 reach.");
+                    failures++;
                 }
             }
         }

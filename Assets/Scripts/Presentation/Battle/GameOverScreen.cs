@@ -121,26 +121,29 @@ namespace Shmup.Presentation.Battle
             _clearArt.enabled = false;
 
             _titleText = UiKit.CreateCornerText(panel, _fontBold, UiText.GameOverTitle, 20, UiKit.TextDanger,
-                new Vector2(0.5f, 1f), new Vector2(0f, -170f), TextAnchor.UpperCenter, "Title");
+                new Vector2(0.5f, 1f), new Vector2(0f, -162f), TextAnchor.UpperCenter, "Title");
             _scoreText = UiKit.CreateCornerText(panel, _fontBold, "", 11, UiKit.TextAccent,
-                new Vector2(0.5f, 1f), new Vector2(0f, -194f), TextAnchor.UpperCenter, "Score");
+                new Vector2(0.5f, 1f), new Vector2(0f, -186f), TextAnchor.UpperCenter, "Score");
             _statsText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextMain,
-                new Vector2(0.5f, 1f), new Vector2(0f, -209f), TextAnchor.UpperCenter, "Stats");
+                new Vector2(0.5f, 1f), new Vector2(0f, -201f), TextAnchor.UpperCenter, "Stats");
             _extraText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextDim,
-                new Vector2(0.5f, 1f), new Vector2(0f, -254f), TextAnchor.UpperCenter, "Extra");
+                new Vector2(0.5f, 1f), new Vector2(0f, -248f), TextAnchor.UpperCenter, "Extra");
             // 완주 본문은 유일하게 긴 문장이라 패널 폭(400)을 넘겼다 — 텍스트 상자가
             // 300 고정이고 넘침 모드가 Overflow라 그냥 삐져나온다 (사람 보고
             // 2026-08-05: "글자가 삐져나오잖아"). 이 줄만 상자를 패널 안쪽 폭으로
             // 넓히고 **줄바꿈**을 켠다. 두 줄이 되어도 아래 줄과 겹치지 않도록
             // 아래 두 줄(모디파이어·보너스)은 그만큼 내려 잡았다.
-            _extraText.rectTransform.sizeDelta = new Vector2(372f, 30f);
+            // 본문 상자에 **세 줄 분량**을 준다. 30(두 줄)으로 잡았더니 히든 조건
+            // 안내처럼 줄바꿈이 이미 들어 있는 문면이 세 줄이 되면서 위쪽
+            // SHIELD BONUS 줄과 겹쳐 글자가 뭉갰다 (사람 보고 2026-08-05, 첨부).
+            _extraText.rectTransform.sizeDelta = new Vector2(372f, 46f);
             _extraText.horizontalOverflow = HorizontalWrapMode.Wrap;
             _modifierText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextAccent,
-                new Vector2(0.5f, 1f), new Vector2(0f, -224f), TextAnchor.UpperCenter, "Modifiers");
+                new Vector2(0.5f, 1f), new Vector2(0f, -216f), TextAnchor.UpperCenter, "Modifiers");
             // 실드 보너스(REQ-105)와 컨티뉴 사용 표시(REQ-104). 둘 다 "이 점수가 어떻게
             // 만들어졌는가"에 대한 단서라 점수 줄과 같은 앰버 계열로 한 줄에 둔다.
             _bonusText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextAccent,
-                new Vector2(0.5f, 1f), new Vector2(0f, -239f), TextAnchor.UpperCenter, "Bonus");
+                new Vector2(0.5f, 1f), new Vector2(0f, -231f), TextAnchor.UpperCenter, "Bonus");
             // 그림 유무에 따라 통째로 끌어올릴 대상 (아래 앵커 요소는 패널 높이를
             // 따라오므로 여기 넣지 않는다).
             foreach (var text in new[]

@@ -14723,42 +14723,6 @@
             "anchorTravelTicks": 180
           }
         ]
-      },
-      "form2": {
-        "id": "boss_fortress_robot",
-        "transitionTicks": 300,
-        "hp": 8000,
-        "halfWidth": 2.5,
-        "halfHeight": 2.0,
-        "holdX": 10.0,
-        "phases": [
-          {
-            "pattern": "aimed",
-            "fireIntervalTicks": 18,
-            "ways": 3,
-            "bulletSpeed": 12.5,
-            "projectileKind": "heavy",
-            "movementPattern": "lungeReturn",
-            "movementAmplitude": 8.0,
-            "movementPeriodTicks": 90,
-            "movementTelegraphTicks": 18,
-            "partVulnerability": "all"
-          },
-          {
-            "pattern": "burst",
-            "fireIntervalTicks": 12,
-            "ways": 5,
-            "bulletSpeed": 14.0,
-            "telegraphTicks": 12,
-            "projectileKind": "heavy",
-            "movementPattern": "lungeReturn",
-            "movementAmplitude": 10.0,
-            "movementPeriodTicks": 72,
-            "movementTelegraphTicks": 12,
-            "partVulnerability": "all",
-            "hpThreshold": 0.5
-          }
-        ]
       }
     },
     {
@@ -14793,8 +14757,8 @@
           "projectileKind": "heavy",
           "signaturePatternId": "lightning",
           "bossLaser": {
-            "cycleIntervalTicks": 64,
-            "telegraphTicks": 16,
+            "cycleIntervalTicks": 140,
+            "telegraphTicks": 40,
             "firingTicks": 4,
             "sustainTicks": 18,
             "dissipateTicks": 8,
@@ -14835,8 +14799,8 @@
           "projectileKind": "heavy",
           "signaturePatternId": "lightning",
           "bossLaser": {
-            "cycleIntervalTicks": 48,
-            "telegraphTicks": 12,
+            "cycleIntervalTicks": 140,
+            "telegraphTicks": 40,
             "firingTicks": 4,
             "sustainTicks": 16,
             "dissipateTicks": 6,
@@ -14879,7 +14843,7 @@
       "difficultyMin": 1,
       "difficultyMax": 5,
       "entryLaneMask": 7,
-      "hp": 28000,
+      "hp": 33600,
       "halfWidth": 4.0,
       "halfHeight": 3.0,
       "holdX": 14.0,
@@ -14950,70 +14914,7 @@
           "partVulnerability": "all",
           "hpThreshold": 0.333
         }
-      ],
-      "form2": {
-        "id": "boss_core_prism",
-        "transitionTicks": 180,
-        "hp": 14000,
-        "halfWidth": 5.0,
-        "halfHeight": 4.0,
-        "holdX": 13.0,
-        "phases": [
-          {
-            "pattern": "spiral",
-            "fireIntervalTicks": 26,
-            "ways": 8,
-            "bulletSpeed": 12.0,
-            "projectileKind": "bossLaser",
-            "signaturePatternId": "prismCore",
-            "bossLaser": {
-              "cycleIntervalTicks": 54,
-              "telegraphTicks": 12,
-              "firingTicks": 4,
-              "sustainTicks": 24,
-              "dissipateTicks": 8,
-              "startOffsetX": 0.0,
-              "startOffsetY": 0.0,
-              "endOffsetX": -22.0,
-              "endOffsetY": 0.0,
-              "thinHalfWidth": 0.1875,
-              "fullHalfWidth": 0.75,
-              "damage": 1
-            },
-            "movementPattern": "figureEight",
-            "movementAmplitude": 2.5,
-            "movementPeriodTicks": 84,
-            "partVulnerability": "all"
-          },
-          {
-            "pattern": "radial",
-            "fireIntervalTicks": 14,
-            "ways": 10,
-            "bulletSpeed": 13.5,
-            "projectileKind": "heavy",
-            "signaturePatternId": "prismCore",
-            "bossLaser": {
-              "cycleIntervalTicks": 48,
-              "telegraphTicks": 10,
-              "firingTicks": 4,
-              "sustainTicks": 18,
-              "dissipateTicks": 6,
-              "startOffsetX": 0.0,
-              "startOffsetY": 0.0,
-              "endOffsetX": -22.0,
-              "endOffsetY": 0.0,
-              "thinHalfWidth": 0.25,
-              "fullHalfWidth": 0.875,
-              "damage": 1
-            },
-            "movementPattern": "verticalSine",
-            "movementAmplitude": 3.0,
-            "movementPeriodTicks": 54,
-            "partVulnerability": "all",
-            "hpThreshold": 0.5
-          }
-        ]
-      }
+      ]
     },
     {
       "id": "boss_leviathan",
