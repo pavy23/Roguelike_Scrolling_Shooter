@@ -75,10 +75,17 @@ namespace Shmup.Presentation.Battle
             // 위치가 그대로고, 힌트는 하단 앵커라 바닥에 붙어 따라 내려간다).
             // 288 = 상단 요약 6줄(보너스 줄 포함, ~154px) + 하단 3단(경고·버튼열·제출,
             // ~114px) + 여유. 컨티뉴 줄이 붙으면서 224로는 두 블록이 겹친다.
-            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(400f, 288f));
+            var panel = UiKit.CreatePanel(canvas.transform, new Vector2(400f, 460f));
 
-            // 축하 그림은 패널 **위쪽 바깥**에 건다. 안에 넣으면 요약 여섯 줄을
-            // 밀어내야 하는데, 점수·통계는 완주 화면의 본론이라 밀 수 없다.
+            // 축하 그림을 패널 **안쪽 위**에 넣는다 (사람 지시 2026-08-05:
+            // "클리어 이미지도 아래 네모난 카드 안에 들어오도록"). 예전에는 패널
+            // 바깥 위에 띄웠는데, 카드와 그림이 따로 떠 있어 한 장으로 읽히지
+            // 않았다. 요약 여섯 줄을 밀어내지 않으려고 패널을 288 → 460으로
+            // 키우고 그 늘어난 만큼을 그림에 준다.
+            //
+            // 288x162는 원본 320x180의 0.9배다. 정수배가 아니라 픽셀 아트로서는
+            // 손해지만, 패널 폭 400에 320을 넣으면 좌우 여백이 40씩뿐이라 그림이
+            // 카드에 낀 것처럼 보인다. 카드 안에 놓이는 것이 이번 요구다.
             var artGo = new GameObject("ClearArt");
             artGo.transform.SetParent(panel, false);
             _clearArt = artGo.AddComponent<Image>();
@@ -86,26 +93,24 @@ namespace Shmup.Presentation.Battle
             _clearArt.preserveAspect = true;
             var artRect = _clearArt.rectTransform;
             artRect.anchorMin = artRect.anchorMax = artRect.pivot = new Vector2(0.5f, 1f);
-            // 원본이 320x180(참조 해상도 640x360의 정확히 절반)이라 정수배로 그린다 —
-            // 어중간한 배율은 픽셀 아트에서 계단이 뭉개진다.
-            artRect.anchoredPosition = new Vector2(0f, 176f);
-            artRect.sizeDelta = new Vector2(320f, 180f);
+            artRect.anchoredPosition = new Vector2(0f, -12f);
+            artRect.sizeDelta = new Vector2(288f, 162f);
             _clearArt.enabled = false;
 
             _titleText = UiKit.CreateCornerText(panel, _fontBold, UiText.GameOverTitle, 22, UiKit.TextDanger,
-                new Vector2(0.5f, 1f), new Vector2(0f, -14f), TextAnchor.UpperCenter, "Title");
+                new Vector2(0.5f, 1f), new Vector2(0f, -200f), TextAnchor.UpperCenter, "Title");
             _scoreText = UiKit.CreateCornerText(panel, _fontBold, "", 11, UiKit.TextAccent,
-                new Vector2(0.5f, 1f), new Vector2(0f, -52f), TextAnchor.UpperCenter, "Score");
+                new Vector2(0.5f, 1f), new Vector2(0f, -238f), TextAnchor.UpperCenter, "Score");
             _statsText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextMain,
-                new Vector2(0.5f, 1f), new Vector2(0f, -74f), TextAnchor.UpperCenter, "Stats");
+                new Vector2(0.5f, 1f), new Vector2(0f, -260f), TextAnchor.UpperCenter, "Stats");
             _extraText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextDim,
-                new Vector2(0.5f, 1f), new Vector2(0f, -96f), TextAnchor.UpperCenter, "Extra");
+                new Vector2(0.5f, 1f), new Vector2(0f, -282f), TextAnchor.UpperCenter, "Extra");
             _modifierText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextAccent,
-                new Vector2(0.5f, 1f), new Vector2(0f, -118f), TextAnchor.UpperCenter, "Modifiers");
+                new Vector2(0.5f, 1f), new Vector2(0f, -304f), TextAnchor.UpperCenter, "Modifiers");
             // 실드 보너스(REQ-105)와 컨티뉴 사용 표시(REQ-104). 둘 다 "이 점수가 어떻게
             // 만들어졌는가"에 대한 단서라 점수 줄과 같은 앰버 계열로 한 줄에 둔다.
             _bonusText = UiKit.CreateCornerText(panel, _font, "", 11, UiKit.TextAccent,
-                new Vector2(0.5f, 1f), new Vector2(0f, -140f), TextAnchor.UpperCenter, "Bonus");
+                new Vector2(0.5f, 1f), new Vector2(0f, -326f), TextAnchor.UpperCenter, "Bonus");
             _hintsText = UiKit.CreateCornerText(panel, _font,
                 UiText.GameOverHints, 11, UiKit.TextDim,
                 new Vector2(0.5f, 0f), new Vector2(0f, 16f), TextAnchor.LowerCenter, "Hints");

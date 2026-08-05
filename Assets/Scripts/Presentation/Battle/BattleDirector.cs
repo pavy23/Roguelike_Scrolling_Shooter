@@ -1836,6 +1836,13 @@ namespace Shmup.Presentation.Battle
         string _bossFormId;
 
         /// <summary>
+        /// 지금 보스가 두 번째 형태인가. 히든 보스는 마지막 코어 페이즈에서만
+        /// 일반 보스곡으로 갈아탄다 (사람 지시 2026-08-05: "히든보스 첫 페이즈1~3은
+        /// 히든보스 노래, 마지막 코어가 나오는 페이즈만 일반 보스곡").
+        /// </summary>
+        public bool IsBossSecondForm => _bossFormId != null;
+
+        /// <summary>
         /// 개발용: 지금 때릴 수 있는 보스 파츠(또는 본체)를 최대 HP의 10%만큼 깎는다.
         ///
         /// 왜 필요한가: 히든 보스는 잡는 데 100~150초가 걸린다. 두 번째 형태나
@@ -1847,25 +1854,8 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         public void DevDamageBoss()
         {
-            // 고스트탄 주입은 BattleSim에만 있다 (IBattleSim에는 없다) — 치트
-            // 경로가 인터페이스를 넓히지 않게 여기서만 캐스팅한다.
-            if (!(_sim is BattleSim sim) || !sim.BossActive) return;
-            MarkCheatUsed();
-            var parts = sim.BossParts;
-            bool hitSomething = false;
-            for (int i = 0; i < parts.Count; i++)
-            {
-                var part = parts[i];
-                if (part.Destroyed || part.Invulnerable || part.Hp <= 0) continue;
-                int damage = Mathf.Max(1, part.MaxHp / 10);
-                if (sim.TrySpawnGhostMainShot(part.X, part.Y, damage))
-                    hitSomething = true;
-            }
-            if (hitSomething) return;
-            var boss = sim.Boss;
-            if (boss.Hp > 0)
-                sim.TrySpawnGhostMainShot(
-                    boss.X, boss.Y, Mathf.Max(1, boss.MaxHp / 10));
+            if (!(_sim is BattleSim sim)) return;
+            if (sim.DevDamageBoss(10)) MarkCheatUsed();
         }
 
         void ApplyBossSprite()
@@ -2244,8 +2234,19 @@ namespace Shmup.Presentation.Battle
             _bossRenderer.transform.localPosition =
                 SimView.ToWorld(_sim.Boss.X, _sim.Boss.Y)
                 + new Vector3(0f, BossIdleOffsetY, 0f);
+            // **지금 형태의 id로 돌린다.** 예전에는 늘 StagePlan.BossId(= 첫 형태)를
+            // 넘겼는데, 이 함수는 매 프레임 renderer.sprite를 애니 프레임으로
+            // 덮어쓴다. 그래서 두 번째 형태로 넘어가며 ApplyBossSprite가 작은 코어
+            // 그림으로 바꿔 놓아도, 바로 다음 프레임에 **첫 형태 애니메이션이 다시
+            // 덮어써서** 원본 보스가 그대로 서 있었다 (사람 보고 2026-08-05:
+            // "첫 파괴 이후 코어 보스가 나와야하는데 원본 보스 그대로야").
+            //
+            // 두 번째 형태에 애니 프레임이 없으면 GetAnimRange가 0을 돌려주고
+            // 그냥 빠져나가므로, ApplyBossSprite가 걸어 둔 정지 그림이 살아남는다.
             if (_run != null && _run.StagePlan != null)
-                ApplyIdleAnimation(_bossRenderer, _run.StagePlan.BossId, 0);
+                ApplyIdleAnimation(
+                    _bossRenderer, _bossFormId ?? _run.StagePlan.BossId, 0,
+                    exact: true);
             ApplyIdleBreath(_bossRenderer);
 
             // 보스 피격 플래시 + 빈사 맥동 (HP 바 외에 시각 피드백이 없던 문제)
@@ -3133,7 +3134,18 @@ namespace Shmup.Presentation.Battle
         /// 아이들 애니 프레임 조회. 반환: 평탄 배열의 (시작, 개수). 없으면 count 0.
         /// 순수 표현 — 시간 기반 프레임 순환이라 시뮬 결정론과 무관하다.
         /// </summary>
-        void GetAnimRange(string id, out int start, out int count)
+        /// <summary>
+        /// 애니 프레임 구간을 찾는다. <paramref name="exact"/>면 접두사가 아니라
+        /// **id가 완전히 같을 때만** 잡는다.
+        ///
+        /// 접두사 매칭은 적에게는 맞다(zako_sine_slow가 zako_sine을 물려받는다).
+        /// 보스 형태에는 **틀리다**: "boss_leviathan_drone"이 "boss_leviathan"으로
+        /// 걸려 **원본 보스 애니메이션**을 돌려준다. 그러면 두 번째 형태로 넘어가
+        /// 작은 코어 그림을 걸어 놔도 다음 프레임에 원본 애니가 덮어써서, 화면에는
+        /// 원본이 그대로 서 있다 (사람 보고 2026-08-05: "첫 파괴 이후 코어 보스가
+        /// 나와야하는데 원본 보스 그대로야" — 두 번 보고받고서야 여기까지 왔다).
+        /// </summary>
+        void GetAnimRange(string id, out int start, out int count, bool exact = false)
         {
             start = 0;
             count = 0;
@@ -3143,9 +3155,13 @@ namespace Shmup.Presentation.Battle
             int total = Mathf.Min(_animPrefixes.Length, _animFrameCounts.Length);
             for (int i = 0; i < total; i++)
             {
-                if (!string.IsNullOrEmpty(_animPrefixes[i])
-                    && id.StartsWith(_animPrefixes[i], System.StringComparison.Ordinal)
-                    && _animPrefixes[i].Length > bestLength)
+                bool matched = !string.IsNullOrEmpty(_animPrefixes[i])
+                    && (exact
+                        ? string.Equals(
+                            _animPrefixes[i], id, System.StringComparison.Ordinal)
+                        : id.StartsWith(
+                            _animPrefixes[i], System.StringComparison.Ordinal));
+                if (matched && _animPrefixes[i].Length > bestLength)
                 {
                     bestLength = _animPrefixes[i].Length;
                     start = offset;
@@ -3189,10 +3205,11 @@ namespace Shmup.Presentation.Battle
             renderer.transform.localScale = new Vector3(1f - breath, 1f + breath, 1f);
         }
 
-        void ApplyIdleAnimation(SpriteRenderer renderer, string id, int desyncSalt)
+        void ApplyIdleAnimation(
+            SpriteRenderer renderer, string id, int desyncSalt, bool exact = false)
         {
             if (renderer == null) return;
-            GetAnimRange(id, out int start, out int count);
+            GetAnimRange(id, out int start, out int count, exact);
             if (count <= 0) return;
             int frame = ((int)(Time.time * _animFramesPerSecond) + desyncSalt) % count;
             renderer.sprite = _animFrames[start + frame];

@@ -32,6 +32,7 @@ namespace Shmup.Presentation.Battle
         string _activeThemeId;
         bool _bossTrackActive;
         RunStageSection _bossTrackSection;
+        bool _bossTrackSecondForm;
         bool _wasAwaitingReward;
         int _jingledRunNumber = int.MinValue;
         float _duckUntilRealtime;
@@ -81,14 +82,20 @@ namespace Shmup.Presentation.Battle
             // 같은 곡이 흐르면 무게 차이가 사라진다.
             bool bossActive = _director.BossActive;
             var section = _director.StageSection;
+            // 형태 전환도 트랙 전환 조건이다 — 이걸 빼면 코어가 나와도 곡이
+            // 그대로 흘러 장면이 바뀐 것을 귀가 모른다.
+            bool secondForm = _director.IsBossSecondForm;
             if (bossActive != _bossTrackActive
-                || (bossActive && section != _bossTrackSection))
+                || (bossActive && section != _bossTrackSection)
+                || (bossActive && secondForm != _bossTrackSecondForm))
             {
                 _bossTrackActive = bossActive;
                 _bossTrackSection = section;
+                _bossTrackSecondForm = secondForm;
                 Duck(0.5f);
                 SwapClip(bossActive
-                    ? (BossClipFor(section) ?? FindClip(_director.CurrentThemeId))
+                    ? (BossClipFor(section, secondForm)
+                        ?? FindClip(_director.CurrentThemeId))
                     : FindClip(_director.CurrentThemeId));
             }
             else if (!bossActive)
@@ -117,12 +124,17 @@ namespace Shmup.Presentation.Battle
         }
 
         /// <summary>구간별 보스 곡. 전용 곡이 없으면 기존 전투곡으로 되돌아간다.</summary>
-        AudioClip BossClipFor(RunStageSection section)
+        AudioClip BossClipFor(RunStageSection section, bool secondForm)
         {
             switch (section)
             {
+                // 히든 보스: 1~3페이즈는 히든곡, **마지막 코어 페이즈(두 번째
+                // 형태)만** 일반 보스곡이다 (사람 지시 2026-08-05). 본체가 무너지고
+                // 작은 코어가 나오는 순간 곡이 바뀌는 것이 그 장면의 신호다.
                 case RunStageSection.HiddenBoss:
-                    return _hiddenBossClip != null ? _hiddenBossClip : _bossClip;
+                    return secondForm
+                        ? (_stageBossClip != null ? _stageBossClip : _bossClip)
+                        : (_hiddenBossClip != null ? _hiddenBossClip : _bossClip);
                 case RunStageSection.StageBoss:
                     return _stageBossClip != null ? _stageBossClip : _bossClip;
                 default:

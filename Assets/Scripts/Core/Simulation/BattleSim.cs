@@ -3297,6 +3297,30 @@ namespace Shmup.Core.Simulation
         /// scoring pipeline, but never inherits options, missiles, burst, beam,
         /// modifiers, or the current player's weapon level.
         /// </summary>
+        /// <summary>
+        /// **개발·테스트 전용**: 지금 때릴 수 있는 보스 파츠(없으면 본체)를 곧장
+        /// 깎는다. 고스트탄을 쓰지 않는 이유는 탄 상한 때문이다 — 파워가 최대인
+        /// 상태에서는 플레이어 탄이 이미 상한을 채우고 있어 주입이 전부 거부된다.
+        /// 확인용 치트가 정작 확인하고 싶은 상황(맥스 파워 보스전)에서만 안 먹는다.
+        /// </summary>
+        public bool DevDamageBoss(int percentOfMax)
+        {
+            if (percentOfMax < 1 || !BossActive) return false;
+            bool hit = false;
+            for (int i = 0; i < _bossPartStates.Length; i++)
+            {
+                BossPartState part = _bossPartStates[i];
+                if (part.Destroyed || IsBossPartInvulnerable(i) || part.Hp <= 0)
+                    continue;
+                ApplyDamageToBossPart(
+                    i, Math.Max(1, part.MaxHp * percentOfMax / 100));
+                hit = true;
+            }
+            if (hit || _bossHp <= 0) return hit;
+            ApplyDamageToBoss(Math.Max(1, _bossMaxHp * percentOfMax / 100));
+            return true;
+        }
+
         public bool TrySpawnGhostMainShot(int x, int y, int fixedDamage)
         {
             if (fixedDamage < 1)
