@@ -946,12 +946,16 @@
           "type": "solid",
           "x": 12.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 16.0,
           "y": 4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 20
         }
       ],
@@ -1031,12 +1035,16 @@
           "type": "solid",
           "x": 12.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 16.0,
           "y": 4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 20
         }
       ],
@@ -1116,12 +1124,16 @@
           "type": "solid",
           "x": 12.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 16.0,
           "y": 4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 20
         }
       ],
@@ -1201,12 +1213,16 @@
           "type": "solid",
           "x": 12.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 16.0,
           "y": 4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 20
         }
       ],
@@ -1447,18 +1463,24 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 15
         }
       ],
@@ -1573,18 +1595,24 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 15
         }
       ],
@@ -1699,18 +1727,24 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 15
         }
       ],
@@ -1825,18 +1859,24 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 15
         }
       ],
@@ -2037,18 +2077,24 @@
           "type": "solid",
           "x": 11.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 17.5,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 25
         }
       ],
@@ -2143,18 +2189,24 @@
           "type": "solid",
           "x": 11.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 17.5,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 25
         }
       ],
@@ -2249,18 +2301,24 @@
           "type": "solid",
           "x": 11.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 17.5,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 25
         }
       ],
@@ -2355,18 +2413,24 @@
           "type": "solid",
           "x": 11.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 17.5,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 25
         }
       ],
@@ -2537,18 +2601,24 @@
           "type": "solid",
           "x": 12.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 16.0,
           "y": -3.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 20
         },
         {
           "type": "breakable",
           "x": 19.0,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 15
         }
       ],
@@ -2628,18 +2698,24 @@
           "type": "solid",
           "x": 12.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 16.0,
           "y": -3.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 20
         },
         {
           "type": "breakable",
           "x": 19.0,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 15
         }
       ],
@@ -2719,18 +2795,24 @@
           "type": "solid",
           "x": 12.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 16.0,
           "y": -3.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 20
         },
         {
           "type": "breakable",
           "x": 19.0,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 15
         }
       ],
@@ -2810,18 +2892,24 @@
           "type": "solid",
           "x": 12.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 16.0,
           "y": -3.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 20
         },
         {
           "type": "breakable",
           "x": 19.0,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 15
         }
       ],
@@ -3062,24 +3150,32 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 16.0,
           "y": 7.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 14.0,
           "y": 3.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 30
         }
       ],
@@ -3191,24 +3287,32 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 16.0,
           "y": 7.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 14.0,
           "y": 3.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 30
         }
       ],
@@ -3320,24 +3424,32 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 16.0,
           "y": 7.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 14.0,
           "y": 3.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 30
         }
       ],
@@ -3449,24 +3561,32 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 16.0,
           "y": 7.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 14.0,
           "y": 3.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 30
         }
       ],
@@ -4038,24 +4158,32 @@
           "type": "solid",
           "x": 11.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -4.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 13.0,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 20
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": 3.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 25
         }
       ],
@@ -4201,24 +4329,32 @@
           "type": "solid",
           "x": 12.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 12.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 16.5,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 20
         },
         {
           "type": "breakable",
           "x": 19.0,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 20
         }
       ],
@@ -4369,18 +4505,24 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "laserEmitter",
           "x": 16.0,
           "y": 4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 150,
@@ -4401,6 +4543,8 @@
           "type": "laserEmitter",
           "x": 16.0,
           "y": -4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 180,
@@ -4421,48 +4565,64 @@
           "type": "breakable",
           "x": 12.5,
           "y": 1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 30
         },
         {
           "type": "breakable",
           "x": 18.5,
           "y": -1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         },
         {
           "type": "solid",
           "x": 9.0,
           "y": 1.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": 1.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 11.0,
           "y": 1.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         }
       ],
@@ -4619,18 +4779,24 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "laserEmitter",
           "x": 15.0,
           "y": 2.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 120,
@@ -4651,54 +4817,72 @@
           "type": "breakable",
           "x": 12.0,
           "y": 3.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 28
         },
         {
           "type": "breakable",
           "x": 12.0,
           "y": -3.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 28
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": -1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "solid",
           "x": 9.0,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 11.0,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         }
       ],
@@ -4823,36 +5007,48 @@
           "type": "solid",
           "x": 10.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 17.0,
           "y": 7.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 11.5,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 25
         },
         {
           "type": "breakable",
           "x": 15.0,
           "y": 3.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 30
         },
         {
           "type": "breakable",
           "x": 19.0,
           "y": -3.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         }
       ],
@@ -4973,36 +5169,48 @@
           "type": "solid",
           "x": 10.5,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.5,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 16.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 13.0,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 30
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 30
         },
         {
           "type": "breakable",
           "x": 20.0,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         }
       ],
@@ -5125,42 +5333,56 @@
           "type": "solid",
           "x": 9.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 12.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": 7.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 12.0,
           "y": 2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 45
         },
         {
           "type": "breakable",
           "x": 14.5,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 50
         },
         {
           "type": "breakable",
           "x": 17.0,
           "y": 1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         },
         {
           "type": "breakable",
           "x": 19.0,
           "y": 3.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 48
         }
       ],
@@ -5304,24 +5526,32 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": 7.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "laserEmitter",
           "x": 15.0,
           "y": 3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 150,
@@ -5342,6 +5572,8 @@
           "type": "laserEmitter",
           "x": 18.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 180,
@@ -5362,12 +5594,16 @@
           "type": "breakable",
           "x": 12.0,
           "y": 1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 50
         },
         {
           "type": "breakable",
           "x": 16.5,
           "y": -1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         }
       ],
@@ -6335,18 +6571,24 @@
           "type": "solid",
           "x": 12.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 15.0,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 20
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": -3.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 25
         }
       ],
@@ -6457,18 +6699,24 @@
           "type": "solid",
           "x": 11.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 11.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 16.0,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 20,
           "regenDelayTicks": 270
         },
@@ -6476,6 +6724,8 @@
           "type": "breakable",
           "x": 19.0,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 20,
           "regenDelayTicks": 270
         }
@@ -6583,18 +6833,24 @@
           "type": "solid",
           "x": 10.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 12.5,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 25,
           "regenDelayTicks": 210
         },
@@ -6602,6 +6858,8 @@
           "type": "breakable",
           "x": 16.5,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 30,
           "regenDelayTicks": 210
         }
@@ -6708,18 +6966,24 @@
           "type": "solid",
           "x": 11.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 13.0,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 25,
           "regenDelayTicks": 180
         },
@@ -6727,6 +6991,8 @@
           "type": "breakable",
           "x": 17.0,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 30,
           "regenDelayTicks": 180
         }
@@ -6892,18 +7158,24 @@
           "type": "solid",
           "x": 11.0,
           "y": 6.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 16.0,
           "y": -6.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "laserEmitter",
           "x": 17.0,
           "y": 3.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 150,
@@ -6924,6 +7196,8 @@
           "type": "laserEmitter",
           "x": 17.0,
           "y": -3.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 180,
@@ -6944,48 +7218,64 @@
           "type": "breakable",
           "x": 13.0,
           "y": 1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         },
         {
           "type": "breakable",
           "x": 19.0,
           "y": -2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "solid",
           "x": 9.0,
           "y": 1.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": 1.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 11.0,
           "y": 1.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.0,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         }
       ],
@@ -7122,24 +7412,32 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "laserEmitter",
           "x": 15.5,
           "y": 2.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 120,
@@ -7160,6 +7458,8 @@
           "type": "laserEmitter",
           "x": 15.5,
           "y": -2.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 150,
@@ -7180,48 +7480,64 @@
           "type": "breakable",
           "x": 12.0,
           "y": 1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         },
         {
           "type": "breakable",
           "x": 19.0,
           "y": -1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "solid",
           "x": 9.0,
           "y": 0.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": 0.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 11.0,
           "y": 0.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.0,
           "y": -4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         }
       ],
@@ -7358,30 +7674,40 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "laserEmitter",
           "x": 13.0,
           "y": 4.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 150,
@@ -7402,6 +7728,8 @@
           "type": "laserEmitter",
           "x": 16.0,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 120,
@@ -7422,6 +7750,8 @@
           "type": "laserEmitter",
           "x": 19.0,
           "y": -4.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 180,
@@ -7442,48 +7772,64 @@
           "type": "breakable",
           "x": 14.5,
           "y": 2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "breakable",
           "x": 17.5,
           "y": -2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 45
         },
         {
           "type": "solid",
           "x": 9.0,
           "y": 1.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": 1.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 11.0,
           "y": 1.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         }
       ],
@@ -7615,30 +7961,40 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "laserEmitter",
           "x": 12.0,
           "y": 3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 150,
@@ -7659,6 +8015,8 @@
           "type": "laserEmitter",
           "x": 15.5,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 160,
@@ -7679,6 +8037,8 @@
           "type": "laserEmitter",
           "x": 19.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 180,
@@ -7699,48 +8059,64 @@
           "type": "breakable",
           "x": 14.0,
           "y": 1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 45
         },
         {
           "type": "breakable",
           "x": 17.5,
           "y": -1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 50
         },
         {
           "type": "solid",
           "x": 9.0,
           "y": 0.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": 0.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 11.0,
           "y": 0.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.0,
           "y": -4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         }
       ],
@@ -7860,24 +8236,32 @@
           "type": "solid",
           "x": 12.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 16.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 14.0,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 25
         },
         {
           "type": "breakable",
           "x": 18.5,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 30
         }
       ],
@@ -7998,30 +8382,40 @@
           "type": "solid",
           "x": 11.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 19.0,
           "y": 4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 13.0,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 30
         },
         {
           "type": "breakable",
           "x": 17.0,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 30
         }
       ],
@@ -8119,36 +8513,48 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 12.5,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         },
         {
           "type": "breakable",
           "x": 16.5,
           "y": 3.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         }
       ],
@@ -8256,36 +8662,48 @@
           "type": "solid",
           "x": 11.0,
           "y": 7.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -7.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 19.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 13.0,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         },
         {
           "type": "breakable",
           "x": 17.0,
           "y": -3.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "breakable",
           "x": 20.0,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         }
       ],
@@ -8417,30 +8835,40 @@
           "type": "solid",
           "x": 12.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 16.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 13.0,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "breakable",
           "x": 16.0,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "breakable",
           "x": 19.0,
           "y": 1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 45
         }
       ],
@@ -8567,18 +8995,24 @@
           "type": "solid",
           "x": 11.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "laserEmitter",
           "x": 17.0,
           "y": 2.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 150,
@@ -8599,12 +9033,16 @@
           "type": "breakable",
           "x": 13.0,
           "y": 2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 45
         },
         {
           "type": "breakable",
           "x": 13.0,
           "y": -2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 45
         }
       ],
@@ -8720,48 +9158,64 @@
           "type": "solid",
           "x": 10.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": 7.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": -7.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 12.5,
           "y": 1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         },
         {
           "type": "breakable",
           "x": 15.0,
           "y": -2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 60
         },
         {
           "type": "laserEmitter",
           "x": 16.0,
           "y": -4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 180,
@@ -8894,42 +9348,56 @@
           "type": "solid",
           "x": 9.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 17.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 12.0,
           "y": 1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 50
         },
         {
           "type": "breakable",
           "x": 15.5,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         },
         {
           "type": "breakable",
           "x": 18.5,
           "y": -2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         },
         {
           "type": "breakable",
           "x": 14.0,
           "y": -3.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 48
         }
       ],
@@ -9532,30 +10000,40 @@
           "type": "solid",
           "x": 11.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.5,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 13.0,
           "y": 1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 22
         },
         {
           "type": "breakable",
           "x": 16.5,
           "y": -1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 24
         }
       ],
@@ -9652,18 +10130,24 @@
           "type": "solid",
           "x": 11.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 11.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 15.0,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 28,
           "regenDelayTicks": 240
         },
@@ -9671,6 +10155,8 @@
           "type": "breakable",
           "x": 15.0,
           "y": 0.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 28,
           "regenDelayTicks": 240
         },
@@ -9678,6 +10164,8 @@
           "type": "breakable",
           "x": 15.0,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 28,
           "regenDelayTicks": 240
         }
@@ -9804,36 +10292,48 @@
           "type": "solid",
           "x": 11.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 13.0,
           "y": 2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         },
         {
           "type": "breakable",
           "x": 13.0,
           "y": -2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         },
         {
           "type": "breakable",
           "x": 17.5,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "laserEmitter",
           "x": 16.0,
           "y": 3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 150,
@@ -9854,36 +10354,48 @@
           "type": "solid",
           "x": 9.0,
           "y": 1.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": 1.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 11.0,
           "y": 1.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         }
       ],
@@ -9980,48 +10492,64 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 12.5,
           "y": 1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 42
         },
         {
           "type": "breakable",
           "x": 12.5,
           "y": -1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 42
         },
         {
           "type": "breakable",
           "x": 16.5,
           "y": 0.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 48
         },
         {
           "type": "laserEmitter",
           "x": 15.5,
           "y": 3.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 150,
@@ -10042,36 +10570,48 @@
           "type": "solid",
           "x": 9.0,
           "y": 1.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": 1.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 11.0,
           "y": 1.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.0,
           "y": -3.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -3.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -3.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         }
       ],
@@ -10173,42 +10713,56 @@
           "type": "solid",
           "x": 10.5,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.0,
           "y": -4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.5,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 12.0,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 30
         },
         {
           "type": "breakable",
           "x": 16.0,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         },
         {
           "type": "breakable",
           "x": 19.5,
           "y": 2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 32
         }
       ],
@@ -10316,42 +10870,56 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.5,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 17.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 12.0,
           "y": 2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 48
         },
         {
           "type": "breakable",
           "x": 15.0,
           "y": -2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 50
         },
         {
           "type": "breakable",
           "x": 18.5,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 50
         },
         {
           "type": "laserEmitter",
           "x": 16.0,
           "y": 3.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 150,
@@ -10494,24 +11062,32 @@
           "type": "solid",
           "x": 11.0,
           "y": 6.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -6.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 13.5,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         },
         {
           "type": "breakable",
           "x": 17.0,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         }
       ],
@@ -10748,18 +11324,24 @@
           "type": "solid",
           "x": 11.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 11.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 15.0,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 28,
           "regenDelayTicks": 240
         },
@@ -10767,6 +11349,8 @@
           "type": "breakable",
           "x": 15.0,
           "y": 0.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 28,
           "regenDelayTicks": 240
         },
@@ -10774,6 +11358,8 @@
           "type": "breakable",
           "x": 15.0,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 28,
           "regenDelayTicks": 240
         }
@@ -10885,24 +11471,32 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "laserEmitter",
           "x": 15.5,
           "y": 2.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 120,
@@ -10923,6 +11517,8 @@
           "type": "laserEmitter",
           "x": 15.5,
           "y": -2.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 150,
@@ -10943,48 +11539,64 @@
           "type": "breakable",
           "x": 12.0,
           "y": 1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         },
         {
           "type": "breakable",
           "x": 19.0,
           "y": -1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "solid",
           "x": 9.0,
           "y": 0.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": 0.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 11.0,
           "y": 0.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.0,
           "y": -4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         }
       ],
@@ -11069,36 +11681,48 @@
           "type": "solid",
           "x": 11.0,
           "y": 7.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -7.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 19.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 13.0,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         },
         {
           "type": "breakable",
           "x": 17.0,
           "y": -3.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "breakable",
           "x": 20.0,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         }
       ],
@@ -11205,42 +11829,56 @@
           "type": "solid",
           "x": 9.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 17.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 12.0,
           "y": 1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 50
         },
         {
           "type": "breakable",
           "x": 15.5,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         },
         {
           "type": "breakable",
           "x": 18.5,
           "y": -2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         },
         {
           "type": "breakable",
           "x": 14.0,
           "y": -3.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 48
         }
       ],
@@ -11468,18 +12106,24 @@
           "type": "solid",
           "x": 10.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 12.5,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 25,
           "regenDelayTicks": 210
         },
@@ -11487,6 +12131,8 @@
           "type": "breakable",
           "x": 16.5,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 30,
           "regenDelayTicks": 210
         }
@@ -11631,30 +12277,40 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "laserEmitter",
           "x": 13.0,
           "y": 4.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 150,
@@ -11675,6 +12331,8 @@
           "type": "laserEmitter",
           "x": 16.0,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 120,
@@ -11695,6 +12353,8 @@
           "type": "laserEmitter",
           "x": 19.0,
           "y": -4.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 180,
@@ -11715,48 +12375,64 @@
           "type": "breakable",
           "x": 14.5,
           "y": 2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "breakable",
           "x": 17.5,
           "y": -2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 45
         },
         {
           "type": "solid",
           "x": 9.0,
           "y": 0.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 10.0,
           "y": 0.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 11.0,
           "y": 0.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -3.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         }
       ],
@@ -11836,36 +12512,48 @@
           "type": "solid",
           "x": 10.0,
           "y": 6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -6.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 12.5,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         },
         {
           "type": "breakable",
           "x": 16.5,
           "y": 3.25,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         }
       ],
@@ -11966,48 +12654,64 @@
           "type": "solid",
           "x": 10.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 14.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": 7.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": -7.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 12.5,
           "y": 1.75,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         },
         {
           "type": "breakable",
           "x": 15.0,
           "y": -2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 60
         },
         {
           "type": "laserEmitter",
           "x": 16.0,
           "y": -4.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0,
           "laser": {
             "cycleIntervalTicks": 180,
@@ -12167,36 +12871,48 @@
           "type": "solid",
           "x": 12.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 16.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 20.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 14.0,
           "y": 2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": -2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         },
         {
           "type": "breakable",
           "x": 22.0,
           "y": 0.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 60
         }
       ],
@@ -12343,48 +13059,64 @@
           "type": "solid",
           "x": 11.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 13.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 17.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 21.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 12.0,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 50
         },
         {
           "type": "breakable",
           "x": 15.0,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 50
         },
         {
           "type": "breakable",
           "x": 19.0,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         },
         {
           "type": "breakable",
           "x": 23.0,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         }
       ],
@@ -12533,30 +13265,40 @@
           "type": "solid",
           "x": 14.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 13.0,
           "y": 0.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 45
         },
         {
           "type": "breakable",
           "x": 17.0,
           "y": 2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 50
         },
         {
           "type": "breakable",
           "x": 21.0,
           "y": -2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 50
         }
       ],
@@ -12684,42 +13426,56 @@
           "type": "solid",
           "x": 12.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 12.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 15.0,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         },
         {
           "type": "breakable",
           "x": 15.0,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 55
         },
         {
           "type": "breakable",
           "x": 20.0,
           "y": 0.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 60
         }
       ],
@@ -12868,48 +13624,64 @@
           "type": "solid",
           "x": 11.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 15.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 19.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 23.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 13.0,
           "y": 1.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 60
         },
         {
           "type": "breakable",
           "x": 17.0,
           "y": -1.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 60
         },
         {
           "type": "breakable",
           "x": 21.0,
           "y": 2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 65
         },
         {
           "type": "breakable",
           "x": 21.0,
           "y": -2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 65
         }
       ],
@@ -13146,18 +13918,24 @@
           "type": "breakable",
           "x": 14.0,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "breakable",
           "x": 22.0,
           "y": 0.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 45
         }
       ],
@@ -13360,36 +14138,48 @@
           "type": "solid",
           "x": 12.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 16.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 20.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 14.0,
           "y": 0.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": 2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "breakable",
           "x": 22.0,
           "y": -2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         }
       ],
@@ -13636,30 +14426,40 @@
           "type": "breakable",
           "x": 13.0,
           "y": 3.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         },
         {
           "type": "breakable",
           "x": 13.0,
           "y": -3.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 35
         },
         {
           "type": "breakable",
           "x": 17.0,
           "y": 0.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "breakable",
           "x": 21.0,
           "y": 2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "breakable",
           "x": 21.0,
           "y": -2.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         }
       ],
@@ -13858,30 +14658,40 @@
           "type": "solid",
           "x": 14.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 18.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 22.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 16.0,
           "y": 1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         },
         {
           "type": "breakable",
           "x": 20.0,
           "y": -1.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 40
         }
       ],
@@ -14135,48 +14945,64 @@
           "type": "solid",
           "x": 12.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 16.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 20.0,
           "y": 5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "solid",
           "x": 24.0,
           "y": -5.5,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 0
         },
         {
           "type": "breakable",
           "x": 14.0,
           "y": 0.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 45
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": 2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 45
         },
         {
           "type": "breakable",
           "x": 18.0,
           "y": -2.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 45
         },
         {
           "type": "breakable",
           "x": 22.0,
           "y": 0.0,
+          "halfWidth": 0.75,
+          "halfHeight": 0.75,
           "hp": 50
         }
       ],

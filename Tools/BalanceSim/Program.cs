@@ -2807,7 +2807,8 @@ static class Program
         Console.WriteLine(
             "Obstacle layouts (waves.json segments, provisional §7 + REQ-055):");
         Console.WriteLine(
-            $"  config halfH={halfH}su ({halfH / (double)SimSpace.SubUnitsPerWorldUnit:F2}u) " +
+            $"  default halfH={halfH}su ({halfH / (double)SimSpace.SubUnitsPerWorldUnit:F2}u) " +
+            $"(per-obstacle HalfHeight overrides when >0) " +
             $"MaxObstacles={maxObstacles} minCorridorGap={MinSolidCorridorGapSubUnits}su");
 
         int stage1WithObstacles = 0;
@@ -2888,31 +2889,33 @@ static class Program
             }
 
             // Corridor: group solids by X; ensure a vertical gap ≥ min between extents.
-            var solidsByX = new Dictionary<int, List<int>>();
+            // Per-obstacle HalfHeight (0 → config default) so stage-2+ 1.5× data is checked.
+            var solidsByX = new Dictionary<int, List<(int y, int hh)>>();
             foreach (ObstacleSpawn o in seg.Obstacles)
             {
                 if (o.Type != ObstacleType.Solid)
                     continue;
-                if (!solidsByX.TryGetValue(o.X, out List<int> ys))
+                int oh = o.HalfHeight > 0 ? o.HalfHeight : halfH;
+                if (!solidsByX.TryGetValue(o.X, out List<(int y, int hh)> list))
                 {
-                    ys = new List<int>();
-                    solidsByX[o.X] = ys;
+                    list = new List<(int y, int hh)>();
+                    solidsByX[o.X] = list;
                 }
-                ys.Add(o.Y);
+                list.Add((o.Y, oh));
             }
 
             bool corridorOk = true;
-            foreach (KeyValuePair<int, List<int>> group in solidsByX)
+            foreach (KeyValuePair<int, List<(int y, int hh)>> group in solidsByX)
             {
-                List<int> ys = group.Value;
-                ys.Sort();
+                List<(int y, int hh)> column = group.Value;
+                column.Sort((a, b) => a.y.CompareTo(b.y));
                 // Full playfield open edges count as infinite free space outside blocks.
                 int playMin = -SimSpace.PlayfieldHalfHeightSubUnits;
                 int playMax = SimSpace.PlayfieldHalfHeightSubUnits;
-                // Build blocked intervals [y-halfH, y+halfH] and find largest free gap.
+                // Build blocked intervals [y-hh, y+hh] and find largest free gap.
                 var intervals = new List<(int lo, int hi)>();
-                foreach (int y in ys)
-                    intervals.Add((y - halfH, y + halfH));
+                foreach (var (y, hh) in column)
+                    intervals.Add((y - hh, y + hh));
                 intervals.Sort((a, b) => a.lo.CompareTo(b.lo));
 
                 int cursor = playMin;

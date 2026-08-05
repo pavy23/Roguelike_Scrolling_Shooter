@@ -17,19 +17,14 @@
 
 ### CODEX (1순위) / CLAUDE 대행 (§9-1, CODEX limit 시)
 
-1. [ ] **per-obstacle optional halfWidth/halfHeight**
-   - `ObstacleDto` + `ObstacleSpawn` + 파서 + `ObstacleState` 충돌 경로
-   - 없으면 `BattleSimConfig` 기본(0.5u) 유지 — scrapyard/stage1 무변
-   - 있으면 서브유닛 정수 AABB
-   - `SegmentStageGenerator` 복제 시 보존
-   - BalanceSim `CheckObstacleLayouts` corridor: solid별 halfHeight 사용 (없으면 config)
-   - 테스트: 미지정=기본, 지정=0.75u 충돌 반영
+1. [x] **per-obstacle optional halfWidth/halfHeight**
+   - CLAUDE §9-1 대행 (CODEX 한도) — Core 스키마/파서/충돌 경로 도착, `dotnet test` 586
+   - BalanceSim corridor per-solid halfHeight: **GROK 2026-08-05 반영** (`Tools/BalanceSim/Program.cs`)
 
-2. [ ] 완료 후 GROK이 데이터 채움 (또는 대행 시 같이):
-   - theme ∈ {hive,fortress,nebula,core,abyss,brood} 의 **solid** + **laserEmitter** → `halfWidth`/`halfHeight` **0.75**
-   - theme=`hive` 의 **breakable** (초록 포자 기둥) → **0.75**
-   - scrapyard / difficultyMin≤1 공유 풀 **미기입** (기본 0.5)
-   - corridor FAIL 시 y 간격만 벌림 (크기 되돌리지 않음)
+2. [x] GROK 데이터 채움 (2026-08-05) — 상세 `Reviews/from-grok/obstacle-size-data-fill-2026-08-05.md`
+   - theme ∈ {hive,fortress,nebula,core,abyss,brood} 의 **solid** + **breakable** + **laserEmitter** → 0.75 (413건; 사람 지시 표 전 breakable 포함)
+   - scrapyard 77건 **미기입** 확인
+   - corridor 102/102 ok, y 조정 0, 커밋 없음
 
 ### CLAUDE (Presentation)
 
