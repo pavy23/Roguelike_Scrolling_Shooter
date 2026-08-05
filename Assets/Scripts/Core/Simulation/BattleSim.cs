@@ -6320,9 +6320,6 @@ namespace Shmup.Core.Simulation
                     // 것이 예고이고, 움직이면서 알리는 것은 예고가 아니라 통보다.
                     int cycle = _bossAge % attack.IntervalTicks;
                     int telegraph = attack.MeleeTelegraphTicks;
-                    int chargeTicks = Math.Max(
-                        1,
-                        attack.IntervalTicks / 4);
                     if (telegraph > 0 && cycle == 0)
                     {
                         BossPartState telegraphing = _bossPartStates[i];
@@ -6333,7 +6330,8 @@ namespace Shmup.Core.Simulation
                             telegraph,
                             i);
                     }
-                    int chargeCycle = cycle - telegraph;
+                    int chargeCycle = MeleeChargeCycle(
+                        attack, _bossAge, out int chargeTicks);
                     if (chargeCycle >= 0 && chargeCycle < chargeTicks)
                     {
                         chargeOffset = Math.Max(
@@ -6992,6 +6990,22 @@ namespace Shmup.Core.Simulation
             _bossSuctionAccelerationYRemainder = 0;
         }
 
+        /// <summary>
+        /// 근접 공격의 **돌진 구간 안에서 몇 틱째인가.** 0 미만이면 아직 예고 중,
+        /// chargeTicks 이상이면 돌진이 끝났다.
+        ///
+        /// 이동과 접촉 판정이 **반드시 같은 창**을 봐야 한다. 예고를 넣을 때 이동
+        /// 쪽만 고치고 접촉을 그대로 뒀더니 창이 정확히 반대가 됐다 — 멈춰서
+        /// 경고하는 동안 맞고 정작 밀고 들어올 때는 안 맞았다. 두 곳이 각자 식을
+        /// 쓰는 한 언제든 다시 어긋나므로, 식을 하나만 둔다.
+        /// </summary>
+        static int MeleeChargeCycle(
+            BossPartAttackProfile attack, int bossAge, out int chargeTicks)
+        {
+            chargeTicks = Math.Max(1, attack.IntervalTicks / 4);
+            return (bossAge % attack.IntervalTicks) - attack.MeleeTelegraphTicks;
+        }
+
         void ApplyBossMeleeContact(
             int partIndex,
             BossPartAttackProfile attack)
@@ -6999,10 +7013,9 @@ namespace Shmup.Core.Simulation
             int cycle = _bossAge % attack.IntervalTicks;
             if (cycle == 0)
                 _bossPartContactHitThisCycle[partIndex] = false;
-            int chargeTicks = Math.Max(
-                1,
-                attack.IntervalTicks / 4);
-            if (cycle >= chargeTicks
+            int chargeCycle = MeleeChargeCycle(attack, _bossAge, out int chargeTicks);
+            if (chargeCycle < 0
+                || chargeCycle >= chargeTicks
                 || _bossPartContactHitThisCycle[partIndex]
                 || attack.ContactDamage == 0)
                 return;

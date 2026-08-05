@@ -15355,12 +15355,26 @@
             {
               "partId": "blade_limb_upper",
               "active": true,
-              "invulnerable": false
+              "invulnerable": false,
+              "attack": {
+                "type": "meleeCharge",
+                "intervalTicks": 300,
+                "effectSpeed": 10.0,
+                "contactDamage": 1,
+                "meleeTelegraphTicks": 60
+              }
             },
             {
               "partId": "blade_limb_lower",
               "active": true,
-              "invulnerable": false
+              "invulnerable": false,
+              "attack": {
+                "type": "meleeCharge",
+                "intervalTicks": 300,
+                "effectSpeed": 10.0,
+                "contactDamage": 1,
+                "meleeTelegraphTicks": 60
+              }
             },
             {
               "partId": "rear_engine",
@@ -15808,22 +15822,11 @@
               "active": true,
               "invulnerable": false,
               "attack": {
-                "type": "laser",
-                "intervalTicks": 400,
-                "laser": {
-                  "cycleIntervalTicks": 400,
-                  "telegraphTicks": 160,
-                  "firingTicks": 8,
-                  "sustainTicks": 48,
-                  "dissipateTicks": 16,
-                  "startOffsetX": -1.5,
-                  "startOffsetY": 0.0,
-                  "endOffsetX": -32.0,
-                  "endOffsetY": 18.4765625,
-                  "thinHalfWidth": 0.25,
-                  "fullHalfWidth": 1.25,
-                  "damage": 1
-                }
+                "type": "meleeCharge",
+                "intervalTicks": 300,
+                "effectSpeed": 8.0,
+                "contactDamage": 1,
+                "meleeTelegraphTicks": 60
               }
             },
             {
@@ -15831,22 +15834,11 @@
               "active": true,
               "invulnerable": false,
               "attack": {
-                "type": "laser",
-                "intervalTicks": 400,
-                "laser": {
-                  "cycleIntervalTicks": 400,
-                  "telegraphTicks": 160,
-                  "firingTicks": 8,
-                  "sustainTicks": 48,
-                  "dissipateTicks": 16,
-                  "startOffsetX": -1.5,
-                  "startOffsetY": 0.0,
-                  "endOffsetX": -32.0,
-                  "endOffsetY": -18.4765625,
-                  "thinHalfWidth": 0.25,
-                  "fullHalfWidth": 1.25,
-                  "damage": 1
-                }
+                "type": "meleeCharge",
+                "intervalTicks": 300,
+                "effectSpeed": 8.0,
+                "contactDamage": 1,
+                "meleeTelegraphTicks": 60
               }
             },
             {
