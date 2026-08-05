@@ -37,16 +37,18 @@ namespace Shmup.Presentation.Battle
 
         /// <summary>미지의 구역까지 잡은 완전 클리어.</summary>
         public const string RunClearedPerfectBody =
-            "미지의 구역까지 돌파했다. 이 게임이 감춰 둔 것을 전부 봤다.";
+            "YOU BROKE THROUGH THE UNCHARTED ZONE. "
+            + "NOTHING THIS GAME HID IS STILL HIDDEN.";
 
         /// <summary>일반 완주 + 히든 조건을 이미 채웠던 경우.</summary>
         public const string RunClearedHiddenReadyBody =
-            "5개 섹터 돌파. 이번 런은 미지의 구역이 열려 있었다 —\n"
-            + "마지막 항로에서 UNCHARTED를 고르면 거대 보스가 기다린다.";
+            "FIVE SECTORS CLEARED. THE UNCHARTED ZONE WAS OPEN THIS RUN -\n"
+            + "TAKE THE UNCHARTED ROUTE AT THE LAST FORK AND A COLOSSUS WAITS.";
 
         /// <summary>일반 완주 + 히든 조건 미달.</summary>
         public const string RunClearedHiddenLockedBody =
-            "5개 섹터 돌파. 조건 3개 중 2개를 채우면 극한 항로가 열린다 —\n"
+            "FIVE SECTORS CLEARED. MEET 2 OF THE 3 CONDITIONS "
+            + "TO OPEN THE EXTREME ROUTE -\n"
             + "{0}";
         public const string GameOverHints =
             "[ENTER] / (A) REDEPLOY - KEEP POWER-UPS      [R] / (B) TITLE";
