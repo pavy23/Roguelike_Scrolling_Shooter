@@ -83,6 +83,11 @@ namespace Shmup.Presentation.Battle
                 _director.Gauge.Activate();
                 _director.MarkCheatUsed();
             }
+            // F8: 보스를 10%씩 깎는다. 두 번째 형태·클리어 화면처럼 싸움 끝에만
+            // 보이는 것을 확인하려고 100~150초를 매번 다 쓸 수는 없다.
+            // **F12는 못 쓴다** — 브라우저가 개발자도구로 가로채서 게임에 안 온다.
+            if (keyboard.f8Key.wasPressedThisFrame)
+                _director.DevDamageBoss();
             if (keyboard.f11Key.wasPressedThisFrame)
             {
                 _director.DevFastForward(600);   // 10초 스킵
@@ -244,7 +249,7 @@ namespace Shmup.Presentation.Battle
                     $"   py {playerCoreY10 / 10f:0.0} ty {playerViewY10 / 10f:0.0}"
                     + $" ren {(playerRendererOn ? 1 : 0)} sc {playerSortingOrder}";
                 _overlayText =
-                    $"run {_director.RunNumber}   stage {_director.StageIndex}{theme}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{player}{section}{ghost}{warship}{bullets}{chains}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --warp=boss jumps, --god survives)";
+                    $"run {_director.RunNumber}   stage {_director.StageIndex}{theme}   diff {_director.Difficulty}   seed {_director.Seed}   tick {_director.Tick}   shield {_director.ShieldRemaining}   {(_director.PlayerHp > 0 ? "alive" : "dead")}{player}{section}{ghost}{warship}{bullets}{chains}{DevFlagText}\n[F3] hide   [F7] section look   [F9] capsule   [F10] activate   [F11] +10s skip   [F8] boss -10%   [ESC] pause   (--seed=N pins the seed, --stage=N starts there, --warp=boss jumps, --god survives)";
             }
             GUI.Label(new Rect(8, 4, Screen.width - 16, _style.fontSize * 3), _overlayText, _style);
         }

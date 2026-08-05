@@ -1835,6 +1835,39 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         string _bossFormId;
 
+        /// <summary>
+        /// 개발용: 지금 때릴 수 있는 보스 파츠(또는 본체)를 최대 HP의 10%만큼 깎는다.
+        ///
+        /// 왜 필요한가: 히든 보스는 잡는 데 100~150초가 걸린다. 두 번째 형태나
+        /// 클리어 화면처럼 **싸움 끝에만 보이는 것**을 한 번 확인하려고 매번
+        /// 그 시간을 다 쓸 수는 없다. 2026-08-05에 form2를 눈으로 확인하려다
+        /// 하네스를 300초씩 돌리고도 못 봤다.
+        ///
+        /// 치트라 MarkCheatUsed로 기록된다 — 보드에 오르지 않는다.
+        /// </summary>
+        public void DevDamageBoss()
+        {
+            // 고스트탄 주입은 BattleSim에만 있다 (IBattleSim에는 없다) — 치트
+            // 경로가 인터페이스를 넓히지 않게 여기서만 캐스팅한다.
+            if (!(_sim is BattleSim sim) || !sim.BossActive) return;
+            MarkCheatUsed();
+            var parts = sim.BossParts;
+            bool hitSomething = false;
+            for (int i = 0; i < parts.Count; i++)
+            {
+                var part = parts[i];
+                if (part.Destroyed || part.Invulnerable || part.Hp <= 0) continue;
+                int damage = Mathf.Max(1, part.MaxHp / 10);
+                if (sim.TrySpawnGhostMainShot(part.X, part.Y, damage))
+                    hitSomething = true;
+            }
+            if (hitSomething) return;
+            var boss = sim.Boss;
+            if (boss.Hp > 0)
+                sim.TrySpawnGhostMainShot(
+                    boss.X, boss.Y, Mathf.Max(1, boss.MaxHp / 10));
+        }
+
         void ApplyBossSprite()
         {
             if (_bossRenderer == null || _run == null || _run.StagePlan == null) return;

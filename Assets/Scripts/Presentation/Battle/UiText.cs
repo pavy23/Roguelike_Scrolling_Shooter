@@ -8,8 +8,12 @@ namespace Shmup.Presentation.Battle
     public static class UiText
     {
         // 온보딩 (첫 런 3단계)
+        // 폭탄(B)을 빼놓고 있었다. 키는 처음부터 있었는데 안내에 없어서 사람이
+        // "폭탄도 키보드로 누를수 있게 해줘(이미 되어있나?)"라고 물었다 —
+        // 화면에 적히지 않은 조작은 없는 것과 같다 (2026-08-05).
         public const string Onboarding1 =
-            "MOVE  WASD / LEFT STICK      FIRE  SPACE / (A)      PAUSE  ESC / (START)";
+            "MOVE  WASD / LEFT STICK      FIRE  SPACE / (A)      "
+            + "BOMB  B / (B)      PAUSE  ESC / (START)";
         public const string Onboarding2 =
             "Destroy enemies to drop capsules - each one advances the gauge below";
         public const string Onboarding3 =
