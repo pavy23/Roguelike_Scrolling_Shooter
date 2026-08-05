@@ -104,6 +104,20 @@ namespace Shmup.Presentation.Battle
         }
 
         /// <summary>tmp 기록 → 기존 파일을 bak으로 승격 → 교체 (SafeFile).</summary>
+        /// <summary>
+        /// **개발용 초기화.** 저장 파일과 백업을 지워 다음 Load가 신품 상태를
+        /// 만들게 한다. 크레딧·해금·컨티뉴 재고가 전부 사라진다.
+        ///
+        /// 왜 필요한가: 진행은 브라우저 안(IndexedDB로 매핑되는 persistentDataPath)에
+        /// 있어서 밖에서 지울 방법이 없다. 사이트 데이터를 통째로 지우면 되지만
+        /// 그건 옵션 설정까지 함께 날린다 — 화폐만 되돌리고 싶을 때가 있다
+        /// (사람 요청 2026-08-05: "내 장비 크레딧 기록도 초기화해줘").
+        /// </summary>
+        public static void DeleteSave()
+        {
+            SafeFile.Delete(SavePath);
+        }
+
         public static void Save(MetaState state)
         {
             var exported = state.ExportData();

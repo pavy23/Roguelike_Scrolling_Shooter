@@ -1852,6 +1852,18 @@ namespace Shmup.Presentation.Battle
         ///
         /// 치트라 MarkCheatUsed로 기록된다 — 보드에 오르지 않는다.
         /// </summary>
+        /// <summary>
+        /// 개발용: 이 브라우저의 **메타 진행을 초기화**한다 — 크레딧·기체 해금·
+        /// 컨티뉴 재고가 사라지고 기본 함선만 남는다. 난이도·접근성 설정
+        /// (PlayerPrefs)은 건드리지 않는다.
+        /// </summary>
+        public void DevResetMeta()
+        {
+            MetaSave.DeleteSave();
+            MarkCheatUsed();
+            Debug.Log("[dev] meta save cleared - credits and unlocks reset");
+        }
+
         public void DevDamageBoss()
         {
             if (!(_sim is BattleSim sim)) return;
