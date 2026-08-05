@@ -408,7 +408,17 @@ namespace Shmup.Core.Content
                         obstacle.laser,
                         obstaclePath + ".laser"),
                     obstacle.blocksEnemyBullets ?? false,
-                    regenDelayTicks);
+                    regenDelayTicks,
+                    obstacle.halfWidth.HasValue
+                        ? ToSubUnits(
+                            obstacle.halfWidth.Value,
+                            obstaclePath + ".halfWidth")
+                        : 0,
+                    obstacle.halfHeight.HasValue
+                        ? ToSubUnits(
+                            obstacle.halfHeight.Value,
+                            obstaclePath + ".halfHeight")
+                        : 0);
             }
 
             ExactFraction scrollSpeedMultiplier =

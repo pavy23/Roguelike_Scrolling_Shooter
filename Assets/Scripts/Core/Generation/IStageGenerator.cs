@@ -1846,7 +1846,9 @@ namespace Shmup.Core.Generation
             int hp,
             Simulation.LaserAttackDefinition laserAttack,
             bool blocksEnemyBullets,
-            int regenDelayTicks)
+            int regenDelayTicks,
+            int halfWidth = 0,
+            int halfHeight = 0)
         {
             if (!Enum.IsDefined(typeof(ObstacleType), type))
                 throw new ArgumentOutOfRangeException(nameof(type));
@@ -1871,11 +1873,17 @@ namespace Shmup.Core.Generation
                 throw new ArgumentException(
                     "Only breakable obstacles can regenerate.",
                     nameof(regenDelayTicks));
+            if (halfWidth < 0)
+                throw new ArgumentOutOfRangeException(nameof(halfWidth));
+            if (halfHeight < 0)
+                throw new ArgumentOutOfRangeException(nameof(halfHeight));
 
             Type = type;
             X = x;
             Y = y;
             Hp = hp;
+            HalfWidth = halfWidth;
+            HalfHeight = halfHeight;
             LaserAttack = laserAttack;
             BlocksEnemyBullets = blocksEnemyBullets;
             RegenDelayTicks = regenDelayTicks;
@@ -1885,6 +1893,17 @@ namespace Shmup.Core.Generation
         public int X { get; }
         public int Y { get; }
         public int Hp { get; }
+        /// <summary>
+        /// 이 장애물만의 반폭·반높이(서브유닛). 0이면 설정 기본값
+        /// (BattleSimConfig.ObstacleHalfWidth/Height)을 쓴다.
+        ///
+        /// 예전에는 크기가 **전역 상수 하나**뿐이라 데이터로 손댈 수 없었다.
+        /// 사람이 2026-08-05에 "스테이지 2부터 히든까지 장애물 1.5배"를 지시했는데,
+        /// 전역을 올리면 입문 구간인 스테이지 1까지 함께 커져 난이도 곡선의
+        /// 시작점이 무너진다. 장애물마다 크기를 실을 수 있어야 그 지시를 지킬 수 있다.
+        /// </summary>
+        public int HalfWidth { get; }
+        public int HalfHeight { get; }
         public Simulation.LaserAttackDefinition LaserAttack { get; }
         public bool BlocksEnemyBullets { get; }
         public int RegenDelayTicks { get; }

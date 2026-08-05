@@ -177,8 +177,8 @@
       "scoreValue": 280,
       "fireIntervalTicks": 100,
       "dropWeight": 7,
-      "halfWidth": 0.78125,
-      "halfHeight": 1.5625,
+      "halfWidth": 1.171875,
+      "halfHeight": 2.34375,
       "movement": {
         "pattern": "static"
       },

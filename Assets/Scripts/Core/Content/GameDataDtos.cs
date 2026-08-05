@@ -541,6 +541,14 @@ namespace Shmup.Core.Content
         public bool? blocksEnemyBullets;
         [DataMember]
         public int? regenDelayTicks;
+        /// <summary>
+        /// 이 장애물만의 크기(월드 유닛). 없으면 설정 기본값을 쓴다.
+        /// 스테이지별로 다르게 키우려면 장애물마다 실을 수 있어야 한다.
+        /// </summary>
+        [DataMember]
+        public decimal? halfWidth;
+        [DataMember]
+        public decimal? halfHeight;
         [DataMember]
         public LaserAttackDto laser;
     }

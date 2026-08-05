@@ -107,6 +107,20 @@ namespace Shmup.Presentation.Battle
         /// 줄이면 방금 넣은 포트리스 발판까지 작아진다.
         /// </summary>
         const float ObstacleViewScale = 0.5f;
+
+        /// <summary>
+        /// 이 장애물이 기본 크기의 몇 배인가. Core가 장애물마다 반폭을 실어 줄 수
+        /// 있게 되면서(2026-08-05) 그림도 같은 배율을 따라가야 한다.
+        /// 0이면 기본값이라는 뜻이므로 1배다.
+        /// </summary>
+        float ObstacleSizeRatio(in Shmup.Core.Simulation.ObstacleState obstacle)
+        {
+            if (obstacle.HalfWidth <= 0 || _obstacleBaseHalfWidth <= 0)
+                return 1f;
+            return obstacle.HalfWidth / (float)_obstacleBaseHalfWidth;
+        }
+
+        int _obstacleBaseHalfWidth;
         SpritePool _bombPickupPool;
 
         // Id → 뷰 인스턴스. Core가 주는 Id는 스폰~소멸까지 불변이라 매칭 키로 쓸 수 있다.
@@ -1062,6 +1076,9 @@ namespace Shmup.Presentation.Battle
             }
 
             var config = data.CreateBattleSimConfig();
+            // 장애물 그림 배율의 기준. Core가 장애물마다 반폭을 실어 줄 수 있으므로
+            // 기본값 대비 몇 배인지로 그림을 맞춘다.
+            _obstacleBaseHalfWidth = config.ObstacleHalfWidth;
             // 스키마에 아직 없는 잠정값 (스키마 v3 후보 — GameData로 옮기면 이 블록 제거)
             // EnemyDespawnX는 REQ-005 이후 Core 기본값(-22u, SimSpace 상수 파생)을 그대로 쓴다.
             // 캡슐 히트박스. 한 번 2배로 키웠다가(2026-08-03 "먹는 아이템 크기가
@@ -1976,7 +1993,12 @@ namespace Shmup.Presentation.Battle
                     // 풀은 스케일을 되돌리지 않는다 — 성장 연출이 남긴 값이 다음
                     // 장애물에 새지 않게 획득 시점에 확실히 원복한다.
                     // 회전도 같다: 포탑이 쓰던 뷰를 잔해가 물려받으면 잔해가 기울어진다.
-                    view.localScale = Vector3.one * ObstacleViewScale;
+                    // **그림은 판정 크기를 따라간다.** 장애물이 자기 크기를 들고
+                    // 있으면(Core의 per-obstacle half) 기본값 대비 비율만큼 키운다 —
+                    // 판정만 커지고 그림이 그대로면 "안 맞았는데 맞는" 판정이 되고,
+                    // 반대면 "맞았는데 안 맞는" 판정이 된다.
+                    view.localScale = Vector3.one
+                        * ObstacleViewScale * ObstacleSizeRatio(in obstacle);
                     view.localRotation = Quaternion.identity;
                     var renderer = view.GetComponent<SpriteRenderer>();
                     if (renderer != null)

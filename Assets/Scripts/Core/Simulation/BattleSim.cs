@@ -855,12 +855,26 @@ namespace Shmup.Core.Simulation
     public readonly struct ObstacleState
     {
         public ObstacleState(int id, ObstacleType type, int x, int y, int hp)
+            : this(id, type, x, y, hp, 0, 0)
+        {
+        }
+
+        /// <summary>
+        /// 반폭·반높이가 0이면 설정 기본값을 쓴다. 장애물마다 크기를 실을 수
+        /// 있어야 "스테이지 2부터만 크게"가 성립한다 — 전역 상수 하나로는
+        /// 입문 구간까지 함께 커진다.
+        /// </summary>
+        public ObstacleState(
+            int id, ObstacleType type, int x, int y, int hp,
+            int halfWidth, int halfHeight)
         {
             Id = id;
             Type = type;
             X = x;
             Y = y;
             Hp = hp;
+            HalfWidth = halfWidth;
+            HalfHeight = halfHeight;
         }
 
         public int Id { get; }
@@ -869,6 +883,9 @@ namespace Shmup.Core.Simulation
         public int Y { get; }
         /// <summary>Remaining HP for breakable obstacles; zero for solid obstacles.</summary>
         public int Hp { get; }
+        /// <summary>0이면 BattleSimConfig의 기본 크기를 쓴다.</summary>
+        public int HalfWidth { get; }
+        public int HalfHeight { get; }
     }
 
     /// <summary>
@@ -885,7 +902,9 @@ namespace Shmup.Core.Simulation
             int maxHp,
             bool blocksEnemyBullets,
             int regenDelayTicks,
-            int respawnAtTick)
+            int respawnAtTick,
+            int halfWidth = 0,
+            int halfHeight = 0)
         {
             Id = id;
             Type = type;
@@ -895,6 +914,8 @@ namespace Shmup.Core.Simulation
             BlocksEnemyBullets = blocksEnemyBullets;
             RegenDelayTicks = regenDelayTicks;
             RespawnAtTick = respawnAtTick;
+            HalfWidth = halfWidth;
+            HalfHeight = halfHeight;
         }
 
         public int Id { get; }
@@ -902,6 +923,9 @@ namespace Shmup.Core.Simulation
         public int X { get; }
         public int Y { get; }
         public int MaxHp { get; }
+        /// <summary>되살아날 때 쓸 크기. 0이면 설정 기본값.</summary>
+        public int HalfWidth { get; }
+        public int HalfHeight { get; }
         public bool BlocksEnemyBullets { get; }
         public int RegenDelayTicks { get; }
         public int RespawnAtTick { get; }
@@ -1758,6 +1782,17 @@ namespace Shmup.Core.Simulation
         readonly long _stageScrollEndOffset;
         readonly bool _usesSegmentScrollMultipliers;
         readonly int _maxObstacles, _obstacleHalfWidth, _obstacleHalfHeight;
+
+        /// <summary>
+        /// 이 장애물의 실제 반폭. 장애물이 자기 크기를 들고 있으면 그것을,
+        /// 아니면 설정 기본값을 쓴다. **판정과 연출이 같은 값을 봐야 한다** —
+        /// 크기를 데이터로 열면서 한쪽만 고치면 "안 맞았는데 맞는" 판정이 생긴다.
+        /// </summary>
+        int ObstacleHalfWidthOf(in ObstacleState obstacle) =>
+            obstacle.HalfWidth > 0 ? obstacle.HalfWidth : _obstacleHalfWidth;
+
+        int ObstacleHalfHeightOf(in ObstacleState obstacle) =>
+            obstacle.HalfHeight > 0 ? obstacle.HalfHeight : _obstacleHalfHeight;
         readonly int _obstacleContactDamage, _breakableObstacleScore;
         readonly int _bossDamageScorePerHundred;
         readonly int _enemyHpMultiplierNumerator;
@@ -5129,7 +5164,9 @@ namespace Shmup.Core.Simulation
                     obstacle.Hp,
                     obstacle.LaserAttack,
                     obstacle.BlocksEnemyBullets,
-                    obstacle.RegenDelayTicks);
+                    obstacle.RegenDelayTicks,
+                    obstacle.HalfWidth,
+                    obstacle.HalfHeight);
                 if (obstacle.LaserAttack != null)
                     TryStartLaser(
                         LaserSourceKind.Terrain,
@@ -5149,9 +5186,12 @@ namespace Shmup.Core.Simulation
             int maxHp,
             LaserAttackDefinition laserAttack,
             bool blocksEnemyBullets,
-            int regenDelayTicks)
+            int regenDelayTicks,
+            int halfWidth = 0,
+            int halfHeight = 0)
         {
-            _obstacles.Add(new ObstacleState(id, type, x, y, hp));
+            _obstacles.Add(new ObstacleState(
+                id, type, x, y, hp, halfWidth, halfHeight));
             _obstacleAges.Add(0);
             _obstacleLaserAttacks.Add(laserAttack);
             _obstacleBlocksEnemyBullets.Add(blocksEnemyBullets);
@@ -7988,7 +8028,15 @@ namespace Shmup.Core.Simulation
                     _pendingObstacleRegens.RemoveAt(index);
                     continue;
                 }
-                if (IsObstacleRespawnOccupied(pending.X, pending.Y))
+                // 되살아날 장애물의 **자기 크기**로 자리를 본다 — 기본값으로
+                // 재면 큰 장애물이 남의 위에 겹쳐 되살아난다.
+                if (IsObstacleRespawnOccupied(
+                        pending.X,
+                        pending.Y,
+                        pending.HalfWidth > 0
+                            ? pending.HalfWidth : _obstacleHalfWidth,
+                        pending.HalfHeight > 0
+                            ? pending.HalfHeight : _obstacleHalfHeight))
                 {
                     if (pending.RespawnAtTick < int.MaxValue)
                         _pendingObstacleRegens[index] =
@@ -8018,7 +8066,8 @@ namespace Shmup.Core.Simulation
             }
         }
 
-        bool IsObstacleRespawnOccupied(int x, int y)
+        bool IsObstacleRespawnOccupied(
+            int x, int y, int halfWidth, int halfHeight)
         {
             if (_playerAlive
                 && Intersects(
@@ -8028,8 +8077,8 @@ namespace Shmup.Core.Simulation
                     _playerHalfHeight,
                     x,
                     y,
-                    _obstacleHalfWidth,
-                    _obstacleHalfHeight))
+                    halfWidth,
+                    halfHeight))
                 return true;
             for (int i = 0; i < _enemies.Count; i++)
             {
@@ -8042,8 +8091,8 @@ namespace Shmup.Core.Simulation
                     definition.HalfHeight,
                     x,
                     y,
-                    _obstacleHalfWidth,
-                    _obstacleHalfHeight))
+                    halfWidth,
+                    halfHeight))
                     return true;
             }
             if (BossActive
@@ -8054,8 +8103,8 @@ namespace Shmup.Core.Simulation
                     _bossHalfHeight,
                     x,
                     y,
-                    _obstacleHalfWidth,
-                    _obstacleHalfHeight))
+                    halfWidth,
+                    halfHeight))
                 return true;
             for (int i = 0; i < _bossPartStates.Length; i++)
             {
@@ -8071,8 +8120,8 @@ namespace Shmup.Core.Simulation
                     definition.HalfHeight,
                     x,
                     y,
-                    _obstacleHalfWidth,
-                    _obstacleHalfHeight))
+                    halfWidth,
+                    halfHeight))
                     return true;
             }
             return false;

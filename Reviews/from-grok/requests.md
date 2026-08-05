@@ -4,6 +4,46 @@
 
 ---
 
+## 2026-08-05 — 스테이지2+ 장애물·레이저포 크기 1.5× (사람 지시)
+
+**사람 지시 요약:** 스테이지 2~히든 공통으로 (1) 부딪히는 solid 장애물 1.5× (2) laserEmitter 포탑 본체 1.5× (3) hive 보라 촉수·초록 포대 1.5×. 스테이지1 scrapyard 제외. 크기 키운 뒤 corridor 막히면 **배치는 벌리고 크기는 유지**.
+
+**GROK 가능분 (완료):**
+- `enemies.json` `hive_tentacle` half **0.78125×1.5625 → 1.171875×2.34375** (×1.5). hive/brood 정적 촉수.
+- 장애물 AABB는 Core 전역 `ObstacleHalfWidth/Height=0.5u` 고정 — **GameData에 half 필드 없음** (REQ-136과 동일 벽). 단독 1.5× 불가.
+- CODEX MCP usage limit (재시도 Aug 8 2026) → Core 확장은 이 요청으로 넘김.
+
+**초록 포대 식별:** hive breakable 스프라이트 `obstacle_spore_pillar` (avgRGB 초록). 세그먼트 type=`breakable`, theme=`hive`. 적 카탈로그에 별도 초록 포대 id 없음.
+
+### CODEX (1순위) / CLAUDE 대행 (§9-1, CODEX limit 시)
+
+1. [ ] **per-obstacle optional halfWidth/halfHeight**
+   - `ObstacleDto` + `ObstacleSpawn` + 파서 + `ObstacleState` 충돌 경로
+   - 없으면 `BattleSimConfig` 기본(0.5u) 유지 — scrapyard/stage1 무변
+   - 있으면 서브유닛 정수 AABB
+   - `SegmentStageGenerator` 복제 시 보존
+   - BalanceSim `CheckObstacleLayouts` corridor: solid별 halfHeight 사용 (없으면 config)
+   - 테스트: 미지정=기본, 지정=0.75u 충돌 반영
+
+2. [ ] 완료 후 GROK이 데이터 채움 (또는 대행 시 같이):
+   - theme ∈ {hive,fortress,nebula,core,abyss,brood} 의 **solid** + **laserEmitter** → `halfWidth`/`halfHeight` **0.75**
+   - theme=`hive` 의 **breakable** (초록 포자 기둥) → **0.75**
+   - scrapyard / difficultyMin≤1 공유 풀 **미기입** (기본 0.5)
+   - corridor FAIL 시 y 간격만 벌림 (크기 되돌리지 않음)
+
+### CLAUDE (Presentation)
+
+1. [ ] Resources `GameData/enemies.json` 동기화 (`hive_tentacle` ×1.5)
+2. [ ] per-obstacle half 반영 후 `ObstacleViewScale`(현재 0.5) 또는 인스턴스 스케일을 Core half와 맞춤 — 0.75 half면 뷰 1.5× (스프라이트 2u × scale 0.75 = 1.5u 판정 일치)
+3. [ ] laserEmitter 포탑 스프라이트도 동일 스케일 경로
+
+### GEMINI
+
+1. [ ] DeterminismAudit 베이스라인 (hive_tentacle 히트박스 + 추후 obstacle half)
+2. [ ] corridor 게이트 · stage1 scrap 크기 무변 교차
+
+---
+
 ## 2026-08-03 REQ-139 — 거대 전함 스케일·미사일/레이저 패턴 (1차)
 
 **완료 (content, 데이터 가능분):**
@@ -1693,7 +1733,7 @@ Core 내장과 동일: 캡슐×3 / 4슬롯 각 +1 / 선체 maxHP +1, weight 균�
 
 ## REQ-145 companion (CODEX)
 
-GameDataParserTests segment count 60��92 after theme-split. Applied on content branch as data-coupled expectation; please review.
+GameDataParserTests segment count 60��92 after theme-split. Applied on content branch as data-coupled expectation; please review.
 
 
 ## 2026-08-04 REQ-157 — 전함 3페이즈 재배치 (content 완료)
