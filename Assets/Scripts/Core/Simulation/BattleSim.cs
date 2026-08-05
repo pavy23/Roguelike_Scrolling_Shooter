@@ -1416,6 +1416,19 @@ namespace Shmup.Core.Simulation
             8 * SimSpace.SubUnitsPerWorldUnit;
         /// <summary>Maximum homing turn per tick in 1/64-turn SineLut slots.</summary>
         public int HomingMissileTurnLutSlotsPerTick { get; set; } = 1;
+
+        /// <summary>
+        /// **적** 유도탄이 방향을 꺾는 시간(틱). 이 시간이 지나면 그 탄은 마지막
+        /// 방향으로 직진한다.
+        ///
+        /// 없을 때는 유도가 탄의 수명 내내 이어졌다 — 한 번 발사되면 화면 어디로
+        /// 도망쳐도 끝까지 따라붙고, 페이즈가 넘어가 그 패턴이 끝난 뒤에도 남은
+        /// 탄은 계속 꺾었다 (사람 보고 2026-08-05: "하이브 보스 마지막 패턴 유도
+        /// 미사일이 끝까지 따라오는거"). 피할 방법이 없는 탄은 패턴이 아니라
+        /// 처형이다. 2초면 한 번 크게 유인해 흘려보낼 수 있다.
+        /// </summary>
+        public int EnemyHomingDurationTicks { get; set; } =
+            2 * SimSpace.TicksPerSecond;
         public int KillExplosionRadiusSubUnits { get; set; } =
             3 * SimSpace.SubUnitsPerWorldUnit / 2;
         public int KillExplosionDamage { get; set; } = 1;
@@ -1858,6 +1871,7 @@ namespace Shmup.Core.Simulation
         readonly int _pierceShotEnemyCount, _ricochetRangeSubUnits;
         readonly int _ricochetCount;
         readonly int _homingMissileTurnLutSlotsPerTick;
+        readonly int _enemyHomingDurationTicks;
         readonly int _killExplosionRadiusSubUnits, _killExplosionDamage;
         readonly int _killExplosionMaxTargets;
         readonly int _grazeExtraRadiusSubUnits, _grazeScore;
@@ -2320,6 +2334,8 @@ namespace Shmup.Core.Simulation
                 BattleModifier.HomingMissile);
             if (_missileFamily == MissileFamily.Homing)
                 homingStrength = 1;
+            _enemyHomingDurationTicks =
+                Math.Max(1, config.EnemyHomingDurationTicks);
             _homingMissileTurnLutSlotsPerTick =
                 Math.Min(
                     SineLut.Length / 2,
@@ -4547,7 +4563,8 @@ namespace Shmup.Core.Simulation
                 if (bullet.Kind == BulletKind.Mine)
                     UpdateMineProjectile(index, in bullet);
                 int turn = _bulletHomingTurnLutSlotsPerTick[index];
-                if (turn > 0)
+                // 유도는 **한시적**이다. 시간이 지나면 마지막 방향으로 흘러간다.
+                if (turn > 0 && bullet.AgeTicks < _enemyHomingDurationTicks)
                     TurnEnemyProjectileTowardPlayer(index, in bullet, turn);
             }
         }
