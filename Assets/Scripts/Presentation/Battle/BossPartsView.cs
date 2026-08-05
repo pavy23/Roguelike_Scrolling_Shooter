@@ -9,7 +9,6 @@ namespace Shmup.Presentation.Battle
     /// 초대형 보스 파츠 뷰 (REQ-035). 본체 스프라이트 한 장 위에 파츠별 상태를 겹쳐 그린다.
     /// - 파츠 피격: 흰색 플래시
     /// - 파괴: 검게 그을린 오버레이 + 폭발 (본체 스프라이트는 그대로 두고 상태만 표현)
-    /// - 코어 무적: 청록 실드 링을 코어 위에 표시
     /// 순수 표현 — Core의 BossParts 목록을 읽기만 한다.
     /// </summary>
     [DisallowMultipleComponent]
@@ -48,15 +47,8 @@ namespace Shmup.Presentation.Battle
         [Tooltip("하이브 조립 뷰가 화면을 소유하면 범용 오버레이는 비켜난다.")]
         [SerializeField] HiveBossView _hiveView;
 
-        /// <summary>
-        /// 코어 무적 표시용 **테두리** 스프라이트. 9-슬라이스라 어떤 크기로 늘려도
-        /// 테두리는 1px로 남는다.
-        /// </summary>
-        Sprite _ringSprite;
-
         void Awake()
         {
-            EnsureRingSprite();
             if (_markSprite != null) return;
             // 가장자리가 부드러운 **원형 감쇠** 스프라이트를 런타임 생성한다.
             //
@@ -86,57 +78,6 @@ namespace Shmup.Presentation.Battle
             texture.Apply();
             _markSprite = Sprite.Create(
                 texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 16f);
-        }
-
-        /// <summary>
-        /// 코어 무적("아직 못 깎는다")을 **채워진 네모**로 그리면 실드가 아니라 UI 오류로
-        /// 읽힌다 — 사람 플레이 스크린샷(2026-08-03, St3 hive)에서 보스 위에 반투명
-        /// 청록 사각형이 얹혀 "이게 뭐냐"고 지적된 것이 이것이다. 게다가 파츠 판정 크기로
-        /// 맞추면서 더 커졌다(hive 코어 7×5u). 테두리로 바꾸면 같은 자리에서 같은 정보를
-        /// 주면서 보스 아트를 가리지 않는다.
-        ///
-        /// **네모 테두리는 쓰지 않는다** — 사람이 "네모 상자가 보이는데 피격 박스가
-        /// 보이는 거냐"고 물었다(2026-08-03, 에일리언형 보스). 닫힌 사각형은 이 바닥에서
-        /// 디버그 히트박스의 관용 표현이라, 정보가 아니라 개발 잔재로 읽힌다.
-        ///
-        /// 대신 **네 모서리 브래킷**을 그린다. 조준·잠금의 관용 표현이라 "여기가 목표인데
-        /// 지금은 잠겨 있다"로 읽히고, 변이 없어 히트박스로 오해되지 않는다.
-        ///
-        /// 16×16 텍스처에 모서리 L자만 그리고 border 5px로 9-슬라이스한다. 9-슬라이스는
-        /// 모서리를 원본 크기로 두고 변·가운데만 늘리는데, 그 변·가운데가 전부 투명이라
-        /// 파츠가 아무리 커도 브래킷 크기가 변하지 않는다.
-        /// </summary>
-        void EnsureRingSprite()
-        {
-            if (_ringSprite != null) return;
-            const int size = 16;
-            const int arm = 5;    // 모서리에서 뻗는 팔 길이(px) — border와 같아야 안 늘어난다
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
-            {
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp
-            };
-            var clear = new Color(1f, 1f, 1f, 0f);
-            for (int y = 0; y < size; y++)
-                for (int x = 0; x < size; x++)
-                {
-                    bool nearLeft = x < arm, nearRight = x >= size - arm;
-                    bool nearBottom = y < arm, nearTop = y >= size - arm;
-                    bool inCorner = (nearLeft || nearRight) && (nearBottom || nearTop);
-                    // 모서리 칸 안에서도 L자만 남긴다: 가장자리 1px 두 줄.
-                    bool onEdgeLine =
-                        x == 0 || y == 0 || x == size - 1 || y == size - 1;
-                    texture.SetPixel(x, y, inCorner && onEdgeLine ? Color.white : clear);
-                }
-            texture.Apply();
-            _ringSprite = Sprite.Create(
-                texture,
-                new Rect(0f, 0f, size, size),
-                new Vector2(0.5f, 0.5f),
-                16f,
-                0,
-                SpriteMeshType.FullRect,
-                new Vector4(arm, arm, arm, arm));
         }
 
         readonly Dictionary<string, SpriteRenderer> _overlays =
@@ -203,9 +144,6 @@ namespace Shmup.Presentation.Battle
 
                 float age = _flashAge.TryGetValue(part.PartId, out float a) ? a : float.MaxValue;
                 Color color;
-                // 채움(그을림·피격 플래시)과 테두리(무적 실드)를 스프라이트로 가른다.
-                // 무적은 오래 켜져 있는 상태라 채우면 보스 아트를 통째로 덮는다.
-                bool ring = false;
                 if (warshipOwnsArt)
                 {
                     // 전함: 피격 플래시 한 겹만. 파괴·무적은 WarshipView 담당이다.
@@ -275,19 +213,17 @@ namespace Shmup.Presentation.Battle
                         HitTint.r, HitTint.g, HitTint.b,
                         MaxFlashAlpha * sizeScale * decay);
                 }
-                else if (part.IsCore && part.CoreGated)
-                {
-                    // 코어 무적: 청록 맥동 **테두리**. 선이라 알파를 올려도 안 가린다.
-                    float pulse = (Mathf.Sin(Time.time * 4.5f) + 1f) * 0.5f;
-                    color = new Color(0.35f, 0.85f, 1f, 0.55f + pulse * 0.35f);
-                    ring = true;
-                }
+                // 코어 게이트 표시(청록 맥동 테두리)는 걷어냈다. 사람 지시
+                // 2026-08-05: "둘다 그림처럼 가운데 상자박스가 있는데 이것도
+                // 지워줘". 히든 보스 두 마리 다 코어가 몸 한가운데 있어서,
+                // 테두리가 보스 그림 위에 **네모 상자**로 얹혔다 — 게임 정보가
+                // 아니라 UI 잔해로 읽혔다. 못 깎는다는 사실은 피격 플래시가
+                // 안 뜨는 것으로 이미 드러난다.
                 else
                 {
                     color = Color.clear;   // 정상 상태에서는 본체 아트만 보인다
                 }
-                var wanted = ring && _ringSprite != null ? _ringSprite : _markSprite;
-                if (overlay.sprite != wanted) overlay.sprite = wanted;
+                if (overlay.sprite != _markSprite) overlay.sprite = _markSprite;
                 overlay.color = color;
                 overlay.enabled = color.a > 0.01f;
                 if (!part.Destroyed && age < FlashDuration) flashing++;
