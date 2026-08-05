@@ -1,135 +1,135 @@
 # ROGUELIKE SCROLLING SHOOTER
 
-그라디우스 계열의 2D 횡스크롤 슈팅에 로그라이크 런 구조를 얹은 SNES풍 픽셀 아트 게임.
+A SNES-style pixel-art horizontal shmup in the Gradius lineage, built on a roguelike run structure.
 
-**▶ 바로 플레이: https://pavy23.github.io/rss-play** (iPhone·모바일 브라우저 터치 지원, 데스크톱 키보드/게임패드 지원)
+**▶ Play now: https://pavy23.github.io/rss-play** — touch on mobile browsers, keyboard or gamepad on desktop.
 
-![타이틀](docs/screenshots/title.png)
+*[한국어 README](README.ko.md)*
 
-## 게임은 이렇게 흘러간다
+![Title](docs/screenshots/title.png)
 
-한 번의 런은 5개의 바이옴(스테이지)을 관통한다 — 고철 폐선장 → 생체 군체 → 요새 → 성운 폭풍 → 적의 코어. 각 스테이지는 **전반 → 중간보스 → 후반 → 스테이지 보스**로 흐르고, 보스를 잡으면 **다음 섹터로 가는 항로**를 고른다: 어느 바이옴으로 갈지, 그리고 어떤 조건(적 밀도 +40% 대신 캡슐 +50% 같은 리스크 계약)으로 갈지가 한 장의 카드다. 죽으면 끝 — 점수는 크레딧이 되어 새 기체를 해금한다.
+## How a run flows
 
-같은 시드는 언제나 같은 런을 만든다. 날마다 전 세계 공통 시드로 겨루는 **데일리 런**, 마지막 런을 그대로 다시 보는 **리플레이**, 중단한 곳에서 잇는 **이어하기**가 전부 여기서 나온다.
+One run cuts through five biomes: **scrapyard → bio hive → fortress → nebula storm → enemy core**. Each stage runs **opening → mid-boss → late section → stage boss**, and every boss kill hands you a **route card**: which biome comes next, and under what terms — a risk contract like *+40% enemy density in exchange for +50% capsules*. Die and it is over. Your score becomes credits that unlock new ships.
 
-각 스테이지는 구간마다 배경과 위협이 변한다 — 전반의 오픈 물량전이 중간보스 격파와 함께 황혼으로 물들고, 후반엔 지형이 좁혀들며 랜드마크가 다가온다.
+The same seed always builds the same run. That is what makes the **Daily Run** (one global seed for everyone, every day), **Replay** (watch your last run back), and **Continue** (pick up where you stopped) possible.
 
-**적도 스테이지를 따라간다.** 고철 폐선장에는 녹슨 기계와 집게 달린 회수 드론이, 생체 군체에는 포자와 촉수와 벌이, 요새에는 군용 드론과 포탑이, 성운에는 안개 망령이 나온다 — 테마마다 자기 졸개를 다섯 종 이상 가지고 있고, 아무 데나 나오는 범용 잡졸은 없다.
+Each stage changes its look and its threats section by section — the open swarms of the opening give way to dusk after the mid-boss falls, and the late section narrows around you as a landmark closes in.
 
-초반 구간에서는 잡졸이 **편대로 밀려온다** — 일렬 종대, 계단식 사선, V자 쐐기. 편대를 통째로 지우면 캡슐이 떨어진다.
+**Enemies belong to their stage.** The scrapyard has rusted machines and grabber drones; the hive has spores, tendrils and wasps; the fortress has military drones and turrets; the nebula has fog wraiths. Every theme carries at least five of its own, and there is no generic filler enemy.
 
-![스테이지 여정](docs/screenshots/stage_flow_overview.png)
+Early sections send trash mobs in **formations** — single file, staircase diagonals, V-wedges. Wipe a whole formation and it drops a capsule.
 
-![전투](docs/screenshots/battle_early.png)
+![Stage journey](docs/screenshots/stage_flow_overview.png)
 
-## 조작
+![Battle](docs/screenshots/battle_early.png)
 
-| 플랫폼 | 조작 |
+## Controls
+
+| Platform | Controls |
 |---|---|
-| 터치 (권장) | 화면 드래그 = 기체가 손가락을 따라옴 · 발사는 상시 자동 · **SELECT** = 게이지 발동 · **BOMB** = 전멸 폭탄 |
-| 키보드 | 방향키/WASD 이동 · 스페이스 = 출격/게이지 발동 · B 폭탄 · T 난이도 · **D 모드 전환**(일반/데일리) · C 이어하기 · V 리플레이 |
-| 게임패드 | 스틱 이동 · (A) 발동 · (B) 폭탄 · RB 모드 전환 · LB 리플레이 · (X) 이어하기 |
+| Touch (recommended) | Drag anywhere — the ship follows your finger · fire is always automatic · **SELECT** = spend gauge · **BOMB** = screen-clearing bomb |
+| Keyboard | Arrows/WASD move · Space = launch / spend gauge · **B bomb** · T difficulty · **D mode** (normal/daily) · C continue · V replay |
+| Gamepad | Stick move · (A) spend · (B) bomb · RB mode · LB replay · (X) continue |
 
-타이틀의 **MODE** 버튼이 일반 런과 데일리 챌린지를 가른다 — 어느 쪽이든 출격은 가운데
-**LAUNCH** 하나다(버튼 글자가 `LAUNCH` / `LAUNCH DAILY`로 바뀐다).
+The **MODE** button on the title screen switches between a normal run and the daily challenge — either way you launch with the single **LAUNCH** button in the middle.
 
-화면은 색으로 말한다: **내 탄은 주황, 적 탄은 마젠타**다. 탄막이 두꺼워져도 어느 쪽이 나를 죽이는 탄인지 색 하나로 갈린다. 청록은 "지금은 못 깎는다"는 뜻이라, 청록으로 맥동하는 파츠를 쏘면 탄이 청록 스파크로 튕긴다.
+The screen speaks in colour: **your shots are orange, enemy shots are magenta.** However thick the bullet pattern gets, one colour tells you which shots can kill you. Cyan means *you cannot damage this yet* — shoot a cyan-pulsing part and your bullets bounce off as cyan sparks.
 
-## 파워업 — 그라디우스 방식 게이지
+## Power-ups — the Gradius gauge
 
-적이 떨어뜨리는 **캡슐**을 먹으면 게이지 커서가 한 칸씩 전진한다. 원하는 칸에서 발동(SELECT)하면 소비 — **어디에 쓰는가가 곧 빌드다.** 캡슐 하나 = 레벨 하나.
+**Capsules** dropped by enemies advance a cursor along the gauge. Spend it (SELECT) on whichever cell you want — **where you spend is your build.** One capsule, one level.
 
-| 칸 | 효과 |
+| Cell | Effect |
 |---|---|
-| SPEED | 이동속도 상승 (레벨당 +1.5) |
-| SHOT | 주무기 강화 (최대 6레벨) — 데미지 +50%/레벨, 연사도 빨라짐 |
-| MISSILE | 미사일 발사 + 레벨당 위력 상승 |
-| **기체 무기** | 기체 고유 무기, **재발동마다 3단 진화** (아래) |
-| OPTION | 분신 최대 6기 — 주무기·미사일을 함께 쏜다 |
-| SHIELD | 실드 **재고 +1** — 레벨이 아니라 장수다. 실드가 유일한 목숨이고, 0에서 맞으면 즉사 |
+| SPEED | Movement speed (+1.5 per level) |
+| SHOT | Main weapon, up to level 6 — +50% damage per level, faster cadence |
+| MISSILE | Adds missiles, stronger each level |
+| **SHIP WEAPON** | Your hull's signature weapon — **evolves across three tiers** each time you spend here |
+| OPTION | Up to six drones that mirror your main gun and missiles |
+| SHIELD | **+1 shield in stock** — a count, not a level. Shields are your only lives; a hit at zero kills you |
 
-게이지는 칸마다 **다른 것을 보여 준다**: SHOT은 위력(레벨), MISSILE은 지금 달린
-**계열**(STRAIGHT·SPREAD·LANCE·DROP·HOMING), OPTION은 **편대 형태**(TRAIL·FIXED·ORBIT),
-SHIELD는 **남은 장수**. 미사일과 옵션은 보상 카드로 종류가 바뀌므로 숫자가 아니라
-무엇이 달렸는지가 정보다.
+Each cell shows **a different kind of information**: SHOT shows power, MISSILE shows which *family* is loaded (STRAIGHT / SPREAD / LANCE / DROP / HOMING), OPTION shows the *formation* (TRAIL / FIXED / ORBIT), SHIELD shows how many are left. Missiles and options get swapped out by reward cards, so what matters is what is equipped, not a number.
 
-실드가 한 대를 막아 내면 **1.5초 무적**이 붙고 그동안 기체가 깜빡인다 — 탄막 한가운데서
-실드를 깨고도 곧바로 다음 탄에 맞던 문제를 막는다.
+A shield that eats a hit grants **1.5 seconds of invulnerability** and the ship blinks through it — otherwise breaking a shield mid-pattern just fed you to the next bullet.
 
-## 기체 3종 — 셋 다 다르게 큰다
+## Three ships — three ways to grow
 
-| 기체 | 성향 | 고유 무기 진화 (1→2→3단) | 미사일 | 옵션 편성 |
+| Ship | Character | Signature weapon (tier 1→2→3) | Missile | Option formation |
 |---|---|---|---|---|
-| **Starter** | 밸런스 (실드 1) | 더블 → **테일 가드**(후방탄) → **크로스 파이어**(전후상하 십자) | 하강 폭격 | 궤적 추종 |
-| **Interceptor** | 빠르고 취약 (실드 0) | 트리플 → **펄스 팬**(5-way 맥동) → **버너**(관성탄+고연사) | 직선 | 고정 포메이션 |
-| **Bulwark** | 느린 탱커 (실드 2) | 레이저 → **랜스**(관통 4+폭발) → **프리즘 빔**(지속 광선) | 유도 | 궤도 회전 |
+| **Starter** | Balanced (1 shield) | Double → **Tail Guard** (rear shots) → **Cross Fire** (four-way cross) | Drop bomb | Trailing |
+| **Interceptor** | Fast and fragile (0 shields) | Triple → **Pulse Fan** (5-way pulse) → **Burner** (inertial shots, high cadence) | Straight | Fixed formation |
+| **Bulwark** | Slow tank (2 shields) | Laser → **Lance** (pierces 4 + explodes) → **Prism Beam** (sustained beam) | Homing | Orbiting |
 
-Interceptor는 25,000 크레딧, Bulwark는 50,000 크레딧으로 격납고에서 해금.
+Interceptor unlocks for 25,000 credits, Bulwark for 50,000, in the hangar.
 
-## 보스전 — 뒤로 갈수록 판이 커진다
+## Bosses — the board grows as you go
 
-![스테이지 3 - 거대 전함](docs/screenshots/boss_warship.png)
+![Stage 3 — the warship](docs/screenshots/boss_warship.png)
 
-- 보스는 페이즈마다 이동과 탄막이 바뀌고, 탄막 어휘(대구경·파편·기뢰·레이저)에 스테이지별 시그니처가 얹힌다 — 고철 투척, 유충 산란, 레이저 그리드, 낙뢰, 회전 프리즘 빔.
-- **스테이지가 오를수록 구조가 한 축씩 늘어난다**: 2스테이지 보스는 화면을 쓸어내는 촉수 파츠를 달고 나오고, 4스테이지 보스는 **번개룡**(세그먼트 체인 — 머리만 노려라)을 소환한다.
-- **3스테이지는 보스전 전체가 거대 전함 1척이다** — 화면을 가로로 가득 채우는 함체가 **처음엔 화면 아래로 잠긴 채 갑판만 내밀고** 미사일을 퍼붓는다. 갑판 포탑과 추진기를 부수면 함체가 2초에 걸쳐 **위로 떠올라 함저(용골)를 눈높이에 내민다** — 거기 달린 더 센 포탑이 두꺼운 빔을 짧은 주기로 쏜다. 그것마저 헤치면 함체가 중앙으로 내려앉으며 함수 코어가 열린다. **포탑을 많이 부술수록 코어전 개막 탄막이 얇아진다.** 코어까지 부수면 끝이 아니다 — 함체가 함미에서 함수로 훑으며 무너지고, **그 안에서 로봇이 튀어나와 최종 페이즈**를 연다.
-  함체의 세 번의 이동은 전부 **스크롤 속도로 걸어서** 일어난다. 어느 막에서도 순간이동하지 않는다.
-- **2스테이지 생체 보스는 부위를 잘라 가며 싸운다** — 머리를 덮은 실드는 총알을 튕겨 내고, 두 다리를 부숴야 벗겨진다. 다리는 무릎 아래가 **잘려 나가며** 절단면이 드러나고, 양다리를 모두 잃으면 양손에서 미사일과 에너지탄을 쏟아붓는 최후 발악이 시작된다.
-- **최종 스테이지 후반엔 과거의 내가 돌아온다** — 이번 런의 1스테이지 플레이 기록이 고스트 기체로 재생돼 함께 싸운다. 최종 보스는 격파해도 끝이 아니다 — 두 번째 형태가 기다린다.
-- **미지의 구역에는 화면 절반을 채우는 것이 둘 있다.** 정체는 여기 적지 않는다 — 조건 두 개를 채워야 열리는 것이라, 미리 알려 주면 도착했을 때의 보상이 사라진다. 하나는 외갑을 뚫어야 속이 열리고, 다른 하나는 아가리가 벌어질 때가 가장 위험하다. 둘 다 네 단계로 싸운다: 일반 탄막 → **꿰뚫는 빔 / 부챗살 레이저** → 위아래로 흔들며 훨씬 조밀한 탄막, 그리고 **앞팔을 크게 휘두르는 근접 공격**(치기 전에 노랗게 번쩍여 알려 준다) → 마지막으로 **몸을 버리고 작은 코어만 남아** 가장 빽빽한 탄막을 뿌린다.
-- **미지의 구역은 어느 스테이지의 재탕도 아니다** — 무엇을 만나느냐에 따라 통째로 다른 곳이 열린다. **심해 해구**(청록 단색, 암반에 박힌 침몰선과 열수공 굴뚝, 어둠에 뜬 생물발광)이거나, **둥지 내부**(살덩이 아치와 부풀어 오른 알집, 천장에서 늘어진 힘줄)다. 중간보스는 없다 — 한 구간을 지나면 곧바로 보스다.
+- Bosses change movement and bullet patterns each phase, and each stage layers its own signature on the shared vocabulary (heavy shells, shrapnel, mines, lasers): scrap throws, larva spawns, laser grids, lightning strikes, rotating prism beams.
+- **Each stage adds one more axis of structure.** The stage-2 boss fights with tentacle parts that sweep the screen; the stage-4 boss summons a **lightning dragon** — a segmented chain where only the head matters.
+- **Stage 3's entire boss fight is a single capital ship.** The hull fills the screen horizontally and starts **submerged, showing only its deck**, raining missiles. Break the deck turrets and engines and the hull **rises over two seconds to put its keel at eye level** — the heavier turrets down there fire thick beams on a short cycle. Cut through those and the hull settles to centre, opening the bow core. **The more turrets you destroy, the thinner the core phase opens.** Killing the core is not the end: the hull collapses stern to bow and **a robot bursts out of it for the final phase.** All three of the hull's moves happen by **travelling at scroll speed** — it never teleports.
+- **The stage-2 organic boss is fought piece by piece.** A shield over its head deflects bullets and only comes off when both legs are broken. The legs are **severed below the knee**, exposing the cut, and losing both triggers a last stand of missiles and energy shots from its arms.
+- **In the final stage's late section, your past self comes back** — your stage-1 inputs from this very run replay as a ghost ship fighting beside you. And the final boss is not finished when it falls: a second form is waiting.
+- **The uncharted zone holds two things that fill half the screen.** What they are is not written here — they take two conditions to unlock, and naming them would spend the payoff. One has to be cracked open through its outer plating; the other is most dangerous when its maw opens. Both fight in four stages: ordinary fire → **a piercing beam / a fan of lasers** → drifting up and down with a far denser pattern, plus **a wide swing of its forelimb** (it flashes yellow before it commits) → and finally it **sheds its body, leaving only a small core** that throws the thickest pattern of all.
+- **The uncharted zone is not a rerun of any stage** — what you meet decides where it opens. Either a **deep-sea trench** (monochrome cyan, wrecks embedded in rock, hydrothermal chimneys, bioluminescence in the dark) or the **inside of a nest** (arches of flesh, swollen egg sacs, tendons hanging from the ceiling). There is no mid-boss — one section, then the boss.
 
-![미지의 구역](docs/screenshots/hidden_biomes.png)
+![Uncharted zone](docs/screenshots/hidden_biomes.png)
 
-![미지의 구역 - 거대 보스](docs/screenshots/hidden_boss.png)
+![Uncharted zone — colossus](docs/screenshots/hidden_boss.png)
 
-*거대 보스는 가려 두었다 — 조건 두 개를 채워야 열리는 것이라, 사진으로 미리 보여 주면 도착했을 때의 보상이 사라진다.*
+*The colossus is masked on purpose. It takes two conditions to unlock, and showing it here would spend the payoff of arriving.*
 
-- **지금 못 깎는 곳은 화면이 말해 준다** — 아직 열리지 않은 파츠는 어둡게 가라앉고 청록으로 맥동한다. 그런 곳에 쏘면 탄이 **청록 스파크로 튕긴다**. 데미지가 들어갈 때는 파츠가 **빨갛게 번쩍인다** — 헛치고 있는지 한 프레임에 갈린다.
-- **보스마다 곡이 다르다.** 중간보스는 전투곡 그대로지만, 스테이지 보스는 템포를 늦춰 무게를 싣고, 히든 보스는 더 느리게, 어디에도 착지하지 않는 화성으로 내려앉는다. "다른 판에 왔다"가 귀로 먼저 읽힌다.
+- **The screen tells you what you cannot hurt yet** — parts that have not opened sink into shadow and pulse cyan, and shots at them **bounce off as cyan sparks**. When damage does land, the part **flashes red**. One frame tells you whether you are wasting your fire.
+- **Every boss tier has its own track.** Mid-bosses keep the battle theme; stage bosses slow down and take on weight; hidden bosses go slower still, into harmony that never lands anywhere. You hear that you have walked into a different kind of fight before you see it.
 
-## 점수는 위험을 보상한다
+## Score rewards risk
 
-- 적탄을 **아슬아슬하게 스치면(그레이즈)** 점수와 배율을 얻는다 — **스치기 한 번에 한 단계**, 최대 **×32**. 연달아 스쳐도 0.5초에 한 단계까지만 오른다.
-- 콤보를 잇는 행위는 셋이다: **격파 · 그레이즈 · 보스에게 데미지 주기.** 5초간 셋 다 없으면 배율이 한 단계 식는다 — 다만 **무적 부위에 막힌 탄은 세지 않는다**(청록 스파크로 튕기는 그것). 보스방에 들어서서 보스가 아직 나오지 않은 구간과 등장 연출 중에는 시계가 멈춘다. 손쓸 방법이 없는 시간에 벌을 주지 않기 위해서다.
-- 배율은 **방을 넘어가도 이어진다** — 중간보스로 들어가며 쌓은 배율이 사라지지 않는다.
-- 히든 조건 3가지 — **엘리트 룸 3회 클리어 · 무피해 바이옴 2회 · 희귀 조우 1회** — 중 **2개**를 채우면 극한 항로 **미지의 구역**(점수 ×1.25)이 열린다. 거대 멀티파트 보스를 잡으면 PerfectClear.
+- **Graze** an enemy bullet and you gain score and multiplier — **one step per graze**, up to **×32**. Consecutive grazes still only climb one step per 0.5s.
+- Three things keep a combo alive: **kills, grazes, and damaging a boss.** Five seconds without any of them cools the multiplier one step — though **shots blocked by an invulnerable part do not count** (the cyan sparks). The clock also stops while you are in a boss room before the boss appears and during its entrance. There is no point punishing time you cannot act in.
+- The multiplier **carries between rooms** — what you built walking into the mid-boss does not evaporate.
+- Clear the three hidden conditions — **3 elite rooms · 2 no-damage biomes · 1 rare encounter** — meeting **2 of 3** opens the extreme route, the **uncharted zone** (score ×1.25). Kill the colossal multipart boss there for a PerfectClear.
 
-## 글로벌 스코어보드
+## Global scoreboard
 
-게임오버 화면에서 **SUBMIT SCORE**로 세계 랭킹에 이름을 올린다. 보드는 두 개 — 매일 전 세계 공통 시드로 겨루는 **데일리**, 자유 런의 **전체**.
+**SUBMIT SCORE** on the game-over screen puts you on the world ranking. There are two boards: the **Daily** (one global seed for everyone) and the **All-time** board for free runs.
 
-| 컬럼 | 의미 |
+| Column | Meaning |
 |---|---|
-| `#` / `PILOT` / `SCORE` | 순위 · 이름(2~10자) · 점수 |
-| `STG` | 도달 지점 (`3-2` = 3스테이지 2룸, `CLR` = 클리어, `PFT` = PerfectClear) |
-| `SHIP` | 기체 (`ST`/`IC`/`BW`) |
-| `BOMB` | 폭탄 사용 횟수 — **0이면 노봄 런**으로 강조 |
+| `#` / `PILOT` / `SCORE` | Rank · name (2–10 chars) · score |
+| `STG` | How far you got (`3-2` = stage 3 room 2, `CLR` = cleared, `PFT` = PerfectClear) |
+| `SHIP` | Hull (`ST` / `IC` / `BW`) |
+| `BOMB` | Bombs used — **0 is highlighted as a no-bomb run** |
 
-제출은 정정당당한 런만: 치트 사용 런, 시드를 직접 지정한 런, 리플레이는 제출이 막힌다. 같은 기기에서는 최고 기록 하나만 남는다.
+Only honest runs submit: cheated runs, hand-typed seeds and replays are all blocked. One best entry per device.
 
-## 자기 제약 계약 — 저강화가 곧 점수다
+## Self-imposed contracts — playing weak is worth points
 
-항로 카드에는 스스로를 묶는 대신 점수 배율을 받는 **SPARTAN 계약**이 섞여 나온다:
+Route cards mix in **SPARTAN contracts** that tie your hands for a score multiplier:
 
-| 계약 | 제약 | 배율 |
+| Contract | Restriction | Multiplier |
 |---|---|---|
-| **SPARTAN PROTOCOL** | 게이지 발동 전면 금지 (캡슐 적립은 됨) | ×1.6 |
-| **BARE HULL** | 실드 발동 금지 | ×1.4 |
-| **NO OPTION RUN** | 옵션 발동 금지 | ×1.3 |
+| **SPARTAN PROTOCOL** | Cannot spend the gauge at all (capsules still bank) | ×1.6 |
+| **BARE HULL** | Cannot spend on shields | ×1.4 |
+| **NO OPTION RUN** | Cannot spend on options | ×1.3 |
 
-계약 중 금지된 칸을 발동하려 하면 게이지 위에 **CONTRACT LOCK** 표시가 뜬다.
+Try to spend on a locked cell and a **CONTRACT LOCK** marker appears over the gauge.
 
-## 보상과 대가
+## Rewards and their price
 
-중간보스·보스를 잡을 때마다 보상 카드를 고른다(캡슐 5개로 리롤 가능). 일부 보상엔 **붉은 글씨의 대가**가 붙어 있다 — 데미지 +2 대신 실드 상한 -1 같은. 미사일 계열 교체, 옵션 편성 교체, 관통탄·도탄·격파 폭발 같은 탄 개조도 여기서 나온다.
+Every mid-boss and boss hands you a reward card (rerollable for 5 capsules). Some carry **a price written in red** — +2 damage in exchange for −1 maximum shield, say. Missile family swaps, option formation swaps, and bullet mods like pierce, ricochet and kill-explosions come from here too.
 
-## 크레딧과 컨티뉴 — 판돈을 걸어라
+## Credits and continues — place your bet
 
-죽으면 점수가 크레딧이 된다. 크레딧은 격납고에서 **기체 해금**(Interceptor 50,000 / Bulwark 100,000)과 **컨티뉴 구매**(최대 8개 적립, 살수록 비싸진다)에 쓴다.
+Death turns your score into credits. Credits buy **ship unlocks** (Interceptor 50,000 / Bulwark 100,000) and **continues** (bank up to 8; each one costs more than the last) in the hangar.
 
-- 컨티뉴를 쓰면 그 자리에서 다시 날지만 **런 점수는 0으로 리셋**된다 — 랭킹은 정직하게.
-- **최종 보스전에 들어서는 순간, 남은 컨티뉴 전량이 회수되어 실드로 환산된다.** 아껴온 컨티뉴가 최후의 판돈이 된다.
-- 데일리 런에서는 컨티뉴를 쓸 수 없다 — 전 세계가 같은 조건으로 겨룬다.
+- Spending a continue puts you straight back in the fight, but **your run score resets to 0** — the ranking stays honest.
+- **The moment you enter the final boss fight, every continue you still hold is cashed in as shields.** What you hoarded becomes your last bet.
+- Daily runs cannot use continues — everyone competes on the same terms.
 
----
+## Saves and privacy
+
+Progress lives **in your own browser**. Credits, ship unlocks, continue stock, difficulty and accessibility options are stored locally on the device you play on — nothing about them is baked into the build, so a copy you hand to someone else starts them at zero. Clearing site data for the page wipes it.
+
+The only shared thing is the **global scoreboard**, and only when you choose to submit: it sends your pilot name, score and run summary, nothing else.
