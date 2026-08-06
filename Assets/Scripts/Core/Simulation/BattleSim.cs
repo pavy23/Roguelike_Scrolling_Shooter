@@ -3259,11 +3259,15 @@ namespace Shmup.Core.Simulation
             AdvanceMainShotBurst();
             if (input.Fire)
             {
-                if (_beamDamagePerTick == 0
-                    && _cooldown == 0
+                if (_cooldown == 0
                     && _burstShotsRemaining == 0
                     && HasCapacityForMainShotVolley())
-                    SpawnMainShotVolley(false);
+                {
+                    if (_beamDamagePerTick == 0)
+                        SpawnMainShotVolley(false);
+                    else if (_options.Count > 0)
+                        SpawnBeamOptionVolley();
+                }
                 if (_missileLevel > 0
                     && _missileCooldown == 0
                     && HasCapacityForMissileVolley())
@@ -10167,6 +10171,32 @@ namespace Shmup.Core.Simulation
             _burstCooldownTicks = _burstShotsRemaining > 0
                 ? _burstIntervalTicks
                 : 0;
+            _cooldown = ComputeReducedInterval(
+                _fireIntervalTicks,
+                _mainShotLevel,
+                _mainShotRapidFireStartLevel,
+                _mainShotFireIntervalReductionPerLevel,
+                _mainShotMinimumFireIntervalTicks);
+        }
+
+        /// <summary>
+        /// 레이저 3단(프리즘 빔) 중의 옵션 발리 (REQ-184). 빔은 본체에서만 나가는데
+        /// 예전에는 빔이 메인샷 발리를 통째로 대체해 옵션 화력이 0이 됐다
+        /// (사람 보고 2026-08-07). 옵션은 2단(랜스) 볼트를 그대로 계속 쏜다 —
+        /// 볼트 데미지·관통은 3단 프로필이 2단과 같은 값을 물려받는다.
+        /// 본체 몫은 쏘지 않으므로 버스트 상태는 건드리지 않는다.
+        /// </summary>
+        void SpawnBeamOptionVolley()
+        {
+            if (_nextBulletId == int.MaxValue)
+                throw new InvalidOperationException("The bullet id counter is exhausted.");
+            int remainingBudget = GetRemainingPlayerBulletCapacity();
+            for (int i = 0; i < _options.Count && remainingBudget > 0; i++)
+                SpawnMainShotFrom(
+                    _options[i].X,
+                    _options[i].Y,
+                    ref remainingBudget);
+            EmitEvent(SimEventType.PlayerFired, 0, PlayerX, PlayerY, (int)BulletKind.MainShot);
             _cooldown = ComputeReducedInterval(
                 _fireIntervalTicks,
                 _mainShotLevel,
