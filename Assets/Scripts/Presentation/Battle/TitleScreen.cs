@@ -61,6 +61,8 @@ namespace Shmup.Presentation.Battle
         // 보드를 여는 쪽이 소수라 로드 시점에 미리 만들 이유가 없다.
         GameObject _rankingRoot;
         Text _rankingBody;
+        /// <summary>컬럼별 본문. 순서는 RankingColumns와 같다.</summary>
+        Text[] _rankingCols;
         Text _rankingTitle;
 
         /// <summary>
@@ -114,15 +116,9 @@ namespace Shmup.Presentation.Battle
         // "1 PAVY 123,450 ST 3-2 NB" 한 줄로는 뭐가 뭔지 알 수 없다는 지적(2026-08-01).
         // 컬럼 폭을 상수 한 벌로 뽑아 **헤더와 본문이 같은 자릿수**를 쓰게 한다 —
         // 둘을 따로 적어 두면 언젠가 반드시 어긋난다.
-        const int ColRank = 2;
         const int ColPilot = 10;   // ScoreboardClient.NameMaxLength와 같다
-        const int ColScore = 10;
-        const int ColStage = 5;    // "10-4" / "CLR" / "PFT"
-        const int ColShip = 4;
-        const int ColBomb = 4;
 
         /// <summary>피격 수 (REQ-105). 서버 상한이 999라 세 자리 + 여백 한 칸.</summary>
-        const int ColHit = 4;
 
         /// <summary>
         /// 컨티뉴 마커 폭 (REQ-109). " C1" 세 글자.
@@ -136,21 +132,28 @@ namespace Shmup.Presentation.Battle
         /// 마커의 뜻이 "이어붙였다"이지 "안 이어붙였다"가 아니므로, 모르는 기록에
         /// 아무 표시도 하지 않는 쪽이 정직하다 (BOMB/HIT의 0 강조와 정반대 문법).
         /// </summary>
-        const int ColContinue = 3;
 
         /// <summary>
         /// 컬럼 라벨 줄. 계기판 라벨 관례대로 전부 대문자이고, 본문보다 어두운 색으로
         /// 그려 기록보다 먼저 읽히지 않게 한다 (색은 BuildRankingPanel이 준다).
         /// PILOT 라벨은 마커 폭까지 덮는다 — 마커에는 라벨을 주지 않는다.
         /// </summary>
-        static readonly string RankingHeader =
-            "#".PadLeft(ColRank) + "  "
-            + "PILOT".PadRight(ColPilot + ColContinue) + " "
-            + "SCORE".PadLeft(ColScore) + "  "
-            + "STG".PadRight(ColStage) + " "
-            + "SHIP".PadRight(ColShip + 1) + " "
-            + "BOMB".PadLeft(ColBomb) + " "
-            + "HIT".PadLeft(ColHit);
+        /// <summary>
+        /// 보드 컬럼 명세: 라벨 · 왼쪽 x(0~480) · 폭 · 오른쪽 정렬 여부.
+        /// 숫자(점수·봄·피격)는 오른쪽, 글자(파일럿·스테이지·기체)는 왼쪽 —
+        /// 자릿수가 다른 숫자는 오른쪽 끝을 맞춰야 한 눈에 비교된다.
+        /// </summary>
+        static readonly (string Label, float Left, float Width, bool Right)[]
+            RankingColumns =
+        {
+            ("#", 0f, 24f, true),
+            ("PILOT", 32f, 122f, false),
+            ("SCORE", 158f, 86f, true),
+            ("STG", 252f, 44f, false),
+            ("SHIP", 300f, 50f, false),
+            ("BOMB", 352f, 46f, true),
+            ("HIT", 402f, 42f, true),
+        };
 
         void RefreshDifficultyText()
         {
@@ -301,17 +304,45 @@ namespace Shmup.Presentation.Battle
             UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -34f), 460f,
                 UiKit.TextAccent, "RankRule");
 
-            // 컬럼 라벨은 본문과 **같은 폰트·크기·좌표·폭**이어야 자릿수가 맞는다.
-            var header = UiKit.CreateCornerText(panel, _font, RankingHeader, 10, UiKit.TextDim,
-                new Vector2(0.5f, 1f), new Vector2(0f, -44f), TextAnchor.UpperLeft, "RankHeader");
-            header.rectTransform.sizeDelta = new Vector2(480f, 14f);
+            // **컬럼마다 Text를 따로 둔다.** 예전에는 한 문자열을 공백 패딩으로
+            // 정렬했는데, UI 폰트(Galmuri9)가 고정폭이 아니라 공백과 글자 폭이
+            // 달라서 폰에서 컬럼이 제각각 밀렸다 (사람 보고 2026-08-05, 스크린샷).
+            // 왼쪽 정렬 시작점인 PILOT만 맞아 보였던 이유다. 컬럼이 각자 앵커를
+            // 가지면 글리프 폭과 무관하게 항상 선다.
+            Text MakeColumn(
+                string name, float left, float width, bool right,
+                float y, float height, Color color)
+            {
+                var text = UiKit.CreateCornerText(
+                    panel, _font, "", 10, color,
+                    new Vector2(0.5f, 1f),
+                    new Vector2(left + width / 2f - 240f, y),
+                    right ? TextAnchor.UpperRight : TextAnchor.UpperLeft,
+                    name);
+                text.rectTransform.sizeDelta = new Vector2(width, height);
+                return text;
+            }
+
+            _rankingCols = new Text[RankingColumns.Length];
+            for (int i = 0; i < RankingColumns.Length; i++)
+            {
+                var col = RankingColumns[i];
+                var label = MakeColumn(
+                    "RankHead_" + col.Label, col.Left, col.Width, col.Right,
+                    -44f, 14f, UiKit.TextDim);
+                label.text = col.Label;
+                _rankingCols[i] = MakeColumn(
+                    "RankCol_" + col.Label, col.Left, col.Width, col.Right,
+                    -64f, 168f, UiKit.TextMain);
+            }
             // 라벨과 기록을 가르는 헤어라인. 앰버는 위 룰 하나로 족하다 —
             // 액센트는 화면당 하나라는 계기판 원칙을 여기서도 지킨다.
             UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -58f), 480f,
                 UiKit.PanelBorder, "RankHeaderRule");
 
+            // 상태 문구(LOADING/OFFLINE/비어 있음) 전용. 기록은 컬럼이 그린다.
             _rankingBody = UiKit.CreateCornerText(panel, _font, "", 10, UiKit.TextDim,
-                new Vector2(0.5f, 1f), new Vector2(0f, -64f), TextAnchor.UpperLeft, "RankBody");
+                new Vector2(0.5f, 1f), new Vector2(0f, -64f), TextAnchor.UpperCenter, "RankBody");
             _rankingBody.rectTransform.sizeDelta = new Vector2(480f, 168f);
 
             UiKit.CreateTouchButton(panel, _font, "DAILY / ALL", 11,
@@ -334,8 +365,7 @@ namespace Shmup.Presentation.Battle
         void RequestRanking()
         {
             if (_rankingBody == null) return;
-            _rankingBody.text = "LOADING...";
-            _rankingBody.color = UiKit.TextDim;
+            ShowRankingStatus("LOADING...");
             if (_rankingTitle != null)
                 _rankingTitle.text = _rankingDaily ? "DAILY RANKING" : "ALL-TIME RANKING";
             ScoreboardClient.FetchBoard(_rankingDaily, OnRankingLoaded);
@@ -352,32 +382,44 @@ namespace Shmup.Presentation.Battle
 
             if (error != null || entries == null)
             {
-                _rankingBody.text = "OFFLINE";
-                _rankingBody.color = UiKit.TextDim;
+                ShowRankingStatus("OFFLINE");
                 return;
             }
             if (entries.Length == 0)
             {
                 // 데일리가 비어 있는 것은 정상이다(그날 아무도 안 뛰었을 뿐) —
                 // 고장으로 읽히지 않게 어느 보드가 비었는지 말해 준다.
-                _rankingBody.text = _rankingDaily
+                ShowRankingStatus(_rankingDaily
                     ? "NO DAILY ENTRIES YET - TRY ALL-TIME"
-: "NO ENTRIES YET";
-                _rankingBody.color = UiKit.TextDim;
+                    : "NO ENTRIES YET");
                 return;
             }
 
-            var sb = new System.Text.StringBuilder(512);
+            _rankingBody.text = "";
+            var cols = new System.Text.StringBuilder[_rankingCols.Length];
+            for (int c = 0; c < cols.Length; c++)
+                cols[c] = new System.Text.StringBuilder(128);
             int count = Mathf.Min(RankingRows, entries.Length);
             for (int i = 0; i < count; i++)
             {
                 var entry = entries[i];
                 if (entry == null) continue;
-                if (sb.Length > 0) sb.Append('\n');
-                AppendRow(sb, i + 1, entry);
+                for (int c = 0; c < cols.Length; c++)
+                    if (cols[c].Length > 0) cols[c].Append('\n');
+                AppendRowCells(cols, i + 1, entry);
             }
-            _rankingBody.text = sb.ToString();
-            _rankingBody.color = UiKit.TextMain;
+            for (int c = 0; c < cols.Length; c++)
+                _rankingCols[c].text = cols[c].ToString();
+        }
+
+        /// <summary>상태 한 줄을 가운데에 띄우고 기록 컬럼은 비운다.</summary>
+        void ShowRankingStatus(string message)
+        {
+            _rankingBody.text = message;
+            _rankingBody.color = UiKit.TextDim;
+            if (_rankingCols == null) return;
+            for (int c = 0; c < _rankingCols.Length; c++)
+                if (_rankingCols[c] != null) _rankingCols[c].text = "";
         }
 
         /// <summary>앰버 뱃지 색 = UiKit.TextAccent. 리치 텍스트라 문자열로 박아 둔다.</summary>
@@ -396,27 +438,26 @@ namespace Shmup.Presentation.Battle
         /// 헤더(<see cref="RankingHeader"/>)와 같은 컬럼 상수를 쓰고, 값이 없는 칸은
         /// '-'로 채워 자릿수를 지킨다 — 칸을 비우면 다음 컬럼이 밀려 헤더와 어긋난다.
         /// </summary>
-        static void AppendRow(System.Text.StringBuilder sb, int rank, ScoreboardEntry entry)
+        static void AppendRowCells(
+            System.Text.StringBuilder[] cols, int rank, ScoreboardEntry entry)
         {
             // P1.5 이전 기록에는 상세 통계가 아예 없다 (서버가 키를 뺀다 → 전부 0).
             // 스테이지 번호는 1부터라 st <= 0이 곧 구 항목이고, 그때 0을 그리면
             // "1스테이지에서 봄 0개로 죽었다"는 거짓말이 된다.
             bool detailed = entry.st > 0;
 
-            sb.Append(rank.ToString().PadLeft(ColRank));
-            sb.Append("  ");
-            AppendPilotCell(sb, entry);
-            sb.Append(' ');
-            sb.Append(entry.s.ToString("N0").PadLeft(ColScore));
-            sb.Append("  ");
-            sb.Append(StageCell(entry, detailed).PadRight(ColStage));
-            sb.Append(' ');
-            sb.Append(ShipCell(entry).PadRight(ColShip));
-            sb.Append(DifficultyMark(entry));
-            sb.Append(' ');
-            AppendBombCell(sb, entry, detailed);
-            sb.Append(' ');
-            AppendHitCell(sb, entry);
+            cols[0].Append(rank);
+            AppendPilotCell(cols[1], entry);
+            cols[2].Append(entry.s.ToString("N0"));
+            cols[3].Append(StageCell(entry, detailed));
+            cols[4].Append(ShipCell(entry));
+            // 난이도 마커는 기체 코드가 아니다 — 붙여 쓰면 "STH"가 기체 약칭으로
+            // 읽힌다. 말할 것이 있을 때만 한 칸 띄우고 흐리게 적는다.
+            string mark = DifficultyMark(entry).TrimEnd();
+            if (mark.Length > 0)
+                cols[4].Append(DimOpen).Append(' ').Append(mark).Append(DimClose);
+            AppendBombCell(cols[5], entry, detailed);
+            AppendHitCell(cols[6], entry);
         }
 
         /// <summary>
@@ -451,9 +492,7 @@ namespace Shmup.Presentation.Battle
         /// </summary>
         static void AppendPilotCell(System.Text.StringBuilder sb, ScoreboardEntry entry)
         {
-            string name = Clip(entry.n, ColPilot);
-            sb.Append(name);
-            int used = name.Length;
+            sb.Append(Clip(entry.n, ColPilot));
             if (entry.HasContinues)
             {
                 // 서버가 이미 9로 자르지만, 손상된 응답이 컬럼 폭을 밀지 않게 한 번 더 막는다.
@@ -461,9 +500,7 @@ namespace Shmup.Presentation.Battle
                 sb.Append(DimOpen);
                 sb.Append(" C").Append(continues);
                 sb.Append(DimClose);
-                used += ColContinue;
             }
-            sb.Append(' ', ColPilot + ColContinue - used);
         }
 
         /// <summary>
@@ -478,10 +515,10 @@ namespace Shmup.Presentation.Battle
         {
             if (!entry.HasHits)
             {
-                sb.Append("-".PadLeft(ColHit));
+                sb.Append('-');
                 return;
             }
-            string cell = entry.ht.ToString().PadLeft(ColHit);
+            string cell = entry.ht.ToString();
             if (entry.ht != 0)
             {
                 sb.Append(cell);
@@ -521,10 +558,10 @@ namespace Shmup.Presentation.Battle
         {
             if (!detailed)
             {
-                sb.Append("-".PadLeft(ColBomb));
+                sb.Append('-');
                 return;
             }
-            string cell = entry.bb.ToString().PadLeft(ColBomb);
+            string cell = entry.bb.ToString();
             if (entry.bb != 0)
             {
                 sb.Append(cell);
