@@ -126,6 +126,8 @@
         {
           "level": 3,
           "pierceEnemyCount": 4,
+          "impactExplosionDamage": 8,
+          "impactExplosionRadius": 0.75,
           "beamDamagePerTick": 2,
           "beamLength": 20.0,
           "beamStartHalfWidth": 0.125,
