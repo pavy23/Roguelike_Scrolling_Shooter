@@ -64,6 +64,8 @@ namespace Shmup.Presentation.Battle
         /// <summary>컬럼별 본문. 순서는 RankingColumns와 같다.</summary>
         Text[] _rankingCols;
         Text _rankingTitle;
+        ScrollRect _rankingScroll;
+        RectTransform _rankingContent;
 
         /// <summary>
         /// 랭킹 패널이 지금 보여 주는 보드. 예전에는 데일리로 **하드코딩**돼 있었는데,
@@ -108,8 +110,17 @@ namespace Shmup.Presentation.Battle
         Text _modeHintText;
         Text _launchButtonLabel;
 
-        /// <summary>보드 표시 줄 수. 100줄을 다 받아도 화면에는 상위 10줄만 올린다.</summary>
-        const int RankingRows = 10;
+        /// <summary>
+        /// 보드 표시 줄 수 = 서버 보관 상한(워커 MAX_ENTRIES)과 같다. 예전에는 상위
+        /// 10줄만 올렸는데, 스크롤 뷰포트가 생기면서 받은 만큼 다 올린다 (사람 지시
+        /// 2026-08-07: "스크롤로 100명까지 볼수 있게"). 화면에 한 번에 보이는 것은
+        /// 여전히 뷰포트 높이(RankingViewportHeight)가 정한다 — 약 10줄.
+        /// </summary>
+        const int RankingRows = 100;
+
+        /// <summary>기록 영역(뷰포트) 높이. 10줄이 들어가는 168px — 패널 288 안에서
+        /// 제목/헤더(64) + 하단 버튼(56)을 뺀 값이다.</summary>
+        const float RankingViewportHeight = 168f;
 
         // ── 보드 컬럼 폭 ──────────────────────────────────────────────────────
         //
@@ -310,11 +321,11 @@ namespace Shmup.Presentation.Battle
             // 왼쪽 정렬 시작점인 PILOT만 맞아 보였던 이유다. 컬럼이 각자 앵커를
             // 가지면 글리프 폭과 무관하게 항상 선다.
             Text MakeColumn(
-                string name, float left, float width, bool right,
+                Transform parent, string name, float left, float width, bool right,
                 float y, float height, Color color)
             {
                 var text = UiKit.CreateCornerText(
-                    panel, _font, "", 10, color,
+                    parent, _font, "", 10, color,
                     new Vector2(0.5f, 1f),
                     new Vector2(left + width / 2f - 240f, y),
                     right ? TextAnchor.UpperRight : TextAnchor.UpperLeft,
@@ -323,18 +334,75 @@ namespace Shmup.Presentation.Battle
                 return text;
             }
 
+            // 기록은 뷰포트(마스크) 속 콘텐츠에 그린다 — 서버가 최대 100줄을 주는데
+            // 화면에는 10줄 높이만 있으므로, 넘치는 줄은 세로 스크롤로 본다
+            // (사람 지시 2026-08-07). 드래그(터치)와 휠 둘 다 ScrollRect가 받는다.
+            var viewportGo = new GameObject("RankViewport");
+            viewportGo.transform.SetParent(panel, false);
+            var viewportRect = viewportGo.AddComponent<RectTransform>();
+            viewportRect.anchorMin = viewportRect.anchorMax = new Vector2(0.5f, 1f);
+            viewportRect.pivot = new Vector2(0.5f, 1f);
+            viewportRect.anchoredPosition = new Vector2(0f, -64f);
+            viewportRect.sizeDelta = new Vector2(500f, RankingViewportHeight);
+            // 투명해도 레이캐스트는 잡힌다 — 드래그를 받을 히트 영역.
+            var viewportHit = viewportGo.AddComponent<Image>();
+            viewportHit.color = Color.clear;
+            viewportGo.AddComponent<RectMask2D>();
+
+            var contentGo = new GameObject("RankContent");
+            contentGo.transform.SetParent(viewportGo.transform, false);
+            _rankingContent = contentGo.AddComponent<RectTransform>();
+            _rankingContent.anchorMin = _rankingContent.anchorMax = new Vector2(0.5f, 1f);
+            _rankingContent.pivot = new Vector2(0.5f, 1f);
+            _rankingContent.anchoredPosition = Vector2.zero;
+            _rankingContent.sizeDelta = new Vector2(480f, RankingViewportHeight);
+
+            _rankingScroll = viewportGo.AddComponent<ScrollRect>();
+            _rankingScroll.content = _rankingContent;
+            _rankingScroll.viewport = viewportRect;
+            _rankingScroll.horizontal = false;
+            _rankingScroll.movementType = ScrollRect.MovementType.Clamped;
+            _rankingScroll.scrollSensitivity = 17f; // 휠 한 칸 ≈ 한 줄
+
             _rankingCols = new Text[RankingColumns.Length];
             for (int i = 0; i < RankingColumns.Length; i++)
             {
                 var col = RankingColumns[i];
                 var label = MakeColumn(
-                    "RankHead_" + col.Label, col.Left, col.Width, col.Right,
+                    panel, "RankHead_" + col.Label, col.Left, col.Width, col.Right,
                     -44f, 14f, UiKit.TextDim);
                 label.text = col.Label;
                 _rankingCols[i] = MakeColumn(
-                    "RankCol_" + col.Label, col.Left, col.Width, col.Right,
-                    -64f, 168f, UiKit.TextMain);
+                    _rankingContent, "RankCol_" + col.Label, col.Left, col.Width,
+                    col.Right, 0f, RankingViewportHeight, UiKit.TextMain);
             }
+
+            // 얇은 스크롤바. 기록이 뷰포트를 넘칠 때만 나타난다 — 10줄 이하일 때는
+            // 지금까지처럼 아무것도 없다.
+            var barGo = new GameObject("RankScrollbar");
+            barGo.transform.SetParent(panel, false);
+            var barRect = barGo.AddComponent<RectTransform>();
+            barRect.anchorMin = barRect.anchorMax = new Vector2(0.5f, 1f);
+            barRect.pivot = new Vector2(0.5f, 1f);
+            barRect.anchoredPosition = new Vector2(252f, -64f);
+            barRect.sizeDelta = new Vector2(4f, RankingViewportHeight);
+            var barBg = barGo.AddComponent<Image>();
+            barBg.color = UiKit.PanelBorder;
+            var handleGo = new GameObject("Handle");
+            handleGo.transform.SetParent(barGo.transform, false);
+            var handleRect = handleGo.AddComponent<RectTransform>();
+            handleRect.anchorMin = Vector2.zero;
+            handleRect.anchorMax = Vector2.one;
+            handleRect.offsetMin = handleRect.offsetMax = Vector2.zero;
+            var handleImg = handleGo.AddComponent<Image>();
+            handleImg.color = UiKit.TextDim;
+            var bar = barGo.AddComponent<Scrollbar>();
+            bar.direction = Scrollbar.Direction.BottomToTop;
+            bar.handleRect = handleRect;
+            bar.targetGraphic = handleImg;
+            _rankingScroll.verticalScrollbar = bar;
+            _rankingScroll.verticalScrollbarVisibility =
+                ScrollRect.ScrollbarVisibility.AutoHide;
             // 라벨과 기록을 가르는 헤어라인. 앰버는 위 룰 하나로 족하다 —
             // 액센트는 화면당 하나라는 계기판 원칙을 여기서도 지킨다.
             UiKit.CreateRule(panel, new Vector2(0.5f, 1f), new Vector2(0f, -58f), 480f,
@@ -410,6 +478,20 @@ namespace Shmup.Presentation.Battle
             }
             for (int c = 0; c < cols.Length; c++)
                 _rankingCols[c].text = cols[c].ToString();
+
+            // 콘텐츠 높이 = 실제 채워진 텍스트 높이. 픽셀 폰트는 명목 크기와 실제
+            // 줄 높이가 달라서 "줄 수 × 상수"로 어림하지 않고 preferredHeight로 잰다.
+            // 새 보드를 받으면 스크롤은 항상 맨 위(1위)로 돌아간다.
+            float rowsHeight = Mathf.Max(
+                RankingViewportHeight, _rankingCols[0].preferredHeight + 4f);
+            _rankingContent.sizeDelta = new Vector2(480f, rowsHeight);
+            // 셀 rect도 같은 높이로 늘린다. 뷰포트 높이(168)로 두면 스크롤로 rect가
+            // 마스크 밖으로 완전히 나가는 순간 RectMask2D가 그래픽 전체를 컬링해
+            // 오버플로로 그리던 아랫줄까지 통째로 사라진다 (헤드리스 검증에서 확인).
+            for (int c = 0; c < _rankingCols.Length; c++)
+                _rankingCols[c].rectTransform.sizeDelta = new Vector2(
+                    _rankingCols[c].rectTransform.sizeDelta.x, rowsHeight);
+            _rankingScroll.verticalNormalizedPosition = 1f;
         }
 
         /// <summary>상태 한 줄을 가운데에 띄우고 기록 컬럼은 비운다.</summary>
@@ -417,6 +499,13 @@ namespace Shmup.Presentation.Battle
         {
             _rankingBody.text = message;
             _rankingBody.color = UiKit.TextDim;
+            if (_rankingContent != null)
+            {
+                // 이전 보드의 스크롤 높이가 남으면 빈 화면이 스크롤된다.
+                _rankingContent.sizeDelta = new Vector2(480f, RankingViewportHeight);
+                if (_rankingScroll != null)
+                    _rankingScroll.verticalNormalizedPosition = 1f;
+            }
             if (_rankingCols == null) return;
             for (int c = 0; c < _rankingCols.Length; c++)
                 if (_rankingCols[c] != null) _rankingCols[c].text = "";
