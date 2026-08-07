@@ -7208,6 +7208,25 @@ static class Program
             $"  fixed ends: S1={fixedFirst} · S5={fixedLast} · "
             + $"shuffle pool=[{string.Join(",", middle)}]");
 
+        // REQ-187: stage power curve (permille). Away-stage boss HP scales by
+        // curve[appear]/curve[home] — same contract as SegmentStageGenerator.
+        IReadOnlyList<int> powerCurve = catalog.StagePowerCurvePermille;
+        if (powerCurve != null && powerCurve.Count > 0)
+        {
+            var parts = new string[powerCurve.Count];
+            for (int i = 0; i < powerCurve.Count; i++)
+                parts[i] = powerCurve[i].ToString();
+            Console.WriteLine(
+                "  stagePowerCurvePermille=["
+                + string.Join(",", parts)
+                + "] (boss HP scales when home≠appear)");
+        }
+        else
+        {
+            Console.WriteLine(
+                "  stagePowerCurvePermille=(none) — raw template MaxHp");
+        }
+
         // Midboss average (stage-agnostic pool).
         var midBosses = new List<EnemyDefinition>();
         for (int i = 0; i < content.Enemies.Count; i++)
@@ -7334,7 +7353,10 @@ static class Program
                     break;
                 }
 
-                double totalAvg = openCloseHp + midAvg + boss.MaxHp;
+                // REQ-187: match generation-time ScaleBossHpForStage.
+                int bossHp = ScaleBossHpForStagePowerCurve(
+                    catalog, theme, stage, boss.MaxHp);
+                double totalAvg = openCloseHp + midAvg + bossHp;
                 double dps = reachDpsByStage[stage - 1];
                 double uptime = MidSkillHitUptime;
                 if (string.Equals(theme, "nebula", StringComparison.Ordinal))
@@ -7342,7 +7364,7 @@ static class Program
                 double effDps = dps * uptime;
                 double fullTtk = totalAvg / effDps;
                 double midTtk = midAvg / Math.Max(1.0, dps * MidSkillHitUptime);
-                double bossTtk = boss.MaxHp / Math.Max(1.0, effDps);
+                double bossTtk = bossHp / Math.Max(1.0, effDps);
                 double expectedHits =
                     0.30 * 2.0
                     + midTtk / 14.0
@@ -7476,6 +7498,61 @@ static class Program
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// REQ-187: mirror SegmentStageGenerator.ScaleBossHpForStage for the
+    /// shuffle gate. Home = primary (non-hidden) theme order index.
+    /// Hidden themes / empty curve → raw template HP.
+    /// </summary>
+    static int ScaleBossHpForStagePowerCurve(
+        StageGenerationCatalog catalog,
+        string themeId,
+        int appearStage,
+        int rawMaxHp)
+    {
+        IReadOnlyList<int> curve = catalog.StagePowerCurvePermille;
+        if (curve == null
+            || curve.Count == 0
+            || string.IsNullOrEmpty(themeId)
+            || IsHiddenOnlyTheme(themeId)
+            || appearStage < 1)
+            return rawMaxHp;
+
+        int homeStage = PrimaryThemeHomeStage(catalog, themeId);
+        if (homeStage < 1)
+            return rawMaxHp;
+
+        long numerator = curve[Math.Min(appearStage, curve.Count) - 1];
+        long denominator = curve[Math.Min(homeStage, curve.Count) - 1];
+        if (numerator == denominator || denominator < 1)
+            return rawMaxHp;
+
+        long scaled = rawMaxHp * numerator / denominator;
+        if (scaled < 1) return 1;
+        if (scaled > int.MaxValue) return int.MaxValue;
+        return (int)scaled;
+    }
+
+    /// <summary>
+    /// Primary-theme home stage (1-based), skipping hidden-only themes —
+    /// same counting as SegmentStageGenerator.ScaleBossHpForStage.
+    /// </summary>
+    static int PrimaryThemeHomeStage(
+        StageGenerationCatalog catalog,
+        string themeId)
+    {
+        int primary = 0;
+        for (int i = 0; i < catalog.ThemeIds.Count; i++)
+        {
+            if (IsHiddenOnlyTheme(catalog.ThemeIds[i]))
+                continue;
+            primary++;
+            if (string.Equals(
+                    catalog.ThemeIds[i], themeId, StringComparison.Ordinal))
+                return primary;
+        }
+        return 0;
     }
 
     static double WeightedThemePoolHp(

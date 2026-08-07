@@ -6,6 +6,7 @@
   "segmentsPerStage": 3,
   "closingSegmentsPerStage": 5,
   "startLaneMask": 2,
+  "stagePowerCurvePermille": [1000, 1350, 2450, 2600, 2800],
   "themes": [
     "scrapyard",
     "hive",
