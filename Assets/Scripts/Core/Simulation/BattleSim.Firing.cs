@@ -514,20 +514,15 @@ namespace Shmup.Core.Simulation
                 y,
                 0,
                 damagePercent));
-            _bulletXRemainders.Add(0);
-            _bulletYRemainders.Add(0);
-            _bulletVelXNumerators.Add(0);
-            _bulletVelYNumerators.Add(0);
-            _bulletVelDenominators.Add(0);
-            _bulletPiercesRemaining.Add(
-                kind == BulletKind.MainShot
-                    ? GetMainShotPierceCount()
-                    : kind == BulletKind.Missile
-                        ? _missilePierceEnemyCount
-                        : 0);
-            _bulletRicochetUsed.Add(0);
-            _bulletHomingTargetIds.Add(0);
-            _bulletGrazeScored.Add(0);
+            _bulletAux.Add(new BulletAux
+            {
+                PiercesRemaining =
+                    kind == BulletKind.MainShot
+                        ? GetMainShotPierceCount()
+                        : kind == BulletKind.Missile
+                            ? _missilePierceEnemyCount
+                            : 0
+            });
             AddDefaultEnemyProjectileBehavior();
             IncrementSaturated(ref _shotsFired);
         }
@@ -633,31 +628,28 @@ namespace Shmup.Core.Simulation
                 100,
                 collisionScale,
                 signature));
-            _bulletXRemainders.Add(0);
-            _bulletYRemainders.Add(0);
-            _bulletVelXNumerators.Add((int)velXNum);
-            _bulletVelYNumerators.Add((int)velYNum);
-            _bulletVelDenominators.Add((int)velDen);
-            _bulletPiercesRemaining.Add(0);
-            _bulletRicochetUsed.Add(0);
-            _bulletHomingTargetIds.Add(0);
-            _bulletGrazeScored.Add(0);
-            _bulletSplitAfterTicks.Add(
-                phase == null ? 0 : phase.SplitAfterTicks);
-            _bulletMineTravelTicks.Add(
-                phase == null ? 0 : phase.MineTravelTicks);
-            _bulletMineTelegraphTicks.Add(
-                phase == null ? 0 : phase.MineTelegraphTicks);
-            _bulletAccelerationXNumerators.Add(
-                phase == null ? 0 : phase.MineAccelerationNumerator);
-            _bulletAccelerationYNumerators.Add(0);
-            _bulletAccelerationDenominators.Add(
-                phase == null ? 1 : phase.MineAccelerationDenominator);
-            _bulletHomingTurnLutSlotsPerTick.Add(
-                phase != null
-                    && phase.SignaturePattern == BossSignaturePattern.Brood
-                        ? phase.SignatureHomingTurnLutSlotsPerTick
-                        : 0);
+            _bulletAux.Add(new BulletAux
+            {
+                VelXNumerator = (int)velXNum,
+                VelYNumerator = (int)velYNum,
+                VelDenominator = (int)velDen,
+                SplitAfterTicks =
+                    phase == null ? 0 : phase.SplitAfterTicks,
+                MineTravelTicks =
+                    phase == null ? 0 : phase.MineTravelTicks,
+                MineTelegraphTicks =
+                    phase == null ? 0 : phase.MineTelegraphTicks,
+                AccelerationXNumerator =
+                    phase == null ? 0 : phase.MineAccelerationNumerator,
+                AccelerationYNumerator = 0,
+                AccelerationDenominator =
+                    phase == null ? 1 : phase.MineAccelerationDenominator,
+                HomingTurnLutSlotsPerTick =
+                    phase != null
+                        && phase.SignaturePattern == BossSignaturePattern.Brood
+                            ? phase.SignatureHomingTurnLutSlotsPerTick
+                            : 0
+            });
         }
 
         static BulletKind ToBulletKind(BossProjectileKind kind)
@@ -675,15 +667,21 @@ namespace Shmup.Core.Simulation
             }
         }
 
+        /// <summary>
+        /// 방금 Add된 탄의 적탄 거동 필드를 기본값으로 채운다. 병렬 리스트
+        /// 시절에는 거동 리스트 7개에 Add하는 별도 단계였고, 통합 후에도
+        /// 호출 구조를 유지한다 — 스폰 지점마다 거동 기본값을 복붙하지 않게.
+        /// </summary>
         void AddDefaultEnemyProjectileBehavior()
         {
-            _bulletSplitAfterTicks.Add(0);
-            _bulletMineTravelTicks.Add(0);
-            _bulletMineTelegraphTicks.Add(0);
-            _bulletAccelerationXNumerators.Add(0);
-            _bulletAccelerationYNumerators.Add(0);
-            _bulletAccelerationDenominators.Add(1);
-            _bulletHomingTurnLutSlotsPerTick.Add(0);
+            ref BulletAux aux = ref _bulletAux[_bulletAux.Count - 1];
+            aux.SplitAfterTicks = 0;
+            aux.MineTravelTicks = 0;
+            aux.MineTelegraphTicks = 0;
+            aux.AccelerationXNumerator = 0;
+            aux.AccelerationYNumerator = 0;
+            aux.AccelerationDenominator = 1;
+            aux.HomingTurnLutSlotsPerTick = 0;
         }
 
         static long IntegerSqrt(long value)
@@ -779,22 +777,7 @@ namespace Shmup.Core.Simulation
         {
             int bulletId = _bullets[index].Id;
             _bullets.RemoveAt(index);
-            _bulletXRemainders.RemoveAt(index);
-            _bulletYRemainders.RemoveAt(index);
-            _bulletVelXNumerators.RemoveAt(index);
-            _bulletVelYNumerators.RemoveAt(index);
-            _bulletVelDenominators.RemoveAt(index);
-            _bulletPiercesRemaining.RemoveAt(index);
-            _bulletRicochetUsed.RemoveAt(index);
-            _bulletHomingTargetIds.RemoveAt(index);
-            _bulletGrazeScored.RemoveAt(index);
-            _bulletSplitAfterTicks.RemoveAt(index);
-            _bulletMineTravelTicks.RemoveAt(index);
-            _bulletMineTelegraphTicks.RemoveAt(index);
-            _bulletAccelerationXNumerators.RemoveAt(index);
-            _bulletAccelerationYNumerators.RemoveAt(index);
-            _bulletAccelerationDenominators.RemoveAt(index);
-            _bulletHomingTurnLutSlotsPerTick.RemoveAt(index);
+            _bulletAux.RemoveAt(index);
             ClearBulletHitRecords(bulletId);
         }
 

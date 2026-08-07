@@ -1142,9 +1142,9 @@ namespace Shmup.Core.Simulation
                     continue;
                 }
 
-                if (_bulletGrazeScored[index] == 0 && IsWithinGrazeRadius(in bullet))
+                if (_bulletAux[index].GrazeScored == 0 && IsWithinGrazeRadius(in bullet))
                 {
-                    _bulletGrazeScored[index] = 1;
+                    _bulletAux[index].GrazeScored = 1;
                     AddScoreSaturated(_grazeScore);
                     EmitEvent(
                         SimEventType.GrazeScored,

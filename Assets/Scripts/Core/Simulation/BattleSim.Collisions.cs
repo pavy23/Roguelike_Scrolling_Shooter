@@ -397,14 +397,14 @@ namespace Shmup.Core.Simulation
                 bool keepBullet = false;
                 if (bullet.Kind == BulletKind.MainShot)
                 {
-                    if (_bulletPiercesRemaining[bulletIndex] > 0)
+                    if (_bulletAux[bulletIndex].PiercesRemaining > 0)
                     {
-                        _bulletPiercesRemaining[bulletIndex]--;
+                        _bulletAux[bulletIndex].PiercesRemaining--;
                         keepBullet = true;
                     }
 
                     if (HasModifier(BattleModifier.Ricochet)
-                        && _bulletRicochetUsed[bulletIndex]
+                        && _bulletAux[bulletIndex].RicochetUsed
                             < _ricochetCount)
                     {
                         int targetId = FindNearestTarget(
@@ -424,7 +424,7 @@ namespace Shmup.Core.Simulation
                                 targetY,
                                 _bulletSpeedNumerator,
                                 _bulletSpeedDenominator);
-                            _bulletRicochetUsed[bulletIndex]++;
+                            _bulletAux[bulletIndex].RicochetUsed++;
                             keepBullet = true;
                             EmitEvent(
                                 SimEventType.BulletRicocheted,
@@ -445,9 +445,9 @@ namespace Shmup.Core.Simulation
                             enemy.Y,
                             bullet.DamagePercent);
                     }
-                    else if (_bulletPiercesRemaining[bulletIndex] > 0)
+                    else if (_bulletAux[bulletIndex].PiercesRemaining > 0)
                     {
-                        _bulletPiercesRemaining[bulletIndex]--;
+                        _bulletAux[bulletIndex].PiercesRemaining--;
                         keepBullet = true;
                     }
                 }

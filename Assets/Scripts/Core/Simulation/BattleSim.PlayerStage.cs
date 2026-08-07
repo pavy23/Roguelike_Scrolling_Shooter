@@ -557,14 +557,14 @@ namespace Shmup.Core.Simulation
                 if (bullet.Faction != BulletFaction.Enemy)
                     continue;
                 if (bullet.Kind == BulletKind.Splitter
-                    && bullet.AgeTicks == _bulletSplitAfterTicks[index])
+                    && bullet.AgeTicks == _bulletAux[index].SplitAfterTicks)
                 {
                     SplitEnemyProjectile(index, in bullet);
                     continue;
                 }
                 if (bullet.Kind == BulletKind.Mine)
                     UpdateMineProjectile(index, in bullet);
-                int turn = _bulletHomingTurnLutSlotsPerTick[index];
+                int turn = _bulletAux[index].HomingTurnLutSlotsPerTick;
                 // 유도는 **한시적**이다. 시간이 지나면 마지막 방향으로 흘러간다.
                 if (turn > 0 && bullet.AgeTicks < _enemyHomingDurationTicks)
                     TurnEnemyProjectileTowardPlayer(index, in bullet, turn);
@@ -573,9 +573,9 @@ namespace Shmup.Core.Simulation
 
         void SplitEnemyProjectile(int index, in BulletState parent)
         {
-            long velocityX = _bulletVelXNumerators[index];
-            long velocityY = _bulletVelYNumerators[index];
-            long denominator = _bulletVelDenominators[index];
+            long velocityX = _bulletAux[index].VelXNumerator;
+            long velocityY = _bulletAux[index].VelYNumerator;
+            long denominator = _bulletAux[index].VelDenominator;
             BossSignaturePattern signature = parent.SignaturePattern;
             RemoveBulletAt(index);
             int available = Math.Max(
@@ -612,8 +612,8 @@ namespace Shmup.Core.Simulation
 
         void UpdateMineProjectile(int index, in BulletState mine)
         {
-            int travelTicks = _bulletMineTravelTicks[index];
-            int telegraphTicks = _bulletMineTelegraphTicks[index];
+            int travelTicks = _bulletAux[index].MineTravelTicks;
+            int telegraphTicks = _bulletAux[index].MineTelegraphTicks;
             if (mine.AgeTicks == travelTicks)
             {
                 SetBulletVelocity(index, 0, 0, 1);
@@ -623,9 +623,9 @@ namespace Shmup.Core.Simulation
                 return;
             if (mine.AgeTicks == travelTicks + telegraphTicks)
             {
-                int acceleration = _bulletAccelerationXNumerators[index];
+                int acceleration = _bulletAux[index].AccelerationXNumerator;
                 int accelerationDenominator =
-                    _bulletAccelerationDenominators[index];
+                    _bulletAux[index].AccelerationDenominator;
                 long dx = (long)PlayerX - mine.X;
                 long dy = (long)PlayerY - mine.Y;
                 ScaleVectorForProducts(ref dx, ref dy);
@@ -644,11 +644,11 @@ namespace Shmup.Core.Simulation
             }
             SetBulletVelocity(
                 index,
-                (long)_bulletVelXNumerators[index]
-                    + _bulletAccelerationXNumerators[index],
-                (long)_bulletVelYNumerators[index]
-                    + _bulletAccelerationYNumerators[index],
-                _bulletVelDenominators[index]);
+                (long)_bulletAux[index].VelXNumerator
+                    + _bulletAux[index].AccelerationXNumerator,
+                (long)_bulletAux[index].VelYNumerator
+                    + _bulletAux[index].AccelerationYNumerator,
+                _bulletAux[index].VelDenominator);
         }
 
         void SetBulletAcceleration(
@@ -667,9 +667,9 @@ namespace Shmup.Core.Simulation
             }
             if (denominator < 1)
                 denominator = 1;
-            _bulletAccelerationXNumerators[index] = (int)x;
-            _bulletAccelerationYNumerators[index] = (int)y;
-            _bulletAccelerationDenominators[index] = (int)denominator;
+            _bulletAux[index].AccelerationXNumerator = (int)x;
+            _bulletAux[index].AccelerationYNumerator = (int)y;
+            _bulletAux[index].AccelerationDenominator = (int)denominator;
             SetBulletVelocity(index, 0, 0, denominator);
         }
 
@@ -681,8 +681,8 @@ namespace Shmup.Core.Simulation
             long desiredX = (long)PlayerX - bullet.X;
             long desiredY = (long)PlayerY - bullet.Y;
             ScaleVectorForProducts(ref desiredX, ref desiredY);
-            long velocityX = _bulletVelXNumerators[index];
-            long velocityY = _bulletVelYNumerators[index];
+            long velocityX = _bulletAux[index].VelXNumerator;
+            long velocityY = _bulletAux[index].VelYNumerator;
             long cross = velocityX * desiredY - velocityY * desiredX;
             if (cross == 0)
                 return;
@@ -700,7 +700,7 @@ namespace Shmup.Core.Simulation
                     index,
                     turnedX,
                     turnedY,
-                    _bulletVelDenominators[index]);
+                    _bulletAux[index].VelDenominator);
         }
 
         void AddExactEnemyBullet(
@@ -726,15 +726,7 @@ namespace Shmup.Core.Simulation
                 100,
                 collisionScalePercent,
                 signature));
-            _bulletXRemainders.Add(0);
-            _bulletYRemainders.Add(0);
-            _bulletVelXNumerators.Add(0);
-            _bulletVelYNumerators.Add(0);
-            _bulletVelDenominators.Add(1);
-            _bulletPiercesRemaining.Add(0);
-            _bulletRicochetUsed.Add(0);
-            _bulletHomingTargetIds.Add(0);
-            _bulletGrazeScored.Add(0);
+            _bulletAux.Add(new BulletAux { VelDenominator = 1 });
             AddDefaultEnemyProjectileBehavior();
             SetBulletVelocity(
                 _bullets.Count - 1,
@@ -755,13 +747,13 @@ namespace Shmup.Core.Simulation
                         || HasModifier(BattleModifier.HomingMissile)))
                     UpdateHomingMissile(read, in bullet);
                 int xNumerator, xDenominator, yNumerator, yDenominator;
-                if (_bulletVelDenominators[read] > 0)
+                if (_bulletAux[read].VelDenominator > 0)
                 {
                     // 적탄: 스폰 시 계산된 조준 벡터(REQ-007)
-                    xNumerator = _bulletVelXNumerators[read];
-                    yNumerator = _bulletVelYNumerators[read];
-                    xDenominator = _bulletVelDenominators[read];
-                    yDenominator = _bulletVelDenominators[read];
+                    xNumerator = _bulletAux[read].VelXNumerator;
+                    yNumerator = _bulletAux[read].VelYNumerator;
+                    xDenominator = _bulletAux[read].VelDenominator;
+                    yDenominator = _bulletAux[read].VelDenominator;
                 }
                 else
                 {
@@ -778,8 +770,8 @@ namespace Shmup.Core.Simulation
                     yDenominator = isMissile ? _missileFallSpeedYDenominator : 1;
                 }
 
-                long accumulatedX = _bulletXRemainders[read] + (long)xNumerator;
-                long accumulatedY = _bulletYRemainders[read] + (long)yNumerator;
+                long accumulatedX = _bulletAux[read].XRemainder + (long)xNumerator;
+                long accumulatedY = _bulletAux[read].YRemainder + (long)yNumerator;
                 int deltaX = (int)(accumulatedX / xDenominator);
                 int deltaY = (int)(accumulatedY / yDenominator);
                 int nextXRemainder = (int)(accumulatedX % xDenominator);
@@ -823,26 +815,9 @@ namespace Shmup.Core.Simulation
                     bullet.CollisionScalePercent,
                     bullet.SignaturePattern,
                     bullet.FixedDamage);
-                _bulletXRemainders[write] = nextXRemainder;
-                _bulletYRemainders[write] = nextYRemainder;
-                _bulletVelXNumerators[write] = _bulletVelXNumerators[read];
-                _bulletVelYNumerators[write] = _bulletVelYNumerators[read];
-                _bulletVelDenominators[write] = _bulletVelDenominators[read];
-                _bulletPiercesRemaining[write] = _bulletPiercesRemaining[read];
-                _bulletRicochetUsed[write] = _bulletRicochetUsed[read];
-                _bulletHomingTargetIds[write] = _bulletHomingTargetIds[read];
-                _bulletGrazeScored[write] = _bulletGrazeScored[read];
-                _bulletSplitAfterTicks[write] = _bulletSplitAfterTicks[read];
-                _bulletMineTravelTicks[write] = _bulletMineTravelTicks[read];
-                _bulletMineTelegraphTicks[write] = _bulletMineTelegraphTicks[read];
-                _bulletAccelerationXNumerators[write] =
-                    _bulletAccelerationXNumerators[read];
-                _bulletAccelerationYNumerators[write] =
-                    _bulletAccelerationYNumerators[read];
-                _bulletAccelerationDenominators[write] =
-                    _bulletAccelerationDenominators[read];
-                _bulletHomingTurnLutSlotsPerTick[write] =
-                    _bulletHomingTurnLutSlotsPerTick[read];
+                _bulletAux[write] = _bulletAux[read];
+                _bulletAux[write].XRemainder = nextXRemainder;
+                _bulletAux[write].YRemainder = nextYRemainder;
                 write++;
             }
 
@@ -850,22 +825,7 @@ namespace Shmup.Core.Simulation
             if (removed > 0)
             {
                 _bullets.RemoveRange(write, removed);
-                _bulletXRemainders.RemoveRange(write, removed);
-                _bulletYRemainders.RemoveRange(write, removed);
-                _bulletVelXNumerators.RemoveRange(write, removed);
-                _bulletVelYNumerators.RemoveRange(write, removed);
-                _bulletVelDenominators.RemoveRange(write, removed);
-                _bulletPiercesRemaining.RemoveRange(write, removed);
-                _bulletRicochetUsed.RemoveRange(write, removed);
-                _bulletHomingTargetIds.RemoveRange(write, removed);
-                _bulletGrazeScored.RemoveRange(write, removed);
-                _bulletSplitAfterTicks.RemoveRange(write, removed);
-                _bulletMineTravelTicks.RemoveRange(write, removed);
-                _bulletMineTelegraphTicks.RemoveRange(write, removed);
-                _bulletAccelerationXNumerators.RemoveRange(write, removed);
-                _bulletAccelerationYNumerators.RemoveRange(write, removed);
-                _bulletAccelerationDenominators.RemoveRange(write, removed);
-                _bulletHomingTurnLutSlotsPerTick.RemoveRange(write, removed);
+                _bulletAux.RemoveRange(write, removed);
             }
         }
 
@@ -874,7 +834,7 @@ namespace Shmup.Core.Simulation
             if (_missileFamily == MissileFamily.DownwardDrop
                 && bullet.AgeTicks < _missileDropDelayTicks)
                 return;
-            int targetId = _bulletHomingTargetIds[bulletIndex];
+            int targetId = _bulletAux[bulletIndex].HomingTargetId;
             int targetX;
             int targetY;
             if (targetId == 0)
@@ -888,17 +848,17 @@ namespace Shmup.Core.Simulation
                     out targetY);
                 if (targetId == 0)
                     return;
-                _bulletHomingTargetIds[bulletIndex] = targetId;
+                _bulletAux[bulletIndex].HomingTargetId = targetId;
             }
             else if (targetId < 0
                 || !TryGetTargetPosition(targetId, out targetX, out targetY))
             {
                 // A lost lock is final: the missile continues on its current vector.
-                _bulletHomingTargetIds[bulletIndex] = -1;
+                _bulletAux[bulletIndex].HomingTargetId = -1;
                 return;
             }
 
-            if (_bulletVelDenominators[bulletIndex] == 0)
+            if (_bulletAux[bulletIndex].VelDenominator == 0)
                 InitializeMissileVelocity(bulletIndex);
             if (_homingMissileTurnLutSlotsPerTick == 0)
                 return;
@@ -909,8 +869,8 @@ namespace Shmup.Core.Simulation
             if (desiredX == 0 && desiredY == 0)
                 return;
 
-            long velocityX = _bulletVelXNumerators[bulletIndex];
-            long velocityY = _bulletVelYNumerators[bulletIndex];
+            long velocityX = _bulletAux[bulletIndex].VelXNumerator;
+            long velocityY = _bulletAux[bulletIndex].VelYNumerator;
             long cross = velocityX * desiredY - velocityY * desiredX;
             if (cross == 0)
                 return;
@@ -931,7 +891,7 @@ namespace Shmup.Core.Simulation
                 bulletIndex,
                 turnedX,
                 turnedY,
-                _bulletVelDenominators[bulletIndex]);
+                _bulletAux[bulletIndex].VelDenominator);
         }
 
         void InitializeMissileVelocity(int bulletIndex)
@@ -977,11 +937,11 @@ namespace Shmup.Core.Simulation
             if (denominator < 1)
                 denominator = 1;
 
-            _bulletVelXNumerators[bulletIndex] = (int)velocityX;
-            _bulletVelYNumerators[bulletIndex] = (int)velocityY;
-            _bulletVelDenominators[bulletIndex] = (int)denominator;
-            _bulletXRemainders[bulletIndex] = 0;
-            _bulletYRemainders[bulletIndex] = 0;
+            _bulletAux[bulletIndex].VelXNumerator = (int)velocityX;
+            _bulletAux[bulletIndex].VelYNumerator = (int)velocityY;
+            _bulletAux[bulletIndex].VelDenominator = (int)denominator;
+            _bulletAux[bulletIndex].XRemainder = 0;
+            _bulletAux[bulletIndex].YRemainder = 0;
         }
 
         static void ScaleVectorForProducts(ref long x, ref long y)

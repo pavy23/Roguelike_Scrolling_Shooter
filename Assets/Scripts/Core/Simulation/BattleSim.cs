@@ -124,23 +124,8 @@ namespace Shmup.Core.Simulation
         readonly Rng _bombDropRng;
         readonly Rng _bossPatternRng;
         readonly List<BulletState> _bullets;
-        readonly List<int> _bulletXRemainders;
-        readonly List<int> _bulletYRemainders;
-        // 적탄 조준 벡터: 서브유닛/틱 = (numX, numY) / den. 플레이어 탄은 den 0 (kind 기반 속도).
-        readonly List<int> _bulletVelXNumerators;
-        readonly List<int> _bulletVelYNumerators;
-        readonly List<int> _bulletVelDenominators;
-        readonly List<int> _bulletPiercesRemaining;
-        readonly List<int> _bulletRicochetUsed;
-        readonly List<int> _bulletHomingTargetIds;
-        readonly List<byte> _bulletGrazeScored;
-        readonly List<int> _bulletSplitAfterTicks;
-        readonly List<int> _bulletMineTravelTicks;
-        readonly List<int> _bulletMineTelegraphTicks;
-        readonly List<int> _bulletAccelerationXNumerators;
-        readonly List<int> _bulletAccelerationYNumerators;
-        readonly List<int> _bulletAccelerationDenominators;
-        readonly List<int> _bulletHomingTurnLutSlotsPerTick;
+        // 탄별 보조 상태 (잔여분·속도·관통·거동). BulletAux 참조.
+        readonly BulletAuxList _bulletAux;
         readonly int[] _bulletHitRecordBulletIds;
         readonly int[] _bulletHitRecordEnemyIds;
         readonly ReadOnlyCollection<BulletState> _readOnlyBullets;
@@ -898,22 +883,7 @@ namespace Shmup.Core.Simulation
 
             int bulletCapacity = _maxBullets + _maxEnemyBullets;
             _bullets = new List<BulletState>(bulletCapacity);
-            _bulletXRemainders = new List<int>(bulletCapacity);
-            _bulletYRemainders = new List<int>(bulletCapacity);
-            _bulletVelXNumerators = new List<int>(bulletCapacity);
-            _bulletVelYNumerators = new List<int>(bulletCapacity);
-            _bulletVelDenominators = new List<int>(bulletCapacity);
-            _bulletPiercesRemaining = new List<int>(bulletCapacity);
-            _bulletRicochetUsed = new List<int>(bulletCapacity);
-            _bulletHomingTargetIds = new List<int>(bulletCapacity);
-            _bulletGrazeScored = new List<byte>(bulletCapacity);
-            _bulletSplitAfterTicks = new List<int>(bulletCapacity);
-            _bulletMineTravelTicks = new List<int>(bulletCapacity);
-            _bulletMineTelegraphTicks = new List<int>(bulletCapacity);
-            _bulletAccelerationXNumerators = new List<int>(bulletCapacity);
-            _bulletAccelerationYNumerators = new List<int>(bulletCapacity);
-            _bulletAccelerationDenominators = new List<int>(bulletCapacity);
-            _bulletHomingTurnLutSlotsPerTick = new List<int>(bulletCapacity);
+            _bulletAux = new BulletAuxList(bulletCapacity);
             int maximumPrimaryPierce =
                 GetMaximumPrimaryPierce(
                     content,
@@ -1707,15 +1677,7 @@ namespace Shmup.Core.Simulation
                 100,
                 BossSignaturePattern.None,
                 fixedDamage));
-            _bulletXRemainders.Add(0);
-            _bulletYRemainders.Add(0);
-            _bulletVelXNumerators.Add(0);
-            _bulletVelYNumerators.Add(0);
-            _bulletVelDenominators.Add(0);
-            _bulletPiercesRemaining.Add(0);
-            _bulletRicochetUsed.Add(0);
-            _bulletHomingTargetIds.Add(0);
-            _bulletGrazeScored.Add(0);
+            _bulletAux.Add(default);
             AddDefaultEnemyProjectileBehavior();
             IncrementSaturated(ref _shotsFired);
             return true;
