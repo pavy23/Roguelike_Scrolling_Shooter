@@ -1476,15 +1476,8 @@ namespace Shmup.Core.Tests
         [Test]
         public void RepositoryApprovedV2Files_ParseCompletely()
         {
-            string root = TestKit.FindRepositoryRoot();
-            GameDataSet data = GameDataParser.Parse(
-                ReadUtf8(Path.Combine(root, "GameData", "enemies.json")),
-                ReadUtf8(Path.Combine(root, "GameData", "weapons.json")),
-                ReadUtf8(Path.Combine(root, "GameData", "waves.json")),
-                ReadUtf8(Path.Combine(root, "GameData", "rewards.json")),
-                ReadUtf8(Path.Combine(root, "GameData", "ships.json")),
-                ReadUtf8(Path.Combine(root, "GameData", "scoring.json")),
-                ReadUtf8(Path.Combine(root, "GameData", "player.json")));
+            // player.json은 2026-08-07 삭제 — 어떤 코드도 읽지 않는 유령 파일이었다.
+            GameDataSet data = TestKit.ParseRepositoryGameData();
 
             bool hasHiveTentacle =
                 data.BattleContent.FindEnemy("hive_tentacle")
@@ -1737,15 +1730,7 @@ namespace Shmup.Core.Tests
         [Test]
         public void RepositoryWaveCatalogSupportsEveryRouteEncounterType()
         {
-            string root = TestKit.FindRepositoryRoot();
-            GameDataSet data = GameDataParser.Parse(
-                ReadUtf8(Path.Combine(root, "GameData", "enemies.json")),
-                ReadUtf8(Path.Combine(root, "GameData", "weapons.json")),
-                ReadUtf8(Path.Combine(root, "GameData", "waves.json")),
-                ReadUtf8(Path.Combine(root, "GameData", "rewards.json")),
-                ReadUtf8(Path.Combine(root, "GameData", "ships.json")),
-                ReadUtf8(Path.Combine(root, "GameData", "scoring.json")),
-                ReadUtf8(Path.Combine(root, "GameData", "player.json")));
+            GameDataSet data = TestKit.ParseRepositoryGameData();
             var generator =
                 new SegmentStageGenerator(data.StageGeneration);
 
