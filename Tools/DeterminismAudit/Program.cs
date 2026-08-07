@@ -1280,6 +1280,14 @@ namespace Shmup.DeterminismAudit
                     || kind == ColossalBossKind.Broodmother;
             }
 
+            public string GetColossalBossThemeId(ColossalBossKind kind)
+            {
+                // 카탈로그가 답을 알면 그대로, 폴백 플랜에는 전용 테마가 없다.
+                return _inner.CanGenerateColossalBoss(kind)
+                    ? _inner.GetColossalBossThemeId(kind)
+                    : null;
+            }
+
             public StagePlan GenerateColossalBoss(
                 ulong seed,
                 int stageIndex,
