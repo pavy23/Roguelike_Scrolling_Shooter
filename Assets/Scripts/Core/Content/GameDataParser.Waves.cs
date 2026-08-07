@@ -22,13 +22,17 @@ namespace Shmup.Core.Content
                 Require(root.spawnX, "waves.json.spawnX"),
                 "waves.json.spawnX");
 
+            ObstacleSizeTier[] sizeTiers =
+                ParseObstacleSizeTiers(root.obstacleSizeTiers);
+
             SegmentDto[] segmentSource = RequireArray(
                 root.segments,
                 "waves.json.segments");
             var segments = new StageSegmentTemplate[segmentSource.Length];
             for (int i = 0; i < segmentSource.Length; i++)
             {
-                segments[i] = ParseSegment(segmentSource[i], i, spawnX, content);
+                segments[i] = ParseSegment(
+                    segmentSource[i], i, spawnX, content, sizeTiers);
                 EnsureUniqueSegmentId(segments, i);
             }
 
@@ -307,11 +311,93 @@ namespace Shmup.Core.Content
                 $"theme '{themeId}' is missing from waves.json.themes.");
         }
 
+        /// <summary>
+        /// 장애물 타입별 기본 크기 (REQ-186). 서브유닛. 없으면 항목이 0개다.
+        /// </summary>
+        readonly struct ObstacleSizeTier
+        {
+            public ObstacleSizeTier(
+                ObstacleType type, int halfWidth, int halfHeight)
+            {
+                Type = type;
+                HalfWidth = halfWidth;
+                HalfHeight = halfHeight;
+            }
+
+            public ObstacleType Type { get; }
+            public int HalfWidth { get; }
+            public int HalfHeight { get; }
+        }
+
+        static ObstacleType ParseObstacleType(string source, string path)
+        {
+            string typeText = RequireText(source, path);
+            if (string.Equals(typeText, "solid", StringComparison.Ordinal))
+                return ObstacleType.Solid;
+            if (string.Equals(
+                    typeText, "breakable", StringComparison.Ordinal))
+                return ObstacleType.Breakable;
+            if (string.Equals(
+                    typeText, "laserEmitter", StringComparison.Ordinal))
+                return ObstacleType.LaserEmitter;
+            throw Error(
+                path,
+                "must be 'solid', 'breakable', or 'laserEmitter'.");
+        }
+
+        static int TierHalfWidth(ObstacleSizeTier[] tiers, ObstacleType type)
+        {
+            for (int i = 0; i < tiers.Length; i++)
+                if (tiers[i].Type == type)
+                    return tiers[i].HalfWidth;
+            return 0;   // 0 = 시뮬 설정 기본값 사용 (기존 의미 그대로)
+        }
+
+        static int TierHalfHeight(ObstacleSizeTier[] tiers, ObstacleType type)
+        {
+            for (int i = 0; i < tiers.Length; i++)
+                if (tiers[i].Type == type)
+                    return tiers[i].HalfHeight;
+            return 0;
+        }
+
+        static ObstacleSizeTier[] ParseObstacleSizeTiers(
+            ObstacleSizeTierDto[] source)
+        {
+            if (source == null)
+                return Array.Empty<ObstacleSizeTier>();
+            var tiers = new ObstacleSizeTier[source.Length];
+            for (int i = 0; i < source.Length; i++)
+            {
+                string path = $"waves.json.obstacleSizeTiers[{i}]";
+                ObstacleSizeTierDto tier = source[i];
+                if (tier == null)
+                    throw Error(path, "cannot be null.");
+                ObstacleType type = ParseObstacleType(
+                    tier.type, path + ".type");
+                int halfWidth = ToSubUnits(
+                    Require(tier.halfWidth, path + ".halfWidth"),
+                    path + ".halfWidth");
+                int halfHeight = ToSubUnits(
+                    Require(tier.halfHeight, path + ".halfHeight"),
+                    path + ".halfHeight");
+                if (halfWidth < 1 || halfHeight < 1)
+                    throw Error(path, "half sizes must be positive.");
+                for (int previous = 0; previous < i; previous++)
+                    if (tiers[previous].Type == type)
+                        throw Error(
+                            path + ".type", "is listed more than once.");
+                tiers[i] = new ObstacleSizeTier(type, halfWidth, halfHeight);
+            }
+            return tiers;
+        }
+
         static StageSegmentTemplate ParseSegment(
             SegmentDto source,
             int index,
             int spawnX,
-            BattleContent content)
+            BattleContent content,
+            ObstacleSizeTier[] sizeTiers)
         {
             string path = $"waves.json.segments[{index}]";
             if (source == null)
@@ -320,7 +406,7 @@ namespace Shmup.Core.Content
                 source.spawns,
                 path + ".spawns",
                 allowEmpty: true);
-            var spawns = new SpawnEvent[spawnSource.Length];
+            var spawnList = new List<SpawnEvent>(spawnSource.Length);
             for (int i = 0; i < spawnSource.Length; i++)
             {
                 string spawnPath = $"{path}.spawns[{i}]";
@@ -330,14 +416,60 @@ namespace Shmup.Core.Content
                 string enemyId = RequireText(spawn.enemyId, spawnPath + ".enemyId");
                 if (content.FindEnemy(enemyId) == null)
                     throw Error(spawnPath + ".enemyId", $"references unknown enemy '{enemyId}'.");
-                spawns[i] = new SpawnEvent(
-                    Require(spawn.tick, spawnPath + ".tick"),
-                    enemyId,
-                    spawnX,
-                    ToSubUnits(
-                        Require(spawn.y, spawnPath + ".y"),
-                        spawnPath + ".y"));
+                int y = ToSubUnits(
+                    Require(spawn.y, spawnPath + ".y"),
+                    spawnPath + ".y");
+
+                if (spawn.formation == null)
+                {
+                    // 원자형: formation 전용 필드가 섞여 있으면 오타다 —
+                    // 조용히 무시하면 "넣었는데 안 먹힘"이 된다.
+                    if (spawn.count.HasValue
+                        || spawn.tickStart.HasValue
+                        || spawn.tickStep.HasValue
+                        || spawn.yStep.HasValue)
+                        throw Error(
+                            spawnPath,
+                            "formation fields require \"formation\".");
+                    spawnList.Add(new SpawnEvent(
+                        Require(spawn.tick, spawnPath + ".tick"),
+                        enemyId,
+                        spawnX,
+                        y));
+                    continue;
+                }
+
+                // formation 매크로 (REQ-186): 같은 적을 일정한 tick/y 간격으로
+                // count마리 전개한다. 손 전개 N줄과 파싱 결과가 동일하다.
+                if (!string.Equals(
+                        spawn.formation, "line", StringComparison.Ordinal))
+                    throw Error(
+                        spawnPath + ".formation", "must be 'line'.");
+                if (spawn.tick.HasValue)
+                    throw Error(
+                        spawnPath + ".tick",
+                        "cannot be combined with a formation - use tickStart.");
+                int count = Require(spawn.count, spawnPath + ".count");
+                if (count < 1)
+                    throw Error(spawnPath + ".count", "must be positive.");
+                int tickStart = Require(
+                    spawn.tickStart, spawnPath + ".tickStart");
+                int tickStep = Require(
+                    spawn.tickStep, spawnPath + ".tickStep");
+                if (tickStep < 0)
+                    throw Error(
+                        spawnPath + ".tickStep", "cannot be negative.");
+                int yStep = spawn.yStep.HasValue
+                    ? ToSubUnits(spawn.yStep.Value, spawnPath + ".yStep")
+                    : 0;
+                for (int member = 0; member < count; member++)
+                    spawnList.Add(new SpawnEvent(
+                        checked(tickStart + member * tickStep),
+                        enemyId,
+                        spawnX,
+                        checked(y + member * yStep)));
             }
+            SpawnEvent[] spawns = spawnList.ToArray();
 
             ObstacleDto[] obstacleSource = source.obstacles
                 ?? Array.Empty<ObstacleDto>();
@@ -349,26 +481,9 @@ namespace Shmup.Core.Content
                 if (obstacle == null)
                     throw Error(obstaclePath, "cannot be null.");
 
-                string typeText = RequireText(
+                ObstacleType type = ParseObstacleType(
                     obstacle.type,
                     obstaclePath + ".type");
-                ObstacleType type;
-                if (string.Equals(typeText, "solid", StringComparison.Ordinal))
-                    type = ObstacleType.Solid;
-                else if (string.Equals(
-                    typeText,
-                    "breakable",
-                    StringComparison.Ordinal))
-                    type = ObstacleType.Breakable;
-                else if (string.Equals(
-                    typeText,
-                    "laserEmitter",
-                    StringComparison.Ordinal))
-                    type = ObstacleType.LaserEmitter;
-                else
-                    throw Error(
-                        obstaclePath + ".type",
-                        "must be 'solid', 'breakable', or 'laserEmitter'.");
 
                 int hp = Require(obstacle.hp, obstaclePath + ".hp");
                 if (type == ObstacleType.Solid && hp != 0)
@@ -413,12 +528,12 @@ namespace Shmup.Core.Content
                         ? ToSubUnits(
                             obstacle.halfWidth.Value,
                             obstaclePath + ".halfWidth")
-                        : 0,
+                        : TierHalfWidth(sizeTiers, type),
                     obstacle.halfHeight.HasValue
                         ? ToSubUnits(
                             obstacle.halfHeight.Value,
                             obstaclePath + ".halfHeight")
-                        : 0);
+                        : TierHalfHeight(sizeTiers, type));
             }
 
             ExactFraction scrollSpeedMultiplier =

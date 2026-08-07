@@ -245,6 +245,22 @@ namespace Shmup.Core.Content
         public SegmentDto[] segments;
         [DataMember]
         public BossDto[] bosses;
+        // ── 장애물 타입별 기본 크기 (REQ-186, 옵셔널) ────────────────────
+        // per-obstacle halfWidth 전수 기입(413개 동일값 복붙) 대신, 타입별
+        // 기본을 여기 한 번 적고 예외만 장애물에 싣는다.
+        [DataMember]
+        public ObstacleSizeTierDto[] obstacleSizeTiers;
+    }
+
+    [DataContract]
+    internal sealed class ObstacleSizeTierDto
+    {
+        [DataMember]
+        public string type;
+        [DataMember]
+        public decimal? halfWidth;
+        [DataMember]
+        public decimal? halfHeight;
     }
 
     [DataContract]
@@ -381,6 +397,20 @@ namespace Shmup.Core.Content
         public string enemyId;
         [DataMember]
         public decimal? y;
+
+        // ── formation 매크로 (REQ-186, 옵셔널) ──────────────────────────
+        // "같은 간격 N마리 줄"을 N줄로 손 전개하지 않게 하는 축약형.
+        // formation이 있으면 tick 대신 tickStart/tickStep/count를 쓴다.
+        [DataMember]
+        public string formation;
+        [DataMember]
+        public int? count;
+        [DataMember]
+        public int? tickStart;
+        [DataMember]
+        public int? tickStep;
+        [DataMember]
+        public decimal? yStep;
     }
 
     [DataContract]
