@@ -42,6 +42,8 @@ crashlytics-build.properties
 
 Tools/DeterminismAudit/bin/
 Tools/DeterminismAudit/obj/
+Tools/BalanceSim/bin/
+Tools/BalanceSim/obj/
 
 # 빌드/테스트 실행 산출물 (확인하고 버리는 것 — 저장소에 쌓이면 git status가 못 읽게 된다)
 /build*.log
