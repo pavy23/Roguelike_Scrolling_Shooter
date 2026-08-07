@@ -606,14 +606,6 @@ namespace Shmup.Core.Content
             if (grazeScore < 0)
                 throw Error("scoring.json.grazeScore", "cannot be negative.");
 
-            int grazeGaugeCharge = Require(
-                root.grazeGaugeCharge,
-                "scoring.json.grazeGaugeCharge");
-            if (grazeGaugeCharge < 0)
-                throw Error(
-                    "scoring.json.grazeGaugeCharge",
-                    "cannot be negative.");
-
             int[] requirements = RequireArray(
                 root.multiplierGaugeRequirements,
                 "scoring.json.multiplierGaugeRequirements",
@@ -664,7 +656,6 @@ namespace Shmup.Core.Content
             return new ScoringDefinition(
                 grazeRadiusSubUnits,
                 grazeScore,
-                grazeGaugeCharge,
                 requirementCopy,
                 multiplierDecayTicks,
                 shieldBonusScorePerStock);

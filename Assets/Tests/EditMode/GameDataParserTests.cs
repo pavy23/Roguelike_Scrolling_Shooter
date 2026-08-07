@@ -151,7 +151,6 @@ namespace Shmup.Core.Tests
   ""schemaVersion"": 1,
   ""grazeRadiusSubUnits"": 192,
   ""grazeScore"": 25,
-  ""grazeGaugeCharge"": 4,
   ""multiplierGaugeRequirements"": [12, 34, 56],
   ""multiplierDecayTicks"": 240
 }";
@@ -675,7 +674,6 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(128, config.GrazeExtraRadiusSubUnits);
             Assert.AreEqual(10, config.GrazeScore);
-            Assert.AreEqual(1, config.GrazeComboGaugeGain);
             CollectionAssert.AreEqual(
                 new[] { 30, 50, 80, 130, 200 },
                 config.ComboGaugeRequirements);
@@ -873,7 +871,6 @@ namespace Shmup.Core.Tests
 
             Assert.AreEqual(192, config.GrazeExtraRadiusSubUnits);
             Assert.AreEqual(25, config.GrazeScore);
-            Assert.AreEqual(4, config.GrazeComboGaugeGain);
             CollectionAssert.AreEqual(
                 new[] { 12, 34, 56, 130, 200 },
                 config.ComboGaugeRequirements);
@@ -993,9 +990,6 @@ namespace Shmup.Core.Tests
                     @"  ""grazeScore"": 25,",
                     ""),
                 ScoringJson.Replace(
-                    @"""grazeGaugeCharge"": 4",
-                    @"""grazeGaugeCharge"": -1"),
-                ScoringJson.Replace(
                     @"[12, 34, 56]",
                     @"[12, 34]"),
                 ScoringJson.Replace(
@@ -1015,7 +1009,6 @@ namespace Shmup.Core.Tests
                 "scoring.json.grazeRadiusSubUnits",
                 "scoring.json.grazeScore",
                 "scoring.json.grazeScore",
-                "scoring.json.grazeGaugeCharge",
                 "scoring.json.multiplierGaugeRequirements",
                 "scoring.json.multiplierGaugeRequirements[1]",
                 "scoring.json.multiplierDecayTicks",

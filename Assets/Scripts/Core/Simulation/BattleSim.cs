@@ -205,7 +205,7 @@ namespace Shmup.Core.Simulation
         readonly int _killExplosionRadiusSubUnits, _killExplosionDamage;
         readonly int _killExplosionMaxTargets;
         readonly int _grazeExtraRadiusSubUnits, _grazeScore;
-        readonly int _grazeComboGaugeGain, _killComboGaugeGain;
+        readonly int _killComboGaugeGain;
         readonly int _comboDecayTicks;
         readonly int[] _comboGaugeRequirements;
         readonly int[] _comboMultipliers;
@@ -680,7 +680,6 @@ namespace Shmup.Core.Simulation
                     BattleModifier.KillExplosion));
             _grazeExtraRadiusSubUnits = config.GrazeExtraRadiusSubUnits;
             _grazeScore = config.GrazeScore;
-            _grazeComboGaugeGain = config.GrazeComboGaugeGain;
             _killComboGaugeGain = config.KillComboGaugeGain;
             _comboDecayTicks = config.ComboDecayTicks;
             _comboGaugeRequirements =

@@ -14,7 +14,6 @@ namespace Shmup.Core.Tests
             BattleSimConfig config = CreateConfig();
             config.GrazeExtraRadiusSubUnits = 128;
             config.GrazeScore = 7;
-            config.GrazeComboGaugeGain = 1;
             config.EnemyBulletSpeedNumerator = 0;
             config.EnemyBulletHalfWidth = 0;
             config.EnemyBulletHalfHeight = 0;
@@ -89,7 +88,6 @@ namespace Shmup.Core.Tests
             config.PlayerInvulnerable = true;
             config.GrazeExtraRadiusSubUnits = 128;
             config.GrazeScore = 7;
-            config.GrazeComboGaugeGain = 1;
             config.EnemyBulletSpeedNumerator = 0;
             config.EnemyBulletHalfWidth = 0;
             config.EnemyBulletHalfHeight = 0;
@@ -219,7 +217,6 @@ namespace Shmup.Core.Tests
             BattleSimConfig config = CreateConfig();
             ConfigureOneKillPerLevel(config);
             config.GrazeExtraRadiusSubUnits = 128;
-            config.GrazeComboGaugeGain = 1;
             config.EnemyBulletSpeedNumerator = 0;
             config.EnemyBulletHalfWidth = 0;
             config.EnemyBulletHalfHeight = 0;
@@ -428,7 +425,6 @@ namespace Shmup.Core.Tests
         static void ConfigureOneKillPerLevel(BattleSimConfig config)
         {
             config.KillComboGaugeGain = 1;
-            config.GrazeComboGaugeGain = 0;
             config.ComboGaugeRequirements = new[] { 1, 1, 1, 1, 1 };
         }
 

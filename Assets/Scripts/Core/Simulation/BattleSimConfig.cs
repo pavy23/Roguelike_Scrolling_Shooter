@@ -300,7 +300,6 @@ namespace Shmup.Core.Simulation
         public int GrazeExtraRadiusSubUnits { get; set; } =
             SimSpace.SubUnitsPerWorldUnit / 2;
         public int GrazeScore { get; set; } = 10;
-        public int GrazeComboGaugeGain { get; set; } = 1;
         public int KillComboGaugeGain { get; set; } = 10;
         public int[] ComboGaugeRequirements { get; set; } =
             new[] { 30, 50, 80, 130, 200 };

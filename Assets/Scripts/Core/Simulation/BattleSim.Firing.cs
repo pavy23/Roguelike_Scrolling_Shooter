@@ -1323,9 +1323,6 @@ namespace Shmup.Core.Simulation
                     "The combined graze radius exceeds the supported integer range.");
             if (config.GrazeScore < 0)
                 throw new ArgumentOutOfRangeException(nameof(config.GrazeScore));
-            if (config.GrazeComboGaugeGain < 0)
-                throw new ArgumentOutOfRangeException(
-                    nameof(config.GrazeComboGaugeGain));
             if (config.KillComboGaugeGain < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(config.KillComboGaugeGain));

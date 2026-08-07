@@ -50,9 +50,8 @@ static class Program
     // Decay window (ticks @60Hz): hold mult needs regular combat, not AFK.
     const int MinDecayTicks = 120;  // 2s
     const int MaxDecayTicks = 600;  // 10s
-    // Soft WARN if pure-graze climb is too easy relative to kill climb.
-    // With grazeGaugeCharge=3 (REQ-016 skill path), ~3× kill climb is expected.
-    const int MinGrazeToKillClimbRatio = 3;
+    // Soft report only: graze is direct +1 level/cooldown (2026-08-03 human rule),
+    // so pure-graze climb is intentionally faster than kill-gauge climb.
     // Run-clear shield bonus share of estimated clear score (2–5% band, REQ-106).
     const double MinShieldBonusShare = 0.02;
     const double MaxShieldBonusShare = 0.05;
@@ -958,8 +957,9 @@ static class Program
 
     /// <summary>
     /// Validates scoring.json graze/combo curves (REQ-016 / REQ-106).
-    /// Checks: (1) values apply to BattleSimConfig arrays, (2) x8/x16/x32 climb bands,
+    /// Checks: (1) values apply to BattleSimConfig arrays, (2) x8/x16/x32 kill climb bands,
     /// (3) graze fixed score does not outpace kill scores, (4) shield bonus share 2–5%.
+    /// Graze (2026-08-03): cooldown-gated +1 mult level + gauge reset — not gauge charge.
     /// KillComboGaugeGain remains Core default (not in scoring.json).
     /// PlayerHit resets combo (Core) — x32 is no-hit class by design.
     /// </summary>
@@ -970,18 +970,19 @@ static class Program
 
         int grazeRadius = config.GrazeExtraRadiusSubUnits;
         int grazeScore = config.GrazeScore;
-        int grazeCharge = config.GrazeComboGaugeGain;
         int[] reqs = config.ComboGaugeRequirements;
         int[] mults = config.ComboMultipliers;
         int decay = config.ComboDecayTicks;
         int killCharge = config.KillComboGaugeGain;
         int shieldBonus = config.ShieldBonusScorePerStock;
+        // Matches BattleSim.GrazeLevelUpCooldownTicks (private Core const; skill path gate).
+        const int grazeLevelUpCooldownTicks = 30;
 
         Console.WriteLine(
             "Scoring curves (scoring.json → BattleSimConfig, REQ-106 provisional §7):");
         Console.WriteLine(
             $"  grazeRadius={grazeRadius}su ({grazeRadius / (double)SimSpace.SubUnitsPerWorldUnit:F2}u) " +
-            $"grazeScore={grazeScore} grazeGaugeCharge={grazeCharge}");
+            $"grazeScore={grazeScore} grazeRule=+1 level/cooldown (gauge reset, not charge)");
         Console.WriteLine(
             $"  mult requirements=[{string.Join(",", reqs ?? Array.Empty<int>())}] " +
             $"decayTicks={decay} ({decay / (double)SimSpace.TicksPerSecond:F1}s) " +
@@ -1002,7 +1003,7 @@ static class Program
         }
 
         // Sanity: config received finite positive scoring knobs.
-        if (grazeRadius < 0 || grazeScore < 0 || grazeCharge < 0 || shieldBonus < 0)
+        if (grazeRadius < 0 || grazeScore < 0 || shieldBonus < 0)
         {
             Console.WriteLine("FAIL scoring: negative graze/shield knobs after ApplyTo.");
             failures++;
@@ -1056,13 +1057,12 @@ static class Program
         for (int lvl = 0; lvl < reqs.Length; lvl++)
         {
             int kStep = killCharge == 0 ? int.MaxValue : CeilDiv(reqs[lvl], killCharge);
-            int gStep = grazeCharge == 0 ? int.MaxValue : CeilDiv(reqs[lvl], grazeCharge);
+            // Graze: one cooldown-gated graze advances exactly one level (Core rule).
+            int gStep = 1;
             killsToLevel[lvl + 1] = killsToLevel[lvl] == int.MaxValue || kStep == int.MaxValue
                 ? int.MaxValue
                 : killsToLevel[lvl] + kStep;
-            grazesToLevel[lvl + 1] = grazesToLevel[lvl] == int.MaxValue || gStep == int.MaxValue
-                ? int.MaxValue
-                : grazesToLevel[lvl] + gStep;
+            grazesToLevel[lvl + 1] = grazesToLevel[lvl] + gStep;
         }
 
         int killsToX2 = killsToLevel[1];
@@ -1080,20 +1080,17 @@ static class Program
         Console.WriteLine(
             $"  graze climb: x8={FormatCount(grazesToX8)} x16={FormatCount(grazesToX16)} "
             + $"x32={FormatCount(grazesToX32)} "
-            + "(graze does not reset decay — only kills maintain mult; hit resets combo)");
+            + $"(+1 level/graze, cooldown {grazeLevelUpCooldownTicks}t; "
+            + "graze does not reset decay — only kills hold mult; hit resets combo)");
 
-        // Mixed kill+graze EV: 3 grazes per kill accelerates gauge (skill expression).
-        int mixedGaugePerKill = killCharge + 3 * grazeCharge;
-        int totalGaugeToX32 = 0;
-        for (int i = 0; i < reqs.Length; i++)
-            totalGaugeToX32 += reqs[i];
-        int mixedKillsToX32 = mixedGaugePerKill <= 0
-            ? int.MaxValue
-            : CeilDiv(totalGaugeToX32, mixedGaugePerKill);
+        // Mixed: 3 cooldown-gated grazes alone reach x8; kill gauge is extra.
+        int mixedGrazesPerKill = 3;
+        int mixedLevelFromGraze = Math.Min(mixedGrazesPerKill, mults.Length - 1);
         Console.WriteLine(
-            $"  mixed climb (1 kill + 3 graze): gauge/kill={mixedGaugePerKill} "
-            + $"→ x32 in ≈{FormatCount(mixedKillsToX32)} kills "
-            + $"(total gauge {totalGaugeToX32})");
+            $"  mixed sketch (1 kill + {mixedGrazesPerKill} graze): "
+            + $"graze alone → +{mixedLevelFromGraze} levels "
+            + $"(x{mults[mixedLevelFromGraze]}); kill still fills gauge "
+            + $"(+{killCharge}/kill toward reqs)");
 
         double decaySeconds = decay / (double)SimSpace.TicksPerSecond;
         Console.WriteLine(
@@ -1212,7 +1209,8 @@ static class Program
         }
 
         // Sustained combat sketch: 1 kill / 2s of min fodder + 3 grazes/s skill play.
-        // Multiplier climbs with kills; graze score stays unmultiplied (Core rule).
+        // Kill fills gauge; graze is cooldown-gated +1 level (gauge reset). Graze score
+        // stays unmultiplied (Core rule).
         const int simSeconds = 60;
         const int killsPerTwoSeconds = 1;
         const int grazesPerSecond = 3;
@@ -1221,6 +1219,7 @@ static class Program
         int gauge = 0;
         int level = 0;
         int ticksSinceKill = 0;
+        int ticksSinceGrazeLevelUp = int.MaxValue / 2;
         int totalKills = 0;
         int totalGrazes = 0;
         int peakLevel = 0;
@@ -1228,6 +1227,9 @@ static class Program
 
         for (int t = 1; t <= simSeconds * SimSpace.TicksPerSecond; t++)
         {
+            if (ticksSinceGrazeLevelUp < int.MaxValue)
+                ticksSinceGrazeLevelUp++;
+
             bool killed = false;
             if (t % killIntervalTicks == 0)
             {
@@ -1253,17 +1255,13 @@ static class Program
             {
                 grazeScoreAccum += grazeScore;
                 totalGrazes++;
-                if (level < mults.Length - 1 && grazeCharge > 0)
+                // Core AdvanceMultiplierFromGraze: +1 level, gauge=0, cooldown gate.
+                if (level < mults.Length - 1
+                    && ticksSinceGrazeLevelUp >= grazeLevelUpCooldownTicks)
                 {
-                    long next = (long)gauge + grazeCharge;
-                    gauge = next >= int.MaxValue ? int.MaxValue : (int)next;
-                    while (level < mults.Length - 1 && gauge >= reqs[level])
-                    {
-                        gauge -= reqs[level];
-                        level++;
-                    }
-                    if (level == mults.Length - 1)
-                        gauge = 0;
+                    ticksSinceGrazeLevelUp = 0;
+                    gauge = 0;
+                    level++;
                 }
             }
 
@@ -1285,7 +1283,8 @@ static class Program
         long totalScore = killScoreAccum + grazeScoreAccum;
         double grazeShare = totalScore == 0 ? 0 : grazeScoreAccum / (double)totalScore;
         Console.WriteLine(
-            $"  60s sketch (1 kill/2s min-fodder + {grazesPerSecond} graze/s): "
+            $"  60s sketch (1 kill/2s min-fodder + {grazesPerSecond} graze/s, "
+            + $"graze CD {grazeLevelUpCooldownTicks}t): "
             + $"kills={totalKills} grazes={totalGrazes} endMult=x{mults[level]} "
             + $"peak=x{mults[peakLevel]} killScore={killScoreAccum} "
             + $"grazeScore={grazeScoreAccum} grazeShare={grazeShare:P1}");
@@ -1317,22 +1316,13 @@ static class Program
                 $"  60s no-hit skill peak x{mults[peakLevel]} (≥x16 target path).");
         }
 
-        // Soft: graze-only climb should be several× slower than kill climb (to x8).
+        // Soft report: graze is intentional fast skill path vs kill-gauge ladder.
         if (grazesToX8 != int.MaxValue && killsToX8 > 0)
         {
             double climbRatio = grazesToX8 / (double)killsToX8;
-            if (climbRatio < MinGrazeToKillClimbRatio)
-            {
-                Console.WriteLine(
-                    $"WARN scoring: graze-to-x8 / kill-to-x8 = {climbRatio:F1} "
-                    + $"< {MinGrazeToKillClimbRatio} (graze climb relatively easy, §7).");
-            }
-            else
-            {
-                Console.WriteLine(
-                    $"  graze climb {climbRatio:F1}× slower than kill climb to x8 "
-                    + $"(≥{MinGrazeToKillClimbRatio}×).");
-            }
+            Console.WriteLine(
+                $"  graze climb to x8 = {grazesToX8} grazes vs kill climb {killsToX8} "
+                + $"(ratio {climbRatio:F2}×; graze is direct +1/level skill path).");
         }
 
         // REQ-106: shield bonus share of estimated clear score stays 2–5%.
@@ -1438,6 +1428,7 @@ static class Program
     /// <summary>
     /// Smoke: zero-size turret bullet graze once + zero-size fodder kill.
     /// Mirrors BattleScoringTests layout so knobs are exercised without contact/hit overlap.
+    /// Graze rule (2026-08-03): +1 MultiplierLevel, ComboGauge reset to 0 (not gauge charge).
     /// </summary>
     static int SimulateGrazeAndKillSmoke(
         BattleSimConfig baseConfig,
@@ -1451,7 +1442,6 @@ static class Program
             // scoring.json values are the under-test knobs; spatial layout is lab-sized.
             BattleSimConfig config = data.CreateBattleSimConfig();
             int grazeScore = config.GrazeScore;
-            int grazeCharge = config.GrazeComboGaugeGain;
             int grazeRadius = config.GrazeExtraRadiusSubUnits;
 
             config.PlayerSpawnX = 0;
@@ -1564,13 +1554,15 @@ static class Program
             long scoreAfterGraze = sim.Score;
             long grazeCount = sim.Statistics.GrazeCount;
             int gaugeAfterGraze = sim.ComboGauge;
+            int multLevelAfterGraze = sim.MultiplierLevel;
+            int multAfterGraze = sim.ScoreMultiplier;
 
             if (grazeCount < 1)
             {
                 Console.WriteLine(
                     $"FAIL scoring smoke: expected graze on tick1 " +
                     $"(score={scoreAfterGraze}, gauge={gaugeAfterGraze}, " +
-                    $"radius={grazeRadius}).");
+                    $"multLevel={multLevelAfterGraze}, radius={grazeRadius}).");
                 failures++;
             }
             else
@@ -1582,16 +1574,24 @@ static class Program
                         $"expected {grazeScore}.");
                     failures++;
                 }
-                if (gaugeAfterGraze != grazeCharge)
+                // Core AdvanceMultiplierFromGraze: +1 level, gauge reset to 0.
+                if (multLevelAfterGraze != 1)
                 {
                     Console.WriteLine(
-                        $"FAIL scoring smoke: graze gauge={gaugeAfterGraze} " +
-                        $"expected {grazeCharge}.");
+                        $"FAIL scoring smoke: graze MultiplierLevel={multLevelAfterGraze} " +
+                        "expected 1 (+1 level).");
+                    failures++;
+                }
+                if (gaugeAfterGraze != 0)
+                {
+                    Console.WriteLine(
+                        $"FAIL scoring smoke: graze ComboGauge={gaugeAfterGraze} " +
+                        "expected 0 (reset on graze level-up).");
                     failures++;
                 }
                 Console.WriteLine(
-                    $"  smoke graze: score+{scoreAfterGraze} gauge={gaugeAfterGraze} " +
-                    $"(grazes={grazeCount})");
+                    $"  smoke graze: score+{scoreAfterGraze} multLevel={multLevelAfterGraze} " +
+                    $"(x{multAfterGraze}) gauge={gaugeAfterGraze} grazes={grazeCount}");
             }
 
             long scoreBeforeKill = sim.Score;
@@ -1616,6 +1616,7 @@ static class Program
             {
                 long killPoints = sim.Score - scoreBeforeKill;
                 // Extra grazes may land same tick; kill contribution is mult * score.
+                // After graze, mult is x2 (level 1) so fodder kill floor is fodder×2.
                 long expectedKill = (long)fodderScore * multBefore;
                 if (killPoints < expectedKill)
                 {

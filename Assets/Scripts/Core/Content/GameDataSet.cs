@@ -260,7 +260,6 @@ namespace Shmup.Core.Content
             {
                 config.GrazeExtraRadiusSubUnits = _scoring.GrazeRadiusSubUnits;
                 config.GrazeScore = _scoring.GrazeScore;
-                config.GrazeComboGaugeGain = _scoring.GrazeGaugeCharge;
                 config.ComboGaugeRequirements =
                     Copy(_scoring.MultiplierGaugeRequirements);
                 config.ComboDecayTicks = _scoring.MultiplierDecayTicks;
@@ -340,14 +339,12 @@ namespace Shmup.Core.Content
         public ScoringDefinition(
             int grazeRadiusSubUnits,
             int grazeScore,
-            int grazeGaugeCharge,
             int[] multiplierGaugeRequirements,
             int multiplierDecayTicks,
             int shieldBonusScorePerStock)
         {
             GrazeRadiusSubUnits = grazeRadiusSubUnits;
             GrazeScore = grazeScore;
-            GrazeGaugeCharge = grazeGaugeCharge;
             _multiplierGaugeRequirements =
                 (int[])multiplierGaugeRequirements.Clone();
             MultiplierDecayTicks = multiplierDecayTicks;
@@ -356,7 +353,6 @@ namespace Shmup.Core.Content
 
         public int GrazeRadiusSubUnits { get; }
         public int GrazeScore { get; }
-        public int GrazeGaugeCharge { get; }
         public IReadOnlyList<int> MultiplierGaugeRequirements =>
             _multiplierGaugeRequirements;
         public int MultiplierDecayTicks { get; }
