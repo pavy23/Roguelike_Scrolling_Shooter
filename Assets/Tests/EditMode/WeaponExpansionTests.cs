@@ -388,7 +388,7 @@ namespace Shmup.Core.Tests
         [Test]
         public void WeaponsV3AndSwitchRewardsParseIntoRuntimeCatalogs()
         {
-            string root = FindRepositoryRoot();
+            string root = TestKit.FindRepositoryRoot();
             string gameData = Path.Combine(root, "GameData");
             GameDataSet data = GameDataParser.Parse(
                 File.ReadAllText(
@@ -638,7 +638,7 @@ namespace Shmup.Core.Tests
         [Test]
         public void WeaponsV7AndShipsV3ParseReq080Profiles()
         {
-            string root = FindRepositoryRoot();
+            string root = TestKit.FindRepositoryRoot();
             string gameData = Path.Combine(root, "GameData");
             GameDataSet data = GameDataParser.Parse(
                 File.ReadAllText(
@@ -685,7 +685,7 @@ namespace Shmup.Core.Tests
         [Test]
         public void OptionalOptionMissileDamagePercentFlowsIntoBattleConfig()
         {
-            string root = FindRepositoryRoot();
+            string root = TestKit.FindRepositoryRoot();
             string gameData = Path.Combine(root, "GameData");
             string weapons = WeaponsV7Json().Replace(
                 @"""defaultOptionFormation"": ""trail""",
@@ -771,7 +771,7 @@ namespace Shmup.Core.Tests
         [Test]
         public void WeaponsV4PrimaryMetadataAndRewardV2ParseEndToEnd()
         {
-            string root = FindRepositoryRoot();
+            string root = TestKit.FindRepositoryRoot();
             string gameData = Path.Combine(root, "GameData");
             string weapons = WeaponsV3Json.Replace(
                 @"""schemaVersion"": 3",
@@ -836,7 +836,7 @@ namespace Shmup.Core.Tests
         [Test]
         public void WeaponsV6PowerUpGaugeOrderCostsAndNamesAreDataDriven()
         {
-            string root = FindRepositoryRoot();
+            string root = TestKit.FindRepositoryRoot();
             string gameData = Path.Combine(root, "GameData");
             GameDataSet data = GameDataParser.Parse(
                 File.ReadAllText(
@@ -881,7 +881,7 @@ namespace Shmup.Core.Tests
         [Test]
         public void WeaponsDataAcceptsSixOptionsAndSixFixedOffsets()
         {
-            string root = FindRepositoryRoot();
+            string root = TestKit.FindRepositoryRoot();
             string gameData = Path.Combine(root, "GameData");
             string weapons = WeaponsV6Json()
                 .Replace(
@@ -1713,29 +1713,6 @@ namespace Shmup.Core.Tests
                 50,
                 family == MissileFamily.DownwardDrop ? 2 : 0,
                 family == MissileFamily.Homing ? 4 : 1);
-        }
-
-        static string FindRepositoryRoot()
-        {
-            // Unity EditMode의 WorkDirectory는 프로젝트 밖을 가리킬 수 있어
-            // 실행 파일 위치와 현재 디렉토리까지 함께 훑는다 (dotnet에서는 첫 후보로 충분).
-            foreach (string start in new[]
-            {
-                TestContext.CurrentContext.WorkDirectory,
-                Directory.GetCurrentDirectory(),
-                AppDomain.CurrentDomain.BaseDirectory
-            })
-            {
-                string path = start;
-                while (!string.IsNullOrEmpty(path))
-                {
-                    if (Directory.Exists(Path.Combine(path, "GameData")))
-                        return path;
-                    path = Directory.GetParent(path)?.FullName;
-                }
-            }
-            throw new DirectoryNotFoundException(
-                "Could not find repository GameData.");
         }
 
         sealed class RewardStageGenerator : IStageGenerator

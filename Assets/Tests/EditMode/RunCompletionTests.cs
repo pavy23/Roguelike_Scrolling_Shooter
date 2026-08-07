@@ -180,7 +180,7 @@ namespace Shmup.Core.Tests
         [Test]
         public void CurrentMiniBossContent_FullRhythmRunTakesDamageAndCrossesBossPhasesDeterministically()
         {
-            string root = FindRepositoryRoot();
+            string root = TestKit.FindRepositoryRoot();
             string gameData = Path.Combine(root, "GameData");
             GameDataSet data = GameDataParser.Parse(
                 File.ReadAllText(
@@ -226,7 +226,7 @@ namespace Shmup.Core.Tests
         [Test]
         public void RhythmRun_WithMidStageSpeedSlotReward_CompletesDeterministically()
         {
-            string root = FindRepositoryRoot();
+            string root = TestKit.FindRepositoryRoot();
             string gameData = Path.Combine(root, "GameData");
             GameDataSet data = GameDataParser.Parse(
                 File.ReadAllText(
@@ -671,21 +671,6 @@ namespace Shmup.Core.Tests
                     run.Step(in fire);
                 }
             }
-        }
-
-        static string FindRepositoryRoot()
-        {
-            DirectoryInfo directory = new DirectoryInfo(
-                TestContext.CurrentContext.TestDirectory);
-            while (directory != null)
-            {
-                if (Directory.Exists(
-                    Path.Combine(directory.FullName, "GameData")))
-                    return directory.FullName;
-                directory = directory.Parent;
-            }
-            throw new DirectoryNotFoundException(
-                "Could not locate the repository GameData directory.");
         }
 
         static RunManager CreateRun(

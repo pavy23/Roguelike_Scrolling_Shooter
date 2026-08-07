@@ -52,7 +52,7 @@ namespace Shmup.Core.Tests
             // 옵션 볼트가 "2단 랜스 그대로"라는 결정은 데이터가 지켜야 한다:
             // 3단 프로필이 착탄 폭발을 물려받지 않으면 옵션 볼트만 조용히
             // 약해진다. 수치를 복사하지 않고 2단과의 관계로 못 박는다.
-            string root = FindRepositoryRoot();
+            string root = TestKit.FindRepositoryRoot();
             string gameData = Path.Combine(root, "GameData");
             GameDataSet data = GameDataParser.Parse(
                 File.ReadAllText(Path.Combine(gameData, "enemies.json")),
@@ -195,20 +195,6 @@ namespace Shmup.Core.Tests
             Assert.AreEqual(
                 PowerUpActivationResult.LevelIncreased,
                 gauge.ActivateDetailed());
-        }
-
-        static string FindRepositoryRoot()
-        {
-            DirectoryInfo current = new DirectoryInfo(
-                TestContext.CurrentContext.TestDirectory);
-            while (current != null)
-            {
-                if (Directory.Exists(
-                    Path.Combine(current.FullName, "GameData")))
-                    return current.FullName;
-                current = current.Parent;
-            }
-            throw new DirectoryNotFoundException();
         }
     }
 }

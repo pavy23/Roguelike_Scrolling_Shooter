@@ -218,7 +218,7 @@ namespace Shmup.Core.Tests
         [Test]
         public void RepositoryLevelAxesParseWithoutWeaponsSchemaBump()
         {
-            string root = FindRepositoryRoot();
+            string root = TestKit.FindRepositoryRoot();
             string gameData = Path.Combine(root, "GameData");
             string weapons = File.ReadAllText(
                 Path.Combine(gameData, "weapons.json"));
@@ -433,20 +433,6 @@ namespace Shmup.Core.Tests
                 if (gauge.GetGaugeSlotView(i).Slot == slot)
                     return gauge.GetGaugeSlotView(i);
             throw new InvalidOperationException();
-        }
-
-        static string FindRepositoryRoot()
-        {
-            DirectoryInfo current = new DirectoryInfo(
-                TestContext.CurrentContext.TestDirectory);
-            while (current != null)
-            {
-                if (Directory.Exists(
-                    Path.Combine(current.FullName, "GameData")))
-                    return current.FullName;
-                current = current.Parent;
-            }
-            throw new DirectoryNotFoundException();
         }
     }
 }

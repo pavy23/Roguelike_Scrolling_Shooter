@@ -372,7 +372,7 @@ namespace Shmup.Core.Tests
         static GameDataSet ParseRepositoryGameData()
         {
             string gameData = Path.Combine(
-                FindRepositoryRoot(),
+                TestKit.FindRepositoryRoot(),
                 "GameData");
             return GameDataParser.Parse(
                 Read(gameData, "enemies.json"),
@@ -386,20 +386,6 @@ namespace Shmup.Core.Tests
         static string Read(string directory, string fileName)
         {
             return File.ReadAllText(Path.Combine(directory, fileName));
-        }
-
-        static string FindRepositoryRoot()
-        {
-            DirectoryInfo current = new DirectoryInfo(
-                TestContext.CurrentContext.TestDirectory);
-            while (current != null)
-            {
-                if (Directory.Exists(
-                    Path.Combine(current.FullName, "GameData")))
-                    return current.FullName;
-                current = current.Parent;
-            }
-            throw new DirectoryNotFoundException();
         }
     }
 }

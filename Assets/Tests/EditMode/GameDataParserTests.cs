@@ -1476,7 +1476,7 @@ namespace Shmup.Core.Tests
         [Test]
         public void RepositoryApprovedV2Files_ParseCompletely()
         {
-            string root = FindRepositoryRoot();
+            string root = TestKit.FindRepositoryRoot();
             GameDataSet data = GameDataParser.Parse(
                 ReadUtf8(Path.Combine(root, "GameData", "enemies.json")),
                 ReadUtf8(Path.Combine(root, "GameData", "weapons.json")),
@@ -1737,7 +1737,7 @@ namespace Shmup.Core.Tests
         [Test]
         public void RepositoryWaveCatalogSupportsEveryRouteEncounterType()
         {
-            string root = FindRepositoryRoot();
+            string root = TestKit.FindRepositoryRoot();
             GameDataSet data = GameDataParser.Parse(
                 ReadUtf8(Path.Combine(root, "GameData", "enemies.json")),
                 ReadUtf8(Path.Combine(root, "GameData", "weapons.json")),
@@ -2354,24 +2354,6 @@ namespace Shmup.Core.Tests
                         WeaponsJson,
                         waves));
             StringAssert.Contains("belongs to multiple groups", error.Message);
-        }
-
-        static string FindRepositoryRoot()
-        {
-            // Unity 내장 NUnit은 WorkDirectory를 채우지 않는다 — 그 경우 프로젝트 루트인
-            // CurrentDirectory에서 출발한다 (양쪽 러너 모두 상향 탐색으로 GameData를 찾는다).
-            string start = TestContext.CurrentContext?.WorkDirectory;
-            if (string.IsNullOrEmpty(start))
-                start = Environment.CurrentDirectory;
-
-            var directory = new DirectoryInfo(start);
-            while (directory != null)
-            {
-                if (File.Exists(Path.Combine(directory.FullName, "GameData", "waves.json")))
-                    return directory.FullName;
-                directory = directory.Parent;
-            }
-            throw new DirectoryNotFoundException("Could not locate the repository GameData folder.");
         }
 
         static string ReadUtf8(string path)
