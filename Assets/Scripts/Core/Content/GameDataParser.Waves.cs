@@ -57,7 +57,8 @@ namespace Shmup.Core.Content
                 gimmicks,
                 root.closingSegmentsPerStage,
                 root.targetDurationTicks,
-                root.closingTargetDurationTicks);
+                root.closingTargetDurationTicks,
+                root.stagePowerCurvePermille);
             ContractCatalog contracts =
                 ParseContracts(root.contracts);
             return new WavesParseResult(

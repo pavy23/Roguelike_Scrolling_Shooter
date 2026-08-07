@@ -42,7 +42,8 @@ namespace Shmup.Core.Generation
             IReadOnlyList<StageGimmickDefinition> gimmicks = null,
             int? closingSegmentsPerStage = null,
             int? targetDurationTicks = null,
-            int? closingTargetDurationTicks = null)
+            int? closingTargetDurationTicks = null,
+            IReadOnlyList<int> stagePowerCurvePermille = null)
         {
             if (laneCount < 1 || laneCount > 30)
                 throw new ArgumentOutOfRangeException(nameof(laneCount));
@@ -86,6 +87,25 @@ namespace Shmup.Core.Generation
                 ? CollectThemeIds(Segments, Bosses)
                 : CopyExplicitThemeIds(themeIds, Segments, Bosses);
             Gimmicks = CopyGimmicks(gimmicks, ThemeIds);
+            StagePowerCurvePermille =
+                CopyStagePowerCurve(stagePowerCurvePermille);
+        }
+
+        static IReadOnlyList<int> CopyStagePowerCurve(
+            IReadOnlyList<int> source)
+        {
+            if (source == null || source.Count == 0)
+                return Array.Empty<int>();
+            var copy = new int[source.Count];
+            for (int i = 0; i < copy.Length; i++)
+            {
+                if (source[i] < 1)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(source),
+                        "Stage power curve permille values must be positive.");
+                copy[i] = source[i];
+            }
+            return copy;
         }
 
         public int LaneCount { get; }
@@ -106,6 +126,14 @@ namespace Shmup.Core.Generation
         public IReadOnlyList<StageBossTemplate> Bosses { get; }
         public IReadOnlyList<string> ThemeIds { get; }
         public IReadOnlyList<StageGimmickDefinition> Gimmicks { get; }
+
+        /// <summary>
+        /// 플레이어 파워 커브 (스테이지 1..N, 퍼밀). 테마 셔플로 보스가 홈
+        /// 스테이지 밖에 등장할 때 HP를 curve[등장]/curve[홈] 비율로 맞춘다
+        /// (REQ-187, 셔플 1안). 비어 있으면 스케일 없음 — 옵셔널 확장이라
+        /// 기존 데이터의 파싱·생성 결과는 변하지 않는다.
+        /// </summary>
+        public IReadOnlyList<int> StagePowerCurvePermille { get; }
 
         public StageGimmickDefinition FindGimmick(string themeId)
         {
@@ -1371,6 +1399,10 @@ namespace Shmup.Core.Generation
             int bossPick = bossRng.NextInt(0, compatibleBosses.Count);
             StageBossTemplate selectedBoss =
                 _catalog.Bosses[compatibleBosses[bossPick]];
+            int scaledMaxHp = selectedBoss.MaxHp;
+            IReadOnlyList<BossPartDefinition> scaledParts = selectedBoss.Parts;
+            ScaleBossHpForStage(
+                themeId, stageIndex, ref scaledMaxHp, ref scaledParts);
 
             StagePlan normalPlan = new StagePlan(
                 assembled,
@@ -1378,7 +1410,7 @@ namespace Shmup.Core.Generation
                 _catalog.LaneCount,
                 _catalog.StartLaneMask,
                 selectedBoss.EntryLaneMask,
-                selectedBoss.MaxHp,
+                scaledMaxHp,
                 selectedBoss.HalfWidth,
                 selectedBoss.HalfHeight,
                 selectedBoss.HoldX,
@@ -1386,11 +1418,101 @@ namespace Shmup.Core.Generation
                 themeId,
                 requestedThemeId,
                 encounterType,
-                selectedBoss.Parts,
+                scaledParts,
                 _catalog.FindGimmick(themeId),
                 selectedBoss.WarshipEncounter,
                 selectedBoss.Form2);
             return ApplyEncounterPlan(normalPlan, encounterType);
+        }
+
+        /// <summary>
+        /// 셔플 1안 (REQ-187): 테마 셔플로 보스가 홈 스테이지 밖에 등장하면
+        /// HP를 스테이지 파워 커브 비율(curve[등장]/curve[홈])로 맞춘다.
+        /// 초반 장비로 후반용 보스(전함 44,400 등)를 만나는 벽을 없애면서,
+        /// 홈 등장은 정확히 1.0이라 기존 밸런스가 그대로다. 커브가 없으면
+        /// 아무것도 하지 않고, 히든 테마(콜로설)는 셔플 대상이 아니라 제외.
+        /// </summary>
+        void ScaleBossHpForStage(
+            string themeId,
+            int stageIndex,
+            ref int maxHp,
+            ref IReadOnlyList<BossPartDefinition> parts)
+        {
+            IReadOnlyList<int> curve = _catalog.StagePowerCurvePermille;
+            if (curve.Count == 0
+                || themeId == null
+                || IsHiddenOnlyTheme(themeId))
+                return;
+
+            // 홈 스테이지 = 셔플 전 기본 순서(카탈로그의 프라이머리 테마 순서)
+            // 에서의 위치. BuildThemeOrder가 섞는 것과 같은 목록을 센다.
+            int homeStage = 0;
+            int primary = 0;
+            for (int i = 0; i < _catalog.ThemeIds.Count; i++)
+            {
+                if (IsHiddenOnlyTheme(_catalog.ThemeIds[i]))
+                    continue;
+                primary++;
+                if (string.Equals(
+                        _catalog.ThemeIds[i], themeId, StringComparison.Ordinal))
+                {
+                    homeStage = primary;
+                    break;
+                }
+            }
+            if (homeStage == 0)
+                return;
+
+            long numerator =
+                curve[Math.Min(stageIndex, curve.Count) - 1];
+            long denominator =
+                curve[Math.Min(homeStage, curve.Count) - 1];
+            if (numerator == denominator)
+                return;
+
+            if (parts != null && parts.Count > 0)
+            {
+                long originalSum = 0;
+                for (int i = 0; i < parts.Count; i++)
+                    originalSum += parts[i].MaxHp;
+                var scaled = new BossPartDefinition[parts.Count];
+                long scaledSum = 0;
+                for (int i = 0; i < parts.Count; i++)
+                {
+                    BossPartDefinition part = parts[i];
+                    int scaledHp =
+                        ScaleHp(part.MaxHp, numerator, denominator);
+                    scaled[i] = new BossPartDefinition(
+                        part.PartId,
+                        part.OffsetX,
+                        part.OffsetY,
+                        part.HalfWidth,
+                        part.HalfHeight,
+                        scaledHp,
+                        part.IsCore,
+                        part.CoreGatePartIds,
+                        part.Attack,
+                        part.RegenerationTicks);
+                    scaledSum += scaledHp;
+                }
+                parts = scaled;
+                // "부위 합 = 본체" 불변식(REQ-116)을 정수 반올림에서도 지킨다:
+                // 원래 그 관계였다면 합으로 재계산하고, 아니면 본체만 스케일.
+                maxHp = originalSum == maxHp
+                    ? (int)Math.Min(int.MaxValue, scaledSum)
+                    : ScaleHp(maxHp, numerator, denominator);
+                return;
+            }
+
+            maxHp = ScaleHp(maxHp, numerator, denominator);
+        }
+
+        static int ScaleHp(int hp, long numerator, long denominator)
+        {
+            long scaled = hp * numerator / denominator;
+            if (scaled < 1) return 1;
+            if (scaled > int.MaxValue) return int.MaxValue;
+            return (int)scaled;
         }
 
         int FindLowestCombatCandidate(IReadOnlyList<int> viableIndices)

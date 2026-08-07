@@ -250,6 +250,10 @@ namespace Shmup.Core.Content
         // 기본을 여기 한 번 적고 예외만 장애물에 싣는다.
         [DataMember]
         public ObstacleSizeTierDto[] obstacleSizeTiers;
+        // ── 스테이지 파워 커브 (REQ-187, 옵셔널) ─────────────────────────
+        // 셔플로 보스가 홈 밖 스테이지에 등장할 때 HP를 이 커브 비율로 맞춘다.
+        [DataMember]
+        public int[] stagePowerCurvePermille;
     }
 
     [DataContract]
@@ -983,8 +987,6 @@ namespace Shmup.Core.Content
         public int? grazeRadiusSubUnits;
         [DataMember]
         public int? grazeScore;
-        [DataMember]
-        public int? grazeGaugeCharge;
         [DataMember]
         public int[] multiplierGaugeRequirements;
         [DataMember]
