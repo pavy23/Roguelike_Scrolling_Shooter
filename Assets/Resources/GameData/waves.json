@@ -3173,13 +3173,13 @@
         {
           "type": "breakable",
           "x": 14.0,
-          "y": 3.25,
+          "y": 2.5,
           "halfWidth": 0.75,
           "halfHeight": 0.75,
           "hp": 30
         }
       ],
-      "intent": "REQ145 theme-split of seg_sandwich → hive | same layout/difficulty/weight | REQ103a late-encroach | masks[7→3→2] | theme=shared | 상하 사격 압박 속 중형 격파 (위치+화력)",
+      "intent": "REQ145 theme-split of seg_sandwich → hive | same layout/difficulty/weight | REQ103a late-encroach | masks[7→3→2] | theme=shared | 상하 사격 압박 속 중형 격파 (위치+화력) | REQ103b mid-lane dig y=2.5 (was 3.25)",
       "theme": "hive"
     },
     {
