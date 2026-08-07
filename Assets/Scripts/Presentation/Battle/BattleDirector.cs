@@ -2511,8 +2511,8 @@ namespace Shmup.Presentation.Battle
             var asset = Resources.Load<TextAsset>("GameData/" + name);
             if (asset == null)
                 throw new System.InvalidOperationException(
-                    $"Resources/GameData/{name} 를 찾을 수 없다. Tools → Shmup → Rebuild Battle Scene 으로 " +
-                    "GameData JSON 복사를 다시 실행해라.");
+                    $"Resources/GameData/{name} 를 찾을 수 없다. Tools → Shmup → " +
+                    "Sync GameData To Resources 로 사본을 다시 맞춰라.");
             return asset.text;
         }
 

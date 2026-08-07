@@ -318,7 +318,8 @@ namespace Shmup.Presentation.Battle
         {
             var asset = Resources.Load<TextAsset>("GameData/" + name);
             if (asset == null)
-                throw new System.InvalidOperationException($"Resources/GameData/{name} 없음 — 씬 재생성 필요.");
+                throw new System.InvalidOperationException(
+                    $"Resources/GameData/{name} 없음 — Tools > Shmup > Sync GameData To Resources 실행 필요.");
             return asset.text;
         }
 

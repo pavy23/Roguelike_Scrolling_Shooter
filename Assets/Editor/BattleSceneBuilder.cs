@@ -654,6 +654,7 @@ namespace Shmup.EditorTools
         /// 게임에는 그 기능이 아예 없었고, 원인을 찾는 데 왕복을 여러 번 했다.
         /// 사람이 기억해야 하는 단계로 두지 않는다.
         /// </summary>
+        [MenuItem("Tools/Shmup/Sync GameData To Resources")]
         public static void SyncGameDataToResources()
         {
             CopyGameDataToResources();
@@ -666,13 +667,46 @@ namespace Shmup.EditorTools
             string sourceDir = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "GameData"));
             Directory.CreateDirectory(targetDir);
 
+            // Play 진입마다 도는 경로라 같은 내용이면 임포트를 건너뛴다.
+            var sourceNames = new HashSet<string>();
+            int copied = 0;
             foreach (string source in Directory.GetFiles(sourceDir, "*.json"))
             {
-                string target = $"{targetDir}/{Path.GetFileName(source)}";
+                string name = Path.GetFileName(source);
+                sourceNames.Add(name);
+                string target = $"{targetDir}/{name}";
+                if (File.Exists(target)
+                    && FilesHaveSameBytes(source, target))
+                    continue;
                 File.Copy(source, target, true);
                 AssetDatabase.ImportAsset(target, ImportAssetOptions.ForceUpdate);
+                copied++;
             }
-            Debug.Log("[BattleSceneBuilder] GameData → Resources 복사 완료");
+
+            // 원본에서 삭제/개명된 파일의 사본을 지운다 — 유령 JSON이 Resources에
+            // 남으면 "지웠는데 게임에는 남아 있다"는 또 다른 침묵 불일치가 된다.
+            int removed = 0;
+            foreach (string target in Directory.GetFiles(targetDir, "*.json"))
+            {
+                if (sourceNames.Contains(Path.GetFileName(target)))
+                    continue;
+                AssetDatabase.DeleteAsset(target.Replace('\\', '/'));
+                removed++;
+            }
+
+            if (copied > 0 || removed > 0)
+                Debug.Log(
+                    $"[BattleSceneBuilder] GameData → Resources 동기화: 복사 {copied}, 고아 삭제 {removed}");
+        }
+
+        static bool FilesHaveSameBytes(string a, string b)
+        {
+            byte[] left = File.ReadAllBytes(a);
+            byte[] right = File.ReadAllBytes(b);
+            if (left.Length != right.Length) return false;
+            for (int i = 0; i < left.Length; i++)
+                if (left[i] != right[i]) return false;
+            return true;
         }
 
         // ── 스프라이트 ────────────────────────────────────────────────────────────

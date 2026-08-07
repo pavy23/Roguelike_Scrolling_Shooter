@@ -58,9 +58,8 @@ namespace Shmup.EditorTools
         {
             // PROJECT: 접두는 Assets/WebGLTemplates/ 하위를 가리킨다 — 없으면 빌드가 실패한다.
             // 내장 템플릿을 쓴다 (APPLICATION:).
-            // 데이터 사본을 먼저 맞춘다 — 씬 재생성을 건너뛴 날에도 빌드에는
-            // 항상 지금의 GameData가 들어가야 한다 (2026-08-05 회귀).
-            BattleSceneBuilder.SyncGameDataToResources();
+            // GameData 동기화는 여기서 부르지 않는다 — GameDataSyncOnBuild
+            // (IPreprocessBuildWithReport)가 모든 빌드 타깃에서 자동으로 돈다.
             PlayerSettings.WebGL.template = "APPLICATION:Default";
             PlayerSettings.WebGL.linkerTarget = WebGLLinkerTarget.Wasm;
             PlayerSettings.WebGL.memorySize = 512;
