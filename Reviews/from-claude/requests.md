@@ -1941,3 +1941,52 @@ boss_broodmother 는 통과 (ph1이 문턱과 정확히 같다 — 여유가 0�
 
 주의: 각 페이즈에서 "때릴 수 있는 HP"는 그 페이즈에서 새로 열린 것뿐 아니라
 **이전 페이즈에서 이미 열려 있던 것까지 누적**이다(파괴는 되돌아가지 않으므로).
+
+---
+
+## [ ] REQ-185 → CODEX: 탄 병렬 리스트 통합 (정리 7번, 사람 승인 2026-08-07)
+
+**무엇이 필요한가**
+
+BattleSim의 탄 상태가 `_bullets` + 보조 리스트 9종(XRemainders/YRemainders/VelXNumerators/
+VelYNumerators/VelDenominators/PiercesRemaining/RicochetUsed/HomingTargetIds/GrazeScored,
+사용 지점 약 117곳)에 인덱스 동기화로 흩어져 있다. 삭제 시 한 리스트만 빠지면 전체 탄
+데이터가 꼬이는 구조를 단일 컬렉션으로 통합해 달라.
+
+**왜**
+
+유지보수 시한폭탄 (2026-08-07 3-에이전트 코드 분석 합의, P2). 참고로 파일은 이제
+BattleSim.*.cs 9개로 분할돼 있다 (2026-08-07, 해시 6/6 검증 완료).
+
+**제약 — 이것이 핵심이다**
+
+- `List<T>` 인덱서는 struct 복사본을 반환하므로 `_aux[i].X = v` 꼴 인플레이스 쓰기가
+  컴파일되지 않는다. 쓰기 지점이 많아 배열 백킹(struct[] 는 인플레이스 가능) 또는
+  ref 반환 커스텀 컬렉션 등 설계 선택이 필요하다 — Core 소유자의 판단에 맡긴다.
+- RunManagerAllocationTests의 무할당 제약 위반 금지.
+- **완료 조건**: dotnet test 전체 통과 + `Tools/DeterminismAudit dotnet run -c Release -- --suite`
+  해시 6개가 현재 main과 완전 일치 (레퍼런스: 1190DE99D8680643 4811CF1AF98F35C7
+  2FF8D6724019BED1 61A37E947CD8B294 CE85F53DACAC59BD 1A3729F816C31A07).
+  해시가 하나라도 다르면 본 게임 영향이 있다는 뜻 — 사람 요구는 영향 0이다.
+
+## [ ] REQ-186 → CODEX (+GROK 협의): 스폰 formation 매크로 + 장애물 티어 기본 크기 (정리 6번)
+
+**무엇이 필요한가**
+
+waves.json 확장 축 두 개를 **옵셔널 필드**로 열어 달라. 기존 데이터는 한 글자도 안 바뀌고
+파싱 결과도 동일해야 한다 (본 게임 영향 0 — 채택은 GROK이 신규 세그먼트부터 점진 적용).
+
+1. spawn formation 매크로: `{"formation":"line","count":8,"tickStart":40,"tickStep":30,
+   "enemyId":"...","y":0,"yStep":0}` → 파서가 개별 SpawnEvent로 전개. 현재 1,714개
+   스폰이 전부 손 전개라 데이터가 371KB다 (GROK 분석 1.1).
+2. 장애물 티어 기본 크기: waves 헤더에 `obstacleSizeTiers` 테이블(타입/스테이지별 기본
+   halfWidth/halfHeight)을 두고, per-obstacle halfWidth는 예외에만 쓰게. 현재 413개
+   항목이 전부 동일한 0.75 복붙이다 (GROK 분석 1.3).
+
+**왜**
+
+다음 밸런스 조정("하이브만 2배" 류)이 스크립트 없이 한 줄 수정으로 되게. 스키마 설계는
+GROK(작성자 인체공학)과 필드명·시맨틱을 합의하고 진행할 것.
+
+**완료 조건**: 기존 waves.json 파싱 결과 불변 (DeterminismAudit 해시 6/6 일치, 위 REQ-185와
+같은 레퍼런스) + 새 필드 각각의 전개 검증 테스트.
