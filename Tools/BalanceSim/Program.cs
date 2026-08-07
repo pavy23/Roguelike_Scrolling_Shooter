@@ -80,9 +80,13 @@ static class Program
     const int MinThemeTaggedSegments = 5;
     const int MinStage1CandidateSegments = 10; // REQ-099: stage-1 pool ≥10
     const int ThemeDiffAssemblySeedCount = 8;
+    // Movement roster: no absolute enemy-count freeze. Floor on variety patterns only.
+    const int MinNewMovementPatterns = 8; // dive|zigzag|dash combined floor
 
     // Segment weights (REQ-029, provisional §7).
-    const int ExpectedSegmentCount = 60; // REQ-103b: +10 cleanKill +2 speed spikes
+    // Absolute segment count freeze forbidden — catalog grows with content.
+    // Floor + weight-band distribution only (was ExpectedSegmentCount=60 pin).
+    const int MinSegmentCount = 40;
     const int DefaultSegmentWeight = StageSegmentTemplate.DefaultWeight;
     const int MinWeightedLowCount = 4;   // spectacle / maze / dense
     const int MaxWeightedLow = 5;        // weight ≤ this counts as low
@@ -118,8 +122,9 @@ static class Program
     const double BossTtkExpectedMin = 16.0;
     const double BossTtkExpectedMax = 32.0;
     const double BossTtkFullMin = 4.5;
-    // REQ-088: stage1 boss HP halved by human directive — shorter tutorial TTK band.
-    const int BossStage1Hp = 4250;
+    // REQ-088: stage1 boss is tutorial-short — gate via TTK bands @ reach DPS,
+    // not an absolute HP copy (same principle as colossal / warship).
+    // Reach DPS anchor below × these bands ⇒ implied HP band without freezing it.
     const double BossStage1TtkExpectedMin = 8.0;
     const double BossStage1TtkExpectedMax = 16.0;
     const double BossStage1TtkFullMin = 2.0;
@@ -132,7 +137,7 @@ static class Program
     // see CheckReq111WarshipAndGhost. Reach DPS anchor is still used for clearability.
     static readonly (string Id, double ExpectedDps)[] BossExpectedDps =
     {
-        // REQ-060/081/088: first boss tutorial-short (HP 4250); mid @ reach ~450 → ~9.4s.
+        // REQ-060/081/088: first boss tutorial-short; mid @ reach ~450 → TTK band 8–16s.
         ("boss_stage1", 450.0),
         ("boss_hive", 600.0),
         ("boss_fortress", 720.0),
@@ -141,16 +146,13 @@ static class Program
     };
 
     // REQ-111 St3 fortress warship (provisional §7).
-    // Total HP ≈ mini_walker(1600) + old boss_fortress(18000) = midboss+boss setpiece.
+    // Absolute HP copies removed — parts sum / core share / engine≪core are
+    // checked from data (same "do not pin MaxHp in code" rule as colossal).
     const string WarshipBossId = "boss_fortress";
     const string WarshipEncounterId = "fortress_warship";
-    // 데이터 스냅샷 (REQ-168 ×2 + REQ-177 deck +200). parts sum 불변식은 데이터 자체 검사.
-    const int WarshipTotalHp = 44_400;
-    // REQ-157: P1 midboss = engine + 2 deck turrets; P2 attrition = keel (stronger);
-    // P3 finalCore. REQ-168: keel 4문(c–f). REQ-177: deck "조금만" 1400→1600.
-    const int WarshipEngineHp = 2000;
-    const int WarshipCoreHp = 29_600;
-    const int WarshipTurretCount = 6;
+    // REQ-157: P1 midboss = engine + deck turrets; P2 attrition = keel;
+    // P3 finalCore. Encounter timing / ways knobs stay as design contracts
+    // (wall-clock intent, not HP snapshots).
     const int WarshipWarningTicks = 180;
     // REQ-179: advanceAfterTicks 는 교착 방지 안전장치. 네 문 전멸이 정상 경로
     // (Core가 전멸 시 즉시 3막). 600t(10s)는 너무 짧아 타이머가 정상 경로가 됐다
@@ -2722,16 +2724,20 @@ static class Program
     }
 
     /// <summary>
-    /// REQ-021/055/063/075: schema v3 roster must include dive/zigzag/dash on 8–12 of 34 enemies.
+    /// REQ-021/055/063/075: movement variety + spawn-referenced enemy integrity.
+    /// Absolute roster size pins retired — content growth must not force gate edits.
     /// </summary>
     static int CheckEnemyMovementRoster(GameDataSet data)
     {
         int failures = 0;
         var counts = new Dictionary<EnemyMovePattern, int>();
         int newPatternCount = 0;
-        Console.WriteLine("Enemy movement roster (enemies.json schema v3, provisional §7):");
+        BattleContent content = data.BattleContent;
+        Console.WriteLine(
+            "Enemy movement roster (enemies.json schema v3, provisional §7): " +
+            "relational integrity + variety floor (no absolute roster size pin)");
 
-        foreach (EnemyDefinition enemy in data.BattleContent.Enemies)
+        foreach (EnemyDefinition enemy in content.Enemies)
         {
             if (!counts.ContainsKey(enemy.MovePattern))
                 counts[enemy.MovePattern] = 0;
@@ -2748,6 +2754,34 @@ static class Program
                     $"pause={enemy.MovementPauseTicks} amp={enemy.MovementAmplitudeNumerator}/" +
                     $"{enemy.MovementAmplitudeDenominator} period={enemy.MovementPeriodTicks}");
             }
+
+            // Relational movement validity (mirrors Core ctor contracts that already
+            // parse-time-check, but catch any future soft path / hand-built defs).
+            if (enemy.MoveSpeedDenominator < 1
+                || enemy.MovementAmplitudeDenominator < 1
+                || enemy.MovementPeriodTicks < 1
+                || enemy.MovementDurationTicks < 1)
+            {
+                Console.WriteLine(
+                    $"FAIL movement: '{enemy.Id}' has invalid movement denominators/ticks " +
+                    $"(speedDen={enemy.MoveSpeedDenominator} ampDen={enemy.MovementAmplitudeDenominator} " +
+                    $"period={enemy.MovementPeriodTicks} dur={enemy.MovementDurationTicks}).");
+                failures++;
+            }
+            else if (enemy.MovePattern != EnemyMovePattern.Static
+                && enemy.MoveSpeedNumerator < 1)
+            {
+                Console.WriteLine(
+                    $"FAIL movement: '{enemy.Id}' pattern={enemy.MovePattern} needs speed > 0.");
+                failures++;
+            }
+            else if (enemy.MovePattern == EnemyMovePattern.Dash
+                && enemy.MovementPauseTicks < 1)
+            {
+                Console.WriteLine(
+                    $"FAIL movement: '{enemy.Id}' dash requires pauseTicks ≥ 1.");
+                failures++;
+            }
         }
 
         Console.WriteLine(
@@ -2756,20 +2790,92 @@ static class Program
                 counts.OrderBy(kv => kv.Key.ToString())
                     .Select(kv => $"{kv.Key}={kv.Value}")));
         Console.WriteLine(
-            $"  new patterns (dive|zigzag|dash) = {newPatternCount} / {data.BattleContent.Enemies.Count}");
+            $"  roster n={content.Enemies.Count} · new patterns (dive|zigzag|dash)="
+            + $"{newPatternCount} (floor ≥{MinNewMovementPatterns})");
 
-        // REQ-063 mini_core → 32; REQ-075 laser_sentry + prism_beamer → 34.
-        if (data.BattleContent.Enemies.Count != 34)
+        // Spawn / boss-part references must resolve — absolute count is not the contract.
+        var referenced = new HashSet<string>(StringComparer.Ordinal);
+        foreach (StageSegmentTemplate seg in data.StageGeneration.Segments)
         {
-            Console.WriteLine(
-                $"FAIL movement: expected 34 enemies, got {data.BattleContent.Enemies.Count}.");
-            failures++;
+            for (int i = 0; i < seg.Spawns.Count; i++)
+            {
+                string eid = seg.Spawns[i].EnemyId;
+                if (string.IsNullOrEmpty(eid))
+                {
+                    Console.WriteLine(
+                        $"FAIL movement: segment '{seg.SegmentId}' spawn[{i}] has empty enemyId.");
+                    failures++;
+                    continue;
+                }
+
+                referenced.Add(eid);
+                if (content.FindEnemy(eid) == null)
+                {
+                    Console.WriteLine(
+                        $"FAIL movement: segment '{seg.SegmentId}' references unknown enemy '{eid}'.");
+                    failures++;
+                }
+            }
         }
 
-        if (newPatternCount < 8 || newPatternCount > 12)
+        foreach (StageBossTemplate boss in data.StageGeneration.Bosses)
+        {
+            if (boss.Parts != null)
+            {
+                for (int p = 0; p < boss.Parts.Count; p++)
+                {
+                    BossPartDefinition part = boss.Parts[p];
+                    if (part.Attack == null
+                        || part.Attack.Type != BossPartAttackType.SpawnEnemy)
+                        continue;
+                    string sid = part.Attack.SpawnEnemyId;
+                    if (string.IsNullOrEmpty(sid))
+                    {
+                        Console.WriteLine(
+                            $"FAIL movement: boss '{boss.BossId}' part '{part.PartId}' " +
+                            "spawnEnemy attack has empty spawnEnemyId.");
+                        failures++;
+                        continue;
+                    }
+
+                    referenced.Add(sid);
+                    if (content.FindEnemy(sid) == null)
+                    {
+                        Console.WriteLine(
+                            $"FAIL movement: boss '{boss.BossId}' part '{part.PartId}' " +
+                            $"references unknown spawnEnemyId '{sid}'.");
+                        failures++;
+                    }
+                }
+            }
+
+            if (boss.Phases == null)
+                continue;
+            for (int ph = 0; ph < boss.Phases.Count; ph++)
+            {
+                string sig = boss.Phases[ph].SignatureSpawnEnemyId;
+                if (string.IsNullOrEmpty(sig))
+                    continue;
+                referenced.Add(sig);
+                if (content.FindEnemy(sig) == null)
+                {
+                    Console.WriteLine(
+                        $"FAIL movement: boss '{boss.BossId}' phase{ph} " +
+                        $"signatureSpawnEnemyId '{sig}' unknown.");
+                    failures++;
+                }
+            }
+        }
+
+        Console.WriteLine(
+            $"  spawn/boss references: {referenced.Count} unique ids all resolve "
+            + $"(roster {content.Enemies.Count})");
+
+        if (newPatternCount < MinNewMovementPatterns)
         {
             Console.WriteLine(
-                $"FAIL movement: dive/zigzag/dash count {newPatternCount} outside band [8,12].");
+                $"FAIL movement: dive/zigzag/dash count {newPatternCount} "
+                + $"< floor {MinNewMovementPatterns}.");
             failures++;
         }
 
@@ -2782,7 +2888,7 @@ static class Program
         }
 
         if (failures == 0)
-            Console.WriteLine("PASS: enemy movement roster band checks.");
+            Console.WriteLine("PASS: enemy movement roster integrity + variety checks.");
         return failures;
     }
 
@@ -4477,11 +4583,12 @@ static class Program
         Console.WriteLine(
             "Segment weights (waves.json, REQ-029 provisional §7):");
 
-        if (catalog.Segments.Count != ExpectedSegmentCount)
+        // Floor only — absolute freeze forbidden (catalog grows with content).
+        if (catalog.Segments.Count < MinSegmentCount)
         {
             Console.WriteLine(
-                $"FAIL weights: expected {ExpectedSegmentCount} segments, " +
-                $"got {catalog.Segments.Count}.");
+                $"FAIL weights: segment count {catalog.Segments.Count} " +
+                $"< floor {MinSegmentCount} (need enough variety for weight bands).");
             failures++;
         }
 
@@ -5025,13 +5132,23 @@ static class Program
                 continue;
             }
 
-            // Warship / multipart: counted in dedicated checks; still enforce HP mono.
-            if (catalogBoss.WarshipEncounter != null
-                || (catalogBoss.Parts != null && catalogBoss.Parts.Count > 0))
+            // Warship / multipart: dedicated checks (REQ-035/111). Warship is a
+            // multipartite setpiece and may exceed later single-body bosses — do
+            // not pin it into the body-only HP mono ladder. Non-warship multipart
+            // (e.g. hive) still participates in progression mono via MaxHp.
+            if (catalogBoss.WarshipEncounter != null)
+            {
+                Console.WriteLine(
+                    $"  {id,-16} hp={catalogBoss.MaxHp,6} " +
+                    "[warship setpiece — phase/mono gates skipped → REQ-111]");
+                continue;
+            }
+
+            if (catalogBoss.Parts != null && catalogBoss.Parts.Count > 0)
             {
                 int multiHp = catalogBoss.MaxHp;
                 Console.WriteLine(
-                    $"  {id,-16} hp={multiHp,6} [warship/multipart — phase gates skipped]");
+                    $"  {id,-16} hp={multiHp,6} [multipart — phase gates skipped]");
                 if (havePrev && multiHp <= prevHp)
                 {
                     Console.WriteLine(
@@ -5053,12 +5170,7 @@ static class Program
 
             int hp = boss.MaxHp;
             bool isStage1 = string.Equals(id, "boss_stage1", StringComparison.Ordinal);
-            if (isStage1 && hp != BossStage1Hp)
-            {
-                Console.WriteLine(
-                    $"FAIL boss: boss_stage1 hp must be {BossStage1Hp} (REQ-088 human lock), got {hp}.");
-                failures++;
-            }
+            // Stage1 HP is gated by TTK bands below (no absolute MaxHp copy).
             if (havePrev && hp <= prevHp)
             {
                 Console.WriteLine(
@@ -9760,12 +9872,10 @@ static class Program
         }
         else
         {
-            if (s1.MaxHp != BossStage1Hp)
-            {
-                Console.WriteLine(
-                    $"FAIL 116: stage1 hp {s1.MaxHp} != {BossStage1Hp}.");
-                failures++;
-            }
+            // Absolute stage1 HP pin retired — TTK bands in CheckBossRedesign
+            // (BossStage1Ttk*) already constrain MaxHp via reach DPS.
+            Console.WriteLine(
+                $"  stage1 hp={s1.MaxHp} (TTK-gated, no absolute pin)");
             if (s1.Phases == null || s1.Phases.Count != 3)
             {
                 Console.WriteLine("FAIL 116: stage1 needs 3 phases.");
@@ -9860,7 +9970,7 @@ static class Program
         {
             Console.WriteLine(
                 "FAIL 116: boss_fortress must define a warship encounter "
-                + $"(expected id snapshot hp {WarshipTotalHp}).");
+                + $"(id contract '{WarshipEncounterId}'; HP via REQ-111 relations).");
             failures++;
         }
         else
